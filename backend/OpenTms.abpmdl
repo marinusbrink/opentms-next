@@ -1,0 +1,114 @@
+{
+  "template": "app",
+  "imports": {
+    "Volo.Abp.LeptonXLiteTheme": {
+      "version": "5.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.Account": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.OpenIddict": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.Identity": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.TenantManagement": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.SettingManagement": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.PermissionManagement": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.FeatureManagement": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    },
+    "Volo.Abp.BlobStoring.Database": {
+      "version": "10.6.0",
+      "isInstalled": true,
+      "creationTime": "08/12/2026 10:45:30 +00:00"
+    }
+  },
+  "folders": {
+    "items": {
+      "src": {},
+      "test": {}
+    }
+  },
+  "packages": {
+    "OpenTms.Application": {
+      "path": "src/OpenTms.Application/OpenTms.Application.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.Application.Tests": {
+      "path": "test/OpenTms.Application.Tests/OpenTms.Application.Tests.abppkg",
+      "folder": "test"
+    },
+    "OpenTms.Domain.Shared": {
+      "path": "src/OpenTms.Domain.Shared/OpenTms.Domain.Shared.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.Application.Contracts": {
+      "path": "src/OpenTms.Application.Contracts/OpenTms.Application.Contracts.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.HttpApi": {
+      "path": "src/OpenTms.HttpApi/OpenTms.HttpApi.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.HttpApi.Client": {
+      "path": "src/OpenTms.HttpApi.Client/OpenTms.HttpApi.Client.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.EntityFrameworkCore.Tests": {
+      "path": "test/OpenTms.EntityFrameworkCore.Tests/OpenTms.EntityFrameworkCore.Tests.abppkg",
+      "folder": "test"
+    },
+    "OpenTms.EntityFrameworkCore": {
+      "path": "src/OpenTms.EntityFrameworkCore/OpenTms.EntityFrameworkCore.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.TestBase": {
+      "path": "test/OpenTms.TestBase/OpenTms.TestBase.abppkg",
+      "folder": "test"
+    },
+    "OpenTms.Domain.Tests": {
+      "path": "test/OpenTms.Domain.Tests/OpenTms.Domain.Tests.abppkg",
+      "folder": "test"
+    },
+    "OpenTms.HttpApi.Client.ConsoleTestApp": {
+      "path": "test/OpenTms.HttpApi.Client.ConsoleTestApp/OpenTms.HttpApi.Client.ConsoleTestApp.abppkg",
+      "folder": "test"
+    },
+    "OpenTms.DbMigrator": {
+      "path": "src/OpenTms.DbMigrator/OpenTms.DbMigrator.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.HttpApi.Host": {
+      "path": "src/OpenTms.HttpApi.Host/OpenTms.HttpApi.Host.abppkg",
+      "folder": "src"
+    },
+    "OpenTms.Domain": {
+      "path": "src/OpenTms.Domain/OpenTms.Domain.abppkg",
+      "folder": "src"
+    }
+  }
+}

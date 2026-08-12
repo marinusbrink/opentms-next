@@ -1,0 +1,69 @@
+<Solution>
+    <Folder Name="/modules/" />
+    <Folder Name="/modules/financial/">
+        <Project Path="modules/financial/OpenTms.Financial.Application.Contracts/OpenTms.Financial.Application.Contracts.csproj" />
+        <Project Path="modules/financial/OpenTms.Financial.Application/OpenTms.Financial.Application.csproj" />
+        <Project Path="modules/financial/OpenTms.Financial.Domain.Shared/OpenTms.Financial.Domain.Shared.csproj" />
+        <Project Path="modules/financial/OpenTms.Financial.Domain/OpenTms.Financial.Domain.csproj" />
+        <Project Path="modules/financial/OpenTms.Financial.EntityFrameworkCore/OpenTms.Financial.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/integrations/">
+        <Project Path="modules/integrations/OpenTms.Integrations.Application.Contracts/OpenTms.Integrations.Application.Contracts.csproj" />
+        <Project Path="modules/integrations/OpenTms.Integrations.Application/OpenTms.Integrations.Application.csproj" />
+        <Project Path="modules/integrations/OpenTms.Integrations.Domain.Shared/OpenTms.Integrations.Domain.Shared.csproj" />
+        <Project Path="modules/integrations/OpenTms.Integrations.Domain/OpenTms.Integrations.Domain.csproj" />
+        <Project Path="modules/integrations/OpenTms.Integrations.EntityFrameworkCore/OpenTms.Integrations.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/master-data/">
+        <Project Path="modules/master-data/OpenTms.MasterData.Application.Contracts/OpenTms.MasterData.Application.Contracts.csproj" />
+        <Project Path="modules/master-data/OpenTms.MasterData.Application/OpenTms.MasterData.Application.csproj" />
+        <Project Path="modules/master-data/OpenTms.MasterData.Domain.Shared/OpenTms.MasterData.Domain.Shared.csproj" />
+        <Project Path="modules/master-data/OpenTms.MasterData.Domain/OpenTms.MasterData.Domain.csproj" />
+        <Project Path="modules/master-data/OpenTms.MasterData.EntityFrameworkCore/OpenTms.MasterData.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/orders/">
+        <Project Path="modules/orders/OpenTms.Orders.Application.Contracts/OpenTms.Orders.Application.Contracts.csproj" />
+        <Project Path="modules/orders/OpenTms.Orders.Application/OpenTms.Orders.Application.csproj" />
+        <Project Path="modules/orders/OpenTms.Orders.Domain.Shared/OpenTms.Orders.Domain.Shared.csproj" />
+        <Project Path="modules/orders/OpenTms.Orders.Domain/OpenTms.Orders.Domain.csproj" />
+        <Project Path="modules/orders/OpenTms.Orders.EntityFrameworkCore/OpenTms.Orders.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/planning-execution/">
+        <Project Path="modules/planning-execution/OpenTms.PlanningExecution.Application.Contracts/OpenTms.PlanningExecution.Application.Contracts.csproj" />
+        <Project Path="modules/planning-execution/OpenTms.PlanningExecution.Application/OpenTms.PlanningExecution.Application.csproj" />
+        <Project Path="modules/planning-execution/OpenTms.PlanningExecution.Domain.Shared/OpenTms.PlanningExecution.Domain.Shared.csproj" />
+        <Project Path="modules/planning-execution/OpenTms.PlanningExecution.Domain/OpenTms.PlanningExecution.Domain.csproj" />
+        <Project Path="modules/planning-execution/OpenTms.PlanningExecution.EntityFrameworkCore/OpenTms.PlanningExecution.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/platform/">
+        <Project Path="modules/platform/OpenTms.Platform.Application.Contracts/OpenTms.Platform.Application.Contracts.csproj" />
+        <Project Path="modules/platform/OpenTms.Platform.Application/OpenTms.Platform.Application.csproj" />
+        <Project Path="modules/platform/OpenTms.Platform.Domain.Shared/OpenTms.Platform.Domain.Shared.csproj" />
+        <Project Path="modules/platform/OpenTms.Platform.Domain/OpenTms.Platform.Domain.csproj" />
+        <Project Path="modules/platform/OpenTms.Platform.EntityFrameworkCore/OpenTms.Platform.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/modules/reporting/">
+        <Project Path="modules/reporting/OpenTms.Reporting.Application.Contracts/OpenTms.Reporting.Application.Contracts.csproj" />
+        <Project Path="modules/reporting/OpenTms.Reporting.Application/OpenTms.Reporting.Application.csproj" />
+        <Project Path="modules/reporting/OpenTms.Reporting.Domain.Shared/OpenTms.Reporting.Domain.Shared.csproj" />
+        <Project Path="modules/reporting/OpenTms.Reporting.Domain/OpenTms.Reporting.Domain.csproj" />
+        <Project Path="modules/reporting/OpenTms.Reporting.EntityFrameworkCore/OpenTms.Reporting.EntityFrameworkCore.csproj" />
+    </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/OpenTms.Domain/OpenTms.Domain.csproj" />
+        <Project Path="src/OpenTms.Application/OpenTms.Application.csproj" />
+        <Project Path="src/OpenTms.EntityFrameworkCore/OpenTms.EntityFrameworkCore.csproj" />
+        <Project Path="src/OpenTms.Domain.Shared/OpenTms.Domain.Shared.csproj" />
+        <Project Path="src/OpenTms.Application.Contracts/OpenTms.Application.Contracts.csproj" />
+        <Project Path="src/OpenTms.HttpApi/OpenTms.HttpApi.csproj" />
+        <Project Path="src/OpenTms.HttpApi.Host/OpenTms.HttpApi.Host.csproj" />
+        <Project Path="src/OpenTms.DbMigrator/OpenTms.DbMigrator.csproj" />
+    </Folder>
+    <Folder Name="/test/">
+        <Project Path="test/OpenTms.Application.Tests/OpenTms.Application.Tests.csproj" />
+        <Project Path="test/OpenTms.EntityFrameworkCore.Tests/OpenTms.EntityFrameworkCore.Tests.csproj" />
+        <Project Path="test/OpenTms.TestBase/OpenTms.TestBase.csproj" />
+        <Project Path="test/OpenTms.ArchitectureTests/OpenTms.ArchitectureTests.csproj" />
+        <Project Path="test/OpenTms.Domain.Tests/OpenTms.Domain.Tests.csproj" />
+    </Folder>
+</Solution>

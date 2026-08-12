@@ -1,0 +1,58 @@
+﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
+
+namespace OpenTms;
+
+public class Program
+{
+    public async static Task<int> Main(string[] args)
+    {
+        /* Structured JSON logging from the very first line (the full pipeline configuration,
+         * including correlation-id enrichment, comes from appsettings + UseAbpSerilogEnrichers). */
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Async(c => c.File("Logs/logs.txt"))
+            .WriteTo.Async(c => c.Console(new RenderedCompactJsonFormatter()))
+            .CreateBootstrapLogger();
+
+        try
+        {
+            Log.Information("Starting OpenTms.HttpApi.Host.");
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Host
+                .AddAppSettingsSecretsJson()
+                .UseAutofac()
+                .UseSerilog((context, services, loggerConfiguration) =>
+                {
+                    loggerConfiguration
+                        .ReadFrom.Configuration(context.Configuration)
+                        .ReadFrom.Services(services)
+                        .WriteTo.Async(c => c.AbpStudio(services));
+                });
+            await builder.AddApplicationAsync<OpenTmsHttpApiHostModule>();
+            var app = builder.Build();
+            await app.InitializeApplicationAsync();
+            await app.RunAsync();
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            if (ex is HostAbortedException)
+            {
+                throw;
+            }
+
+            Log.Fatal(ex, "Host terminated unexpectedly!");
+            return 1;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
+    }
+}

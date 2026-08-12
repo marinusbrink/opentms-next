@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms.MasterData</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTms.MasterData.Domain\OpenTms.MasterData.Domain.csproj" />
+    <ProjectReference Include="..\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

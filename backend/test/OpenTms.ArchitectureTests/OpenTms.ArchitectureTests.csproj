@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageReference Include="Shouldly" Version="4.3.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference every module's outermost projects so all module assemblies are loadable. -->
+    <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
+    <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.EntityFrameworkCore\OpenTms.Platform.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.Application\OpenTms.Orders.Application.csproj" />
+    <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.EntityFrameworkCore\OpenTms.Orders.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\planning-execution\OpenTms.PlanningExecution.Application\OpenTms.PlanningExecution.Application.csproj" />
+    <ProjectReference Include="..\..\modules\planning-execution\OpenTms.PlanningExecution.EntityFrameworkCore\OpenTms.PlanningExecution.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\financial\OpenTms.Financial.Application\OpenTms.Financial.Application.csproj" />
+    <ProjectReference Include="..\..\modules\financial\OpenTms.Financial.EntityFrameworkCore\OpenTms.Financial.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\master-data\OpenTms.MasterData.Application\OpenTms.MasterData.Application.csproj" />
+    <ProjectReference Include="..\..\modules\master-data\OpenTms.MasterData.EntityFrameworkCore\OpenTms.MasterData.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\integrations\OpenTms.Integrations.Application\OpenTms.Integrations.Application.csproj" />
+    <ProjectReference Include="..\..\modules\integrations\OpenTms.Integrations.EntityFrameworkCore\OpenTms.Integrations.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.Application\OpenTms.Reporting.Application.csproj" />
+    <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.EntityFrameworkCore\OpenTms.Reporting.EntityFrameworkCore.csproj" />
+  </ItemGroup>
+
+</Project>

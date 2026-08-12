@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTms.Domain.Shared\OpenTms.Domain.Shared.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.PermissionManagement.Application.Contracts" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.FeatureManagement.Application.Contracts" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.SettingManagement.Application.Contracts" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.Identity.Application.Contracts" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.Account.Application.Contracts" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.TenantManagement.Application.Contracts" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Domain modules + Platform (composition root: the app layer aggregates all modules) -->
+    <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\planning-execution\OpenTms.PlanningExecution.Application.Contracts\OpenTms.PlanningExecution.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\financial\OpenTms.Financial.Application.Contracts\OpenTms.Financial.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\master-data\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\integrations\OpenTms.Integrations.Application.Contracts\OpenTms.Integrations.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.Application.Contracts\OpenTms.Reporting.Application.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

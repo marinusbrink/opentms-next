@@ -1,0 +1,8 @@
+{
+  "culture": "nl",
+  "texts": {
+    "Permission:Platform": "Platform",
+    "Module:Platform": "Platform",
+    "Permission:TenantProvisioning.Manage": "Tenantprovisioning beheren"
+  }
+}

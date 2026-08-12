@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTms.Domain\OpenTms.Domain.csproj" />
+    <ProjectReference Include="..\OpenTms.Application.Contracts\OpenTms.Application.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.PermissionManagement.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.FeatureManagement.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.SettingManagement.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.Account.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.Identity.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.TenantManagement.Application" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Domain modules + Platform (composition root: the app layer aggregates all modules) -->
+    <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
+    <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.Application\OpenTms.Orders.Application.csproj" />
+    <ProjectReference Include="..\..\modules\planning-execution\OpenTms.PlanningExecution.Application\OpenTms.PlanningExecution.Application.csproj" />
+    <ProjectReference Include="..\..\modules\financial\OpenTms.Financial.Application\OpenTms.Financial.Application.csproj" />
+    <ProjectReference Include="..\..\modules\master-data\OpenTms.MasterData.Application\OpenTms.MasterData.Application.csproj" />
+    <ProjectReference Include="..\..\modules\integrations\OpenTms.Integrations.Application\OpenTms.Integrations.Application.csproj" />
+    <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.Application\OpenTms.Reporting.Application.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms</RootNamespace>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.BackgroundJobs.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.AuditLogging.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.FeatureManagement.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.SettingManagement.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.BlobStoring.Database.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.GlobalFeatures" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.OpenIddict.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.Identity.Domain.Shared" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.TenantManagement.Domain.Shared" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\OpenTms\*.json" />
+    <Content Remove="Localization\OpenTms\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Domain modules + Platform (composition root: the app layer aggregates all modules) -->
+    <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.Domain.Shared\OpenTms.Platform.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\planning-execution\OpenTms.PlanningExecution.Domain.Shared\OpenTms.PlanningExecution.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\financial\OpenTms.Financial.Domain.Shared\OpenTms.Financial.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\master-data\OpenTms.MasterData.Domain.Shared\OpenTms.MasterData.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\integrations\OpenTms.Integrations.Domain.Shared\OpenTms.Integrations.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.Domain.Shared\OpenTms.Reporting.Domain.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

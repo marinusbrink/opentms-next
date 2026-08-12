@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+Logs/
+*.user
+.vs/
+openiddict.pfx
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local tooling
+.idea/
+.DS_Store
+*.log

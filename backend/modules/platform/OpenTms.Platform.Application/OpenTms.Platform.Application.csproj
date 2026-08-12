@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms.Platform</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.BackgroundJobs.Abstractions" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTms.Platform.Domain\OpenTms.Platform.Domain.csproj" />
+    <ProjectReference Include="..\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

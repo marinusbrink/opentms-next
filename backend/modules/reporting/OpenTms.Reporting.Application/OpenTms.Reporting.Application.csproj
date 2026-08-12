@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\..\common.props" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenTms.Reporting</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenTms.Reporting.Domain\OpenTms.Reporting.Domain.csproj" />
+    <ProjectReference Include="..\OpenTms.Reporting.Application.Contracts\OpenTms.Reporting.Application.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
