@@ -1,0 +1,20 @@
+# Phase 1 caller (§11 week 1) — ACTIVE for opentms-next since department onboarding.
+# Every PBI labeled status:intake gets checked against the Definition of Ready.
+name: department — intake
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  intake:
+    if: github.event.label.name == 'status:intake'
+    uses: marinusbrink/dev-department/.github/workflows/intake.yml@main
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

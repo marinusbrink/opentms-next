@@ -1,0 +1,41 @@
+# ── PHASE 2 (§11 weeks 2–3) — NOT YET ACTIVE for opentms-next ─────────────────
+# Installed at onboarding, deliberately disabled: the `on:` block below is
+# commented out, so this workflow can never trigger. Activating phase 2 (the
+# design gate: architect PRs to docs/designs/, human merge = gate 1) means
+# uncommenting the `on:` block — nothing else. Until then GitHub lists this
+# file as an invalid workflow; that is expected and harmless.
+# Alongside activation, stand up the docs site skeleton and OpenAPI publication
+# (design §7) so the documentation agent participates from the first feature.
+name: department — design
+
+# on:
+#   issues:
+#     types: [labeled]
+#   pull_request:
+#     types: [closed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  architect:
+    if: github.event_name == 'issues' && github.event.label.name == 'status:design'
+    uses: marinusbrink/dev-department/.github/workflows/design.yml@main
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  design-merged:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'Design:')
+    uses: marinusbrink/dev-department/.github/workflows/design.yml@main
+    with:
+      mode: design-merged
+      pr-number: ${{ github.event.pull_request.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

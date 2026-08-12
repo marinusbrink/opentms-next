@@ -1,0 +1,29 @@
+# ── PHASE 3 (§11, together with dept-build.yml) — NOT YET ACTIVE ──────────────
+# Installed at onboarding, deliberately disabled: the `on:` block below is
+# commented out, so this workflow can never trigger. Activating phase 3 (the
+# gate-2 fix loop: human review comments on an agent feature PR → fix commits
+# on the same PR, §5) means uncommenting the `on:` block — nothing else.
+# Until then GitHub lists this file as an invalid workflow; that is expected
+# and harmless.
+name: department — fix
+
+# on:
+#   pull_request_review:
+#     types: [submitted]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    if: >-
+      github.event.review.state != 'approved' &&
+      !endsWith(github.actor, '[bot]') &&
+      startsWith(github.event.pull_request.title, 'Feature:')
+    uses: marinusbrink/dev-department/.github/workflows/fix.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

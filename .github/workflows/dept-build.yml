@@ -1,0 +1,26 @@
+# ── PHASE 3 (§11, after the first approved designs) — NOT YET ACTIVE ──────────
+# Installed at onboarding, deliberately disabled: the `on:` block below is
+# commented out, so this workflow can never trigger. Activating phase 3 (the
+# full build pipeline) means uncommenting the `on:` block — nothing else.
+# Until then GitHub lists this file as an invalid workflow; that is expected
+# and harmless. Start with PBIs in one low-risk domain (opentms-next: Master
+# Data) — serialize per domain (§10).
+name: department — build
+
+# on:
+#   issues:
+#     types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build:
+    if: github.event.label.name == 'status:build'
+    uses: marinusbrink/dev-department/.github/workflows/build.yml@main
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
