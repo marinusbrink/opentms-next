@@ -1,15 +1,18 @@
-# ── PHASE 3 (§11, together with dept-build.yml) — NOT YET ACTIVE ──────────────
-# Installed at onboarding, deliberately disabled: the `on:` block below is
-# commented out, so this workflow can never trigger. Activating phase 3 (the
-# gate-2 fix loop: human review comments on an agent feature PR → fix commits
-# on the same PR, §5) means uncommenting the `on:` block — nothing else.
-# Until then GitHub lists this file as an invalid workflow; that is expected
-# and harmless.
+# ── PHASE 3 (§11, together with dept-build.yml) — activation is managed via ──────
+# ── GitHub's workflow state ──────────────────────────────────────────────────────
+# This caller is registered with its real triggers below and switched off with
+# GitHub's first-class mechanism (`gh workflow disable "department — fix"`).
+# This file cannot know that state — the source of truth is:
+#     gh workflow list --repo marinusbrink/opentms-next
+# To activate phase 3 (the gate-2 fix loop: human review comments on an agent
+# feature PR → fix commits on the same PR, §5):
+#     gh workflow enable "department — fix"
+# and update this header.
 name: department — fix
 
-# on:
-#   pull_request_review:
-#     types: [submitted]
+on:
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: write
@@ -27,3 +30,4 @@ jobs:
       pr-number: ${{ github.event.pull_request.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}

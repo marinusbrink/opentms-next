@@ -1,18 +1,21 @@
-# ── PHASE 2 (§11 weeks 2–3) — NOT YET ACTIVE for opentms-next ─────────────────
-# Installed at onboarding, deliberately disabled: the `on:` block below is
-# commented out, so this workflow can never trigger. Activating phase 2 (the
-# design gate: architect PRs to docs/designs/, human merge = gate 1) means
-# uncommenting the `on:` block — nothing else. Until then GitHub lists this
-# file as an invalid workflow; that is expected and harmless.
-# Alongside activation, stand up the docs site skeleton and OpenAPI publication
-# (design §7) so the documentation agent participates from the first feature.
+# ── PHASE 2 (§11 weeks 2–3) — activation is managed via GitHub's workflow state ──
+# This caller is registered with its real triggers below and switched off with
+# GitHub's first-class mechanism (`gh workflow disable "department — design"`).
+# This file cannot know that state — the source of truth is:
+#     gh workflow list --repo marinusbrink/opentms-next
+# To activate phase 2 (the design gate: architect PRs to docs/designs/, human
+# merge = gate 1):
+#     gh workflow enable "department — design"
+# and update this header. Alongside activation, stand up the docs site skeleton
+# and OpenAPI publication (design §7) so the documentation agent participates
+# from the first feature.
 name: department — design
 
-# on:
-#   issues:
-#     types: [labeled]
-#   pull_request:
-#     types: [closed]
+on:
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: write
@@ -27,6 +30,7 @@ jobs:
       issue-number: ${{ github.event.issue.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
 
   design-merged:
     if: >-
@@ -39,3 +43,4 @@ jobs:
       pr-number: ${{ github.event.pull_request.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
