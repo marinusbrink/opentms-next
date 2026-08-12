@@ -1,0 +1,109 @@
+# CI for the opentms-next scaffold. No deploy here — deployment arrives at
+# department onboarding (see /CLAUDE.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — build, tests, migrations, OpenAPI freshness
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build backend/OpenTms.slnx --nologo
+
+      - name: Tests (unit + architecture boundary tests)
+        run: dotnet test backend/OpenTms.slnx --no-build --nologo
+
+      - name: Migrate fresh host database
+        run: dotnet run --project backend/src/OpenTms.DbMigrator --no-build
+
+      - name: Assert module schemas exist in host database
+        run: |
+          for schema in platform orders planning financial masterdata integrations reporting; do
+            psql "host=localhost user=postgres password=postgres dbname=OpenTms" -tAc \
+              "SELECT 1 FROM information_schema.schemata WHERE schema_name='${schema}'" | grep -q 1 \
+              || { echo "::error::schema '${schema}' missing in host database"; exit 1; }
+          done
+
+      - name: Provision a tenant database (database-per-tenant default)
+        run: |
+          TENANT_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
+          STAMP=$(python3 -c "import uuid; print(uuid.uuid4().hex)")
+          psql "host=localhost user=postgres password=postgres dbname=OpenTms" -v ON_ERROR_STOP=1 <<SQL
+          INSERT INTO "AbpTenants" ("Id","Name","NormalizedName","EntityVersion","ExtraProperties","ConcurrencyStamp","CreationTime","IsDeleted")
+          VALUES ('${TENANT_ID}','ci-tenant','CI-TENANT',0,'{}','${STAMP}',now(),false);
+          INSERT INTO "AbpTenantConnectionStrings" ("TenantId","Name","Value")
+          VALUES ('${TENANT_ID}','Default','Host=localhost;Port=5432;Database=OpenTms_CiTenant;Username=postgres;Password=postgres');
+          SQL
+          # Second run: must create + migrate + seed the tenant database and exit 0.
+          dotnet run --project backend/src/OpenTms.DbMigrator --no-build
+
+      - name: Assert module schemas exist in tenant database
+        run: |
+          for schema in platform orders planning financial masterdata integrations reporting; do
+            psql "host=localhost user=postgres password=postgres dbname=OpenTms_CiTenant" -tAc \
+              "SELECT 1 FROM information_schema.schemata WHERE schema_name='${schema}'" | grep -q 1 \
+              || { echo "::error::schema '${schema}' missing in tenant database"; exit 1; }
+          done
+
+      - name: OpenAPI spec freshness
+        run: |
+          ./scripts/generate-openapi.sh
+          git diff --exit-code -- openapi/ \
+            || { echo "::error::openapi/opentms-next.json is out of date — run ./scripts/generate-openapi.sh and commit"; exit 1; }
+
+  frontend:
+    name: Frontend — client freshness, lint, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Generated client freshness
+        run: |
+          npm run generate:client
+          git diff --exit-code -- src/lib/api/generated \
+            || { echo "::error::the generated TypeScript client is out of date — run npm run generate:client and commit"; exit 1; }
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (includes type-check)
+        run: npm run build

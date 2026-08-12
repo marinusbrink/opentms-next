@@ -33,6 +33,7 @@ using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc;
+using Volo.Abp.AspNetCore.Mvc.Libs;
 using Volo.Abp.Autofac;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
@@ -128,6 +129,14 @@ public class OpenTmsHttpApiHostModule : AbpModule
             context.Services.AddRazorPages()
                 .AddRazorRuntimeCompilation();
         }
+
+        /* wwwroot/libs is restored by `abp install-libs` (untracked by ABP convention).
+         * Without this, a missing libs folder turns EVERY request into a 500 — including
+         * /health and /swagger on environments that never serve the account pages (CI). */
+        Configure<AbpMvcLibsOptions>(options =>
+        {
+            options.CheckLibs = false;
+        });
 
         ConfigureStudio(hostingEnvironment);
         ConfigureHangfire(context, configuration);
