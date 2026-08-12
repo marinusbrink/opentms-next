@@ -1,0 +1,33 @@
+{
+  "Culture": "nl",
+  "Texts": {
+    "AppName": "OpenTMS",
+    "Menu:Home": "Home",
+    "Welcome": "Welkom",
+    "App:Dashboard": "Dashboard",
+    "App:Planboard": "Planbord",
+    "App:Transport": "Transport",
+    "App:Finance": "Financieel",
+    "App:MasterData": "Stamgegevens",
+    "App:Integrations": "Integraties",
+    "App:Reports": "Rapporten",
+    "Shell:AppLauncher": "App-starter",
+    "Shell:Apps": "Apps",
+    "Shell:SignIn": "Inloggen",
+    "Shell:SignOut": "Uitloggen",
+    "Shell:SignedInAs": "Ingelogd als",
+    "Shell:Tenant": "Organisatie",
+    "Shell:TenantHost": "Host",
+    "Shell:SwitchTenant": "Organisatie wisselen",
+    "Shell:TenantName": "Organisatienaam",
+    "Shell:TenantSwitchHint": "Laat leeg voor hostbeheer.",
+    "Shell:Apply": "Toepassen",
+    "Shell:Cancel": "Annuleren",
+    "Shell:Loading": "Laden…",
+    "Shell:WelcomeTitle": "Welkom bij OpenTMS",
+    "Shell:WelcomeText": "Log in om je werkruimte te openen.",
+    "Shell:EmptyAppTitle": "Nog niets te zien",
+    "Shell:EmptyAppText": "Deze app is een stub — functionaliteit komt via de pipeline van het department.",
+    "Shell:ReadsFrom": "Leest uit domeinen"
+  }
+}

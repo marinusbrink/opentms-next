@@ -7,8 +7,10 @@ import type { paths } from "./generated/schema";
  * after the backend contract changed (see /scripts/generate-openapi.sh).
  */
 
+/* Local development runs the host on plain HTTP (see backend launchSettings.json);
+ * deployed environments inject VITE_API_URL at build time. */
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? "https://localhost:44301";
+  (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:44301";
 
 /** Set by the auth layer once the user is signed in. */
 let accessTokenProvider: (() => string | undefined) | undefined;

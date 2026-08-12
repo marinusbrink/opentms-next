@@ -1,9 +1,33 @@
 {
   "Culture": "en",
   "Texts": {
-    "AppName": "OpenTms",
+    "AppName": "OpenTMS",
     "Menu:Home": "Home",
-    "LongWelcomeMessage": "Welcome to the application. This is a startup project based on the ABP framework. For more information visit",
-    "Welcome": "Welcome"
+    "Welcome": "Welcome",
+    "App:Dashboard": "Dashboard",
+    "App:Planboard": "Planboard",
+    "App:Transport": "Transport",
+    "App:Finance": "Finance",
+    "App:MasterData": "Master data",
+    "App:Integrations": "Integrations",
+    "App:Reports": "Reports",
+    "Shell:AppLauncher": "App launcher",
+    "Shell:Apps": "Apps",
+    "Shell:SignIn": "Sign in",
+    "Shell:SignOut": "Sign out",
+    "Shell:SignedInAs": "Signed in as",
+    "Shell:Tenant": "Organisation",
+    "Shell:TenantHost": "Host",
+    "Shell:SwitchTenant": "Switch organisation",
+    "Shell:TenantName": "Organisation name",
+    "Shell:TenantSwitchHint": "Leave empty for host administration.",
+    "Shell:Apply": "Apply",
+    "Shell:Cancel": "Cancel",
+    "Shell:Loading": "Loading…",
+    "Shell:WelcomeTitle": "Welcome to OpenTMS",
+    "Shell:WelcomeText": "Sign in to open your workspace.",
+    "Shell:EmptyAppTitle": "Nothing here yet",
+    "Shell:EmptyAppText": "This app is a stub — features arrive through the department pipeline.",
+    "Shell:ReadsFrom": "Reads from domains"
   }
 }
