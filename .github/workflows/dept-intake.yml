@@ -18,3 +18,4 @@ jobs:
       issue-number: ${{ github.event.issue.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
