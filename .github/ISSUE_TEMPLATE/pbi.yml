@@ -1,0 +1,59 @@
+name: Product backlog item (PBI)
+description: A backlog item for the department pipeline. The intake agent checks it against the Definition of Ready.
+title: "PBI: <short goal>"
+labels:
+  - "status:intake"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep it short — the intake agent asks for what's missing. But everything
+        filled in now saves a round trip through intake.
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: "As a <role> I want <goal> because <reason>."
+      placeholder: "As a planner I want accepted trips combined into one route because driving them separately wastes hours."
+    validations:
+      required: true
+  - type: textarea
+    id: affected-area
+    attributes:
+      label: Affected area
+      description: Which part of the product does this touch, in your own words? The intake agent maps it to domains.
+    validations:
+      required: false
+  - type: dropdown
+    id: tenant-dimension
+    attributes:
+      label: Tenant dimension
+      description: Does this behave the same for every tenant?
+      options:
+        - Identical for all tenants
+        - Configurable per tenant
+        - Depends on subscription tier
+        - Not sure
+    validations:
+      required: false
+  - type: textarea
+    id: expected-volumes
+    attributes:
+      label: Expected volumes
+      description: "Rough numbers: orders per day, rows on the busiest screen, calls to external parties."
+    validations:
+      required: false
+  - type: textarea
+    id: edge-cases
+    attributes:
+      label: Known edge cases
+      description: "Empty states, concurrency (two planners, same trip), failing external parties — whatever is already known."
+    validations:
+      required: false
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy note
+      description: Does this add or touch personal data? If yes, what — the design will then need a GDPR paragraph.
+    validations:
+      required: false
