@@ -50,10 +50,18 @@ One ABP module per domain under `backend/modules/`, five projects each
    or explicitly published interfaces. A module may reference another module's
    `Domain.Shared` and `Application.Contracts` — never its `Domain`, `Application`, or
    `EntityFrameworkCore` projects, and never another module's `DbContext`.
-3. **Platform is the floor.** Every module may reference Platform; Platform references
+3. **Cross-module application-service calls are a design decision, not a default.**
+   The `Domain.Shared` and `Application.Contracts` references exist so you can use
+   another module's DTOs and event types — they are not an invitation to call its
+   application services. Before you call another module's app service synchronously,
+   check the approved design doc: that call must be explicitly stated there (gate 1).
+   If it is not, do not add it — publish an event on the local event bus and let the
+   owning module react. Events are the default for cross-module effects; a synchronous
+   call is the documented exception.
+4. **Platform is the floor.** Every module may reference Platform; Platform references
    no domain module. The dependency arrow always points downward. Platform changes are
    risk class critical by default and always pass the design gate.
-4. New permissions are ABP permission definitions in the owning module's
+5. New permissions are ABP permission definitions in the owning module's
    `Application.Contracts/Permissions/` — never hardcoded checks.
 
 ## Multi-tenancy model
@@ -102,6 +110,15 @@ Query — no hand-written fetches. Every user-facing string, shell and app names
 comes from ABP's localization endpoint (resources in each module's `Domain.Shared`;
 languages: nl, en — adding one is a PO decision).
 
+## Frontend environment facts (verified 2026-08-12)
+
+- TypeScript is pinned to **5.9** in `frontend/package.json` because `openapi-typescript`
+  does not yet accept TypeScript 6 as a peer dependency. Do not raise the pin without
+  verifying that its peer range has changed.
+- shadcn/ui in this repo generates **Base UI** components (`@base-ui/react`), not Radix:
+  compose triggers with the `render` prop. Radix-era `asChild` patterns from older
+  examples do not exist here and will not compile.
+
 ## API contract
 
 `openapi/opentms-next.json` is the committed API contract, generated deterministically
@@ -121,6 +138,7 @@ conventional controllers with one route root per module (`/api/orders/...`,
 Prereqs: .NET 10 SDK, Node ≥ 20.19, PostgreSQL 17 on `localhost:5432` with superuser
 `postgres`/`postgres` (macOS: `brew install postgresql@17 && brew services start postgresql@17`),
 ABP CLI (`dotnet tool install -g Volo.Abp.Studio.Cli`) for `abp install-libs`.
+Machine-setup facts for the primary dev machine: [docs/local-dev.md](docs/local-dev.md).
 
 ```bash
 # 1. Migrate + seed the host database (and any tenant databases)

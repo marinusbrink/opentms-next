@@ -72,6 +72,19 @@ jobs:
               || { echo "::error::schema '${schema}' missing in tenant database"; exit 1; }
           done
 
+      # wwwroot/libs is untracked by ABP convention; without this step a fresh clone
+      # never has working auth-server login pages. Runs before the host boots below.
+      - name: Install auth-server login-page assets (abp install-libs)
+        working-directory: backend
+        run: |
+          dotnet tool install -g Volo.Abp.Studio.Cli
+          abp install-libs
+
+      - name: Assert login-page assets landed in the host wwwroot
+        run: |
+          test -f backend/src/OpenTms.HttpApi.Host/wwwroot/libs/abp/core/abp.js \
+            || { echo "::error::abp install-libs did not populate backend/src/OpenTms.HttpApi.Host/wwwroot/libs — the auth server's login page would be broken"; exit 1; }
+
       - name: OpenAPI spec freshness
         run: |
           ./scripts/generate-openapi.sh
