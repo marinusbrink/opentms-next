@@ -25,6 +25,11 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/build.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
+      # The product toolchain the implementer/test-engineer agents may run —
+      # exactly what ci.yml uses, nothing more (first build run 31739892847:
+      # the frontend implementer burned its whole turn budget on denied npm
+      # calls because this grant was missing).
+      extra-allowed-tools: "Bash(dotnet:*),Bash(abp:*),Bash(npm:*),Bash(npx:*),Bash(psql:*),Bash(./scripts/generate-openapi.sh)"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
