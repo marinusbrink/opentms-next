@@ -3,6 +3,17 @@
   "texts": {
     "Permission:Platform": "Platform",
     "Module:Platform": "Platform",
-    "Permission:TenantProvisioning.Manage": "Tenantprovisioning beheren"
+    "Permission:TenantProvisioning.Manage": "Tenantprovisioning beheren",
+    "Grid:Search": "Zoeken…",
+    "Grid:Columns": "Kolommen",
+    "Grid:Reset": "Standaard herstellen",
+    "Grid:Empty": "Geen resultaten",
+    "Grid:EmptyFiltered": "Geen overeenkomsten — filter is actief",
+    "Grid:ClearFilters": "Filters wissen",
+    "Grid:Total": "Totaal: {0}",
+    "Grid:Filtered": "Gefilterd: {0} van {1}",
+    "Grid:RetryingBlock": "Opnieuw laden…",
+    "Grid:RetryBlock": "Opnieuw proberen",
+    "Grid:BlockError": "Fout bij laden —"
   }
 }

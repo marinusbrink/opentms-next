@@ -3,6 +3,17 @@
   "texts": {
     "Permission:Platform": "Platform",
     "Module:Platform": "Platform",
-    "Permission:TenantProvisioning.Manage": "Manage tenant provisioning"
+    "Permission:TenantProvisioning.Manage": "Manage tenant provisioning",
+    "Grid:Search": "Search…",
+    "Grid:Columns": "Columns",
+    "Grid:Reset": "Reset to defaults",
+    "Grid:Empty": "No results",
+    "Grid:EmptyFiltered": "No matches — a filter is active",
+    "Grid:ClearFilters": "Clear filters",
+    "Grid:Total": "Total: {0}",
+    "Grid:Filtered": "Filtered: {0} of {1}",
+    "Grid:RetryingBlock": "Retrying…",
+    "Grid:RetryBlock": "Retry",
+    "Grid:BlockError": "Failed to load —"
   }
 }
