@@ -32,15 +32,15 @@ All files live inside the Platform module.
 
 | Type | Name | Notes |
 |---|---|---|
-| C# record | `AdministrationUserRowDto` | Grid row projection for a user |
-| C# record | `AdministrationUserCreateDto` | Create form payload (includes password) |
-| C# record | `AdministrationUserUpdateDto` | Edit form payload (no password field) |
+| C# record | `AdministrationUserRowDto` | Grid row projection for a user: `Id`, `UserName`, `Email`, `Name`, `Surname`, `IsActive`, `RoleNames`, `CreationTime` |
+| C# record | `AdministrationUserCreateDto` | Create form payload: `UserName`, `Email`, `Name`, `Surname`, `Password`, `RoleNames` |
+| C# record | `AdministrationUserUpdateDto` | Edit form payload (no password): `UserName`, `Email`, `Name`, `Surname`, `IsActive`, `RoleNames` |
 | C# record | `AdministrationResetPasswordDto` | `{ NewPassword: string }` — explicit reset action |
 | C# record | `BulkDeleteUsersRequestDto` | Wraps `GridSelectionDto` from design #6 |
 | C# record | `BulkDeleteUsersResponseDto` | `{ DeletedCount, SkippedRows: SkippedRowDto[] }` |
 | C# record | `SkippedRowDto` | `{ Id, UserName, Reason }` — reason is a localized key |
 | C# record | `AdministrationRoleRowDto` | Grid row projection for a role: `Id`, `Name`, `IsDefault`, `IsPublic`, `UserCount`, `IsStatic` |
-| C# record | `AdministrationRoleCreateUpdateDto` | Create and edit payload for roles |
+| C# record | `AdministrationRoleCreateUpdateDto` | Create and edit payload for roles: `Name`, `IsDefault`, `IsPublic` |
 | C# record | `RoleDeleteCheckDto` | Body of the 409 response: `{ UserCount, RoleName }` |
 | C# interface | `IUserAppService` | Users CRUD + grid + bulk delete + reset password |
 | C# interface | `IUserRoleAppService` | Roles CRUD + grid + delete-with-force |
@@ -87,6 +87,12 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 | `components/ResetPasswordDialog.tsx` | Reset password action dialog |
 | `components/BulkDeleteUsersDialog.tsx` | Bulk-delete confirmation + skipped-rows result |
 | `components/DeleteRoleConfirmDialog.tsx` | Role delete with user-count impact warning |
+
+**`src/components/ui/`** (shared component library)
+
+| File | Purpose |
+|---|---|
+| `role-multi-select.tsx` | Reusable role multi-select dropdown — fetches roles via `POST .../roles/grid` and renders as a multi-select; added to the shared library so future forms needing role assignment can reuse it |
 
 **`src/domains/platform/`** (new domain folder for Platform)
 
@@ -405,7 +411,9 @@ exclusively through the generated client wrapped in TanStack Query.
 7. Add `"Platform"` to the `DomainName` union in `frontend/src/app/apps.config.ts`.
 8. Add the Administration app entry to `APPS` in `apps.config.ts`.
 9. Add `AdministrationApp` to `frontend/src/apps/registry.tsx`.
-10. Implement `src/apps/admin/` (all views and dialogs) and `src/domains/platform/`
+10. Add `RoleMultiSelect` to `src/components/ui/role-multi-select.tsx` (shared library
+    component; used by `UserFormDialog` for role assignment).
+11. Implement `src/apps/admin/` (all views and dialogs) and `src/domains/platform/`
     (all query/mutation hooks).
 
 ### No EF Core migrations
