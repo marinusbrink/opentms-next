@@ -42,8 +42,8 @@ All files live inside the Platform module.
 | C# record | `AdministrationRoleRowDto` | Grid row projection for a role: `Id`, `Name`, `IsDefault`, `IsPublic`, `UserCount`, `IsStatic` |
 | C# record | `AdministrationRoleCreateUpdateDto` | Create and edit payload for roles |
 | C# record | `RoleDeleteCheckDto` | Body of the 409 response: `{ UserCount, RoleName }` |
-| C# interface | `IAdministrationUserAppService` | Users CRUD + grid + bulk delete + reset password |
-| C# interface | `IAdministrationRoleAppService` | Roles CRUD + grid + delete-with-force |
+| C# interface | `IUserAppService` | Users CRUD + grid + bulk delete + reset password |
+| C# interface | `IUserRoleAppService` | Roles CRUD + grid + delete-with-force |
 
 **`OpenTms.Platform.Application.Contracts/Permissions/`**
 (extends existing `PlatformPermissions.cs` and `PlatformPermissionDefinitionProvider.cs`)
@@ -70,8 +70,8 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 
 | Type | Name | Notes |
 |---|---|---|
-| C# class | `AdministrationUserAppService` | Implements `IAdministrationUserAppService`; delegates to `IIdentityUserAppService` with added business-rule guards |
-| C# class | `AdministrationRoleAppService` | Implements `IAdministrationRoleAppService`; delegates to `IIdentityRoleAppService` |
+| C# class | `AdministrationUserAppService` | Implements `IUserAppService`; delegates to `IIdentityUserAppService` with added business-rule guards |
+| C# class | `AdministrationRoleAppService` | Implements `IUserRoleAppService`; delegates to `IIdentityRoleAppService` |
 
 ### Frontend — new files
 
@@ -395,7 +395,7 @@ exclusively through the generated client wrapped in TanStack Query.
    `BulkDeleteUsersRequestDto`, `BulkDeleteUsersResponseDto`, `SkippedRowDto`,
    `AdministrationRoleRowDto`, `AdministrationRoleCreateUpdateDto`, `RoleDeleteCheckDto`
    to `OpenTms.Platform.Application.Contracts/Administration/`.
-3. Add `IAdministrationUserAppService` and `IAdministrationRoleAppService` to the same
+3. Add `IUserAppService` and `IUserRoleAppService` to the same
    folder.
 4. Add `AdministrationUserAppService` and `AdministrationRoleAppService` to
    `OpenTms.Platform.Application/Administration/`.
