@@ -39,7 +39,7 @@ All files live inside the Platform module.
 | C# record | `BulkDeleteUsersRequestDto` | Wraps `GridSelectionDto` from design #6 |
 | C# record | `BulkDeleteUsersResponseDto` | `{ DeletedCount, SkippedRows: SkippedRowDto[] }` |
 | C# record | `SkippedRowDto` | `{ Id, UserName, Reason }` — reason is a localized key |
-| C# record | `AdministrationRoleRowDto` | Grid row projection for a role |
+| C# record | `AdministrationRoleRowDto` | Grid row projection for a role: `Id`, `Name`, `IsDefault`, `IsPublic`, `UserCount`, `IsStatic` |
 | C# record | `AdministrationRoleCreateUpdateDto` | Create and edit payload for roles |
 | C# record | `RoleDeleteCheckDto` | Body of the 409 response: `{ UserCount, RoleName }` |
 | C# interface | `IAdministrationUserAppService` | Users CRUD + grid + bulk delete + reset password |
@@ -83,6 +83,7 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 | `users/UsersView.tsx` | Users grid screen |
 | `roles/RolesView.tsx` | Roles grid screen |
 | `components/UserFormDialog.tsx` | Shared create/edit dialog — create includes password field, edit omits it |
+| `components/RoleFormDialog.tsx` | Create/edit dialog for roles (name, isDefault, isPublic) |
 | `components/ResetPasswordDialog.tsx` | Reset password action dialog |
 | `components/BulkDeleteUsersDialog.tsx` | Bulk-delete confirmation + skipped-rows result |
 | `components/DeleteRoleConfirmDialog.tsx` | Role delete with user-count impact warning |
@@ -314,7 +315,8 @@ current password.
       "name": "Planner",
       "isDefault": false,
       "isPublic": true,
-      "userCount": 7
+      "userCount": 7,
+      "isStatic": false
     }
   ],
   "totalCount": 5,
@@ -363,9 +365,8 @@ confirmation.
   the role from all users automatically.
 - **Response 404:** role not found (concurrent deletion — fail gracefully).
 - **Note:** static roles in ABP (e.g. the `admin` role, `IsStatic = true`) cannot be
-  deleted and return `400` with ABP's built-in error. The frontend should disable the
-  delete action for static roles based on the `isStatic` field in `AdministrationRoleRowDto`.
-  Add `isStatic: bool` to `AdministrationRoleRowDto`.
+  deleted and return `400` with ABP's built-in error. The frontend disables the delete
+  action for static roles based on the `isStatic` field in `AdministrationRoleRowDto`.
 
 ---
 
@@ -497,9 +498,12 @@ card ("You do not have permission to view users.") — no grid rendered.
 **Columns:** Role name, Is default (badge), Is public (badge), User count, Static (shown
 as a badge, no action; no delete or edit for static roles).
 
+**Top-level action:** `[+ New Role]` button (shown only when user has
+`Platform.Administration.Roles.Create`) → opens `RoleFormDialog` in create mode.
+
 **Row actions:**
-- **Edit** → `UserFormDialog`-style dialog for role name, isDefault, isPublic. Disabled
-  for static roles.
+- **Edit** → opens `RoleFormDialog` in edit mode (fields: role name, isDefault, isPublic).
+  Disabled for static roles.
 - **Delete** → triggers phase-1 `DELETE .../roles/{id}`. If 204 → grid refreshes. If
   409 → opens `DeleteRoleConfirmDialog` showing impact. Disabled for static roles.
 
@@ -513,7 +517,7 @@ as a badge, no action; no delete or edit for static roles).
 **`UserFormDialog`** (create and edit mode)
 
 Create mode fields: Username\*, Email\*, First name, Surname, Password\*,
-Roles (multi-select of available role names via `GET .../roles/grid` with no filter).
+Roles (multi-select of available role names via `POST .../roles/grid` with no filter).
 
 Edit mode fields: same minus password. Form header changes to "Edit user {userName}".
 
@@ -522,6 +526,22 @@ password-policy tooltip (shown inline).
 
 Form submit → `POST .../users` or `PUT .../users/{id}`. On success → dialog closes,
 grid invalidated. On 422 → field-level error messages shown inline.
+
+**`RoleFormDialog`** (create and edit mode)
+
+Create mode fields: Role name\*, Is default (checkbox), Is public (checkbox). Form header:
+"New role".
+
+Edit mode fields: same as create. Form header changes to "Edit role {name}". Disabled
+entirely for static roles (edit action in the grid does not open the dialog for static
+roles).
+
+Validation: name required, max 256 characters.
+
+Form submit → `POST .../roles` or `PUT .../roles/{id}`. On success → dialog closes, grid
+invalidated. On 422 or error → inline error message shown.
+
+---
 
 **`ResetPasswordDialog`**
 
