@@ -25,6 +25,16 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/build.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
+      # The product toolchain the implementer/test-engineer agents may run —
+      # exactly what ci.yml uses, nothing more (first build run 31739892847:
+      # the frontend implementer burned its whole turn budget on denied npm
+      # calls because this grant was missing).
+      extra-allowed-tools: "Bash(dotnet:*),Bash(abp:*),Bash(npm:*),Bash(npx:*),Bash(psql:*),Bash(./scripts/generate-openapi.sh)"
+      # Runs mechanically between the backend and frontend agents: disposable
+      # Postgres + DbMigrator + generate-openapi.sh + generate:client, so the
+      # frontend never inherits a stale contract (run 31752956967: it did, and
+      # hand-patched the spec instead of reporting blocked).
+      contract-refresh-command: "./scripts/contract-refresh-ci.sh"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}

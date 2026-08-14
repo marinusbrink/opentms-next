@@ -28,6 +28,9 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/fix.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
+      # Same toolchain grant as dept-build.yml — the fix agent must build and
+      # test what it fixes.
+      extra-allowed-tools: "Bash(dotnet:*),Bash(abp:*),Bash(npm:*),Bash(npx:*),Bash(psql:*),Bash(./scripts/generate-openapi.sh)"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
