@@ -5973,7 +5973,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/platform/grid-settings/{gridId}": {
+    "/api/platform/grid-settings": {
         parameters: {
             query?: never;
             header?: never;
@@ -5982,11 +5982,11 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    gridId: string;
+                query?: {
+                    gridId?: string;
                 };
+                header?: never;
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
@@ -6070,7 +6070,132 @@ export interface paths {
                 };
             };
         };
-        put: {
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/grid-settings/reset/{gridId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gridId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/grid-settings/set/{gridId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -6169,8 +6294,20 @@ export interface paths {
                 };
             };
         };
-        post?: never;
-        delete: {
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/grid-settings/{gridId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -6186,46 +6323,10 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
-                };
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
                     content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
                     };
                 };
                 /** @description Not Found */
@@ -6234,32 +6335,57 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
                     };
                 };
-                /** @description Internal Server Error */
-                500: {
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gridId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Grid.GridSettingsDto"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
+                    content?: never;
                 };
-                /** @description Not Implemented */
-                501: {
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    gridId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
+                    content?: never;
                 };
             };
         };
@@ -6990,6 +7116,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "Microsoft.AspNetCore.Mvc.ProblemDetails": {
+            detail?: string | null;
+            instance?: string | null;
+            /** Format: int32 */
+            status?: number | null;
+            title?: string | null;
+            type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         "OpenTms.Platform.Grid.ColumnStateDto": {
             colId: string;
             /** Format: int32 */
@@ -7003,8 +7139,8 @@ export interface components {
             sortModels?: components["schemas"]["OpenTms.Platform.Grid.SortModel"][] | null;
         };
         "OpenTms.Platform.Grid.SortModel": {
-            colId: string;
-            sort: string;
+            colId?: string | null;
+            sort?: string | null;
         };
         "OpenTms.Platform.Tenants.TenantProvisioningRequestDto": {
             databaseName?: string | null;
