@@ -35,6 +35,9 @@ jobs:
       # frontend never inherits a stale contract (run 31752956967: it did, and
       # hand-patched the spec instead of reporting blocked).
       contract-refresh-command: "./scripts/contract-refresh-ci.sh"
+      # Dispatched on the feature branch when the PR goes gate-2-ready — agent
+      # pushes never trigger CI by themselves (GITHUB_TOKEN event suppression).
+      ci-workflow: "CI"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
