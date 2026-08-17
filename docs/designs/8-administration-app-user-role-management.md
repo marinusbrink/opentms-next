@@ -98,8 +98,8 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 
 | File | Purpose |
 |---|---|
-| `administration-users.ts` | `useAdministrationUsersGrid`, `useCreateUser`, `useUpdateUser`, `useDeleteUser`, `useBulkDeleteUsers`, `useResetPassword` hooks |
-| `administration-roles.ts` | `useAdministrationRolesGrid`, `useCreateRole`, `useUpdateRole`, `useDeleteRole` hooks |
+| `administration-users.ts` | `useUsersGrid`, `useCreateUser`, `useUpdateUser`, `useDeleteUser`, `useBulkDeleteUsers`, `useResetPassword` hooks |
+| `administration-roles.ts` | `useRolesGrid`, `useCreateRole`, `useUpdateRole`, `useDeleteRole` hooks |
 
 All hooks use TanStack Query and the generated typed API client. No hand-written fetches.
 
@@ -603,7 +603,7 @@ Cancel / Delete buttons. Confirm → `DELETE .../roles/{id}?force=true`. Grid re
 | Dialog (modal) | `@base-ui/react` — `Dialog` component with `render` prop |
 | Popover (inline confirm) | `src/components/ui/popover.tsx` |
 | `Separator` | `src/components/ui/separator.tsx` (tab nav divider) |
-| Multi-select for roles in form | New component `RoleMultiSelect.tsx` in `src/components/ui/` (Base UI, no new external dep) |
+| Multi-select for roles in form | New component `role-multi-select.tsx` in `src/components/ui/` (Base UI, no new external dep) |
 | Toast / notification | Base UI `Popup` or equivalent — same component established by design #6 |
 
 `RoleMultiSelect` is added to `src/components/ui/` (not a one-off in the app folder)
