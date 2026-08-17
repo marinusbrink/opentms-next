@@ -70,8 +70,8 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 
 | Type | Name | Notes |
 |---|---|---|
-| C# class | `AdministrationUserAppService` | Implements `IUserAppService`; delegates to `IIdentityUserAppService` with added business-rule guards |
-| C# class | `AdministrationRoleAppService` | Implements `IUserRoleAppService`; delegates to `IIdentityRoleAppService` |
+| C# class | `UserAppService` | Implements `IUserAppService`; delegates to `IIdentityUserAppService` with added business-rule guards |
+| C# class | `UserRoleAppService` | Implements `IUserRoleAppService`; delegates to `IIdentityRoleAppService` |
 
 ### Frontend — new files
 
@@ -403,7 +403,7 @@ exclusively through the generated client wrapped in TanStack Query.
    to `OpenTms.Platform.Application.Contracts/Administration/`.
 3. Add `IUserAppService` and `IUserRoleAppService` to the same
    folder.
-4. Add `AdministrationUserAppService` and `AdministrationRoleAppService` to
+4. Add `UserAppService` and `UserRoleAppService` to
    `OpenTms.Platform.Application/Administration/`.
 5. Add localization keys (nl + en) to `OpenTms.Platform.Domain.Shared/Localization/`
    (see UI design section for the full key list).
@@ -672,11 +672,11 @@ below shows where justification raises or maintains that class.
 | Part | Risk class | Rationale |
 |---|---|---|
 | Permission definitions (new constants + provider) | **Critical** | Incorrect permission definitions can silently grant or deny access across the entire tenant fleet; any misconfiguration is a security issue |
-| `AdministrationUserAppService` — self-delete guard | **Critical** | A failing guard allows an admin to delete their own account, causing an irrecoverable lockout |
-| `AdministrationUserAppService` — last-admin-role guard | **Critical** | A failing guard allows removal of the last admin, causing tenant lockout |
-| `AdministrationUserAppService` — bulk delete with skip logic | **High** | Incorrect skip reporting misleads the admin; wrong iteration deletes rows that should be skipped |
-| `AdministrationUserAppService` — reset password path | **High** | Incorrect use of `UserManager` token generation could create a security bypass; must use ABP-idiomatic admin reset, not the self-service path |
-| `AdministrationRoleAppService` — role-delete two-phase (409 / force) | **High** | A skipped phase-1 check could delete a role from users without confirmation; concurrent deletion after phase-1 must be handled gracefully |
+| `UserAppService` — self-delete guard | **Critical** | A failing guard allows an admin to delete their own account, causing an irrecoverable lockout |
+| `UserAppService` — last-admin-role guard | **Critical** | A failing guard allows removal of the last admin, causing tenant lockout |
+| `UserAppService` — bulk delete with skip logic | **High** | Incorrect skip reporting misleads the admin; wrong iteration deletes rows that should be skipped |
+| `UserAppService` — reset password path | **High** | Incorrect use of `UserManager` token generation could create a security bypass; must use ABP-idiomatic admin reset, not the self-service path |
+| `UserRoleAppService` — role-delete two-phase (409 / force) | **High** | A skipped phase-1 check could delete a role from users without confirmation; concurrent deletion after phase-1 must be handled gracefully |
 | `BulkDeleteUsersRequestDto` with `GridSelectionDto` | **High** | FilterBased mode re-resolves the filter server-side; pagination edge cases (row added between select-all and delete) must be handled |
 | Frontend permission-denied state | **High** | A missing permission check in the view renders admin data to unauthorized users in the browser |
 | Tenant isolation | **Critical** | ABP Identity is tenant-scoped via `ICurrentTenant`; any call that bypasses this (e.g. host-context operations on tenant endpoints) is a cross-tenant leak |
