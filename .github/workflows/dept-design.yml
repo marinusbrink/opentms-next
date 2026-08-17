@@ -16,6 +16,8 @@ on:
     types: [labeled]
   pull_request:
     types: [closed]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: write
@@ -28,6 +30,23 @@ jobs:
     uses: marinusbrink/dev-department/.github/workflows/design.yml@main
     with:
       issue-number: ${{ github.event.issue.number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
+
+  design-fix:
+    # Gate-1 fix loop: a submitted review with remarks on an open Design: PR →
+    # the architect revises the doc on the same branch (same PR, new commits).
+    # Approval stays the human merge (run 31795608586: remarks reached no agent).
+    if: >-
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state != 'approved' &&
+      !endsWith(github.actor, '[bot]') &&
+      startsWith(github.event.pull_request.title, 'Design:')
+    uses: marinusbrink/dev-department/.github/workflows/design.yml@main
+    with:
+      mode: design-fix
+      pr-number: ${{ github.event.pull_request.number }}
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
