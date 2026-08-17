@@ -29,7 +29,7 @@ public class GridSettingsAppService : PlatformAppServiceBase, IGridSettingsAppSe
         ValidateGridId(gridId);
 
         var blob = await ReadBlobAsync();
-        return blob.TryGetValue(gridId, out var dto) ? dto : null;
+        return blob.TryGetValue(MakeBlobKey(gridId), out var dto) ? dto : null;
     }
 
     public async Task SetAsync(string gridId, GridSettingsDto input)
@@ -38,7 +38,7 @@ public class GridSettingsAppService : PlatformAppServiceBase, IGridSettingsAppSe
         ValidateGridSettingsDto(input);
 
         var blob = await ReadBlobAsync();
-        blob[gridId] = input;
+        blob[MakeBlobKey(gridId)] = input;
         await WriteBlobAsync(blob);
     }
 
@@ -47,10 +47,19 @@ public class GridSettingsAppService : PlatformAppServiceBase, IGridSettingsAppSe
         ValidateGridId(gridId);
 
         var blob = await ReadBlobAsync();
-        if (blob.Remove(gridId))
+        if (blob.Remove(MakeBlobKey(gridId)))
         {
             await WriteBlobAsync(blob);
         }
+    }
+
+    // ABP user-level settings are keyed by UserId only, not by (TenantId, UserId).
+    // Incorporating the tenant ID into the blob key ensures settings from tenant A
+    // never resolve in tenant B (constitution rule 1). See design §Assumptions #3.
+    private string MakeBlobKey(string gridId)
+    {
+        var tenantPrefix = CurrentTenant.Id?.ToString("N") ?? "host";
+        return $"{tenantPrefix}:{gridId}";
     }
 
     private async Task<Dictionary<string, GridSettingsDto>> ReadBlobAsync()
