@@ -92,7 +92,7 @@ ABP Identity's built-in tenant-awareness scopes the underlying data automaticall
 
 | File | Purpose |
 |---|---|
-| `role-multi-select.tsx` | Reusable role multi-select dropdown — fetches roles via `POST .../roles/grid` and renders as a multi-select; added to the shared library so future forms needing role assignment can reuse it |
+| `role-multi-select.tsx` | Reusable role multi-select dropdown — fetches roles via `GET .../roles` and renders as a multi-select; added to the shared library so future forms needing role assignment can reuse it |
 
 **`src/domains/platform/`** (new domain folder for Platform)
 
@@ -128,7 +128,7 @@ ABP's dynamic API convention derives routes from the service interface name:
 `IUserAppService` → `/api/platform/user` and `IUserRoleAppService` →
 `/api/platform/user-role` — neither matches the required base path. To achieve
 `/api/platform/administration/...`, every method on both interfaces carries an **explicit
-full-path route attribute** (e.g. `[HttpPost("api/platform/administration/users/grid")]`),
+full-path route attribute** (e.g. `[HttpGet("api/platform/administration/users")]`),
 overriding ABP's default convention for the whole service. Conventional CRUD actions
 therefore also need explicit `[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]`
 attributes; there is no automatic derivation left for these services.
@@ -137,15 +137,16 @@ attributes; there is no automatic derivation left for these services.
 
 ### Users
 
-#### `POST /api/platform/administration/users/grid`
+#### `GET /api/platform/administration/users`
 
 Grid block fetch for the users list.
 
 - **Auth:** `Platform.Administration.Users`
-- **Request:** `GridRequest` (from design #6; `wildcardSearch` maps to ABP Identity's
-  `filter` parameter; `sortModels[0]` maps to `sorting`; paging via `startRow`/`endRow`)
+- **Request:** Query parameters; `wildcardSearch` maps to ABP Identity's `filter`
+  parameter; `sortBy` / `sortDir` map to `sorting`; paging via `startRow` / `endRow`.
+  Example: `?startRow=0&endRow=50&wildcardSearch=vries&sortBy=userName&sortDir=asc`
 - **Supported sort columns:** `userName`, `email`, `name`, `surname`, `creationTime`
-- **Supported column filters:** `userName` (text/contains), `email` (text/contains)
+- **Supported column filters:** `filter.userName` (text/contains), `filter.email` (text/contains)
 - **Response 200:**
 ```json
 {
@@ -312,10 +313,12 @@ current password.
 
 ### Roles
 
-#### `POST /api/platform/administration/roles/grid`
+#### `GET /api/platform/administration/roles`
 
 - **Auth:** `Platform.Administration.Roles`
-- **Request:** `GridRequest` (`wildcardSearch` maps to ABP Identity role name filter)
+- **Request:** Query parameters; `wildcardSearch` maps to ABP Identity role name filter;
+  `sortBy` / `sortDir` map to `sorting`; paging via `startRow` / `endRow`.
+  Example: `?startRow=0&endRow=50&wildcardSearch=planner&sortBy=name&sortDir=asc`
 - **Supported sort columns:** `name`, `creationTime`
 - **Response 200:**
 ```json
@@ -530,7 +533,7 @@ as a badge, no action; no delete or edit for static roles).
 **`UserFormDialog`** (create and edit mode)
 
 Create mode fields: Username\*, Email\*, First name, Surname, Password\*,
-Roles (multi-select of available role names via `POST .../roles/grid` with no filter).
+Roles (multi-select of available role names via `GET .../roles` with no filter).
 
 Edit mode fields: same minus password. Form header changes to "Edit user {userName}".
 
@@ -728,7 +731,7 @@ views only.
 
 **Performance budgets touched:**
 
-- **Interactive reads:** `POST .../users/grid` and `POST .../roles/grid` — ABP Identity's
+- **Interactive reads:** `GET .../users` and `GET .../roles` — ABP Identity's
   `GetListAsync` is indexed on `(TenantId, UserName)` / `(TenantId, NormalizedName)`.
   At tens of records per tenant, p95 is expected well within the 300 ms budget. No
   additional indices needed beyond the ABP scaffold.
@@ -785,7 +788,7 @@ views only.
    needs a dedicated count query strategy — deferred to a performance PBI at that time.
 
 8. The `RoleMultiSelect` component in `UserFormDialog` fetches available roles via a
-   paginated call to `POST .../roles/grid` with a large `endRow` (e.g. 200) on dialog
+   paginated call to `GET .../roles` with a large `endRow` (e.g. 200) on dialog
    open. At tens of roles this is acceptable. If the role count grows, a search-as-you-
    type pattern is needed — deferred.
 
