@@ -314,6 +314,7 @@ export function OpenTmsGrid<TRow>({
 
   const onSortChanged = useCallback(
     (_event: SortChangedEvent<TRow>) => {
+      manualRetryCountRef.current = 0;
       scheduleSettingsSave();
     },
     [scheduleSettingsSave],
@@ -339,6 +340,7 @@ export function OpenTmsGrid<TRow>({
   // ── Clear filters ─────────────────────────────────────────────────────────
 
   const handleClearFilter = useCallback(() => {
+    manualRetryCountRef.current = 0;
     searchTermRef.current = "";
     setSearchTerm("");
     gridApiRef.current?.setFilterModel(null);
@@ -352,7 +354,6 @@ export function OpenTmsGrid<TRow>({
     () => ({
       getRows: async (params: IServerSideGetRowsParams<TRow>) => {
         blockStateEmitter.setState("loading");
-        manualRetryCountRef.current = 0;
 
         // Build column filters from AG Grid's filter model
         const filterModel = params.request.filterModel ?? {};
@@ -390,6 +391,7 @@ export function OpenTmsGrid<TRow>({
             params.success({ rowData: response.rows, rowCount: response.filteredCount });
             setTotalCount(response.totalCount);
             setFilteredCount(response.filteredCount);
+            manualRetryCountRef.current = 0;
           } catch {
             if (retryIndex === 0) {
               // Auto-retry after 2 s
