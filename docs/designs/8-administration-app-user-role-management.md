@@ -124,9 +124,14 @@ are needed; other domains react to ABP's built-in user/role lifecycle hooks if n
 
 Base route: `/api/platform/administration`
 
-ABP's dynamic controller generation maps the app service methods to HTTP automatically.
-Non-conventional methods carry explicit `[HttpPost]` / `[HttpDelete]` route attributes
-on the app service interface.
+ABP's dynamic API convention derives routes from the service interface name:
+`IUserAppService` → `/api/platform/user` and `IUserRoleAppService` →
+`/api/platform/user-role` — neither matches the required base path. To achieve
+`/api/platform/administration/...`, every method on both interfaces carries an **explicit
+full-path route attribute** (e.g. `[HttpPost("api/platform/administration/users/grid")]`),
+overriding ABP's default convention for the whole service. Conventional CRUD actions
+therefore also need explicit `[HttpGet]` / `[HttpPost]` / `[HttpPut]` / `[HttpDelete]`
+attributes; there is no automatic derivation left for these services.
 
 ---
 
