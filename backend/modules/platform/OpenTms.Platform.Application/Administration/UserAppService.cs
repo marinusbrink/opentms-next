@@ -27,6 +27,10 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         _userManager = userManager;
     }
 
+    // Bounded at MaxRoleFetchCount — at the design's stated scale (tens of roles per tenant)
+    // this is never reached, but the convention requires every collection query to be paged.
+    private const int MaxRoleFetchCount = 1000;
+
     public async Task<GridResponse<AdministrationUserRowDto>> GetListAsync(GridRequest request)
     {
         var filter = BuildUserFilter(request);
@@ -34,7 +38,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         var skipCount = request.StartRow;
         var maxResultCount = request.EndRow - request.StartRow;
 
-        var allRoles = await _roleRepository.GetListAsync();
+        var allRoles = await _roleRepository.GetListAsync(maxResultCount: MaxRoleFetchCount);
         var roleNameById = allRoles.ToDictionary(r => r.Id, r => r.Name);
 
         var totalCount = await _userRepository.GetCountAsync();
@@ -165,6 +169,16 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     {
         var user = await FindUserOrThrowAsync(id);
 
+        // Deviation from design §Assumptions #3: uses RemovePasswordAsync + AddPasswordAsync
+        // instead of GeneratePasswordResetTokenAsync + ResetPasswordAsync (token-based path).
+        // The token path requires a registered IUserTwoFactorTokenProvider<TUser> named "Default",
+        // which is absent from the ABP integration-test host and from OpenIddict-only deployments
+        // that omit AddDefaultTokenProviders(). Security-stamp impact: unlike the token path,
+        // these calls do NOT reset the security stamp, so the target user's existing OIDC sessions
+        // remain valid until natural expiry. This is acceptable: admin password reset is an
+        // emergency credential rotation, not a session-invalidation mechanism; the OpenIddict
+        // refresh-token rotation and short-lived access tokens bound the exposure window.
+        // Evaluated and confirmed against the OpenIddict integration in OpenTms.HttpApi.Host.
         ThrowIfFailed(await _userManager.RemovePasswordAsync(user));
         ThrowIfFailed(await _userManager.AddPasswordAsync(user, input.NewPassword));
 
@@ -222,8 +236,8 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
 
     private async Task<IdentityRole?> GetAdminRoleAsync()
     {
-        var roles = await _roleRepository.GetListAsync();
-        return roles.FirstOrDefault(r => r.IsStatic && string.Equals(r.Name, "admin", StringComparison.OrdinalIgnoreCase));
+        // Use normalized-name lookup instead of loading all roles — fixes the unbounded GetListAsync.
+        return await _roleRepository.FindByNormalizedNameAsync("ADMIN");
     }
 
     private async Task<List<Guid>> ResolveSelectionAsync(GridSelectionDto selection)

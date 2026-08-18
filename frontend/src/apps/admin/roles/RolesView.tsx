@@ -16,6 +16,16 @@ import { useApplicationConfiguration } from "@/lib/abp/queries";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import type { OpenTmsGridProps, GridRequest } from "@/components/ui/opentms-grid";
 
+function extractApiError(error: unknown): string {
+  if (!error || typeof error !== "object") return String(error ?? "");
+  const e = error as Record<string, unknown>;
+  const abpMsg = (e["error"] as Record<string, unknown> | undefined)?.["message"];
+  if (typeof abpMsg === "string") return abpMsg;
+  if (typeof e["title"] === "string") return e["title"];
+  if (typeof e["detail"] === "string") return e["detail"];
+  return "";
+}
+
 const _OpenTmsGrid = lazy(() =>
   import("@/components/ui/opentms-grid").then((m) => ({ default: m.OpenTmsGrid })),
 );
@@ -44,9 +54,11 @@ function RowActions({ row, canUpdate, canDelete, onEdit, onDeleteResult, onDelet
   const { t } = useL();
   const deleteRole = useDeleteRole();
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const isStatic = row.isStatic ?? false;
 
   const handleDelete = async () => {
+    setDeleteError("");
     try {
       const result = await deleteRole.mutateAsync({ id: row.id!, force: false });
       setPopoverOpen(false);
@@ -55,8 +67,8 @@ function RowActions({ row, canUpdate, canDelete, onEdit, onDeleteResult, onDelet
       } else {
         onDeleteResult(result, row);
       }
-    } catch {
-      setPopoverOpen(false);
+    } catch (err) {
+      setDeleteError(extractApiError(err) || t("Administration:DeleteFailed"));
     }
   };
 
@@ -74,7 +86,7 @@ function RowActions({ row, canUpdate, canDelete, onEdit, onDeleteResult, onDelet
         </Button>
       )}
       {canDelete && (
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <Popover open={popoverOpen} onOpenChange={(open) => { setPopoverOpen(open); if (!open) setDeleteError(""); }}>
           <PopoverTrigger
             disabled={isStatic || deleteRole.isPending}
             title={t("Administration:DeleteRole")}
@@ -86,6 +98,9 @@ function RowActions({ row, canUpdate, canDelete, onEdit, onDeleteResult, onDelet
             <p className="text-sm font-medium">
               {t("Administration:DeleteRole")} {row.name}?
             </p>
+            {deleteError && (
+              <p className="mt-1 text-xs text-destructive">{deleteError}</p>
+            )}
             <div className="mt-2 flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setPopoverOpen(false)}>
                 {t("Administration:Cancel")}

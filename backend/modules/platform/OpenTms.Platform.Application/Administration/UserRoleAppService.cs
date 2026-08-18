@@ -43,12 +43,19 @@ public class UserRoleAppService : PlatformAppServiceBase, IUserRoleAppService
             skipCount: skipCount,
             sorting: sorting);
 
-        var rows = new List<AdministrationRoleRowDto>();
-        foreach (var role in roles)
-        {
-            var userCount = await _userRepository.GetCountAsync(roleId: role.Id);
-            rows.Add(MapToRoleRowDto(role, userCount));
-        }
+        // ABP's IIdentityUserRepository has no bulk-count-by-roleId API (no GROUP BY overload),
+        // so we load all users with their role assignments in one query and group in memory.
+        // Bounded at MaxUserCountForRoleCounts — design §Cost & SLO states tens of users per tenant.
+        const int MaxUserCountForRoleCounts = 10_000;
+        var allUsers = await _userRepository.GetListAsync(includeDetails: true, maxResultCount: MaxUserCountForRoleCounts);
+        var userCountByRoleId = allUsers
+            .SelectMany(u => u.Roles.Select(r => r.RoleId))
+            .GroupBy(roleId => roleId)
+            .ToDictionary(g => g.Key, g => (long)g.Count());
+
+        var rows = roles
+            .Select(r => MapToRoleRowDto(r, userCountByRoleId.TryGetValue(r.Id, out var c) ? c : 0))
+            .ToList();
 
         return new GridResponse<AdministrationRoleRowDto>
         {

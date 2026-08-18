@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { lazy, Suspense, type ReactElement } from "react";
 import { APPS, type AppDefinition } from "@/app/apps.config";
 import { DashboardApp } from "@/apps/dashboard";
 import { PlanboardApp } from "@/apps/planboard";
@@ -7,7 +7,18 @@ import { FinanceApp } from "@/apps/finance";
 import { MasterDataApp } from "@/apps/master-data";
 import { IntegrationsApp } from "@/apps/integrations";
 import { ReportsApp } from "@/apps/reports";
-import { AdministrationApp } from "@/apps/admin";
+
+// Lazy-loaded per design §Cost & SLO: admin bundle must not land in the main chunk.
+const _LazyAdmin = lazy(() =>
+  import("@/apps/admin").then((m) => ({ default: m.AdministrationApp }))
+);
+function LazyAdministrationApp(): ReactElement {
+  return (
+    <Suspense fallback={null}>
+      <_LazyAdmin />
+    </Suspense>
+  );
+}
 
 /* Maps every app id from apps.config.ts to its view component (folder under
  * src/apps/). apps.config.ts stays pure data; this is the only place components
@@ -20,7 +31,7 @@ const components: Record<string, () => ReactElement> = {
   "master-data": MasterDataApp,
   integrations: IntegrationsApp,
   reports: ReportsApp,
-  admin: AdministrationApp,
+  admin: LazyAdministrationApp,
 };
 
 export function componentForApp(app: AppDefinition): () => ReactElement {

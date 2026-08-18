@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   createRootRoute,
   createRoute,
@@ -9,7 +10,18 @@ import { componentForApp } from "@/apps/registry";
 import { AppShell } from "@/app/shell/AppShell";
 import { Landing } from "@/app/Landing";
 import { AuthCallback } from "@/auth/AuthCallback";
-import { AdministrationApp } from "@/apps/admin";
+
+const _AdministrationApp = lazy(() =>
+  import("@/apps/admin").then((m) => ({ default: m.AdministrationApp }))
+);
+
+function AdminRoute() {
+  return (
+    <Suspense fallback={null}>
+      <_AdministrationApp />
+    </Suspense>
+  );
+}
 
 /* Code-based route tree. App routes are derived from apps.config.ts — adding an
  * app there (a PO decision) plus a component in src/apps/ is all it takes. */
@@ -46,11 +58,12 @@ const appRoutes = APPS.map((app) =>
 
 // Sub-routes for the Administration app — both resolve to the same component;
 // the component reads the pathname to determine the active tab.
+// Lazy-loaded per design §Cost & SLO: admin bundle must not land in the main chunk.
 const adminSubRoutes = ["/admin/users", "/admin/roles"].map((path) =>
   createRoute({
     getParentRoute: () => shellRoute,
     path,
-    component: AdministrationApp,
+    component: AdminRoute,
   }),
 );
 
