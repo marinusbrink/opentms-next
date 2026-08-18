@@ -13,18 +13,31 @@ name: department — build
 on:
   issues:
     types: [labeled]
+  # Convergence loop re-entry (PO decision 2026-08-17): the pipeline dispatches
+  # its own next round until the reviewer approves or max-rounds is spent.
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        description: PBI issue number (status:build)
+        required: true
+      round:
+        description: Internal — convergence round counter; leave at 1 for manual runs
+        default: "1"
 
 permissions:
   contents: write
   issues: write
   pull-requests: write
+  # For the convergence loop's self-dispatch.
+  actions: write
 
 jobs:
   build:
-    if: github.event.label.name == 'status:build'
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'status:build'
     uses: marinusbrink/dev-department/.github/workflows/build.yml@main
     with:
-      issue-number: ${{ github.event.issue.number }}
+      issue-number: ${{ github.event_name == 'workflow_dispatch' && fromJSON(inputs.issue-number) || github.event.issue.number }}
+      round: ${{ github.event_name == 'workflow_dispatch' && fromJSON(inputs.round) || 1 }}
       # The product toolchain the implementer/test-engineer agents may run —
       # exactly what ci.yml uses, nothing more (first build run 31739892847:
       # the frontend implementer burned its whole turn budget on denied npm
@@ -35,6 +48,13 @@ jobs:
       # frontend never inherits a stale contract (run 31752956967: it did, and
       # hand-patched the spec instead of reporting blocked).
       contract-refresh-command: "./scripts/contract-refresh-ci.sh"
+      # Mechanical compile gate after the implementers (compile + lint + build,
+      # NOT the test suite — that is the test engineer's): red triggers a
+      # compile-fix agent round inside the same run.
+      verify-command: "(cd backend && dotnet build OpenTms.slnx --nologo -v q) && (cd frontend && npm ci && npm run lint && npm run build)"
+      # Dispatched on the feature branch when the PR goes gate-2-ready — agent
+      # pushes never trigger CI by themselves (GITHUB_TOKEN event suppression).
+      ci-workflow: "CI"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
