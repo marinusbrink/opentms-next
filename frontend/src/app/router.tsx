@@ -9,6 +9,7 @@ import { componentForApp } from "@/apps/registry";
 import { AppShell } from "@/app/shell/AppShell";
 import { Landing } from "@/app/Landing";
 import { AuthCallback } from "@/auth/AuthCallback";
+import { AdministrationApp } from "@/apps/admin";
 
 /* Code-based route tree. App routes are derived from apps.config.ts — adding an
  * app there (a PO decision) plus a component in src/apps/ is all it takes. */
@@ -43,10 +44,20 @@ const appRoutes = APPS.map((app) =>
   }),
 );
 
+// Sub-routes for the Administration app — both resolve to the same component;
+// the component reads the pathname to determine the active tab.
+const adminSubRoutes = ["/admin/users", "/admin/roles"].map((path) =>
+  createRoute({
+    getParentRoute: () => shellRoute,
+    path,
+    component: AdministrationApp,
+  }),
+);
+
 const routeTree = rootRoute.addChildren([
   landingRoute,
   authCallbackRoute,
-  shellRoute.addChildren(appRoutes),
+  shellRoute.addChildren([...appRoutes, ...adminSubRoutes]),
 ]);
 
 /* No `Register` module augmentation on purpose: app routes are derived from

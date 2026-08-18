@@ -7,6 +7,7 @@ import { FinanceApp } from "@/apps/finance";
 import { MasterDataApp } from "@/apps/master-data";
 import { IntegrationsApp } from "@/apps/integrations";
 import { ReportsApp } from "@/apps/reports";
+import { AdministrationApp } from "@/apps/admin";
 
 /* Maps every app id from apps.config.ts to its view component (folder under
  * src/apps/). apps.config.ts stays pure data; this is the only place components
@@ -19,6 +20,7 @@ const components: Record<string, () => ReactElement> = {
   "master-data": MasterDataApp,
   integrations: IntegrationsApp,
   reports: ReportsApp,
+  admin: AdministrationApp,
 };
 
 export function componentForApp(app: AppDefinition): () => ReactElement {
