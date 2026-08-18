@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenTms.Application\OpenTms.Application.csproj" />
+    <ProjectReference Include="..\..\src\OpenTms.HttpApi\OpenTms.HttpApi.csproj" />
     <ProjectReference Include="..\OpenTms.Domain.Tests\OpenTms.Domain.Tests.csproj" />
   </ItemGroup>
 
