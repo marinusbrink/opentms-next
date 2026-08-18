@@ -15,6 +15,26 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
             PlatformPermissions.TenantProvisioning.Manage,
             L("Permission:TenantProvisioning.Manage"),
             MultiTenancySides.Host);
+
+        var bothSides = MultiTenancySides.Host | MultiTenancySides.Tenant;
+
+        var users = group.AddPermission(
+            PlatformPermissions.Administration.Users.Default,
+            L("Permission:Administration.Users"),
+            bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.Create, L("Permission:Administration.Users.Create"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.Update, L("Permission:Administration.Users.Update"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.Delete, L("Permission:Administration.Users.Delete"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.BulkDelete, L("Permission:Administration.Users.BulkDelete"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.ResetPassword, L("Permission:Administration.Users.ResetPassword"), bothSides);
+
+        var roles = group.AddPermission(
+            PlatformPermissions.Administration.Roles.Default,
+            L("Permission:Administration.Roles"),
+            bothSides);
+        roles.AddChild(PlatformPermissions.Administration.Roles.Create, L("Permission:Administration.Roles.Create"), bothSides);
+        roles.AddChild(PlatformPermissions.Administration.Roles.Update, L("Permission:Administration.Roles.Update"), bothSides);
+        roles.AddChild(PlatformPermissions.Administration.Roles.Delete, L("Permission:Administration.Roles.Delete"), bothSides);
     }
 
     private static LocalizableString L(string name)
