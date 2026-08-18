@@ -56,6 +56,15 @@ public class GridSettingsAppService : PlatformAppServiceBase, IGridSettingsAppSe
     // ABP user-level settings are keyed by UserId only, not by (TenantId, UserId).
     // Incorporating the tenant ID into the blob key ensures settings from tenant A
     // never resolve in tenant B (constitution rule 1). See design §Assumptions #3.
+    //
+    // NOTE — Finding #3: this single-blob approach deviates from the design's
+    // per-gridId key pattern (§Settings storage) and introduces a read-modify-write
+    // race under concurrent writes from the same user. Fixing this requires either
+    // a custom entity (needs EF Core migration — design change) or a setting store
+    // that supports arbitrary dynamic key names without predefined definitions.
+    // ABP's ISettingManager validates all setting names against ISettingDefinitionManager,
+    // so per-gridId keys are not feasible without a design gate decision.
+    // Tracked: see Finding #3 comment on PR #13.
     private string MakeBlobKey(string gridId)
     {
         var tenantPrefix = CurrentTenant.Id?.ToString("N") ?? "host";
