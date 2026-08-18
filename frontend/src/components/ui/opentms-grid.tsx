@@ -419,6 +419,14 @@ export function OpenTmsGrid<TRow>({
     [fetchRows, gridId],
   );
 
+  // ── Datasource update after mount (supports identity-change-triggered refresh) ──
+
+  useEffect(() => {
+    const api = gridApiRef.current;
+    if (!api) return;
+    api.setGridOption("serverSideDatasource", datasource);
+  }, [datasource]);
+
   // ── Grid ready ────────────────────────────────────────────────────────────
 
   const onGridReady = useCallback(

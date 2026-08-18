@@ -5973,6 +5973,450 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    force?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.RoleDeleteCheckDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.RoleDeleteCheckDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.RoleDeleteCheckDto"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                    filterUserName?: string;
+                    filterEmail?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                    };
+                };
+                /** @description Unprocessable Content */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/users/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+                /** @description Unprocessable Content */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unprocessable Content */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/grid-settings": {
         parameters: {
             query?: never;
@@ -6428,6 +6872,1049 @@ export interface paths {
                         "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantProvisioningResultDto"];
                         "text/plain": components["schemas"]["OpenTms.Platform.Tenants.TenantProvisioningResultDto"];
                     };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    StartRow?: number;
+                    EndRow?: number;
+                    SortModels?: components["schemas"]["OpenTms.Platform.Grid.SortModel"][];
+                    ColumnFilters?: {
+                        [key: string]: components["schemas"]["OpenTms.Platform.Grid.ColumnFilterModel"];
+                    };
+                    WildcardSearch?: string;
+                    RowGroupCols?: string[];
+                    GroupKeys?: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    StartRow?: number;
+                    EndRow?: number;
+                    SortModels?: components["schemas"]["OpenTms.Platform.Grid.SortModel"][];
+                    ColumnFilters?: {
+                        [key: string]: components["schemas"]["OpenTms.Platform.Grid.ColumnFilterModel"];
+                    };
+                    WildcardSearch?: string;
+                    RowGroupCols?: string[];
+                    GroupKeys?: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user-role/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    force?: boolean;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteUsersResponseDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationResetPasswordDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
                 /** @description Bad Request */
                 400: {
@@ -7126,6 +8613,79 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        "OpenTms.Platform.Administration.AdministrationResetPasswordDto": {
+            newPassword: string;
+        };
+        "OpenTms.Platform.Administration.AdministrationRoleCreateUpdateDto": {
+            isDefault?: boolean;
+            isPublic?: boolean;
+            name: string;
+        };
+        "OpenTms.Platform.Administration.AdministrationRoleRowDto": {
+            /** Format: uuid */
+            id?: string;
+            isDefault?: boolean;
+            isPublic?: boolean;
+            isStatic?: boolean;
+            name?: string | null;
+            /** Format: int64 */
+            userCount?: number;
+        };
+        "OpenTms.Platform.Administration.AdministrationUserCreateDto": {
+            /** Format: email */
+            email: string;
+            name?: string | null;
+            password: string;
+            roleNames?: string[] | null;
+            surname?: string | null;
+            userName: string;
+        };
+        "OpenTms.Platform.Administration.AdministrationUserRowDto": {
+            /** Format: date-time */
+            creationTime?: string;
+            email?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isActive?: boolean;
+            name?: string | null;
+            roleNames?: string[] | null;
+            surname?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Administration.AdministrationUserUpdateDto": {
+            /** Format: email */
+            email: string;
+            isActive?: boolean;
+            name?: string | null;
+            roleNames?: string[] | null;
+            surname?: string | null;
+            userName: string;
+        };
+        "OpenTms.Platform.Administration.BulkDeleteUsersRequestDto": {
+            selection?: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
+        };
+        "OpenTms.Platform.Administration.BulkDeleteUsersResponseDto": {
+            /** Format: int32 */
+            deletedCount?: number;
+            skippedRows?: components["schemas"]["OpenTms.Platform.Administration.SkippedRowDto"][] | null;
+        };
+        "OpenTms.Platform.Administration.RoleDeleteCheckDto": {
+            roleName?: string | null;
+            /** Format: int64 */
+            userCount?: number;
+        };
+        "OpenTms.Platform.Administration.SkippedRowDto": {
+            /** Format: uuid */
+            id?: string;
+            reason?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Grid.ColumnFilterModel": {
+            filter?: string | null;
+            filterTo?: string | null;
+            filterType: string;
+            type: string;
+        };
         "OpenTms.Platform.Grid.ColumnStateDto": {
             colId: string;
             /** Format: int32 */
@@ -7133,6 +8693,39 @@ export interface components {
             visible?: boolean;
             /** Format: int32 */
             width?: number | null;
+        };
+        "OpenTms.Platform.Grid.GridRequest": {
+            columnFilters?: {
+                [key: string]: components["schemas"]["OpenTms.Platform.Grid.ColumnFilterModel"];
+            } | null;
+            /** Format: int32 */
+            endRow?: number;
+            groupKeys?: string[] | null;
+            rowGroupCols?: string[] | null;
+            sortModels?: components["schemas"]["OpenTms.Platform.Grid.SortModel"][] | null;
+            /** Format: int32 */
+            startRow?: number;
+            wildcardSearch?: string | null;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationRoleRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.AdministrationUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridSelectionDto": {
+            excludedIds?: string[] | null;
+            explicitIds?: string[] | null;
+            filterRequest?: components["schemas"]["OpenTms.Platform.Grid.GridRequest"];
+            mode?: string | null;
         };
         "OpenTms.Platform.Grid.GridSettingsDto": {
             columnStates?: components["schemas"]["OpenTms.Platform.Grid.ColumnStateDto"][] | null;

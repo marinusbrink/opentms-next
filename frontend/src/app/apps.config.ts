@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Plug,
   Receipt,
+  Shield,
   Truck,
   type LucideIcon,
 } from "lucide-react";
@@ -26,7 +27,8 @@ export type DomainName =
   | "Financial"
   | "MasterData"
   | "Integrations"
-  | "Reporting";
+  | "Reporting"
+  | "Platform";
 
 export interface AppDefinition {
   /** Stable identifier; also the app's folder name under src/apps/. */
@@ -98,6 +100,14 @@ export const APPS: readonly AppDefinition[] = [
     domains: ["Reporting"],
     icon: BarChart3,
     tileClass: "bg-rose-600",
+  },
+  {
+    id: "admin",
+    nameKey: "App:Administration",
+    path: "/admin",
+    domains: ["Platform"],
+    icon: Shield,
+    tileClass: "bg-gray-700",
   },
 ];
 
