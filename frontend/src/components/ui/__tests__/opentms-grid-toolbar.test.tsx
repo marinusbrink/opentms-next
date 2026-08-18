@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type { ColDef } from "ag-grid-community";
 import { describe, expect, it, vi } from "vitest";
 
 import { OpenTmsGridToolbar } from "@/components/ui/opentms-grid-toolbar";
+
+type TestRow = { reference: string; status: string };
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -72,13 +75,15 @@ vi.mock("@/components/ui/tooltip", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const defaultColumnDefs: ColDef<TestRow>[] = [
+  { colId: "reference", field: "reference", headerName: "Reference" },
+  { colId: "status", field: "status", headerName: "Status" },
+];
+
 const defaultProps = {
   searchValue: "",
   onSearchChange: vi.fn(),
-  columnDefs: [
-    { colId: "reference", field: "reference", headerName: "Reference" },
-    { colId: "status", field: "status", headerName: "Status" },
-  ],
+  columnDefs: defaultColumnDefs,
   columnVisibility: { reference: true, status: true },
   onToggleColumn: vi.fn(),
   onReset: vi.fn(),
@@ -159,7 +164,7 @@ describe("OpenTmsGridToolbar", () => {
       columnDefs: [
         { colId: "reference", field: "reference", headerName: "Reference" },
         { headerName: "Unnamed" }, // no colId or field — not toggleable
-      ],
+      ] as ColDef<TestRow>[],
     };
     render(<OpenTmsGridToolbar {...propsWithUnidentified} />);
     expect(screen.getByText("Reference")).toBeInTheDocument();

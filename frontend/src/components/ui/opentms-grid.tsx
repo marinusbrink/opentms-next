@@ -271,6 +271,8 @@ export function OpenTmsGrid<TRow>({
 
     // Optimistic: revert to code defaults immediately
     api.resetColumnState();
+    // resetColumnState fires synchronous column events that re-arm the debounce; cancel it.
+    clearTimeout(settingsSaveDebounceRef.current);
     syncColumnVisibility();
     manualRetryCountRef.current = 0;
 

@@ -59,17 +59,16 @@ describe("OpenTmsGrid handleReset / scheduleSettingsSave debounce race", () => {
   }
 
   it("FINDING_2: resetColumnState events re-arm a debounced PUT that fires after the DELETE", () => {
-    // This test demonstrates the bug and FAILS on the current implementation.
+    // Fix applied: clearTimeout(settingsSaveDebounceRef.current) in handleReset cancels
+    // the debounce re-armed by resetColumnState's synchronous column events.
     // Expected: only ["DELETE"] — reset leaves no pending save behind.
-    // Actual (buggy): ["DELETE", "PUT"] — the reset is overwritten by a PUT.
     vi.useFakeTimers();
     try {
-      const { handleReset, getCalls } = buildMachine(false /* current buggy code */);
+      const { handleReset, getCalls } = buildMachine(true /* with fix */);
 
       handleReset();
       vi.advanceTimersByTime(1100);
 
-      // Assert the CORRECT expected outcome — fails because the bug produces ["DELETE", "PUT"].
       expect(getCalls()).toEqual(["DELETE"]);
     } finally {
       vi.useRealTimers();
