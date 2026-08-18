@@ -165,8 +165,8 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     {
         var user = await FindUserOrThrowAsync(id);
 
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        ThrowIfFailed(await _userManager.ResetPasswordAsync(user, token, input.NewPassword));
+        ThrowIfFailed(await _userManager.RemovePasswordAsync(user));
+        ThrowIfFailed(await _userManager.AddPasswordAsync(user, input.NewPassword));
 
         Logger.LogInformation("Password reset for user {UserId} by {ActorId}", id, CurrentUser.Id);
     }
