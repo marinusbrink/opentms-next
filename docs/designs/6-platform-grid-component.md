@@ -35,7 +35,7 @@ consume the contract in their own list endpoints.
 
 | Type | Name | Notes |
 |---|---|---|
-| C# class | `GridSettingsAppService` | Implements `IGridSettingsAppService` via `ISettingManager` |
+| C# class | `GridSettingsAppService` | Implements `IGridSettingsAppService` via `ISettingManager` blob-per-user approach with `IAbpDistributedLock` (see §Settings storage) |
 | C# class | `GridSettingDefinitionProvider` | Declares the ABP setting definition for the grid settings key |
 | C# class | `GridSettingsController` | Conventional ABP controller; exposes `IGridSettingsAppService` |
 
@@ -49,14 +49,43 @@ consume the contract in their own list endpoints.
 
 ### Settings storage
 
-Grid settings are stored via ABP's `ISettingManager` at `UserLevel` scope using the
-`ForCurrentUserAsync` API. No new EF Core entity or table is introduced; the existing
-ABP-managed `AbpSettings` table (part of the ABP Framework core schema in every
-database) holds the values.
+**Design gate amendment — approved 2026-08-18.** The original spec used one ABP setting
+key per gridId (`OpenTms.Platform.Grid.Settings.{gridId}`). During implementation this
+was found to be infeasible: `ISettingManager` validates every name against
+`ISettingDefinitionManager`, which requires definitions registered at compile time.
+Dynamic per-gridId keys (where `gridId` is determined at runtime) cannot be registered;
+a custom `ISettingDefinitionManager` would be required — a change that exceeds this
+PBI's scope. The approach below is the approved replacement.
 
-Setting name pattern: `OpenTms.Platform.Grid.Settings.{gridId}`.
+Grid settings are stored via ABP's `ISettingManager` at `UserLevel` scope using a
+single ABP setting key `OpenTms.Platform.Grid.Settings` (registered by
+`GridSettingDefinitionProvider`). The value is a JSON blob (serialised
+`Dictionary<string, GridSettingsDto>`) with internal keys of the form `{tenantId}:{gridId}`.
 
-`gridId` is validated as `^[a-zA-Z0-9_.-]{1,100}$` before being used as a key suffix.
+**Tenant isolation** — Assumption 3 was found to be incorrect: ABP user-level settings
+are keyed only by `UserId`; `TenantId` is not considered during reads. Settings written
+in tenant A's context are therefore readable in tenant B's context for the same user —
+a constitution rule 1 violation if not addressed. The internal `{tenantId}:` prefix
+(using `CurrentTenant.Id.ToString("N")` or the literal `"host"` for the host context)
+enforces isolation explicitly. Tenant-isolation integration tests verify this at every
+change.
+
+**Read-modify-write safety** — concurrent `SetAsync` or `ResetAsync` calls from the
+same user (e.g. two browser tabs writing to different grids simultaneously) could
+interleave their read-modify-write on the shared blob. This is prevented by
+`IAbpDistributedLock` with a per-user-per-tenant lock key:
+`OpenTms.Platform.GridSettings:{tenantId}:{userId}`. The `LocalAbpDistributedLock`
+(SemaphoreSlim-backed, registered by default from
+`AbpDistributedLockingAbstractionsModule`) handles single-instance deployments; a
+Redis-backed implementation replaces it transparently at multi-instance deployment time
+with no code change.
+
+No new EF Core entity or table is introduced; the existing ABP-managed `AbpSettings`
+table holds the blob. At 100 tenants × 50 users the table grows by at most 5 000 rows
+(one row per user per tenant, regardless of how many grids that user has personalised).
+
+`gridId` is validated as `^[a-zA-Z0-9_.-]{1,100}$` before being used as a blob-key
+suffix.
 
 ### Events
 
@@ -183,9 +212,12 @@ After implementation, run `./scripts/generate-openapi.sh && cd frontend && npm r
 4. Add `GridSettingsController` (conventional ABP controller) to the HttpApi.Host.
 5. Add `ag-grid-enterprise` and `ag-grid-react` (pinned compatible version — see
    Assumption 4) to `frontend/package.json`.
-6. Add `OpenTmsGrid`, `OpenTmsGridToolbar`, `OpenTmsGridFooter` to
+6. Add frontend test dependencies to `package.json` `devDependencies`: `vitest`,
+   `@testing-library/jest-dom`, `@testing-library/react`, `jsdom`. These are required
+   by the §Test risk analysis component-test mandate and are dev-only (no bundle impact).
+7. Add `OpenTmsGrid`, `OpenTmsGridToolbar`, `OpenTmsGridFooter` to
    `frontend/src/components/ui/`.
-7. Regenerate the OpenAPI spec and the typed TS client.
+8. Regenerate the OpenAPI spec and the typed TS client.
 
 No EF Core migration is required — ABP's `AbpSettings` table already exists in every
 tenant database and every host database.
@@ -354,7 +386,7 @@ The first consuming screen's design carries the feature flag and activation orde
 
 | Resource | Impact |
 |---|---|
-| Cloud SQL (platform schema) | No new table. ABP `AbpSettings` table receives one row per user per grid-id per tenant on first settings save. At 50 users × 10 grid-ids = 500 rows per tenant; at 100 tenants = 50 000 rows total — trivial. |
+| Cloud SQL (platform schema) | No new table. ABP `AbpSettings` table receives one row per user per tenant on first settings save (all grids for a user are in a single blob). At 50 users per tenant; at 100 tenants = 5 000 rows total — trivial. |
 | Cloud SQL (consumer grids) | Not owned by this design. Each consumer's block-fetch query is designed and budget-checked in that consumer's own design doc. |
 | Cloud Run | No new min instances. Settings GET/PUT/DELETE are simple single-row operations; sub-millisecond DB time expected. |
 | Egress | `GridSettingsDto` payloads are < 5 KB per response. Negligible. |
@@ -392,10 +424,11 @@ The first consuming screen's design carries the feature flag and activation orde
    secret named `AG_GRID_LICENSE_KEY` (injected as `VITE_AG_GRID_LICENSE_KEY` at build
    time). CI asserts key presence; a production build without a valid key fails.
 
-3. ABP's `ISettingManager.GetOrNullForCurrentUserAsync` / `SetForCurrentUserAsync`
-   automatically scopes settings to the current tenant through ABP's `ICurrentTenant`
-   — no manual tenant filtering is needed. This is relied upon without additional
-   wrapping. If this assumption is wrong, a custom tenant-scoped key must be used.
+3. **Assumption overturned during implementation.** ABP `ISettingManager` user-level
+   settings are keyed by `UserId` only; the `TenantId` column of `AbpSettings` is not
+   considered during reads. Settings written in tenant A are readable in tenant B for
+   the same user. See §Settings storage — the blob-per-user approach with internal
+   `{tenantId}:{gridId}` keys resolves this.
 
 4. An `ag-grid-enterprise` + `ag-grid-react` version exists on npm that is compatible
    with TypeScript 5.9. If the latest AG Grid version's type definitions require TS ≥ 6,
