@@ -6,6 +6,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Dispatched by the department build pipeline when a feature PR goes
+  # gate-2-ready: agent pushes use GITHUB_TOKEN, whose events never trigger
+  # workflows, so the pipeline kicks CI explicitly on the feature branch.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

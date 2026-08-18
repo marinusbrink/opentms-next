@@ -52,6 +52,9 @@ jobs:
       # NOT the test suite — that is the test engineer's): red triggers a
       # compile-fix agent round inside the same run.
       verify-command: "(cd backend && dotnet build OpenTms.slnx --nologo -v q) && (cd frontend && npm ci && npm run lint && npm run build)"
+      # Dispatched on the feature branch when the PR goes gate-2-ready — agent
+      # pushes never trigger CI by themselves (GITHUB_TOKEN event suppression).
+      ci-workflow: "CI"
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       DEPT_SYNC_TOKEN: ${{ secrets.DEPT_SYNC_TOKEN }}
