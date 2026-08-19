@@ -224,13 +224,13 @@ Not applicable — the pane contains only navigation (no mutations).
 | `apps.config.ts` extension | **low** | Additive data-only change; no existing app behaviour changes |
 | Localization key additions | **low** | Two additive keys in Platform resource; no existing key removed |
 
-### E2E coverage gap (tracked — deferred from this PBI)
+### E2E coverage
 
-The §4.5 matrix mandates E2E tests for critical-risk parts. `AppNavPane` and `AppShell` are both critical-risk. The project currently has no E2E framework (no Playwright, no Cypress).
+The §4.5 matrix mandates E2E tests for critical-risk parts. `AppNavPane` and `AppShell` are both critical-risk.
 
-**Gap:** component tests run in jsdom via Vitest + RTL and do not exercise the TanStack Router navigation lifecycle in a real browser. A routing or shell integration regression introduced in a future PR will not be caught before merge by the current suite.
+**Delivered:** Playwright (`@playwright/test`) is added to the project as a dev dependency. The test file `frontend/e2e/shell-nav.spec.ts` covers the mandated minimum journey (login → `/admin/users` → click Roles → assert `/admin/roles` renders) plus pane-collapse toggle and the full-width layout path for apps without views. Config lives in `frontend/playwright.config.ts`.
 
-**Deferred decision:** E2E infrastructure (Playwright setup, CI job, minimum journey: login → `/admin/users` → click Roles → assert `/admin/roles` renders) is explicitly out of scope for this PBI. A follow-up issue must be created and confirmed by the architect/PO before the next critical-risk platform change. Until then, critical-shell coverage is component-only — gap is visible here and tracked on the issue. See issue #18 for the deferral comment.
+Component tests (Vitest + RTL, jsdom) remain the fast inner loop; the Playwright suite runs against a live server and exercises the TanStack Router navigation lifecycle in a real browser.
 
 ## Flag & rollout plan
 
