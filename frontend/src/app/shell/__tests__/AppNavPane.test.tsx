@@ -330,5 +330,40 @@ describe("AppNavPane (critical + high risk)", () => {
         expect(link).toHaveAttribute("aria-label");
       });
     });
+
+    it("collapsed mode: active link still carries aria-current=page for screen readers", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/users" });
+      render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
+      // Even in icon-rail mode, the active link must carry aria-current for AT users
+      const nav = screen.getByRole("navigation");
+      const activeLink = nav.querySelector('ul li a[aria-current="page"]');
+      expect(activeLink).toBeInTheDocument();
+    });
+
+    it("collapsed mode: tooltip content shows the view label for each entry", () => {
+      render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
+      const tooltips = screen.getAllByTestId("tooltip-content");
+      const tooltipTexts = tooltips.map((el) => el.textContent);
+      expect(tooltipTexts).toContain("Administration:Users");
+      expect(tooltipTexts).toContain("Administration:Roles");
+    });
+
+    it("active entry with children: button does not carry aria-current (not a page link)", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/parent" });
+      render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      // Category buttons are not page links — aria-current="page" would be incorrect
+      const parentButton = screen.getByRole("button", { name: "ParentView" });
+      expect(parentButton).not.toHaveAttribute("aria-current");
+    });
+
+    it("active entry with children: no accent bar rendered (parent category stays visually neutral)", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/parent" });
+      render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      // Design: accent bar is for leaf entries only (isActive && !hasChildren);
+      // a parent-category button active state is conveyed via font-medium class, not the bar
+      const nav = screen.getByRole("navigation");
+      const accentBar = nav.querySelector('span[aria-hidden][class*="bg-primary"]');
+      expect(accentBar).not.toBeInTheDocument();
+    });
   });
 });
