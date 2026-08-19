@@ -367,6 +367,39 @@ describe("AppNavPane (critical + high risk)", () => {
     });
   });
 
+  // ── Medium: expanded mode tooltip and label styling ───────────────────────
+
+  describe("expanded mode tooltips and label styling (medium risk)", () => {
+    it("expanded mode: leaf entry label span carries the truncate class", () => {
+      render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const usersLabel = screen.getByText("Administration:Users");
+      expect(usersLabel.className).toContain("truncate");
+    });
+
+    it("expanded mode: parent entry label span carries the truncate class", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/other" });
+      render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const parentLabel = screen.getByText("ParentView");
+      expect(parentLabel.className).toContain("truncate");
+    });
+
+    it("expanded mode: tooltip content is present for leaf entries", () => {
+      render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const tooltips = screen.getAllByTestId("tooltip-content");
+      const tooltipLabels = tooltips.map((el) => el.getAttribute("data-label"));
+      expect(tooltipLabels).toContain("Administration:Users");
+      expect(tooltipLabels).toContain("Administration:Roles");
+    });
+
+    it("expanded mode: tooltip content is present for parent (children) entries", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/other" });
+      render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const tooltips = screen.getAllByTestId("tooltip-content");
+      const tooltipLabels = tooltips.map((el) => el.getAttribute("data-label"));
+      expect(tooltipLabels).toContain("ParentView");
+    });
+  });
+
   // ── Critical: isActive path-segment boundary ───────────────────────────────
   //
   // BUG FINDING: NavEntry uses pathname.startsWith(view.path) without a trailing-

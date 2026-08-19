@@ -115,6 +115,15 @@ describe("AppShell – layout change (critical risk)", () => {
     expect(screen.getByRole("main")).toBeInTheDocument();
   });
 
+  it("does not render AppNavPane when activeApp has an empty views array", () => {
+    const appWithEmptyViews: AppDefinition = { ...APP_WITHOUT_VIEWS, views: [] };
+    (findAppByPath as ReturnType<typeof vi.fn>).mockReturnValue(appWithEmptyViews);
+    render(<AppShell />);
+
+    expect(screen.queryByTestId("app-nav-pane")).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+  });
+
   it("renders the outlet inside main in both layouts", () => {
     (findAppByPath as ReturnType<typeof vi.fn>).mockReturnValue(APP_WITH_VIEWS);
     render(<AppShell />);
