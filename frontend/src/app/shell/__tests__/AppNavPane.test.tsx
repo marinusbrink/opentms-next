@@ -7,8 +7,8 @@ import type { AppDefinition, AppView } from "@/app/apps.config";
 vi.mock("@tanstack/react-router", () => ({
   useLocation: vi.fn(() => ({ pathname: "/admin/users" })),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Link: ({ to, children, "aria-current": ariaCurrent, className }: any) => (
-    <a href={to} aria-current={ariaCurrent} className={className}>
+  Link: ({ to, children, "aria-current": ariaCurrent, "aria-label": ariaLabel, className }: any) => (
+    <a href={to} aria-current={ariaCurrent} aria-label={ariaLabel} className={className}>
       {children}
     </a>
   ),
@@ -276,45 +276,24 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(nav.className).toContain("w-[250px]");
     });
 
-    it("narrow viewport forces icon-rail width regardless of collapsed=false (initial render)", () => {
+    it("collapsed=true: pane has icon-rail width w-14 regardless of viewport", () => {
       setupNarrowViewport();
-      render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
       const nav = screen.getByRole("navigation");
       expect(nav.className).toContain("w-14");
     });
 
-    it("narrow viewport: toggle button label is Shell:NavExpand (pane is in icon-rail state)", () => {
-      setupNarrowViewport();
-      render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
-      // When forced to icon-rail on narrow, the toggle should show "expand" label
+    it("collapsed=true: toggle button label is Shell:NavExpand", () => {
+      render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
       expect(screen.getByRole("button", { name: "Shell:NavExpand" })).toBeInTheDocument();
     });
 
-    /**
-     * FAILING TEST — design requirement violated by current implementation.
-     *
-     * Design §UI design (Narrow viewports):
-     *   "The toggle remains interactive so users on a narrow device can opt in to
-     *    expanded view."
-     *
-     * Current implementation: `effectiveCollapsed = isNarrow || collapsed`
-     * When isNarrow=true, effectiveCollapsed is always true regardless of the
-     * collapsed prop. Clicking the toggle changes the parent navCollapsed state
-     * but the pane remains in icon-rail. The user cannot expand on narrow viewports.
-     *
-     * Expected: when the parent (AppShell) has set collapsed=false (honoring the
-     * user's "expand" toggle), the pane should render in expanded state even on
-     * a narrow viewport.
-     *
-     * Risk class: HIGH (collapse toggle + reflow)
-     */
-    it("[BUG] narrow viewport: pane expands when collapsed=false (user opted into expanded view)", () => {
+    it("narrow viewport: pane expands when collapsed=false (user opted into expanded view)", () => {
       setupNarrowViewport();
-      // collapsed=false means AppShell has already honored a "expand" toggle action
+      // AppShell initialises navCollapsed=true on narrow; after user clicks expand,
+      // navCollapsed=false is passed down. The pane must honour that and show expanded.
       render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
       const nav = screen.getByRole("navigation");
-      // Design says users CAN opt in to expanded view on narrow devices.
-      // This FAILS because effectiveCollapsed = isNarrow || collapsed = true || false = true.
       expect(nav.className).toContain("w-[250px]");
     });
   });
@@ -342,30 +321,11 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(inactiveLink).not.toHaveAttribute("aria-current");
     });
 
-    /**
-     * FAILING TEST — accessibility gap in collapsed (icon-rail) mode.
-     *
-     * Design §UI design (Keyboard navigation):
-     *   "Tab reaches every entry and the collapse toggle in DOM order;
-     *    Enter/Space activates the focused element."
-     *
-     * WCAG 2.1 SC 4.1.2 requires interactive elements to have an accessible name.
-     * In collapsed mode, entries without children render as icon-only links with no
-     * aria-label and no visible text. The tooltip provides aria-describedby (description)
-     * but NOT an accessible name. Screen readers announce these as unnamed links.
-     *
-     * Expected: collapsed links should carry aria-label={t(view.nameKey)}.
-     * Current: the collapsed <Link> has aria-current but no aria-label.
-     *
-     * Risk class: MEDIUM (keyboard navigation / a11y)
-     */
-    it("[BUG] collapsed mode: icon-only links must have aria-label for screen readers", () => {
+    it("collapsed mode: icon-only links have aria-label for screen readers", () => {
       render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
       const nav = screen.getByRole("navigation");
       const collapsedLinks = Array.from(nav.querySelectorAll("ul li a"));
       expect(collapsedLinks.length).toBeGreaterThan(0);
-      // Each collapsed link should have an aria-label so screen readers can announce it.
-      // This FAILS: the current implementation omits aria-label from icon-only links.
       collapsedLinks.forEach((link) => {
         expect(link).toHaveAttribute("aria-label");
       });

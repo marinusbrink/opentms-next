@@ -16,7 +16,7 @@ export function AppShell() {
   const { t } = useL();
   const location = useLocation();
   const activeApp = findAppByPath(location.pathname);
-  const [navCollapsed, setNavCollapsed] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(() => window.innerWidth < 768);
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated && !auth.activeNavigator) {

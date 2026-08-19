@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type AppDefinition, type AppView } from "@/app/apps.config";
@@ -58,6 +58,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
               <Link
                 to={view.path}
                 aria-current={isActive ? "page" : undefined}
+                aria-label={label}
                 className={iconRailClassName}
               />
             )
@@ -120,21 +121,9 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   return entryContent;
 }
 
-function useIsNarrow(): boolean {
-  const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const handler = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return isNarrow;
-}
-
 export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProps) {
   const { t } = useL();
-  const isNarrow = useIsNarrow();
-  const effectiveCollapsed = isNarrow || collapsed;
+  const effectiveCollapsed = collapsed;
 
   const appName = t(app.nameKey);
 
