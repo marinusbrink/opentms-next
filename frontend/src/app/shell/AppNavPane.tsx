@@ -90,17 +90,26 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
           />
         </button>
       ) : (
-        <Link
-          to={view.path}
-          aria-current={isActive ? "page" : undefined}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-            isActive ? "text-foreground font-medium" : "text-muted-foreground",
-          )}
-        >
-          <Icon size={24} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-        </Link>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Link
+                  to={view.path}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                    isActive ? "text-foreground font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon size={24} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                </Link>
+              }
+            />
+            <TooltipContent side="right">{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
       {hasChildren && childrenOpen && (
         <ul className="mt-0.5 space-y-0.5 pl-8">

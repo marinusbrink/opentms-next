@@ -29,7 +29,7 @@ vi.mock("@/components/ui/tooltip", () => ({
     render?: React.ReactElement;
   }) => (renderProp != null ? renderProp : <>{children}</>),
   TooltipContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="tooltip-content">{children}</div>
+    <div data-testid="tooltip-content" data-label={typeof children === "string" ? children : ""}></div>
   ),
 }));
 
@@ -343,9 +343,9 @@ describe("AppNavPane (critical + high risk)", () => {
     it("collapsed mode: tooltip content shows the view label for each entry", () => {
       render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
       const tooltips = screen.getAllByTestId("tooltip-content");
-      const tooltipTexts = tooltips.map((el) => el.textContent);
-      expect(tooltipTexts).toContain("Administration:Users");
-      expect(tooltipTexts).toContain("Administration:Roles");
+      const tooltipLabels = tooltips.map((el) => el.getAttribute("data-label"));
+      expect(tooltipLabels).toContain("Administration:Users");
+      expect(tooltipLabels).toContain("Administration:Roles");
     });
 
     it("active entry with children: button does not carry aria-current (not a page link)", () => {
