@@ -148,14 +148,20 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(inactiveLink).not.toHaveAttribute("aria-current");
     });
 
-    it("active entry in expanded mode has the accent bar (aria-hidden span)", () => {
+    it("active leaf entry in expanded mode has bg-brand fill class", () => {
       (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/users" });
       render(<AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />);
-      // The active accent bar is a span with aria-hidden and bg-primary class
-      const accentBar = screen
-        .getByRole("navigation")
-        .querySelector('span[aria-hidden][class*="bg-primary"]');
-      expect(accentBar).toBeInTheDocument();
+      const activeLink = screen.getByRole("link", { name: /Administration:Users/ });
+      expect(activeLink.className).toContain("bg-brand");
+    });
+
+    it("active leaf entry in collapsed mode has bg-brand fill class on the icon container link", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/users" });
+      render(<AppNavPane app={ADMIN_APP} collapsed={true} onToggleCollapsed={vi.fn()} />);
+      const nav = screen.getByRole("navigation");
+      const activeLink = nav.querySelector('ul li a[aria-current="page"]');
+      expect(activeLink).not.toBeNull();
+      expect((activeLink as HTMLElement).className).toContain("bg-brand");
     });
   });
 
@@ -356,14 +362,27 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(parentButton).not.toHaveAttribute("aria-current");
     });
 
-    it("active entry with children: no accent bar rendered (parent category stays visually neutral)", () => {
+    it("no span[aria-hidden] is present anywhere in the pane (accent bar removed entirely)", () => {
       (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/parent" });
       render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
-      // Design: accent bar is for leaf entries only (isActive && !hasChildren);
-      // a parent-category button active state is conveyed via font-medium class, not the bar
+      // The accent bar <span aria-hidden> was removed entirely in this PBI; no entry should render one.
       const nav = screen.getByRole("navigation");
-      const accentBar = nav.querySelector('span[aria-hidden][class*="bg-primary"]');
-      expect(accentBar).not.toBeInTheDocument();
+      const anyAriaHiddenSpan = nav.querySelector("span[aria-hidden]");
+      expect(anyAriaHiddenSpan).not.toBeInTheDocument();
+    });
+
+    it("dark-mode: nav does not carry bg-[#F8F9FA] as an inline style (dark surface token applies via CSS class)", () => {
+      const { container } = render(
+        <div className="dark">
+          <AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />
+        </div>,
+      );
+      const nav = container.querySelector("nav");
+      expect(nav).not.toBeNull();
+      // The dark variant must be a CSS class (dark:bg-background), not an inline style.
+      const styleAttr = (nav as HTMLElement).getAttribute("style") ?? "";
+      expect(styleAttr).not.toContain("F8F9FA");
+      expect((nav as HTMLElement).className).toContain("dark:bg-background");
     });
   });
 
