@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "@tanstack/react-router";
 import { useAuth } from "react-oidc-context";
 import { findAppByPath } from "@/app/apps.config";
 import { WaffleLauncher } from "@/app/shell/WaffleLauncher";
 import { UserTenantMenu } from "@/app/shell/UserTenantMenu";
+import { AppNavPane } from "@/app/shell/AppNavPane";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { FullScreenSpinner } from "@/app/shell/FullScreenSpinner";
 
@@ -15,6 +16,7 @@ export function AppShell() {
   const { t } = useL();
   const location = useLocation();
   const activeApp = findAppByPath(location.pathname);
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated && !auth.activeNavigator) {
@@ -25,6 +27,8 @@ export function AppShell() {
   if (!auth.isAuthenticated) {
     return <FullScreenSpinner />;
   }
+
+  const hasNav = activeApp?.views != null && activeApp.views.length > 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100">
@@ -45,9 +49,22 @@ export function AppShell() {
           <UserTenantMenu />
         </div>
       </header>
-      <main className="flex-1 p-6">
-        <Outlet />
-      </main>
+      {hasNav ? (
+        <div className="flex flex-1">
+          <AppNavPane
+            app={activeApp}
+            collapsed={navCollapsed}
+            onToggleCollapsed={() => setNavCollapsed((v) => !v)}
+          />
+          <main className="min-w-0 flex-1 p-6">
+            <Outlet />
+          </main>
+        </div>
+      ) : (
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      )}
     </div>
   );
 }
