@@ -366,4 +366,59 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(accentBar).not.toBeInTheDocument();
     });
   });
+
+  // ── Critical: isActive path-segment boundary ───────────────────────────────
+  //
+  // BUG FINDING: NavEntry uses pathname.startsWith(view.path) without a trailing-
+  // slash / exact-match boundary guard.  findAppByPath already uses the correct
+  // pattern (pathname === app.path || pathname.startsWith(`${app.path}/`)) to
+  // avoid matching /administrators for /admin.  NavEntry has the same responsibility
+  // but lacks the guard, so a view with path "/admin/users" incorrectly marks itself
+  // active when the current pathname is "/admin/usersettings".
+  //
+  // Risk class: critical — AppNavPane is a horizontal shell component; the bug
+  // silently produces wrong active state for any app that later adds views whose
+  // paths share a string prefix (e.g. Transport: /transport/order, /transport/orders).
+
+  describe("isActive path-segment boundary (critical risk — bug finding)", () => {
+    const APP_AMBIGUOUS: AppDefinition = {
+      ...ADMIN_APP,
+      views: [
+        {
+          nameKey: "UsersView",
+          path: "/admin/users",
+          icon: MockIcon as unknown as AppView["icon"],
+        },
+        {
+          nameKey: "UserSettingsView",
+          path: "/admin/usersettings",
+          icon: MockIcon as unknown as AppView["icon"],
+        },
+      ],
+    };
+
+    it("isActive does not fire for a view whose path is a string-prefix but not a path-segment prefix of the current pathname", () => {
+      // pathname "/admin/usersettings" must NOT activate the "/admin/users" view.
+      // Current implementation: pathname.startsWith("/admin/users") === true → WRONG.
+      // Correct:  pathname === "/admin/users" || pathname.startsWith("/admin/users/") → false.
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/usersettings" });
+      render(<AppNavPane app={APP_AMBIGUOUS} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const usersLink = screen.getByRole("link", { name: /UsersView/ });
+      expect(usersLink).not.toHaveAttribute("aria-current", "page");
+    });
+
+    it("isActive does not show accent bar for a view falsely matched by string-prefix", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/usersettings" });
+      render(<AppNavPane app={APP_AMBIGUOUS} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      // Only the UserSettingsView entry (exact match) should be active; no accent bar
+      // for UsersView since it is not the active route.
+      const nav = screen.getByRole("navigation");
+      // Count links with aria-current="page": must be exactly one (UserSettingsView),
+      // not two (which would happen with the current startsWith bug).
+      const activeLinks = Array.from(nav.querySelectorAll('a[aria-current="page"]'));
+      expect(activeLinks).toHaveLength(1);
+      const activeLink = activeLinks[0];
+      expect(activeLink).toHaveAttribute("href", "/admin/usersettings");
+    });
+  });
 });
