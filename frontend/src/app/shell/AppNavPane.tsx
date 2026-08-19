@@ -23,7 +23,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   const location = useLocation();
   const [childrenOpen, setChildrenOpen] = useState(false);
 
-  const isActive = location.pathname.startsWith(view.path);
+  const isActive = location.pathname === view.path || location.pathname.startsWith(`${view.path}/`);
   const hasChildren = view.children != null && view.children.length > 0;
   const label = t(view.nameKey);
   const Icon = view.icon;
