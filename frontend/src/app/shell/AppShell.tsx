@@ -32,7 +32,7 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col bg-neutral-100">
-      <header className="flex h-12 items-center bg-[#0f6cbd] text-white shadow-sm">
+      <header className="flex h-12 items-center bg-brand text-white shadow-sm">
         <WaffleLauncher />
         <div className="flex items-baseline gap-3 pl-1">
           <span className="text-sm font-bold tracking-wide">{t("AppName")}</span>
