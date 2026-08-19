@@ -6,7 +6,9 @@ import {
   Plug,
   Receipt,
   Shield,
+  ShieldCheck,
   Truck,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +22,17 @@ import {
  * `nameKey` refers to the ABP localization resource "OpenTms" — app names are
  * localized like every other user-facing string (no hardcoded texts).
  */
+
+export interface AppView {
+  /** Localization key for the view label. */
+  nameKey: string;
+  /** Route path (exact or prefix) for active-state matching and navigation. */
+  path: string;
+  icon: LucideIcon;
+  /** Sub-items for expandable categories. No app uses this in this PBI;
+   *  support must exist in the component so Transport can adopt it later. */
+  children?: readonly AppView[];
+}
 
 export type DomainName =
   | "Orders"
@@ -42,6 +55,8 @@ export interface AppDefinition {
   icon: LucideIcon;
   /** Office-style tile accent used in the app launcher. */
   tileClass: string;
+  /** Left-nav views. Absent → no pane, full-width layout. */
+  views?: readonly AppView[];
 }
 
 export const APPS: readonly AppDefinition[] = [
@@ -108,6 +123,10 @@ export const APPS: readonly AppDefinition[] = [
     domains: ["Platform"],
     icon: Shield,
     tileClass: "bg-gray-700",
+    views: [
+      { nameKey: "Administration:Users", path: "/admin/users", icon: Users },
+      { nameKey: "Administration:Roles", path: "/admin/roles", icon: ShieldCheck },
+    ],
   },
 ];
 

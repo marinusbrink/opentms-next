@@ -16,6 +16,8 @@
     "Grid:RetryBlock": "Retry",
     "Grid:BlockError": "Failed to load —",
     "App:Administration": "Administration",
+    "Shell:NavCollapse": "Collapse navigation",
+    "Shell:NavExpand": "Expand navigation",
     "Administration:Users": "Users",
     "Administration:Roles": "Roles",
     "Administration:NewUser": "New user",

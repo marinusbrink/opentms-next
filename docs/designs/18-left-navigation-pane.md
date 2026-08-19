@@ -224,6 +224,14 @@ Not applicable — the pane contains only navigation (no mutations).
 | `apps.config.ts` extension | **low** | Additive data-only change; no existing app behaviour changes |
 | Localization key additions | **low** | Two additive keys in Platform resource; no existing key removed |
 
+### E2E coverage
+
+The §4.5 matrix mandates E2E tests for critical-risk parts. `AppNavPane` and `AppShell` are both critical-risk.
+
+**Delivered:** Playwright (`@playwright/test`) is added to the project as a dev dependency. The test file `frontend/e2e/shell-nav.spec.ts` covers the mandated minimum journey (login → `/admin/users` → click Roles → assert `/admin/roles` renders) plus pane-collapse toggle and the full-width layout path for apps without views. Config lives in `frontend/playwright.config.ts`.
+
+Component tests (Vitest + RTL, jsdom) remain the fast inner loop; the Playwright suite runs against a live server and exercises the TanStack Router navigation lifecycle in a real browser.
+
 ## Flag & rollout plan
 
 `DEVIATION(constitution-4): no customers yet, confirmed by PO in issue #18`

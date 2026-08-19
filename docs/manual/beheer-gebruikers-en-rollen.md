@@ -19,9 +19,36 @@ app.
 1. Klik rechts bovenin op het **wafel-icoon** (negen stippen) om de app-launcher
    te openen.
 2. Klik op de tegel **Beheer** (schildicoon, grijze tegel).
-3. De app opent op het tabblad **Gebruikers**.
+3. De app opent op de **Gebruikers**-weergave. Links zie je het navigatiepaneel
+   met **Gebruikers** en **Rollen**.
 
 <!-- SCREENSHOT: wafel-launcher met de Beheer-tegel zichtbaar -->
+
+---
+
+## Het navigatiepaneel
+
+Aan de linkerzijde van de Beheer-app staat het **navigatiepaneel** met de
+weergaven **Gebruikers** en **Rollen**. De actieve weergave is gemarkeerd met
+een blauw accent.
+
+<!-- SCREENSHOT: de Beheer-app met het navigatiepaneel uitgevouwen en Gebruikers actief -->
+
+**Wisselen van weergave:** klik op **Gebruikers** of **Rollen** in het paneel.
+
+**Paneel inklappen:** klik op het pijltje-links bovenaan het paneel (inklapknop).
+Het paneel wordt smal en toont alleen de iconen. Beweeg de muis over een icoon om
+de naam te zien.
+
+**Paneel uitvouwen:** klik op het pijltje-rechts bovenaan het smalle paneel.
+
+> **Let op:** de inklapstand wordt niet onthouden. Na een pagina-herlaad staat
+> het paneel altijd uitgevouwen.
+
+> **Smal scherm:** op schermen smaller dan 768 px toont het paneel automatisch
+> alleen iconen. Je kunt het alsnog uitvouwen via het pijltje-rechts.
+
+<!-- SCREENSHOT: het navigatiepaneel ingeklapt (alleen iconen) -->
 
 ---
 
@@ -144,7 +171,7 @@ toe aan gebruikers via het gebruikersformulier (zie hierboven).
 
 ### De rollenlijst lezen
 
-Klik op het tabblad **Rollen** boven de lijst. Je ziet de naam van elke rol,
+Klik op **Rollen** in het navigatiepaneel links. Je ziet de naam van elke rol,
 of het de standaard-aanmeldrol is, of hij zichtbaar is voor gebruikers, en aan
 hoeveel gebruikers hij is toegewezen.
 
@@ -219,5 +246,5 @@ heeft toegekend:
 | Rol bewerken | Rollen bewerken |
 | Rol verwijderen | Rollen verwijderen |
 
-Als je een tabblad wel ziet maar een melding "U heeft geen toestemming voor
-deze weergave" verschijnt, neem dan contact op met uw beheerder.
+Als je een weergave wel kunt openen maar een melding "U heeft geen toestemming
+voor deze weergave" verschijnt, neem dan contact op met uw beheerder.
