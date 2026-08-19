@@ -16,6 +16,8 @@
     "Grid:RetryBlock": "Opnieuw proberen",
     "Grid:BlockError": "Fout bij laden —",
     "App:Administration": "Beheer",
+    "Shell:NavCollapse": "Navigatie inklappen",
+    "Shell:NavExpand": "Navigatie uitklappen",
     "Administration:Users": "Gebruikers",
     "Administration:Roles": "Rollen",
     "Administration:NewUser": "Nieuwe gebruiker",
