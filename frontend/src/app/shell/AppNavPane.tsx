@@ -75,20 +75,29 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
         <span className="absolute inset-y-0 left-0 w-0.5 rounded-full bg-primary" aria-hidden />
       )}
       {hasChildren ? (
-        <button
-          onClick={handleClick}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-            isActive ? "text-foreground font-medium" : "text-muted-foreground",
-          )}
-        >
-          <Icon size={24} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          <ChevronRight
-            size={16}
-            className={cn("shrink-0 transition-transform", childrenOpen && "rotate-90")}
-          />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  onClick={handleClick}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                    isActive ? "text-foreground font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  <Icon size={24} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  <ChevronRight
+                    size={16}
+                    className={cn("shrink-0 transition-transform", childrenOpen && "rotate-90")}
+                  />
+                </button>
+              }
+            />
+            <TooltipContent side="right">{label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : (
         <TooltipProvider>
           <Tooltip>
