@@ -6043,6 +6043,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/roles/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/roles/{id}": {
         parameters: {
             query?: never;
@@ -7283,6 +7326,115 @@ export interface paths {
                         "application/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
                         "text/json": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
                         "text/plain": components["schemas"]["OpenTms.Platform.Administration.AdministrationRoleRowDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/user-role/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.BulkDeleteRolesResponseDto"];
                     };
                 };
                 /** @description Bad Request */
@@ -8661,6 +8813,14 @@ export interface components {
             surname?: string | null;
             userName: string;
         };
+        "OpenTms.Platform.Administration.BulkDeleteRolesRequestDto": {
+            selection?: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
+        };
+        "OpenTms.Platform.Administration.BulkDeleteRolesResponseDto": {
+            /** Format: int32 */
+            deletedCount?: number;
+            skippedRows?: components["schemas"]["OpenTms.Platform.Administration.SkippedRoleDto"][] | null;
+        };
         "OpenTms.Platform.Administration.BulkDeleteUsersRequestDto": {
             selection?: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
         };
@@ -8673,6 +8833,12 @@ export interface components {
             roleName?: string | null;
             /** Format: int64 */
             userCount?: number;
+        };
+        "OpenTms.Platform.Administration.SkippedRoleDto": {
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+            reason?: string | null;
         };
         "OpenTms.Platform.Administration.SkippedRowDto": {
             /** Format: uuid */
