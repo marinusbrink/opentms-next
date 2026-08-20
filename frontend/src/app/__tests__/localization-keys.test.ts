@@ -53,3 +53,46 @@ describe("Platform localization key additions (low risk)", () => {
     });
   });
 });
+
+describe("Platform localization key additions — command bar and role bulk delete (low risk)", () => {
+  const KEYS = [
+    "Administration:NSelected",
+    "Administration:ConfirmBulkDeleteRoles",
+    "Permission:Administration.Roles.BulkDelete",
+  ];
+
+  for (const lang of ["en", "nl"]) {
+    describe(`${lang}.json`, () => {
+      const { texts } = readPlatformLocale(lang);
+
+      for (const key of KEYS) {
+        it(`has '${key}' with non-empty value`, () => {
+          expect(texts[key]).toBeDefined();
+          expect(texts[key].trim().length).toBeGreaterThan(0);
+        });
+      }
+
+      it("Administration:NSelected contains the {0} placeholder", () => {
+        expect(texts["Administration:NSelected"]).toContain("{0}");
+      });
+
+      it("Administration:ConfirmBulkDeleteRoles contains the {0} placeholder", () => {
+        expect(texts["Administration:ConfirmBulkDeleteRoles"]).toContain("{0}");
+      });
+    });
+  }
+
+  it("en and nl Administration:NSelected are distinct (not copy-paste)", () => {
+    const en = readPlatformLocale("en").texts;
+    const nl = readPlatformLocale("nl").texts;
+    expect(en["Administration:NSelected"]).not.toBe(nl["Administration:NSelected"]);
+  });
+
+  it("en and nl Administration:ConfirmBulkDeleteRoles are distinct (not copy-paste)", () => {
+    const en = readPlatformLocale("en").texts;
+    const nl = readPlatformLocale("nl").texts;
+    expect(en["Administration:ConfirmBulkDeleteRoles"]).not.toBe(
+      nl["Administration:ConfirmBulkDeleteRoles"],
+    );
+  });
+});
