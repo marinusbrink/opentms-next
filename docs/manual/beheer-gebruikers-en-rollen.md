@@ -29,8 +29,8 @@ app.
 ## Het navigatiepaneel
 
 Aan de linkerzijde van de Beheer-app staat het **navigatiepaneel** met de
-weergaven **Gebruikers** en **Rollen**. De actieve weergave is gemarkeerd met
-een blauw accent.
+weergaven **Gebruikers** en **Rollen**. De actieve weergave heeft een blauwe
+achtergrond met wit icoon en witte tekst.
 
 <!-- SCREENSHOT: de Beheer-app met het navigatiepaneel uitgevouwen en Gebruikers actief -->
 

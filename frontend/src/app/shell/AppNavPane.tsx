@@ -39,8 +39,10 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   }
 
   const iconRailClassName = cn(
-    "flex w-full items-center justify-center rounded-md py-2 transition-colors hover:bg-accent hover:text-accent-foreground",
-    isActive ? "text-foreground" : "text-muted-foreground",
+    "flex w-full items-center justify-center rounded-md py-2 transition-colors",
+    isActive
+      ? "bg-brand text-white"
+      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
 
   const entryContent = collapsed ? (
@@ -71,9 +73,6 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
     </TooltipProvider>
   ) : (
     <div className="relative">
-      {isActive && !hasChildren && (
-        <span className="absolute inset-y-0 left-0 w-0.5 rounded-full bg-primary" aria-hidden />
-      )}
       {hasChildren ? (
         <TooltipProvider>
           <Tooltip>
@@ -107,8 +106,10 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
                   to={view.path}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-                    isActive ? "text-foreground font-medium" : "text-muted-foreground",
+                    "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors",
+                    isActive
+                      ? "bg-brand text-white font-medium"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   <Icon size={24} className="shrink-0" />
@@ -149,7 +150,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
     <nav
       aria-label={`${appName} navigation`}
       className={cn(
-        "flex flex-col border-r bg-background py-2 transition-[width]",
+        "flex flex-col border-r bg-[#F8F9FA] py-2 transition-[width] dark:bg-background",
         effectiveCollapsed ? "w-14" : "w-[250px]",
       )}
     >
