@@ -11,6 +11,7 @@ using Volo.Abp.Identity;
 
 namespace OpenTms.Platform.Administration;
 
+[RemoteService(IsEnabled = false)]
 public class UserRoleAppService : PlatformAppServiceBase, IUserRoleAppService
 {
     private readonly IIdentityRoleRepository _roleRepository;
