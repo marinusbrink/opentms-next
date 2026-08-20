@@ -35,6 +35,7 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.Administration.Roles.Create,
             PlatformPermissions.Administration.Roles.Update,
             PlatformPermissions.Administration.Roles.Delete,
+            PlatformPermissions.Administration.Roles.BulkDelete,
         ];
 
         foreach (var permission in permissions)
