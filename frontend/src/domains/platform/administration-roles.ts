@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { apiClient } from "@/lib/api/client";
-import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
+import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 
 export type RoleRow = {
   id?: string;
@@ -86,6 +86,57 @@ export function useDeleteRole() {
       }
       if (result.error) throw result.error;
       return { status: "deleted" };
+    },
+  });
+}
+
+export type BulkDeleteRolesResult = {
+  deletedCount: number;
+  skippedRows: { id: string; name: string; reason: string }[];
+};
+
+export function useBulkDeleteRoles() {
+  return useMutation({
+    mutationFn: async (selection: GridSelectionDto): Promise<BulkDeleteRolesResult> => {
+      const { data, error } = await apiClient.POST(
+        "/api/platform/administration/roles/bulk-delete",
+        {
+          body: {
+            selection: {
+              mode: selection.mode,
+              explicitIds: selection.explicitIds,
+              excludedIds: selection.excludedIds,
+              filterRequest: selection.filterRequest
+                ? {
+                    startRow: selection.filterRequest.startRow,
+                    endRow: selection.filterRequest.endRow,
+                    wildcardSearch: selection.filterRequest.wildcardSearch,
+                    sortModels: selection.filterRequest.sortModels.map((sm) => ({
+                      colId: sm.colId,
+                      sort: sm.sort,
+                    })),
+                    columnFilters: Object.fromEntries(
+                      Object.entries(selection.filterRequest.columnFilters).map(
+                        ([k, v]) => [k, { filterType: v.filterType, type: v.type, filter: v.filter, filterTo: v.filterTo }],
+                      ),
+                    ),
+                    rowGroupCols: selection.filterRequest.rowGroupCols,
+                    groupKeys: selection.filterRequest.groupKeys,
+                  }
+                : undefined,
+            },
+          },
+        },
+      );
+      if (error) throw error;
+      return {
+        deletedCount: data?.deletedCount ?? 0,
+        skippedRows: (data?.skippedRows ?? []).map((r) => ({
+          id: r.id ?? "",
+          name: r.name ?? "",
+          reason: r.reason ?? "",
+        })),
+      };
     },
   });
 }
