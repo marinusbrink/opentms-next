@@ -504,3 +504,67 @@ describe("AppCommandBar — accessibility attributes (flag-on)", () => {
     expect(menuItem.querySelector("svg")).toBeInTheDocument();
   });
 });
+
+// ── Keyboard interactions — High risk: WCAG 2.1 AA ───────────────────────────
+//
+// Design §Test risk analysis (High — Keyboard and accessibility):
+//   "Keyboard: simulate keyboard open/close of overflow menu; assert Escape returns focus."
+//
+// Enter/Space activation: a native <button> fires click on Enter/Space in real browsers.
+// jsdom does not replicate that native activation; testing it requires
+// @testing-library/user-event (not yet a devDependency). The click-opens-menu path is
+// already covered above. The tests here use fireEvent.keyDown to verify that Base UI's
+// own keydown handlers (separate from native button activation) close the menu and
+// restore focus.
+//
+// Finding: @testing-library/user-event should be added to devDependencies so that
+// Enter/Space activation can be fully tested without relying on native browser behaviour.
+
+describe("AppCommandBar — keyboard: overflow menu (flag-on)", () => {
+  beforeEach(() => {
+    setFlagOn();
+    mockROWidth = 0;
+  });
+
+  afterEach(() => {
+    setFlagOff();
+    mockROWidth = 0;
+  });
+
+  it("Escape key closes the overflow menu while it is open", () => {
+    const cmd = makeCommand({ id: "a", labelKey: "Test:ActionA" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const trigger = screen.getByRole("button", { name: "Shell:CommandBarMoreLabel" });
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menuitem")).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement ?? trigger, { key: "Escape", code: "Escape" });
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+  });
+
+  it("focus returns to the overflow trigger after Escape closes the menu", () => {
+    const cmd = makeCommand({ id: "a", labelKey: "Test:ActionA" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const trigger = screen.getByRole("button", { name: "Shell:CommandBarMoreLabel" });
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole("menuitem")).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement ?? trigger, { key: "Escape", code: "Escape" });
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("menu item is activated and menu closes on Enter inside the open menu", () => {
+    const onClick = vi.fn();
+    const cmd = makeCommand({ id: "a", labelKey: "Test:ActionA", onClick });
+    render(<AppCommandBar commands={[cmd]} />);
+    const trigger = screen.getByRole("button", { name: "Shell:CommandBarMoreLabel" });
+
+    fireEvent.click(trigger);
+    const item = screen.getByRole("menuitem");
+
+    fireEvent.keyDown(item, { key: "Enter", code: "Enter" });
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+});
