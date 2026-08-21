@@ -315,7 +315,7 @@ export function RolesView() {
     <div className="flex h-full flex-col">
       <AppCommandBar commands={commands} selectionCount={selectionCount} />
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 px-6 pb-6">
         <Suspense fallback={<Skeleton className="h-full w-full" />}>
           <OpenTmsGrid<RoleRow>
             gridId="platform.administration.roles"

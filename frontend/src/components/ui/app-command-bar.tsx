@@ -51,7 +51,7 @@ function PrimaryActionButton({ command, t }: CmdProps) {
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-t-md bg-background px-3 py-1 text-sm shadow-sm hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1.5 rounded-t-md bg-white px-3 py-1 text-sm text-brand shadow-sm hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={command.onClick}
           />
         }
@@ -80,7 +80,7 @@ function SecondaryActionButton({ command, t }: CmdProps) {
           <button
             type="button"
             className={cn(
-              "inline-flex items-center gap-1.5 bg-transparent px-3 text-sm hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex items-center gap-1.5 bg-white px-3 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isDisabled && "cursor-default opacity-50",
             )}
             aria-disabled={isDisabled || undefined}
@@ -113,7 +113,7 @@ function OverflowMenuButton({ actions, t }: OverflowMenuProps) {
           <button
             ref={triggerRef}
             type="button"
-            className="inline-flex items-center gap-1 bg-transparent px-3 text-sm hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 bg-white px-3 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("Shell:CommandBarMoreLabel")}
           />
         }
@@ -203,7 +203,7 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
     <TooltipProvider>
       <div
         className={cn(
-          "mb-4 flex h-10 items-center border-t-2 border-t-amber-500 bg-[#F8F9FA] px-2 dark:bg-card",
+          "flex h-10 items-center bg-[#F8F9FA] dark:bg-background",
           className,
         )}
       >

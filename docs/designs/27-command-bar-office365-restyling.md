@@ -117,7 +117,6 @@ by the release manager, outside the scope of this design).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ accent top line (brand amber) ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄│
 │ [■ New Role]  │  [✉ E-mail]  [→ Send]  [… More ▾]           3 sel  [🗑 Del] │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -125,20 +124,21 @@ by the release manager, outside the scope of this design).
 ### Bar container
 
 - Height: `h-10` (~40 px), full content width.
-- Background: light surface `bg-[#F8F9FA]`, dark mode: `dark:bg-card` (dark-mode colour
-  deferred — see Assumptions).
-- Top border: `border-t-2` in the brand accent colour (amber token — see Assumptions).
-- No outer border, no rounded corners on the bar itself.
+- Background: light surface `bg-[#F8F9FA]`, dark mode: `dark:bg-background` (same as
+  NavDrawer; both surfaces match in light and dark).
+- No top border, no outer border, no rounded corners on the bar itself.
 - Vertical alignment: all items `items-center`.
 
 ### Primary action slot (leftmost; rendered only when a command has `isPrimary: true`)
 
-- Slightly raised inset surface: `bg-background rounded-t-md px-3 py-1 shadow-sm`.
+- White surface: `bg-white rounded-t-md px-3 py-1 shadow-sm`.
+- Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
 - Icon (if present) + label. Label weight: `font-semibold`.
 - Separated from secondary actions by a right-margin gap (`mr-2`) and a visual divider
   (`border-r border-border`).
-- Hover state: label underlined (`hover:underline`), tooltip opens below the button
-  (`side="bottom"`) with the `tooltipKey` value (fallback: `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
+  (`hover:underline`); tooltip opens below the button (`side="bottom"`) with the
+  `tooltipKey` value (fallback: `labelKey`).
 - Focus: focus-visible ring (existing token) + underline; tab order: primary is first.
 - Tooltip accessibility: tooltip text is the button's `aria-describedby` target; screen
   reader announces the label, not just "New".
@@ -147,12 +147,13 @@ by the release manager, outside the scope of this design).
 ### Secondary actions (flat row, to the right of the primary slot)
 
 - Layout: horizontal flex row, `gap-1`.
-- Each action: icon (if present) + label, `text-sm`, ghost-style flat button
-  (`bg-transparent hover:bg-transparent`), generous horizontal padding `px-3`.
-- No button borders, no fills, no separators between them.
+- Each action: icon (if present) + label, `text-sm`, flat button with white background
+  (`bg-white`), generous horizontal padding `px-3`.
+- Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
+- No button borders, no separators between them.
 - An action without an icon renders label-only (no placeholder icon).
-- Hover state: label underlined, tooltip opens below with `tooltipKey` (fallback:
-  `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
+  (`hover:underline`); tooltip opens below with `tooltipKey` (fallback: `labelKey`).
 - Disabled state: `aria-disabled="true"` (not HTML `disabled` — keeps the element
   focusable for tooltip); `opacity-50`; tooltip shows `disabledReasonKey` if provided,
   else `labelKey`. `onClick` is suppressed when `aria-disabled` is true.
@@ -284,43 +285,38 @@ that tenant. Flag-on = new look for all migrated screens for that tenant simulta
 
 ## Assumptions
 
-1. **Dark-mode bar surface:** The bar's dark-mode background colour is deferred to a
-   subsequent design iteration. For this release the component uses `dark:bg-card` (the
-   existing card surface). Gate 1 must confirm or redirect.
+1. **Dark-mode bar surface:** Resolved at gate 2. The bar uses `dark:bg-background`,
+   matching the NavDrawer (`AppNavPane`). The earlier `dark:bg-card` assumption is
+   withdrawn.
 
-2. **Brand accent token:** A CSS/Tailwind token for the brand amber/orange accent colour
-   exists (e.g. `amber-500` from Tailwind, or a project-level CSS custom property). The
-   implementer uses the project's canonical amber token for the top border. Gate 1 must
-   confirm the exact token name or supply it.
-
-3. **Overflow detection via ResizeObserver:** The overflow collapse mechanism uses a
+2. **Overflow detection via ResizeObserver:** The overflow collapse mechanism uses a
    `ResizeObserver` on the bar container and measures individual action widths in a first
    render pass. This is the standard pattern for this problem and is compatible with the
    Vite/React/Tailwind setup. A pure-CSS container-query alternative was considered and
    rejected (requires CSS `@container` + `@container-style` for per-item visibility,
    adding complexity without meaningful benefit here).
 
-4. **Screen inventory:** At the time of writing, `RolesView` and `UsersView` are the only
+3. **Screen inventory:** At the time of writing, `RolesView` and `UsersView` are the only
    callers of `AppCommandBar`. Gate 1 must confirm this is the complete list of screens
    to migrate in this release, or name additional screens. Any future screen using
    `AppCommandBar` gets the new visual style automatically when the flag is on.
 
-5. **Callers without `isPrimary`:** Under flag-on, a command array where no command has
+4. **Callers without `isPrimary`:** Under flag-on, a command array where no command has
    `isPrimary: true` renders all non-selection commands as secondary actions (no primary
    slot shown). Gate 1 must confirm this degraded-graceful behaviour is acceptable.
 
-6. **Empty toolbar behaviour:** When all commands are filtered out by permissions (empty
+5. **Empty toolbar behaviour:** When all commands are filtered out by permissions (empty
    array), the component returns `null` and the bar disappears. Gate 1 must confirm; the
    only alternative (render an empty bar) was rejected as it wastes vertical space
    without useful information.
 
-7. **ABP feature reading pattern:** `useApplicationConfiguration` returns
+6. **ABP feature reading pattern:** `useApplicationConfiguration` returns
    `features.values` as a `Record<string, string>`. The flag check
    `features.values['UI.CommonToolbar'] === 'true'` is consistent with how ABP feature
    management serializes boolean features to JSON. Gate 1 must confirm this matches the
    actual ABP response shape in this project.
 
-8. **Selection-gated actions are not secondary actions:** Commands with
+7. **Selection-gated actions are not secondary actions:** Commands with
    `requiresSelection: true` remain on the right side of the spacer in both flag-off and
    flag-on modes, using the current destructive-button rendering. The Office-365 anatomy
    applies only to non-selection commands.

@@ -56,12 +56,12 @@ export function AppShell() {
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((v) => !v)}
           />
-          <main className="min-w-0 flex-1 p-6">
+          <main className="min-w-0 flex-1">
             <Outlet />
           </main>
         </div>
       ) : (
-        <main className="flex-1 p-6">
+        <main className="flex-1">
           <Outlet />
         </main>
       )}
