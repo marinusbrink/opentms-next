@@ -176,6 +176,7 @@ export function RolesView() {
               id: "new-role",
               labelKey: "Administration:NewRole",
               icon: ShieldPlus,
+              isPrimary: true,
               variant: "default" as const,
               requiresSelection: false,
               onClick: () => {

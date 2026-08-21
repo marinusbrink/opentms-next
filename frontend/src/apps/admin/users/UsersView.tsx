@@ -177,6 +177,7 @@ export function UsersView() {
               id: "new-user",
               labelKey: "Administration:NewUser",
               icon: UserPlus,
+              isPrimary: true,
               variant: "default" as const,
               requiresSelection: false,
               onClick: () => {
