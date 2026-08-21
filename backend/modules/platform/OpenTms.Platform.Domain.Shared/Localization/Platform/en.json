@@ -79,6 +79,8 @@
     "Permission:Administration.Roles.Create": "Create roles",
     "Permission:Administration.Roles.Update": "Edit roles",
     "Permission:Administration.Roles.Delete": "Delete roles",
-    "Permission:Administration.Roles.BulkDelete": "Bulk delete roles"
+    "Permission:Administration.Roles.BulkDelete": "Bulk delete roles",
+    "Shell:CommandBarMore": "More",
+    "Shell:CommandBarMoreLabel": "More actions"
   }
 }

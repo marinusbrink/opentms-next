@@ -79,6 +79,8 @@
     "Permission:Administration.Roles.Create": "Rollen aanmaken",
     "Permission:Administration.Roles.Update": "Rollen bewerken",
     "Permission:Administration.Roles.Delete": "Rollen verwijderen",
-    "Permission:Administration.Roles.BulkDelete": "Rollen verwijderen (meerdere)"
+    "Permission:Administration.Roles.BulkDelete": "Rollen verwijderen (meerdere)",
+    "Shell:CommandBarMore": "Meer",
+    "Shell:CommandBarMoreLabel": "Meer acties"
   }
 }
