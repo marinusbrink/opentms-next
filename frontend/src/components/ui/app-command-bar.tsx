@@ -104,11 +104,14 @@ interface OverflowMenuProps {
 }
 
 function OverflowMenuButton({ actions, t }: OverflowMenuProps) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (!open) triggerRef.current?.focus(); }}>
       <DropdownMenuTrigger
         render={
           <button
+            ref={triggerRef}
             type="button"
             className="inline-flex items-center gap-1 bg-transparent px-3 text-sm hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("Shell:CommandBarMoreLabel")}
