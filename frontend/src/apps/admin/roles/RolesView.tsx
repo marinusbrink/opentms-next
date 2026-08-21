@@ -1,11 +1,13 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ShieldPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppCommandBar } from "@/components/ui/app-command-bar";
 import { RoleFormDialog } from "@/apps/admin/components/RoleFormDialog";
 import { DeleteRoleConfirmDialog } from "@/apps/admin/components/DeleteRoleConfirmDialog";
+import { BulkDeleteRolesDialog } from "@/apps/admin/components/BulkDeleteRolesDialog";
 import {
   useRolesGridFetcher,
   useDeleteRole,
@@ -14,7 +16,7 @@ import {
 } from "@/domains/platform/administration-roles";
 import { useApplicationConfiguration } from "@/lib/abp/queries";
 import { useL } from "@/lib/i18n/LocalizationProvider";
-import type { OpenTmsGridProps, GridRequest } from "@/components/ui/opentms-grid";
+import type { OpenTmsGridProps, GridRequest, GridSelectionDto } from "@/components/ui/opentms-grid";
 
 function extractApiError(error: unknown): string {
   if (!error || typeof error !== "object") return String(error ?? "");
@@ -127,6 +129,7 @@ export function RolesView() {
   const canCreate = useIsGranted("Platform.Administration.Roles.Create");
   const canUpdate = useIsGranted("Platform.Administration.Roles.Update");
   const canDelete = useIsGranted("Platform.Administration.Roles.Delete");
+  const canBulkDelete = useIsGranted("Platform.Administration.Roles.BulkDelete");
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [roleFormOpen, setRoleFormOpen] = useState(false);
@@ -138,15 +141,67 @@ export function RolesView() {
     name: string;
     userCount: number;
   } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [selection, setSelection] = useState<GridSelectionDto>({
+    mode: "Explicit",
+    explicitIds: [],
+    filterRequest: null,
+    excludedIds: [],
+  });
+  const [lastFilteredCount, setLastFilteredCount] = useState(0);
 
   const baseRolesFetcher = useRolesGridFetcher();
   const fetchRoles = useCallback(
-    (req: GridRequest) => baseRolesFetcher(req),
+    async (req: GridRequest) => {
+      const result = await baseRolesFetcher(req);
+      setLastFilteredCount(result.filteredCount);
+      return result;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [baseRolesFetcher, refreshKey],
   );
 
   const invalidateGrid = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  const selectionCount =
+    selection.mode === "Explicit"
+      ? selection.explicitIds.length
+      : Math.max(0, lastFilteredCount - selection.excludedIds.length);
+
+  const commands = useMemo(
+    () => [
+      ...(canCreate
+        ? [
+            {
+              id: "new-role",
+              labelKey: "Administration:NewRole",
+              icon: ShieldPlus,
+              variant: "default" as const,
+              requiresSelection: false,
+              onClick: () => {
+                setRoleFormMode("create");
+                setEditingRole(undefined);
+                setRoleFormOpen(true);
+              },
+            },
+          ]
+        : []),
+      ...(canBulkDelete
+        ? [
+            {
+              id: "bulk-delete-roles",
+              labelKey: "Administration:BulkDelete",
+              icon: Trash2,
+              variant: "destructive" as const,
+              requiresSelection: true,
+              disabled: bulkDeleteOpen,
+              onClick: () => setBulkDeleteOpen(true),
+            },
+          ]
+        : []),
+    ],
+    [canCreate, canBulkDelete, bulkDeleteOpen],
+  );
 
   const columnDefs = useMemo<ColDef<RoleRow>[]>(
     () => [
@@ -256,21 +311,8 @@ export function RolesView() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center">
-        {canCreate && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setRoleFormMode("create");
-              setEditingRole(undefined);
-              setRoleFormOpen(true);
-            }}
-          >
-            + {t("Administration:NewRole")}
-          </Button>
-        )}
-      </div>
+    <div className="flex h-full flex-col">
+      <AppCommandBar commands={commands} selectionCount={selectionCount} />
 
       <div className="min-h-0 flex-1">
         <Suspense fallback={<Skeleton className="h-full w-full" />}>
@@ -278,6 +320,7 @@ export function RolesView() {
             gridId="platform.administration.roles"
             columnDefs={columnDefs}
             fetchRows={fetchRoles}
+            onSelectionChange={canBulkDelete ? (sel) => setSelection(sel) : undefined}
           />
         </Suspense>
       </div>
@@ -306,6 +349,14 @@ export function RolesView() {
           onSuccess={invalidateGrid}
         />
       )}
+
+      <BulkDeleteRolesDialog
+        selection={selection}
+        selectionCount={selectionCount}
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onSuccess={invalidateGrid}
+      />
     </div>
   );
 }

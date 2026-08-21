@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Pencil, KeyRound, Trash2 } from "lucide-react";
+import { Pencil, KeyRound, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppCommandBar } from "@/components/ui/app-command-bar";
 import { UserFormDialog } from "@/apps/admin/components/UserFormDialog";
 import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog";
 import { BulkDeleteUsersDialog } from "@/apps/admin/components/BulkDeleteUsersDialog";
@@ -148,23 +149,60 @@ export function UsersView() {
     filterRequest: null,
     excludedIds: [],
   });
+  const [lastFilteredCount, setLastFilteredCount] = useState(0);
 
   const baseUsersFetcher = useUsersGridFetcher();
   const fetchUsers = useCallback(
-    (req: GridRequest) => baseUsersFetcher(req),
+    async (req: GridRequest) => {
+      const result = await baseUsersFetcher(req);
+      setLastFilteredCount(result.filteredCount);
+      return result;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [baseUsersFetcher, refreshKey],
   );
 
   const invalidateGrid = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  const hasSelection =
-    selection.mode === "FilterBased"
-      ? true
-      : selection.explicitIds.length > 0;
+  const selectionCount =
+    selection.mode === "Explicit"
+      ? selection.explicitIds.length
+      : Math.max(0, lastFilteredCount - selection.excludedIds.length);
 
-  const selectedCount =
-    selection.mode === "Explicit" ? selection.explicitIds.length : 0;
+  const commands = useMemo(
+    () => [
+      ...(canCreate
+        ? [
+            {
+              id: "new-user",
+              labelKey: "Administration:NewUser",
+              icon: UserPlus,
+              variant: "default" as const,
+              requiresSelection: false,
+              onClick: () => {
+                setUserFormMode("create");
+                setEditingUser(undefined);
+                setUserFormOpen(true);
+              },
+            },
+          ]
+        : []),
+      ...(canBulkDelete
+        ? [
+            {
+              id: "bulk-delete-users",
+              labelKey: "Administration:BulkDelete",
+              icon: Trash2,
+              variant: "destructive" as const,
+              requiresSelection: true,
+              disabled: bulkDeleteOpen,
+              onClick: () => setBulkDeleteOpen(true),
+            },
+          ]
+        : []),
+    ],
+    [canCreate, canBulkDelete, bulkDeleteOpen],
+  );
 
   const columnDefs = useMemo<ColDef<UserRow>[]>(
     () => [
@@ -271,38 +309,8 @@ export function UsersView() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-3">
-        {canCreate && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setUserFormMode("create");
-              setEditingUser(undefined);
-              setUserFormOpen(true);
-            }}
-          >
-            + {t("Administration:NewUser")}
-          </Button>
-        )}
-
-        {hasSelection && canBulkDelete && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-1.5 text-sm">
-            <span>
-              {selectedCount > 0
-                ? `${selectedCount} ${t("Administration:UsersSelected")}`
-                : t("Administration:UsersSelectedAll")}
-            </span>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              {t("Administration:BulkDelete")}
-            </Button>
-          </div>
-        )}
-      </div>
+    <div className="flex h-full flex-col">
+      <AppCommandBar commands={commands} selectionCount={selectionCount} />
 
       <div className="min-h-0 flex-1">
         <Suspense fallback={<Skeleton className="h-full w-full" />}>
@@ -337,7 +345,7 @@ export function UsersView() {
 
       <BulkDeleteUsersDialog
         selection={selection}
-        selectedCount={selectedCount}
+        selectedCount={selectionCount}
         open={bulkDeleteOpen}
         onClose={() => setBulkDeleteOpen(false)}
         onSuccess={invalidateGrid}

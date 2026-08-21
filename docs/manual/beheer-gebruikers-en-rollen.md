@@ -77,7 +77,7 @@ zichtbaar zijn.
 
 > Vereist: het recht **Gebruikers aanmaken**.
 
-1. Klik op **+ Nieuwe gebruiker** boven de lijst.
+1. Klik op **+ Nieuwe gebruiker** in de actiebalk boven de lijst.
 2. Vul het formulier in:
    - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
    - **E-mailadres** (verplicht) — geldig e-mailformaat.
@@ -153,8 +153,9 @@ systeem meldt dat dan.
 1. Vink de selectievakjes aan naast de gebruikers die je wilt verwijderen, of
    gebruik het selectievakje in de kolomkop om alle zichtbare rijen te
    selecteren.
-2. De actiebalk bovenaan de lijst toont **N gebruikers geselecteerd —
-   Geselecteerden verwijderen**. Klik op die knop.
+2. De actiebalk boven de lijst toont het aantal geselecteerde gebruikers en de
+   knop **Geselecteerden verwijderen** wordt actief. Klik op
+   **Geselecteerden verwijderen**.
 3. Bevestig in het dialoogvenster en klik op **Verwijderen**.
 4. Na afloop toont het scherm hoeveel gebruikers zijn verwijderd. Als sommige
    gebruikers overgeslagen zijn (bijv. eigen account of laatste beheerder),
@@ -186,7 +187,7 @@ kunt bewerken of verwijderen.
 
 > Vereist: het recht **Rollen aanmaken**.
 
-1. Klik op **+ Nieuwe rol** boven de lijst.
+1. Klik op **+ Nieuwe rol** in de actiebalk boven de lijst.
 2. Vul het formulier in:
    - **Rolnaam** (verplicht, maximaal 256 tekens).
    - **Standaard**: schakel in als elke nieuwe gebruiker automatisch deze rol
@@ -228,6 +229,30 @@ Systeemrollen kunnen niet worden verwijderd; het icoon is dan uitgeschakeld.
 
 ---
 
+### Meerdere rollen tegelijk verwijderen
+
+> Vereist: het recht **Rollen verwijderen (meerdere)**.
+
+1. Vink de selectievakjes aan naast de rollen die je wilt verwijderen, of
+   gebruik het selectievakje in de kolomkop om alle zichtbare rijen te
+   selecteren.
+2. De actiebalk boven de lijst toont het aantal geselecteerde rollen en de
+   knop **Geselecteerden verwijderen** wordt actief. Klik op
+   **Geselecteerden verwijderen**.
+3. Lees de bevestigingsvraag en klik op **Verwijderen** om te bevestigen.
+   De geselecteerde rollen worden verwijderd. Rollen die aan gebruikers zijn
+   toegewezen, worden automatisch van die gebruikers verwijderd.
+4. Na afloop toont het scherm hoeveel rollen zijn verwijderd. Als sommige
+   rollen zijn overgeslagen, staan ze met de reden vermeld.
+
+<!-- SCREENSHOT: de actiebalk met geselecteerde rollen en het dialoogvenster voor bulkverwijdering met resultaatscherm -->
+
+**Systeemrollen worden overgeslagen.** Heb je een systeemrol geselecteerd?
+Die wordt niet verwijderd en verschijnt in de lijst met overgeslagen items —
+de overige geselecteerde rollen worden wél verwijderd.
+
+---
+
 ## Rechten en zichtbaarheid
 
 Wat je kunt zien en doen hangt af van de rechten die uw beheerder aan uw rol
@@ -245,6 +270,7 @@ heeft toegekend:
 | Rol aanmaken | Rollen aanmaken |
 | Rol bewerken | Rollen bewerken |
 | Rol verwijderen | Rollen verwijderen |
+| Meerdere rollen verwijderen | Rollen verwijderen (meerdere) |
 
 Als je een weergave wel kunt openen maar een melding "U heeft geen toestemming
 voor deze weergave" verschijnt, neem dan contact op met uw beheerder.

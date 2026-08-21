@@ -73,9 +73,12 @@
     "Permission:Administration.Users.Delete": "Gebruikers verwijderen",
     "Permission:Administration.Users.BulkDelete": "Meerdere gebruikers verwijderen",
     "Permission:Administration.Users.ResetPassword": "Wachtwoord opnieuw instellen",
+    "Administration:NSelected": "{0} geselecteerd",
+    "Administration:ConfirmBulkDeleteRoles": "U staat op het punt {0} rollen te verwijderen. Rollen die aan gebruikers zijn toegewezen worden van die gebruikers verwijderd. Dit kan niet ongedaan worden gemaakt.",
     "Permission:Administration.Roles": "Rollen beheren",
     "Permission:Administration.Roles.Create": "Rollen aanmaken",
     "Permission:Administration.Roles.Update": "Rollen bewerken",
-    "Permission:Administration.Roles.Delete": "Rollen verwijderen"
+    "Permission:Administration.Roles.Delete": "Rollen verwijderen",
+    "Permission:Administration.Roles.BulkDelete": "Rollen verwijderen (meerdere)"
   }
 }

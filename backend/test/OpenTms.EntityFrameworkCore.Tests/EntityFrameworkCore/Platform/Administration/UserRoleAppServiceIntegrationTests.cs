@@ -195,6 +195,255 @@ public class UserRoleAppServiceIntegrationTests : OpenTmsEntityFrameworkCoreTest
         }
     }
 
+    // ── Critical: BulkDeleteAsync — static-role skip guard ───────────────────
+
+    [Fact]
+    public async Task BulkDeleteAsync_skips_static_role_and_returns_skip_entry()
+    {
+        var tenantId = Guid.NewGuid();
+        IdentityRole? staticRole = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                staticRole = new IdentityRole(Guid.NewGuid(), "admin", tenantId) { IsStatic = true };
+                EnsureSucceeded(await _roleManager.CreateAsync(staticRole));
+            }
+        });
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { staticRole!.Id }
+                }
+            });
+
+            result.DeletedCount.ShouldBe(0);
+            result.SkippedRows.Count.ShouldBe(1);
+            result.SkippedRows[0].Id.ShouldBe(staticRole.Id);
+            result.SkippedRows[0].Name.ShouldBe("admin");
+            result.SkippedRows[0].Reason.ShouldBe("Administration:StaticRole");
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_deletes_non_static_roles()
+    {
+        var tenantId = Guid.NewGuid();
+        var role1 = await CreateRoleAsync(tenantId, UniqueRoleName());
+        var role2 = await CreateRoleAsync(tenantId, UniqueRoleName());
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { role1.Id, role2.Id }
+                }
+            });
+
+            result.DeletedCount.ShouldBe(2);
+            result.SkippedRows.ShouldBeEmpty();
+
+            // Verify roles are gone
+            var list = await _roleAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50 });
+            list.Rows.ShouldNotContain(r => r.Id == role1.Id || r.Id == role2.Id);
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_mixed_selection_deletes_non_static_and_skips_static()
+    {
+        var tenantId = Guid.NewGuid();
+        var normalRole = await CreateRoleAsync(tenantId, UniqueRoleName());
+        IdentityRole? staticRole = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                staticRole = new IdentityRole(Guid.NewGuid(), "admin", tenantId) { IsStatic = true };
+                EnsureSucceeded(await _roleManager.CreateAsync(staticRole));
+            }
+        });
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { normalRole.Id, staticRole!.Id }
+                }
+            });
+
+            result.DeletedCount.ShouldBe(1);
+            result.SkippedRows.Count.ShouldBe(1);
+            result.SkippedRows[0].Id.ShouldBe(staticRole.Id);
+            result.SkippedRows[0].Reason.ShouldBe("Administration:StaticRole");
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_already_deleted_role_counted_as_deleted_idempotent()
+    {
+        // Already-deleted role (role not found in DB) is treated as successfully deleted per design.
+        var tenantId = Guid.NewGuid();
+        var phantomId = Guid.NewGuid();
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { phantomId }
+                }
+            });
+
+            result.DeletedCount.ShouldBe(1, "concurrent-deletion scenario: already-gone role counts as deleted");
+            result.SkippedRows.ShouldBeEmpty();
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_is_idempotent_running_same_selection_twice()
+    {
+        var tenantId = Guid.NewGuid();
+        var role = await CreateRoleAsync(tenantId, UniqueRoleName());
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var selection = new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { role.Id }
+                }
+            };
+
+            var first = await _roleAppService.BulkDeleteAsync(selection);
+            first.DeletedCount.ShouldBe(1);
+
+            // Second call: role is already gone — must count as deleted, not throw
+            var second = await _roleAppService.BulkDeleteAsync(selection);
+            second.DeletedCount.ShouldBe(1, "idempotent: already-deleted role counts as deleted on re-run");
+            second.SkippedRows.ShouldBeEmpty();
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_tenant_isolation_cannot_delete_other_tenants_roles()
+    {
+        // Tenant isolation: passing tenant B's role IDs while in tenant A context must
+        // not delete tenant B's data (constitution rule 1).
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var roleInB = await CreateRoleAsync(tenantB, UniqueRoleName());
+
+        using (_currentTenant.Change(tenantA))
+        {
+            // The role exists in tenantB's scope, not tenantA's. FindAsync returns null → treated as deleted.
+            await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "Explicit",
+                    ExplicitIds = new List<Guid> { roleInB.Id }
+                }
+            });
+        }
+
+        // Verify tenant B's role still exists
+        using (_currentTenant.Change(tenantB))
+        {
+            var list = await _roleAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50 });
+            list.Rows.ShouldContain(r => r.Id == roleInB.Id,
+                "tenant B's role must not be deleted by a request made in tenant A's context (constitution rule 1)");
+        }
+    }
+
+    // ── High: BulkDeleteAsync — FilterBased mode ──────────────────────────────
+
+    [Fact]
+    public async Task BulkDeleteAsync_FilterBased_resolves_roles_by_filter_and_deletes_them()
+    {
+        var tenantId = Guid.NewGuid();
+        var prefix = "filterbased-" + Guid.NewGuid().ToString("N").Substring(0, 6);
+        var role1 = await CreateRoleAsync(tenantId, prefix + "-a");
+        var role2 = await CreateRoleAsync(tenantId, prefix + "-b");
+        // An unrelated role that must not be deleted
+        await CreateRoleAsync(tenantId, "unrelated-" + Guid.NewGuid().ToString("N").Substring(0, 6));
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "FilterBased",
+                    FilterRequest = new GridRequest
+                    {
+                        StartRow = 0,
+                        EndRow = 100,
+                        WildcardSearch = prefix
+                    },
+                    ExcludedIds = new List<Guid>()
+                }
+            });
+
+            result.DeletedCount.ShouldBe(2);
+            result.SkippedRows.ShouldBeEmpty();
+
+            var list = await _roleAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50 });
+            list.Rows.ShouldNotContain(r => r.Id == role1.Id || r.Id == role2.Id,
+                "FilterBased deletion must remove all roles matching the filter");
+        }
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_FilterBased_respects_ExcludedIds()
+    {
+        var tenantId = Guid.NewGuid();
+        var prefix = "excl-" + Guid.NewGuid().ToString("N").Substring(0, 6);
+        var roleToDelete = await CreateRoleAsync(tenantId, prefix + "-delete");
+        var roleToExclude = await CreateRoleAsync(tenantId, prefix + "-keep");
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var result = await _roleAppService.BulkDeleteAsync(new BulkDeleteRolesRequestDto
+            {
+                Selection = new GridSelectionDto
+                {
+                    Mode = "FilterBased",
+                    FilterRequest = new GridRequest
+                    {
+                        StartRow = 0,
+                        EndRow = 100,
+                        WildcardSearch = prefix
+                    },
+                    ExcludedIds = new List<Guid> { roleToExclude.Id }
+                }
+            });
+
+            result.DeletedCount.ShouldBe(1);
+            result.SkippedRows.ShouldBeEmpty();
+
+            var list = await _roleAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50 });
+            list.Rows.ShouldNotContain(r => r.Id == roleToDelete.Id);
+            list.Rows.ShouldContain(r => r.Id == roleToExclude.Id,
+                "excluded role must survive the FilterBased bulk delete");
+        }
+    }
+
     // ── High: create and update smoke ─────────────────────────────────────────
 
     [Fact]

@@ -80,4 +80,13 @@ public class UserRoleAdministrationController : OpenTmsController
             return Conflict(new RoleDeleteCheckDto { RoleName = ex.RoleName, UserCount = ex.UserCount });
         }
     }
+
+    [HttpPost("bulk-delete")]
+    [Authorize(PlatformPermissions.Administration.Roles.BulkDelete)]
+    [ProducesResponseType(typeof(BulkDeleteRolesResponseDto), 200)]
+    public async Task<ActionResult<BulkDeleteRolesResponseDto>> BulkDeleteAsync([FromBody] BulkDeleteRolesRequestDto input)
+    {
+        var result = await _userRoleAppService.BulkDeleteAsync(input);
+        return Ok(result);
+    }
 }

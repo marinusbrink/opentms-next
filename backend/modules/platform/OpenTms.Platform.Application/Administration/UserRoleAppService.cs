@@ -11,6 +11,7 @@ using Volo.Abp.Identity;
 
 namespace OpenTms.Platform.Administration;
 
+[RemoteService(IsEnabled = false)]
 public class UserRoleAppService : PlatformAppServiceBase, IUserRoleAppService
 {
     private readonly IIdentityRoleRepository _roleRepository;
@@ -109,6 +110,58 @@ public class UserRoleAppService : PlatformAppServiceBase, IUserRoleAppService
         ThrowIfFailed(await _roleManager.DeleteAsync(role));
 
         Logger.LogInformation("Role {RoleId} deleted by {ActorId} (force={Force})", id, CurrentUser.Id, force);
+    }
+
+    public async Task<BulkDeleteRolesResponseDto> BulkDeleteAsync(BulkDeleteRolesRequestDto input)
+    {
+        var roleIds = await ResolveRoleSelectionAsync(input.Selection);
+
+        var deletedCount = 0;
+        var skippedRows = new List<SkippedRoleDto>();
+
+        foreach (var roleId in roleIds)
+        {
+            var role = await _roleRepository.FindAsync(roleId);
+            if (role == null)
+            {
+                // Already deleted — treated as deleted (idempotent per design)
+                deletedCount++;
+                continue;
+            }
+
+            if (role.IsStatic)
+            {
+                skippedRows.Add(new SkippedRoleDto
+                {
+                    Id = roleId,
+                    Name = role.Name,
+                    Reason = "Administration:StaticRole"
+                });
+                continue;
+            }
+
+            ThrowIfFailed(await _roleManager.DeleteAsync(role));
+            deletedCount++;
+            Logger.LogInformation("Role {RoleId} bulk-deleted by {ActorId}", roleId, CurrentUser.Id);
+        }
+
+        return new BulkDeleteRolesResponseDto { DeletedCount = deletedCount, SkippedRows = skippedRows };
+    }
+
+    private async Task<List<Guid>> ResolveRoleSelectionAsync(GridSelectionDto selection)
+    {
+        if (selection.Mode == "Explicit")
+            return selection.ExplicitIds.Except(selection.ExcludedIds).ToList();
+
+        // FilterBased: re-execute the filter server-side
+        if (selection.FilterRequest == null)
+            return new List<Guid>();
+
+        var filter = BuildRoleFilter(selection.FilterRequest);
+        var roles = await _roleRepository.GetListAsync(filter: filter, maxResultCount: 10_000);
+        return roles.Select(r => r.Id)
+                    .Except(selection.ExcludedIds)
+                    .ToList();
     }
 
     private async Task<IdentityRole> FindRoleOrThrowAsync(Guid id)

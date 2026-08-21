@@ -13,4 +13,5 @@ public interface IUserRoleAppService : IApplicationService
     Task<AdministrationRoleRowDto> CreateAsync(AdministrationRoleCreateUpdateDto input);
     Task<AdministrationRoleRowDto> UpdateAsync(Guid id, AdministrationRoleCreateUpdateDto input);
     Task DeleteAsync(Guid id, bool force = false);
+    Task<BulkDeleteRolesResponseDto> BulkDeleteAsync(BulkDeleteRolesRequestDto input);
 }

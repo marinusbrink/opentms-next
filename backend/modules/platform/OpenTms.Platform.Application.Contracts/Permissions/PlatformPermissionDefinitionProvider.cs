@@ -35,6 +35,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         roles.AddChild(PlatformPermissions.Administration.Roles.Create, L("Permission:Administration.Roles.Create"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.Update, L("Permission:Administration.Roles.Update"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.Delete, L("Permission:Administration.Roles.Delete"), bothSides);
+        roles.AddChild(PlatformPermissions.Administration.Roles.BulkDelete, L("Permission:Administration.Roles.BulkDelete"), bothSides);
     }
 
     private static LocalizableString L(string name)

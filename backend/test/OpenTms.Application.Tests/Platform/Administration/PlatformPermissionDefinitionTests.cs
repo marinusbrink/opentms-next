@@ -83,6 +83,13 @@ public class PlatformPermissionDefinitionTests
             .ShouldBe("Platform.Administration.Roles.Delete");
     }
 
+    [Fact]
+    public void Roles_BulkDelete_permission_has_correct_value()
+    {
+        PlatformPermissions.Administration.Roles.BulkDelete
+            .ShouldBe("Platform.Administration.Roles.BulkDelete");
+    }
+
     // ── Hierarchy: child permissions are prefixed with their parent ──────────
 
     [Fact]
@@ -105,6 +112,7 @@ public class PlatformPermissionDefinitionTests
         PlatformPermissions.Administration.Roles.Create.ShouldStartWith(parent + ".");
         PlatformPermissions.Administration.Roles.Update.ShouldStartWith(parent + ".");
         PlatformPermissions.Administration.Roles.Delete.ShouldStartWith(parent + ".");
+        PlatformPermissions.Administration.Roles.BulkDelete.ShouldStartWith(parent + ".");
     }
 
     // ── GroupName is the correct prefix for all permissions ──────────────────
@@ -125,6 +133,7 @@ public class PlatformPermissionDefinitionTests
         PlatformPermissions.Administration.Roles.Create.ShouldStartWith(group + ".");
         PlatformPermissions.Administration.Roles.Update.ShouldStartWith(group + ".");
         PlatformPermissions.Administration.Roles.Delete.ShouldStartWith(group + ".");
+        PlatformPermissions.Administration.Roles.BulkDelete.ShouldStartWith(group + ".");
     }
 
     // ── No duplicate permission strings ──────────────────────────────────────
@@ -144,6 +153,7 @@ public class PlatformPermissionDefinitionTests
             PlatformPermissions.Administration.Roles.Create,
             PlatformPermissions.Administration.Roles.Update,
             PlatformPermissions.Administration.Roles.Delete,
+            PlatformPermissions.Administration.Roles.BulkDelete,
         };
 
         var distinct = new System.Collections.Generic.HashSet<string>(all);

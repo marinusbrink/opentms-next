@@ -73,9 +73,12 @@
     "Permission:Administration.Users.Delete": "Delete users",
     "Permission:Administration.Users.BulkDelete": "Bulk delete users",
     "Permission:Administration.Users.ResetPassword": "Reset user password",
+    "Administration:NSelected": "{0} selected",
+    "Administration:ConfirmBulkDeleteRoles": "You are about to delete {0} roles. Roles assigned to users will be removed from those users. This cannot be undone.",
     "Permission:Administration.Roles": "Manage roles",
     "Permission:Administration.Roles.Create": "Create roles",
     "Permission:Administration.Roles.Update": "Edit roles",
-    "Permission:Administration.Roles.Delete": "Delete roles"
+    "Permission:Administration.Roles.Delete": "Delete roles",
+    "Permission:Administration.Roles.BulkDelete": "Bulk delete roles"
   }
 }
