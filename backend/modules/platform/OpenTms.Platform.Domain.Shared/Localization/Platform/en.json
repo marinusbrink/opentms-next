@@ -81,6 +81,10 @@
     "Permission:Administration.Roles.Delete": "Delete roles",
     "Permission:Administration.Roles.BulkDelete": "Bulk delete roles",
     "Shell:CommandBarMore": "More",
-    "Shell:CommandBarMoreLabel": "More actions"
+    "Shell:CommandBarMoreLabel": "More actions",
+    "Administration:DeleteOneUser": "Delete 1 user",
+    "Administration:DeleteNUsers": "Delete {0} users",
+    "Administration:DeleteOneRole": "Delete 1 role",
+    "Administration:DeleteNRoles": "Delete {0} roles"
   }
 }

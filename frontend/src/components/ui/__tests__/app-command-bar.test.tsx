@@ -295,14 +295,14 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("secondary action renders with bg-white flat style", () => {
+  it("secondary action renders with bg-transparent flat style (no white background)", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     render(<AppCommandBar commands={[cmd]} />);
     const btns = screen.getAllByRole("button");
     const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action"));
     expect(actionBtn).toBeInTheDocument();
-    expect(actionBtn!.className).toContain("bg-white");
-    expect(actionBtn!.className).not.toContain("bg-transparent");
+    expect(actionBtn!.className).toContain("bg-transparent");
+    expect(actionBtn!.className).not.toContain("bg-white");
   });
 
   it("secondary action label has truncate and max-w-[120px] classes", () => {
@@ -337,12 +337,12 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(btn!.className).toContain("m-[5px]");
   });
 
-  it("primary button has border-transparent at rest and hover:border-current", () => {
+  it("primary button has no border classes (no hover border, no transparent border placeholder)", () => {
     const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
     render(<AppCommandBar commands={[cmd]} />);
     const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
-    expect(btn!.className).toContain("border-transparent");
-    expect(btn!.className).toContain("hover:border-current");
+    expect(btn!.className).not.toContain("border-transparent");
+    expect(btn!.className).not.toContain("hover:border-current");
   });
 
   it("secondary button has m-[5px] margin class", () => {
@@ -353,29 +353,24 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(actionBtn!.className).toContain("m-[5px]");
   });
 
-  it("secondary button has border-transparent at rest and hover:border-current", () => {
+  it("secondary button has no border classes (no hover border, no transparent border placeholder)", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     render(<AppCommandBar commands={[cmd]} />);
     const btns = screen.getAllByRole("button");
     const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
-    expect(actionBtn!.className).toContain("border-transparent");
-    expect(actionBtn!.className).toContain("hover:border-current");
+    expect(actionBtn!.className).not.toContain("border-transparent");
+    expect(actionBtn!.className).not.toContain("hover:border-current");
   });
 
-  it("selection-gated action uses flat style (bg-white, no rounded corners)", () => {
+  it("selection-gated action uses flat style (bg-transparent, no rounded corners, no border)", () => {
     const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
     render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
     const btn = screen.getByRole("button", { name: /Test:Delete/ });
-    expect(btn.className).toContain("bg-white");
+    expect(btn.className).toContain("bg-transparent");
+    expect(btn.className).not.toContain("bg-white");
     expect(btn.className).not.toContain("rounded");
-  });
-
-  it("selection-gated action has border-transparent at rest and hover:border-current", () => {
-    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
-    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
-    const btn = screen.getByRole("button", { name: /Test:Delete/ });
-    expect(btn.className).toContain("border-transparent");
-    expect(btn.className).toContain("hover:border-current");
+    expect(btn.className).not.toContain("border-transparent");
+    expect(btn.className).not.toContain("hover:border-current");
   });
 
   it("destructive selection-gated action uses text-destructive colour", () => {
@@ -550,6 +545,149 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     expect(container.firstElementChild!.className).toContain("h-10");
+  });
+
+  // ── Round 4 visual rules ───────────────────────────────────────────────────
+
+  it("bar container has bottom border border-b-2 and border-b-[#E5E5E5]", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    const { container } = render(<AppCommandBar commands={[cmd]} />);
+    const bar = container.firstElementChild!;
+    expect(bar.className).toContain("border-b-2");
+    expect(bar.className).toContain("border-b-[#E5E5E5]");
+  });
+
+  it("primary button has text-brand class", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).toContain("text-brand");
+  });
+
+  it("primary button has hover:bg-brand/20 class", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).toContain("hover:bg-brand/20");
+  });
+
+  it("primary button is bg-transparent (not bg-white)", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).toContain("bg-transparent");
+    expect(btn!.className).not.toContain("bg-white");
+  });
+
+  it("secondary button has text-brand class", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btns = screen.getAllByRole("button");
+    const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
+    expect(actionBtn!.className).toContain("text-brand");
+  });
+
+  it("secondary button has hover:bg-brand/20 class", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btns = screen.getAllByRole("button");
+    const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
+    expect(actionBtn!.className).toContain("hover:bg-brand/20");
+  });
+
+  it("secondary button has py-1 vertical padding", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btns = screen.getAllByRole("button");
+    const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
+    expect(actionBtn!.className).toContain("py-1");
+  });
+
+  it("overflow trigger button has py-1 vertical padding", () => {
+    mockROWidth = 0;
+    const cmd = makeCommand({ id: "a", labelKey: "Test:ActionA" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const trigger = screen.getByRole("button", { name: "Shell:CommandBarMoreLabel" });
+    expect(trigger.className).toContain("py-1");
+  });
+
+  it("overflow trigger button has text-brand and hover:bg-brand/20", () => {
+    mockROWidth = 0;
+    const cmd = makeCommand({ id: "a", labelKey: "Test:ActionA" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const trigger = screen.getByRole("button", { name: "Shell:CommandBarMoreLabel" });
+    expect(trigger.className).toContain("text-brand");
+    expect(trigger.className).toContain("hover:bg-brand/20");
+  });
+
+  it("non-destructive selection-gated button has text-brand class", () => {
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("text-brand");
+  });
+
+  it("non-destructive selection-gated button has hover:bg-brand/20 class", () => {
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("hover:bg-brand/20");
+  });
+
+  it("selection-gated button has py-1 vertical padding", () => {
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("py-1");
+  });
+
+  // ── selectionLabelKeys: dynamic label based on count ──────────────────────
+
+  it("selection-gated renders zero-state label when selectionCount=0 (disabled)", () => {
+    const cmd = makeCommand({
+      id: "del",
+      labelKey: "Test:Delete",
+      requiresSelection: true,
+      selectionLabelKeys: { zero: "Test:DeleteZero", one: "Test:DeleteOne", many: "Test:DeleteMany" },
+    });
+    render(<AppCommandBar commands={[cmd]} selectionCount={0} />);
+    expect(screen.getByText("Test:DeleteZero")).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /Test:DeleteZero/ });
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("selection-gated renders one-state label when selectionCount=1", () => {
+    const cmd = makeCommand({
+      id: "del",
+      labelKey: "Test:Delete",
+      requiresSelection: true,
+      selectionLabelKeys: { zero: "Test:DeleteZero", one: "Test:DeleteOne", many: "Test:DeleteMany" },
+    });
+    render(<AppCommandBar commands={[cmd]} selectionCount={1} />);
+    expect(screen.getByText("Test:DeleteOne")).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /Test:DeleteOne/ });
+    expect(btn).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("selection-gated renders many-state label with count substituted when selectionCount>1", () => {
+    const cmd = makeCommand({
+      id: "del",
+      labelKey: "Test:Delete",
+      requiresSelection: true,
+      selectionLabelKeys: { zero: "Test:DeleteZero", one: "Test:DeleteOne", many: "Delete {0} items" },
+    });
+    render(<AppCommandBar commands={[cmd]} selectionCount={5} />);
+    expect(screen.getByText("Delete 5 items")).toBeInTheDocument();
+  });
+
+  it("selection-gated without selectionLabelKeys falls back to labelKey", () => {
+    const cmd = makeCommand({
+      id: "del",
+      labelKey: "Test:FallbackLabel",
+      requiresSelection: true,
+    });
+    render(<AppCommandBar commands={[cmd]} selectionCount={3} />);
+    expect(screen.getByText("Test:FallbackLabel")).toBeInTheDocument();
   });
 });
 

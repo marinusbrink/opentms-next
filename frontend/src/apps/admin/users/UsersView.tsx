@@ -192,7 +192,12 @@ export function UsersView() {
         ? [
             {
               id: "bulk-delete-users",
-              labelKey: "Administration:BulkDelete",
+              labelKey: "Administration:DeleteUser",
+              selectionLabelKeys: {
+                zero: "Administration:DeleteUser",
+                one: "Administration:DeleteOneUser",
+                many: "Administration:DeleteNUsers",
+              },
               icon: Trash2,
               variant: "destructive" as const,
               requiresSelection: true,

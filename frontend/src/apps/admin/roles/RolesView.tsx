@@ -191,7 +191,12 @@ export function RolesView() {
         ? [
             {
               id: "bulk-delete-roles",
-              labelKey: "Administration:BulkDelete",
+              labelKey: "Administration:DeleteRole",
+              selectionLabelKeys: {
+                zero: "Administration:DeleteRole",
+                one: "Administration:DeleteOneRole",
+                many: "Administration:DeleteNRoles",
+              },
               icon: Trash2,
               variant: "destructive" as const,
               requiresSelection: true,

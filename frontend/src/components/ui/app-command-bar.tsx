@@ -27,6 +27,9 @@ export interface AppCommandBarCommand {
   requiresSelection?: boolean;
   disabled?: boolean;
   disabledReasonKey?: string; // tooltip shown on disabled state (localization key)
+  // Selection-count-aware label keys for selection-gated actions (flag-on path only).
+  // The bar picks zero/one/many based on selectionCount; {0} in many is replaced with the count.
+  selectionLabelKeys?: { zero: string; one: string; many: string };
   onClick: () => void;
 }
 
@@ -51,7 +54,7 @@ function PrimaryActionButton({ command, t }: CmdProps) {
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={command.onClick}
           />
         }
@@ -80,7 +83,7 @@ function SecondaryActionButton({ command, t }: CmdProps) {
           <button
             type="button"
             className={cn(
-              "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isDisabled && "cursor-default opacity-50",
             )}
             aria-disabled={isDisabled || undefined}
@@ -113,7 +116,7 @@ function OverflowMenuButton({ actions, t }: OverflowMenuProps) {
           <button
             ref={triggerRef}
             type="button"
-            className="inline-flex items-center gap-1 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 m-[5px] bg-transparent px-3 py-1 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("Shell:CommandBarMoreLabel")}
           />
         }
@@ -203,7 +206,7 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
     <TooltipProvider>
       <div
         className={cn(
-          "flex h-10 items-center bg-[#F8F9FA] dark:bg-background",
+          "flex h-10 items-center border-b-2 border-b-[#E5E5E5] dark:border-b-border bg-[#F8F9FA] dark:bg-background",
           className,
         )}
       >
@@ -214,12 +217,21 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
         {selectionCommands.map((command) => {
           const isDisabled = command.disabled === true || !hasSelection;
           const Icon = command.icon;
+          const count = selectionCount ?? 0;
+          let label: string;
+          if (command.selectionLabelKeys) {
+            if (count === 0) label = t(command.selectionLabelKeys.zero);
+            else if (count === 1) label = t(command.selectionLabelKeys.one);
+            else label = t(command.selectionLabelKeys.many).replace("{0}", String(count));
+          } else {
+            label = t(command.labelKey);
+          }
           return (
             <button
               key={command.id}
               type="button"
               className={cn(
-                "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 command.variant === "destructive" ? "text-destructive" : "text-brand",
                 isDisabled && "cursor-default opacity-50",
               )}
@@ -227,7 +239,7 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
               onClick={() => { if (!isDisabled) command.onClick(); }}
             >
               {Icon && <Icon size={16} />}
-              {t(command.labelKey)}
+              {label}
             </button>
           );
         })}
