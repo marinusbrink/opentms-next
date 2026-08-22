@@ -80,7 +80,7 @@ function SecondaryActionButton({ command, t }: CmdProps) {
           <button
             type="button"
             className={cn(
-              "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isDisabled && "cursor-default opacity-50",
             )}
             aria-disabled={isDisabled || undefined}
@@ -113,7 +113,7 @@ function OverflowMenuButton({ actions, t }: OverflowMenuProps) {
           <button
             ref={triggerRef}
             type="button"
-            className="inline-flex items-center gap-1 m-[5px] bg-white px-3 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("Shell:CommandBarMoreLabel")}
           />
         }
@@ -207,11 +207,34 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
           className,
         )}
       >
-        {primaryCommand && (
-          <>
-            <PrimaryActionButton command={primaryCommand} t={t} />
-            <div className="mx-2 h-5 self-center border-r border-border" />
-          </>
+        {/* Primary action */}
+        {primaryCommand && <PrimaryActionButton command={primaryCommand} t={t} />}
+
+        {/* Selection-gated actions — positioned next to primary, never in overflow */}
+        {selectionCommands.map((command) => {
+          const isDisabled = command.disabled === true || !hasSelection;
+          const Icon = command.icon;
+          return (
+            <button
+              key={command.id}
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                command.variant === "destructive" ? "text-destructive" : "text-brand",
+                isDisabled && "cursor-default opacity-50",
+              )}
+              aria-disabled={isDisabled || undefined}
+              onClick={() => { if (!isDisabled) command.onClick(); }}
+            >
+              {Icon && <Icon size={16} />}
+              {t(command.labelKey)}
+            </button>
+          );
+        })}
+
+        {/* Divider between primary/selection-gated group and secondary actions */}
+        {(primaryCommand != null || selectionCommands.length > 0) && (
+          <div className="mx-2 h-5 self-center border-r border-border" />
         )}
 
         {/* Secondary actions: flex-1 gives ResizeObserver the correct available width */}
@@ -240,32 +263,10 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
 
         {/* Selection count badge */}
         {hasSelection && (
-          <span className="ml-2 shrink-0 text-sm text-muted-foreground">
+          <span className="mr-2 shrink-0 text-sm text-muted-foreground">
             {t("Administration:NSelected").replace("{0}", String(selectionCount))}
           </span>
         )}
-
-        {/* Selection-gated actions — right side, never in overflow */}
-        {selectionCommands.map((command) => {
-          const isDisabled = command.disabled === true || !hasSelection;
-          const Icon = command.icon;
-          return (
-            <button
-              key={command.id}
-              type="button"
-              className={cn(
-                "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 text-sm border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                command.variant === "destructive" ? "text-destructive" : "text-brand",
-                isDisabled && "cursor-default opacity-50",
-              )}
-              aria-disabled={isDisabled || undefined}
-              onClick={() => { if (!isDisabled) command.onClick(); }}
-            >
-              {Icon && <Icon size={16} />}
-              {t(command.labelKey)}
-            </button>
-          );
-        })}
       </div>
     </TooltipProvider>
   );

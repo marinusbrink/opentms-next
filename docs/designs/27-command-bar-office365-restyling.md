@@ -117,7 +117,7 @@ by the release manager, outside the scope of this design).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ [■ New Role]  │  [✉ E-mail]  [→ Send]  [… More ▾]           3 sel  [🗑 Del] │
+│ [■ New Role]  [🗑 Del]  │  [✉ E-mail]  [→ Send]  [… More ▾]         3 sel  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -131,8 +131,9 @@ by the release manager, outside the scope of this design).
 
 ### Primary action slot (leftmost; rendered only when a command has `isPrimary: true`)
 
-- White surface: `bg-white m-[5px] px-3 py-1` — 5 px on all four sides so the button
-  sits 30 px tall inside the 40 px bar. No border-radius (square corners). No shadow.
+- White surface: `bg-white m-[5px] px-3 py-1` — 5 px margin on all four sides and
+  4 px vertical padding; all bar button variants share these same vertical padding rules
+  so every button fills the same height. No border-radius (square corners). No shadow.
 - Border reservation: `border border-transparent` at rest; `hover:border-current` on
   hover so the border appears in the same colour as the text without layout shift.
 - Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
@@ -147,12 +148,12 @@ by the release manager, outside the scope of this design).
   reader announces the label, not just "New".
 - The primary action never collapses into the overflow menu.
 
-### Secondary actions (flat row, to the right of the primary slot)
+### Secondary actions (flat row, to the right of the primary/selection-gated group)
 
 - Layout: horizontal flex row, `gap-1`.
 - Each action: icon (if present) + label, `text-sm`, flat button with white background
-  (`bg-white`), margin `m-[5px]` (5 px all sides), horizontal padding `px-3`. Square
-  corners (no border-radius).
+  (`bg-white`), margin `m-[5px]` (5 px all sides), horizontal padding `px-3`, vertical
+  padding `py-1`. Square corners (no border-radius).
 - Border reservation: `border border-transparent` at rest; `hover:border-current` on
   hover, keeping the layout stable.
 - Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
@@ -174,7 +175,8 @@ secondary actions fit; the remainder is collapsed right-to-left (rightmost colla
 first; leftmost stays visible longest).
 
 - Overflow button: `[… More]` label (`Shell:CommandBarMore`), accessible name
-  `Shell:CommandBarMoreLabel`, renders as a secondary-style flat button.
+  `Shell:CommandBarMoreLabel`, renders as a secondary-style flat button with `py-1`
+  (same vertical padding as all other bar buttons).
 - Overflow button appears only when at least one secondary action is collapsed.
 - Overflow menu uses the existing `DropdownMenu` / `DropdownMenuContent` /
   `DropdownMenuItem` components.
@@ -184,18 +186,26 @@ first; leftmost stays visible longest).
 - The primary action is never included in the overflow menu.
 - Selection-gated actions (right side) are never included in the overflow menu.
 
-### Selection count and selection-gated actions (right side)
+### Selection-gated actions (positioned next to primary, not right-aligned)
 
-- Selection count badge and selection-gated command buttons remain right-aligned after a
-  `flex-1` spacer. No overflow interaction with this group.
+- Selection-gated command buttons are rendered immediately after the primary action button
+  (before the vertical divider and secondary actions), so they sit in the left-aligned
+  primary group rather than being pushed to the far right.
 - **Selection-gated action buttons use the same flat style as all other bar buttons:**
-  `bg-white m-[5px] px-3 text-sm border border-transparent hover:bg-brand/20
+  `bg-white m-[5px] px-3 py-1 text-sm border border-transparent hover:bg-brand/20
   hover:border-current hover:underline`. Square corners, no shadow.
 - Destructive variant actions use `text-destructive` for the text and icon colour;
   non-destructive use `text-brand`. No border, background tint, or border-radius is used
   to signal destructive intent — colour alone carries that meaning.
 - Disabled state (no selection): `aria-disabled="true"` + `opacity-50`; `onClick`
   suppressed. HTML `disabled` is not set so the button remains focusable.
+- The vertical divider (`border-r border-border`) appears after the primary/selection-gated
+  group (when either is present) to separate it from the secondary actions row.
+
+### Selection count badge
+
+- Rendered at the trailing edge of the bar (after the `flex-1` secondary actions
+  container) when `selectionCount > 0`.
 
 ### Edge cases
 
