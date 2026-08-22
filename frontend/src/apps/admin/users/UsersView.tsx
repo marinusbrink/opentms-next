@@ -177,6 +177,7 @@ export function UsersView() {
               id: "new-user",
               labelKey: "Administration:NewUser",
               icon: UserPlus,
+              isPrimary: true,
               variant: "default" as const,
               requiresSelection: false,
               onClick: () => {
@@ -191,7 +192,12 @@ export function UsersView() {
         ? [
             {
               id: "bulk-delete-users",
-              labelKey: "Administration:BulkDelete",
+              labelKey: "Administration:DeleteUser",
+              selectionLabelKeys: {
+                zero: "Administration:DeleteUser",
+                one: "Administration:DeleteOneUser",
+                many: "Administration:DeleteNUsers",
+              },
               icon: Trash2,
               variant: "destructive" as const,
               requiresSelection: true,
@@ -312,7 +318,7 @@ export function UsersView() {
     <div className="flex h-full flex-col">
       <AppCommandBar commands={commands} selectionCount={selectionCount} />
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 px-6 pb-6">
         <Suspense fallback={<Skeleton className="h-full w-full" />}>
           <OpenTmsGrid<UserRow>
             gridId="platform.administration.users"

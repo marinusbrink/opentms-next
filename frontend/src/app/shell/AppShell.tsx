@@ -31,7 +31,7 @@ export function AppShell() {
   const hasNav = activeApp?.views != null && activeApp.views.length > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-100">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA] dark:bg-background">
       <header className="flex h-12 items-center bg-brand text-white shadow-sm">
         <WaffleLauncher />
         <div className="flex items-baseline gap-3 pl-1">
@@ -56,12 +56,12 @@ export function AppShell() {
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((v) => !v)}
           />
-          <main className="min-w-0 flex-1 p-6">
+          <main className="min-w-0 flex-1">
             <Outlet />
           </main>
         </div>
       ) : (
-        <main className="flex-1 p-6">
+        <main className="flex-1">
           <Outlet />
         </main>
       )}

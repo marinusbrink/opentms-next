@@ -29,12 +29,20 @@ database schema changes.
   `Shell:CommandBarMore` ("More" / "Meer") and `Shell:CommandBarMoreLabel`
   ("More actions" / "Meer acties").
 
+**Shell layout (changed at gate 2, rounds 1–3):**
+
+- `frontend/src/app/shell/AppShell.tsx` — two changes directed by gate-2 review:
+  - `<main>` no longer carries `p-6`; padding moved to per-view content wrappers so the
+    command bar can span edge-to-edge (full content width).
+  - Shell root `<div>` changed from `bg-neutral-100` to `bg-[#F8F9FA] dark:bg-background`
+    so the shell background matches the bar surface and the NavDrawer in both themes.
+
 **Callers requiring an additive update:**
 
 | Screen | File | Change |
 |--------|------|--------|
-| Roles | `frontend/src/apps/admin/roles/RolesView.tsx` | Set `isPrimary: true` on the "New role" command |
-| Users | `frontend/src/apps/admin/users/UsersView.tsx` | Set `isPrimary: true` on the "New user" command |
+| Roles | `frontend/src/apps/admin/roles/RolesView.tsx` | Set `isPrimary: true` on the "New role" command; add `selectionLabelKeys` for the bulk-delete command |
+| Users | `frontend/src/apps/admin/users/UsersView.tsx` | Set `isPrimary: true` on the "New user" command; add `selectionLabelKeys` for the bulk-delete command |
 
 No cross-domain events. The dependency arrow is: callers → shared UI component → Platform
 feature flag. Platform references no domain module — this stays within the floor layer.
@@ -61,6 +69,10 @@ export interface AppCommandBarCommand {
   requiresSelection?: boolean;
   disabled?: boolean;
   disabledReasonKey?: string; // tooltip shown on disabled state (localization key)
+  // Selection-count-aware label keys (flag-on, selection-gated commands only).
+  // zero: no selection (button disabled); one: exactly 1 selected; many: 2+ selected ({0} → count).
+  // Falls back to labelKey when absent.
+  selectionLabelKeys?: { zero: string; one: string; many: string };
   onClick: () => void;
 }
 
@@ -117,42 +129,57 @@ by the release manager, outside the scope of this design).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ accent top line (brand amber) ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄│
-│ [■ New Role]  │  [✉ E-mail]  [→ Send]  [… More ▾]           3 sel  [🗑 Del] │
+│ [■ New Role]  [🗑 Del]  │  [✉ E-mail]  [→ Send]  [… More ▾]         3 sel  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Bar container
 
 - Height: `h-10` (~40 px), full content width.
-- Background: light surface `bg-[#F8F9FA]`, dark mode: `dark:bg-card` (dark-mode colour
-  deferred — see Assumptions).
-- Top border: `border-t-2` in the brand accent colour (amber token — see Assumptions).
-- No outer border, no rounded corners on the bar itself.
+- Background: light surface `bg-[#F8F9FA]`, dark mode: `dark:bg-background` (same as
+  NavDrawer; both surfaces match in light and dark).
+- **Bottom border:** `border-b-2 border-b-[#E5E5E5]` in light mode; `dark:border-b-border`
+  in dark mode (uses the theme's `border` token for dark-mode consistency). Added at gate 2
+  round 4.
+- No top border, no outer border, no rounded corners on the bar itself.
 - Vertical alignment: all items `items-center`.
 
 ### Primary action slot (leftmost; rendered only when a command has `isPrimary: true`)
 
-- Slightly raised inset surface: `bg-background rounded-t-md px-3 py-1 shadow-sm`.
+- **Transparent surface:** `bg-transparent m-[5px] px-3 py-1` — 5 px margin on all four
+  sides and 4 px vertical padding; all bar button variants share these same vertical
+  padding rules so every button fills the same height. No border-radius (square corners).
+  No shadow. *(Gate-2 round 4: `bg-white` withdrawn, replaced by `bg-transparent` so the
+  bar surface shows through.)*
+- **No border in any state.** The border reservation (`border border-transparent` at rest,
+  `hover:border-current` on hover) is withdrawn at gate-2 round 4. Hover is carried by
+  the 20 % background fill and the underline alone. *(Gate-2 round 2 hover-border rule
+  is superseded.)*
+- Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
 - Icon (if present) + label. Label weight: `font-semibold`.
 - Separated from secondary actions by a right-margin gap (`mr-2`) and a visual divider
   (`border-r border-border`).
-- Hover state: label underlined (`hover:underline`), tooltip opens below the button
-  (`side="bottom"`) with the `tooltipKey` value (fallback: `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
+  (`hover:underline`); tooltip opens below the button (`side="bottom"`) with the
+  `tooltipKey` value (fallback: `labelKey`).
 - Focus: focus-visible ring (existing token) + underline; tab order: primary is first.
 - Tooltip accessibility: tooltip text is the button's `aria-describedby` target; screen
   reader announces the label, not just "New".
 - The primary action never collapses into the overflow menu.
 
-### Secondary actions (flat row, to the right of the primary slot)
+### Secondary actions (flat row, to the right of the primary/selection-gated group)
 
 - Layout: horizontal flex row, `gap-1`.
-- Each action: icon (if present) + label, `text-sm`, ghost-style flat button
-  (`bg-transparent hover:bg-transparent`), generous horizontal padding `px-3`.
-- No button borders, no fills, no separators between them.
+- Each action: icon (if present) + label, `text-sm`, transparent background
+  (`bg-transparent`), margin `m-[5px]` (5 px all sides), horizontal padding `px-3`,
+  vertical padding `py-1`. Square corners (no border-radius). *(Gate-2 round 4:
+  `bg-white` withdrawn, `bg-transparent` in. No border in any state — the border
+  reservation and hover-border are withdrawn.)*
+- Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
+- No separators between actions.
 - An action without an icon renders label-only (no placeholder icon).
-- Hover state: label underlined, tooltip opens below with `tooltipKey` (fallback:
-  `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
+  (`hover:underline`); tooltip opens below with `tooltipKey` (fallback: `labelKey`).
 - Disabled state: `aria-disabled="true"` (not HTML `disabled` — keeps the element
   focusable for tooltip); `opacity-50`; tooltip shows `disabledReasonKey` if provided,
   else `labelKey`. `onClick` is suppressed when `aria-disabled` is true.
@@ -166,7 +193,8 @@ secondary actions fit; the remainder is collapsed right-to-left (rightmost colla
 first; leftmost stays visible longest).
 
 - Overflow button: `[… More]` label (`Shell:CommandBarMore`), accessible name
-  `Shell:CommandBarMoreLabel`, renders as a secondary-style flat button.
+  `Shell:CommandBarMoreLabel`, renders as a secondary-style flat button with `py-1`
+  (same vertical padding as all other bar buttons).
 - Overflow button appears only when at least one secondary action is collapsed.
 - Overflow menu uses the existing `DropdownMenu` / `DropdownMenuContent` /
   `DropdownMenuItem` components.
@@ -176,12 +204,35 @@ first; leftmost stays visible longest).
 - The primary action is never included in the overflow menu.
 - Selection-gated actions (right side) are never included in the overflow menu.
 
-### Selection count and selection-gated actions (right side)
+### Selection-gated actions (positioned next to primary, not right-aligned)
 
-- Unchanged from current implementation.
-- Selection count badge and selection-gated command buttons remain right-aligned after a
-  `flex-1` spacer.
-- No overflow interaction with this group.
+- Selection-gated command buttons are rendered immediately after the primary action button
+  (before the vertical divider and secondary actions), so they sit in the left-aligned
+  primary group rather than being pushed to the far right.
+- **Selection-gated action buttons use the same flat style as all other bar buttons:**
+  `bg-transparent m-[5px] px-3 py-1 text-sm hover:bg-brand/20 hover:underline`. Square
+  corners, no shadow, no border in any state. *(Gate-2 round 4: `bg-white` withdrawn,
+  `bg-transparent` in; border reservation and hover-border withdrawn.)*
+- Destructive variant actions use `text-destructive` for the text and icon colour;
+  non-destructive use `text-brand`. Colour alone carries destructive intent — no border,
+  background tint, or border-radius is used.
+- **Selection-count-aware label** (gate-2 round 4): commands can supply
+  `selectionLabelKeys: { zero, one, many }`. The bar renders the `zero` key when
+  selection is 0, `one` when exactly 1 row is selected, and `many` (with `{0}` replaced
+  by the count) for 2+. Falls back to `labelKey` when `selectionLabelKeys` is absent.
+  Example keys for Users: `Administration:DeleteUser` (zero) /
+  `Administration:DeleteOneUser` (one) / `Administration:DeleteNUsers` (many).
+  Example keys for Roles: `Administration:DeleteRole` / `Administration:DeleteOneRole` /
+  `Administration:DeleteNRoles`.
+- Disabled state (no selection): `aria-disabled="true"` + `opacity-50`; `onClick`
+  suppressed. HTML `disabled` is not set so the button remains focusable.
+- The vertical divider (`border-r border-border`) appears after the primary/selection-gated
+  group (when either is present) to separate it from the secondary actions row.
+
+### Selection count badge
+
+- Rendered at the trailing edge of the bar (after the `flex-1` secondary actions
+  container) when `selectionCount > 0`.
 
 ### Edge cases
 
@@ -284,46 +335,56 @@ that tenant. Flag-on = new look for all migrated screens for that tenant simulta
 
 ## Assumptions
 
-1. **Dark-mode bar surface:** The bar's dark-mode background colour is deferred to a
-   subsequent design iteration. For this release the component uses `dark:bg-card` (the
-   existing card surface). Gate 1 must confirm or redirect.
+1. **Dark-mode bar surface:** Resolved at gate 2. The bar uses `dark:bg-background`,
+   matching the NavDrawer (`AppNavPane`). The earlier `dark:bg-card` assumption is
+   withdrawn.
 
-2. **Brand accent token:** A CSS/Tailwind token for the brand amber/orange accent colour
-   exists (e.g. `amber-500` from Tailwind, or a project-level CSS custom property). The
-   implementer uses the project's canonical amber token for the top border. Gate 1 must
-   confirm the exact token name or supply it.
+1a. **Dark-mode bottom border:** Chosen at gate-2 round 4 as `dark:border-b-border`
+    (the theme's standard border token), which is consistent with all other separator
+    surfaces in the shell. The light-mode value `#E5E5E5` was specified by the reviewer;
+    the dark-mode equivalent was delegated to the implementer and documented here rather
+    than left as a hard-coded hex in both themes.
 
-3. **Overflow detection via ResizeObserver:** The overflow collapse mechanism uses a
+1b. **Withdrawn visual rules (gate-2 history, for future readers):**
+    - *Round 1, point 5 (gate-2):* button background `bg-white` — **superseded** at
+      round 4; background is now `bg-transparent`.
+    - *Round 2, point 4 (gate-2):* hover border `border border-transparent` at rest,
+      `hover:border-current` on hover — **superseded** at round 4; buttons carry no
+      border in any state.
+
+2. **Overflow detection via ResizeObserver:** The overflow collapse mechanism uses a
    `ResizeObserver` on the bar container and measures individual action widths in a first
    render pass. This is the standard pattern for this problem and is compatible with the
    Vite/React/Tailwind setup. A pure-CSS container-query alternative was considered and
    rejected (requires CSS `@container` + `@container-style` for per-item visibility,
    adding complexity without meaningful benefit here).
 
-4. **Screen inventory:** At the time of writing, `RolesView` and `UsersView` are the only
+3. **Screen inventory:** At the time of writing, `RolesView` and `UsersView` are the only
    callers of `AppCommandBar`. Gate 1 must confirm this is the complete list of screens
    to migrate in this release, or name additional screens. Any future screen using
    `AppCommandBar` gets the new visual style automatically when the flag is on.
 
-5. **Callers without `isPrimary`:** Under flag-on, a command array where no command has
+4. **Callers without `isPrimary`:** Under flag-on, a command array where no command has
    `isPrimary: true` renders all non-selection commands as secondary actions (no primary
    slot shown). Gate 1 must confirm this degraded-graceful behaviour is acceptable.
 
-6. **Empty toolbar behaviour:** When all commands are filtered out by permissions (empty
+5. **Empty toolbar behaviour:** When all commands are filtered out by permissions (empty
    array), the component returns `null` and the bar disappears. Gate 1 must confirm; the
    only alternative (render an empty bar) was rejected as it wastes vertical space
    without useful information.
 
-7. **ABP feature reading pattern:** `useApplicationConfiguration` returns
+6. **ABP feature reading pattern:** `useApplicationConfiguration` returns
    `features.values` as a `Record<string, string>`. The flag check
    `features.values['UI.CommonToolbar'] === 'true'` is consistent with how ABP feature
    management serializes boolean features to JSON. Gate 1 must confirm this matches the
    actual ABP response shape in this project.
 
-8. **Selection-gated actions are not secondary actions:** Commands with
+7. **Selection-gated actions share the flat button style:** Commands with
    `requiresSelection: true` remain on the right side of the spacer in both flag-off and
-   flag-on modes, using the current destructive-button rendering. The Office-365 anatomy
-   applies only to non-selection commands.
+   flag-on modes. In flag-on mode they use the same flat button treatment as primary and
+   secondary actions (white background, brand/destructive text colour, transparent border
+   at rest, `hover:border-current`). In flag-off mode they continue to use the `<Button>`
+   component. The Office-365 flat anatomy applies only to the flag-on path.
 
 ## Security quickscan
 
