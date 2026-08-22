@@ -51,7 +51,7 @@ function PrimaryActionButton({ command, t }: CmdProps) {
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-t-md bg-white px-3 py-1 text-sm text-brand shadow-sm hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1.5 m-[5px] bg-white px-3 py-1 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={command.onClick}
           />
         }
@@ -80,7 +80,7 @@ function SecondaryActionButton({ command, t }: CmdProps) {
           <button
             type="button"
             className={cn(
-              "inline-flex items-center gap-1.5 bg-white px-3 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isDisabled && "cursor-default opacity-50",
             )}
             aria-disabled={isDisabled || undefined}
@@ -113,7 +113,7 @@ function OverflowMenuButton({ actions, t }: OverflowMenuProps) {
           <button
             ref={triggerRef}
             type="button"
-            className="inline-flex items-center gap-1 bg-white px-3 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex items-center gap-1 m-[5px] bg-white px-3 text-sm text-brand border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("Shell:CommandBarMoreLabel")}
           />
         }
@@ -250,17 +250,20 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
           const isDisabled = command.disabled === true || !hasSelection;
           const Icon = command.icon;
           return (
-            <Button
+            <button
               key={command.id}
-              variant={command.variant ?? "default"}
-              size="sm"
-              disabled={isDisabled}
-              aria-disabled={isDisabled}
-              onClick={command.onClick}
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1.5 m-[5px] bg-white px-3 text-sm border border-transparent hover:bg-brand/20 hover:border-current hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                command.variant === "destructive" ? "text-destructive" : "text-brand",
+                isDisabled && "cursor-default opacity-50",
+              )}
+              aria-disabled={isDisabled || undefined}
+              onClick={() => { if (!isDisabled) command.onClick(); }}
             >
               {Icon && <Icon size={16} />}
               {t(command.labelKey)}
-            </Button>
+            </button>
           );
         })}
       </div>

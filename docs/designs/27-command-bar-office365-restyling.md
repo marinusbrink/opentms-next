@@ -131,14 +131,17 @@ by the release manager, outside the scope of this design).
 
 ### Primary action slot (leftmost; rendered only when a command has `isPrimary: true`)
 
-- White surface: `bg-white rounded-t-md px-3 py-1 shadow-sm`.
+- White surface: `bg-white m-[5px] px-3 py-1` — 5 px on all four sides so the button
+  sits 30 px tall inside the 40 px bar. No border-radius (square corners). No shadow.
+- Border reservation: `border border-transparent` at rest; `hover:border-current` on
+  hover so the border appears in the same colour as the text without layout shift.
 - Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
 - Icon (if present) + label. Label weight: `font-semibold`.
 - Separated from secondary actions by a right-margin gap (`mr-2`) and a visual divider
   (`border-r border-border`).
-- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
-  (`hover:underline`); tooltip opens below the button (`side="bottom"`) with the
-  `tooltipKey` value (fallback: `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + `hover:border-current`
+  (border in text colour) + label underlined (`hover:underline`); tooltip opens below the
+  button (`side="bottom"`) with the `tooltipKey` value (fallback: `labelKey`).
 - Focus: focus-visible ring (existing token) + underline; tab order: primary is first.
 - Tooltip accessibility: tooltip text is the button's `aria-describedby` target; screen
   reader announces the label, not just "New".
@@ -148,12 +151,16 @@ by the release manager, outside the scope of this design).
 
 - Layout: horizontal flex row, `gap-1`.
 - Each action: icon (if present) + label, `text-sm`, flat button with white background
-  (`bg-white`), generous horizontal padding `px-3`.
+  (`bg-white`), margin `m-[5px]` (5 px all sides), horizontal padding `px-3`. Square
+  corners (no border-radius).
+- Border reservation: `border border-transparent` at rest; `hover:border-current` on
+  hover, keeping the layout stable.
 - Text and icon in the brand colour: `text-brand` (inherits to icon via `currentColor`).
-- No button borders, no separators between them.
+- No separators between actions.
 - An action without an icon renders label-only (no placeholder icon).
-- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + label underlined
-  (`hover:underline`); tooltip opens below with `tooltipKey` (fallback: `labelKey`).
+- Hover state: `hover:bg-brand/20` (20 % brand colour fill) + `hover:border-current`
+  (border in text colour) + label underlined (`hover:underline`); tooltip opens below
+  with `tooltipKey` (fallback: `labelKey`).
 - Disabled state: `aria-disabled="true"` (not HTML `disabled` — keeps the element
   focusable for tooltip); `opacity-50`; tooltip shows `disabledReasonKey` if provided,
   else `labelKey`. `onClick` is suppressed when `aria-disabled` is true.
@@ -179,10 +186,16 @@ first; leftmost stays visible longest).
 
 ### Selection count and selection-gated actions (right side)
 
-- Unchanged from current implementation.
 - Selection count badge and selection-gated command buttons remain right-aligned after a
-  `flex-1` spacer.
-- No overflow interaction with this group.
+  `flex-1` spacer. No overflow interaction with this group.
+- **Selection-gated action buttons use the same flat style as all other bar buttons:**
+  `bg-white m-[5px] px-3 text-sm border border-transparent hover:bg-brand/20
+  hover:border-current hover:underline`. Square corners, no shadow.
+- Destructive variant actions use `text-destructive` for the text and icon colour;
+  non-destructive use `text-brand`. No border, background tint, or border-radius is used
+  to signal destructive intent — colour alone carries that meaning.
+- Disabled state (no selection): `aria-disabled="true"` + `opacity-50`; `onClick`
+  suppressed. HTML `disabled` is not set so the button remains focusable.
 
 ### Edge cases
 
@@ -316,10 +329,12 @@ that tenant. Flag-on = new look for all migrated screens for that tenant simulta
    management serializes boolean features to JSON. Gate 1 must confirm this matches the
    actual ABP response shape in this project.
 
-7. **Selection-gated actions are not secondary actions:** Commands with
+7. **Selection-gated actions share the flat button style:** Commands with
    `requiresSelection: true` remain on the right side of the spacer in both flag-off and
-   flag-on modes, using the current destructive-button rendering. The Office-365 anatomy
-   applies only to non-selection commands.
+   flag-on modes. In flag-on mode they use the same flat button treatment as primary and
+   secondary actions (white background, brand/destructive text colour, transparent border
+   at rest, `hover:border-current`). In flag-off mode they continue to use the `<Button>`
+   component. The Office-365 flat anatomy applies only to the flag-on path.
 
 ## Security quickscan
 

@@ -262,12 +262,12 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(bar!.className).not.toContain("h-12");
   });
 
-  it("bar has amber top border accent class", () => {
+  it("bar container has no top border (no amber accent) in flag-on path", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     const bar = container.firstElementChild!;
-    expect(bar.className).toContain("border-t-2");
-    expect(bar.className).toContain("border-t-amber-500");
+    expect(bar.className).not.toContain("border-t");
+    expect(bar.className).not.toContain("amber");
   });
 
   it("bar has no rounded-md in flag-on path", () => {
@@ -295,13 +295,14 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("secondary action renders with bg-transparent flat style", () => {
+  it("secondary action renders with bg-white flat style", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     render(<AppCommandBar commands={[cmd]} />);
     const btns = screen.getAllByRole("button");
     const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action"));
     expect(actionBtn).toBeInTheDocument();
-    expect(actionBtn!.className).toContain("bg-transparent");
+    expect(actionBtn!.className).toContain("bg-white");
+    expect(actionBtn!.className).not.toContain("bg-transparent");
   });
 
   it("secondary action label has truncate and max-w-[120px] classes", () => {
@@ -313,6 +314,90 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(visibleLabel).toBeInTheDocument();
     expect(visibleLabel!.className).toContain("truncate");
     expect(visibleLabel!.className).toContain("max-w-[120px]");
+  });
+
+  it("primary button has no rounded-t-md (square corners)", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).not.toContain("rounded-t-md");
+  });
+
+  it("primary button has no shadow-sm", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).not.toContain("shadow-sm");
+  });
+
+  it("primary button has m-[5px] margin class", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).toContain("m-[5px]");
+  });
+
+  it("primary button has border-transparent at rest and hover:border-current", () => {
+    const cmd = makeCommand({ id: "new", labelKey: "Test:Primary", isPrimary: true });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Test:Primary"));
+    expect(btn!.className).toContain("border-transparent");
+    expect(btn!.className).toContain("hover:border-current");
+  });
+
+  it("secondary button has m-[5px] margin class", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btns = screen.getAllByRole("button");
+    const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
+    expect(actionBtn!.className).toContain("m-[5px]");
+  });
+
+  it("secondary button has border-transparent at rest and hover:border-current", () => {
+    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btns = screen.getAllByRole("button");
+    const actionBtn = btns.find((b) => b.textContent?.includes("Test:Action") && !b.getAttribute("aria-label"));
+    expect(actionBtn!.className).toContain("border-transparent");
+    expect(actionBtn!.className).toContain("hover:border-current");
+  });
+
+  it("selection-gated action uses flat style (bg-white, no rounded corners)", () => {
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("bg-white");
+    expect(btn.className).not.toContain("rounded");
+  });
+
+  it("selection-gated action has border-transparent at rest and hover:border-current", () => {
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("border-transparent");
+    expect(btn.className).toContain("hover:border-current");
+  });
+
+  it("destructive selection-gated action uses text-destructive colour", () => {
+    const delCmd = makeCommand({
+      id: "del",
+      labelKey: "Test:Delete",
+      requiresSelection: true,
+      variant: "destructive",
+    });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={1} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn.className).toContain("text-destructive");
+    expect(btn.className).not.toContain("text-brand");
+  });
+
+  it("selection-gated action onClick not called when aria-disabled", () => {
+    const onClick = vi.fn();
+    const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true, onClick });
+    render(<AppCommandBar commands={[delCmd]} selectionCount={0} />);
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    fireEvent.click(btn);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("no divider rendered when no command has isPrimary: true", () => {
@@ -364,10 +449,12 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(screen.getByText(/Administration:NSelected/)).toBeInTheDocument();
   });
 
-  it("selection-gated action is disabled when selectionCount is 0 in flag-on path", () => {
+  it("selection-gated action has aria-disabled when selectionCount is 0 in flag-on path", () => {
     const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
     render(<AppCommandBar commands={[delCmd]} selectionCount={0} />);
-    expect(screen.getByRole("button", { name: /Test:Delete/ })).toBeDisabled();
+    const btn = screen.getByRole("button", { name: /Test:Delete/ });
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(btn).not.toBeDisabled();
   });
 
   // ── Overflow menu ─────────────────────────────────────────────────────────
