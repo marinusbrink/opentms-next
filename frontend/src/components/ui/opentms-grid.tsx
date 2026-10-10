@@ -681,35 +681,34 @@ export function OpenTmsGrid<TRow>({
 
   // ── Row selection config ──────────────────────────────────────────────────
 
+  /* UI-GRID-006: one dedicated checkbox column, provided by AG Grid's row-selection API.
+   * Never add a second one through checkboxSelection on a column definition. */
   const rowSelectionOptions = useMemo(
     () =>
       onSelectionChange
-        ? ({ mode: "multiRow", selectAll: "filtered" } as const)
+        ? ({
+            mode: "multiRow",
+            selectAll: "filtered",
+            checkboxes: true,
+            headerCheckbox: true,
+            enableClickSelection: false,
+          } as const)
         : undefined,
     [onSelectionChange],
   );
 
-  // ── Augmented column defs: add checkbox column when selection enabled ──────
-
-  const augmentedColumnDefs = useMemo<ColDef<TRow>[]>(() => {
-    if (!onSelectionChange) return columnDefs;
-    return [
-      {
-        colId: "__selection__",
-        headerCheckboxSelection: true,
-        checkboxSelection: true,
-        width: 40,
-        minWidth: 40,
-        maxWidth: 40,
-        pinned: "left" as const,
-        suppressMovable: true,
-        resizable: false,
-        sortable: false,
-        filter: false,
-      } as ColDef<TRow>,
-      ...columnDefs,
-    ];
-  }, [columnDefs, onSelectionChange]);
+  const selectionColumnDef = useMemo<ColDef>(
+    () => ({
+      width: 40,
+      minWidth: 40,
+      maxWidth: 40,
+      pinned: "left",
+      suppressMovable: true,
+      resizable: false,
+      sortable: false,
+    }),
+    [],
+  );
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
@@ -740,7 +739,8 @@ export function OpenTmsGrid<TRow>({
       <div className="min-h-0 flex-1">
         <AgGridReact<TRow>
           theme={opentmsGridTheme()}
-          columnDefs={augmentedColumnDefs}
+          columnDefs={columnDefs}
+          selectionColumnDef={selectionColumnDef}
           rowModelType="serverSide"
           cacheBlockSize={100}
           rowSelection={rowSelectionOptions}
