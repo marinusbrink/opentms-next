@@ -69,7 +69,15 @@ gebruikersnaam of e-mailadres.
 volgorde om te keren.
 
 **Kolommen aan-/uitzetten:** klik op **Kolommen** om te kiezen welke kolommen
-zichtbaar zijn.
+zichtbaar zijn. Met **Vernieuwen** haal je de lijst opnieuw op.
+
+**Een rij openen:** dubbelklik op een rij (of druk op **Enter** als de rij de focus
+heeft) om de gebruiker te openen. Heb je geen bewerkrecht, dan opent het venster
+alleen-lezen.
+
+**Acties op een rij:** klik met de **rechtermuisknop** op een rij voor het
+snelmenu met **Bewerken**, **Wachtwoord opnieuw instellen** en **Verwijderen**.
+Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
 
 ---
 
@@ -77,7 +85,9 @@ zichtbaar zijn.
 
 > Vereist: het recht **Gebruikers aanmaken**.
 
-1. Klik op **+ Nieuwe gebruiker** in de actiebalk boven de lijst.
+1. Klik op **Nieuwe gebruiker** in de actiebalk boven de lijst. Het venster opent
+   met een gekleurde titelbalk; direct eronder staan de knoppen **Opslaan** en
+   **Sluiten**.
 2. Vul het formulier in:
    - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
    - **E-mailadres** (verplicht) — geldig e-mailformaat.
@@ -85,16 +95,21 @@ zichtbaar zijn.
    - **Wachtwoord** (verplicht) — moet voldoen aan het wachtwoordbeleid
      (minimumlengte en complexiteit staan bij het veld vermeld).
    - **Rollen** — selecteer een of meer rollen via de keuzelijst.
-3. Klik op **Opslaan**.
+3. Klik op **Opslaan** (of druk op **Enter**).
 
-De gebruiker verschijnt direct in de lijst.
+Het venster sluit, rechtsonder verschijnt kort de melding "Gebruiker opgeslagen"
+en de gebruiker staat in de lijst.
 
 <!-- SCREENSHOT: het formulier "Nieuwe gebruiker" met ingevulde velden -->
 
-**Foutmeldingen:** als het formulier meldingen toont (rode tekst onder een
-veld), corrigeer die velden en probeer opnieuw. Veelvoorkomende oorzaken:
-gebruikersnaam al in gebruik, ongeldig e-mailadres, of wachtwoord voldoet niet
-aan het beleid.
+**Foutmeldingen:** een verplicht veld dat je leeg laat, krijgt een melding onder
+het veld zodra je het verlaat of op **Opslaan** klikt. Een melding van de server
+(bijvoorbeeld: gebruikersnaam al in gebruik, of het wachtwoord voldoet niet aan
+het beleid) verschijnt bovenin het venster; je invoer blijft staan.
+
+**Wijzigingen weggooien:** sluit je een venster met niet-opgeslagen wijzigingen
+(met **Sluiten**, het kruisje of **Escape**), dan vraagt OpenTMS eerst
+"Wijzigingen niet opslaan?". Klikken naast het venster sluit het nooit.
 
 ---
 
@@ -102,14 +117,15 @@ aan het beleid.
 
 > Vereist: het recht **Gebruikers bewerken**.
 
-1. Klik in de rij van de gebruiker op het **potlood-icoon** (Bewerken).
+1. Dubbelklik op de rij van de gebruiker, of kies **Bewerken** in het snelmenu
+   (rechtermuisknop).
 2. Pas de gewenste velden aan. Het wachtwoord is niet aanpasbaar via dit
    formulier — zie [Wachtwoord opnieuw instellen](#wachtwoord-opnieuw-instellen).
 3. Klik op **Opslaan**.
 
 <!-- SCREENSHOT: het formulier "Gebruiker bewerken" -->
 
-**Gebruiker deactiveren:** zet de schakelaar **Actief** uit. Een inactieve
+**Gebruiker deactiveren:** haal het vinkje bij **Actief** weg. Een inactieve
 gebruiker kan niet meer inloggen maar blijft zichtbaar in de lijst.
 
 **Rollen aanpassen:** gebruik de rollenkeuzelijst om rollen toe te voegen of
@@ -122,9 +138,9 @@ gebruiker die deze heeft — het systeem meldt dat dan.
 
 > Vereist: het recht **Wachtwoord opnieuw instellen**.
 
-1. Klik in de rij van de gebruiker op het **sleutel-icoon** (Wachtwoord
-   opnieuw instellen).
-2. Voer een nieuw wachtwoord in en klik op **Opslaan**.
+1. Kies **Wachtwoord opnieuw instellen** in het snelmenu (rechtermuisknop) van
+   de gebruiker.
+2. Voer een nieuw wachtwoord in en klik op **Wachtwoord opnieuw instellen**.
 
 Het nieuwe wachtwoord is direct actief. De gebruiker ontvangt geen automatische
 melding — informeer hen zelf over het nieuwe wachtwoord.
@@ -137,8 +153,9 @@ melding — informeer hen zelf over het nieuwe wachtwoord.
 
 > Vereist: het recht **Gebruikers verwijderen**.
 
-1. Klik in de rij van de gebruiker op het **prullenbak-icoon** (Verwijderen).
-2. Bevestig de verwijdering in het pop-upvenster.
+1. Kies **Verwijderen** in het snelmenu (rechtermuisknop) van de gebruiker.
+2. Het bevestigingsvenster noemt de gebruiker: "Gebruiker jansen verwijderen?
+   Dit kan niet ongedaan worden gemaakt." Klik op **Verwijderen**.
 
 De gebruiker wordt direct en permanent verwijderd. Je kunt je eigen account
 niet verwijderen, en de enige gebruiker met de beheerdersrol ook niet — het
@@ -156,10 +173,14 @@ systeem meldt dat dan.
 2. De actiebalk boven de lijst toont het aantal geselecteerde gebruikers en de
    knop **Geselecteerden verwijderen** wordt actief. Klik op
    **Geselecteerden verwijderen**.
-3. Bevestig in het dialoogvenster en klik op **Verwijderen**.
-4. Na afloop toont het scherm hoeveel gebruikers zijn verwijderd. Als sommige
+3. Het venster **Gebruikers verwijderen** noemt het aantal en waarschuwt dat dit
+   niet ongedaan te maken is. Klik op **Verwijderen**.
+4. Na afloop toont het venster hoeveel gebruikers zijn verwijderd. Als sommige
    gebruikers overgeslagen zijn (bijv. eigen account of laatste beheerder),
-   staan ze met de reden vermeld.
+   staan ze met de reden vermeld. Na **Sluiten** verschijnt de melding
+   "3 gebruikers verwijderd" en is de lijst bijgewerkt.
+
+Je kunt ook meerdere rijen selecteren en **Verwijderen** kiezen in het snelmenu.
 
 <!-- SCREENSHOT: het dialoogvenster voor verwijdering met het resultaatscherm -->
 
@@ -176,8 +197,8 @@ Klik op **Rollen** in het navigatiepaneel links. Je ziet de naam van elke rol,
 of het de standaard-aanmeldrol is, of hij zichtbaar is voor gebruikers, en aan
 hoeveel gebruikers hij is toegewezen.
 
-**Systeemrollen** (badge **Systeemrol**) zijn ingebouwde rollen die je niet
-kunt bewerken of verwijderen.
+**Systeemrollen** (vinkje in de kolom **Systeemrol**) zijn ingebouwde rollen die
+je niet kunt bewerken of verwijderen; dubbelklikken opent ze alleen-lezen.
 
 <!-- SCREENSHOT: het Rollen-scherm met de rollenlijst -->
 
@@ -187,7 +208,7 @@ kunt bewerken of verwijderen.
 
 > Vereist: het recht **Rollen aanmaken**.
 
-1. Klik op **+ Nieuwe rol** in de actiebalk boven de lijst.
+1. Klik op **Nieuwe rol** in de actiebalk boven de lijst.
 2. Vul het formulier in:
    - **Rolnaam** (verplicht, maximaal 256 tekens).
    - **Standaard**: schakel in als elke nieuwe gebruiker automatisch deze rol
@@ -204,11 +225,13 @@ kunt bewerken of verwijderen.
 
 > Vereist: het recht **Rollen bewerken**.
 
-1. Klik in de rij van de rol op het **potlood-icoon** (Bewerken).
+1. Dubbelklik op de rij van de rol, of kies **Bewerken** in het snelmenu
+   (rechtermuisknop).
 2. Pas de naam, standaard-instelling of zichtbaarheid aan.
 3. Klik op **Opslaan**.
 
-Systeemrollen kunnen niet worden bewerkt; het icoon is dan uitgeschakeld.
+Systeemrollen kunnen niet worden bewerkt; **Bewerken** in het snelmenu is dan
+uitgeschakeld en legt uit waarom.
 
 ---
 
@@ -216,14 +239,15 @@ Systeemrollen kunnen niet worden bewerkt; het icoon is dan uitgeschakeld.
 
 > Vereist: het recht **Rollen verwijderen**.
 
-1. Klik in de rij van de rol op het **prullenbak-icoon** (Verwijderen).
-2. Als de rol aan gebruikers is toegewezen, toont het systeem een
-   waarschuwing: "De rol '{rolnaam}' is toegewezen aan {N} gebruikers.
-   Verwijderen verwijdert de rol bij alle gebruikers." Klik op **Verwijderen**
-   om te bevestigen.
-3. Als de rol aan niemand is toegewezen, wordt hij direct verwijderd.
+1. Kies **Verwijderen** in het snelmenu (rechtermuisknop) van de rol.
+2. Bevestig in het venster "Rol verwijderen".
+3. Is de rol aan gebruikers toegewezen, dan volgt een tweede bevestiging met de
+   waarschuwing "De rol '{rolnaam}' is toegewezen aan {N} gebruikers.
+   Verwijderen verwijdert de rol bij alle gebruikers." Klik nogmaals op
+   **Verwijderen**.
 
-Systeemrollen kunnen niet worden verwijderd; het icoon is dan uitgeschakeld.
+Systeemrollen kunnen niet worden verwijderd; **Verwijderen** in het snelmenu is
+dan uitgeschakeld.
 
 <!-- SCREENSHOT: de waarschuwing bij verwijdering van een rol met gebruikers -->
 
@@ -239,7 +263,8 @@ Systeemrollen kunnen niet worden verwijderd; het icoon is dan uitgeschakeld.
 2. De actiebalk boven de lijst toont het aantal geselecteerde rollen en de
    knop **Geselecteerden verwijderen** wordt actief. Klik op
    **Geselecteerden verwijderen**.
-3. Lees de bevestigingsvraag en klik op **Verwijderen** om te bevestigen.
+3. Het venster **Rollen verwijderen** noemt het aantal en waarschuwt dat dit
+   niet ongedaan te maken is. Klik op **Verwijderen**.
    De geselecteerde rollen worden verwijderd. Rollen die aan gebruikers zijn
    toegewezen, worden automatisch van die gebruikers verwijderd.
 4. Na afloop toont het scherm hoeveel rollen zijn verwijderd. Als sommige

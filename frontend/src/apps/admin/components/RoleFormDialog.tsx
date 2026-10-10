@@ -1,50 +1,79 @@
-import { useState } from "react";
-import { Dialog } from "@base-ui/react/dialog";
-import { Button } from "@/components/ui/button";
+import { useMemo, useRef, useState, type FormEvent } from "react";
+import { Save } from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EntityDialog } from "@/components/ui/entity-dialog";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useCreateRole, useUpdateRole, type RoleRow, type RoleCreateUpdateDto } from "@/domains/platform/administration-roles";
+import {
+  useCreateRole,
+  useUpdateRole,
+  type RoleCreateUpdateDto,
+  type RoleRow,
+} from "@/domains/platform/administration-roles";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface RoleFormDialogProps {
   mode: "create" | "edit";
   role?: RoleRow;
+  readOnly?: boolean;
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function extractApiError(error: unknown): string {
-  if (!error || typeof error !== "object") return String(error ?? "");
-  const e = error as Record<string, unknown>;
-  const abpMsg = (e["error"] as Record<string, unknown> | undefined)?.["message"];
-  if (typeof abpMsg === "string") return abpMsg;
-  if (typeof e["title"] === "string") return e["title"];
-  return "";
+interface RoleFormValues {
+  name: string;
+  isDefault: boolean;
+  isPublic: boolean;
 }
 
-export function RoleFormDialog({ mode, role, open, onClose, onSuccess }: RoleFormDialogProps) {
+const normalise = (v: RoleFormValues) => ({ name: v.name.trim() || null, isDefault: v.isDefault, isPublic: v.isPublic });
+
+export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, onSuccess }: RoleFormDialogProps) {
   const { t } = useL();
   const createRole = useCreateRole();
   const updateRole = useUpdateRole();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const [roleName, setRoleName] = useState(mode === "edit" ? (role?.name ?? "") : "");
-  const [isDefault, setIsDefault] = useState(mode === "edit" ? (role?.isDefault ?? false) : false);
-  const [isPublic, setIsPublic] = useState(mode === "edit" ? (role?.isPublic ?? false) : false);
-  const [error, setError] = useState("");
+  const initial = useMemo<RoleFormValues>(
+    () => ({
+      name: mode === "edit" ? (role?.name ?? "") : "",
+      isDefault: mode === "edit" ? (role?.isDefault ?? false) : false,
+      isPublic: mode === "edit" ? (role?.isPublic ?? false) : false,
+    }),
+    [mode, role],
+  );
+
+  const [values, setValues] = useState<RoleFormValues>(initial);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const isPending = createRole.isPending || updateRole.isPending;
+  const isDirty = JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial));
+  const nameError = values.name.trim() ? undefined : t("FieldRequired");
+  const shownNameError = nameTouched || submitted ? nameError : undefined;
 
-  const handleClose = () => {
-    if (isPending) return;
-    onClose();
-  };
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (readOnly || isPending) return;
+    setSubmitted(true);
+    setServerError(null);
+    if (nameError) {
+      formRef.current?.querySelector<HTMLElement>("#rf-name")?.focus();
+      return;
+    }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    const dto: RoleCreateUpdateDto = { name: roleName, isDefault, isPublic };
-
+    const dto: RoleCreateUpdateDto = {
+      name: values.name.trim(),
+      isDefault: values.isDefault,
+      isPublic: values.isPublic,
+    };
     try {
       if (mode === "create") {
         await createRole.mutateAsync(dto);
@@ -53,72 +82,79 @@ export function RoleFormDialog({ mode, role, open, onClose, onSuccess }: RoleFor
       }
       onSuccess();
       onClose();
+      toast.success(t("Administration:RoleSaved"));
     } catch (err) {
-      setError(extractApiError(err) || t("Administration:SaveFailed"));
+      setServerError(getApiErrorMessage(err, t));
     }
   };
 
   const title =
-    mode === "create"
-      ? t("Administration:NewRole")
-      : t("Administration:EditRole") + " " + (role?.name ?? "");
+    mode === "create" ? t("Administration:NewRole") : `${t("Administration:Role")} ${role?.name ?? ""}`;
+
+  const commands: AppCommandBarCommand[] = readOnly
+    ? []
+    : [
+        {
+          id: "save",
+          labelKey: isPending ? "Saving" : "Save",
+          icon: Save,
+          isPrimary: true,
+          onClick: () => formRef.current?.requestSubmit(),
+        },
+      ];
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o: boolean) => { if (!o) handleClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 duration-150" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 duration-150">
-          <Dialog.Title className="mb-4 text-base font-semibold">{title}</Dialog.Title>
+    <EntityDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      variant="editor"
+      size="sm"
+      title={title}
+      commands={commands}
+      isDirty={isDirty}
+      isBusy={isPending}
+    >
+      <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-3" noValidate>
+        {serverError && (
+          <Alert variant="destructive">
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
 
-          <form onSubmit={(e) => { void handleSubmit(e); }} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="rf-name">{t("Administration:RoleName")} *</Label>
-              <Input
-                id="rf-name"
-                value={roleName}
-                onChange={(e) => setRoleName(e.target.value)}
-                required
-                maxLength={256}
-              />
-            </div>
+        <FormField label={t("Administration:RoleName")} htmlFor="rf-name" required error={shownNameError}>
+          <Input
+            id="rf-name"
+            value={values.name}
+            onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+            onBlur={() => setNameTouched(true)}
+            maxLength={256}
+            disabled={readOnly}
+          />
+        </FormField>
 
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={isDefault}
-                  onChange={(e) => setIsDefault(e.target.checked)}
-                  className="size-4 accent-primary"
-                />
-                {t("Administration:IsDefault")}
-              </label>
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={values.isDefault}
+              onCheckedChange={(checked) => setValues((v) => ({ ...v, isDefault: checked === true }))}
+              disabled={readOnly}
+            />
+            {t("Administration:IsDefault")}
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={values.isPublic}
+              onCheckedChange={(checked) => setValues((v) => ({ ...v, isPublic: checked === true }))}
+              disabled={readOnly}
+            />
+            {t("Administration:IsPublic")}
+          </label>
+        </div>
 
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="size-4 accent-primary"
-                />
-                {t("Administration:IsPublic")}
-              </label>
-            </div>
-
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-
-            <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
-                {t("Administration:Cancel")}
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? t("Administration:Saving") : t("Administration:Save")}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+      </form>
+    </EntityDialog>
   );
 }

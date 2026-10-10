@@ -1,32 +1,29 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Pencil, Trash2, ShieldPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AppCommandBar } from "@/components/ui/app-command-bar";
-import { RoleFormDialog } from "@/apps/admin/components/RoleFormDialog";
-import { DeleteRoleConfirmDialog } from "@/apps/admin/components/DeleteRoleConfirmDialog";
-import { BulkDeleteRolesDialog } from "@/apps/admin/components/BulkDeleteRolesDialog";
-import {
-  useRolesGridFetcher,
-  useDeleteRole,
-  type RoleRow,
-  type RoleDeleteResult,
-} from "@/domains/platform/administration-roles";
-import { useApplicationConfiguration } from "@/lib/abp/queries";
-import { useL } from "@/lib/i18n/LocalizationProvider";
-import type { OpenTmsGridProps, GridRequest, GridSelectionDto } from "@/components/ui/opentms-grid";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-function extractApiError(error: unknown): string {
-  if (!error || typeof error !== "object") return String(error ?? "");
-  const e = error as Record<string, unknown>;
-  const abpMsg = (e["error"] as Record<string, unknown> | undefined)?.["message"];
-  if (typeof abpMsg === "string") return abpMsg;
-  if (typeof e["title"] === "string") return e["title"];
-  if (typeof e["detail"] === "string") return e["detail"];
-  return "";
-}
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
+import { PermissionDenied } from "@/components/ui/permission-denied";
+import { Skeleton } from "@/components/ui/skeleton";
+import type {
+  GridRequest,
+  GridRowAction,
+  GridSelectionDto,
+  OpenTmsGridProps,
+} from "@/components/ui/opentms-grid";
+import { BulkDeleteRolesDialog } from "@/apps/admin/components/BulkDeleteRolesDialog";
+import { RoleFormDialog } from "@/apps/admin/components/RoleFormDialog";
+import {
+  useDeleteRole,
+  useRolesGridFetcher,
+  type RoleRow,
+} from "@/domains/platform/administration-roles";
+import { useIsGranted } from "@/lib/auth/permissions";
+import { useL } from "@/lib/i18n/LocalizationProvider";
 
 const _OpenTmsGrid = lazy(() =>
   import("@/components/ui/opentms-grid").then((m) => ({ default: m.OpenTmsGrid })),
@@ -38,90 +35,16 @@ function OpenTmsGrid<TRow>(props: OpenTmsGridProps<TRow>) {
   return <_OpenTmsGrid {...(props as any)} />;
 }
 
-function useIsGranted(policy: string): boolean {
-  const { data } = useApplicationConfiguration();
-  return (data?.auth?.grantedPolicies as Record<string, boolean> | undefined)?.[policy] === true;
-}
+const EMPTY_SELECTION: GridSelectionDto = {
+  mode: "Explicit",
+  explicitIds: [],
+  filterRequest: null,
+  excludedIds: [],
+};
 
-interface RowActionsProps {
-  row: RoleRow;
-  canUpdate: boolean;
-  canDelete: boolean;
-  onEdit: (row: RoleRow) => void;
-  onDeleteResult: (result: RoleDeleteResult, row: RoleRow) => void;
-  onDeleted: () => void;
-}
-
-function RowActions({ row, canUpdate, canDelete, onEdit, onDeleteResult, onDeleted }: RowActionsProps) {
-  const { t } = useL();
-  const deleteRole = useDeleteRole();
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-  const isStatic = row.isStatic ?? false;
-
-  const handleDelete = async () => {
-    setDeleteError("");
-    try {
-      const result = await deleteRole.mutateAsync({ id: row.id!, force: false });
-      setPopoverOpen(false);
-      if (result.status === "deleted") {
-        onDeleted();
-      } else {
-        onDeleteResult(result, row);
-      }
-    } catch (err) {
-      setDeleteError(extractApiError(err) || t("Administration:DeleteFailed"));
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      {canUpdate && (
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          onClick={() => !isStatic && onEdit(row)}
-          disabled={isStatic}
-          title={t("Administration:EditRole")}
-        >
-          <Pencil />
-        </Button>
-      )}
-      {canDelete && (
-        <Popover open={popoverOpen} onOpenChange={(open) => { setPopoverOpen(open); if (!open) setDeleteError(""); }}>
-          <PopoverTrigger
-            disabled={isStatic || deleteRole.isPending}
-            title={t("Administration:DeleteRole")}
-            className="inline-flex size-6 items-center justify-center rounded text-destructive hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
-          >
-            <Trash2 className="size-3" />
-          </PopoverTrigger>
-          <PopoverContent className="w-56" side="left">
-            <p className="text-sm font-medium">
-              {t("Administration:DeleteRole")} {row.name}?
-            </p>
-            {deleteError && (
-              <p className="mt-1 text-xs text-destructive">{deleteError}</p>
-            )}
-            <div className="mt-2 flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setPopoverOpen(false)}>
-                {t("Administration:Cancel")}
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => { void handleDelete(); }}
-                disabled={deleteRole.isPending}
-              >
-                {t("Administration:Delete")}
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-      )}
-    </div>
-  );
-}
+type EditorState = { mode: "create" | "edit"; role?: RoleRow; readOnly: boolean } | null;
+type BulkTarget = { selection: GridSelectionDto; count: number } | null;
+type ConflictState = { id: string; name: string; userCount: number } | null;
 
 export function RolesView() {
   const { t } = useL();
@@ -131,23 +54,14 @@ export function RolesView() {
   const canDelete = useIsGranted("Platform.Administration.Roles.Delete");
   const canBulkDelete = useIsGranted("Platform.Administration.Roles.BulkDelete");
 
+  const deleteRole = useDeleteRole();
+
   const [refreshKey, setRefreshKey] = useState(0);
-  const [roleFormOpen, setRoleFormOpen] = useState(false);
-  const [roleFormMode, setRoleFormMode] = useState<"create" | "edit">("create");
-  const [editingRole, setEditingRole] = useState<RoleRow | undefined>();
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [conflictRole, setConflictRole] = useState<{
-    id: string;
-    name: string;
-    userCount: number;
-  } | null>(null);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [selection, setSelection] = useState<GridSelectionDto>({
-    mode: "Explicit",
-    explicitIds: [],
-    filterRequest: null,
-    excludedIds: [],
-  });
+  const [editor, setEditor] = useState<EditorState>(null);
+  const [roleToDelete, setRoleToDelete] = useState<RoleRow | undefined>();
+  const [conflict, setConflict] = useState<ConflictState>(null);
+  const [bulkTarget, setBulkTarget] = useState<BulkTarget>(null);
+  const [selection, setSelection] = useState<GridSelectionDto>(EMPTY_SELECTION);
   const [lastFilteredCount, setLastFilteredCount] = useState(0);
 
   const baseRolesFetcher = useRolesGridFetcher();
@@ -168,23 +82,25 @@ export function RolesView() {
       ? selection.explicitIds.length
       : Math.max(0, lastFilteredCount - selection.excludedIds.length);
 
-  const commands = useMemo(
+  const openRecord = useCallback(
+    (row: RoleRow) => {
+      /* System roles are shown, never changed (business state, UI-PERM-005). */
+      setEditor({ mode: "edit", role: row, readOnly: !canUpdate || row.isStatic === true });
+    },
+    [canUpdate],
+  );
+
+  const commands = useMemo<AppCommandBarCommand[]>(
     () => [
       ...(canCreate
         ? [
             {
               id: "new-role",
               labelKey: "Administration:NewRole",
-              icon: ShieldPlus,
+              icon: Plus,
               isPrimary: true,
-              variant: "default" as const,
-              requiresSelection: false,
-              onClick: () => {
-                setRoleFormMode("create");
-                setEditingRole(undefined);
-                setRoleFormOpen(true);
-              },
-            },
+              onClick: () => setEditor({ mode: "create", readOnly: false }),
+            } satisfies AppCommandBarCommand,
           ]
         : []),
       ...(canBulkDelete
@@ -200,13 +116,63 @@ export function RolesView() {
               icon: Trash2,
               variant: "destructive" as const,
               requiresSelection: true,
-              disabled: bulkDeleteOpen,
-              onClick: () => setBulkDeleteOpen(true),
-            },
+              disabled: bulkTarget != null,
+              onClick: () => setBulkTarget({ selection, count: selectionCount }),
+            } satisfies AppCommandBarCommand,
           ]
         : []),
     ],
-    [canCreate, canBulkDelete, bulkDeleteOpen],
+    [canCreate, canBulkDelete, bulkTarget, selection, selectionCount],
+  );
+
+  const rowActions = useCallback(
+    (rows: RoleRow[]): GridRowAction[] => {
+      const single = rows.length === 1 ? rows[0] : undefined;
+      const isStatic = single?.isStatic === true;
+      return [
+        ...(canUpdate && single
+          ? [
+              {
+                id: "edit",
+                labelKey: "Edit",
+                icon: Pencil,
+                disabled: isStatic,
+                disabledReasonKey: "Administration:SystemRoleReadOnly",
+                onClick: () => openRecord(single),
+              },
+            ]
+          : []),
+        ...(canDelete
+          ? [
+              {
+                id: "delete",
+                labelKey: "Delete",
+                icon: Trash2,
+                destructive: true,
+                multi: canBulkDelete,
+                disabled: isStatic,
+                disabledReasonKey: "Administration:SystemRoleReadOnly",
+                onClick: () => {
+                  if (rows.length === 1) {
+                    setRoleToDelete(rows[0]);
+                  } else {
+                    setBulkTarget({
+                      selection: {
+                        mode: "Explicit",
+                        explicitIds: rows.map((r) => r.id!).filter(Boolean),
+                        filterRequest: null,
+                        excludedIds: [],
+                      },
+                      count: rows.length,
+                    });
+                  }
+                },
+              },
+            ]
+          : []),
+      ];
+    },
+    [canBulkDelete, canDelete, canUpdate, openRecord],
   );
 
   const columnDefs = useMemo<ColDef<RoleRow>[]>(
@@ -216,104 +182,62 @@ export function RolesView() {
         headerName: t("Administration:RoleName"),
         sortable: true,
         filter: false,
+        flex: 1,
+        minWidth: 180,
       },
       {
         field: "isDefault",
         headerName: t("Administration:IsDefault"),
-        cellRenderer: (params: { value: boolean }) =>
-          params.value ? (
-            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
-              {t("Administration:Yes")}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">{t("Administration:No")}</span>
-          ),
+        cellRenderer: BoolCell,
         sortable: false,
         filter: false,
-        width: 110,
+        minWidth: 100,
       },
       {
         field: "isPublic",
         headerName: t("Administration:IsPublic"),
-        cellRenderer: (params: { value: boolean }) =>
-          params.value ? (
-            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
-              {t("Administration:Yes")}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">{t("Administration:No")}</span>
-          ),
+        cellRenderer: BoolCell,
         sortable: false,
         filter: false,
-        width: 100,
+        minWidth: 100,
       },
       {
         field: "userCount",
         headerName: t("Administration:UserCount"),
+        cellRenderer: NumberCell,
+        type: "rightAligned",
         sortable: false,
         filter: false,
-        width: 90,
+        minWidth: 100,
       },
       {
         field: "isStatic",
-        headerName: "",
-        cellRenderer: (params: { value: boolean }) =>
-          params.value ? (
-            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-              {t("Administration:StaticRole")}
-            </span>
-          ) : null,
+        headerName: t("Administration:StaticRole"),
+        cellRenderer: BoolCell,
         sortable: false,
         filter: false,
-        width: 110,
-      },
-      {
-        colId: "__actions__",
-        headerName: "",
-        cellRenderer: (params: { data?: RoleRow }) =>
-          params.data ? (
-            <RowActions
-              row={params.data}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              onEdit={(role) => {
-                setEditingRole(role);
-                setRoleFormMode("edit");
-                setRoleFormOpen(true);
-              }}
-              onDeleteResult={(result, row) => {
-                if (result.status === "conflict") {
-                  setConflictRole({
-                    id: row.id!,
-                    name: result.roleName,
-                    userCount: result.userCount,
-                  });
-                  setConflictDialogOpen(true);
-                }
-              }}
-              onDeleted={invalidateGrid}
-            />
-          ) : null,
-        width: 90,
-        minWidth: 90,
-        maxWidth: 90,
-        sortable: false,
-        filter: false,
-        pinned: "right" as const,
-        suppressMovable: true,
-        resizable: false,
+        minWidth: 110,
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, canUpdate, canDelete, invalidateGrid],
+    [t],
   );
 
+  const deleteSingle = async (force: boolean) => {
+    const target = roleToDelete ?? (conflict ? { id: conflict.id, name: conflict.name } : undefined);
+    if (!target?.id) return;
+    const result = await deleteRole.mutateAsync({ id: target.id, force });
+    setRoleToDelete(undefined);
+    if (result.status === "conflict") {
+      setConflict({ id: target.id, name: result.roleName, userCount: result.userCount });
+      return;
+    }
+    setConflict(null);
+    toast.success(t("Administration:RoleDeleted"));
+    invalidateGrid();
+  };
+
   if (!canView) {
-    return (
-      <div className="flex h-64 items-center justify-center rounded-lg border bg-background p-8 text-sm text-muted-foreground">
-        {t("Administration:PermissionDenied")}
-      </div>
-    );
+    return <PermissionDenied />;
   }
 
   return (
@@ -327,42 +251,67 @@ export function RolesView() {
             columnDefs={columnDefs}
             fetchRows={fetchRoles}
             onSelectionChange={canBulkDelete ? (sel) => setSelection(sel) : undefined}
+            onOpen={openRecord}
+            rowActions={rowActions}
           />
         </Suspense>
       </div>
 
-      <RoleFormDialog
-        mode={roleFormMode}
-        role={editingRole}
-        open={roleFormOpen}
-        onClose={() => {
-          setRoleFormOpen(false);
-          setEditingRole(undefined);
-        }}
-        onSuccess={invalidateGrid}
-      />
-
-      {conflictRole && (
-        <DeleteRoleConfirmDialog
-          roleId={conflictRole.id}
-          roleName={conflictRole.name}
-          userCount={conflictRole.userCount}
-          open={conflictDialogOpen}
-          onClose={() => {
-            setConflictDialogOpen(false);
-            setConflictRole(null);
-          }}
+      {editor && (
+        <RoleFormDialog
+          key={`${editor.mode}-${editor.role?.id ?? "new"}`}
+          mode={editor.mode}
+          role={editor.role}
+          readOnly={editor.readOnly}
+          open
+          onClose={() => setEditor(null)}
           onSuccess={invalidateGrid}
         />
       )}
 
-      <BulkDeleteRolesDialog
-        selection={selection}
-        selectionCount={selectionCount}
-        open={bulkDeleteOpen}
-        onClose={() => setBulkDeleteOpen(false)}
-        onSuccess={invalidateGrid}
+      <ConfirmDialog
+        open={roleToDelete != null}
+        onOpenChange={(open) => {
+          if (!open) setRoleToDelete(undefined);
+        }}
+        title={t("Administration:DeleteRole")}
+        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", roleToDelete?.name ?? "")} ${t("ThisCannotBeUndone")}`}
+        confirmLabel={t("Delete")}
+        busyLabel={t("Deleting")}
+        destructive
+        onConfirm={() => deleteSingle(false)}
       />
+
+      <ConfirmDialog
+        open={conflict != null}
+        onOpenChange={(open) => {
+          if (!open) setConflict(null);
+        }}
+        title={t("Administration:DeleteRole")}
+        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", conflict?.name ?? "")} ${t("ThisCannotBeUndone")}`}
+        confirmLabel={t("Delete")}
+        busyLabel={t("Deleting")}
+        destructive
+        onConfirm={() => deleteSingle(true)}
+      >
+        <Alert variant="warning">
+          <AlertDescription>
+            {t("Administration:RoleHasUsersWarning")
+              .replace("{0}", conflict?.name ?? "")
+              .replace("{1}", String(conflict?.userCount ?? 0))}
+          </AlertDescription>
+        </Alert>
+      </ConfirmDialog>
+
+      {bulkTarget && (
+        <BulkDeleteRolesDialog
+          selection={bulkTarget.selection}
+          selectionCount={bulkTarget.count}
+          open
+          onClose={() => setBulkTarget(null)}
+          onSuccess={invalidateGrid}
+        />
+      )}
     </div>
   );
 }

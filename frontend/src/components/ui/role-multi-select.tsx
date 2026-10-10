@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
 import { apiClient } from "@/lib/api/client";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import {
@@ -9,13 +10,14 @@ import {
 import { cn } from "@/lib/utils";
 
 interface RoleMultiSelectProps {
+  id?: string;
   value: string[];
   onChange: (value: string[]) => void;
   disabled?: boolean;
   className?: string;
 }
 
-export function RoleMultiSelect({ value, onChange, disabled, className }: RoleMultiSelectProps) {
+export function RoleMultiSelect({ id, value, onChange, disabled, className }: RoleMultiSelectProps) {
   const { t } = useL();
 
   const { data: rolesData, isLoading } = useQuery({
@@ -48,6 +50,7 @@ export function RoleMultiSelect({ value, onChange, disabled, className }: RoleMu
   return (
     <Popover>
       <PopoverTrigger
+        id={id}
         disabled={disabled}
         className={cn(
           "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-left text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
@@ -76,12 +79,7 @@ export function RoleMultiSelect({ value, onChange, disabled, className }: RoleMu
               key={role.id}
               className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => toggle(name)}
-                className="size-4 accent-primary"
-              />
+              <Checkbox checked={checked} onCheckedChange={() => toggle(name)} />
               {name}
             </label>
           );

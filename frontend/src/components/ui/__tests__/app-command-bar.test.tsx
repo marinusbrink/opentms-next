@@ -408,6 +408,19 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(container.firstElementChild!.className).toContain("extra-class");
   });
 
+  // ── Disabled primary action (UI-DLG-010: a busy editor disables Save) ─────
+
+  it("disabled primary action has aria-disabled, opacity-50 and does not fire onClick", () => {
+    const onClick = vi.fn();
+    const cmd = makeCommand({ id: "save", labelKey: "Save", isPrimary: true, disabled: true, onClick });
+    render(<AppCommandBar commands={[cmd]} />);
+    const btn = screen.getAllByRole("button").find((b) => b.textContent?.includes("Save"))!;
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(btn.className).toContain("opacity-50");
+    fireEvent.click(btn);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   // ── Disabled secondary action ─────────────────────────────────────────────
 
   it("disabled secondary action has aria-disabled=true", () => {
@@ -549,12 +562,14 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
 
   // ── Round 4 visual rules ───────────────────────────────────────────────────
 
-  it("bar container has bottom border border-b-2 and border-b-[#E5E5E5]", () => {
+  it("bar container has a bottom border from the border token, never a raw colour (UI-TOK-001)", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     const bar = container.firstElementChild!;
     expect(bar.className).toContain("border-b-2");
-    expect(bar.className).toContain("border-b-[#E5E5E5]");
+    expect(bar.className).toContain("border-b-border");
+    expect(bar.className).toContain("bg-surface-page");
+    expect(bar.className).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
 
   it("primary button has text-brand class", () => {

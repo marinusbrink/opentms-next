@@ -1,9 +1,14 @@
 import { useState } from "react";
-import { Dialog } from "@base-ui/react/dialog";
+import { TriangleAlert } from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useBulkDeleteRoles, type BulkDeleteRolesResult } from "@/domains/platform/administration-roles";
-import { useL } from "@/lib/i18n/LocalizationProvider";
+import { EntityDialog } from "@/components/ui/entity-dialog";
 import type { GridSelectionDto } from "@/components/ui/opentms-grid";
+import { useBulkDeleteRoles, type BulkDeleteRolesResult } from "@/domains/platform/administration-roles";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface BulkDeleteRolesDialogProps {
   selection: GridSelectionDto;
@@ -13,17 +18,11 @@ interface BulkDeleteRolesDialogProps {
   onSuccess: () => void;
 }
 
-function extractApiError(error: unknown): string {
-  if (!error || typeof error !== "object") return String(error ?? "");
-  const e = error as Record<string, unknown>;
-  const abpMsg = (e["error"] as Record<string, unknown> | undefined)?.["message"];
-  if (typeof abpMsg === "string") return abpMsg;
-  if (typeof e["title"] === "string") return e["title"];
-  return "";
-}
-
 type Step = "confirm" | "result";
 
+/* A destructive action dialog (UI-DLG-002, UI-ACT-005): the body states the consequence in
+ * an Alert and the primary is the verb, so the dialog itself is the confirmation. After the
+ * run it shows the per-item outcome; the summary toast follows on Close (UI-FB-002). */
 export function BulkDeleteRolesDialog({
   selection,
   selectionCount,
@@ -36,99 +35,93 @@ export function BulkDeleteRolesDialog({
 
   const [step, setStep] = useState<Step>("confirm");
   const [result, setResult] = useState<BulkDeleteRolesResult | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const handleClose = () => {
     if (bulkDelete.isPending) return;
-    setStep("confirm");
-    setResult(null);
-    setError("");
-    if (step === "result") onSuccess();
+    if (step === "result" && result) {
+      onSuccess();
+      toast.success(t("Administration:RolesDeleted").replace("{0}", String(result.deletedCount)));
+    }
     onClose();
   };
 
   const handleDelete = async () => {
-    setError("");
+    setError(null);
     try {
       const r = await bulkDelete.mutateAsync(selection);
       setResult(r);
       setStep("result");
     } catch (err) {
-      setError(extractApiError(err) || t("Administration:DeleteFailed"));
+      setError(getApiErrorMessage(err, t));
     }
   };
 
-  const confirmMessage = t("Administration:ConfirmBulkDeleteRoles").replace(
-    "{0}",
-    String(selectionCount),
-  );
+  const footer =
+    step === "confirm" ? (
+      <>
+        <Button variant="outline" onClick={handleClose} disabled={bulkDelete.isPending}>
+          {t("Cancel")}
+        </Button>
+        <Button variant="destructive" onClick={() => void handleDelete()} disabled={bulkDelete.isPending}>
+          {bulkDelete.isPending ? t("Deleting") : t("Delete")}
+        </Button>
+      </>
+    ) : (
+      <Button onClick={handleClose}>{t("Close")}</Button>
+    );
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o: boolean) => { if (!o) handleClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 duration-150" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 duration-150">
-          <Dialog.Title className="mb-4 text-base font-semibold">
-            {t("Administration:BulkDelete")}
-          </Dialog.Title>
+    <EntityDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) handleClose();
+      }}
+      variant="action"
+      size="sm"
+      title={t("Administration:DeleteRoles")}
+      isBusy={bulkDelete.isPending}
+      footer={footer}
+    >
+      {step === "confirm" && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">{t("Administration:ConfirmBulkDeleteRoles").replace("{0}", String(selectionCount))}</p>
 
-          {step === "confirm" && (
-            <div className="flex flex-col gap-4">
-              <p className="text-sm">{confirmMessage}</p>
-
-              {error && <p className="text-sm text-destructive">{error}</p>}
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleClose}
-                  disabled={bulkDelete.isPending}
-                >
-                  {t("Administration:Cancel")}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => { void handleDelete(); }}
-                  disabled={bulkDelete.isPending}
-                >
-                  {bulkDelete.isPending
-                    ? t("Administration:Deleting")
-                    : t("Administration:DeleteRole")}
-                </Button>
-              </div>
-            </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
-          {step === "result" && result && (
-            <div className="flex flex-col gap-4">
-              <p className="text-sm">
-                {t("Administration:Deleted").replace("{0}", String(result.deletedCount))}
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>{t("ThisCannotBeUndone")}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {step === "result" && result && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm">{t("Administration:Deleted").replace("{0}", String(result.deletedCount))}</p>
+
+          {result.skippedRows.length > 0 && (
+            <div>
+              <p className="mb-1 text-sm font-medium">
+                {t("Administration:Skipped").replace("{0}", String(result.skippedRows.length))}
               </p>
-
-              {result.skippedRows.length > 0 && (
-                <div>
-                  <p className="mb-1 text-sm font-medium">
-                    {t("Administration:Skipped").replace("{0}", String(result.skippedRows.length))}
-                  </p>
-                  <ul className="space-y-1 text-sm text-muted-foreground">
-                    {result.skippedRows.map((row) => (
-                      <li key={row.id} className="flex gap-1">
-                        <span className="font-medium text-foreground">{row.name}</span>
-                        <span>—</span>
-                        <span>{t(row.reason)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <Button onClick={handleClose}>{t("Administration:Close")}</Button>
-              </div>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {result.skippedRows.map((row) => (
+                  <li key={row.id}>
+                    <span className="font-medium text-foreground">{row.name}</span>
+                    {": "}
+                    <span>{t(row.reason)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </div>
+      )}
+    </EntityDialog>
   );
 }

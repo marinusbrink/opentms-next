@@ -41,7 +41,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   const iconRailClassName = cn(
     "flex w-full items-center justify-center rounded-md py-2 transition-colors",
     isActive
-      ? "bg-brand text-white"
+      ? "bg-brand text-brand-foreground"
       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   );
 
@@ -108,7 +108,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
                   className={cn(
                     "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors",
                     isActive
-                      ? "bg-brand text-white font-medium"
+                      ? "bg-brand text-brand-foreground font-medium"
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
@@ -150,7 +150,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
     <nav
       aria-label={`${appName} navigation`}
       className={cn(
-        "flex flex-col border-r bg-[#F8F9FA] py-2 transition-[width] dark:bg-background",
+        "flex flex-col border-r bg-surface-page py-2 transition-[width]",
         effectiveCollapsed ? "w-14" : "w-[250px]",
       )}
     >

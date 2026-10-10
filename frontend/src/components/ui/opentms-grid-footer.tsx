@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
@@ -6,10 +7,6 @@ interface OpenTmsGridFooterProps {
   totalCount: number | null;
   filteredCount: number | null;
   className?: string;
-}
-
-function formatNum(n: number, culture: string): string {
-  return new Intl.NumberFormat(culture).format(n);
 }
 
 function fmt(template: string, ...values: string[]): string {
@@ -21,7 +18,8 @@ export function OpenTmsGridFooter({
   filteredCount,
   className,
 }: OpenTmsGridFooterProps) {
-  const { t, culture } = useL();
+  const { t } = useL();
+  const f = useFormat();
 
   const isFiltered =
     filteredCount !== null && totalCount !== null && filteredCount < totalCount;
@@ -29,21 +27,21 @@ export function OpenTmsGridFooter({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 border-t px-3 py-1.5 text-sm text-muted-foreground",
+        "flex items-center gap-4 border-t bg-surface-page px-3 py-1.5 text-label text-muted-foreground tabular-nums",
         className,
       )}
     >
       {totalCount === null ? (
         <Skeleton className="h-4 w-24" />
       ) : (
-        <span>{fmt(t("Grid:Total"), formatNum(totalCount, culture))}</span>
+        <span>{fmt(t("Grid:Total"), f.number(totalCount, { decimals: 0 }))}</span>
       )}
       {isFiltered && filteredCount !== null && totalCount !== null && (
         <span>
           {fmt(
             t("Grid:Filtered"),
-            formatNum(filteredCount, culture),
-            formatNum(totalCount, culture),
+            f.number(filteredCount, { decimals: 0 }),
+            f.number(totalCount, { decimals: 0 }),
           )}
         </span>
       )}
