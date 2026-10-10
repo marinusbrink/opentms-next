@@ -131,7 +131,7 @@ These are the deliberate improvements users will thank us for.
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ ┌ Invoice ──────────────────────┐ ┌ Customer ───────────────────────┐                 │ ← FormSection cards: surface-section,
 │ │ Invoice type *                │ │ Invoice to *                    │                 │   caption in brand colour
-│ │ [Sales invoice          ▾]    │ │ [Acme Transport BV      ✎ ✕]    │                 │ ← label above, asterisk on required
+│ │ [Sales invoice          ▾]    │ │ [Acme Transport BV      ✎ ✕]    │                 │ ← label floats in the outline (D-17 A)
 │ └───────────────────────────────┘ └─────────────────────────────────┘                 │   lookup with edit pencil
 │ Invoice lines · Payments                                                             │ ← nested tabs start-aligned
 │ [+ Add line] [+ Add transport order]                                                 │
