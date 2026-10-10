@@ -5,7 +5,7 @@ import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
@@ -135,7 +135,7 @@ export function EntityDialog({
    * the primary button when there are no inputs. Hidden tab panels are skipped. */
   const initialFocus = useCallback(() => {
     const fields = bodyRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_FIELD);
-    const field = fields ? Array.from(fields).find((el) => el.closest("[hidden]") == null) : undefined;
+    const field = fields ? Array.from(fields).find((el) => el.closest("[inert]") == null) : undefined;
     if (field) return field;
     if (variant === "action") {
       const buttons = footerRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])");
@@ -202,20 +202,29 @@ export function EntityDialog({
         )}
       >
         {hasTabs
-          ? tabs!.map((tab) => (
+          ? tabs!.map((tab) => {
+              const active = tab.value === currentTab;
               /* UI-DLG-015: switching tabs never changes the dialog's height. Every panel stays
-               * mounted in the same grid cell; an inactive one keeps its space but is invisible
-               * (and out of the tab order and the accessibility tree), so the body is as tall as
-               * the tallest tab. */
-              <TabsContent
-                key={tab.value}
-                value={tab.value}
-                keepMounted
-                className="col-start-1 row-start-1 outline-none [&[hidden]]:pointer-events-none [&[hidden]]:invisible [&[hidden]]:block"
-              >
-                {tab.content}
-              </TabsContent>
-            ))
+               * mounted in the same grid cell; an inactive one keeps its space but is invisible,
+               * inert (out of the tab order and the accessibility tree) and non-interactive, so
+               * the body is as tall as the tallest tab. Plain panels on purpose: Base UI's panel
+               * hides with the `hidden` attribute, which preflight forces to display:none. */
+              return (
+                <div
+                  key={tab.value}
+                  role="tabpanel"
+                  aria-label={tab.label}
+                  aria-hidden={!active || undefined}
+                  inert={!active || undefined}
+                  data-slot="entity-dialog-panel"
+                  data-state={active ? "active" : "inactive"}
+                  style={active ? undefined : { visibility: "hidden", opacity: 0 }}
+                  className={cn("col-start-1 row-start-1 outline-none", !active && "pointer-events-none")}
+                >
+                  {tab.content}
+                </div>
+              );
+            })
           : children}
       </div>
 

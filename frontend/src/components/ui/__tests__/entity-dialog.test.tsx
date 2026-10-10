@@ -188,10 +188,16 @@ describe("EntityDialog tabs (UI-FORM-007/008)", () => {
     for (const panel of panels) {
       expect(panel.className).toContain("col-start-1");
       expect(panel.className).toContain("row-start-1");
-      expect(panel.className).toContain("[&[hidden]]:invisible");
+      // never display:none — the panel keeps its layout space
+      expect(panel).not.toHaveAttribute("hidden");
     }
-    const hiddenPanels = panels.filter((p) => p.hasAttribute("hidden"));
-    expect(hiddenPanels).toHaveLength(2);
+    const inactive = panels.filter((p) => p.hasAttribute("inert"));
+    expect(inactive).toHaveLength(2);
+    for (const panel of inactive) {
+      expect(panel).toHaveAttribute("aria-hidden", "true");
+      expect(panel.style.visibility).toBe("hidden");
+      expect(panel.style.opacity).toBe("0");
+    }
     expect(panels[0].parentElement!.className).toContain("grid");
   });
 
