@@ -68,7 +68,7 @@ function PrimaryActionButton({ command, t }: CmdProps) {
         }
       >
         {Icon && <Icon size={16} />}
-        <span className="max-w-[120px] truncate font-semibold">{t(command.labelKey)}</span>
+        <span className="whitespace-nowrap font-semibold">{t(command.labelKey)}</span>
       </TooltipTrigger>
       <TooltipContent side="bottom">{tooltipText}</TooltipContent>
     </Tooltip>
@@ -100,7 +100,7 @@ function SecondaryActionButton({ command, t }: CmdProps) {
         }
       >
         {Icon && <Icon size={16} />}
-        <span className="max-w-[120px] truncate">{t(command.labelKey)}</span>
+        <span className="whitespace-nowrap">{t(command.labelKey)}</span>
       </TooltipTrigger>
       <TooltipContent side="bottom">{tooltipText}</TooltipContent>
     </Tooltip>

@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
+using System.IO;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration;
 using OpenTms.Platform.Grid;
@@ -84,6 +86,55 @@ public class UserAdministrationController : OpenTmsController
     public async Task<IActionResult> ResetPasswordAsync(Guid id, [FromBody] AdministrationResetPasswordDto input)
     {
         await _userAppService.ResetPasswordAsync(id, input);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/unlock")]
+    [Authorize(PlatformPermissions.Administration.Users.Unlock)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UnlockAsync(Guid id)
+    {
+        await _userAppService.UnlockAsync(id);
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/profile-picture")]
+    [Authorize(PlatformPermissions.Administration.Users.Default)]
+    [ProducesResponseType(typeof(FileContentResult), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetProfilePictureAsync(Guid id)
+    {
+        var picture = await _userAppService.GetProfilePictureAsync(id);
+        if (picture == null)
+            return NotFound();
+        return File(picture.Content, picture.ContentType);
+    }
+
+    /// <summary>Multipart upload of one image file (png, jpeg or webp, at most 2 MB) as the user's profile picture.</summary>
+    [HttpPost("{id:guid}/profile-picture")]
+    [Authorize(PlatformPermissions.Administration.Users.Update)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(ProfilePictureDto.MaxBytes + 64 * 1024)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    public async Task<IActionResult> SetProfilePictureAsync(Guid id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest();
+
+        using var stream = new MemoryStream();
+        await file.CopyToAsync(stream);
+        await _userAppService.SetProfilePictureAsync(id, new ProfilePictureDto { Content = stream.ToArray(), ContentType = file.ContentType });
+        return NoContent();
+    }
+
+    [HttpDelete("{id:guid}/profile-picture")]
+    [Authorize(PlatformPermissions.Administration.Users.Update)]
+    [ProducesResponseType(204)]
+    public async Task<IActionResult> DeleteProfilePictureAsync(Guid id)
+    {
+        await _userAppService.DeleteProfilePictureAsync(id);
         return NoContent();
     }
 

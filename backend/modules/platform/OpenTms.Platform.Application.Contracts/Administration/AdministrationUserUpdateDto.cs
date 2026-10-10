@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -20,7 +21,18 @@ public record AdministrationUserUpdateDto
     [MaxLength(64)]
     public string? Surname { get; init; }
 
+    [MaxLength(16)]
+    public string? PhoneNumber { get; init; }
+
     public bool IsActive { get; init; }
 
+    public bool ShouldChangePasswordOnNextLogin { get; init; }
+
+    /// <summary>Whether failed sign-ins lock the account for a while (ABP's lockout mechanism).</summary>
+    public bool LockoutEnabled { get; init; } = true;
+
     public List<string> RoleNames { get; init; } = new();
+
+    /// <summary>The organization units the user is a member of after the call (the whole set, not a delta).</summary>
+    public List<Guid> OrganizationUnitIds { get; init; } = new();
 }

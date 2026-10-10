@@ -1,0 +1,6 @@
+{
+  "culture": "en",
+  "texts": {
+    "UserLockedOutMessage": "This account is locked out. Contact your local IT support to have it unlocked."
+  }
+}

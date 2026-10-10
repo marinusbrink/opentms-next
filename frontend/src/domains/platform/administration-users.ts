@@ -1,4 +1,5 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useCallback } from "react";
 import { apiClient } from "@/lib/api/client";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
@@ -10,7 +11,13 @@ export type UserRow = {
   name?: string | null;
   surname?: string | null;
   isActive?: boolean;
+  phoneNumber?: string | null;
+  shouldChangePasswordOnNextLogin?: boolean;
+  lockoutEnabled?: boolean;
+  isLockedOut?: boolean;
+  hasProfilePicture?: boolean;
   roleNames?: string[] | null;
+  organizationUnitIds?: string[] | null;
   creationTime?: string;
 };
 
@@ -19,8 +26,13 @@ export type UserCreateDto = {
   email: string;
   name?: string | null;
   surname?: string | null;
-  password: string;
+  phoneNumber?: string | null;
+  password?: string | null;
+  setRandomPassword?: boolean;
+  shouldChangePasswordOnNextLogin?: boolean;
+  lockoutEnabled?: boolean;
   roleNames?: string[] | null;
+  organizationUnitIds?: string[] | null;
 };
 
 export type UserUpdateDto = {
@@ -28,8 +40,12 @@ export type UserUpdateDto = {
   email: string;
   name?: string | null;
   surname?: string | null;
+  phoneNumber?: string | null;
   isActive?: boolean;
+  shouldChangePasswordOnNextLogin?: boolean;
+  lockoutEnabled?: boolean;
   roleNames?: string[] | null;
+  organizationUnitIds?: string[] | null;
 };
 
 export type BulkDeleteResult = {
@@ -152,6 +168,79 @@ export function useResetPassword() {
         "/api/platform/administration/users/{id}/reset-password",
         { params: { path: { id } }, body: { newPassword } },
       );
+      if (error) throw error;
+    },
+  });
+}
+
+/** Ends a lockout early (the row's isLockedOut tells when it applies). */
+export function useUnlockUser() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.POST("/api/platform/administration/users/{id}/unlock", {
+        params: { path: { id } },
+      });
+      if (error) throw error;
+    },
+  });
+}
+
+// ── Profile picture ───────────────────────────────────────────────────────────
+
+export const profilePictureQueryKey = (userId: string) => ["administration", "users", userId, "profile-picture"] as const;
+
+/** The stored picture as an object URL (null when there is none); revoked when it changes or unmounts. */
+export function useProfilePictureUrl(userId: string | undefined, hasPicture: boolean): { url: string | null; isLoading: boolean } {
+  const query = useQuery({
+    queryKey: profilePictureQueryKey(userId ?? ""),
+    enabled: !!userId && hasPicture,
+    queryFn: async (): Promise<Blob | null> => {
+      const { data, error, response } = await apiClient.GET("/api/platform/administration/users/{id}/profile-picture", {
+        params: { path: { id: userId! } },
+        parseAs: "blob",
+      });
+      if (response.status === 404) return null;
+      if (error) throw error;
+      return (data as Blob | undefined) ?? null;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!query.data) {
+      setUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(query.data);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [query.data]);
+
+  return { url, isLoading: !!userId && hasPicture && query.isLoading };
+}
+
+export function useSetProfilePicture() {
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const body = new FormData();
+      body.append("file", file, file.name);
+      const { error } = await apiClient.POST("/api/platform/administration/users/{id}/profile-picture", {
+        params: { path: { id } },
+        body: body as unknown as { file?: string },
+        bodySerializer: (b) => b as unknown as FormData,
+      });
+      if (error) throw error;
+    },
+  });
+}
+
+export function useDeleteProfilePicture() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.DELETE("/api/platform/administration/users/{id}/profile-picture", {
+        params: { path: { id } },
+      });
       if (error) throw error;
     },
   });

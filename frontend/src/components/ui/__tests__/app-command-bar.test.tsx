@@ -124,15 +124,15 @@ describe("AppCommandBar", () => {
     expect(actionBtn!.className).not.toContain("bg-white");
   });
 
-  it("secondary action label has truncate and max-w-[120px] classes", () => {
+  it("labels never truncate (PO decision 2026-10-10): no truncate or max-width on the label", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     render(<AppCommandBar commands={[cmd]} />);
     // Text appears in both the hidden measurement div and the visible slot
     const labels = screen.getAllByText("Test:Action");
     const visibleLabel = labels.find((el) => !el.closest('[aria-hidden="true"]'));
     expect(visibleLabel).toBeInTheDocument();
-    expect(visibleLabel!.className).toContain("truncate");
-    expect(visibleLabel!.className).toContain("max-w-[120px]");
+    expect(visibleLabel!.className).not.toContain("truncate");
+    expect(visibleLabel!.className).not.toMatch(/max-w-/);
   });
 
   it("primary button has no rounded-t-md (square corners)", () => {

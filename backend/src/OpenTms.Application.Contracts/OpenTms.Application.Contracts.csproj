@@ -32,4 +32,9 @@
     <ProjectReference Include="..\..\modules\reporting\OpenTms.Reporting.Application.Contracts\OpenTms.Reporting.Application.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Localization\Account\*.json" />
+    <Content Remove="Localization\Account\*.json" />
+  </ItemGroup>
+
 </Project>

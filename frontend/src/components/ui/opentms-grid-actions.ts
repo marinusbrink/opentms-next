@@ -57,7 +57,11 @@ export function resolveTargetRows<TRow>(
   return [clicked];
 }
 
-/** UI-GRID-007: group rows and pinned rows never open. */
-export function canOpenRow(node: { group?: boolean; rowPinned?: string | null; data?: unknown }): boolean {
-  return !node.group && !node.rowPinned && node.data != null;
+/** UI-GRID-007: grouping rows and pinned rows never open. In tree data a parent row is the
+ *  record itself (AG Grid marks it as a group), so there every row with data opens and acts. */
+export function canOpenRow(
+  node: { group?: boolean; rowPinned?: string | null; data?: unknown },
+  treeData = false,
+): boolean {
+  return (treeData || !node.group) && !node.rowPinned && node.data != null;
 }

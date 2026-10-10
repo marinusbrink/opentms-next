@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { EntityDialogTab } from "@/components/ui/entity-dialog";
+import { FormSection } from "@/components/ui/form-section";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -23,8 +24,13 @@ export function RecordIdentificationTab(record: RecordIdentification) {
   const f = useFormat();
   const [copied, setCopied] = useState(false);
 
+  /* One topic, so the section carries the tab's own name (UI-FORM-005). */
   if (!record.id) {
-    return <p className="text-sm text-muted-foreground">{t("Record:NotSavedYet")}</p>;
+    return (
+      <FormSection title={t("RecordIdentification")}>
+        <p className="text-sm text-muted-foreground">{t("Record:NotSavedYet")}</p>
+      </FormSection>
+    );
   }
 
   const copyId = async () => {
@@ -47,7 +53,8 @@ export function RecordIdentificationTab(record: RecordIdentification) {
   ];
 
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
+    <FormSection title={t("RecordIdentification")}>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
       <dt className="text-label font-medium text-muted-foreground">{t("Record:Id")}</dt>
       <dd className="flex items-center gap-2">
         <code className="rounded-md bg-background px-2 py-1 font-mono text-label select-all">{record.id}</code>
@@ -68,7 +75,8 @@ export function RecordIdentificationTab(record: RecordIdentification) {
           <dd className="tabular-nums">{row.value}</dd>
         </div>
       ))}
-    </dl>
+      </dl>
+    </FormSection>
   );
 }
 

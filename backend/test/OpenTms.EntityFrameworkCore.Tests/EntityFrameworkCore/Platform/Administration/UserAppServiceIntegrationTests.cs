@@ -506,6 +506,265 @@ public class UserAppServiceIntegrationTests : OpenTmsEntityFrameworkCoreTestBase
         }
     }
 
+    // ── High: organization-unit membership on the user record ─────────────────
+
+    private async Task<Guid> CreateUnitAsync(Guid tenantId, string name)
+    {
+        var service = GetRequiredService<IOrganizationUnitAppService>();
+        Guid id = Guid.Empty;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                id = (await service.CreateAsync(new AdministrationOrganizationUnitCreateDto { DisplayName = name })).Id;
+            }
+        });
+        return id;
+    }
+
+    [Fact]
+    public async Task CreateAsync_and_UpdateAsync_set_the_users_organization_units_as_a_whole()
+    {
+        var tenantId = Guid.NewGuid();
+        var unitA = await CreateUnitAsync(tenantId, "ou-a-" + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var unitB = await CreateUnitAsync(tenantId, "ou-b-" + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+
+        AdministrationUserRowDto? created = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                created = await _userAppService.CreateAsync(new AdministrationUserCreateDto
+                {
+                    UserName = "ou-user-" + suffix,
+                    Email = $"ou{suffix}@t.nl",
+                    Password = "TestP@ss1",
+                    OrganizationUnitIds = new List<Guid> { unitA, unitA }
+                });
+            }
+        });
+        // A duplicate id is one membership.
+        created!.OrganizationUnitIds.ShouldBe(new[] { unitA });
+
+        AdministrationUserRowDto? updated = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                updated = await _userAppService.UpdateAsync(created.Id, new AdministrationUserUpdateDto
+                {
+                    UserName = created.UserName,
+                    Email = created.Email,
+                    IsActive = true,
+                    OrganizationUnitIds = new List<Guid> { unitB }
+                });
+            }
+        });
+        // The list is the whole set: A is gone, B is in.
+        updated!.OrganizationUnitIds.ShouldBe(new[] { unitB });
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var list = await _userAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = "ou-user-" + suffix });
+            list.Rows.Single().OrganizationUnitIds.ShouldBe(new[] { unitB });
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_an_organization_unit_of_another_tenant()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var unitInB = await CreateUnitAsync(tenantB, "ou-b-" + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var user = await CreateTestUserAsync(tenantA);
+
+        using (_currentTenant.Change(tenantA))
+        {
+            await Should.ThrowAsync<EntityNotFoundException>(() => _userAppService.UpdateAsync(user.Id, new AdministrationUserUpdateDto
+            {
+                UserName = user.UserName,
+                Email = user.Email,
+                IsActive = true,
+                OrganizationUnitIds = new List<Guid> { unitInB }
+            }));
+        }
+    }
+
+    // ── High: sign-in switches, random password, profile picture ──────────────
+
+    [Fact]
+    public async Task CreateAsync_with_random_password_sets_phone_and_sign_in_switches()
+    {
+        var tenantId = Guid.NewGuid();
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+
+        AdministrationUserRowDto? created = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                created = await _userAppService.CreateAsync(new AdministrationUserCreateDto
+                {
+                    UserName = "rnd-" + suffix,
+                    Email = $"rnd{suffix}@t.nl",
+                    PhoneNumber = "+31612345678",
+                    SetRandomPassword = true,
+                    ShouldChangePasswordOnNextLogin = true,
+                    LockoutEnabled = false
+                });
+            }
+        });
+
+        created!.PhoneNumber.ShouldBe("+31612345678");
+        created.ShouldChangePasswordOnNextLogin.ShouldBeTrue();
+        created.LockoutEnabled.ShouldBeFalse();
+        created.HasProfilePicture.ShouldBeFalse();
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var user = await _userManager.GetByIdAsync(created.Id);
+            (await _userManager.HasPasswordAsync(user)).ShouldBeTrue("a random password was set");
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_without_password_and_without_random_password_is_refused()
+    {
+        var tenantId = Guid.NewGuid();
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+        using (_currentTenant.Change(tenantId))
+        {
+            await Should.ThrowAsync<UserFriendlyException>(() => _userAppService.CreateAsync(new AdministrationUserCreateDto
+            {
+                UserName = "nopw-" + suffix,
+                Email = $"nopw{suffix}@t.nl"
+            }));
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_changes_the_sign_in_switches_and_the_phone_number()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await CreateTestUserAsync(tenantId);
+
+        AdministrationUserRowDto? updated = null;
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                updated = await _userAppService.UpdateAsync(user.Id, new AdministrationUserUpdateDto
+                {
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    PhoneNumber = "0101234567",
+                    IsActive = true,
+                    ShouldChangePasswordOnNextLogin = true,
+                    LockoutEnabled = false
+                });
+            }
+        });
+
+        updated!.PhoneNumber.ShouldBe("0101234567");
+        updated.ShouldChangePasswordOnNextLogin.ShouldBeTrue();
+        updated.LockoutEnabled.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Profile_picture_is_stored_read_back_and_removed_and_invisible_to_another_tenant()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var user = await CreateTestUserAsync(tenantA);
+        var png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 1, 2, 3 };
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantA))
+            {
+                await _userAppService.SetProfilePictureAsync(user.Id, new ProfilePictureDto { Content = png, ContentType = "image/png" });
+            }
+        });
+
+        using (_currentTenant.Change(tenantA))
+        {
+            var picture = await _userAppService.GetProfilePictureAsync(user.Id);
+            picture.ShouldNotBeNull();
+            picture!.ContentType.ShouldBe("image/png");
+            picture.Content.ShouldBe(png);
+
+            var row = (await _userAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = user.UserName })).Rows.Single();
+            row.HasProfilePicture.ShouldBeTrue();
+
+            await Should.ThrowAsync<UserFriendlyException>(() => _userAppService.SetProfilePictureAsync(user.Id, new ProfilePictureDto { Content = png, ContentType = "image/gif" }));
+            await Should.ThrowAsync<UserFriendlyException>(() => _userAppService.SetProfilePictureAsync(user.Id, new ProfilePictureDto { Content = new byte[ProfilePictureDto.MaxBytes + 1], ContentType = "image/png" }));
+        }
+
+        using (_currentTenant.Change(tenantB))
+        {
+            await Should.ThrowAsync<EntityNotFoundException>(() => _userAppService.GetProfilePictureAsync(user.Id));
+        }
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantA))
+            {
+                await _userAppService.DeleteProfilePictureAsync(user.Id);
+            }
+        });
+
+        using (_currentTenant.Change(tenantA))
+        {
+            (await _userAppService.GetProfilePictureAsync(user.Id)).ShouldBeNull();
+            var row = (await _userAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = user.UserName })).Rows.Single();
+            row.HasProfilePicture.ShouldBeFalse();
+        }
+    }
+
+    [Fact]
+    public async Task UnlockAsync_ends_a_lockout_early_and_the_row_reflects_it()
+    {
+        var tenantId = Guid.NewGuid();
+        var user = await CreateTestUserAsync(tenantId);
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                var locked = await _userManager.GetByIdAsync(user.Id);
+                EnsureSucceeded(await _userManager.SetLockoutEnabledAsync(locked, true));
+                EnsureSucceeded(await _userManager.SetLockoutEndDateAsync(locked, DateTimeOffset.UtcNow.AddHours(1)));
+            }
+        });
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var row = (await _userAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = user.UserName })).Rows.Single();
+            row.IsLockedOut.ShouldBeTrue();
+        }
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            using (_currentTenant.Change(tenantId))
+            {
+                await _userAppService.UnlockAsync(user.Id);
+            }
+        });
+
+        using (_currentTenant.Change(tenantId))
+        {
+            var row = (await _userAppService.GetListAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = user.UserName })).Rows.Single();
+            row.IsLockedOut.ShouldBeFalse();
+            (await _userManager.IsLockedOutAsync(await _userManager.GetByIdAsync(user.Id))).ShouldBeFalse();
+        }
+
+        using (_currentTenant.Change(Guid.NewGuid()))
+        {
+            await Should.ThrowAsync<EntityNotFoundException>(() => _userAppService.UnlockAsync(user.Id));
+        }
+    }
+
     [Fact]
     public async Task CreateAsync_throws_UserFriendlyException_for_nonexistent_role_name()
     {

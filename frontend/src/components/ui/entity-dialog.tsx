@@ -354,7 +354,7 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
       )}
     >
       {Icon && <Icon className={cn("size-7", isDestructive ? "text-destructive" : "text-brand")} aria-hidden="true" />}
-      <span className="max-w-[7rem] truncate">{t(command.labelKey)}</span>
+      <span className="whitespace-nowrap">{t(command.labelKey)}</span>
     </button>
   );
 }

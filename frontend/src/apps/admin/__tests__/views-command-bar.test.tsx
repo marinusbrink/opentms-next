@@ -16,12 +16,27 @@ vi.mock("@/domains/platform/administration-users", () => ({
   useUsersGridFetcher: () =>
     vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
   useDeleteUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUnlockUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/domains/platform/administration-roles", () => ({
   useRolesGridFetcher: () =>
     vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
   useDeleteRole: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/domains/platform/administration-organization-units", () => ({
+  useOrganizationUnitsGridFetcher: () =>
+    vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
+  useDeleteOrganizationUnit: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/apps/admin/components/OrganizationUnitFormDialog", () => ({
+  OrganizationUnitFormDialog: () => null,
+}));
+
+vi.mock("@/components/ui/opentms-grid-lazy", () => ({
+  LazyOpenTmsGrid: () => <div data-testid="mock-grid" />,
 }));
 
 vi.mock("@/apps/admin/components/UserFormDialog", () => ({
@@ -92,6 +107,7 @@ function setGrants(...policies: string[]) {
 
 import { UsersView } from "@/apps/admin/users/UsersView";
 import { RolesView } from "@/apps/admin/roles/RolesView";
+import { OrganizationUnitsView } from "@/apps/admin/organization-units/OrganizationUnitsView";
 
 // ── UsersView tests (Critical — AppCommandBar caller) ─────────────────────────
 
@@ -204,5 +220,49 @@ describe("RolesView — AppCommandBar integration (Critical)", () => {
       render(<RolesView />);
     });
     expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
+  });
+});
+
+// ── OrganizationUnitsView tests (Critical — permission-gated AppCommandBar caller) ─
+
+describe("OrganizationUnitsView — AppCommandBar integration (Critical)", () => {
+  beforeEach(() => {
+    setGrants(
+      "Platform.Administration.OrganizationUnits",
+      "Platform.Administration.OrganizationUnits.Create",
+      "Platform.Administration.OrganizationUnits.Update",
+      "Platform.Administration.OrganizationUnits.Delete",
+      "Platform.Administration.OrganizationUnits.ManageMembers",
+    );
+  });
+
+  it("shows the New organization unit primary command when the user may create", async () => {
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(<OrganizationUnitsView />));
+    });
+    expect(container.querySelector(".h-10")).not.toBeNull();
+    expect(screen.getByText("Administration:NewOrganizationUnit")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-grid")).toBeInTheDocument();
+  });
+
+  it("hides the command bar without the create permission (UI-PERM-002: hidden, never disabled)", async () => {
+    setGrants("Platform.Administration.OrganizationUnits");
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(<OrganizationUnitsView />));
+    });
+    expect(container.querySelector(".h-10")).toBeNull();
+    expect(screen.queryByText("Administration:NewOrganizationUnit")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mock-grid")).toBeInTheDocument();
+  });
+
+  it("shows the permission-denied panel without the view permission", async () => {
+    setGrants();
+    await act(async () => {
+      render(<OrganizationUnitsView />);
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("PermissionDenied");
+    expect(screen.queryByTestId("mock-grid")).not.toBeInTheDocument();
   });
 });

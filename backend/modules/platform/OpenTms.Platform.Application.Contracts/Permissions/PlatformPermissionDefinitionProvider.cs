@@ -27,6 +27,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         users.AddChild(PlatformPermissions.Administration.Users.Delete, L("Permission:Administration.Users.Delete"), bothSides);
         users.AddChild(PlatformPermissions.Administration.Users.BulkDelete, L("Permission:Administration.Users.BulkDelete"), bothSides);
         users.AddChild(PlatformPermissions.Administration.Users.ResetPassword, L("Permission:Administration.Users.ResetPassword"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.Unlock, L("Permission:Administration.Users.Unlock"), bothSides);
 
         var roles = group.AddPermission(
             PlatformPermissions.Administration.Roles.Default,
@@ -36,6 +37,15 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         roles.AddChild(PlatformPermissions.Administration.Roles.Update, L("Permission:Administration.Roles.Update"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.Delete, L("Permission:Administration.Roles.Delete"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.BulkDelete, L("Permission:Administration.Roles.BulkDelete"), bothSides);
+
+        var organizationUnits = group.AddPermission(
+            PlatformPermissions.Administration.OrganizationUnits.Default,
+            L("Permission:Administration.OrganizationUnits"),
+            bothSides);
+        organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.Create, L("Permission:Administration.OrganizationUnits.Create"), bothSides);
+        organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.Update, L("Permission:Administration.OrganizationUnits.Update"), bothSides);
+        organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.Delete, L("Permission:Administration.OrganizationUnits.Delete"), bothSides);
+        organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.ManageMembers, L("Permission:Administration.OrganizationUnits.ManageMembers"), bothSides);
     }
 
     private static LocalizableString L(string name)

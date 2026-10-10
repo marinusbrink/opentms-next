@@ -56,6 +56,13 @@ public class PlatformPermissionDefinitionTests
     }
 
     [Fact]
+    public void Users_Unlock_permission_has_correct_value()
+    {
+        PlatformPermissions.Administration.Users.Unlock
+            .ShouldBe("Platform.Administration.Users.Unlock");
+    }
+
+    [Fact]
     public void Roles_Default_permission_has_correct_value()
     {
         PlatformPermissions.Administration.Roles.Default
@@ -90,6 +97,21 @@ public class PlatformPermissionDefinitionTests
             .ShouldBe("Platform.Administration.Roles.BulkDelete");
     }
 
+    [Fact]
+    public void OrganizationUnits_permissions_have_correct_values()
+    {
+        PlatformPermissions.Administration.OrganizationUnits.Default
+            .ShouldBe("Platform.Administration.OrganizationUnits");
+        PlatformPermissions.Administration.OrganizationUnits.Create
+            .ShouldBe("Platform.Administration.OrganizationUnits.Create");
+        PlatformPermissions.Administration.OrganizationUnits.Update
+            .ShouldBe("Platform.Administration.OrganizationUnits.Update");
+        PlatformPermissions.Administration.OrganizationUnits.Delete
+            .ShouldBe("Platform.Administration.OrganizationUnits.Delete");
+        PlatformPermissions.Administration.OrganizationUnits.ManageMembers
+            .ShouldBe("Platform.Administration.OrganizationUnits.ManageMembers");
+    }
+
     // ── Hierarchy: child permissions are prefixed with their parent ──────────
 
     [Fact]
@@ -113,6 +135,17 @@ public class PlatformPermissionDefinitionTests
         PlatformPermissions.Administration.Roles.Update.ShouldStartWith(parent + ".");
         PlatformPermissions.Administration.Roles.Delete.ShouldStartWith(parent + ".");
         PlatformPermissions.Administration.Roles.BulkDelete.ShouldStartWith(parent + ".");
+    }
+
+    [Fact]
+    public void All_OrganizationUnits_child_permissions_start_with_OrganizationUnits_Default()
+    {
+        var parent = PlatformPermissions.Administration.OrganizationUnits.Default;
+
+        PlatformPermissions.Administration.OrganizationUnits.Create.ShouldStartWith(parent + ".");
+        PlatformPermissions.Administration.OrganizationUnits.Update.ShouldStartWith(parent + ".");
+        PlatformPermissions.Administration.OrganizationUnits.Delete.ShouldStartWith(parent + ".");
+        PlatformPermissions.Administration.OrganizationUnits.ManageMembers.ShouldStartWith(parent + ".");
     }
 
     // ── GroupName is the correct prefix for all permissions ──────────────────
@@ -149,11 +182,17 @@ public class PlatformPermissionDefinitionTests
             PlatformPermissions.Administration.Users.Delete,
             PlatformPermissions.Administration.Users.BulkDelete,
             PlatformPermissions.Administration.Users.ResetPassword,
+            PlatformPermissions.Administration.Users.Unlock,
             PlatformPermissions.Administration.Roles.Default,
             PlatformPermissions.Administration.Roles.Create,
             PlatformPermissions.Administration.Roles.Update,
             PlatformPermissions.Administration.Roles.Delete,
             PlatformPermissions.Administration.Roles.BulkDelete,
+            PlatformPermissions.Administration.OrganizationUnits.Default,
+            PlatformPermissions.Administration.OrganizationUnits.Create,
+            PlatformPermissions.Administration.OrganizationUnits.Update,
+            PlatformPermissions.Administration.OrganizationUnits.Delete,
+            PlatformPermissions.Administration.OrganizationUnits.ManageMembers,
         };
 
         var distinct = new System.Collections.Generic.HashSet<string>(all);

@@ -15,6 +15,7 @@ using Volo.Abp.Modularity;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.PermissionManagement.Identity;
 using Volo.Abp.SettingManagement;
+using Volo.Abp.BlobStoring;
 using Volo.Abp.BlobStoring.Database;
 using Volo.Abp.Caching;
 using Volo.Abp.OpenIddict;
@@ -57,6 +58,14 @@ public class OpenTmsDomainModule : AbpModule
         Configure<AbpMultiTenancyOptions>(options =>
         {
             options.IsEnabled = MultiTenancyConsts.IsEnabled;
+        });
+
+        /* Blobs (profile pictures for now) live in the database provider: tenant-aware out of the
+         * box and nothing to provision per environment. A cloud bucket provider can replace it per
+         * container later without touching the modules that write blobs. */
+        Configure<AbpBlobStoringOptions>(options =>
+        {
+            options.Containers.ConfigureDefault(container => container.UseDatabase());
         });
 
 
