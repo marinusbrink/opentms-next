@@ -1,4 +1,4 @@
-# Beheer — Gebruikers en rollen
+# Beheer — Gebruikers, rollen en organisatie-eenheden
 
 > **Vertaling:** deze pagina is de bronversie (Nederlands). De Engelse vertaling
 > wordt gegenereerd als onderdeel van de documentatiestap na deze draft.
@@ -9,8 +9,9 @@
 
 In de **Beheer**-app stel je in wie toegang heeft tot OpenTMS en wat ze mogen
 doen. Je maakt gebruikers aan, wijst hun rollen toe, stelt wachtwoorden opnieuw
-in en beheert de rollen zelf. Alleen gebruikers met de juiste rechten zien deze
-app.
+in en beheert de rollen zelf. Daarnaast bouw je er de organisatie-eenheden op
+(vestigingen, afdelingen, teams) en koppel je gebruikers aan die eenheden. Alleen
+gebruikers met de juiste rechten zien deze app.
 
 ---
 
@@ -20,7 +21,7 @@ app.
    te openen.
 2. Klik op de tegel **Beheer** (schildicoon, grijze tegel).
 3. De app opent op de **Gebruikers**-weergave. Links zie je het navigatiepaneel
-   met **Gebruikers** en **Rollen**.
+   met **Gebruikers**, **Rollen** en **Organisatie-eenheden**.
 
 <!-- SCREENSHOT: wafel-launcher met de Beheer-tegel zichtbaar -->
 
@@ -29,12 +30,13 @@ app.
 ## Het navigatiepaneel
 
 Aan de linkerzijde van de Beheer-app staat het **navigatiepaneel** met de
-weergaven **Gebruikers** en **Rollen**. De actieve weergave heeft een blauwe
-achtergrond met wit icoon en witte tekst.
+weergaven **Gebruikers**, **Rollen** en **Organisatie-eenheden**. De actieve
+weergave heeft een blauwe achtergrond met wit icoon en witte tekst.
 
 <!-- SCREENSHOT: de Beheer-app met het navigatiepaneel uitgevouwen en Gebruikers actief -->
 
-**Wisselen van weergave:** klik op **Gebruikers** of **Rollen** in het paneel.
+**Wisselen van weergave:** klik op **Gebruikers**, **Rollen** of
+**Organisatie-eenheden** in het paneel.
 
 **Paneel inklappen:** klik op het pijltje-links bovenaan het paneel (inklapknop).
 Het paneel wordt smal en toont alleen de iconen. Beweeg de muis over een icoon om
@@ -90,14 +92,36 @@ Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
    **Sluiten**, met rechts de tabbladen **Algemeen** en **Identificatie** (het
    vingerafdruk-icoon). Op **Identificatie** staat het technische id van het record
    en wanneer het is aangemaakt; bij een nieuw record is dat tabblad nog leeg.
-2. Vul het formulier in:
-   - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
-   - **E-mailadres** (verplicht) — geldig e-mailformaat.
+2. Vul het vak **Account** in:
+   - **Profielfoto** — sleep een PNG-, JPEG- of WebP-bestand (maximaal 2 MB) op
+     de cirkel, of klik erop om een bestand te kiezen. Zonder foto toont OpenTMS
+     de initialen.
    - **Voornaam** en **achternaam**.
-   - **Wachtwoord** (verplicht) — moet voldoen aan het wachtwoordbeleid
-     (minimumlengte en complexiteit staan bij het veld vermeld).
-   - **Rollen** — selecteer een of meer rollen via de keuzelijst.
-3. Klik op **Opslaan** (of druk op **Enter**).
+   - **E-mailadres** (verplicht) — geldig e-mailformaat.
+   - **Telefoonnummer**.
+   - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
+3. Stel in het vak **Toegang** de aanmelding in:
+   - **Wachtwoord** (verplicht) — moet voldoen aan het wachtwoordbeleid, of vink
+     **Willekeurig wachtwoord instellen** aan; OpenTMS kiest dan zelf een
+     wachtwoord dat aan het beleid voldoet. Stel het daarna opnieuw in via
+     [Wachtwoord opnieuw instellen](#wachtwoord-opnieuw-instellen), of laat de
+     gebruiker "wachtwoord vergeten" gebruiken.
+   - **Moet wachtwoord wijzigen bij volgende aanmelding** — de gebruiker krijgt
+     bij de eerstvolgende aanmelding eerst het scherm om een nieuw wachtwoord te
+     kiezen.
+   - **Account vergrendelen na mislukte aanmeldingen** — standaard aan. Na een
+     aantal verkeerde wachtwoorden wordt het account tijdelijk vergrendeld; wie
+     dan probeert aan te melden, ziet de melding dat het account is vergrendeld
+     en dat hij contact moet opnemen met de lokale IT-ondersteuning.
+4. Open het tabblad **Rollen** en vink de rollen aan die de gebruiker krijgt.
+   De lijst toont alle rollen van uw organisatie.
+5. Open het tabblad **Organisatie-eenheden** en vink de eenheden aan waarvan de
+   gebruiker lid is. De eenheden staan als boom; klap een eenheid uit met het
+   pijltje om de sub-eenheden te zien. Een vinkje geldt alleen voor die eenheid,
+   niet automatisch voor de sub-eenheden. Dit tabblad zie je alleen met het
+   recht **Organisatie-eenheden beheren**.
+6. Klik op **Opslaan** (of druk op **Enter**). Een gekozen profielfoto wordt bij
+   het opslaan geüpload.
 
 Het venster sluit, rechtsonder verschijnt kort de melding "Gebruiker opgeslagen"
 en de gebruiker staat in de lijst.
@@ -127,12 +151,21 @@ het beleid) verschijnt bovenin het venster; je invoer blijft staan.
 
 <!-- SCREENSHOT: het formulier "Gebruiker bewerken" -->
 
-**Gebruiker deactiveren:** haal het vinkje bij **Actief** weg. Een inactieve
-gebruiker kan niet meer inloggen maar blijft zichtbaar in de lijst.
+**Gebruiker deactiveren:** haal in het vak **Toegang** het vinkje bij **Actief**
+weg. Een inactieve gebruiker kan niet meer inloggen maar blijft zichtbaar in de
+lijst.
 
-**Rollen aanpassen:** gebruik de rollenkeuzelijst om rollen toe te voegen of
-te verwijderen. Je kunt de beheerdersrol niet verwijderen van de enige
-gebruiker die deze heeft — het systeem meldt dat dan.
+**Profielfoto wijzigen of verwijderen:** sleep een nieuwe foto op de cirkel, of
+klik er met de rechtermuisknop op en kies **Foto wijzigen** of **Foto
+verwijderen**. Sla daarna op.
+
+**Rollen aanpassen:** vink op het tabblad **Rollen** rollen aan of uit. Je kunt
+de beheerdersrol niet verwijderen van de enige gebruiker die deze heeft — het
+systeem meldt dat dan.
+
+**Organisatie-eenheden aanpassen:** vink op het tabblad **Organisatie-eenheden**
+eenheden aan of uit. Dezelfde koppeling kun je ook vanuit de eenheid zelf
+beheren (zie [Leden van een eenheid beheren](#leden-van-een-eenheid-beheren)).
 
 ---
 
@@ -148,6 +181,25 @@ Het nieuwe wachtwoord is direct actief. De gebruiker ontvangt geen automatische
 melding — informeer hen zelf over het nieuwe wachtwoord.
 
 <!-- SCREENSHOT: het dialoogvenster "Wachtwoord opnieuw instellen" -->
+
+---
+
+### Een vergrendeld account ontgrendelen
+
+> Vereist: het recht **Gebruikersaccounts ontgrendelen**.
+
+Na te veel mislukte aanmeldingen is een account tijdelijk vergrendeld (zie
+**Account vergrendelen na mislukte aanmeldingen** hierboven). Wil je niet
+wachten tot de vergrendeling vanzelf afloopt:
+
+1. Kies **Gebruikersaccount ontgrendelen** in het snelmenu (rechtermuisknop)
+   van de gebruiker. Dit menu-item staat er alleen zolang het account
+   vergrendeld is.
+2. De melding "Gebruikersaccount ontgrendeld" verschijnt; de gebruiker kan
+   direct weer aanmelden.
+
+Via **Kolommen** kun je de kolom **Vergrendeld** tonen om vergrendelde accounts
+in de lijst te zien.
 
 ---
 
@@ -191,7 +243,8 @@ Je kunt ook meerdere rijen selecteren en **Verwijderen** kiezen in het snelmenu.
 ## Rollen
 
 Rollen bepalen wat een gebruiker mag zien en doen in OpenTMS. Je wijst rollen
-toe aan gebruikers via het gebruikersformulier (zie hierboven).
+toe aan gebruikers op het tabblad **Rollen** van het gebruikersformulier (zie
+hierboven).
 
 ### De rollenlijst lezen
 
@@ -280,6 +333,136 @@ de overige geselecteerde rollen worden wél verwijderd.
 
 ---
 
+## Organisatie-eenheden
+
+Organisatie-eenheden zijn de boomstructuur van uw organisatie: bijvoorbeeld een
+hoofdkantoor met daaronder vestigingen, en daaronder afdelingen of teams. Je
+koppelt gebruikers aan een eenheid; zo is vastgelegd bij welke vestiging of
+afdeling iemand hoort.
+
+### De boom lezen
+
+Klik op **Organisatie-eenheden** in het navigatiepaneel links. Je ziet de
+eenheden op het hoogste niveau. Een eenheid met sub-eenheden heeft een
+pijltje voor de naam: klik erop om de sub-eenheden uit te klappen. Per eenheid
+zie je het aantal **leden** (gekoppelde gebruikers) en wanneer de eenheid is
+aangemaakt. Via **Kolommen** kun je ook het **Pad** (de namen van alle
+bovenliggende eenheden) en de technische **Code** tonen.
+
+<!-- SCREENSHOT: het scherm Organisatie-eenheden met een uitgeklapte boom -->
+
+**Zoeken:** typ in het zoekveld bovenaan de lijst. De boom maakt plaats voor een
+platte lijst van alle eenheden waarvan de naam de zoektekst bevat, op elk
+niveau. Zet de kolom **Pad** aan om te zien waar een gevonden eenheid in de boom
+zit. Maak het zoekveld leeg om de boom terug te krijgen.
+
+**Een eenheid openen:** dubbelklik op een rij (of druk op **Enter** als de rij de
+focus heeft). Heb je geen bewerkrecht, dan opent het venster alleen-lezen.
+
+**Acties op een rij:** klik met de **rechtermuisknop** op een eenheid voor het
+snelmenu met **Bewerken**, **Nieuwe sub-eenheid** en **Verwijderen**.
+
+---
+
+### Een nieuwe organisatie-eenheid aanmaken
+
+> Vereist: het recht **Organisatie-eenheden aanmaken**.
+
+1. Klik op **Nieuwe organisatie-eenheid** in de actiebalk boven de lijst, of
+   klik met de rechtermuisknop op een bestaande eenheid en kies
+   **Nieuwe sub-eenheid** (de bovenliggende eenheid is dan al ingevuld).
+2. Vul de **Naam** in (verplicht, maximaal 128 tekens). Twee eenheden onder
+   dezelfde bovenliggende eenheid kunnen niet dezelfde naam hebben.
+3. Kies de **Bovenliggende eenheid** in de keuzelijst: een boom waarin je
+   eenheden uit- en inklapt met het pijltje. Kies **Geen bovenliggende eenheid
+   (hoogste niveau)** voor een eenheid op het hoogste niveau.
+4. Klik op **Opslaan** (of druk op **Enter**).
+
+Het venster sluit, rechtsonder verschijnt kort de melding "Organisatie-eenheid
+opgeslagen" en de eenheid staat in de boom.
+
+<!-- SCREENSHOT: het formulier "Nieuwe sub-eenheid" met de keuzelijst voor de bovenliggende eenheid -->
+
+---
+
+### Een organisatie-eenheid bewerken
+
+> Vereist: het recht **Organisatie-eenheden bewerken**.
+
+1. Dubbelklik op de eenheid, of kies **Bewerken** in het snelmenu.
+2. Pas de **Naam** aan op het tabblad **Algemeen**.
+3. Klik op **Opslaan**.
+
+**Een eenheid verplaatsen:** kies op het tabblad **Algemeen** een andere
+**Bovenliggende eenheid** en klik op **Opslaan**. De eenheid verhuist met al
+haar sub-eenheden en leden. De eenheid zelf en haar sub-eenheden zijn in de
+keuzelijst grijs: een eenheid kan niet onder zichzelf komen te staan.
+
+Het venster heeft drie tabbladen: **Algemeen** (de naam en de bovenliggende
+eenheid), **Leden** (zie hieronder) en **Identificatie** (het vingerafdruk-icoon
+met het technische id).
+
+---
+
+### Leden van een eenheid beheren
+
+> Vereist: het recht **Leden van organisatie-eenheden beheren**. Zonder dit recht
+> zie je de ledenlijst wel, maar niet de knoppen om leden toe te voegen of te
+> verwijderen.
+
+Open de eenheid en klik op het tabblad **Leden**. Je ziet de gebruikers die
+aan deze eenheid zijn gekoppeld, met gebruikersnaam, e-mailadres, naam en of de
+gebruiker actief is.
+
+> **Wijzigingen in de leden worden pas toegepast als je op Opslaan klikt.**
+> Sluit je het venster zonder op te slaan, dan vraagt OpenTMS "Wijzigingen niet
+> opslaan?" en blijven de leden zoals ze waren.
+
+<!-- SCREENSHOT: het tabblad Leden van een organisatie-eenheid -->
+
+**Leden toevoegen:**
+
+1. Klik op **Leden toevoegen** boven de ledenlijst.
+2. Het venster **Leden toevoegen aan {eenheid}** toont alle gebruikers die nog
+   geen lid zijn. Klik op een rij om die te selecteren (nogmaals klikken maakt de
+   selectie ongedaan), of gebruik de selectievakjes. Met het zoekveld vind je
+   een gebruiker snel.
+3. Klik op **Geselecteerden toevoegen (N)**; de knop toont het aantal.
+4. De gekozen gebruikers staan nu in de ledenlijst. Klik op **Opslaan** om de
+   lidmaatschappen vast te leggen.
+
+<!-- SCREENSHOT: het venster Leden toevoegen met een selectie -->
+
+**Leden verwijderen:**
+
+1. Klik op het prullenbak-icoon aan het einde van de rij, of selecteer een of
+   meer rijen en kies **Verwijderen** in het snelmenu (rechtermuisknop). Er
+   volgt geen bevestigingsvraag: zolang je niet hebt opgeslagen, kun je het
+   venster sluiten zonder op te slaan.
+2. Klik op **Opslaan**.
+
+De gebruiker blijft bestaan; alleen de koppeling met de eenheid verdwijnt.
+
+---
+
+### Een organisatie-eenheid verwijderen
+
+> Vereist: het recht **Organisatie-eenheden verwijderen**.
+
+1. Kies **Verwijderen** in het snelmenu (rechtermuisknop) van de eenheid.
+2. Bevestig in het venster "Organisatie-eenheid verwijderen".
+3. Heeft de eenheid nog sub-eenheden of leden, dan volgt een tweede bevestiging
+   met de waarschuwing "De eenheid '{naam}' heeft {N} sub-eenheden en {M} leden.
+   Verwijderen verwijdert ook de sub-eenheden en alle lidmaatschappen." Klik
+   nogmaals op **Verwijderen**.
+
+De eenheid en al haar sub-eenheden worden verwijderd. De gekoppelde gebruikers
+blijven bestaan; alleen hun koppeling met deze eenheden verdwijnt.
+
+<!-- SCREENSHOT: de waarschuwing bij verwijdering van een eenheid met sub-eenheden -->
+
+---
+
 ## Rechten en zichtbaarheid
 
 Wat je kunt zien en doen hangt af van de rechten die uw beheerder aan uw rol
@@ -293,11 +476,17 @@ heeft toegekend:
 | Gebruiker verwijderen | Gebruikers verwijderen |
 | Meerdere gebruikers verwijderen | Meerdere gebruikers verwijderen |
 | Wachtwoord opnieuw instellen | Wachtwoord opnieuw instellen |
+| Vergrendeld account ontgrendelen | Gebruikersaccounts ontgrendelen |
 | Rollenlijst bekijken | Rollen beheren |
 | Rol aanmaken | Rollen aanmaken |
 | Rol bewerken | Rollen bewerken |
 | Rol verwijderen | Rollen verwijderen |
 | Meerdere rollen verwijderen | Rollen verwijderen (meerdere) |
+| Organisatie-eenheden bekijken | Organisatie-eenheden beheren |
+| Organisatie-eenheid aanmaken | Organisatie-eenheden aanmaken |
+| Organisatie-eenheid bewerken | Organisatie-eenheden bewerken |
+| Organisatie-eenheid verwijderen | Organisatie-eenheden verwijderen |
+| Leden toevoegen of verwijderen | Leden van organisatie-eenheden beheren |
 
 Als je een weergave wel kunt openen maar een melding "U heeft geen toestemming
 voor deze weergave" verschijnt, neem dan contact op met uw beheerder.

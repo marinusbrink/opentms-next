@@ -2,8 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Volo.Abp.BlobStoring;
+using Volo.Abp.Data;
 using OpenTms.Platform.Grid;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
@@ -11,20 +15,34 @@ using Volo.Abp.Identity;
 
 namespace OpenTms.Platform.Administration;
 
+/* Exposed only through UserAdministrationController (the conventional route is switched off). */
+[RemoteService(IsEnabled = false)]
 public class UserAppService : PlatformAppServiceBase, IUserAppService
 {
     private readonly IIdentityUserRepository _userRepository;
     private readonly IIdentityRoleRepository _roleRepository;
+    private readonly IOrganizationUnitRepository _organizationUnitRepository;
     private readonly IdentityUserManager _userManager;
+    private readonly IBlobContainer<ProfilePictureContainer> _profilePictures;
+    private readonly IOptions<IdentityOptions> _identityOptions;
+
+    /// <summary>Extra property on the user that holds the picture's content type; its presence means "has a picture".</summary>
+    public const string ProfilePictureContentTypeProperty = "ProfilePictureContentType";
 
     public UserAppService(
         IIdentityUserRepository userRepository,
         IIdentityRoleRepository roleRepository,
-        IdentityUserManager userManager)
+        IOrganizationUnitRepository organizationUnitRepository,
+        IdentityUserManager userManager,
+        IBlobContainer<ProfilePictureContainer> profilePictures,
+        IOptions<IdentityOptions> identityOptions)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _organizationUnitRepository = organizationUnitRepository;
         _userManager = userManager;
+        _profilePictures = profilePictures;
+        _identityOptions = identityOptions;
     }
 
     // Bounded at MaxRoleFetchCount — at the design's stated scale (tens of roles per tenant)
@@ -64,16 +82,28 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     public async Task<AdministrationUserRowDto> CreateAsync(AdministrationUserCreateDto input)
     {
         await ValidateRoleNamesAsync(input.RoleNames);
+        var organizationUnitIds = await ValidateOrganizationUnitIdsAsync(input.OrganizationUnitIds);
+
+        var password = input.SetRandomPassword
+            ? RandomPasswordGenerator.Generate(_identityOptions.Value.Password)
+            : input.Password;
+        if (string.IsNullOrEmpty(password))
+            throw new UserFriendlyException(L["Administration:PasswordOrRandomRequired"]);
 
         var user = new IdentityUser(GuidGenerator.Create(), input.UserName, input.Email, CurrentTenant.Id);
         user.Name = input.Name;
         user.Surname = input.Surname;
+        user.SetPhoneNumber(input.PhoneNumber, confirmed: false);
+        user.SetShouldChangePasswordOnNextLogin(input.ShouldChangePasswordOnNextLogin);
 
         ThrowIfFailed(await _userManager.CreateAsync(user));
-        ThrowIfFailed(await _userManager.AddPasswordAsync(user, input.Password));
+        ThrowIfFailed(await _userManager.AddPasswordAsync(user, password));
+        ThrowIfFailed(await _userManager.SetLockoutEnabledAsync(user, input.LockoutEnabled));
 
         if (input.RoleNames.Count > 0)
             await _userManager.SetRolesAsync(user, input.RoleNames);
+        if (organizationUnitIds.Length > 0)
+            await _userManager.SetOrganizationUnitsAsync(user, organizationUnitIds);
 
         Logger.LogInformation("User {UserId} created by {ActorId}", user.Id, CurrentUser.Id);
 
@@ -83,6 +113,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     public async Task<AdministrationUserRowDto> UpdateAsync(Guid id, AdministrationUserUpdateDto input)
     {
         await ValidateRoleNamesAsync(input.RoleNames);
+        var organizationUnitIds = await ValidateOrganizationUnitIdsAsync(input.OrganizationUnitIds);
 
         var user = await FindUserOrThrowAsync(id);
 
@@ -92,9 +123,14 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         ThrowIfFailed(await _userManager.SetEmailAsync(user, input.Email));
         user.Name = input.Name;
         user.Surname = input.Surname;
+        if (!string.Equals(user.PhoneNumber, input.PhoneNumber, StringComparison.Ordinal))
+            ThrowIfFailed(await _userManager.SetPhoneNumberAsync(user, input.PhoneNumber));
         user.SetIsActive(input.IsActive);
+        user.SetShouldChangePasswordOnNextLogin(input.ShouldChangePasswordOnNextLogin);
+        ThrowIfFailed(await _userManager.SetLockoutEnabledAsync(user, input.LockoutEnabled));
 
         await _userManager.SetRolesAsync(user, input.RoleNames);
+        await _userManager.SetOrganizationUnitsAsync(user, organizationUnitIds);
         ThrowIfFailed(await _userManager.UpdateAsync(user));
 
         Logger.LogInformation("User {UserId} updated by {ActorId}", user.Id, CurrentUser.Id);
@@ -112,6 +148,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         await CheckLastAdminRoleGuardAsync(user, null);
 
         ThrowIfFailed(await _userManager.DeleteAsync(user));
+        await _profilePictures.DeleteAsync(id.ToString("N"));
 
         Logger.LogInformation("User {UserId} deleted by {ActorId}", id, CurrentUser.Id);
     }
@@ -185,6 +222,56 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         Logger.LogInformation("Password reset for user {UserId} by {ActorId}", id, CurrentUser.Id);
     }
 
+    public async Task UnlockAsync(Guid id)
+    {
+        var user = await FindUserOrThrowAsync(id);
+        ThrowIfFailed(await _userManager.SetLockoutEndDateAsync(user, null));
+        ThrowIfFailed(await _userManager.ResetAccessFailedCountAsync(user));
+
+        Logger.LogInformation("User {UserId} unlocked by {ActorId}", id, CurrentUser.Id);
+    }
+
+    // ── Profile picture ───────────────────────────────────────────────────────
+
+    public async Task<ProfilePictureDto?> GetProfilePictureAsync(Guid id)
+    {
+        var user = await FindUserOrThrowAsync(id);
+        var contentType = user.GetProperty<string?>(ProfilePictureContentTypeProperty);
+        if (string.IsNullOrEmpty(contentType))
+            return null;
+
+        var bytes = await _profilePictures.GetAllBytesOrNullAsync(id.ToString("N"));
+        return bytes == null ? null : new ProfilePictureDto { Content = bytes, ContentType = contentType };
+    }
+
+    public async Task SetProfilePictureAsync(Guid id, ProfilePictureDto input)
+    {
+        if (!ProfilePictureDto.AllowedContentTypes.Contains(input.ContentType, StringComparer.OrdinalIgnoreCase))
+            throw new UserFriendlyException(L["Administration:PictureTypeNotAllowed"]);
+        if (input.Content.Length == 0 || input.Content.Length > ProfilePictureDto.MaxBytes)
+            throw new UserFriendlyException(L["Administration:PictureTooLarge"]);
+
+        var user = await FindUserOrThrowAsync(id);
+        await _profilePictures.SaveAsync(id.ToString("N"), input.Content, overrideExisting: true);
+        user.SetProperty(ProfilePictureContentTypeProperty, input.ContentType.ToLowerInvariant());
+        ThrowIfFailed(await _userManager.UpdateAsync(user));
+
+        Logger.LogInformation("Profile picture set for user {UserId} by {ActorId}", id, CurrentUser.Id);
+    }
+
+    public async Task DeleteProfilePictureAsync(Guid id)
+    {
+        var user = await FindUserOrThrowAsync(id);
+        await _profilePictures.DeleteAsync(id.ToString("N"));
+        if (user.HasProperty(ProfilePictureContentTypeProperty))
+        {
+            user.RemoveProperty(ProfilePictureContentTypeProperty);
+            ThrowIfFailed(await _userManager.UpdateAsync(user));
+        }
+
+        Logger.LogInformation("Profile picture removed for user {UserId} by {ActorId}", id, CurrentUser.Id);
+    }
+
     private async Task<IdentityUser> FindUserOrThrowAsync(Guid id)
     {
         var user = await _userRepository.FindAsync(id, includeDetails: true);
@@ -201,6 +288,21 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
             if (role == null)
                 throw new UserFriendlyException($"Role '{roleName}' does not exist.");
         }
+    }
+
+    /* Every unit must exist in the current tenant: the repository is tenant-filtered, so an id of
+     * another tenant's unit is simply not found (constitution rule 1). Duplicates are dropped. */
+    private async Task<Guid[]> ValidateOrganizationUnitIdsAsync(IEnumerable<Guid> organizationUnitIds)
+    {
+        var ids = organizationUnitIds.Distinct().ToArray();
+        if (ids.Length == 0) return ids;
+
+        var units = await _organizationUnitRepository.GetListAsync(ids);
+        var missing = ids.Except(units.Select(u => u.Id)).ToArray();
+        if (missing.Length > 0)
+            throw new EntityNotFoundException(typeof(OrganizationUnit), missing[0]);
+
+        return ids;
     }
 
     private async Task CheckLastAdminRoleGuardAsync(IdentityUser user, IEnumerable<string>? newRoleNames)
@@ -259,39 +361,11 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     private async Task<AdministrationUserRowDto> BuildUserRowDtoAsync(IdentityUser user)
     {
         var roleNames = await _userManager.GetRolesAsync(user);
-        return new AdministrationUserRowDto
-        {
-            Id = user.Id,
-            UserName = user.UserName,
-            Email = user.Email,
-            Name = user.Name,
-            Surname = user.Surname,
-            IsActive = user.IsActive,
-            RoleNames = roleNames.ToList(),
-            CreationTime = user.CreationTime
-        };
+        return AdministrationUserRowMapper.Map(user, roleNames.ToList(), Clock.Now);
     }
 
-    private static AdministrationUserRowDto MapToUserRowDto(IdentityUser user, Dictionary<Guid, string> roleNameById)
-    {
-        var roleNames = user.Roles
-            .Select(r => roleNameById.TryGetValue(r.RoleId, out var name) ? name : null)
-            .Where(n => n != null)
-            .Select(n => n!)
-            .ToList();
-
-        return new AdministrationUserRowDto
-        {
-            Id = user.Id,
-            UserName = user.UserName,
-            Email = user.Email,
-            Name = user.Name,
-            Surname = user.Surname,
-            IsActive = user.IsActive,
-            RoleNames = roleNames,
-            CreationTime = user.CreationTime
-        };
-    }
+    private AdministrationUserRowDto MapToUserRowDto(IdentityUser user, Dictionary<Guid, string> roleNameById) =>
+        AdministrationUserRowMapper.Map(user, roleNameById, Clock.Now);
 
     private static void ThrowIfFailed(IdentityResult result)
     {

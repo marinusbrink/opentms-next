@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
@@ -19,9 +19,11 @@ import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog
 import { UserFormDialog } from "@/apps/admin/components/UserFormDialog";
 import {
   useDeleteUser,
+  useUnlockUser,
   useUsersGridFetcher,
   type UserRow,
 } from "@/domains/platform/administration-users";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -56,8 +58,10 @@ export function UsersView() {
   const canDelete = useIsGranted("Platform.Administration.Users.Delete");
   const canBulkDelete = useIsGranted("Platform.Administration.Users.BulkDelete");
   const canResetPassword = useIsGranted("Platform.Administration.Users.ResetPassword");
+  const canUnlock = useIsGranted("Platform.Administration.Users.Unlock");
 
   const deleteUser = useDeleteUser();
+  const unlockUser = useUnlockUser();
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [editor, setEditor] = useState<EditorState>(null);
@@ -90,6 +94,21 @@ export function UsersView() {
       setEditor({ mode: "edit", user: row, readOnly: !canUpdate });
     },
     [canUpdate],
+  );
+
+  /* Unlock is reversible and leaves nothing to decide, so it runs without a confirm; the
+   * outcome shows as a toast (UI-FB-002) and a failure as a toast too (UI-FB-004, list action). */
+  const unlock = useCallback(
+    async (row: UserRow) => {
+      try {
+        await unlockUser.mutateAsync(row.id!);
+        toast.success(t("Administration:UserUnlocked"));
+        invalidateGrid();
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, t));
+      }
+    },
+    [invalidateGrid, t, unlockUser],
   );
 
   const commands = useMemo<AppCommandBarCommand[]>(
@@ -144,6 +163,17 @@ export function UsersView() {
               },
             ]
           : []),
+        /* Only while a lockout is in force: it overrides the lockout duration. */
+        ...(canUnlock && single?.isLockedOut
+          ? [
+              {
+                id: "unlock",
+                labelKey: "Administration:UnlockUser",
+                icon: LockOpen,
+                onClick: () => void unlock(single),
+              },
+            ]
+          : []),
         ...(canDelete
           ? [
               {
@@ -172,7 +202,7 @@ export function UsersView() {
           : []),
       ];
     },
-    [canBulkDelete, canDelete, canResetPassword, canUpdate, openRecord],
+    [canBulkDelete, canDelete, canResetPassword, canUnlock, canUpdate, openRecord, unlock],
   );
 
   const columnDefs = useMemo<ColDef<UserRow>[]>(
@@ -207,6 +237,14 @@ export function UsersView() {
         minWidth: 140,
       },
       {
+        field: "phoneNumber",
+        headerName: t("Administration:PhoneNumber"),
+        sortable: false,
+        filter: false,
+        minWidth: 140,
+        hide: true,
+      },
+      {
         field: "roleNames",
         headerName: t("Administration:Roles"),
         valueGetter: (params) => (params.data?.roleNames ?? []).join(", "),
@@ -222,6 +260,15 @@ export function UsersView() {
         sortable: false,
         filter: false,
         minWidth: 90,
+      },
+      {
+        field: "isLockedOut",
+        headerName: t("Administration:LockedOut"),
+        cellRenderer: BoolCell,
+        sortable: false,
+        filter: false,
+        minWidth: 100,
+        hide: true,
       },
       {
         field: "creationTime",

@@ -69,4 +69,10 @@ describe("canOpenRow (UI-GRID-007)", () => {
     expect(canOpenRow({ rowPinned: "bottom", data: {} })).toBe(false);
     expect(canOpenRow({ data: undefined })).toBe(false);
   });
+
+  it("opens tree-data parents: there the group row is the record", () => {
+    expect(canOpenRow({ group: true, data: { id: 1 } }, true)).toBe(true);
+    expect(canOpenRow({ group: true, data: undefined }, true)).toBe(false);
+    expect(canOpenRow({ group: true, rowPinned: "top", data: { id: 1 } }, true)).toBe(false);
+  });
 });

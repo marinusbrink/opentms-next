@@ -3,6 +3,7 @@ import {
   CalendarRange,
   Database,
   LayoutDashboard,
+  Network,
   Plug,
   Receipt,
   Shield,
@@ -126,6 +127,7 @@ export const APPS: readonly AppDefinition[] = [
     views: [
       { nameKey: "Administration:Users", path: "/admin/users", icon: Users },
       { nameKey: "Administration:Roles", path: "/admin/roles", icon: ShieldCheck },
+      { nameKey: "Administration:OrganizationUnits", path: "/admin/organization-units", icon: Network },
     ],
   },
 ];

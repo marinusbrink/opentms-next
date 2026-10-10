@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type {
   CellKeyDownEvent,
   ColDef,
+  ColDefField,
   ColumnMovedEvent,
   ColumnResizedEvent,
   ColumnState,
@@ -55,6 +56,9 @@ if (!licenseDetails.valid) {
 }
 LicenseManager.setLicenseKey(licenseKey);
 
+/** The colId AG Grid gives the expanding column of tree data. */
+const AUTO_COLUMN_ID = "ag-Grid-AutoColumn";
+
 // ─── Public types ────────────────────────────────────────────────────────────
 
 export interface SortModel {
@@ -94,6 +98,19 @@ export interface GridSelectionDto {
 
 export type { GridRowAction } from "@/components/ui/opentms-grid-actions";
 
+/** Tree data (organisation units): rows expand into children fetched per parent. The grid
+ *  passes the keys of the expanded ancestors in `GridRequest.groupKeys`, last one deepest. */
+export interface GridTreeDataOptions<TRow> {
+  /** Whether the row can expand (the server tells: `hasChildren`). */
+  isGroup: (row: TRow) => boolean;
+  /** The key the children request carries for this row, normally its id. */
+  getGroupKey: (row: TRow) => string;
+  /** The expanding column: its header and the field it shows. */
+  headerName: string;
+  field: ColDefField<TRow>;
+  minWidth?: number;
+}
+
 export interface OpenTmsGridProps<TRow> {
   gridId: string;
   columnDefs: ColDef<TRow>[];
@@ -108,6 +125,10 @@ export interface OpenTmsGridProps<TRow> {
   filters?: ReactNode;
   /** UI-GRID-013: shows the Export button when the design includes export. */
   onExport?: () => void;
+  /** Hierarchical rows (UI-LOOK-001 "tree data"); the first column becomes the expanding one. */
+  treeData?: GridTreeDataOptions<TRow>;
+  /** UI-GRID-016: a picker grid toggles the selection on row click. */
+  clickSelects?: boolean;
   className?: string;
 }
 
@@ -210,6 +231,8 @@ export function OpenTmsGrid<TRow>({
   rowActions,
   filters,
   onExport,
+  treeData,
+  clickSelects = false,
   className,
 }: OpenTmsGridProps<TRow>) {
   const { t } = useL();
@@ -396,7 +419,8 @@ export function OpenTmsGrid<TRow>({
           startRow: params.request.startRow ?? 0,
           endRow: params.request.endRow ?? 100,
           sortModels: params.request.sortModel.map((sm) => ({
-            colId: sm.colId,
+            /* The tree's expanding column is AG Grid's auto column; the server knows the field. */
+            colId: treeData && sm.colId === AUTO_COLUMN_ID ? treeData.field : sm.colId,
             sort: sm.sort,
           })),
           columnFilters,
@@ -436,7 +460,7 @@ export function OpenTmsGrid<TRow>({
     }),
     // fetchRows identity is the consumer's responsibility; gridId is stable per mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fetchRows, gridId],
+    [fetchRows, gridId, treeData],
   );
 
   // ── Datasource update after mount (supports identity-change-triggered refresh) ──
@@ -465,6 +489,7 @@ export function OpenTmsGrid<TRow>({
           const validColIds = new Set(
             columnDefs.map((cd) => (cd.colId ?? cd.field) as string).filter(Boolean),
           );
+          if (treeData) validColIds.add(AUTO_COLUMN_ID);
 
           if (settings.columnStates?.length) {
             const validStates: ColumnState[] = settings.columnStates
@@ -531,11 +556,11 @@ export function OpenTmsGrid<TRow>({
 
   const openRow = useCallback(
     (node: { group?: boolean; rowPinned?: string | null; data?: TRow }) => {
-      if (onOpen && canOpenRow(node)) {
+      if (onOpen && canOpenRow(node, treeData != null)) {
         onOpen(node.data as TRow);
       }
     },
-    [onOpen],
+    [onOpen, treeData],
   );
 
   const onRowDoubleClicked = useCallback(
@@ -558,7 +583,7 @@ export function OpenTmsGrid<TRow>({
   const getContextMenuItems = useCallback(
     (params: GetContextMenuItemsParams<TRow>) => {
       if (!rowActions) return [];
-      const clicked = params.node && canOpenRow(params.node) ? (params.node.data as TRow) : undefined;
+      const clicked = params.node && canOpenRow(params.node, treeData != null) ? (params.node.data as TRow) : undefined;
       const rows = resolveTargetRows(
         clicked,
         params.api.getSelectedRows(),
@@ -567,7 +592,7 @@ export function OpenTmsGrid<TRow>({
       if (rows.length === 0) return [];
       return buildContextMenuItems(rowActions(rows), rows.length, t);
     },
-    [rowActions, t],
+    [rowActions, t, treeData],
   );
 
   // ── Filter changed (AG Grid column filters) ───────────────────────────────
@@ -691,10 +716,36 @@ export function OpenTmsGrid<TRow>({
             selectAll: "filtered",
             checkboxes: true,
             headerCheckbox: true,
-            enableClickSelection: false,
+            enableClickSelection: clickSelects,
           } as const)
         : undefined,
-    [onSelectionChange],
+    [onSelectionChange, clickSelects],
+  );
+
+  // ── Tree data (server-side) ───────────────────────────────────────────────
+
+  const isServerSideGroup = useCallback(
+    (dataItem: TRow) => (treeData ? treeData.isGroup(dataItem) : false),
+    [treeData],
+  );
+  const getServerSideGroupKey = useCallback(
+    (dataItem: TRow) => (treeData ? treeData.getGroupKey(dataItem) : ""),
+    [treeData],
+  );
+  const autoGroupColumnDef = useMemo<ColDef<TRow> | undefined>(
+    () =>
+      treeData
+        ? {
+            headerName: treeData.headerName,
+            field: treeData.field,
+            flex: 1,
+            minWidth: treeData.minWidth ?? 240,
+            sortable: true,
+            filter: false,
+            cellRendererParams: { suppressCount: true },
+          }
+        : undefined,
+    [treeData],
   );
 
   const selectionColumnDef = useMemo<ColDef>(
@@ -743,6 +794,10 @@ export function OpenTmsGrid<TRow>({
           selectionColumnDef={selectionColumnDef}
           rowModelType="serverSide"
           cacheBlockSize={100}
+          treeData={treeData != null}
+          isServerSideGroup={treeData ? isServerSideGroup : undefined}
+          getServerSideGroupKey={treeData ? getServerSideGroupKey : undefined}
+          autoGroupColumnDef={autoGroupColumnDef}
           rowSelection={rowSelectionOptions}
           getRowId={(params) =>
             String((params.data as Record<string, unknown>)?.id ?? "")

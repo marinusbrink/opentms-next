@@ -59,7 +59,7 @@ const appRoutes = APPS.map((app) =>
 // Sub-routes for the Administration app — both resolve to the same component;
 // the component reads the pathname to determine the active tab.
 // Lazy-loaded per design §Cost & SLO: admin bundle must not land in the main chunk.
-const adminSubRoutes = ["/admin/users", "/admin/roles"].map((path) =>
+const adminSubRoutes = ["/admin/users", "/admin/roles", "/admin/organization-units"].map((path) =>
   createRoute({
     getParentRoute: () => shellRoute,
     path,

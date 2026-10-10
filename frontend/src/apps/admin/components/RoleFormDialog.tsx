@@ -7,6 +7,7 @@ import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
+import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import {
@@ -118,35 +119,40 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
           </Alert>
         )}
 
-        <FormField label={t("Administration:RoleName")} htmlFor="rf-name" required error={shownNameError}>
-          <Input
-            id="rf-name"
-            value={values.name}
-            onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-            onBlur={() => setNameTouched(true)}
-            maxLength={256}
-            disabled={readOnly}
-          />
-        </FormField>
+        {/* One topic: the section carries the entity's name (UI-FORM-005). */}
+        <FormSection title={t("Administration:Role")}>
+          <div className="grid grid-cols-1 gap-3">
+            <FormField label={t("Administration:RoleName")} htmlFor="rf-name" required error={shownNameError}>
+              <Input
+                id="rf-name"
+                value={values.name}
+                onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+                onBlur={() => setNameTouched(true)}
+                maxLength={256}
+                disabled={readOnly}
+              />
+            </FormField>
 
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={values.isDefault}
-              onCheckedChange={(checked) => setValues((v) => ({ ...v, isDefault: checked === true }))}
-              disabled={readOnly}
-            />
-            {t("Administration:IsDefault")}
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={values.isPublic}
-              onCheckedChange={(checked) => setValues((v) => ({ ...v, isPublic: checked === true }))}
-              disabled={readOnly}
-            />
-            {t("Administration:IsPublic")}
-          </label>
-        </div>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={values.isDefault}
+                  onCheckedChange={(checked) => setValues((v) => ({ ...v, isDefault: checked === true }))}
+                  disabled={readOnly}
+                />
+                {t("Administration:IsDefault")}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={values.isPublic}
+                  onCheckedChange={(checked) => setValues((v) => ({ ...v, isPublic: checked === true }))}
+                  disabled={readOnly}
+                />
+                {t("Administration:IsPublic")}
+              </label>
+            </div>
+          </div>
+        </FormSection>
 
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>

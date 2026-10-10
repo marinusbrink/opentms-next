@@ -31,11 +31,17 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.Administration.Users.Delete,
             PlatformPermissions.Administration.Users.BulkDelete,
             PlatformPermissions.Administration.Users.ResetPassword,
+            PlatformPermissions.Administration.Users.Unlock,
             PlatformPermissions.Administration.Roles.Default,
             PlatformPermissions.Administration.Roles.Create,
             PlatformPermissions.Administration.Roles.Update,
             PlatformPermissions.Administration.Roles.Delete,
             PlatformPermissions.Administration.Roles.BulkDelete,
+            PlatformPermissions.Administration.OrganizationUnits.Default,
+            PlatformPermissions.Administration.OrganizationUnits.Create,
+            PlatformPermissions.Administration.OrganizationUnits.Update,
+            PlatformPermissions.Administration.OrganizationUnits.Delete,
+            PlatformPermissions.Administration.OrganizationUnits.ManageMembers,
         ];
 
         foreach (var permission in permissions)

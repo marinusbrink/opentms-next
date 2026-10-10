@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { apiClient } from "@/lib/api/client";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
@@ -21,6 +21,21 @@ export type RoleCreateUpdateDto = {
 export type RoleDeleteResult =
   | { status: "deleted" }
   | { status: "conflict"; roleName: string; userCount: number };
+
+/** Every role of the current tenant (or the host), for the user editor's Roles tab. */
+export function useAllRoles() {
+  return useQuery({
+    queryKey: ["administration", "roles", "all"],
+    queryFn: async (): Promise<RoleRow[]> => {
+      const { data, error } = await apiClient.GET("/api/platform/administration/roles", {
+        params: { query: { startRow: 0, endRow: 200 } },
+      });
+      if (error) throw error;
+      return data?.rows ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 export function useRolesGridFetcher(): (request: GridRequest) => Promise<GridResponse<RoleRow>> {
   return useCallback(async (request: GridRequest): Promise<GridResponse<RoleRow>> => {

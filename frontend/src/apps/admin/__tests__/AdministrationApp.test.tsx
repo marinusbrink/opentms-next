@@ -18,6 +18,10 @@ vi.mock("@/apps/admin/roles/RolesView", () => ({
   RolesView: () => <div data-testid="roles-view">RolesView</div>,
 }));
 
+vi.mock("@/apps/admin/organization-units/OrganizationUnitsView", () => ({
+  OrganizationUnitsView: () => <div data-testid="organization-units-view">OrganizationUnitsView</div>,
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useLocation } from "@tanstack/react-router";
@@ -43,6 +47,14 @@ describe("AdministrationApp – tab removal (medium risk)", () => {
     render(<AdministrationApp />);
     expect(screen.getByTestId("roles-view")).toBeInTheDocument();
     expect(screen.queryByTestId("users-view")).not.toBeInTheDocument();
+  });
+
+  it("renders OrganizationUnitsView when pathname is /admin/organization-units", () => {
+    setPathname("/admin/organization-units");
+    render(<AdministrationApp />);
+    expect(screen.getByTestId("organization-units-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("users-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("roles-view")).not.toBeInTheDocument();
   });
 
   it("renders UsersView for any non-roles pathname under /admin", () => {
