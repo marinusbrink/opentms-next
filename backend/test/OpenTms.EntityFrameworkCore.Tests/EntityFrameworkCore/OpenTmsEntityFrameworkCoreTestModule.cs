@@ -4,6 +4,7 @@ using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
+using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.FeatureManagement;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
@@ -38,6 +39,14 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
             options.IsDynamicPermissionStoreEnabled = false;
         });
         context.Services.AddAlwaysDisableUnitOfWorkTransaction();
+
+        /* SQLite tests run without transactions, so the transactional outbox cannot apply here:
+         * distributed events are delivered directly. The outbox itself is covered by the
+         * PostgreSQL-backed tests (OpenTmsPostgreSqlTestModule). */
+        Configure<AbpDistributedEventBusOptions>(options =>
+        {
+            options.Outboxes.Clear();
+        });
 
         ConfigureInMemorySqlite(context.Services);
 

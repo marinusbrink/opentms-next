@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
@@ -24,6 +25,7 @@ using OpenTms.HealthChecks;
 using OpenTms.Orders;
 using OpenTms.PlanningExecution;
 using OpenTms.Platform;
+using OpenTms.Platform.Events.Outbox;
 using OpenTms.Reporting;
 using Volo.Abp.BackgroundJobs.Hangfire;
 using Microsoft.OpenApi;
@@ -50,6 +52,8 @@ using Volo.Abp.OpenIddict;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Security.Claims;
+using Microsoft.Extensions.Options;
+using Volo.Abp.BackgroundWorkers;
 
 namespace OpenTms;
 
@@ -351,5 +355,18 @@ public class OpenTmsHttpApiHostModule : AbpModule
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
+    }
+
+    public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
+    {
+        await base.OnApplicationInitializationAsync(context);
+
+        /* Transactional outbox dispatcher (docs/designs/outbox-per-tenant.md). Per-instance switch:
+         * after the role split only the Jobs role keeps Outbox:DispatchEnabled on. */
+        var outboxOptions = context.ServiceProvider.GetRequiredService<IOptions<OutboxOptions>>().Value;
+        if (outboxOptions.DispatchEnabled)
+        {
+            await context.AddBackgroundWorkerAsync<OutboxDispatchWorker>();
+        }
     }
 }

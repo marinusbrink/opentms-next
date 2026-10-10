@@ -45,11 +45,13 @@ One ABP module per domain under `backend/modules/`, five projects each
    (`orders`, `planning`, `financial`, `masterdata`, `integrations`, `reporting`,
    `platform`) and its own migrations history table. A module's DbContext maps only its
    own schema; no cross-schema joins; never map another module's entity.
-2. **Events or published interfaces only.** Cross-module communication runs via the
-   local event bus (`ILocalEventBus`, ETOs live in the publisher's `Domain.Shared/Events`)
-   or explicitly published interfaces. A module may reference another module's
-   `Domain.Shared` and `Application.Contracts` — never its `Domain`, `Application`, or
-   `EntityFrameworkCore` projects, and never another module's `DbContext`.
+2. **Events or published interfaces only.** Cross-module communication runs via events
+   (distributed events through the transactional outbox, or the local event bus for a
+   reaction inside the same transaction — see "Events and the outbox"; ETOs live in the
+   publisher's `Domain.Shared/Events`) or explicitly published interfaces. A module may
+   reference another module's `Domain.Shared` and `Application.Contracts` — never its
+   `Domain`, `Application`, or `EntityFrameworkCore` projects, and never another module's
+   `DbContext`.
 3. **Cross-module application-service calls are a design decision, not a default.**
    The `Domain.Shared` and `Application.Contracts` references exist so you can use
    another module's DTOs and event types — they are not an invitation to call its
@@ -63,6 +65,30 @@ One ABP module per domain under `backend/modules/`, five projects each
    risk class critical by default and always pass the design gate.
 5. New permissions are ABP permission definitions in the owning module's
    `Application.Contracts/Permissions/` — never hardcoded checks.
+
+## Events and the outbox
+
+Design: [docs/designs/outbox-per-tenant.md](docs/designs/outbox-per-tenant.md). Two buses, two
+guarantees:
+
+| Bus | Guarantee | Use it for |
+|---|---|---|
+| `IDistributedEventBus` | Written to `platform."AbpEventOutbox"` in the **same transaction and the same database as the fact** (the tenant's own database; the host database for shared-tier tenants). Published afterwards, **at least once**, with handlers running in the raising tenant's context. | Every event another module, another runtime role or an agent reacts to. |
+| `ILocalEventBus` | In-process, inside the current transaction. Nothing survives a crash. | A reaction that belongs to the same transaction. |
+
+- Publish with `IDistributedEventBus.PublishAsync(eto)` from an application-service method that
+  changes data. Nothing else is needed. **Publishing outside a transactional unit of work throws**
+  (`OutboxRequiresTransactionException`): the fact would be committed without its event.
+- Only events whose type lives in an `OpenTms.*` namespace use the outbox, always: the
+  `useOutbox: false` parameter is ignored for them. ABP's own events keep their direct in-process
+  behavior.
+- **Handlers are idempotent** (constitution rule 3): delivery is at least once. An event states a
+  fact in the past tense and carries ids, not copies of data (rule 5).
+- The `OutboxDispatcher` is signalled by the committing tenant and sweeps every database every five
+  minutes (`Outbox:SweepPeriod`); `Outbox:DispatchEnabled` is the per-instance switch. ABP's own
+  outbox sender is switched off (it reads only the host database) — never switch it back on.
+- Never read or write the outbox table yourself. Unit tests on SQLite bypass the outbox; the
+  PostgreSQL-backed tests (`OpenTmsPostgreSqlTestModule`) cover it.
 
 ## Multi-tenancy model
 

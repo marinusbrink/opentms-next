@@ -14,7 +14,9 @@ horizontal **Platform** layer. Each module has five projects:
 Hard rules (enforced by `test/OpenTms.ArchitectureTests`):
 
 1. A domain module never references another domain module's `Domain`, `Application` or
-   `EntityFrameworkCore` project — cross-module communication is local event bus or the
-   published surface (`Domain.Shared`, `Application.Contracts`) only.
+   `EntityFrameworkCore` project — cross-module communication is events (the distributed
+   event bus through the transactional outbox, or the local event bus inside one
+   transaction — see `/CLAUDE.md`, "Events and the outbox") or the published surface
+   (`Domain.Shared`, `Application.Contracts`) only.
 2. **Platform may be referenced by all modules; Platform references no domain module.**
 3. Each module's DbContext maps only its own schema; no cross-schema joins.
