@@ -158,7 +158,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
         if (!next) onClose();
       }}
       variant="editor"
-      size="sm"
+      size="md"
       title={title}
       commands={commands}
       isDirty={isDirty}
@@ -167,11 +167,11 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
       <form
         ref={formRef}
         onSubmit={(e) => void handleSubmit(e)}
-        className="grid grid-cols-1 gap-3"
+        className="grid grid-cols-2 gap-x-4 gap-y-4"
         noValidate
       >
         {serverError && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="col-span-2">
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
@@ -199,19 +199,17 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
           />
         </FormField>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <FormField label={t("Administration:FirstName")} htmlFor="uf-name">
-            <Input id="uf-name" value={values.name} onChange={(e) => set("name", e.target.value)} disabled={readOnly} />
-          </FormField>
-          <FormField label={t("Administration:Surname")} htmlFor="uf-surname">
-            <Input
-              id="uf-surname"
-              value={values.surname}
-              onChange={(e) => set("surname", e.target.value)}
-              disabled={readOnly}
-            />
-          </FormField>
-        </div>
+        <FormField label={t("Administration:FirstName")} htmlFor="uf-name">
+          <Input id="uf-name" value={values.name} onChange={(e) => set("name", e.target.value)} disabled={readOnly} />
+        </FormField>
+        <FormField label={t("Administration:Surname")} htmlFor="uf-surname">
+          <Input
+            id="uf-surname"
+            value={values.surname}
+            onChange={(e) => set("surname", e.target.value)}
+            disabled={readOnly}
+          />
+        </FormField>
 
         {mode === "create" && (
           <FormField label={t("Administration:Password")} htmlFor="uf-password" required error={shownError("password")}>
@@ -227,7 +225,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
         )}
 
         {mode === "edit" && (
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex h-10 items-center gap-2 self-end text-sm">
             <Checkbox
               checked={values.isActive}
               onCheckedChange={(checked) => set("isActive", checked === true)}
@@ -237,7 +235,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
           </label>
         )}
 
-        <FormField label={t("Administration:Roles")} htmlFor="uf-roles">
+        <FormField label={t("Administration:Roles")} htmlFor="uf-roles" floating="always">
           <RoleMultiSelect
             id="uf-roles"
             value={values.roleNames}

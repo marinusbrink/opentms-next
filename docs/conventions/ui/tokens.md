@@ -116,12 +116,12 @@ Status colours are **tenant data**: a background + font colour pair per state, f
 
 | Old value | New token | Old use |
 |---|---|---|
-| 36px Material input / button | `h-8` (32px): shadcn `Input`, `Button size="default"` | all form controls and buttons |
+| 36px Material input / button | `h-10` (40px) for form fields with a floating label (D-17 A); `h-8` (32px) for buttons and toolbar controls | form fields; buttons |
 | 34px / 30px compact controls | `h-7` (`Button size="sm"`) | grid toolbar, inline actions |
 | ag-grid row about 42px | `--grid-row-height` 36px | grid rows |
 | ag-grid header about 48px | `--grid-header-height` 40px | grid header |
 | pinned totals row 30px | `--grid-totals-row-height` 30px | footer totals |
-| 38px dialog header bar | `h-dialog-header` (38px) | entity editor header bar (D-05) |
+| 38px dialog header bar | `h-dialog-header` (44px) | entity editor header bar (D-05; taller to carry the ribbon look) |
 | 40px command strip | `h-command-bar` (40px) | `AppCommandBar` (already 40px) |
 
 ## 8. Radius and shadow

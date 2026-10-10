@@ -124,6 +124,6 @@
   --container-dialog-lg: 85rem;           /* 1360px */
 
   /* fixed heights -> h-dialog-header, h-command-bar */
-  --spacing-dialog-header: 2.375rem;      /* 38px brand bar on entity editors (D-05) */
+  --spacing-dialog-header: 2.75rem;       /* 44px brand bar on entity editors (D-05; 38px in the old app, taller with the ribbon look of 2026-10-10) */
   --spacing-command-bar: 2.5rem;          /* 40px, matches AppCommandBar strip */
 }

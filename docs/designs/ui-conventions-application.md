@@ -3,7 +3,7 @@
 **PBI:** none — built on the PO's direct instruction (2026-10-10) to apply the UI conventions
 package (`docs/conventions/ui/`, from `dev-department` commit `120bb72`) to the current UI
 **Status:** in review
-**Date:** 2026-10-10
+**Date:** 2026-10-10 (revised the same day: the PO chose the old editor look, modernised; D-13 → A and D-17 → A in `docs/conventions/ui/open-decisions.md`)
 
 <!-- All nine sections below are mandatory (design §4.2). "Not applicable" is an
      acceptable answer only with a one-line reason; a missing section is not.
@@ -46,7 +46,7 @@ confirmations lose their "This cannot be undone." sentence, which now renders as
 | `components/ui/grid-cells.tsx` | `NumberCell`, `AmountCell`, `DateCell`, `DateTimeCell`, `BoolCell` | UI-GRID-004 |
 | `OpenTmsGrid` | `rowActions` → context menu (AG built-ins off), `onOpen` → double click and Enter, `filters` slot, `onExport`, Refresh; the block-error toast through Sonner | UI-GRID-005/007/008, UI-FB-001 |
 | `OpenTmsGridFooter` | counts through `useFormat` | UI-FMT-001 |
-| `EntityDialog`, `ConfirmDialog`, `FormField`, `PermissionDenied`, `Alert warning`, `Checkbox`, `Sonner` | the library components the rules specify; `EntityDialog` adds the **Close** command itself so the dirty guard is uniform | UI-DLG-*, UI-FORM-*, UI-FB-008, UI-PAGE-005 |
+| `EntityDialog`, `ConfirmDialog`, `FormField`, `PermissionDenied`, `Alert warning`, `Checkbox`, `Sonner` | the library components the rules specify. `EntityDialog` editors carry the **ribbon** (icon-over-label buttons in captioned groups, D-13 A) under the brand bar and put the body on `surface-page`; it adds the **Close** button to the primary's group itself so the dirty guard is uniform. `FormField` renders the **floating label** inside the outline (D-17 A), with `floating="always"` for controls without a placeholder | UI-DLG-*, UI-FORM-*, UI-FB-008, UI-PAGE-005 |
 | Admin `UsersView`, `RolesView` | action column and inline delete popover removed; context menu + double click; `BoolCell` / `DateCell` / `NumberCell`; `ConfirmDialog` for deletes (the role-with-users conflict is a second confirmation with a warning `Alert`); shared `PermissionDenied` | D-09, D-21, UI-GRID-010 |
 | Admin dialogs | `UserFormDialog` / `RoleFormDialog` become `editor` dialogs (brand bar, Save + Close commands, dirty guard, validation on blur/submit, inline server error, read-only mode without Update); `ResetPasswordDialog` and the bulk deletes become `action` dialogs with `[Cancel] [verb]` footers; success toasts name the subject | UI-DLG-002 to -011, UI-FORM-006/010, UI-FB-002, UI-PERM-004 |
 | Shell | `bg-surface-page`, `text-brand-foreground`; `<Toaster position="bottom-right">` mounted once | UI-TOK-001/002, D-33 |
@@ -77,9 +77,11 @@ The package *is* the UI design; this section lists what a reviewer sees on the t
 - **States:** skeleton while the grid loads; the grid's localized empty overlay; block error with
   retry and a Sonner error toast after repeated failures; `PermissionDenied` panel without the
   view permission.
-- **Editor (user, role):** 38px brand bar with the title ("New user" / "User admin") and the X;
-  under it the strip with **Save** (primary) and **Close**; the form in one column, labels above,
-  asterisks on required fields, messages under the field after blur or submit; a failed save as a
+- **Editor (user, role):** 44px brand bar with the title ("New user" / "User admin") and the X;
+  under it the ribbon: **Save** and **Close** as icon-over-label buttons under the caption EDIT;
+  the body on the grey surface; the user editor is `md` with two columns, the role editor `sm`
+  with one; labels float inside the outlined fields and sit on the border once filled, with the
+  asterisk on required fields; messages under the field after blur or submit; a failed save as a
   red `Alert` at the top; Enter submits; Esc / X / Close ask "Discard your changes?" when dirty;
   the backdrop never closes it; while saving everything is disabled and Save reads "Saving…".
 - **Reset password:** action dialog, plain header, footer `[Cancel] [Reset password]`.
@@ -119,6 +121,9 @@ about 12 KB to the main bundle. No budget row changes; `OpenTmsGrid` stays lazy-
 ## Assumptions
 
 1. The PO accepts the rule-4 deviation above (as for PBI #30).
+1a. The PO's revision of D-13 and D-17 (2026-10-10, "the old look and feel, modernised") is
+   applied in both copies of the conventions: `docs/conventions/ui/` here and
+   `dev-department/conventions/ui/` on its `docs/ui-conventions` branch.
 2. Applying the package means its install steps plus `component-map.md` §5 (changes to existing
    components); the "build on first need" components stay out until a feature needs them.
 3. `EntityDialog` owns the **Close** command (injected after the primary) so features cannot

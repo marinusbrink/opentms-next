@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 
-import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
+import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -10,11 +10,12 @@ import { cn } from "@/lib/utils";
 
 /* Every dialog except confirmations (UI-DLG-001 to -010).
  *
- * - `editor`: a record window. Brand header bar with the title, optional state badges and
- *   the close X; the editor's commands as an AppCommandBar under the header; no footer.
- *   The **Close** command is added by this component, right after the primary command,
- *   so the dirty guard is always the same: clicking the backdrop never closes an editor;
- *   Esc, the X and Close ask "Discard changes?" when `isDirty`.
+ * - `editor`: a record window (D-05, D-13 A as decided 2026-10-10: the old ribbon, modernised).
+ *   Brand header bar with the title, optional state badges and the close X; under it the
+ *   ribbon: icon-over-label buttons in captioned groups; no footer. The **Close** command is
+ *   added by this component, right after the primary command and in the primary's group, so
+ *   the dirty guard is always the same: clicking the backdrop never closes an editor; Esc,
+ *   the X and Close ask "Discard changes?" when `isDirty`.
  * - `action`: one operation with parameters. Plain header, a body, a right-aligned footer
  *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy.
  *
@@ -24,6 +25,12 @@ import { cn } from "@/lib/utils";
 export type EntityDialogVariant = "editor" | "action";
 export type EntityDialogSize = "sm" | "md" | "lg" | "full";
 
+/** A ribbon command: an AppCommandBar command with the group caption it belongs to (UI-ACT-002). */
+export interface RibbonCommand extends AppCommandBarCommand {
+  /** Localization key of the group caption under the button(s); defaults to "Edit" for the primary group. */
+  groupKey?: string;
+}
+
 export interface EntityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,7 +38,9 @@ export interface EntityDialogProps {
   size: EntityDialogSize;
   title: string;
   badges?: ReactNode;
-  commands?: AppCommandBarCommand[];
+  commands?: RibbonCommand[];
+  /** Editor only: the tab strip rendered at the right end of the ribbon row (UI-FORM-008). */
+  tabs?: ReactNode;
   footer?: ReactNode;
   isDirty?: boolean;
   isBusy?: boolean;
@@ -58,6 +67,7 @@ export function EntityDialog({
   title,
   badges,
   commands,
+  tabs,
   footer,
   isDirty = false,
   isBusy = false,
@@ -106,9 +116,9 @@ export function EntityDialog({
     return true;
   }, [variant]);
 
-  const editorCommands: AppCommandBarCommand[] | undefined =
+  const editorCommands: RibbonCommand[] | undefined =
     variant === "editor"
-      ? withCloseCommand(commands ?? [], t, requestClose).map((command) => ({
+      ? withCloseCommand(commands ?? [], requestClose).map((command) => ({
           ...command,
           disabled: command.disabled || isBusy,
         }))
@@ -131,9 +141,9 @@ export function EntityDialog({
             <>
               <div
                 data-slot="entity-dialog-header"
-                className="flex h-dialog-header shrink-0 items-center gap-2 bg-brand px-3 text-brand-foreground"
+                className="flex h-dialog-header shrink-0 items-center gap-2 bg-brand px-4 text-brand-foreground"
               >
-                <DialogTitle className="truncate text-title leading-none font-semibold text-brand-foreground">
+                <DialogTitle className="truncate text-base leading-none font-semibold text-brand-foreground">
                   {title}
                 </DialogTitle>
                 {badges}
@@ -144,12 +154,13 @@ export function EntityDialog({
                   onClick={requestClose}
                   className="ml-auto text-brand-foreground hover:bg-brand-hover hover:text-brand-foreground"
                 >
-                  <X />
+                  <X className="size-5" />
                 </Button>
               </div>
-              {editorCommands && editorCommands.length > 0 && (
-                <AppCommandBar commands={editorCommands} className="shrink-0" />
-              )}
+              <div data-slot="entity-dialog-ribbon" className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2">
+                {editorCommands && editorCommands.length > 0 && <Ribbon commands={editorCommands} t={t} />}
+                {tabs && <div className="ml-auto flex items-end self-stretch">{tabs}</div>}
+              </div>
             </>
           ) : (
             <div data-slot="entity-dialog-header" className="flex shrink-0 items-center gap-2 px-4 pt-4">
@@ -166,7 +177,14 @@ export function EntityDialog({
             </div>
           )}
 
-          <div ref={bodyRef} data-slot="entity-dialog-body" className="min-h-0 flex-1 overflow-auto p-4">
+          <div
+            ref={bodyRef}
+            data-slot="entity-dialog-body"
+            className={cn(
+              "min-h-0 flex-1 overflow-auto p-4",
+              variant === "editor" && "bg-surface-page px-6 py-5",
+            )}
+          >
             {children}
           </div>
 
@@ -201,20 +219,85 @@ export function EntityDialog({
 }
 
 /** UI-ACT-002: Save (primary), then Close, then the rest. Close is never written by a feature. */
-function withCloseCommand(
-  commands: AppCommandBarCommand[],
-  t: (key: string) => string,
-  onClose: () => void,
-): AppCommandBarCommand[] {
-  const closeCommand: AppCommandBarCommand = {
+function withCloseCommand(commands: RibbonCommand[], onClose: () => void): RibbonCommand[] {
+  const primaries = commands.filter((c) => c.isPrimary);
+  const editGroup = primaries[0]?.groupKey ?? "Edit";
+  const closeCommand: RibbonCommand = {
     id: CLOSE_COMMAND_ID,
     labelKey: "Close",
     tooltipKey: "Close",
     icon: X,
+    groupKey: editGroup,
     onClick: onClose,
   };
-  void t;
-  const primaries = commands.filter((c) => c.isPrimary);
   const others = commands.filter((c) => !c.isPrimary && c.id !== CLOSE_COMMAND_ID);
-  return [...primaries, closeCommand, ...others];
+  return [
+    ...primaries.map((c) => ({ ...c, groupKey: c.groupKey ?? editGroup })),
+    closeCommand,
+    ...others,
+  ];
+}
+
+/* The ribbon (D-13 A, modernised): icon over label, buttons in groups with a caption under
+ * them, a divider between groups. Icons in the brand colour, destructive ones in red. */
+function Ribbon({ commands, t }: { commands: RibbonCommand[]; t: (key: string) => string }) {
+  const groups: { key: string; commands: RibbonCommand[] }[] = [];
+  for (const command of commands) {
+    const key = command.groupKey ?? "";
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) {
+      last.commands.push(command);
+    } else {
+      groups.push({ key, commands: [command] });
+    }
+  }
+
+  return (
+    <div className="flex items-stretch gap-2" role="toolbar" aria-label={t("Edit")}>
+      {groups.map((group, index) => (
+        <div key={`${group.key}-${index}`} className="flex items-stretch gap-2">
+          {index > 0 && <div className="my-2 w-px self-stretch bg-border" aria-hidden="true" />}
+          <div className="flex flex-col items-center gap-1 pb-1.5">
+            <div className="flex gap-1.5">
+              {group.commands.map((command) => (
+                <RibbonButton key={command.id} command={command} t={t} />
+              ))}
+            </div>
+            {group.key && (
+              <span className="text-label font-medium tracking-wider text-muted-foreground uppercase">
+                {t(group.key)}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string) => string }) {
+  const Icon = command.icon;
+  const isDisabled = command.disabled === true;
+  const isDestructive = command.variant === "destructive";
+  return (
+    <button
+      type="button"
+      title={t(isDisabled && command.disabledReasonKey ? command.disabledReasonKey : (command.tooltipKey ?? command.labelKey))}
+      aria-disabled={isDisabled || undefined}
+      data-slot="ribbon-button"
+      onClick={() => {
+        if (!isDisabled) command.onClick();
+      }}
+      className={cn(
+        "flex h-[4.25rem] min-w-[4.75rem] flex-col items-center justify-center gap-1 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground transition-colors",
+        "hover:border-brand hover:bg-brand-subtle focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:outline-none",
+        command.isPrimary && "border-brand/50 font-medium",
+        isDestructive && "hover:border-destructive hover:bg-destructive/10",
+        isDisabled && "cursor-default opacity-50 hover:border-border hover:bg-background",
+      )}
+    >
+      {Icon && <Icon className={cn("size-7", isDestructive ? "text-destructive" : "text-brand")} aria-hidden="true" />}
+      <span className="max-w-[7rem] truncate">{t(command.labelKey)}</span>
+    </button>
+  );
 }

@@ -116,7 +116,7 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
       isDirty={isDirty}
       isBusy={isPending}
     >
-      <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-3" noValidate>
+      <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-4" noValidate>
         {serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>

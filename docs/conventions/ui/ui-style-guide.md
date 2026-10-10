@@ -37,7 +37,7 @@ A planner who has used OpenTMS for ten years opens the new app and knows where e
 - 12px labels and 14px text
 
 **What the new app does:** it is slightly denser:
-- 32px controls (the shadcn default)
+- 32px buttons and toolbar controls (the shadcn default); 40px form fields, because the label floats inside them (D-17 A)
 - 36px grid rows
 
 The extra space comes from removing chrome, not from shrinking text: there are no page titles, no breadcrumbs and no padded cards around grids.
@@ -123,8 +123,11 @@ These are the deliberate improvements users will thank us for.
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
 │ Invoice 2026-000123  (Open) (Sent)                                                ✕  │ ← brand bar, title = type + identifier,
 ├──────────────────────────────────────────────────────────────────────────────────────┤   state badges (UI-DLG-004, -012)
-│ [💾 Save] [✕ Close] [Change send status] │ More ▾                                     │ ← command bar on top, no footer
-│                                    General · Delivery · Ledger entries · 📎 💬 🆔     │ ← tabs end-aligned, icon tabs last
+│ ┌─────┐ ┌─────┐ │ ┌──────────────┐           General · Delivery · Ledger · 📎 💬 🆔 │ ← ribbon: icon over label in captioned
+│ │ 💾  │ │ ✕   │ │ │ Change send… │                                                  │   groups (D-13 A); tabs end-aligned at
+│ │Save │ │Close│ │ └──────────────┘                                                  │   the right end of the ribbon row
+│ └─────┘ └─────┘ │     INVOICE                                                       │
+│    EDIT         │                                                                   │ ← no footer
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ ┌ Invoice ──────────────────────┐ ┌ Customer ───────────────────────┐                 │ ← FormSection cards: surface-section,
 │ │ Invoice type *                │ │ Invoice to *                    │                 │   caption in brand colour
@@ -140,7 +143,7 @@ These are the deliberate improvements users will thank us for.
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why actions on top?** It is where the old ribbon put them in about 50 editors, so it is where users look. Unlike the old ribbon, Save is now visibly the primary.
+**Why actions on top, and why a ribbon?** It is where the old ribbon put them in about 50 editors, so it is where users look; the PO chose to keep the ribbon's icon-over-label buttons and group captions (D-13 A, 2026-10-10). Unlike the old ribbon, Save is visibly the primary.
 
 **Why "Close", not "Cancel"?** In the transport order, "Cancel" meant *cancel the order*. Dismissing is always "Close"; cancelling a business object always names the object.
 

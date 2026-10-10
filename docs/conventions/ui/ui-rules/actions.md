@@ -26,6 +26,8 @@ Editor `commands`, in order:
 6. **Delete** (destructive), last
 
 The dismiss command is always **Close**, never "Cancel". A business cancellation names its object: `t("CancelOrder")`.
+
+Ribbon groups (D-13 A): 1–3 form the **Edit** group (caption `t("Edit")`); entity state actions form their own group; document actions another; Delete stands alone at the end. A command names its group with `groupKey`; the dialog adds Close to the primary's group.
 - **Check:** order as listed; no command with label key `Cancel` in an editor.
 - **Evidence:** inventory §6.2 (ribbon order: Save, Cancel / Close, Archive / Approve, documents), §4.7 (Save = save and close; TO Save & Close + Save only), §6.5 (the "Cancel" clash); D-13, D-20.
 
@@ -117,11 +119,12 @@ An icon-only button has a `Tooltip` with its label and an `aria-label`.
 ### UI-ACT-007 · SHOULD · Button text and icon: commands have both; footers have text only
 | Surface | Style |
 |---|---|
-| command bars, menus | icon + text |
+| list-page command bar, menus | icon + text, in one line |
+| editor ribbon | icon **over** label, in a captioned group (D-13 A) |
 | dialog footers | text only |
 | inline row and field actions (edit pencil in a lookup, remove a line) | icon only, `variant="ghost"` `size="icon-sm"` |
 
-- **Check:** footer buttons have no icon; command-bar commands have `icon`.
+- **Check:** footer buttons have no icon; command-bar and ribbon commands have `icon`.
 
 ### UI-ACT-008 · MUST · Document actions in an editor save first
 If an editor command produces output from the record (print, download, e-mail, export, send to a portal) and the form is dirty:

@@ -4,11 +4,13 @@
 
 **Status 2026-10-09:** the product owner asked to proceed with phase 2 without overriding any item, so **every decision below takes its recommended option**. Rules cite decisions as `D-nn`. To revise a decision, change the line here and the rules that cite it.
 
+**Revised 2026-10-10:** after seeing the first screens built on the recommendations, the product owner chose **the old look and feel, modernised**: **D-13 → A** (the ribbon on top of an editor: icon-over-label buttons in captioned groups, with Save visibly the primary) and **D-17 → A** (the label floats inside the field's outline), and the editor body sits on the `surface-page` colour. The rules UI-DLG-005, UI-ACT-007 and UI-FORM-001/003 and tokens.md §7 were changed in the same pass.
+
 | Group | Decisions taken |
 |---|---|
 | A. Look and feel | D-01 A, D-02 A, D-03 A, D-04 B, D-05 C, D-06 A |
 | B. Page and grid | D-07 A, D-08 A, D-09 C, D-10 B, D-11 A, D-12 A |
-| C. Dialogs, forms, actions | D-13 C, D-14 A, D-15 A, D-16 A, D-17 B, D-18 B, D-19 B, D-20 A, D-21 A, D-22 A |
+| C. Dialogs, forms, actions | **D-13 A** (revised 2026-10-10), D-14 A, D-15 A, D-16 A, **D-17 A** (revised 2026-10-10), D-18 B, D-19 B, D-20 A, D-21 A, D-22 A |
 | D. Formatting | D-23 A, D-25 A |
 | E. Smaller items | D-26 to D-35: recommendation |
 
@@ -212,6 +214,8 @@ Matching the old behaviour exactly would mean copying a bug.
 
 **Recommendation: C.** It keeps the ribbon position and order users know, reuses one component, and adds the visual primary that is missing today.
 
+**Decided 2026-10-10: A, modernised.** The PO saw option C built and wants the ribbon: icon-over-label buttons (brand icon, 14px label, outlined, about 68px tall) in groups with an uppercase caption under them ("Edit"), a divider between groups, under the brand bar; Save keeps a visible primary treatment; the dismiss command stays **Close** (D-20). The list pages keep the Office-365 strip (D-08).
+
 ### D-14 Footer button order (blocking)
 **Old app:** the split is about 53 vs 13 (§6.3):
 - **Cancel left, primary right:** the shared `base-ok-cancel-footer` (19), most bespoke footers, all G1 modals, the newest G3 dialog.
@@ -272,6 +276,8 @@ Matching the old behaviour exactly would mean copying a bug.
 | **B** | Label above, compact: 12px label, 4px gap, 32px input. Vertical density stays close to the old floating label. |
 
 **Recommendation: B.** A floating label is a sizeable custom component and fights shadcn. B with a 12px label keeps the look compact. The required asterisk stays in both options; both apps do it.
+
+**Decided 2026-10-10: A, modernised.** The label floats inside the outline: it reads as the placeholder (14px, muted) while the field is empty and unfocused, and sits on the top border (12px, on the field's background) once focused or filled. Fields are 40px high. Controls that have no placeholder (pickers, selects) keep the label on the border. `FormField` renders this; feature code is unchanged.
 
 ### D-18 Validation message placement
 **Old app (§4.5):**

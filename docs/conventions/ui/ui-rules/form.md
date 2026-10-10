@@ -28,16 +28,17 @@ interface FormSectionProps { title: string; children: ReactNode; className?: str
 
 ---
 
-### UI-FORM-001 · MUST · Every input sits in a `FormField` with its label above
+### UI-FORM-001 · MUST · Every input sits in a `FormField`; the label floats inside the outline
 | Part | Classes |
 |---|---|
-| label | `text-label font-medium` |
-| gap between label and control | `gap-1` |
-| control height | `h-8` |
+| label, resting (field empty and unfocused): reads as the placeholder | `text-sm text-muted-foreground`, vertically centred |
+| label, floated (focused or filled): on the top border | `text-label font-medium`, `bg-background px-1`, `top-0 -translate-y-1/2` |
+| control height | `h-10`, `bg-background` |
+| controls without a placeholder (pickers, selects) | `floating="always"`: the label stays on the border |
 
-The label is the field's noun ("Licence plate"), never a sentence and never with a colon.
-- **Check:** every `Input`, `Select`, `EntityLookup`, `Textarea` or `DatePicker` in a form is the child of a `FormField`; no bare `<Label>` + control pairs.
-- **Evidence:** inventory §4.1 (1,940 labels on 979 fields; one label per field); §13 (labels above in the new app); D-17.
+The label is the field's noun ("Licence plate"), never a sentence and never with a colon. `FormField` renders the mechanism; feature code only passes `label`, `htmlFor` and the control.
+- **Check:** every `Input`, `Select`, `EntityLookup`, `Textarea` or `DatePicker` in a form is the child of a `FormField`; no bare `<Label>` + control pairs; no hand-made floating labels.
+- **Evidence:** inventory §4.1 (1,940 outline fields with a floating label; one label per field); D-17 (A, revised 2026-10-10).
 
 ```tsx
 // ✅
@@ -54,7 +55,7 @@ The label is the field's noun ("Licence plate"), never a sentence and never with
 - **Evidence:** inventory §4.2 (Material auto-asterisk 345 uses; G1 literal ` *` 21; new app ` *`).
 
 ### UI-FORM-003 · MUST · No placeholder text, except an input-format example
-Because labels are above the field, controls have no placeholder that repeats the label or says "Select…" / "Enter…". The only allowed placeholder is a format example (`DD-MM-YYYY`), and only when the control doesn't show the format itself.
+The floating label *is* the placeholder (UI-FORM-001), so controls have no placeholder of their own that repeats the label or says "Select…" / "Enter…". The only allowed placeholder is a format example (`DD-MM-YYYY`), and only when the control doesn't show the format itself; it then shows instead of the resting label.
 - **Check:** grep `placeholder=` in forms; each one is a format example.
 - **Evidence:** inventory §4.1, §9.2 (the placeholder doubled as the label; never "Select…"); D-17.
 

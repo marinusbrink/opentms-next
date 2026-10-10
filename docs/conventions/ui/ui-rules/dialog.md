@@ -91,12 +91,13 @@ Feature code never imports `@base-ui/react/dialog`, `Dialog` or `AlertDialog` di
 </EntityDialog>
 ```
 
-### UI-DLG-005 · MUST · An editor's actions are a command bar under the header; it has no footer
-- The editor's `commands` render as an `AppCommandBar` directly under the header bar, in the order given by UI-ACT-002.
-- Editors have no footer buttons.
+### UI-DLG-005 · MUST · An editor's actions are a ribbon under the header; it has no footer
+- The editor's `commands` render as a **ribbon** directly under the header bar: icon-over-label buttons (brand-coloured icon, 14px label, outlined, about 68px tall) in groups with an uppercase caption under each group and a divider between groups, in the order given by UI-ACT-002. `EntityDialog` adds the **Close** button to the primary's group itself.
+- The tab strip of an editor (UI-FORM-008) sits at the right end of the ribbon row.
+- Editors have no footer buttons. The editor body sits on `bg-surface-page`; fields are on `bg-background`.
 - Action dialogs are the opposite: a plain header (title + X, no brand bar), a body, and a footer `[Cancel] [Primary]` (UI-ACT-003).
-- **Check:** `variant="editor"` has `commands` and no `footer`; `variant="action"` has `footer` and no `commands`.
-- **Evidence:** inventory §6.1–6.2 (ribbon at the top in about 51 editors, footer in about 55 action dialogs); D-13.
+- **Check:** `variant="editor"` has `commands` and no `footer`; `variant="action"` has `footer` and no `commands`; no feature passes a Close command.
+- **Evidence:** inventory §6.1–6.2 (ribbon at the top in about 51 editors, footer in about 55 action dialogs); D-13 (A, revised 2026-10-10).
 
 ### UI-DLG-006 · MUST · The header and command bar stay fixed; the body scrolls
 - The body scrolls (`min-h-0 flex-1 overflow-auto p-4`).
