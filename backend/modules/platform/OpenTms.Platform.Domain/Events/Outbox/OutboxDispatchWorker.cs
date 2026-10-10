@@ -48,16 +48,21 @@ public class OutboxDispatchWorker : BackgroundWorkerBase, ISingletonDependency
 
     public override async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        if (_loopCancellation != null)
+        /* Idempotent: a second stop (or a stop before start) is a no-op. */
+        var loopCancellation = Interlocked.Exchange(ref _loopCancellation, null);
+        if (loopCancellation == null)
         {
-            await _loopCancellation.CancelAsync();
+            return;
         }
 
-        if (_loop != null)
+        await loopCancellation.CancelAsync();
+
+        var loop = Interlocked.Exchange(ref _loop, null);
+        if (loop != null)
         {
             try
             {
-                await _loop.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+                await loop.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
             }
             catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
             {
@@ -65,15 +70,15 @@ public class OutboxDispatchWorker : BackgroundWorkerBase, ISingletonDependency
             }
         }
 
-        _loopCancellation?.Dispose();
+        loopCancellation.Dispose();
         await base.StopAsync(cancellationToken);
     }
 
     private async Task RunAsync(CancellationToken stoppingToken)
     {
-        /* A sweep at start-up catches up on whatever a previous instance left behind. */
-        await SweepSafelyAsync(stoppingToken);
-        var nextSweepAt = DateTime.UtcNow + _options.SweepPeriod;
+        /* A sweep is due immediately at start-up: it catches up on whatever a previous instance
+         * left behind. */
+        var nextSweepAt = DateTime.UtcNow;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -129,7 +134,7 @@ public class OutboxDispatchWorker : BackgroundWorkerBase, ISingletonDependency
         {
             using var scope = _serviceScopeFactory.CreateScope();
             var tenantStore = scope.ServiceProvider.GetRequiredService<ITenantStore>();
-            var dispatcher = scope.ServiceProvider.GetRequiredService<OutboxDispatcher>();
+            var dispatcher = scope.ServiceProvider.GetRequiredService<IOutboxDispatcher>();
 
             await dispatcher.DispatchAsync(null, stoppingToken);
 
@@ -169,7 +174,7 @@ public class OutboxDispatchWorker : BackgroundWorkerBase, ISingletonDependency
         try
         {
             using var scope = _serviceScopeFactory.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<OutboxDispatcher>().DispatchAsync(tenantId, stoppingToken);
+            await scope.ServiceProvider.GetRequiredService<IOutboxDispatcher>().DispatchAsync(tenantId, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

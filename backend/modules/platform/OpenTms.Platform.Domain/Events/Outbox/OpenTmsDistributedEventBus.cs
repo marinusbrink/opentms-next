@@ -52,14 +52,26 @@ public class OpenTmsDistributedEventBus : LocalDistributedEventBus, ISingletonDe
     {
     }
 
-    public override Task PublishAsync(Type eventType, object eventData, bool onUnitOfWorkComplete = true, bool useOutbox = true)
+    public override async Task PublishAsync(Type eventType, object eventData, bool onUnitOfWorkComplete = true, bool useOutbox = true)
     {
-        if (useOutbox && IsOutboxEvent(eventType))
+        if (IsOutboxEvent(eventType))
         {
+            /* An OpenTms.* event always takes the outbox; the useOutbox parameter is ignored for it.
+             * The row is enqueued NOW — under the publisher's tenant and inside the publisher's unit
+             * of work — not when the unit of work completes: a publisher that changes tenant inside
+             * its unit of work would otherwise commit the fact in one database and the event in
+             * another. The row is saved by the unit of work's own SaveChanges, in the same transaction. */
             EnsureTransactionalUnitOfWork(eventType);
+
+            if (await AddToOutboxAsync(eventType, eventData))
+            {
+                return;
+            }
+
+            throw new OutboxRequiresTransactionException(eventType);
         }
 
-        return base.PublishAsync(eventType, eventData, onUnitOfWorkComplete, useOutbox);
+        await base.PublishAsync(eventType, eventData, onUnitOfWorkComplete, useOutbox);
     }
 
     public override Task PublishFromOutboxAsync(OutgoingEventInfo outgoingEvent, OutboxConfig outboxConfig)

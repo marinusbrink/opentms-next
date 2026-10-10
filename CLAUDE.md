@@ -79,8 +79,9 @@ guarantees:
 - Publish with `IDistributedEventBus.PublishAsync(eto)` from an application-service method that
   changes data. Nothing else is needed. **Publishing outside a transactional unit of work throws**
   (`OutboxRequiresTransactionException`): the fact would be committed without its event.
-- Only events whose type lives in an `OpenTms.*` namespace use the outbox. ABP's own events keep
-  their direct in-process behavior.
+- Only events whose type lives in an `OpenTms.*` namespace use the outbox, always: the
+  `useOutbox: false` parameter is ignored for them. ABP's own events keep their direct in-process
+  behavior.
 - **Handlers are idempotent** (constitution rule 3): delivery is at least once. An event states a
   fact in the past tense and carries ids, not copies of data (rule 5).
 - The `OutboxDispatcher` is signalled by the committing tenant and sweeps every database every five

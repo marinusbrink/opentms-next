@@ -177,6 +177,65 @@ public class OutboxPerTenantIntegrationTests : OpenTmsPostgreSqlTestBase
     }
 
     [Fact]
+    public async Task The_row_follows_the_publishers_tenant_even_when_the_unit_of_work_completes_in_another_context()
+    {
+        /* A host-side job that does `using (CurrentTenant.Change(tenant)) { write fact; publish; }`
+         * and completes its unit of work afterwards, outside the Change: the event must sit next to
+         * the fact, in the tenant's database, stamped with the tenant — not in the host database. */
+        var probeId = Guid.NewGuid();
+
+        using (_currentTenant.Change(null))
+        {
+            await WithUnitOfWorkAsync(Transactional, async () =>
+            {
+                using (_currentTenant.Change(PostgreSqlTestDatabases.TenantAId))
+                {
+                    await _eventBus.PublishAsync(new OutboxProbeEto { ProbeId = probeId });
+                }
+            });
+        }
+
+        (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, probeId)).ShouldBe(1);
+        (await CountAsync(PostgreSqlTestDatabases.HostDatabase, probeId)).ShouldBe(0);
+
+        await DispatchAsync(PostgreSqlTestDatabases.TenantAId);
+        _recorder.For(probeId).ShouldHaveSingleItem().TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
+    }
+
+    [Fact]
+    public async Task A_shared_tier_signal_visit_runs_each_host_database_row_under_its_own_tenant_and_leaves_other_databases_alone()
+    {
+        /* The production path after a shared-tier commit: the signal names the shared tenant, the
+         * dispatcher visits the host database and finds host-level rows and the shared tenant's rows. */
+        var hostProbe = Guid.NewGuid();
+        var sharedProbe = Guid.NewGuid();
+        var tenantAProbe = Guid.NewGuid();
+
+        using (_currentTenant.Change(null))
+        {
+            await WithUnitOfWorkAsync(Transactional, () => _eventBus.PublishAsync(new OutboxProbeEto { ProbeId = hostProbe }));
+        }
+        using (_currentTenant.Change(PostgreSqlTestDatabases.SharedTenantId))
+        {
+            await WithUnitOfWorkAsync(Transactional, () => _eventBus.PublishAsync(new OutboxProbeEto { ProbeId = sharedProbe }));
+        }
+        using (_currentTenant.Change(PostgreSqlTestDatabases.TenantAId))
+        {
+            await WithUnitOfWorkAsync(Transactional, () => _eventBus.PublishAsync(new OutboxProbeEto { ProbeId = tenantAProbe }));
+        }
+
+        await DispatchAsync(PostgreSqlTestDatabases.SharedTenantId);
+
+        _recorder.For(hostProbe).ShouldHaveSingleItem().TenantId.ShouldBeNull();
+        _recorder.For(sharedProbe).ShouldHaveSingleItem().TenantId.ShouldBe(PostgreSqlTestDatabases.SharedTenantId);
+        _recorder.For(tenantAProbe).ShouldBeEmpty();
+        (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, tenantAProbe)).ShouldBe(1);
+
+        await DispatchAsync(PostgreSqlTestDatabases.TenantAId);
+        _recorder.For(tenantAProbe).ShouldHaveSingleItem().TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
+    }
+
+    [Fact]
     public async Task A_failing_handler_keeps_the_event_for_the_next_run()
     {
         var probeId = Guid.NewGuid();
@@ -258,7 +317,7 @@ public class OutboxPerTenantIntegrationTests : OpenTmsPostgreSqlTestBase
 
     private Task<int> DispatchAsync(Guid? tenantId)
     {
-        return GetRequiredService<OutboxDispatcher>().DispatchAsync(tenantId);
+        return GetRequiredService<IOutboxDispatcher>().DispatchAsync(tenantId);
     }
 
     private static Task<long> CountAsync(string database, Guid probeId)

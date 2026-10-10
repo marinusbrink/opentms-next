@@ -24,7 +24,7 @@ namespace OpenTms.Platform.Events.Outbox;
 /// constitution rule 3). ABP's own outbox sender is switched off because it only ever reads the
 /// host database; this dispatcher is told which tenant to visit instead.
 /// </summary>
-public class OutboxDispatcher : ITransientDependency
+public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
 {
     public ILogger<OutboxDispatcher> Logger { get; set; } = NullLogger<OutboxDispatcher>.Instance;
 
@@ -73,8 +73,11 @@ public class OutboxDispatcher : ITransientDependency
 
         using (_currentTenant.Change(tenantId))
         {
-            /* One dispatcher per database, not per tenant: two shared-tier tenants resolve to the
-             * same (host) database and must not drain the same table concurrently. */
+            /* One lock per database, not per tenant: two shared-tier tenants resolve to the same
+             * (host) database. Today IAbpDistributedLock is ABP's in-process implementation, so this
+             * only guards concurrent callers inside one process; across instances it needs a
+             * distributed lock provider (proposal AP-13). A visit that finds the lock taken gives up;
+             * the holder reads everything that is waiting, and the sweep covers the rest. */
             var lockName = await GetLockNameAsync(outboxConfig);
             await using var handle = await _distributedLock.TryAcquireAsync(lockName, cancellationToken: cancellationToken);
             if (handle == null)
@@ -98,6 +101,8 @@ public class OutboxDispatcher : ITransientDependency
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    /* Every row is stamped with its tenant; a row without a stamp (none exist) would
+                     * run under the tenant whose visit found it. */
                     var eventTenantId = outgoingEvent.GetTenantIdOrDefault(tenantId);
                     try
                     {
