@@ -371,7 +371,7 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(anyAriaHiddenSpan).not.toBeInTheDocument();
     });
 
-    it("dark-mode: nav does not carry bg-[#F8F9FA] as an inline style (dark surface token applies via CSS class)", () => {
+    it("surface: nav uses the surface-page token (UI-TOK-001), whose dark value the theme defines", () => {
       const { container } = render(
         <div className="dark">
           <AppNavPane app={ADMIN_APP} collapsed={false} onToggleCollapsed={vi.fn()} />
@@ -379,10 +379,12 @@ describe("AppNavPane (critical + high risk)", () => {
       );
       const nav = container.querySelector("nav");
       expect(nav).not.toBeNull();
-      // The dark variant must be a CSS class (dark:bg-background), not an inline style.
+      // The surface is a token, not a raw colour and not an inline style; opentms-theme.css
+      // redefines --surface-page under .dark, so no dark: variant is needed here.
       const styleAttr = (nav as HTMLElement).getAttribute("style") ?? "";
       expect(styleAttr).not.toContain("F8F9FA");
-      expect((nav as HTMLElement).className).toContain("dark:bg-background");
+      expect((nav as HTMLElement).className).toContain("bg-surface-page");
+      expect((nav as HTMLElement).className).not.toMatch(/#[0-9a-fA-F]{3,8}/);
     });
   });
 

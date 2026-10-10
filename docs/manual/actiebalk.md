@@ -11,8 +11,9 @@
 
 ## Wat is de actiebalk?
 
-De **actiebalk** staat boven elke lijst in OpenTMS — bijvoorbeeld boven de
-gebruikerslijst en de rollenlijst in de Beheer-app. Via de actiebalk voer je de
+De **actiebalk** staat boven elke lijst in OpenTMS, bijvoorbeeld boven de
+gebruikerslijst en de rollenlijst in de Beheer-app, en bovenin elk
+bewerkvenster (daar met **Opslaan** en **Sluiten** als eerste knoppen). Via de actiebalk voer je de
 meestgebruikte acties uit zonder de lijst te verlaten.
 
 <!-- SCREENSHOT: de actiebalk boven de rollenlijst met de knoppen "Nieuwe rol", "E-mail" en "Meer" zichtbaar -->
@@ -61,8 +62,11 @@ Rechts in de actiebalk, na een tussenruimte, staan knoppen die alleen actief zij
 als je rijen hebt geselecteerd. Het aantal geselecteerde rijen wordt links van
 deze knoppen getoond.
 
-**Voorbeeld:** selecteer meerdere rijen in de rollenlijst — de balk toont
-"3 geselecteerd" en de knop **Geselecteerden verwijderen** wordt actief.
+**Voorbeeld:** selecteer meerdere rijen in de rollenlijst. De balk toont
+"3 geselecteerd" en de knop **3 rollen verwijderen** wordt actief.
+
+Dezelfde acties vind je in het **snelmenu** van de lijst: klik met de
+rechtermuisknop op een rij.
 
 <!-- SCREENSHOT: de actiebalk met 3 geselecteerde rijen en de knop "Geselecteerden verwijderen" actief -->
 

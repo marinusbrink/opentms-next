@@ -1,0 +1,129 @@
+/*
+ * OpenTMS Next: proposed UI theme tokens (phase 2, 2026-10-09).
+ * Source of truth for token names: conventions/ui/tokens.md.
+ *
+ * Where it goes: frontend/src/styles/opentms-theme.css, imported in src/index.css
+ * after "shadcn/tailwind.css". It ADDS to the stock shadcn tokens already in index.css
+ * and does not redefine them, except --brand, which moves here.
+ *
+ * Tailwind v4: names under @theme become utilities, for example
+ *   --color-brand          -> bg-brand, text-brand
+ *   --container-dialog-sm  -> max-w-dialog-sm
+ *   --text-label           -> text-label
+ *   --spacing-dialog-header -> h-dialog-header
+ */
+
+/* ---------------------------------------------------------------- runtime values */
+
+:root {
+  /* Brand (D-01). The default is the product blue. applyTenantTheme() overwrites
+     --brand at runtime with the tenant colour (App.UiManagement.Theme / CustomColor).
+     Everything else derives from it, so never set the derived tokens by hand. */
+  --brand: #0F6CBD;
+  --brand-foreground: #FFFFFF;
+  --brand-hover: color-mix(in oklab, var(--brand) 82%, black);
+  --brand-subtle: color-mix(in oklab, var(--brand) 12%, white);   /* hover rows, active nav */
+  --brand-soft: color-mix(in oklab, var(--brand) 27%, white);     /* old --filogic-base-transparent-color */
+
+  /* Surfaces */
+  --surface-page: #F8F9FA;      /* page, nav pane, command bar (already used in the new app) */
+  --surface-section: #FAFAFB;   /* form section cards in dialogs (invoice-detail convention) */
+  --border-section: rgb(0 0 0 / 0.06);
+
+  /* Semantic tones (D-02 fallbacks, feedback, badges). The fg value is also the solid colour. */
+  --tone-neutral-fg: #5F6368;
+  --tone-neutral-bg: #F1F3F4;
+  --tone-info-fg: #1A73E8;
+  --tone-info-bg: color-mix(in oklab, var(--tone-info-fg) 12%, white);
+  --tone-success-fg: #1A8A42;
+  --tone-success-bg: color-mix(in oklab, var(--tone-success-fg) 12%, white);
+  --tone-warning-fg: #B26A00;
+  --tone-warning-bg: color-mix(in oklab, #F5A302 18%, white);
+  --tone-danger-fg: #D93025;
+  --tone-danger-bg: color-mix(in oklab, var(--tone-danger-fg) 12%, white);
+
+  /* Row flags: user-chosen markers on records, 8 fixed colours (old app set) */
+  --flag-red: #E53935;
+  --flag-orange: #FF8800;
+  --flag-green: #2E7D32;
+  --flag-blue: #1E63D6;
+  --flag-purple: #7B1FA2;
+  --flag-pink: #FF00F0;
+  --flag-brown: #795548;
+  --flag-grey: #757575;
+
+  /* Data grid (D-04). Read by the AG Grid theme in components/ui/grid-theme.ts. */
+  --grid-row-height: 36px;
+  --grid-header-height: 40px;
+  --grid-font-size: 13px;
+  --grid-totals-row-height: 30px;
+  --grid-selected-row-bg: var(--brand);            /* old app: brand fill with white text */
+  --grid-selected-row-fg: var(--brand-foreground);
+}
+
+.dark {
+  --brand-foreground: #FFFFFF;
+  --brand-subtle: color-mix(in oklab, var(--brand) 22%, black);
+  --brand-soft: color-mix(in oklab, var(--brand) 35%, black);
+  --surface-page: var(--background);
+  --surface-section: oklch(0.205 0 0);
+  --border-section: rgb(255 255 255 / 0.08);
+  --tone-neutral-bg: oklch(0.269 0 0);
+  --tone-neutral-fg: oklch(0.85 0 0);
+  --tone-info-bg: color-mix(in oklab, var(--tone-info-fg) 25%, black);
+  --tone-success-bg: color-mix(in oklab, var(--tone-success-fg) 25%, black);
+  --tone-warning-bg: color-mix(in oklab, #F5A302 25%, black);
+  --tone-danger-bg: color-mix(in oklab, var(--tone-danger-fg) 25%, black);
+}
+
+/* ---------------------------------------------------------------- Tailwind mapping */
+
+@theme inline {
+  /* colours */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-soft: var(--brand-soft);
+  --color-surface-page: var(--surface-page);
+  --color-surface-section: var(--surface-section);
+  --color-border-section: var(--border-section);
+
+  --color-tone-neutral: var(--tone-neutral-fg);
+  --color-tone-neutral-bg: var(--tone-neutral-bg);
+  --color-tone-info: var(--tone-info-fg);
+  --color-tone-info-bg: var(--tone-info-bg);
+  --color-tone-success: var(--tone-success-fg);
+  --color-tone-success-bg: var(--tone-success-bg);
+  --color-tone-warning: var(--tone-warning-fg);
+  --color-tone-warning-bg: var(--tone-warning-bg);
+  --color-tone-danger: var(--tone-danger-fg);
+  --color-tone-danger-bg: var(--tone-danger-bg);
+
+  --color-flag-red: var(--flag-red);
+  --color-flag-orange: var(--flag-orange);
+  --color-flag-green: var(--flag-green);
+  --color-flag-blue: var(--flag-blue);
+  --color-flag-purple: var(--flag-purple);
+  --color-flag-pink: var(--flag-pink);
+  --color-flag-brown: var(--flag-brown);
+  --color-flag-grey: var(--flag-grey);
+}
+
+@theme {
+  /* type scale additions (body = text-sm 14px, label/caption = text-label 12px) */
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-title: 0.9375rem;          /* dialog title, 15px */
+  --text-title--line-height: 1.25rem;
+
+  /* dialog size tiers (D-16) -> max-w-dialog-* */
+  --container-dialog-confirm: 26.25rem;   /* 420px */
+  --container-dialog-sm: 35rem;           /* 560px */
+  --container-dialog-md: 55rem;           /* 880px */
+  --container-dialog-lg: 85rem;           /* 1360px */
+
+  /* fixed heights -> h-dialog-header, h-command-bar */
+  --spacing-dialog-header: 2.75rem;       /* 44px brand bar on entity editors (D-05; 38px in the old app, taller with the ribbon look of 2026-10-10) */
+  --spacing-command-bar: 2.5rem;          /* 40px, matches AppCommandBar strip */
+}

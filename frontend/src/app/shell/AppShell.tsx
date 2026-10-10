@@ -7,6 +7,7 @@ import { UserTenantMenu } from "@/app/shell/UserTenantMenu";
 import { AppNavPane } from "@/app/shell/AppNavPane";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { FullScreenSpinner } from "@/app/shell/FullScreenSpinner";
+import { Toaster } from "@/components/ui/sonner";
 
 /* The authenticated Office-style shell: slim top app bar with the waffle launcher
  * top-left, the current app's name in the bar, and the user/tenant menu on the
@@ -31,14 +32,14 @@ export function AppShell() {
   const hasNav = activeApp?.views != null && activeApp.views.length > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA] dark:bg-background">
-      <header className="flex h-12 items-center bg-brand text-white shadow-sm">
+    <div className="flex min-h-screen flex-col bg-surface-page">
+      <header className="flex h-12 items-center bg-brand text-brand-foreground shadow-sm">
         <WaffleLauncher />
         <div className="flex items-baseline gap-3 pl-1">
           <span className="text-sm font-bold tracking-wide">{t("AppName")}</span>
           {activeApp && (
             <>
-              <span aria-hidden className="text-white/40">
+              <span aria-hidden className="text-brand-foreground/40">
                 |
               </span>
               <span className="text-sm">{t(activeApp.nameKey)}</span>
@@ -65,6 +66,7 @@ export function AppShell() {
           <Outlet />
         </main>
       )}
+      <Toaster />
     </div>
   );
 }

@@ -46,23 +46,31 @@ interface CmdProps {
 
 function PrimaryActionButton({ command, t }: CmdProps) {
   const Icon = command.icon;
+  const isDisabled = command.disabled === true;
+  const tooltipText = isDisabled
+    ? t(command.disabledReasonKey ?? command.labelKey)
+    : t(command.tooltipKey ?? command.labelKey);
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={command.onClick}
+            className={cn(
+              "inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm text-brand hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isDisabled && "cursor-default opacity-50",
+            )}
+            aria-disabled={isDisabled || undefined}
+            onClick={() => {
+              if (!isDisabled) command.onClick();
+            }}
           />
         }
       >
         {Icon && <Icon size={16} />}
         <span className="max-w-[120px] truncate font-semibold">{t(command.labelKey)}</span>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {t(command.tooltipKey ?? command.labelKey)}
-      </TooltipContent>
+      <TooltipContent side="bottom">{tooltipText}</TooltipContent>
     </Tooltip>
   );
 }
@@ -204,7 +212,7 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, t }: NewSt
     <TooltipProvider>
       <div
         className={cn(
-          "flex h-10 items-center border-b-2 border-b-[#E5E5E5] dark:border-b-border bg-[#F8F9FA] dark:bg-background",
+          "flex h-10 items-center border-b-2 border-b-border bg-surface-page",
           className,
         )}
       >

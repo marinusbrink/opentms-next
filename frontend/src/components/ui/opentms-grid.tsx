@@ -4,32 +4,41 @@
  * Eager import of ag-grid-enterprise (~800 KB) on any route will fail the CI bundle check.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type {
+  CellKeyDownEvent,
   ColDef,
   ColumnMovedEvent,
   ColumnResizedEvent,
   ColumnState,
   ColumnVisibleEvent,
   FilterChangedEvent,
+  FullWidthCellKeyDownEvent,
+  GetContextMenuItemsParams,
   GridApi,
   GridReadyEvent,
   IServerSideDatasource,
   IServerSideGetRowsParams,
+  RowDoubleClickedEvent,
   SelectionChangedEvent,
   SortChangedEvent,
 } from "ag-grid-community";
 import { ModuleRegistry } from "ag-grid-community";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-quartz.css";
 import { AllEnterpriseModule, LicenseManager } from "ag-grid-enterprise";
 import { AgGridReact } from "ag-grid-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { opentmsGridTheme } from "@/components/ui/grid-theme";
+import {
+  buildContextMenuItems,
+  canOpenRow,
+  resolveTargetRows,
+  type GridRowAction,
+} from "@/components/ui/opentms-grid-actions";
 import { OpenTmsGridFooter } from "@/components/ui/opentms-grid-footer";
 import { OpenTmsGridToolbar } from "@/components/ui/opentms-grid-toolbar";
-import { Toast } from "@/components/ui/toast";
 import { apiClient } from "@/lib/api/client";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
@@ -83,12 +92,22 @@ export interface GridSelectionDto {
   excludedIds: string[];
 }
 
+export type { GridRowAction } from "@/components/ui/opentms-grid-actions";
+
 export interface OpenTmsGridProps<TRow> {
   gridId: string;
   columnDefs: ColDef<TRow>[];
   fetchRows: (request: GridRequest) => Promise<GridResponse<TRow>>;
   searchableColumns?: string[];
   onSelectionChange?: (selection: GridSelectionDto) => void;
+  /** UI-GRID-007: double click and Enter open the record. */
+  onOpen?: (row: TRow) => void;
+  /** UI-GRID-008: the right-click menu for the clicked or selected rows. */
+  rowActions?: (rows: TRow[]) => GridRowAction[];
+  /** UI-GRID-005: the page's filter controls, rendered next to the search box. */
+  filters?: ReactNode;
+  /** UI-GRID-013: shows the Export button when the design includes export. */
+  onExport?: () => void;
   className?: string;
 }
 
@@ -187,6 +206,10 @@ export function OpenTmsGrid<TRow>({
   columnDefs,
   fetchRows,
   onSelectionChange,
+  onOpen,
+  rowActions,
+  filters,
+  onExport,
   className,
 }: OpenTmsGridProps<TRow>) {
   const { t } = useL();
@@ -205,9 +228,6 @@ export function OpenTmsGrid<TRow>({
 
   // Column visibility for toolbar
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
-
-  // Error toast
-  const [showErrorToast, setShowErrorToast] = useState(false);
 
   // Block error state emitter (stable ref)
   const blockStateEmitter = useRef(createBlockStateEmitter()).current;
@@ -404,7 +424,7 @@ export function OpenTmsGrid<TRow>({
               // Manual retry mode
               blockStateEmitter.setState("failed");
               if (manualRetryCountRef.current >= 2) {
-                setShowErrorToast(true);
+                toast.error(t("Grid:BlockError"));
               }
               params.fail();
             }
@@ -499,6 +519,56 @@ export function OpenTmsGrid<TRow>({
       gridApiRef.current?.refreshServerSide({ purge: true });
     }, 300);
   }, []);
+
+  // ── Refresh (toolbar) ─────────────────────────────────────────────────────
+
+  const handleRefresh = useCallback(() => {
+    manualRetryCountRef.current = 0;
+    gridApiRef.current?.refreshServerSide({ purge: true });
+  }, []);
+
+  // ── Opening a record (UI-GRID-007) ────────────────────────────────────────
+
+  const openRow = useCallback(
+    (node: { group?: boolean; rowPinned?: string | null; data?: TRow }) => {
+      if (onOpen && canOpenRow(node)) {
+        onOpen(node.data as TRow);
+      }
+    },
+    [onOpen],
+  );
+
+  const onRowDoubleClicked = useCallback(
+    (event: RowDoubleClickedEvent<TRow>) => openRow(event.node),
+    [openRow],
+  );
+
+  const onCellKeyDown = useCallback(
+    (event: CellKeyDownEvent<TRow> | FullWidthCellKeyDownEvent<TRow>) => {
+      const key = (event.event as KeyboardEvent | null | undefined)?.key;
+      if (key === "Enter") {
+        openRow(event.node);
+      }
+    },
+    [openRow],
+  );
+
+  // ── Context menu (UI-GRID-008) ────────────────────────────────────────────
+
+  const getContextMenuItems = useCallback(
+    (params: GetContextMenuItemsParams<TRow>) => {
+      if (!rowActions) return [];
+      const clicked = params.node && canOpenRow(params.node) ? (params.node.data as TRow) : undefined;
+      const rows = resolveTargetRows(
+        clicked,
+        params.api.getSelectedRows(),
+        (row) => String((row as Record<string, unknown>)?.id ?? ""),
+      );
+      if (rows.length === 0) return [];
+      return buildContextMenuItems(rowActions(rows), rows.length, t);
+    },
+    [rowActions, t],
+  );
 
   // ── Filter changed (AG Grid column filters) ───────────────────────────────
 
@@ -611,35 +681,34 @@ export function OpenTmsGrid<TRow>({
 
   // ── Row selection config ──────────────────────────────────────────────────
 
+  /* UI-GRID-006: one dedicated checkbox column, provided by AG Grid's row-selection API.
+   * Never add a second one through checkboxSelection on a column definition. */
   const rowSelectionOptions = useMemo(
     () =>
       onSelectionChange
-        ? ({ mode: "multiRow", selectAll: "filtered" } as const)
+        ? ({
+            mode: "multiRow",
+            selectAll: "filtered",
+            checkboxes: true,
+            headerCheckbox: true,
+            enableClickSelection: false,
+          } as const)
         : undefined,
     [onSelectionChange],
   );
 
-  // ── Augmented column defs: add checkbox column when selection enabled ──────
-
-  const augmentedColumnDefs = useMemo<ColDef<TRow>[]>(() => {
-    if (!onSelectionChange) return columnDefs;
-    return [
-      {
-        colId: "__selection__",
-        headerCheckboxSelection: true,
-        checkboxSelection: true,
-        width: 40,
-        minWidth: 40,
-        maxWidth: 40,
-        pinned: "left" as const,
-        suppressMovable: true,
-        resizable: false,
-        sortable: false,
-        filter: false,
-      } as ColDef<TRow>,
-      ...columnDefs,
-    ];
-  }, [columnDefs, onSelectionChange]);
+  const selectionColumnDef = useMemo<ColDef>(
+    () => ({
+      width: 40,
+      minWidth: 40,
+      maxWidth: 40,
+      pinned: "left",
+      suppressMovable: true,
+      resizable: false,
+      sortable: false,
+    }),
+    [],
+  );
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
@@ -662,11 +731,16 @@ export function OpenTmsGrid<TRow>({
         columnVisibility={columnVisibility}
         onToggleColumn={handleToggleColumn}
         onReset={handleReset}
+        onRefresh={handleRefresh}
+        onExport={onExport}
+        filters={filters}
       />
 
-      <div className="ag-theme-quartz min-h-0 flex-1">
+      <div className="min-h-0 flex-1">
         <AgGridReact<TRow>
-          columnDefs={augmentedColumnDefs}
+          theme={opentmsGridTheme()}
+          columnDefs={columnDefs}
+          selectionColumnDef={selectionColumnDef}
           rowModelType="serverSide"
           cacheBlockSize={100}
           rowSelection={rowSelectionOptions}
@@ -684,14 +758,17 @@ export function OpenTmsGrid<TRow>({
           onSortChanged={onSortChanged}
           onFilterChanged={onFilterChanged}
           onSelectionChanged={onSelectionChange ? onSelectionChanged : undefined}
+          onRowDoubleClicked={onOpen ? onRowDoubleClicked : undefined}
+          onCellKeyDown={onOpen ? onCellKeyDown : undefined}
+          getContextMenuItems={rowActions ? getContextMenuItems : undefined}
+          suppressContextMenu={!rowActions}
+          preventDefaultOnContextMenu={!!rowActions}
           suppressMenuHide
           animateRows={false}
         />
       </div>
 
       <OpenTmsGridFooter totalCount={totalCount} filteredCount={filteredCount} />
-
-      {showErrorToast && <Toast message={t("Grid:BlockError")} />}
     </div>
   );
 }

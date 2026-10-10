@@ -5,6 +5,8 @@ import { WebStorageStateStore } from "oidc-client-ts";
 import { API_BASE_URL, setAccessTokenProvider, setTenantProvider } from "@/lib/api/client";
 import { getStoredTenant } from "@/auth/tenant";
 import { LocalizationProvider } from "@/lib/i18n/LocalizationProvider";
+import { useApplicationConfiguration } from "@/lib/abp/queries";
+import { applyTenantTheme, type TenantUiSettings } from "@/lib/theme/apply-tenant-theme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,11 +52,26 @@ function ApiClientBridge({ children }: { children: ReactNode }) {
   return children;
 }
 
+/** Sets --brand from the tenant's UI settings once the application configuration loads (D-01). */
+function TenantTheme() {
+  const { data } = useApplicationConfiguration();
+  const settings = data?.setting?.values as TenantUiSettings;
+
+  useEffect(() => {
+    if (data) {
+      applyTenantTheme(settings);
+    }
+  }, [data, settings]);
+
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider {...oidcConfig}>
       <QueryClientProvider client={queryClient}>
         <ApiClientBridge>
+          <TenantTheme />
           <LocalizationProvider>{children}</LocalizationProvider>
         </ApiClientBridge>
       </QueryClientProvider>

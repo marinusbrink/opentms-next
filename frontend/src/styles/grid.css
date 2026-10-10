@@ -1,0 +1,7 @@
+/* AG Grid additions that the Theming API cannot express (tokens.md §11). */
+
+/* Selected rows: brand fill (theme param) with the brand foreground as text. */
+.ag-row-selected,
+.ag-row-selected .ag-cell {
+  color: var(--grid-selected-row-fg);
+}

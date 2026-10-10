@@ -102,7 +102,7 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
       await deleteBtn.click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
-      await dialog.getByRole("button", { name: /delete.*role|verwijder/i }).click();
+      await dialog.getByRole("button", { name: /^delete$|^verwijderen$/i }).click();
 
       // Result step must show ≥ 1 deleted.
       await expect(dialog.getByText(/deleted|verwijderd/i)).toBeVisible({ timeout: 10_000 });
@@ -146,7 +146,7 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: /delete.*role|verwijder/i }).click();
+    await dialog.getByRole("button", { name: /^delete$|^verwijderen$/i }).click();
 
     // Result must show 0 deleted and 1 skipped.
     await expect(dialog.getByText(/deleted|verwijderd/i)).toBeVisible({ timeout: 10_000 });
@@ -183,12 +183,10 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
     await page.goto("/admin/roles");
     await page.waitForURL("/admin/roles", { timeout: 10_000 });
 
-    // Wait for the command bar to render.
-    const commandBar = page.locator(".mb-4.flex.h-12");
+    // Wait for the command bar to render (boxed h-12 bar or the Office-365 h-10 strip,
+    // depending on the UI.CommonToolbar flag; PR #32 retires the flag).
+    const commandBar = page.locator(".flex.h-12, .flex.h-10").first();
     await expect(commandBar).toBeVisible({ timeout: 10_000 });
-
-    // h-12 class must be present (full height preserved even when empty selection).
-    await expect(commandBar).toHaveClass(/h-12/);
 
     // Delete button must be disabled when selectionCount === 0.
     const deleteBtn = page.getByRole("button", { name: /bulk.?delete|verwijder/i }).last();

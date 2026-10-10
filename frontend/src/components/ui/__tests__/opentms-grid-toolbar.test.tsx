@@ -170,4 +170,24 @@ describe("OpenTmsGridToolbar", () => {
     expect(screen.getByText("Reference")).toBeInTheDocument();
     expect(screen.queryByText("Unnamed")).not.toBeInTheDocument();
   });
+
+  it("renders Refresh and Export only when their handlers are given, with accessible names", () => {
+    const onRefresh = vi.fn();
+    const onExport = vi.fn();
+    const { rerender } = render(<OpenTmsGridToolbar {...defaultProps} />);
+    expect(screen.queryByRole("button", { name: "Grid:Refresh" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Grid:Export" })).not.toBeInTheDocument();
+
+    rerender(<OpenTmsGridToolbar {...defaultProps} onRefresh={onRefresh} onExport={onExport} />);
+    fireEvent.click(screen.getByRole("button", { name: "Grid:Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Grid:Export" }));
+    expect(onRefresh).toHaveBeenCalledOnce();
+    expect(onExport).toHaveBeenCalledOnce();
+  });
+
+  it("renders the page's filter controls in the filters slot next to the search box (UI-GRID-005)", () => {
+    render(<OpenTmsGridToolbar {...defaultProps} filters={<button type="button">Org unit</button>} />);
+    const slot = document.querySelector('[data-slot="grid-filters"]')!;
+    expect(slot).toHaveTextContent("Org unit");
+  });
 });

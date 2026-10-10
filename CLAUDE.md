@@ -162,6 +162,22 @@ Query — no hand-written fetches. Every user-facing string, shell and app names
 comes from ABP's localization endpoint (resources in each module's `Domain.Shared`;
 languages: nl, en — adding one is a PO decision).
 
+## UI conventions (binding for every screen)
+
+- UI work follows `docs/conventions/ui/ui-rules/`. Before building or reviewing any screen,
+  read [docs/conventions/ui/ui-rules/index.md](docs/conventions/ui/ui-rules/index.md) and the
+  rule files it lists for the task. Deviations are marked
+  `DEVIATION(UI-XXX-nnn): <reason>, approved in <design doc>`; an unmarked one is a reviewer
+  blocker. The canonical copy lives in `dev-department/conventions/ui/`; change rules there.
+- Tokens come from `frontend/src/styles/opentms-theme.css` (UI-TOK-001: no raw colours, sizes
+  or shadows in feature code). `--brand` is set at runtime by `applyTenantTheme()` only.
+- The library components the rules name (`EntityDialog`, `ConfirmDialog`, `FormField`,
+  `OpenTmsGrid` with `rowActions` / `onOpen`, the grid cells, `useFormat()`, `useIsGranted()`,
+  `getApiErrorMessage()`) live in `src/components/ui/` and `src/lib/`. The ones not built yet
+  (`EntityLookup`, `LinesGrid`, `StatusBadge`, `FormSection`, `Wizard`, `useOpenRecord`) are
+  built by the first feature that needs them, with the API the rule gives, never inline in a
+  page. Library gaps in `docs/conventions/ui/component-map.md` §4 need a PO choice first.
+
 ## Frontend environment facts (verified 2026-08-12)
 
 - TypeScript is pinned to **5.9** in `frontend/package.json` because `openapi-typescript`

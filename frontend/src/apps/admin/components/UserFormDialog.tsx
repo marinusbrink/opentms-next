@@ -1,187 +1,273 @@
-import { useState } from "react";
-import { Dialog } from "@base-ui/react/dialog";
-import { Button } from "@/components/ui/button";
+import { useMemo, useRef, useState, type FormEvent } from "react";
+import { Save } from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { RoleMultiSelect } from "@/components/ui/role-multi-select";
-import { useCreateUser, useUpdateUser, type UserRow, type UserCreateDto, type UserUpdateDto } from "@/domains/platform/administration-users";
+import {
+  useCreateUser,
+  useUpdateUser,
+  type UserCreateDto,
+  type UserRow,
+  type UserUpdateDto,
+} from "@/domains/platform/administration-users";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface UserFormDialogProps {
   mode: "create" | "edit";
   user?: UserRow;
+  /** UI-PERM-004: view-only when the user may not update. */
+  readOnly?: boolean;
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function extractApiError(error: unknown): string {
-  if (!error || typeof error !== "object") return String(error ?? "");
-  const e = error as Record<string, unknown>;
-  const abpMsg = (e["error"] as Record<string, unknown> | undefined)?.["message"];
-  if (typeof abpMsg === "string") return abpMsg;
-  if (typeof e["title"] === "string") return e["title"];
-  if (typeof e["detail"] === "string") return e["detail"];
-  return "";
+interface UserFormValues {
+  userName: string;
+  email: string;
+  name: string;
+  surname: string;
+  isActive: boolean;
+  roleNames: string[];
 }
 
-export function UserFormDialog({ mode, user, open, onClose, onSuccess }: UserFormDialogProps) {
+type FieldName = "userName" | "email" | "password";
+
+function normalise(values: UserFormValues) {
+  return {
+    userName: values.userName.trim() || null,
+    email: values.email.trim() || null,
+    name: values.name.trim() || null,
+    surname: values.surname.trim() || null,
+    isActive: values.isActive,
+    roleNames: [...values.roleNames].sort(),
+  };
+}
+
+/* The one user editor for create, edit and view (UI-DLG-009): an EntityDialog `editor`,
+ * size `sm`, Save as the primary command; the dialog adds Close. Validation on blur and on
+ * submit, messages under the field (UI-FORM-006); a failed save shows inside the dialog. */
+export function UserFormDialog({ mode, user, readOnly = false, open, onClose, onSuccess }: UserFormDialogProps) {
   const { t } = useL();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const [userName, setUserName] = useState(mode === "edit" ? (user?.userName ?? "") : "");
-  const [email, setEmail] = useState(mode === "edit" ? (user?.email ?? "") : "");
-  const [name, setName] = useState(mode === "edit" ? (user?.name ?? "") : "");
-  const [surname, setSurname] = useState(mode === "edit" ? (user?.surname ?? "") : "");
-  const [password, setPassword] = useState("");
-  const [isActive, setIsActive] = useState(mode === "edit" ? (user?.isActive ?? true) : true);
-  const [roleNames, setRoleNames] = useState<string[]>(
-    mode === "edit" ? (user?.roleNames ?? []) : [],
+  const initial = useMemo<UserFormValues>(
+    () => ({
+      userName: mode === "edit" ? (user?.userName ?? "") : "",
+      email: mode === "edit" ? (user?.email ?? "") : "",
+      name: mode === "edit" ? (user?.name ?? "") : "",
+      surname: mode === "edit" ? (user?.surname ?? "") : "",
+      isActive: mode === "edit" ? (user?.isActive ?? true) : true,
+      roleNames: mode === "edit" ? (user?.roleNames ?? []) : [],
+    }),
+    [mode, user],
   );
-  const [error, setError] = useState("");
+
+  const [values, setValues] = useState<UserFormValues>(initial);
+  const [password, setPassword] = useState("");
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("general");
+
   const isPending = createUser.isPending || updateUser.isPending;
+  const isDirty =
+    JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial)) || password !== "";
 
-  const handleClose = () => {
-    if (isPending) return;
-    onClose();
-  };
+  const errors: Partial<Record<FieldName, string>> = {};
+  if (!values.userName.trim()) errors.userName = t("FieldRequired");
+  if (!values.email.trim()) errors.email = t("FieldRequired");
+  if (mode === "create" && !password) errors.password = t("FieldRequired");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const shownError = (field: FieldName) => (touched[field] || submitted ? errors[field] : undefined);
+  const touch = (field: FieldName) => setTouched((prev) => ({ ...prev, [field]: true }));
+  const set = <K extends keyof UserFormValues>(key: K, value: UserFormValues[K]) =>
+    setValues((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (readOnly || isPending) return;
+    setSubmitted(true);
+    setServerError(null);
+
+    const firstInvalid = (["userName", "email", "password"] as FieldName[]).find((f) => errors[f]);
+    if (firstInvalid) {
+      /* UI-FORM-006: switch to the tab with the error and focus the first invalid field. */
+      setActiveTab("general");
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`#uf-${firstInvalid}`)?.focus());
+      return;
+    }
 
     try {
       if (mode === "create") {
         const dto: UserCreateDto = {
-          userName,
-          email,
-          name: name || null,
-          surname: surname || null,
+          userName: values.userName.trim(),
+          email: values.email.trim(),
+          name: values.name.trim() || null,
+          surname: values.surname.trim() || null,
           password,
-          roleNames,
+          roleNames: values.roleNames,
         };
         await createUser.mutateAsync(dto);
       } else {
         const dto: UserUpdateDto = {
-          userName,
-          email,
-          name: name || null,
-          surname: surname || null,
-          isActive,
-          roleNames,
+          userName: values.userName.trim(),
+          email: values.email.trim(),
+          name: values.name.trim() || null,
+          surname: values.surname.trim() || null,
+          isActive: values.isActive,
+          roleNames: values.roleNames,
         };
         await updateUser.mutateAsync({ id: user!.id!, dto });
       }
       onSuccess();
       onClose();
+      toast.success(t("Administration:UserSaved"));
     } catch (err) {
-      setError(extractApiError(err) || t("Administration:SaveFailed"));
+      setServerError(getApiErrorMessage(err, t));
     }
   };
 
   const title =
     mode === "create"
       ? t("Administration:NewUser")
-      : t("Administration:EditUser") + " " + (user?.userName ?? "");
+      : `${t("Administration:User")} ${user?.userName ?? ""}`;
+
+  const commands: AppCommandBarCommand[] = readOnly
+    ? []
+    : [
+        {
+          id: "save",
+          labelKey: isPending ? "Saving" : "Save",
+          icon: Save,
+          isPrimary: true,
+          onClick: () => formRef.current?.requestSubmit(),
+        },
+      ];
+
+  const hasShownErrors = (["userName", "email", "password"] as FieldName[]).some((f) => shownError(f));
+
+  const generalTab: EntityDialogTab = {
+    value: "general",
+    label: t("General"),
+    hasError: hasShownErrors,
+    content: (
+      <form
+        ref={formRef}
+        onSubmit={(e) => void handleSubmit(e)}
+        className="grid grid-cols-2 gap-x-4 gap-y-4"
+        noValidate
+      >
+        {serverError && (
+          <Alert variant="destructive" className="col-span-2">
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+
+        <FormField label={t("Administration:Username")} htmlFor="uf-userName" required error={shownError("userName")}>
+          <Input
+            id="uf-userName"
+            value={values.userName}
+            onChange={(e) => set("userName", e.target.value)}
+            onBlur={() => touch("userName")}
+            disabled={readOnly}
+            autoComplete="off"
+          />
+        </FormField>
+
+        <FormField label={t("Administration:Email")} htmlFor="uf-email" required error={shownError("email")}>
+          <Input
+            id="uf-email"
+            type="email"
+            value={values.email}
+            onChange={(e) => set("email", e.target.value)}
+            onBlur={() => touch("email")}
+            disabled={readOnly}
+            autoComplete="off"
+          />
+        </FormField>
+
+        <FormField label={t("Administration:FirstName")} htmlFor="uf-name">
+          <Input id="uf-name" value={values.name} onChange={(e) => set("name", e.target.value)} disabled={readOnly} />
+        </FormField>
+        <FormField label={t("Administration:Surname")} htmlFor="uf-surname">
+          <Input
+            id="uf-surname"
+            value={values.surname}
+            onChange={(e) => set("surname", e.target.value)}
+            disabled={readOnly}
+          />
+        </FormField>
+
+        {mode === "create" && (
+          <FormField label={t("Administration:Password")} htmlFor="uf-password" required error={shownError("password")}>
+            <Input
+              id="uf-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => touch("password")}
+              autoComplete="new-password"
+            />
+          </FormField>
+        )}
+
+        {mode === "edit" && (
+          <label className="flex h-10 items-center gap-2 self-end text-sm">
+            <Checkbox
+              checked={values.isActive}
+              onCheckedChange={(checked) => set("isActive", checked === true)}
+              disabled={readOnly}
+            />
+            {t("Administration:Active")}
+          </label>
+        )}
+
+        <FormField label={t("Administration:Roles")} htmlFor="uf-roles" floating="always">
+          <RoleMultiSelect
+            id="uf-roles"
+            value={values.roleNames}
+            onChange={(roleNames) => set("roleNames", roleNames)}
+            disabled={readOnly}
+          />
+        </FormField>
+
+        {/* Enter submits a small editor (UI-KEY-001). */}
+        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+      </form>
+    ),
+  };
+
+  const tabs: EntityDialogTab[] = [
+    generalTab,
+    recordIdentificationTab(t, { id: mode === "edit" ? user?.id : undefined, creationTime: user?.creationTime }),
+  ];
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o: boolean) => { if (!o) handleClose(); }}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 duration-150" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 duration-150">
-          <Dialog.Title className="mb-4 text-base font-semibold">{title}</Dialog.Title>
-
-          <form onSubmit={(e) => { void handleSubmit(e); }} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="uf-username">{t("Administration:Username")} *</Label>
-              <Input
-                id="uf-username"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="uf-email">{t("Administration:Email")} *</Label>
-              <Input
-                id="uf-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="uf-name">{t("Administration:FirstName")}</Label>
-                <Input
-                  id="uf-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="uf-surname">{t("Administration:Surname")}</Label>
-                <Input
-                  id="uf-surname"
-                  value={surname}
-                  onChange={(e) => setSurname(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {mode === "create" && (
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="uf-password">{t("Administration:Password")} *</Label>
-                <Input
-                  id="uf-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-            )}
-
-            {mode === "edit" && (
-              <div className="flex items-center gap-2">
-                <input
-                  id="uf-active"
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  className="size-4 accent-primary"
-                />
-                <Label htmlFor="uf-active">{t("Administration:Active")}</Label>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1">
-              <Label>{t("Administration:Roles")}</Label>
-              <RoleMultiSelect value={roleNames} onChange={setRoleNames} />
-            </div>
-
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-
-            <div className="mt-2 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
-                {t("Administration:Cancel")}
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? t("Administration:Saving") : t("Administration:Save")}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <EntityDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      variant="editor"
+      size="md"
+      title={title}
+      commands={commands}
+      tabs={tabs}
+      activeTab={activeTab}
+      onActiveTabChange={setActiveTab}
+      isDirty={isDirty}
+      isBusy={isPending}
+    />
   );
 }

@@ -147,7 +147,7 @@ describe("UsersView — AppCommandBar integration (Critical)", () => {
     await act(async () => {
       render(<UsersView />);
     });
-    expect(screen.getByText("Administration:PermissionDenied")).toBeInTheDocument();
+    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
   });
 });
 
@@ -203,6 +203,6 @@ describe("RolesView — AppCommandBar integration (Critical)", () => {
     await act(async () => {
       render(<RolesView />);
     });
-    expect(screen.getByText("Administration:PermissionDenied")).toBeInTheDocument();
+    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
   });
 });
