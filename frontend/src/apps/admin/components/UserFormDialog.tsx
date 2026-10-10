@@ -5,9 +5,10 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EntityDialog } from "@/components/ui/entity-dialog";
+import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { RoleMultiSelect } from "@/components/ui/role-multi-select";
 import {
   useCreateUser,
@@ -77,6 +78,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("general");
 
   const isPending = createUser.isPending || updateUser.isPending;
   const isDirty =
@@ -100,7 +102,9 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
 
     const firstInvalid = (["userName", "email", "password"] as FieldName[]).find((f) => errors[f]);
     if (firstInvalid) {
-      formRef.current?.querySelector<HTMLElement>(`#uf-${firstInvalid}`)?.focus();
+      /* UI-FORM-006: switch to the tab with the error and focus the first invalid field. */
+      setActiveTab("general");
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`#uf-${firstInvalid}`)?.focus());
       return;
     }
 
@@ -151,19 +155,13 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
         },
       ];
 
-  return (
-    <EntityDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      variant="editor"
-      size="md"
-      title={title}
-      commands={commands}
-      isDirty={isDirty}
-      isBusy={isPending}
-    >
+  const hasShownErrors = (["userName", "email", "password"] as FieldName[]).some((f) => shownError(f));
+
+  const generalTab: EntityDialogTab = {
+    value: "general",
+    label: t("General"),
+    hasError: hasShownErrors,
+    content: (
       <form
         ref={formRef}
         onSubmit={(e) => void handleSubmit(e)}
@@ -247,6 +245,29 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
         {/* Enter submits a small editor (UI-KEY-001). */}
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>
-    </EntityDialog>
+    ),
+  };
+
+  const tabs: EntityDialogTab[] = [
+    generalTab,
+    recordIdentificationTab(t, { id: mode === "edit" ? user?.id : undefined, creationTime: user?.creationTime }),
+  ];
+
+  return (
+    <EntityDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      variant="editor"
+      size="md"
+      title={title}
+      commands={commands}
+      tabs={tabs}
+      activeTab={activeTab}
+      onActiveTabChange={setActiveTab}
+      isDirty={isDirty}
+      isBusy={isPending}
+    />
   );
 }

@@ -117,6 +117,16 @@
     "Administration:RoleDeleted": "Rol verwijderd",
     "Administration:UsersDeleted": "{0} gebruikers verwijderd",
     "Administration:RolesDeleted": "{0} rollen verwijderd",
-    "Administration:SystemRoleReadOnly": "Systeemrollen kunnen niet worden gewijzigd"
+    "Administration:SystemRoleReadOnly": "Systeemrollen kunnen niet worden gewijzigd",
+    "General": "Algemeen",
+    "RecordIdentification": "Identificatie",
+    "Attachments": "Bijlagen",
+    "Remarks": "Opmerkingen",
+    "TabHasErrors": "Dit tabblad bevat fouten",
+    "Record:Id": "Id",
+    "Record:Created": "Aangemaakt",
+    "Record:LastModified": "Laatst gewijzigd",
+    "Record:NotSavedYet": "Nog niet opgeslagen. Het record krijgt zijn identificatie bij het opslaan.",
+    "Record:CopyId": "Id kopiëren"
   }
 }

@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Save } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
-import { EntityDialog } from "@/components/ui/entity-dialog";
+import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
+import { Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -133,5 +134,58 @@ describe("EntityDialog action (UI-DLG-005)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("EntityDialog tabs (UI-FORM-007/008)", () => {
+  const tabs: EntityDialogTab[] = [
+    { value: "general", label: "General", content: <Input id="g" aria-label="General field" /> },
+    { value: "capabilities", label: "Capabilities", content: <p>Capabilities body</p>, hasError: true },
+    { value: "identification", label: "RecordIdentification", icon: Fingerprint, content: <p>Identification body</p> },
+  ];
+
+  function renderTabbed(props: Partial<React.ComponentProps<typeof EntityDialog>> = {}) {
+    const onActiveTabChange = vi.fn();
+    render(
+      <EntityDialog
+        open
+        onOpenChange={vi.fn()}
+        variant="editor"
+        size="md"
+        title="Vehicle DAF 12"
+        commands={[{ id: "save", labelKey: "Save", icon: Save, isPrimary: true, onClick: vi.fn() }]}
+        tabs={tabs}
+        onActiveTabChange={onActiveTabChange}
+        {...props}
+      />,
+    );
+    return { onActiveTabChange };
+  }
+
+  it("renders the strip in the ribbon row with General first and the icon tab last, named by its label", () => {
+    renderTabbed();
+    const strip = screen.getByRole("tablist");
+    const tabButtons = screen.getAllByRole("tab");
+    expect(tabButtons[0]).toHaveTextContent("General");
+    expect(tabButtons.at(-1)).toHaveAttribute("aria-label", "RecordIdentification");
+    expect(strip.closest('[data-slot="entity-dialog-ribbon"]')).not.toBeNull();
+  });
+
+  it("shows the first tab's content on open and switches panels on click", () => {
+    const { onActiveTabChange } = renderTabbed();
+    expect(screen.getByLabelText("General field")).toBeVisible();
+    expect(screen.getByText("Identification body")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "RecordIdentification" }));
+    expect(onActiveTabChange).toHaveBeenCalledWith("identification");
+    expect(screen.getByText("Identification body")).toBeVisible();
+  });
+
+  it("follows a controlled activeTab and marks a tab with errors", () => {
+    renderTabbed({ activeTab: "capabilities" });
+    expect(screen.getByText("Capabilities body")).toBeVisible();
+    const errorTab = screen.getByRole("tab", { name: /Capabilities/ });
+    expect(errorTab.className).toContain("text-destructive");
+    expect(errorTab.querySelector("svg")).not.toBeNull();
   });
 });

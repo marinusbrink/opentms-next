@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { CircleAlert, X, type LucideIcon } from "lucide-react";
 
 import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +14,11 @@ import { cn } from "@/lib/utils";
  *
  * - `editor`: a record window (D-05, D-13 A as decided 2026-10-10: the old ribbon, modernised).
  *   Brand header bar with the title, optional state badges and the close X; under it the
- *   ribbon: icon-over-label buttons in captioned groups; no footer. The **Close** command is
- *   added by this component, right after the primary command and in the primary's group, so
- *   the dirty guard is always the same: clicking the backdrop never closes an editor; Esc,
- *   the X and Close ask "Discard changes?" when `isDirty`.
+ *   ribbon: icon-over-label buttons in captioned groups, and at the right end of that row the
+ *   tab strip (UI-FORM-008: General first, the icon tabs last); no footer. The **Close** command
+ *   is added by this component, right after the primary command and in the primary's group, so
+ *   the dirty guard is always the same: clicking the backdrop never closes an editor; Esc, the X
+ *   and Close ask "Discard changes?" when `isDirty`.
  * - `action`: one operation with parameters. Plain header, a body, a right-aligned footer
  *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy.
  *
@@ -31,6 +34,17 @@ export interface RibbonCommand extends AppCommandBarCommand {
   groupKey?: string;
 }
 
+/** One tab of an editor (UI-FORM-008). Text tabs have a label; the standard tabs at the end have an icon. */
+export interface EntityDialogTab {
+  value: string;
+  label: string;
+  /** Icon-only tab (Attachments, Remarks, Record identification): the label becomes the tooltip. */
+  icon?: LucideIcon;
+  content: ReactNode;
+  /** UI-FORM-007: a tab whose content has an invalid field is marked. */
+  hasError?: boolean;
+}
+
 export interface EntityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,12 +53,16 @@ export interface EntityDialogProps {
   title: string;
   badges?: ReactNode;
   commands?: RibbonCommand[];
-  /** Editor only: the tab strip rendered at the right end of the ribbon row (UI-FORM-008). */
-  tabs?: ReactNode;
+  /** Editor only: the tabs, in order (General first, the icon tabs last). The strip sits at the right end of the ribbon row; the panels fill the body. */
+  tabs?: EntityDialogTab[];
+  /** Controlled active tab; omit to let the dialog manage it (first tab on open). */
+  activeTab?: string;
+  onActiveTabChange?: (value: string) => void;
   footer?: ReactNode;
   isDirty?: boolean;
   isBusy?: boolean;
-  children: ReactNode;
+  /** The body when there are no tabs. */
+  children?: ReactNode;
 }
 
 const SIZE_CLASSES: Record<EntityDialogSize, string> = {
@@ -68,6 +86,8 @@ export function EntityDialog({
   badges,
   commands,
   tabs,
+  activeTab,
+  onActiveTabChange,
   footer,
   isDirty = false,
   isBusy = false,
@@ -75,8 +95,16 @@ export function EntityDialog({
 }: EntityDialogProps) {
   const { t } = useL();
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [uncontrolledTab, setUncontrolledTab] = useState<string | undefined>(tabs?.[0]?.value);
   const bodyRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
+
+  const hasTabs = variant === "editor" && tabs != null && tabs.length > 0;
+  const currentTab = activeTab ?? uncontrolledTab ?? tabs?.[0]?.value;
+  const changeTab = (value: string) => {
+    setUncontrolledTab(value);
+    onActiveTabChange?.(value);
+  };
 
   const requestClose = useCallback(() => {
     if (isBusy) return;
@@ -104,9 +132,10 @@ export function EntityDialog({
   );
 
   /* UI-KEY-003: editors focus the first editable field; action dialogs the first input, or
-   * the primary button when there are no inputs. */
+   * the primary button when there are no inputs. Hidden tab panels are skipped. */
   const initialFocus = useCallback(() => {
-    const field = bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE_FIELD);
+    const fields = bodyRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_FIELD);
+    const field = fields ? Array.from(fields).find((el) => el.closest("[hidden]") == null) : undefined;
     if (field) return field;
     if (variant === "action") {
       const buttons = footerRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])");
@@ -124,6 +153,67 @@ export function EntityDialog({
         }))
       : undefined;
 
+  const content = (
+    <>
+      {variant === "editor" ? (
+        <>
+          <div
+            data-slot="entity-dialog-header"
+            className="flex h-dialog-header shrink-0 items-center gap-2 bg-brand px-4 text-brand-foreground"
+          >
+            <DialogTitle className="truncate text-base leading-none font-semibold text-brand-foreground">
+              {title}
+            </DialogTitle>
+            {badges}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("Close")}
+              onClick={requestClose}
+              className="ml-auto text-brand-foreground hover:bg-brand-hover hover:text-brand-foreground"
+            >
+              <X className="size-5" />
+            </Button>
+          </div>
+          <div
+            data-slot="entity-dialog-ribbon"
+            className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2"
+          >
+            {editorCommands && editorCommands.length > 0 && <Ribbon commands={editorCommands} t={t} />}
+            {hasTabs && <EditorTabStrip tabs={tabs!} t={t} />}
+          </div>
+        </>
+      ) : (
+        <div data-slot="entity-dialog-header" className="flex shrink-0 items-center gap-2 px-4 pt-4">
+          <DialogTitle className="text-title leading-none font-semibold">{title}</DialogTitle>
+          <Button variant="ghost" size="icon-sm" aria-label={t("Close")} onClick={requestClose} className="ml-auto">
+            <X />
+          </Button>
+        </div>
+      )}
+
+      <div
+        ref={bodyRef}
+        data-slot="entity-dialog-body"
+        className={cn("min-h-0 flex-1 overflow-auto p-4", variant === "editor" && "bg-surface-page px-6 py-5")}
+      >
+        {hasTabs
+          ? tabs!.map((tab) => (
+              <TabsContent key={tab.value} value={tab.value} keepMounted className="outline-none">
+                {tab.content}
+              </TabsContent>
+            ))
+          : children}
+      </div>
+
+      {variant === "action" && footer && (
+        <div ref={footerRef} data-slot="entity-dialog-footer" className="flex shrink-0 justify-end gap-2 border-t p-4">
+          {footer}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -137,65 +227,14 @@ export function EntityDialog({
             SIZE_CLASSES[size],
           )}
         >
-          {variant === "editor" ? (
-            <>
-              <div
-                data-slot="entity-dialog-header"
-                className="flex h-dialog-header shrink-0 items-center gap-2 bg-brand px-4 text-brand-foreground"
-              >
-                <DialogTitle className="truncate text-base leading-none font-semibold text-brand-foreground">
-                  {title}
-                </DialogTitle>
-                {badges}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("Close")}
-                  onClick={requestClose}
-                  className="ml-auto text-brand-foreground hover:bg-brand-hover hover:text-brand-foreground"
-                >
-                  <X className="size-5" />
-                </Button>
-              </div>
-              <div data-slot="entity-dialog-ribbon" className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2">
-                {editorCommands && editorCommands.length > 0 && <Ribbon commands={editorCommands} t={t} />}
-                {tabs && <div className="ml-auto flex items-end self-stretch">{tabs}</div>}
-              </div>
-            </>
+          {hasTabs ? (
+            /* The tab strip lives in the ribbon row and the panels in the body: one Tabs root
+             * around both, rendered as `contents` so it does not disturb the dialog's layout. */
+            <Tabs value={currentTab} onValueChange={(value) => changeTab(String(value))} className="contents gap-0">
+              {content}
+            </Tabs>
           ) : (
-            <div data-slot="entity-dialog-header" className="flex shrink-0 items-center gap-2 px-4 pt-4">
-              <DialogTitle className="text-title leading-none font-semibold">{title}</DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("Close")}
-                onClick={requestClose}
-                className="ml-auto"
-              >
-                <X />
-              </Button>
-            </div>
-          )}
-
-          <div
-            ref={bodyRef}
-            data-slot="entity-dialog-body"
-            className={cn(
-              "min-h-0 flex-1 overflow-auto p-4",
-              variant === "editor" && "bg-surface-page px-6 py-5",
-            )}
-          >
-            {children}
-          </div>
-
-          {variant === "action" && footer && (
-            <div
-              ref={footerRef}
-              data-slot="entity-dialog-footer"
-              className="flex shrink-0 justify-end gap-2 border-t p-4"
-            >
-              {footer}
-            </div>
+            content
           )}
         </DialogContent>
       </Dialog>
@@ -231,11 +270,7 @@ function withCloseCommand(commands: RibbonCommand[], onClose: () => void): Ribbo
     onClick: onClose,
   };
   const others = commands.filter((c) => !c.isPrimary && c.id !== CLOSE_COMMAND_ID);
-  return [
-    ...primaries.map((c) => ({ ...c, groupKey: c.groupKey ?? editGroup })),
-    closeCommand,
-    ...others,
-  ];
+  return [...primaries.map((c) => ({ ...c, groupKey: c.groupKey ?? editGroup })), closeCommand, ...others];
 }
 
 /* The ribbon (D-13 A, modernised): icon over label, buttons in groups with a caption under
@@ -299,5 +334,41 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
       {Icon && <Icon className={cn("size-7", isDestructive ? "text-destructive" : "text-brand")} aria-hidden="true" />}
       <span className="max-w-[7rem] truncate">{t(command.labelKey)}</span>
     </button>
+  );
+}
+
+/* UI-FORM-008: end-aligned, General first, the icon-only standard tabs last with tooltips;
+ * UI-FORM-007: a tab with errors is red with an alert icon. Old-app look: uppercase, brand ink. */
+function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: string) => string }) {
+  const triggerClass =
+    "h-10 flex-none rounded-none border-0 px-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
+  return (
+    <TooltipProvider>
+      <TabsList variant="line" className="ml-auto h-auto gap-0 self-end rounded-none p-0">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const trigger = (
+            <TabsTrigger
+              value={tab.value}
+              aria-label={Icon ? tab.label : undefined}
+              className={cn(triggerClass, Icon && "px-3", tab.hasError && "text-destructive data-active:text-destructive")}
+            >
+              {tab.hasError && <CircleAlert className="size-4" aria-hidden="true" />}
+              {Icon ? <Icon className="size-5" aria-hidden="true" /> : tab.label}
+            </TabsTrigger>
+          );
+          const tooltip = tab.hasError ? `${tab.label}: ${t("TabHasErrors")}` : Icon ? tab.label : null;
+          if (!tooltip) {
+            return <span key={tab.value} className="contents">{trigger}</span>;
+          }
+          return (
+            <Tooltip key={tab.value}>
+              <TooltipTrigger render={trigger} />
+              <TooltipContent>{tooltip}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </TabsList>
+    </TooltipProvider>
   );
 }

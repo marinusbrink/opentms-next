@@ -5,9 +5,10 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EntityDialog } from "@/components/ui/entity-dialog";
+import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import {
   useCreateRole,
   useUpdateRole,
@@ -53,6 +54,7 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
   const [nameTouched, setNameTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("general");
 
   const isPending = createRole.isPending || updateRole.isPending;
   const isDirty = JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial));
@@ -65,7 +67,8 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
     setSubmitted(true);
     setServerError(null);
     if (nameError) {
-      formRef.current?.querySelector<HTMLElement>("#rf-name")?.focus();
+      setActiveTab("general");
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>("#rf-name")?.focus());
       return;
     }
 
@@ -103,19 +106,11 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
         },
       ];
 
-  return (
-    <EntityDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      variant="editor"
-      size="sm"
-      title={title}
-      commands={commands}
-      isDirty={isDirty}
-      isBusy={isPending}
-    >
+  const generalTab: EntityDialogTab = {
+    value: "general",
+    label: t("General"),
+    hasError: shownNameError != null,
+    content: (
       <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-4" noValidate>
         {serverError && (
           <Alert variant="destructive">
@@ -155,6 +150,29 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
 
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>
-    </EntityDialog>
+    ),
+  };
+
+  const tabs: EntityDialogTab[] = [
+    generalTab,
+    recordIdentificationTab(t, { id: mode === "edit" ? role?.id : undefined }),
+  ];
+
+  return (
+    <EntityDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      variant="editor"
+      size="sm"
+      title={title}
+      commands={commands}
+      tabs={tabs}
+      activeTab={activeTab}
+      onActiveTabChange={setActiveTab}
+      isDirty={isDirty}
+      isBusy={isPending}
+    />
   );
 }

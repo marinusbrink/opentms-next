@@ -87,7 +87,9 @@ Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
 
 1. Klik op **Nieuwe gebruiker** in de actiebalk boven de lijst. Het venster opent
    met een gekleurde titelbalk; direct eronder staan de knoppen **Opslaan** en
-   **Sluiten**.
+   **Sluiten**, met rechts de tabbladen **Algemeen** en **Identificatie** (het
+   vingerafdruk-icoon). Op **Identificatie** staat het technische id van het record
+   en wanneer het is aangemaakt; bij een nieuw record is dat tabblad nog leeg.
 2. Vul het formulier in:
    - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
    - **E-mailadres** (verplicht) — geldig e-mailformaat.

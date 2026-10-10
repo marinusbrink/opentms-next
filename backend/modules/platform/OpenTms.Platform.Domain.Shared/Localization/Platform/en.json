@@ -117,6 +117,16 @@
     "Administration:RoleDeleted": "Role deleted",
     "Administration:UsersDeleted": "{0} users deleted",
     "Administration:RolesDeleted": "{0} roles deleted",
-    "Administration:SystemRoleReadOnly": "System roles cannot be changed"
+    "Administration:SystemRoleReadOnly": "System roles cannot be changed",
+    "General": "General",
+    "RecordIdentification": "Record identification",
+    "Attachments": "Attachments",
+    "Remarks": "Remarks",
+    "TabHasErrors": "This tab has errors",
+    "Record:Id": "Id",
+    "Record:Created": "Created",
+    "Record:LastModified": "Last modified",
+    "Record:NotSavedYet": "Not saved yet. The record gets its identification when you save it.",
+    "Record:CopyId": "Copy id"
   }
 }
