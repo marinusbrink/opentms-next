@@ -177,3 +177,8 @@ An editor for a record with a workflow state (transport order, transport file, i
 - **Never:** the editor is never left open on a record that no longer exists.
 - **Check:** the action dialog's `onSuccess` calls the parent editor's close.
 - **Evidence:** inventory §5.4 (merge-relations / merge-vehicles opened from the editors); verification §3.
+
+### UI-DLG-015 · MUST · Switching tabs never changes the dialog's height
+An editor is as tall as its **tallest tab**. All tab panels stay mounted and are stacked in one grid cell; an inactive panel keeps its space but is invisible, out of the tab order and out of the accessibility tree. The user never sees the window grow or shrink while moving between General, the entity tabs and the icon tabs. `EntityDialog` does this for every editor; feature code never hides a panel itself.
+- **Check:** open an editor, switch to every tab: the dialog's top and bottom edges do not move; panels are `keepMounted` and share a grid cell.
+- **Evidence:** PO decision 2026-10-10 ("switching tabs should never change the height of the dialog"); the old app's `mat-tab-group` kept a fixed dialog height.

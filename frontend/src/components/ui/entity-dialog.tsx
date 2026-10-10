@@ -195,11 +195,24 @@ export function EntityDialog({
       <div
         ref={bodyRef}
         data-slot="entity-dialog-body"
-        className={cn("min-h-0 flex-1 overflow-auto p-4", variant === "editor" && "bg-surface-page px-6 py-5")}
+        className={cn(
+          "min-h-0 flex-1 overflow-auto p-4",
+          variant === "editor" && "bg-surface-page px-6 py-5",
+          hasTabs && "grid content-start",
+        )}
       >
         {hasTabs
           ? tabs!.map((tab) => (
-              <TabsContent key={tab.value} value={tab.value} keepMounted className="outline-none">
+              /* UI-DLG-015: switching tabs never changes the dialog's height. Every panel stays
+               * mounted in the same grid cell; an inactive one keeps its space but is invisible
+               * (and out of the tab order and the accessibility tree), so the body is as tall as
+               * the tallest tab. */
+              <TabsContent
+                key={tab.value}
+                value={tab.value}
+                keepMounted
+                className="col-start-1 row-start-1 outline-none [&[hidden]]:pointer-events-none [&[hidden]]:invisible [&[hidden]]:block"
+              >
                 {tab.content}
               </TabsContent>
             ))

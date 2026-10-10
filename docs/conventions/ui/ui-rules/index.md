@@ -12,7 +12,7 @@ These are binding UI rules for the OpenTMS Next front-end (Vite + React + TypeSc
 | Task | Load |
 |---|---|
 | A new list / overview screen | tokens, [page](page.md), [grid](grid.md), [actions](actions.md), [permissions](permissions.md), [feedback](feedback.md) |
-| A create / edit screen for an entity | tokens, [dialog](dialog.md), [form](form.md), [actions](actions.md), [feedback](feedback.md), [lookup](lookup.md), [format](format.md) |
+| A create / edit screen for an entity | tokens, [dialog](dialog.md) (incl. the fixed height across tabs, UI-DLG-015), [form](form.md), [actions](actions.md), [feedback](feedback.md), [lookup](lookup.md), [format](format.md) |
 | A small action or confirm dialog | tokens, [dialog](dialog.md), [actions](actions.md), [keyboard](keyboard.md) |
 | Adding a column, a cell renderer or a filter | tokens, [grid](grid.md), [format](format.md) |
 | A dropdown, autocomplete or entity picker | tokens, [lookup](lookup.md), [form](form.md) |

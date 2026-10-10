@@ -181,6 +181,20 @@ describe("EntityDialog tabs (UI-FORM-007/008)", () => {
     expect(screen.getByText("Identification body")).toBeVisible();
   });
 
+  it("keeps every panel mounted in one grid cell so the dialog height never changes between tabs (UI-DLG-015)", () => {
+    renderTabbed();
+    const panels = screen.getAllByRole("tabpanel", { hidden: true });
+    expect(panels).toHaveLength(3);
+    for (const panel of panels) {
+      expect(panel.className).toContain("col-start-1");
+      expect(panel.className).toContain("row-start-1");
+      expect(panel.className).toContain("[&[hidden]]:invisible");
+    }
+    const hiddenPanels = panels.filter((p) => p.hasAttribute("hidden"));
+    expect(hiddenPanels).toHaveLength(2);
+    expect(panels[0].parentElement!.className).toContain("grid");
+  });
+
   it("follows a controlled activeTab and marks a tab with errors", () => {
     renderTabbed({ activeTab: "capabilities" });
     expect(screen.getByText("Capabilities body")).toBeVisible();
