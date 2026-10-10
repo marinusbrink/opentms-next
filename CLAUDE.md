@@ -26,7 +26,7 @@ retrospective route, never apply them.
 | **Financial** | Internal submodules: Tariffs & Calculation, Invoicing, Purchasing/Carrier settlement, Transport-unit balances |
 | **Master Data** | Relations, addresses, vehicles, drivers |
 | **Integrations** | EDI, OTM5, accounting links, partner links; anti-corruption layer |
-| **Reporting** | Dashboards (incl. LOS), data warehouse, sustainability/CO₂; read-only |
+| **Reporting** | Dashboards, data warehouse, sustainability/CO₂; read-only |
 | *Platform (horizontal)* | ABP core (identity, permissions, tenancy, localization, audit), mail, background jobs, document generation, notifications |
 
 Heavyweights (Financial, Planning & Execution) keep a strict internal submodule
@@ -52,8 +52,8 @@ is [docs/architecture/decisions.md](docs/architecture/decisions.md).
   it on the issue and stops.
 - **Statuses:** the design PR that builds a DECIDED item flips its status in `decisions.md`
   and `01-overview.md`. Nothing else in the folder changes outside a PO decision.
-- "LOS" in the domain map's Reporting row is not an abbreviation of "logistics operating
-  system"; do not conflate the two until the PO says what it stands for.
+- "LOS" means the logistics operating system (PO decision 2026-10-10, AD-19): the separate
+  app of decision agents and workflows, not a reporting overview.
 
 ## Module boundary rules (enforced by the build)
 
@@ -148,6 +148,12 @@ or the mapping are PO decisions** — agents never create a module per app.
 | Master data | `/master-data` | Master Data |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
+
+**Decided by the PO on 2026-10-10:** the **logistics operating system (LOS)** is a separate app
+in this list: it runs the planning department through AI agents and workflows (decision agents,
+policies, the autonomy ladder, the exception inbox; `docs/architecture/06-agents-and-ai.md`).
+Its tile and route arrive with its first approved design; which domain owns its records is still
+open (AO-02). "LOS" no longer refers to a reporting overview.
 
 Frontend structure: `src/domains/<domain>/` mirrors the backend modules (query hooks,
 domain components); `src/apps/<app>/` holds the views composing them. All server access

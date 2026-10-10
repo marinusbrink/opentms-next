@@ -39,7 +39,7 @@ code, designs and this folder are in English. Use the English term in code and d
 | Dutch (as used in the sessions) | English | Meaning |
 |---|---|---|
 | logistiek besturingssysteem | logistics operating system | The layer of decision agents, policies and the exception inbox on top of the TMS core |
-| besturing | steering | The proposed app for the inbox, policies and autonomy ladder |
+| LOS (logistiek besturingssysteem) | LOS, the logistics operating system app | The app for the decision agents, the exception inbox, policies and the autonomy ladder (AD-19). "Steering" / *besturing* was its working name |
 | uitzonderingen-inbox | exception inbox | Where people handle what agents did not decide |
 | autonomieladder | autonomy ladder | How far an agent may go by itself, set step by step |
 | policy | policy | A customer-set rule that bounds an agent |
@@ -61,5 +61,6 @@ code, designs and this folder are in English. Use the English term in code and d
   carrier. Where the purchase side matters, say "subcontracted carrier".
 - **Event** means a domain event the core publishes. A thing that arrives from outside is a
   **signal** (to interpret) or a **report** (to record), never an event.
-- **Do not abbreviate "logistics operating system" to LOS.** The domain map uses "LOS" under
-  Reporting, and it is not confirmed that it means the same thing.
+- **LOS** is the logistics operating system app (PO, 2026-10-10). The old "LOS" in the domain
+  map's Reporting row meant something else and is retired; do not read old documents' "LOS" as
+  this app without checking the date.

@@ -27,6 +27,7 @@ Dates are the session in which the PO decided. "Detail" names the file that expl
 | AD-16 | An event is written to an outbox in the same transaction and the same database as its fact: the tenant's own database. | 2026-10-09 | Yes (PR #33) | `03` |
 | AD-17 | This architecture is built into opentms-next. No new repository. | 2026-10-09 | — | — |
 | AD-18 | ABP's application services are the command layer. No separate command pipeline. (Follows from the department's "ABP conventions over own inventions".) | 2026-10-09 | Yes | `01` |
+| AD-19 | The logistics operating system is a **separate app** in the app bar, named **LOS**: it runs the planning department through AI agents and workflows. It replaces the working name "Steering". The old "LOS" in the domain map's Reporting row is retired. | 2026-10-10 | No | `06`, `/CLAUDE.md` |
 
 ## Proposed, not confirmed by the PO (AP)
 
@@ -61,7 +62,7 @@ A design that depends on one of these reports it on the issue and stops.
 | AO-01 | The contract: which commands the core offers, which events it emits, which read tools an MCP server gets. | `03`, `06` |
 | AO-02 | Which domain owns policies, autonomy levels, exceptions and decision records. None in the domain map does. | `06` |
 | AO-03 | The change to module boundary rule 2 in `/CLAUDE.md` (distributed events through the outbox next to the local event bus). **Decided by the PO on 2026-10-10 by instructing the build; takes effect when PR #33 merges.** | `03` |
-| AO-04 | New apps in the app list: Steering and Chat. | `06` |
+| AO-04 | New apps in the app list: ~~Steering~~ (decided: the LOS app, AD-19) and Chat. | `06` |
 | AO-05 | Which language-model vendor and models. | `05` |
 | AO-06 | Which connection pooler: PgBouncer on a small VM, or Cloud SQL's managed pooling (Enterprise Plus edition). | `04` |
 | AO-07 | Making the outbox dispatcher fit for 500–1,000 tenants: sweep and signals apart, several tenants at a time, batches, a cross-process signal and lock. | `03` |
