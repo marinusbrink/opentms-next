@@ -26,7 +26,7 @@ retrospective route, never apply them.
 | **Financial** | Internal submodules: Tariffs & Calculation, Invoicing, Purchasing/Carrier settlement, Transport-unit balances |
 | **Master Data** | Relations, addresses, vehicles, drivers |
 | **Integrations** | EDI, OTM5, accounting links, partner links; anti-corruption layer |
-| **Reporting** | Dashboards (incl. LOS), data warehouse, sustainability/CO₂; read-only |
+| **Reporting** | Dashboards, data warehouse, sustainability/CO₂; read-only |
 | *Platform (horizontal)* | ABP core (identity, permissions, tenancy, localization, audit), mail, background jobs, document generation, notifications |
 
 Heavyweights (Financial, Planning & Execution) keep a strict internal submodule
@@ -34,6 +34,26 @@ structure so a later split is a deployment decision, not a rebuild. Financial's
 submodules (Tariffs, Invoicing, Purchasing, TransportUnits) are folders/namespaces
 inside the Financial module — **not** separate ABP modules (see
 `backend/modules/financial/README.md`).
+
+## Target architecture (PO-owned)
+
+[docs/architecture/](docs/architecture/README.md) describes where the system is heading: the
+TMS core that accepts commands, writes facts and publishes events, with agents working on top
+of it. Every element there carries a status (BUILT / DECIDED / PROPOSED / OPEN); the register
+is [docs/architecture/decisions.md](docs/architecture/decisions.md).
+
+- **Authority order:** the SaaS constitution and department conventions, then this file,
+  then `docs/architecture/`. Where they seem to conflict, stop and report; do not pick a side.
+- **Before designing anything beyond a single screen or endpoint**, read
+  `docs/architecture/01-overview.md`, then the files the README's "which file to read when"
+  table names for the PBI. In the design doc, cite the decision ids (`AD-…`) in *Domain
+  impact*, name which of the three flows (`02-flows.md`) the feature extends, and list every
+  PROPOSED item you rely on under *Assumptions*. A design that depends on an OPEN item reports
+  it on the issue and stops.
+- **Statuses:** the design PR that builds a DECIDED item flips its status in `decisions.md`
+  and `01-overview.md`. Nothing else in the folder changes outside a PO decision.
+- "LOS" means the logistics operating system (PO decision 2026-10-10, AD-19): the separate
+  app of decision agents and workflows, not a reporting overview.
 
 ## Module boundary rules (enforced by the build)
 
@@ -128,6 +148,12 @@ or the mapping are PO decisions** — agents never create a module per app.
 | Master data | `/master-data` | Master Data |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
+
+**Decided by the PO on 2026-10-10:** the **logistics operating system (LOS)** is a separate app
+in this list: it runs the planning department through AI agents and workflows (decision agents,
+policies, the autonomy ladder, the exception inbox; `docs/architecture/06-agents-and-ai.md`).
+Its tile and route arrive with its first approved design; which domain owns its records is still
+open (AO-02). "LOS" no longer refers to a reporting overview.
 
 Frontend structure: `src/domains/<domain>/` mirrors the backend modules (query hooks,
 domain components); `src/apps/<app>/` holds the views composing them. All server access
