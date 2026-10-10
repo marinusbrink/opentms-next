@@ -54,8 +54,10 @@ different trust level.
 - **No domain owns this** (**OPEN**, AO-02). Policies, autonomy levels, exceptions and
   decision records have no home in the domain map. Adding a domain is a PO decision. A design
   must not park them in another module to get on.
-- **The tile** (**OPEN**, AO-04). The sessions called it "Steering" (*Besturing*): the inbox,
-  the policy settings and the ladder in one app. The app list belongs to the PO.
+- **The app** (**DECIDED**, AD-19, 2026-10-10): the operating system is a separate app named
+  **LOS**, which runs the planning department through AI agents and workflows: the inbox, the
+  policy settings and the ladder in one app. The sessions' working name "Steering" is retired.
+  Its tile and route arrive with its first design; the Chat app stays open (AO-04).
 - **How an exception reaches the inbox** (**PROPOSED**, AP-03): as a command that records it,
   so the inbox is a view on records in the core and has no channel of its own.
 

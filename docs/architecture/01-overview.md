@@ -51,7 +51,7 @@ flowchart LR
 
   subgraph shell["App bar in the browser"]
     tiles["Transport, Planboard, Finance, Master data, ..."]
-    steering["Steering: exception inbox, policies, autonomy"]
+    steering["LOS app: exception inbox, policies, autonomy"]
     chat["Chat"]
   end
 
@@ -136,7 +136,7 @@ connections it is: who sends what to whom.
 | Connection pooler in front of PostgreSQL | Keeps connections bounded with a database per tenant | **OPEN** which one | infrastructure |
 | Ingest service | Records facts reported from outside | **DECIDED**, not built | Ingest role; adapters **PROPOSED** in Integrations |
 | Boundary agents | Email/PDF/photo → command | **DECIDED**, not built | Agents role |
-| Decision agents, policies, autonomy ladder, exception inbox | The operating system | **DECIDED** as concept, not built; no domain owns it yet (**OPEN**) | — |
+| Decision agents, policies, autonomy ladder, exception inbox | The operating system, the **LOS** app (AD-19) | **DECIDED** as concept, not built; no domain owns its records yet (**OPEN**, AO-02) | — |
 | MCP server and in-app chat | TMS as a source in AI platforms; chat inside the TMS | **PROPOSED** | Api role |
 | Metering of agent runs | Token cost per tenant and agent | **PROPOSED** | Platform |
 | Routing engine | Distances and drive times | **DECIDED** as a separate service, not built | own service |

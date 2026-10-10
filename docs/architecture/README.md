@@ -5,7 +5,8 @@ with agents doing the operational work on top of it (the "logistics operating sy
 It is written for the agents of the development department, the architect first.
 
 - **Last updated:** 2026-10-10 (applied to the repository the same day; the outbox statuses
-  were corrected to what is built in PR #33)
+  were corrected to what is built in PR #33; AD-19 records the PO's decision that the operating
+  system is the separate LOS app)
 - **Source:** architecture working sessions between the PO and Claude, 8–9 October 2026
 - **Owner:** the PO. Agents propose changes through a design or the retrospective route;
   they never edit this folder as part of a feature, with one exception: **the design PR that
