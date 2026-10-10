@@ -1,9 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
-import { Trash2, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
-import { useApplicationConfiguration } from "@/lib/abp/queries";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -13,11 +12,6 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
     culture: "en",
     isLoading: false,
   }),
-}));
-
-// Default: flag off (data undefined → isNewStyleEnabled = false)
-vi.mock("@/lib/abp/queries", () => ({
-  useApplicationConfiguration: vi.fn(() => ({ data: undefined })),
 }));
 
 // ResizeObserver is not available in jsdom; control the reported width via mockROWidth.
@@ -62,189 +56,14 @@ function makeCommand(overrides: Partial<AppCommandBarCommand> = {}): AppCommandB
   };
 }
 
-const mockUseAppConfig = vi.mocked(useApplicationConfiguration);
-
-function setFlagOn() {
-  mockUseAppConfig.mockReturnValue(
-    { data: { features: { values: { "UI.CommonToolbar": "true" } } } } as unknown as ReturnType<
-      typeof useApplicationConfiguration
-    >,
-  );
-}
-
-function setFlagOff() {
-  mockUseAppConfig.mockReturnValue(
-    { data: undefined } as unknown as ReturnType<typeof useApplicationConfiguration>,
-  );
-}
-
 // ── Tests — Critical: shared library component, cross-product API contract ────
 
-describe("AppCommandBar (Critical — shared library component)", () => {
-  // ── Flag-off path (regression guard: existing tests unchanged) ────────────
-
-  it("renders a container with h-12 class even with no commands", () => {
-    const { container } = render(<AppCommandBar commands={[]} />);
-    const bar = container.firstElementChild;
-    expect(bar).not.toBeNull();
-    expect(bar!.className).toContain("h-12");
-  });
-
-  it("renders with mb-4 margin below and rounded border", () => {
-    const { container } = render(<AppCommandBar commands={[]} />);
-    const bar = container.firstElementChild;
-    expect(bar!.className).toContain("mb-4");
-    expect(bar!.className).toContain("rounded-md");
-    expect(bar!.className).toContain("border");
-  });
-
-  it("renders a primary (non-selection) command button with its label", () => {
-    const cmd = makeCommand({ id: "new-role", labelKey: "Administration:NewRole" });
-    render(<AppCommandBar commands={[cmd]} />);
-    expect(screen.getByRole("button", { name: "Administration:NewRole" })).toBeInTheDocument();
-  });
-
-  it("primary command button is enabled when not explicitly disabled", () => {
-    const cmd = makeCommand({ id: "new-role", labelKey: "Administration:NewRole" });
-    render(<AppCommandBar commands={[cmd]} />);
-    expect(screen.getByRole("button", { name: "Administration:NewRole" })).not.toBeDisabled();
-  });
-
-  it("primary command button is disabled when disabled prop is true", () => {
-    const cmd = makeCommand({ labelKey: "Administration:NewRole", disabled: true });
-    render(<AppCommandBar commands={[cmd]} />);
-    expect(screen.getByRole("button", { name: "Administration:NewRole" })).toBeDisabled();
-  });
-
-  it("calls onClick when primary command button is clicked", () => {
-    const onClick = vi.fn();
-    const cmd = makeCommand({ labelKey: "Administration:NewRole", onClick });
-    render(<AppCommandBar commands={[cmd]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Administration:NewRole" }));
-    expect(onClick).toHaveBeenCalledOnce();
-  });
-
-  it("selection command is disabled when selectionCount is 0", () => {
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-      icon: Trash2,
-    });
-    render(<AppCommandBar commands={[cmd]} selectionCount={0} />);
-    expect(screen.getByRole("button", { name: /Administration:BulkDelete/ })).toBeDisabled();
-  });
-
-  it("selection command is disabled when selectionCount is omitted", () => {
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-    });
-    render(<AppCommandBar commands={[cmd]} />);
-    expect(screen.getByRole("button", { name: /Administration:BulkDelete/ })).toBeDisabled();
-  });
-
-  it("selection command is enabled when selectionCount > 0", () => {
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-    });
-    render(<AppCommandBar commands={[cmd]} selectionCount={3} />);
-    expect(screen.getByRole("button", { name: /Administration:BulkDelete/ })).not.toBeDisabled();
-  });
-
-  it("selection command remains disabled when disabled prop is true even with selectionCount > 0", () => {
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-      disabled: true,
-    });
-    render(<AppCommandBar commands={[cmd]} selectionCount={5} />);
-    expect(screen.getByRole("button", { name: /Administration:BulkDelete/ })).toBeDisabled();
-  });
-
-  it("selection count badge shown when selectionCount > 0", () => {
-    const cmd = makeCommand({ requiresSelection: true });
-    render(<AppCommandBar commands={[cmd]} selectionCount={3} />);
-    // The badge renders t('Administration:NSelected') with {0} replaced
-    expect(screen.getByText(/Administration:NSelected/)).toBeInTheDocument();
-  });
-
-  it("selection count badge not shown when selectionCount is 0", () => {
-    const cmd = makeCommand({ requiresSelection: true });
-    render(<AppCommandBar commands={[cmd]} selectionCount={0} />);
-    expect(screen.queryByText(/Administration:NSelected/)).not.toBeInTheDocument();
-  });
-
-  it("selection count badge not shown when selectionCount is omitted", () => {
-    const cmd = makeCommand({ requiresSelection: true });
-    render(<AppCommandBar commands={[cmd]} />);
-    expect(screen.queryByText(/Administration:NSelected/)).not.toBeInTheDocument();
-  });
-
-  it("mixed commands: primary on left, selection on right; spacer flex-1 present", () => {
-    const primary = makeCommand({ id: "new", labelKey: "Administration:NewRole" });
-    const selCmd = makeCommand({
-      id: "del",
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-    });
-    const { container } = render(
-      <AppCommandBar commands={[primary, selCmd]} selectionCount={2} />,
-    );
-
-    const allButtons = container.querySelectorAll("button");
-    expect(allButtons).toHaveLength(2);
-
-    // Spacer div with flex-1 separates the two sides
-    const flexDividers = container.querySelectorAll("div.flex-1");
-    expect(flexDividers.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("applies additional className prop to the bar container", () => {
-    const { container } = render(
-      <AppCommandBar commands={[]} className="custom-class" />,
-    );
-    expect(container.firstElementChild!.className).toContain("custom-class");
-  });
-
-  it("destructive variant command carries destructive styling", () => {
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-      variant: "destructive",
-    });
-    render(<AppCommandBar commands={[cmd]} selectionCount={1} />);
-    const btn = screen.getByRole("button", { name: /Administration:BulkDelete/ });
-    // The Button component sets data-variant or a class that reflects variant;
-    // at minimum the button must be present (variant wired through)
-    expect(btn).toBeInTheDocument();
-  });
-
-  it("does not call onClick when selection command is clicked while disabled", () => {
-    const onClick = vi.fn();
-    const cmd = makeCommand({
-      labelKey: "Administration:BulkDelete",
-      requiresSelection: true,
-      onClick,
-    });
-    render(<AppCommandBar commands={[cmd]} selectionCount={0} />);
-    const btn = screen.getByRole("button", { name: /Administration:BulkDelete/ });
-    // Clicking a disabled button must not trigger onClick
-    fireEvent.click(btn);
-    expect(onClick).not.toHaveBeenCalled();
-  });
-});
-
-// ── Tests — Flag-on path (new Office-365 style) ───────────────────────────────
-
-describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
+describe("AppCommandBar", () => {
   beforeEach(() => {
-    setFlagOn();
     mockROWidth = 9999; // default to full width so items don't overflow
   });
 
   afterEach(() => {
-    setFlagOff();
     mockROWidth = 0;
   });
 
@@ -253,7 +72,7 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(container.firstElementChild).toBeNull();
   });
 
-  it("renders h-10 bar (not h-12) when flag is on", () => {
+  it("renders h-10 bar", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     const bar = container.firstElementChild;
@@ -262,7 +81,7 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(bar!.className).not.toContain("h-12");
   });
 
-  it("bar container has no top border (no amber accent) in flag-on path", () => {
+  it("bar container has no top border (no amber accent)", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     const bar = container.firstElementChild!;
@@ -270,7 +89,7 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(bar.className).not.toContain("amber");
   });
 
-  it("bar has no rounded-md in flag-on path", () => {
+  it("bar has no rounded-md", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} />);
     expect(container.firstElementChild!.className).not.toContain("rounded-md");
@@ -402,7 +221,7 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(dividers).toHaveLength(0);
   });
 
-  it("applies className to bar container in flag-on path", () => {
+  it("applies className to bar container", () => {
     const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
     const { container } = render(<AppCommandBar commands={[cmd]} className="extra-class" />);
     expect(container.firstElementChild!.className).toContain("extra-class");
@@ -436,15 +255,15 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  // ── Selection area (unchanged behaviour) ──────────────────────────────────
+  // ── Selection area ────────────────────────────────────────────────────────
 
-  it("selection count badge shown in flag-on path when selectionCount > 0", () => {
+  it("selection count badge shown when selectionCount > 0", () => {
     const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
     render(<AppCommandBar commands={[delCmd]} selectionCount={5} />);
     expect(screen.getByText(/Administration:NSelected/)).toBeInTheDocument();
   });
 
-  it("selection-gated action has aria-disabled when selectionCount is 0 in flag-on path", () => {
+  it("selection-gated action has aria-disabled when selectionCount is 0", () => {
     const delCmd = makeCommand({ id: "del", labelKey: "Test:Delete", requiresSelection: true });
     render(<AppCommandBar commands={[delCmd]} selectionCount={0} />);
     const btn = screen.getByRole("button", { name: /Test:Delete/ });
@@ -529,22 +348,6 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
     const menuItems = screen.queryAllByRole("menuitem");
     const primaryInMenu = menuItems.filter((item) => item.textContent?.includes("Test:Primary"));
     expect(primaryInMenu).toHaveLength(0);
-  });
-
-  // ── Feature flag reading ───────────────────────────────────────────────────
-
-  it("flag-off path (UI.CommonToolbar=false) renders h-12 bar", () => {
-    setFlagOff();
-    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
-    const { container } = render(<AppCommandBar commands={[cmd]} />);
-    expect(container.firstElementChild!.className).toContain("h-12");
-  });
-
-  it("flag-on path (UI.CommonToolbar=true) renders h-10 bar", () => {
-    // Already set to flag-on in beforeEach
-    const cmd = makeCommand({ id: "act", labelKey: "Test:Action" });
-    const { container } = render(<AppCommandBar commands={[cmd]} />);
-    expect(container.firstElementChild!.className).toContain("h-10");
   });
 
   // ── Round 4 visual rules ───────────────────────────────────────────────────
@@ -691,16 +494,14 @@ describe("AppCommandBar — flag-on path (UI.CommonToolbar = true)", () => {
   });
 });
 
-// ── Accessibility: aria attributes (flag-on) ──────────────────────────────────
+// ── Accessibility: aria attributes ────────────────────────────────────────────
 
-describe("AppCommandBar — accessibility attributes (flag-on)", () => {
+describe("AppCommandBar — accessibility attributes", () => {
   beforeEach(() => {
-    setFlagOn();
     mockROWidth = 9999;
   });
 
   afterEach(() => {
-    setFlagOff();
     mockROWidth = 0;
   });
 
@@ -745,14 +546,12 @@ describe("AppCommandBar — accessibility attributes (flag-on)", () => {
 // Finding: @testing-library/user-event should be added to devDependencies so that
 // Enter/Space activation can be fully tested without relying on native browser behaviour.
 
-describe("AppCommandBar — keyboard: overflow menu (flag-on)", () => {
+describe("AppCommandBar — keyboard: overflow menu", () => {
   beforeEach(() => {
-    setFlagOn();
     mockROWidth = 0;
   });
 
   afterEach(() => {
-    setFlagOff();
     mockROWidth = 0;
   });
 
