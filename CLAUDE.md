@@ -35,6 +35,26 @@ submodules (Tariffs, Invoicing, Purchasing, TransportUnits) are folders/namespac
 inside the Financial module — **not** separate ABP modules (see
 `backend/modules/financial/README.md`).
 
+## Target architecture (PO-owned)
+
+[docs/architecture/](docs/architecture/README.md) describes where the system is heading: the
+TMS core that accepts commands, writes facts and publishes events, with agents working on top
+of it. Every element there carries a status (BUILT / DECIDED / PROPOSED / OPEN); the register
+is [docs/architecture/decisions.md](docs/architecture/decisions.md).
+
+- **Authority order:** the SaaS constitution and department conventions, then this file,
+  then `docs/architecture/`. Where they seem to conflict, stop and report; do not pick a side.
+- **Before designing anything beyond a single screen or endpoint**, read
+  `docs/architecture/01-overview.md`, then the files the README's "which file to read when"
+  table names for the PBI. In the design doc, cite the decision ids (`AD-…`) in *Domain
+  impact*, name which of the three flows (`02-flows.md`) the feature extends, and list every
+  PROPOSED item you rely on under *Assumptions*. A design that depends on an OPEN item reports
+  it on the issue and stops.
+- **Statuses:** the design PR that builds a DECIDED item flips its status in `decisions.md`
+  and `01-overview.md`. Nothing else in the folder changes outside a PO decision.
+- "LOS" in the domain map's Reporting row is not an abbreviation of "logistics operating
+  system"; do not conflate the two until the PO says what it stands for.
+
 ## Module boundary rules (enforced by the build)
 
 One ABP module per domain under `backend/modules/`, five projects each
