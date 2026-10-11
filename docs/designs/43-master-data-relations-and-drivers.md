@@ -71,7 +71,7 @@ person search.
 # Design: Master Data, second run: Relation and Driver
 
 **PBI:** above (this file); assessment `docs/input/masterdata-rebuild-assessment.md`
-**Status:** draft (awaiting gate 1)
+**Status:** approved (gate 1, PO 2026-10-11: assumptions 1, 3, 4 and 8 confirmed; GAP-03 decided as the `DatePicker` below)
 **Date:** 2026-10-11
 **Depends on:** design 41 (PR #42) merged: Country, AddressType, RelationCategory, GeographicalRegion,
 `LocalizedName`, the Master data app and the shared list view and editor.
@@ -296,14 +296,17 @@ Archived (hidden). Filter: Employer (`EntityLookup`), Show archived.
 Initials, Archived), *Contact* (Phone, Mobile, E-mail, Preferred language), *Employment* (Employer
 `EntityLookup` over relations with the Carrier or OwnCompany role, with "Add new relation…" per
 UI-LOOK-004; User account `EntityLookup` over ABP users of the tenant); tab **Qualifications**:
-`LinesGrid` inline (kind `Select`, number, valid from, valid until; dates typed per UI-FMT-004 until
-GAP-03 is decided: a masked text input `DD-MM-YYYY`, validated); Record identification. Anonymise is a
+`LinesGrid` inline (kind `Select`, number, valid from, valid until with the `DatePicker` cell editor);
+Record identification. Anonymise is a
 ribbon command behind `Drivers.Anonymise`, destructive, confirmed, that replaces the person fields by
 "Anonymised" and clears contact details, user link and qualifications; the record then opens read-only.
 
-**Library.** `EntityLookup` (GAP-01, built per the lookup rules: 250 ms debounce, 2 characters, pages
-of 25, infinite scroll, `onCreateNew`, `onEdit`) on the Combobox of run 1; `CheckboxGroup` for the
-roles (small, `components/ui`); `TreeSelect` exists. No new shell change.
+**Library.** `EntityLookup` (GAP-01 decided as option (a): the Combobox of run 1 with a TanStack
+`useInfiniteQuery` list and an IntersectionObserver sentinel; 250 ms debounce, 2 characters, pages of
+25, infinite scroll, `onCreateNew`, `onEdit`); `DatePicker` (GAP-03 decided as option (a), see
+Assumptions); `CheckboxGroup` for the roles (small, `components/ui`); `TreeSelect` exists. The
+component map's §4 rows for GAP-01 and GAP-03 are closed by these decisions (canonical copy in
+`dev-department/conventions/ui/`, the PO's edit). No new shell change.
 
 **Optimistic updates:** none; archive and unarchive refresh the grid after the call.
 
@@ -349,8 +352,12 @@ relations and drivers from OpenTMS need a mapping, not a copy.
    with a TanStack `useInfiniteQuery` list and an IntersectionObserver sentinel. The relation picker
    in the driver editor, the employer filter and every later order screen need it; this design builds
    it. If the PO prefers (b) or (c), the build changes only inside `components/ui/entity-lookup.tsx`.
-2. GAP-03 (date input) is not decided; the qualification dates use a masked text input in the typed
-   format of UI-FMT-004 until it is. If the PO decides GAP-03 first, the lines grid uses that control.
+2. **GAP-03 is decided (PO, gate 1) as option (a) of the component map:** `DatePicker` in
+   `components/ui/date-picker.tsx` on the shadcn `Calendar` (react-day-picker) in a `Popover`, with a
+   masked `Input` for typing in the culture's date format (UI-FMT-004: `DD-MM-YYYY`, week starts Monday,
+   typing validated on blur, the calendar a convenience). Date-only values travel as `YYYY-MM-DD`. The
+   qualification dates use it, inline in the lines grid through an AG Grid cell editor that hosts the
+   same component. `DateTimePicker` and `TimeInput` follow the same pattern when a feature needs them.
 3. `pg_trgm` may be created by the migration in every database (Cloud SQL and local PostgreSQL ship
    it; the DbMigrator connects as the migration user).
 4. Relation code is user-entered and unique until the Platform number-sequence service (§3.9) exists;
