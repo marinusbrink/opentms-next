@@ -66,6 +66,10 @@ public class ProductAppService
             "adrunnumber" => Order(query, p => p.AdrUnNumber, descending),
             "adrclass" => Order(query, p => p.AdrClass, descending),
             "adrpackinggroup" => Order(query, p => p.AdrPackingGroup, descending),
+            "adrhazardlabels" => Order(query, p => p.AdrHazardLabels, descending),
+            "adrtunnelrestrictioncode" => Order(query, p => p.AdrTunnelRestrictionCode, descending),
+            "adrtransportcategory" => Order(query, p => p.AdrTransportCategory, descending),
+            "adrislimitedquantity" => Order(query, p => p.AdrIsLimitedQuantity, descending),
             "defaultquantity" => Order(query, p => p.DefaultQuantity, descending),
             "defaultweightkg" => Order(query, p => p.DefaultWeightKg, descending),
             "defaultcolli" => Order(query, p => p.DefaultColli, descending),
@@ -91,6 +95,10 @@ public class ProductAppService
             AdrUnNumber = p.AdrUnNumber,
             AdrClass = p.AdrClass,
             AdrPackingGroup = p.AdrPackingGroup,
+            AdrHazardLabels = p.AdrHazardLabels,
+            AdrTunnelRestrictionCode = p.AdrTunnelRestrictionCode,
+            AdrTransportCategory = p.AdrTransportCategory,
+            AdrIsLimitedQuantity = p.AdrIsLimitedQuantity,
             DefaultQuantity = p.DefaultQuantity,
             DefaultWeightKg = p.DefaultWeightKg,
             DefaultColli = p.DefaultColli,
@@ -113,6 +121,17 @@ public class ProductAppService
             AdrClass = p.AdrClass,
             AdrPackingGroup = p.AdrPackingGroup,
             AdrDescription = p.AdrDescription,
+            AdrTechnicalName = p.AdrTechnicalName,
+            AdrClassificationCode = p.AdrClassificationCode,
+            AdrHazardLabels = p.AdrHazardLabels,
+            AdrHazardIdentificationNumber = p.AdrHazardIdentificationNumber,
+            AdrTunnelRestrictionCode = p.AdrTunnelRestrictionCode,
+            AdrTransportCategory = p.AdrTransportCategory,
+            AdrIsEnvironmentallyHazardous = p.AdrIsEnvironmentallyHazardous,
+            AdrIsLimitedQuantity = p.AdrIsLimitedQuantity,
+            AdrIsWaste = p.AdrIsWaste,
+            AdrFlashpointCelsius = p.AdrFlashpointCelsius,
+            AdrSpecialProvisions = p.AdrSpecialProvisions,
             DefaultQuantity = p.DefaultQuantity,
             DefaultWeightKg = p.DefaultWeightKg,
             DefaultColli = p.DefaultColli,
@@ -157,7 +176,22 @@ public class ProductAppService
     {
         product.SetDescription(input.Description);
         product.IsArchived = input.IsArchived;
-        product.SetAdr(input.IsAdr, input.AdrUnNumber, input.AdrClass, input.AdrPackingGroup, input.AdrDescription);
+        product.SetAdr(input.IsAdr, new ProductAdr(
+            input.AdrUnNumber,
+            input.AdrClass,
+            input.AdrPackingGroup,
+            input.AdrDescription,
+            input.AdrTechnicalName,
+            input.AdrClassificationCode,
+            input.AdrHazardLabels,
+            input.AdrHazardIdentificationNumber,
+            input.AdrTunnelRestrictionCode,
+            input.AdrTransportCategory,
+            input.AdrIsEnvironmentallyHazardous,
+            input.AdrIsLimitedQuantity,
+            input.AdrIsWaste,
+            input.AdrFlashpointCelsius,
+            input.AdrSpecialProvisions));
         product.DefaultQuantity = input.DefaultQuantity;
         product.DefaultWeightKg = input.DefaultWeightKg;
         product.DefaultColli = input.DefaultColli;

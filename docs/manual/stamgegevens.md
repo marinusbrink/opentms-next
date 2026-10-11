@@ -56,9 +56,13 @@ wilt.
 
 ## Producten, transporteenheden en temperaturen
 
-- Een **product** heeft standaardwaarden per orderregel (aantal, gewicht, volume, laadmeters,
-  EPQ, afmetingen) en een ADR-blok. Bij een ADR-product zijn het UN-nummer (vier cijfers) en de
-  klasse verplicht.
+- Een **product** heeft standaardwaarden per aantal (aantal, gewicht, volume, laadmeters,
+  EPQ, afmetingen) en een ADR-tabblad. Bij een ADR-product zijn het UN-nummer (vier cijfers) en de
+  klasse verplicht; daarnaast legt u de classificatiecode, verpakkingsgroep, juiste vervoersnaam,
+  technische benaming, gevaarsetiketten, het gevaarsidentificatienummer (Kemler), de
+  tunnelbeperkingscode, de vervoerscategorie (0–4, voor de 1000-puntenregel), het vlampunt en de
+  bijzondere bepalingen vast, met de vinkjes *gelimiteerde hoeveelheid*, *milieugevaarlijk* en
+  *afval* zoals ze op het vervoersdocument horen.
 - Een **transporteenheid** is een verpakkingstype: afmetingen, gewicht, laadmeters, EPQ-factor en
   of de eenheid wordt geruild (europallet). Op het tabblad *Beladingsfactoren* legt u per
   voertuigtype vast hoeveel eenheden erin passen; elk voertuigtype komt hoogstens één keer voor.

@@ -21,6 +21,14 @@ public static class MasterDataConsts
     public const int MaxAdrClassLength = 8;
     public const int MaxAdrPackingGroupLength = 3;
     public const int MaxAdrDescriptionLength = 256;
+    public const int MaxAdrTechnicalNameLength = 256;
+    public const int MaxAdrClassificationCodeLength = 8;
+    public const int MaxAdrHazardLabelsLength = 32;
+    public const int AdrHazardIdentificationNumberMaxLength = 4;
+    public const int MaxAdrTunnelRestrictionCodeLength = 8;
+    public const int MaxAdrSpecialProvisionsLength = 64;
+    public const int MinAdrTransportCategory = 0;
+    public const int MaxAdrTransportCategory = 4;
     public const int MinMinorUnits = 0;
     public const int MaxMinorUnits = 4;
 

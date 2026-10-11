@@ -16832,8 +16832,21 @@ export interface components {
         };
         "OpenTms.MasterData.Transport.ProductCreateDto": {
             adrClass?: string | null;
+            adrClassificationCode?: string | null;
             adrDescription?: string | null;
+            /** Format: double */
+            adrFlashpointCelsius?: number | null;
+            adrHazardIdentificationNumber?: string | null;
+            adrHazardLabels?: string | null;
+            adrIsEnvironmentallyHazardous?: boolean;
+            adrIsLimitedQuantity?: boolean;
+            adrIsWaste?: boolean;
             adrPackingGroup?: string | null;
+            adrSpecialProvisions?: string | null;
+            adrTechnicalName?: string | null;
+            /** Format: int32 */
+            adrTransportCategory?: number | null;
+            adrTunnelRestrictionCode?: string | null;
             adrUnNumber?: string | null;
             /** Format: double */
             defaultColli?: number | null;
@@ -16861,8 +16874,21 @@ export interface components {
         };
         "OpenTms.MasterData.Transport.ProductDto": {
             adrClass?: string | null;
+            adrClassificationCode?: string | null;
             adrDescription?: string | null;
+            /** Format: double */
+            adrFlashpointCelsius?: number | null;
+            adrHazardIdentificationNumber?: string | null;
+            adrHazardLabels?: string | null;
+            adrIsEnvironmentallyHazardous?: boolean;
+            adrIsLimitedQuantity?: boolean;
+            adrIsWaste?: boolean;
             adrPackingGroup?: string | null;
+            adrSpecialProvisions?: string | null;
+            adrTechnicalName?: string | null;
+            /** Format: int32 */
+            adrTransportCategory?: number | null;
+            adrTunnelRestrictionCode?: string | null;
             adrUnNumber?: string | null;
             concurrencyStamp?: string | null;
             /** Format: date-time */
@@ -16901,7 +16927,12 @@ export interface components {
         };
         "OpenTms.MasterData.Transport.ProductRowDto": {
             adrClass?: string | null;
+            adrHazardLabels?: string | null;
+            adrIsLimitedQuantity?: boolean;
             adrPackingGroup?: string | null;
+            /** Format: int32 */
+            adrTransportCategory?: number | null;
+            adrTunnelRestrictionCode?: string | null;
             adrUnNumber?: string | null;
             /** Format: double */
             defaultColli?: number | null;
@@ -16930,8 +16961,21 @@ export interface components {
         };
         "OpenTms.MasterData.Transport.ProductUpdateDto": {
             adrClass?: string | null;
+            adrClassificationCode?: string | null;
             adrDescription?: string | null;
+            /** Format: double */
+            adrFlashpointCelsius?: number | null;
+            adrHazardIdentificationNumber?: string | null;
+            adrHazardLabels?: string | null;
+            adrIsEnvironmentallyHazardous?: boolean;
+            adrIsLimitedQuantity?: boolean;
+            adrIsWaste?: boolean;
             adrPackingGroup?: string | null;
+            adrSpecialProvisions?: string | null;
+            adrTechnicalName?: string | null;
+            /** Format: int32 */
+            adrTransportCategory?: number | null;
+            adrTunnelRestrictionCode?: string | null;
             adrUnNumber?: string | null;
             concurrencyStamp: string;
             /** Format: double */

@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261011125249_MasterDataFirstRun")]
+    [Migration("20261011170938_MasterDataFirstRun")]
     partial class MasterDataFirstRun
     {
         /// <inheritdoc />
@@ -754,13 +754,52 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<string>("AdrClassificationCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
                     b.Property<string>("AdrDescription")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<double?>("AdrFlashpointCelsius")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("AdrHazardIdentificationNumber")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("AdrHazardLabels")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("AdrIsEnvironmentallyHazardous")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AdrIsLimitedQuantity")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("AdrIsWaste")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("AdrPackingGroup")
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
+
+                    b.Property<string>("AdrSpecialProvisions")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("AdrTechnicalName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int?>("AdrTransportCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AdrTunnelRestrictionCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
 
                     b.Property<string>("AdrUnNumber")
                         .HasMaxLength(4)

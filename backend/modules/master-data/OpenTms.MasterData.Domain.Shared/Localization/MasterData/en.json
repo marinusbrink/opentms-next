@@ -181,7 +181,6 @@
     "MasterData:AdrUnNumber": "UN number",
     "MasterData:AdrClass": "Class",
     "MasterData:AdrPackingGroup": "Packing group",
-    "MasterData:AdrDescription": "ADR description",
     "MasterData:Adr": "ADR",
     "MasterData:DefaultsPerLine": "Default per amount",
     "MasterData:DefaultQuantity": "Quantity",
@@ -230,6 +229,20 @@
     "MasterData:InvalidIsoCode3": "Enter three letters.",
     "MasterData:AddNew": "Add new…",
     "MasterData:AddNewTransportCharacteristics": "Add new transport characteristic…",
-    "MasterData:DimensionsAndCapacities": "Dimensions and capacities"
+    "MasterData:DimensionsAndCapacities": "Dimensions and capacities",
+    "MasterData:AdrClassification": "Classification",
+    "MasterData:AdrCarriage": "Carriage",
+    "MasterData:AdrProperShippingName": "Proper shipping name",
+    "MasterData:AdrTechnicalName": "Technical name",
+    "MasterData:AdrClassificationCode": "Classification code",
+    "MasterData:AdrHazardLabels": "Hazard labels",
+    "MasterData:AdrHazardIdentificationNumber": "Hazard identification number",
+    "MasterData:AdrTunnelRestrictionCode": "Tunnel restriction code",
+    "MasterData:AdrTransportCategory": "Transport category",
+    "MasterData:AdrFlashpointCelsius": "Flashpoint (°C)",
+    "MasterData:AdrSpecialProvisions": "Special provisions",
+    "MasterData:AdrIsLimitedQuantity": "Limited quantity",
+    "MasterData:AdrIsEnvironmentallyHazardous": "Environmentally hazardous",
+    "MasterData:AdrIsWaste": "Waste"
   }
 }

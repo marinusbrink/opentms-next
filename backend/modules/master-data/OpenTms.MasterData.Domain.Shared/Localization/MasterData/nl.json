@@ -181,7 +181,6 @@
     "MasterData:AdrUnNumber": "UN-nummer",
     "MasterData:AdrClass": "Klasse",
     "MasterData:AdrPackingGroup": "Verpakkingsgroep",
-    "MasterData:AdrDescription": "ADR-omschrijving",
     "MasterData:Adr": "ADR",
     "MasterData:DefaultsPerLine": "Standaard per aantal",
     "MasterData:DefaultQuantity": "Aantal",
@@ -230,6 +229,20 @@
     "MasterData:InvalidIsoCode3": "Voer drie letters in.",
     "MasterData:AddNew": "Nieuw toevoegen…",
     "MasterData:AddNewTransportCharacteristics": "Nieuw transportkenmerk toevoegen…",
-    "MasterData:DimensionsAndCapacities": "Afmetingen en capaciteiten"
+    "MasterData:DimensionsAndCapacities": "Afmetingen en capaciteiten",
+    "MasterData:AdrClassification": "Classificatie",
+    "MasterData:AdrCarriage": "Vervoer",
+    "MasterData:AdrProperShippingName": "Juiste vervoersnaam",
+    "MasterData:AdrTechnicalName": "Technische benaming",
+    "MasterData:AdrClassificationCode": "Classificatiecode",
+    "MasterData:AdrHazardLabels": "Gevaarsetiketten",
+    "MasterData:AdrHazardIdentificationNumber": "Gevaarsidentificatienummer",
+    "MasterData:AdrTunnelRestrictionCode": "Tunnelbeperkingscode",
+    "MasterData:AdrTransportCategory": "Vervoerscategorie",
+    "MasterData:AdrFlashpointCelsius": "Vlampunt (°C)",
+    "MasterData:AdrSpecialProvisions": "Bijzondere bepalingen",
+    "MasterData:AdrIsLimitedQuantity": "Gelimiteerde hoeveelheid",
+    "MasterData:AdrIsEnvironmentallyHazardous": "Milieugevaarlijk",
+    "MasterData:AdrIsWaste": "Afval"
   }
 }

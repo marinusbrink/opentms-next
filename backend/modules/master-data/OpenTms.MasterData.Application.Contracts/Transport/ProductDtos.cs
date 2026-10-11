@@ -17,6 +17,10 @@ public class ProductRowDto
     public string? AdrUnNumber { get; set; }
     public string? AdrClass { get; set; }
     public string? AdrPackingGroup { get; set; }
+    public string? AdrHazardLabels { get; set; }
+    public string? AdrTunnelRestrictionCode { get; set; }
+    public int? AdrTransportCategory { get; set; }
+    public bool AdrIsLimitedQuantity { get; set; }
     public double? DefaultQuantity { get; set; }
     public double? DefaultWeightKg { get; set; }
     public double? DefaultColli { get; set; }
@@ -37,6 +41,17 @@ public class ProductDto : MasterDataDetailDtoBase
     public string? AdrClass { get; set; }
     public string? AdrPackingGroup { get; set; }
     public string? AdrDescription { get; set; }
+    public string? AdrTechnicalName { get; set; }
+    public string? AdrClassificationCode { get; set; }
+    public string? AdrHazardLabels { get; set; }
+    public string? AdrHazardIdentificationNumber { get; set; }
+    public string? AdrTunnelRestrictionCode { get; set; }
+    public int? AdrTransportCategory { get; set; }
+    public bool AdrIsEnvironmentallyHazardous { get; set; }
+    public bool AdrIsLimitedQuantity { get; set; }
+    public bool AdrIsWaste { get; set; }
+    public double? AdrFlashpointCelsius { get; set; }
+    public string? AdrSpecialProvisions { get; set; }
     public double? DefaultQuantity { get; set; }
     public double? DefaultWeightKg { get; set; }
     public double? DefaultColli { get; set; }
@@ -72,6 +87,35 @@ public class ProductCreateDto
 
     [MaxLength(MasterDataConsts.MaxAdrDescriptionLength)]
     public string? AdrDescription { get; set; }
+
+    [MaxLength(MasterDataConsts.MaxAdrTechnicalNameLength)]
+    public string? AdrTechnicalName { get; set; }
+
+    [MaxLength(MasterDataConsts.MaxAdrClassificationCodeLength)]
+    public string? AdrClassificationCode { get; set; }
+
+    [MaxLength(MasterDataConsts.MaxAdrHazardLabelsLength)]
+    public string? AdrHazardLabels { get; set; }
+
+    [MaxLength(MasterDataConsts.AdrHazardIdentificationNumberMaxLength)]
+    public string? AdrHazardIdentificationNumber { get; set; }
+
+    [MaxLength(MasterDataConsts.MaxAdrTunnelRestrictionCodeLength)]
+    public string? AdrTunnelRestrictionCode { get; set; }
+
+    [Range(MasterDataConsts.MinAdrTransportCategory, MasterDataConsts.MaxAdrTransportCategory)]
+    public int? AdrTransportCategory { get; set; }
+
+    public bool AdrIsEnvironmentallyHazardous { get; set; }
+
+    public bool AdrIsLimitedQuantity { get; set; }
+
+    public bool AdrIsWaste { get; set; }
+
+    public double? AdrFlashpointCelsius { get; set; }
+
+    [MaxLength(MasterDataConsts.MaxAdrSpecialProvisionsLength)]
+    public string? AdrSpecialProvisions { get; set; }
 
     [Range(0, double.MaxValue)] public double? DefaultQuantity { get; set; }
     [Range(0, double.MaxValue)] public double? DefaultWeightKg { get; set; }

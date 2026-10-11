@@ -154,6 +154,12 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.Property(p => p.AdrClass).HasMaxLength(MasterDataConsts.MaxAdrClassLength);
             b.Property(p => p.AdrPackingGroup).HasMaxLength(MasterDataConsts.MaxAdrPackingGroupLength);
             b.Property(p => p.AdrDescription).HasMaxLength(MasterDataConsts.MaxAdrDescriptionLength);
+            b.Property(p => p.AdrTechnicalName).HasMaxLength(MasterDataConsts.MaxAdrTechnicalNameLength);
+            b.Property(p => p.AdrClassificationCode).HasMaxLength(MasterDataConsts.MaxAdrClassificationCodeLength);
+            b.Property(p => p.AdrHazardLabels).HasMaxLength(MasterDataConsts.MaxAdrHazardLabelsLength);
+            b.Property(p => p.AdrHazardIdentificationNumber).HasMaxLength(MasterDataConsts.AdrHazardIdentificationNumberMaxLength);
+            b.Property(p => p.AdrTunnelRestrictionCode).HasMaxLength(MasterDataConsts.MaxAdrTunnelRestrictionCodeLength);
+            b.Property(p => p.AdrSpecialProvisions).HasMaxLength(MasterDataConsts.MaxAdrSpecialProvisionsLength);
             b.HasIndex(p => p.TenantId);
             b.HasIndex(p => new { p.TenantId, p.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
         });

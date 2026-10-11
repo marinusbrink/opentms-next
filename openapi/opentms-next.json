@@ -1404,13 +1404,64 @@
             "nullable": true,
             "type": "string"
           },
+          "adrClassificationCode": {
+            "maxLength": 8,
+            "nullable": true,
+            "type": "string"
+          },
           "adrDescription": {
             "maxLength": 256,
             "nullable": true,
             "type": "string"
           },
+          "adrFlashpointCelsius": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
+          "adrHazardIdentificationNumber": {
+            "maxLength": 4,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrHazardLabels": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrIsEnvironmentallyHazardous": {
+            "type": "boolean"
+          },
+          "adrIsLimitedQuantity": {
+            "type": "boolean"
+          },
+          "adrIsWaste": {
+            "type": "boolean"
+          },
           "adrPackingGroup": {
             "maxLength": 3,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrSpecialProvisions": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTechnicalName": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTransportCategory": {
+            "format": "int32",
+            "maximum": 4,
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "adrTunnelRestrictionCode": {
+            "maxLength": 8,
             "nullable": true,
             "type": "string"
           },
@@ -1519,11 +1570,54 @@
             "nullable": true,
             "type": "string"
           },
+          "adrClassificationCode": {
+            "nullable": true,
+            "type": "string"
+          },
           "adrDescription": {
             "nullable": true,
             "type": "string"
           },
+          "adrFlashpointCelsius": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
+          "adrHazardIdentificationNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrHazardLabels": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrIsEnvironmentallyHazardous": {
+            "type": "boolean"
+          },
+          "adrIsLimitedQuantity": {
+            "type": "boolean"
+          },
+          "adrIsWaste": {
+            "type": "boolean"
+          },
           "adrPackingGroup": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrSpecialProvisions": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTechnicalName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTransportCategory": {
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "adrTunnelRestrictionCode": {
             "nullable": true,
             "type": "string"
           },
@@ -1634,7 +1728,23 @@
             "nullable": true,
             "type": "string"
           },
+          "adrHazardLabels": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrIsLimitedQuantity": {
+            "type": "boolean"
+          },
           "adrPackingGroup": {
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTransportCategory": {
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "adrTunnelRestrictionCode": {
             "nullable": true,
             "type": "string"
           },
@@ -1716,13 +1826,64 @@
             "nullable": true,
             "type": "string"
           },
+          "adrClassificationCode": {
+            "maxLength": 8,
+            "nullable": true,
+            "type": "string"
+          },
           "adrDescription": {
             "maxLength": 256,
             "nullable": true,
             "type": "string"
           },
+          "adrFlashpointCelsius": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
+          "adrHazardIdentificationNumber": {
+            "maxLength": 4,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrHazardLabels": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrIsEnvironmentallyHazardous": {
+            "type": "boolean"
+          },
+          "adrIsLimitedQuantity": {
+            "type": "boolean"
+          },
+          "adrIsWaste": {
+            "type": "boolean"
+          },
           "adrPackingGroup": {
             "maxLength": 3,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrSpecialProvisions": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTechnicalName": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "adrTransportCategory": {
+            "format": "int32",
+            "maximum": 4,
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "adrTunnelRestrictionCode": {
+            "maxLength": 8,
             "nullable": true,
             "type": "string"
           },
