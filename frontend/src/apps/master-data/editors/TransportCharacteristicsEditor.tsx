@@ -54,10 +54,11 @@ export function TransportCharacteristicsEditor({ mode, id, readOnly, open, onClo
       fields: ["code", "name", "description"],
       render: (form) => (
         <FormSection title={t("MasterData:TransportCharacteristic")}>
-          <div className="grid grid-cols-1 gap-3">
+          {/* Rows per the PO (2026-10-11): code (a quarter) + name (three quarters); description. */}
+          <div className="grid grid-cols-4 gap-x-4 gap-y-3">
             <TextField form={form} field="code" labelKey="MasterData:Code" required maxLength={32} upper />
-            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
-            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
+            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} className="col-span-3" />
+            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-4" />
           </div>
         </FormSection>
       ),
