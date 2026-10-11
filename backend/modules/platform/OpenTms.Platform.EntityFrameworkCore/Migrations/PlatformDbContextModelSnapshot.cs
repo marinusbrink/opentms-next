@@ -25,6 +25,79 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OpenTms.Platform.Maintenance.Instances.ApplicationInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("HealthCheckedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("HealthDetails")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("HealthStatus")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("LastHeartbeatAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("MachineName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("ManagedMemoryBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("OutboxDispatchEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ProcessId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProcessorCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("RuntimeVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("StoppedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("WorkingSetBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastHeartbeatAt");
+
+                    b.HasIndex("Role");
+
+                    b.ToTable("ApplicationInstances", "platform");
+                });
+
             modelBuilder.Entity("Volo.Abp.EntityFrameworkCore.DistributedEvents.OutgoingEventRecord", b =>
                 {
                     b.Property<Guid>("Id")

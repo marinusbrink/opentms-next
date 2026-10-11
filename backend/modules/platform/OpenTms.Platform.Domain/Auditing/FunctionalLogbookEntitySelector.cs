@@ -33,7 +33,8 @@ public static class FunctionalLogbookEntitySelector
         "Volo.Abp.Identity.IdentitySecurityLog",   // one row per sign-in attempt
         "Volo.Abp.Identity.IdentitySession",       // one row per session
         "Volo.Abp.Identity.IdentityUserToken",     // refresh/recovery tokens
-        "Volo.Abp.Identity.IdentityUserPasswordHistory"
+        "Volo.Abp.Identity.IdentityUserPasswordHistory",
+        "OpenTms.Platform.Maintenance.Instances.ApplicationInstance" // one heartbeat per instance per period
     ];
 
     public static bool IsSelected(Type entityType)

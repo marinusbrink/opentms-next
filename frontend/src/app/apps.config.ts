@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Truck,
   Users,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -139,6 +140,7 @@ export const APPS: readonly AppDefinition[] = [
           { nameKey: "Administration:TechnicalLogbook", path: "/admin/logbook/technical", icon: ScrollText },
         ],
       },
+      { nameKey: "Administration:Maintenance", path: "/admin/maintenance", icon: Wrench },
     ],
   },
 ];
