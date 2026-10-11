@@ -1,4 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using OpenTms.MasterData.EntityFrameworkCore;
+using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp;
 using Volo.Abp.Data;
@@ -6,6 +10,8 @@ using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
 using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.FeatureManagement;
+using Volo.Abp.Features;
+using OpenTms.Features;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.Uow;
@@ -40,6 +46,13 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         });
         context.Services.AddAlwaysDisableUnitOfWorkTransaction();
 
+        /* Test-side feature values: the Master Data services carry [RequiresFeature(MasterData.FirstRun)]
+         * (default off); the provider answers "true" unless a test overrides it (TestFeatureValueProvider). */
+        Configure<AbpFeatureOptions>(options =>
+        {
+            options.ValueProviders.Add<TestFeatureValueProvider>();
+        });
+
         /* SQLite tests run without transactions, so the transactional outbox cannot apply here:
          * distributed events are delivered directly. The outbox itself is covered by the
          * PostgreSQL-backed tests (OpenTmsPostgreSqlTestModule). */
@@ -58,6 +71,14 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         _database.CreateTables(
             new OpenTmsDbContext(new DbContextOptionsBuilder<OpenTmsDbContext>().UseSqlite(_database.ConnectionString).Options));
 
+        /* The module contexts share the database; EnsureCreated stops once any table exists, so their
+         * tables are created explicitly (same connection string: "MasterData" falls back to Default). */
+        using (var masterData = new MasterDataDbContext(
+                   new DbContextOptionsBuilder<MasterDataDbContext>().UseSqlite(_database.ConnectionString).UseLocalizedNameTranslation().Options))
+        {
+            masterData.GetService<IRelationalDatabaseCreator>().CreateTables();
+        }
+
         services.Configure<AbpDbConnectionOptions>(options =>
         {
             options.ConnectionStrings.Default = _database.ConnectionString;
@@ -68,6 +89,14 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
             options.Configure(context =>
             {
                 context.UseSqlite();
+            });
+
+            /* A module's own Configure<TDbContext> (UseNpgsql) replaces the default action for that
+             * context, so each module context is pointed at SQLite here explicitly. */
+            options.Configure<MasterDataDbContext>(context =>
+            {
+                context.UseSqlite();
+                context.DbContextOptions.UseLocalizedNameTranslation();
             });
         });
     }

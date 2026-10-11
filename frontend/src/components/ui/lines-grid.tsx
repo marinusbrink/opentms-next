@@ -5,8 +5,8 @@
  * Lazy-import this file like opentms-grid.tsx (ag-grid-enterprise stays out of the main chunk):
  * use LazyLinesGrid from lines-grid-lazy.tsx. */
 
-import { useCallback, useMemo, type ReactNode } from "react";
-import type { ColDef, GetContextMenuItemsParams, ICellRendererParams } from "ag-grid-community";
+import { useCallback, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
+import type { ColDef, GetContextMenuItemsParams, GridApi, GridReadyEvent, ICellRendererParams } from "ag-grid-community";
 import { ModuleRegistry } from "ag-grid-community";
 import { AllEnterpriseModule } from "ag-grid-enterprise";
 import { AgGridReact } from "ag-grid-react";
@@ -47,6 +47,15 @@ export function LinesGrid<TRow>({
   className,
 }: LinesGridProps<TRow>) {
   const { t } = useL();
+  const apiRef = useRef<GridApi<TRow> | null>(null);
+
+  /* Escape inside an open cell editor cancels that edit and nothing else: the surrounding editor
+   * dialog must not see it as a close request (UI-DLG-008). */
+  const stopEscapeWhileEditing = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && (apiRef.current?.getEditingCells().length ?? 0) > 0) {
+      event.stopPropagation();
+    }
+  }, []);
 
   const removeRows = useCallback(
     (targets: TRow[]) => {
@@ -105,17 +114,25 @@ export function LinesGrid<TRow>({
   );
 
   return (
-    <div className={cn("flex h-full flex-col gap-2", className)} data-slot="lines-grid">
+    <div className={cn("flex h-full flex-col gap-2", className)} data-slot="lines-grid" onKeyDown={stopEscapeWhileEditing}>
       {!readOnly && toolbar && <div className="flex items-center gap-2">{toolbar}</div>}
       <div className="min-h-0 flex-1 rounded-lg border bg-background">
         <AgGridReact<TRow>
           theme={opentmsGridTheme()}
           rowData={rows}
           columnDefs={allColumnDefs}
+          onGridReady={(event: GridReadyEvent<TRow>) => {
+            apiRef.current = event.api;
+          }}
           getRowId={(params) => getRowId(params.data)}
           rowSelection={readOnly ? undefined : { mode: "multiRow", checkboxes: false, headerCheckbox: false, enableClickSelection: true }}
           singleClickEdit
           stopEditingWhenCellsLoseFocus
+          /* AG Grid edits the row object in place; hand the form a fresh copy so React state and the
+           * dirty guard (UI-FORM-009) see the change. */
+          onCellValueChanged={(event) =>
+            onRowsChange(rows.map((row) => (row === event.data ? ({ ...(event.data as TRow) } as TRow) : row)))
+          }
           getContextMenuItems={getContextMenuItems}
           suppressContextMenu={readOnly}
           preventDefaultOnContextMenu={!readOnly}

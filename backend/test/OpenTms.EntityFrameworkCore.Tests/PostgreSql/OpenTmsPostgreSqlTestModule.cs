@@ -4,6 +4,8 @@ using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.FeatureManagement;
+using Volo.Abp.Features;
+using OpenTms.Features;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.Threading;
@@ -35,6 +37,13 @@ public class OpenTmsPostgreSqlTestModule : AbpModule
         {
             options.SaveStaticPermissionsToDatabase = false;
             options.IsDynamicPermissionStoreEnabled = false;
+        });
+
+        /* Test-side feature values (see TestFeatureValueProvider): the Master Data services are gated
+         * by MasterData.FirstRun, default off. */
+        Configure<AbpFeatureOptions>(options =>
+        {
+            options.ValueProviders.Add<TestFeatureValueProvider>();
         });
 
         Configure<AbpDbConnectionOptions>(options =>

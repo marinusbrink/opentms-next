@@ -48,9 +48,31 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("every other app has no views declared", () => {
-    APPS.filter((a) => a.id !== "admin").forEach((app) => {
+  it("every other app except Master data has no views declared", () => {
+    APPS.filter((a) => a.id !== "admin" && a.id !== "master-data").forEach((app) => {
       expect(app.views).toBeUndefined();
+    });
+  });
+
+  it("the Master data app lists its ten reference lists in four groups (design 41)", () => {
+    const masterData = APPS.find((a) => a.id === "master-data")!;
+    expect(masterData.views).toHaveLength(4);
+    const paths = masterData.views!.flatMap((group) => group.children!.map((child) => child.path));
+    expect(paths).toEqual([
+      "/master-data/address-types",
+      "/master-data/relation-categories",
+      "/master-data/products",
+      "/master-data/transport-units",
+      "/master-data/temperatures",
+      "/master-data/vehicle-types",
+      "/master-data/transport-characteristics",
+      "/master-data/countries",
+      "/master-data/currencies",
+      "/master-data/geographical-regions",
+    ]);
+    masterData.views!.forEach((group) => {
+      expect(group.icon).toBeTruthy();
+      group.children!.forEach((child) => expect(child.icon).toBeTruthy());
     });
   });
 

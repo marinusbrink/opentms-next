@@ -4,9 +4,20 @@ import { DashboardApp } from "@/apps/dashboard";
 import { PlanboardApp } from "@/apps/planboard";
 import { TransportApp } from "@/apps/transport";
 import { FinanceApp } from "@/apps/finance";
-import { MasterDataApp } from "@/apps/master-data";
 import { IntegrationsApp } from "@/apps/integrations";
 import { ReportsApp } from "@/apps/reports";
+
+// Lazy-loaded: the Master data app (ten views, AG Grid editors) stays out of the main chunk (design 41).
+const _LazyMasterData = lazy(() =>
+  import("@/apps/master-data").then((m) => ({ default: m.MasterDataApp }))
+);
+function LazyMasterDataApp(): ReactElement {
+  return (
+    <Suspense fallback={null}>
+      <_LazyMasterData />
+    </Suspense>
+  );
+}
 
 // Lazy-loaded per design §Cost & SLO: admin bundle must not land in the main chunk.
 const _LazyAdmin = lazy(() =>
@@ -28,7 +39,7 @@ const components: Record<string, () => ReactElement> = {
   planboard: PlanboardApp,
   transport: TransportApp,
   finance: FinanceApp,
-  "master-data": MasterDataApp,
+  "master-data": LazyMasterDataApp,
   integrations: IntegrationsApp,
   reports: ReportsApp,
   admin: LazyAdministrationApp,

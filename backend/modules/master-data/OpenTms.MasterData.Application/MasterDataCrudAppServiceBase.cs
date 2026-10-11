@@ -1,0 +1,352 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using OpenTms.MasterData.Incompatibilities;
+using OpenTms.Platform.Grid;
+using OpenTms.Platform.Localization;
+using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
+
+namespace OpenTms.MasterData;
+
+/// <summary>
+/// The template behind every Master Data application service (design 41, API contract): paged and sorted
+/// lists with one wildcard search over a defined column set, lookups bounded by MaxLookupTake, explicit
+/// mapping, uniqueness and in-use checks before the database enforces them, and a bulk delete over a grid
+/// selection. The concrete service declares the public methods with their permission attributes and
+/// delegates here, so the architecture test sees an [Authorize] on every public method.
+/// </summary>
+public abstract class MasterDataCrudAppServiceBase<TEntity, TRowDto, TDto, TCreateDto, TUpdateDto, TListRequest> : MasterDataAppServiceBase
+    where TEntity : MasterDataAggregateRoot
+    where TListRequest : MasterDataListRequestDto
+    where TUpdateDto : TCreateDto, IMasterDataUpdateDto
+{
+    /// <summary>A bulk delete resolves at most this many rows; beyond it the request is refused (TooManyRows).</summary>
+    protected const int MaxBulkDeleteRows = 1000;
+
+    protected IRepository<TEntity, Guid> Repository { get; }
+
+    protected MasterDataCrudAppServiceBase(IRepository<TEntity, Guid> repository)
+    {
+        Repository = repository;
+    }
+
+    /// <summary>The language the list sorts and resolves names for ("nl", "en").</summary>
+    protected static string UiLanguage => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant();
+
+    // ── hooks ──────────────────────────────────────────────────────────────────
+
+    /// <summary>The entity filters of the list request (not the search): archived, active, country.</summary>
+    protected virtual IQueryable<TEntity> ApplyFilters(IQueryable<TEntity> query, TListRequest request) => query;
+
+    /// <summary>The wildcard search over the entity's defined column set; <paramref name="term"/> is lower-cased.</summary>
+    protected abstract IQueryable<TEntity> ApplySearch(IQueryable<TEntity> query, string term);
+
+    /// <summary>Sorts on a row column id; null is the default order. Unknown ids throw UnknownSortColumn.</summary>
+    protected abstract IOrderedQueryable<TEntity> ApplySort(IQueryable<TEntity> query, string? sortBy, bool descending);
+
+    /// <summary>Lookups (pickers) show the usable rows only: active currencies, non-archived products.</summary>
+    protected virtual IQueryable<TEntity> ApplyLookupFilter(IQueryable<TEntity> query) => query;
+
+    protected abstract Task<List<TRowDto>> ToRowsAsync(List<TEntity> entities);
+
+    protected abstract Task<TDto> ToDtoAsync(TEntity entity);
+
+    protected abstract MasterDataLookupDto ToLookup(TEntity entity);
+
+    protected abstract string DisplayNameOf(TEntity entity);
+
+    protected abstract Task<TEntity> CreateEntityAsync(TCreateDto input);
+
+    protected abstract Task ApplyUpdateAsync(TEntity entity, TUpdateDto input);
+
+    /// <summary>Runs after the entity is saved on create and update: relations that need the row to exist.</summary>
+    protected virtual Task AfterWriteAsync(TEntity entity, TCreateDto input) => Task.CompletedTask;
+
+    /// <summary>A localized reason when the row may not be deleted (in use, default), else null.</summary>
+    protected virtual Task<string?> GetDeleteBlockerAsync(TEntity entity) => Task.FromResult<string?>(null);
+
+    /// <summary>Runs before a soft delete: removes join rows and children the soft delete would leave behind.</summary>
+    protected virtual Task BeforeDeleteAsync(TEntity entity) => Task.CompletedTask;
+
+    // ── template methods ───────────────────────────────────────────────────────
+
+    protected async Task<GridResponse<TRowDto>> GetListInternalAsync(TListRequest input)
+    {
+        var all = await Repository.GetQueryableAsync();
+        var filtered = ApplyFilters(all, input);
+
+        var term = NormalizeTerm(input.WildcardSearch);
+        var searched = term == null ? filtered : ApplySearch(filtered, term);
+
+        var totalCount = await AsyncExecuter.LongCountAsync(filtered);
+        var filteredCount = term == null ? totalCount : await AsyncExecuter.LongCountAsync(searched);
+
+        var page = ApplySort(searched, input.SortBy, input.Descending)
+            .Skip(input.StartRow)
+            .Take(input.EndRow - input.StartRow);
+
+        var entities = await AsyncExecuter.ToListAsync(page);
+
+        return new GridResponse<TRowDto>
+        {
+            Rows = await ToRowsAsync(entities),
+            TotalCount = totalCount,
+            FilteredCount = filteredCount
+        };
+    }
+
+    protected async Task<TDto> GetInternalAsync(Guid id)
+    {
+        var entity = await Repository.GetAsync(id, includeDetails: true);
+        return await ToDtoAsync(entity);
+    }
+
+    protected async Task<List<MasterDataLookupDto>> GetLookupInternalAsync(string? term, int take)
+    {
+        var all = await Repository.GetQueryableAsync();
+        var query = ApplyLookupFilter(all);
+
+        var normalized = NormalizeTerm(term);
+        if (normalized != null)
+        {
+            query = ApplySearch(query, normalized);
+        }
+
+        var bounded = Math.Clamp(take, 1, MasterDataConsts.MaxLookupTake);
+        var entities = await AsyncExecuter.ToListAsync(ApplySort(query, null, false).Take(bounded));
+        return entities.Select(ToLookup).ToList();
+    }
+
+    protected async Task<TDto> CreateInternalAsync(TCreateDto input)
+    {
+        var entity = await CreateEntityAsync(input);
+        await Repository.InsertAsync(entity, autoSave: true);
+        await AfterWriteAsync(entity, input);
+        await FlushAsync();
+        return await ToDtoAsync(await Repository.GetAsync(entity.Id, includeDetails: true));
+    }
+
+    protected async Task<TDto> UpdateInternalAsync(Guid id, TUpdateDto input)
+    {
+        var entity = await Repository.GetAsync(id, includeDetails: true);
+
+        /* ABP compares this stamp with the stored one on save and throws AbpDbConcurrencyException (409). */
+        entity.ConcurrencyStamp = input.ConcurrencyStamp;
+
+        await ApplyUpdateAsync(entity, input);
+        await Repository.UpdateAsync(entity, autoSave: true);
+        await AfterWriteAsync(entity, input);
+        await FlushAsync();
+        return await ToDtoAsync(await Repository.GetAsync(entity.Id, includeDetails: true));
+    }
+
+    protected async Task DeleteInternalAsync(Guid id)
+    {
+        var entity = await Repository.GetAsync(id, includeDetails: true);
+
+        var blocker = await GetDeleteBlockerAsync(entity);
+        if (blocker != null)
+        {
+            throw new BusinessException(MasterDataErrorCodes.InUse).WithData("reason", blocker);
+        }
+
+        await BeforeDeleteAsync(entity);
+        await Repository.DeleteAsync(entity, autoSave: true);
+    }
+
+    protected async Task<MasterDataBulkDeleteResultDto> BulkDeleteInternalAsync(
+        GridSelectionDto selection,
+        Func<IQueryable<TEntity>, IQueryable<TEntity>> applyFilters)
+    {
+        List<TEntity> targets;
+        if (string.Equals(selection.Mode, "FilterBased", StringComparison.OrdinalIgnoreCase))
+        {
+            /* With details: BeforeDeleteAsync clears the children a soft delete would leave behind. */
+            var all = await Repository.WithDetailsAsync();
+            var query = applyFilters(all);
+            var term = NormalizeTerm(selection.FilterRequest?.WildcardSearch);
+            if (term != null)
+            {
+                query = ApplySearch(query, term);
+            }
+
+            if (selection.ExcludedIds.Count > 0)
+            {
+                var excluded = selection.ExcludedIds;
+                query = query.Where(e => !excluded.Contains(e.Id));
+            }
+
+            targets = await AsyncExecuter.ToListAsync(ApplySort(query, null, false).Take(MaxBulkDeleteRows + 1));
+        }
+        else
+        {
+            var ids = selection.ExplicitIds.Distinct().ToList();
+            if (ids.Count > MaxBulkDeleteRows)
+            {
+                throw new BusinessException(MasterDataErrorCodes.TooManyRows).WithData("max", MaxBulkDeleteRows);
+            }
+
+            targets = ids.Count == 0 ? [] : await Repository.GetListAsync(e => ids.Contains(e.Id), includeDetails: true);
+        }
+
+        if (targets.Count > MaxBulkDeleteRows)
+        {
+            throw new BusinessException(MasterDataErrorCodes.TooManyRows).WithData("max", MaxBulkDeleteRows);
+        }
+
+        var result = new MasterDataBulkDeleteResultDto();
+        foreach (var entity in targets)
+        {
+            var blocker = await GetDeleteBlockerAsync(entity);
+            if (blocker != null)
+            {
+                result.SkippedRows.Add(new MasterDataSkippedRowDto { Id = entity.Id, Name = DisplayNameOf(entity), Reason = blocker });
+                continue;
+            }
+
+            await BeforeDeleteAsync(entity);
+            await Repository.DeleteAsync(entity);
+            result.DeletedCount++;
+        }
+
+        Logger.LogInformation("Bulk delete of {Entity}: {Deleted} deleted, {Skipped} skipped.", typeof(TEntity).Name, result.DeletedCount, result.SkippedRows.Count);
+        return result;
+    }
+
+    // ── helpers for the concrete services ──────────────────────────────────────
+
+    /// <summary>Writes the pending relation rows (incompatibility pairs) so the response can read them back.</summary>
+    protected async Task FlushAsync()
+    {
+        if (UnitOfWorkManager.Current != null)
+        {
+            await UnitOfWorkManager.Current.SaveChangesAsync();
+        }
+    }
+
+    protected static string? NormalizeTerm(string? term)
+    {
+        var value = term?.Trim().ToLowerInvariant();
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    protected static IOrderedQueryable<TEntity> Order<TKey>(IQueryable<TEntity> query, Expression<Func<TEntity, TKey>> key, bool descending)
+        => descending ? query.OrderByDescending(key) : query.OrderBy(key);
+
+    protected static BusinessException UnknownSortColumn(string sortBy)
+        => new BusinessException(MasterDataErrorCodes.UnknownSortColumn).WithData("sortBy", sortBy);
+
+    /// <summary>The friendly uniqueness check; the unique index remains the truth (assessment §3.2).</summary>
+    protected async Task EnsureUniqueAsync(Expression<Func<TEntity, bool>> conflict, string field, string value)
+    {
+        if (await Repository.AnyAsync(conflict))
+        {
+            throw new BusinessException(MasterDataErrorCodes.DuplicateKey).WithData("field", field).WithData("value", value);
+        }
+    }
+
+    /// <summary>Every referenced id must be a visible row of this tenant.</summary>
+    protected async Task EnsureAllExistAsync(IReadOnlyCollection<Guid> ids, string field)
+    {
+        var distinct = ids.Distinct().ToList();
+        if (distinct.Count == 0)
+        {
+            return;
+        }
+
+        var found = await Repository.CountAsync(e => distinct.Contains(e.Id));
+        if (found != distinct.Count)
+        {
+            throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", field);
+        }
+    }
+
+    protected LocalizedName ToLocalizedName(LocalizedNameDto? names)
+    {
+        var defaultText = names?.GetValueOrDefault(LocalizedName.DefaultCulture)?.Trim();
+        if (names == null || string.IsNullOrEmpty(defaultText))
+        {
+            throw new BusinessException(MasterDataErrorCodes.NameRequired).WithData("culture", LocalizedName.DefaultCulture);
+        }
+
+        try
+        {
+            return LocalizedName.Create(names);
+        }
+        catch (ArgumentException)
+        {
+            throw new BusinessException(MasterDataErrorCodes.NameRequired).WithData("culture", LocalizedName.DefaultCulture);
+        }
+    }
+
+    protected static LocalizedNameDto ToNamesDto(LocalizedName name)
+    {
+        var dto = new LocalizedNameDto();
+        foreach (var (culture, text) in name.Texts)
+        {
+            dto[culture] = text;
+        }
+
+        return dto;
+    }
+
+    protected static string Resolve(LocalizedName name) => name.Resolve(CultureInfo.CurrentUICulture.Name);
+
+    protected static void MapAudit(TEntity entity, MasterDataDetailDtoBase dto)
+    {
+        dto.Id = entity.Id;
+        dto.Description = entity.Description;
+        dto.CreationTime = entity.CreationTime;
+        dto.CreatorId = entity.CreatorId;
+        dto.LastModificationTime = entity.LastModificationTime;
+        dto.LastModifierId = entity.LastModifierId;
+        dto.ConcurrencyStamp = entity.ConcurrencyStamp;
+    }
+
+    /// <summary>Makes <paramref name="id"/> incompatible with exactly <paramref name="wanted"/> (canonical undirected pairs).</summary>
+    protected async Task SyncIncompatibilitiesAsync<TPair>(
+        IRepository<TPair> pairs,
+        Guid id,
+        IReadOnlyCollection<Guid> wanted,
+        Func<Guid?, Guid, Guid, TPair> create)
+        where TPair : Incompatibility
+    {
+        await EnsureAllExistAsync(wanted, "incompatibleIds");
+
+        var existing = await pairs.GetListAsync(p => p.LeftId == id || p.RightId == id);
+        var (toAdd, toRemove) = Incompatibility.Diff(id, existing.Select(p => (p.LeftId, p.RightId)), wanted);
+
+        foreach (var (left, right) in toRemove)
+        {
+            await pairs.DeleteAsync(p => p.LeftId == left && p.RightId == right);
+        }
+
+        foreach (var other in toAdd)
+        {
+            await pairs.InsertAsync(create(CurrentTenant.Id, id, other));
+        }
+    }
+
+    protected async Task<List<MasterDataLookupDto>> GetIncompatiblesAsync<TPair>(IRepository<TPair> pairs, Guid id)
+        where TPair : Incompatibility
+    {
+        var existing = await pairs.GetListAsync(p => p.LeftId == id || p.RightId == id);
+        var ids = existing.Select(p => p.OtherThan(id)).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var others = await Repository.GetListAsync(e => ids.Contains(e.Id));
+        return others.Select(ToLookup).OrderBy(l => l.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    protected Task RemoveIncompatibilitiesAsync<TPair>(IRepository<TPair> pairs, Guid id)
+        where TPair : Incompatibility
+        => pairs.DeleteAsync(p => p.LeftId == id || p.RightId == id);
+}

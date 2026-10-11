@@ -75,10 +75,23 @@ const adminSubRoutes = [
   }),
 );
 
+/* Sub-routes of the Master data app (design 41): every nav group and list path in apps.config.ts
+ * resolves to the app component, which reads the pathname. */
+const masterDataApp = APPS.find((app) => app.id === "master-data")!;
+const masterDataSubRoutes = (masterDataApp.views ?? [])
+  .flatMap((view) => [view.path, ...(view.children ?? []).map((child) => child.path)])
+  .map((path) =>
+    createRoute({
+      getParentRoute: () => shellRoute,
+      path,
+      component: componentForApp(masterDataApp),
+    }),
+  );
+
 const routeTree = rootRoute.addChildren([
   landingRoute,
   authCallbackRoute,
-  shellRoute.addChildren([...appRoutes, ...adminSubRoutes]),
+  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes]),
 ]);
 
 /* No `Register` module augmentation on purpose: app routes are derived from
