@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import { toast } from "sonner";
 
@@ -7,30 +7,31 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormSection } from "@/components/ui/form-section";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
-import { LocalizedNameFields } from "@/apps/master-data/components/LocalizedNameFields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
 import { currencies, useSetDefaultCurrency, type CurrencyDto } from "@/domains/master-data/entities";
-import { localizedNameFromMap, localizedNameToMap, validateLocalizedName, type LocalizedNameValues } from "@/domains/master-data/localized-name";
+import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface Values {
+  name: string;
   isoCode: string;
+  symbol: string;
   isoNumeric: string;
   minorUnits: string;
-  symbol: string;
-  names: LocalizedNameValues;
   description: string;
   isActive: boolean;
 }
 
-const initialValues = (dto: CurrencyDto | undefined): Values => ({
+/* One Name field in the user's language (PO, 2026-10-11): the editor binds to the resolved text and
+ * writes it back to that language; other languages stay as they are. */
+const initialValuesFor = (culture: string) => (dto: CurrencyDto | undefined): Values => ({
+  name: resolveLocalizedName(dto?.names, culture),
   isoCode: dto?.isoCode ?? "",
+  symbol: dto?.symbol ?? "",
   isoNumeric: numberToText(dto?.isoNumeric),
   minorUnits: numberToText(dto?.minorUnits),
-  symbol: dto?.symbol ?? "",
-  names: localizedNameFromMap(dto?.names),
   description: dto?.description ?? "",
   isActive: dto?.isActive ?? true,
 });
@@ -42,14 +43,14 @@ const validate = (v: Values): FieldErrors<Values> => {
   if (numeric) errors.isoNumeric = numeric;
   const minor = numberError(v.minorUnits, { integer: true, min: 0, max: 4 });
   if (minor) errors.minorUnits = minor;
-  const name = validateLocalizedName(v.names);
-  if (name) errors.names = name;
+  if (!v.name.trim()) errors.name = "MasterData:Required";
   return errors;
 };
 
 export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
-  const { t } = useL();
+  const { t, culture } = useL();
   const detail = currencies.useDetail(mode === "edit" ? id : undefined);
+  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
   const create = currencies.useCreate();
   const update = currencies.useUpdate();
   const remove = currencies.useDelete();
@@ -64,7 +65,7 @@ export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: E
         isoNumeric: parseInteger(v.isoNumeric),
         minorUnits: parseInteger(v.minorUnits),
         symbol: v.symbol.trim() || null,
-        names: localizedNameToMap(v.names),
+        names: withTextForCulture(dto?.names, culture, v.name),
         description: v.description.trim() || null,
         isActive: v.isActive,
       };
@@ -74,7 +75,7 @@ export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: E
         await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
       }
     },
-    [create, update, mode, id],
+    [create, update, mode, id, culture],
   );
 
   const makeDefault = async () => {
@@ -94,17 +95,18 @@ export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: E
     {
       value: "general",
       labelKey: "General",
-      fields: ["isoCode", "isoNumeric", "minorUnits", "symbol", "names", "description"],
+      fields: ["name", "isoCode", "symbol", "isoNumeric", "minorUnits", "description"],
       render: (form) => (
         <FormSection title={t("MasterData:Currency")}>
-          <div className="grid grid-cols-1 gap-3">
+          {/* Rows per the PO (2026-10-11): name; ISO code + symbol; numeric code + minor units; description. */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} className="col-span-2" />
             <TextField form={form} field="isoCode" labelKey="MasterData:IsoCode" required maxLength={3} upper />
+            <TextField form={form} field="symbol" labelKey="MasterData:Symbol" maxLength={8} />
             <NumberField form={form} field="isoNumeric" labelKey="MasterData:IsoNumeric" />
             <NumberField form={form} field="minorUnits" labelKey="MasterData:MinorUnits" />
-            <TextField form={form} field="symbol" labelKey="MasterData:Symbol" maxLength={8} />
-            <LocalizedNameFields form={form} />
-            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
-            <CheckboxField form={form} field="isActive" labelKey="MasterData:IsActive" />
+            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
+            <CheckboxField form={form} field="isActive" labelKey="MasterData:IsActive" className="col-span-2" />
           </div>
         </FormSection>
       ),

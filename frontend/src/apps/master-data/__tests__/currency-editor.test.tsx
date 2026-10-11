@@ -94,7 +94,7 @@ const submit = () =>
   });
 
 describe("CurrencyEditor", () => {
-  it("refuses to save without an ISO code and an English name, and sends nothing", async () => {
+  it("refuses to save without an ISO code and a name, and sends nothing", async () => {
     render(<CurrencyEditor mode="create" readOnly={false} open onClose={() => {}} onSaved={() => {}} />);
     await submit();
     expect(createMutateAsync).not.toHaveBeenCalled();
@@ -108,9 +108,7 @@ describe("CurrencyEditor", () => {
     fireEvent.change(inputByLabel("MasterData:IsoCode"), { target: { value: "chf" } });
     fireEvent.change(inputByLabel("MasterData:IsoNumeric"), { target: { value: "756" } });
     fireEvent.change(inputByLabel("MasterData:MinorUnits"), { target: { value: "2" } });
-    const names = screen.getAllByLabelText(/^MasterData:NameIn/);
-    fireEvent.change(names[0], { target: { value: "Zwitserse frank" } });
-    fireEvent.change(names[1], { target: { value: "Swiss franc" } });
+    fireEvent.change(inputByLabel("MasterData:Name"), { target: { value: "Swiss franc" } });
     await submit();
 
     expect(createMutateAsync).toHaveBeenCalledTimes(1);
@@ -119,7 +117,7 @@ describe("CurrencyEditor", () => {
       isoNumeric: 756,
       minorUnits: 2,
       symbol: null,
-      names: { nl: "Zwitserse frank", en: "Swiss franc" },
+      names: { en: "Swiss franc" },
       description: null,
       isActive: true,
     });
@@ -128,15 +126,18 @@ describe("CurrencyEditor", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["masterData", "currencies"] });
   });
 
-  it("updates with the loaded record's concurrency stamp", async () => {
-    detail = { data: stored, isLoading: false, error: null };
+  it("updates with the loaded record's concurrency stamp and keeps the other languages' names", async () => {
+    detail = { data: { ...stored, names: { en: "Euro", nl: "Euro (nl)" } }, isLoading: false, error: null };
     render(<CurrencyEditor mode="edit" id="c1" readOnly={false} open onClose={() => {}} onSaved={() => {}} />);
+    expect(inputByLabel("MasterData:Name").value).toBe("Euro");
     fireEvent.change(inputByLabel("MasterData:Symbol"), { target: { value: "EUR" } });
+    fireEvent.change(inputByLabel("MasterData:Name"), { target: { value: "Euro coin" } });
     await submit();
     expect(updateMutateAsync).toHaveBeenCalledTimes(1);
     expect(updateMutateAsync.mock.calls[0][0].id).toBe("c1");
     expect(updateMutateAsync.mock.calls[0][0].dto.concurrencyStamp).toBe("stamp-1");
     expect(updateMutateAsync.mock.calls[0][0].dto.symbol).toBe("EUR");
+    expect(updateMutateAsync.mock.calls[0][0].dto.names).toEqual({ en: "Euro coin", nl: "Euro (nl)" });
   });
 
   it("is read-only without the Update permission: no Save, disabled inputs (UI-PERM-004)", () => {

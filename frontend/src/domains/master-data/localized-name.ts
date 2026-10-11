@@ -41,3 +41,25 @@ export function resolveLocalizedName(map: LocalizedNameMap | null | undefined, c
   const language = key.split("-")[0];
   return map[key] ?? map[language] ?? map[DEFAULT_CULTURE] ?? Object.values(map).find((v) => v) ?? "";
 }
+
+/**
+ * A single Name field for an international platform (PO, 2026-10-11): the editor shows the text of the
+ * user's language and writes it back there; the other languages' texts are kept untouched. When the
+ * default culture has no text yet, it gets the same text, so the server's required default is met and
+ * every user sees a name.
+ */
+export function withTextForCulture(map: LocalizedNameMap | null | undefined, culture: string, text: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(map ?? {})) {
+    if (value) result[key] = value;
+  }
+  const language = culture.toLowerCase().split("-")[0];
+  const trimmed = text.trim();
+  if (trimmed) {
+    result[language] = trimmed;
+    if (!result[DEFAULT_CULTURE]) result[DEFAULT_CULTURE] = trimmed;
+  } else {
+    delete result[language];
+  }
+  return result;
+}

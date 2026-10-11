@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { numberError, parseInteger, parseNumber } from "@/apps/master-data/components/fields";
 import { isValidRange } from "@/apps/master-data/editors/GeographicalRegionEditor";
-import { localizedNameFromMap, localizedNameToMap, resolveLocalizedName, validateLocalizedName } from "@/domains/master-data/localized-name";
+import { localizedNameFromMap, localizedNameToMap, resolveLocalizedName, validateLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 
 /* Pure helpers of the Master data app. Risk class: Low. */
 
@@ -16,6 +16,13 @@ describe("localized-name", () => {
   it("requires the default-culture text only", () => {
     expect(validateLocalizedName({ nl: "x", en: "" })).toBe("MasterData:Required");
     expect(validateLocalizedName({ nl: "", en: "x" })).toBeUndefined();
+  });
+
+  it("writes a single Name field to the user's language and fills the default culture once", () => {
+    expect(withTextForCulture({ en: "Euro" }, "nl-NL", "Euro (nl)")).toEqual({ en: "Euro", nl: "Euro (nl)" });
+    expect(withTextForCulture(undefined, "nl", "Euro")).toEqual({ nl: "Euro", en: "Euro" });
+    expect(withTextForCulture({ en: "Euro", nl: "Euro (nl)" }, "nl", "")).toEqual({ en: "Euro" });
+    expect(withTextForCulture({ en: "Euro", nl: "x" }, "en", "Euro coin")).toEqual({ en: "Euro coin", nl: "x" });
   });
 
   it("resolves like the server: culture, language, default, first", () => {
