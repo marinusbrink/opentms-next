@@ -3,7 +3,7 @@
 **PBI:** none — defect found while building the Administration app (design #8): the fifth grid of
 one user breaks grid-settings persistence for that user. No issue exists for it; Marinus approves
 the direction in chat (CLAUDE.local.md: the task as stated is the design doc).
-**Status:** implemented with this change (gate 1 and gate 2 are the same review, see below)
+**Status:** approved (no feature flag, Marinus 2026-10-11); implemented with this change (gate 1 and gate 2 are the same review, see below)
 **Date:** 2026-10-10, amended 2026-10-11 (implementation details, frontend failure path)
 **Amends:** [6-platform-grid-component.md](6-platform-grid-component.md) §Settings storage
 
@@ -164,7 +164,7 @@ today) and switch that context to SQLite — a test-infrastructure change in the
 > **DEVIATION(constitution-4): defect fix in a storage mechanism; the only user-visible change is
 > the failure toast that UI-FB-005 already requires of every mutation, and a flag-off path would
 > keep the broken 2048-character blob and the silent failure alive, approved in
-> docs/designs/grid-settings-storage.md** — Marinus confirms or overrules this in the PR.
+> docs/designs/grid-settings-storage.md** — decided by Marinus on 2026-10-11: no feature flag.
 
 Rollout is the DbMigrator run (additive migration) followed by the deploy. Rollback is a revision
 revert: the old code ignores the new table and reads whatever is left in the blob.
