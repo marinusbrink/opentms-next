@@ -5,28 +5,28 @@ import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
-import { LocalizedNameFields } from "@/apps/master-data/components/LocalizedNameFields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
 import { countries, currencies, type CountryDto } from "@/domains/master-data/entities";
-import { localizedNameFromMap, localizedNameToMap, validateLocalizedName, type LocalizedNameValues } from "@/domains/master-data/localized-name";
+import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface Values {
+  name: string;
   isoAlpha2: string;
   isoAlpha3: string;
   isoNumeric: string;
-  names: LocalizedNameValues;
   defaultCurrencyId: string | null;
   primaryTimeZoneId: string | null;
   description: string;
 }
 
-const initialValues = (dto: CountryDto | undefined): Values => ({
+/* One Name field in the user's language (PO, 2026-10-11), as in the currency editor. */
+const initialValuesFor = (culture: string) => (dto: CountryDto | undefined): Values => ({
+  name: resolveLocalizedName(dto?.names, culture),
   isoAlpha2: dto?.isoAlpha2 ?? "",
   isoAlpha3: dto?.isoAlpha3 ?? "",
   isoNumeric: numberToText(dto?.isoNumeric),
-  names: localizedNameFromMap(dto?.names),
   defaultCurrencyId: dto?.defaultCurrencyId ?? null,
   primaryTimeZoneId: dto?.primaryTimeZoneId ?? null,
   description: dto?.description ?? "",
@@ -38,8 +38,7 @@ const validate = (v: Values): FieldErrors<Values> => {
   if (!/^[A-Za-z]{3}$/.test(v.isoAlpha3.trim())) errors.isoAlpha3 = v.isoAlpha3.trim() ? "MasterData:InvalidIsoCode3" : "MasterData:Required";
   const numeric = numberError(v.isoNumeric, { integer: true, min: 0, max: 999 });
   if (numeric) errors.isoNumeric = numeric;
-  const name = validateLocalizedName(v.names);
-  if (name) errors.names = name;
+  if (!v.name.trim()) errors.name = "MasterData:Required";
   return errors;
 };
 
@@ -50,8 +49,9 @@ function timeZoneOptions(): { value: string; label: string }[] {
 }
 
 export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
-  const { t } = useL();
+  const { t, culture } = useL();
   const detail = countries.useDetail(mode === "edit" ? id : undefined);
+  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
   const create = countries.useCreate();
   const update = countries.useUpdate();
   const remove = countries.useDelete();
@@ -69,7 +69,7 @@ export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: En
         isoAlpha2: v.isoAlpha2.trim().toUpperCase(),
         isoAlpha3: v.isoAlpha3.trim().toUpperCase(),
         isoNumeric: parseInteger(v.isoNumeric),
-        names: localizedNameToMap(v.names),
+        names: withTextForCulture(dto?.names, culture, v.name),
         defaultCurrencyId: v.defaultCurrencyId,
         primaryTimeZoneId: v.primaryTimeZoneId,
         description: v.description.trim() || null,
@@ -80,21 +80,19 @@ export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: En
         await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
       }
     },
-    [create, update, mode, id],
+    [create, update, mode, id, culture],
   );
 
   const tabs: EditorTab<Values>[] = [
     {
       value: "general",
       labelKey: "General",
-      fields: ["isoAlpha2", "isoAlpha3", "isoNumeric", "names", "defaultCurrencyId", "primaryTimeZoneId", "description"],
+      fields: ["name", "defaultCurrencyId", "isoAlpha2", "isoAlpha3", "isoNumeric", "primaryTimeZoneId", "description"],
       render: (form) => (
         <FormSection title={t("MasterData:Country")}>
-          <div className="grid grid-cols-1 gap-3">
-            <TextField form={form} field="isoAlpha2" labelKey="MasterData:IsoAlpha2" required maxLength={2} upper />
-            <TextField form={form} field="isoAlpha3" labelKey="MasterData:IsoAlpha3" required maxLength={3} upper />
-            <NumberField form={form} field="isoNumeric" labelKey="MasterData:IsoNumeric" />
-            <LocalizedNameFields form={form} />
+          {/* Rows per the PO (2026-10-11): name + default currency; alpha-2 + alpha-3; numeric + time zone; description. */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
             <FormField label={t("MasterData:DefaultCurrency")} htmlFor={form.id("defaultCurrencyId")} floating="always">
               <ReferenceCombobox
                 id={form.id("defaultCurrencyId")}
@@ -104,6 +102,9 @@ export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                 disabled={form.readOnly}
               />
             </FormField>
+            <TextField form={form} field="isoAlpha2" labelKey="MasterData:IsoAlpha2" required maxLength={2} upper />
+            <TextField form={form} field="isoAlpha3" labelKey="MasterData:IsoAlpha3" required maxLength={3} upper />
+            <NumberField form={form} field="isoNumeric" labelKey="MasterData:IsoNumeric" />
             <FormField label={t("MasterData:PrimaryTimeZone")} htmlFor={form.id("primaryTimeZoneId")} floating="always">
               <ReferenceCombobox
                 id={form.id("primaryTimeZoneId")}
@@ -113,7 +114,7 @@ export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                 disabled={form.readOnly}
               />
             </FormField>
-            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
+            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
           </div>
         </FormSection>
       ),
