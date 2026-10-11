@@ -6417,6 +6417,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/maintenance/caches/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                    cacheName?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: {
+                    key?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/maintenance/caches/names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.CacheNameDto"][];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.CacheNameDto"][];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Maintenance.CacheNameDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/maintenance/databases": {
         parameters: {
             query?: never;
@@ -9129,6 +9240,26 @@ export interface components {
             clearedEntryCount?: number | null;
             instanceName?: string | null;
         };
+        "OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto": {
+            /** Format: date-time */
+            absoluteExpiresAt?: string | null;
+            cacheName?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            itemKey?: string | null;
+            key?: string | null;
+            /** Format: int64 */
+            sizeBytes?: number;
+            /** Format: date-span */
+            slidingExpiration?: string | null;
+        };
+        "OpenTms.Platform.Administration.Maintenance.CacheNameDto": {
+            /** Format: int32 */
+            entryCount?: number;
+            name?: string | null;
+            /** Format: int64 */
+            sizeBytes?: number;
+        };
         "OpenTms.Platform.Administration.Maintenance.CacheStatusDto": {
             /** Format: int32 */
             entryCount?: number | null;
@@ -9394,6 +9525,13 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.BackgroundJobRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using OpenTms.Platform.Grid;
 using Volo.Abp.Application.Services;
@@ -10,7 +11,16 @@ public interface ICacheMaintenanceAppService : IApplicationService
 {
     Task<CacheStatusDto> GetStatusAsync();
 
+    /// <summary>The named caches of this instance with their entry counts, largest first.</summary>
+    Task<List<CacheNameDto>> GetNamesAsync();
+
+    /// <summary>A page of the entries of this instance, optionally of one named cache.</summary>
+    Task<GridResponse<CacheEntryRowDto>> GetEntriesAsync(GridRequest request, string? cacheName);
+
     Task<CacheClearResultDto> ClearAsync();
+
+    /// <summary>Removes one entry by its full key.</summary>
+    Task RemoveEntryAsync(string key);
 }
 
 /// <summary>The Databases tab (host only): every database the host knows, with size and server statistics.</summary>

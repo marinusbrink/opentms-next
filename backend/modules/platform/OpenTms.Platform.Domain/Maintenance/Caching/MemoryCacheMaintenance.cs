@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
@@ -9,9 +11,9 @@ namespace OpenTms.Platform.Maintenance.Caching;
 
 /// <summary>
 /// <see cref="ICacheMaintenance"/> over whatever <see cref="IDistributedCache"/> is registered. It
-/// can count and clear only the <see cref="OpenTmsMemoryDistributedCache"/>; any other provider is
-/// reported by name and refuses to clear, so a future distributed cache has to bring its own
-/// implementation instead of silently doing nothing.
+/// can list, count and clear only the <see cref="OpenTmsMemoryDistributedCache"/>; any other
+/// provider is reported by name, lists nothing and refuses to clear, so a future distributed cache
+/// has to bring its own implementation instead of silently doing nothing.
 /// </summary>
 public class MemoryCacheMaintenance : ICacheMaintenance, ITransientDependency
 {
@@ -36,16 +38,29 @@ public class MemoryCacheMaintenance : ICacheMaintenance, ITransientDependency
         return Task.FromResult(new CacheStatus(_distributedCache.GetType().Name, IsPerInstance: false, EntryCount: null, keyPrefix));
     }
 
+    public Task<IReadOnlyList<CacheEntryInfo>> GetEntriesAsync() =>
+        Task.FromResult(_distributedCache is OpenTmsMemoryDistributedCache memoryCache
+            ? memoryCache.Entries
+            : Array.Empty<CacheEntryInfo>().ToList());
+
     public Task<int?> ClearAsync()
     {
-        if (_distributedCache is not OpenTmsMemoryDistributedCache memoryCache)
-        {
-            throw new NotSupportedException(
-                $"Clearing the cache provider '{_distributedCache.GetType().Name}' is not supported; register an ICacheMaintenance for it.");
-        }
-
+        var memoryCache = RequireMemoryCache();
         var count = memoryCache.Count;
         memoryCache.Clear();
         return Task.FromResult<int?>(count);
     }
+
+    public Task<bool> RemoveAsync(string key)
+    {
+        var memoryCache = RequireMemoryCache();
+        var existed = memoryCache.Entries.Any(e => e.Key == key);
+        memoryCache.Remove(key);
+        return Task.FromResult(existed);
+    }
+
+    private OpenTmsMemoryDistributedCache RequireMemoryCache() =>
+        _distributedCache as OpenTmsMemoryDistributedCache
+        ?? throw new NotSupportedException(
+            $"Clearing the cache provider '{_distributedCache.GetType().Name}' is not supported; register an ICacheMaintenance for it.");
 }

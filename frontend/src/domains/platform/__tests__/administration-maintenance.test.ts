@@ -20,12 +20,14 @@ import {
   jobStateKey,
   timeSpanToMinutes,
   useBackgroundJobsGridFetcher,
+  useCacheEntriesGridFetcher,
   useClearCaches,
   useDatabaseDetail,
   useDatabasesGridFetcher,
   useDeleteBackgroundJob,
   useDispatchOutbox,
   useOutboxGridFetcher,
+  useRemoveCacheEntry,
   useRequeueBackgroundJob,
 } from "@/domains/platform/administration-maintenance";
 
@@ -128,6 +130,19 @@ describe("useBackgroundJobsGridFetcher", () => {
   });
 });
 
+describe("useCacheEntriesGridFetcher", () => {
+  it("passes paging, search, sort and the named cache, and gives every row its key as id", async () => {
+    GET.mockResolvedValue({ data: { rows: [{ key: "c:X,k:1", cacheName: "X" }], totalCount: 3, filteredCount: 1 }, error: undefined } as never);
+    const { result } = renderHook(() => useCacheEntriesGridFetcher("X", 0));
+    const response = await result.current(request({ startRow: 0, endRow: 25, wildcardSearch: "1", sortModels: [{ colId: "sizeBytes", sort: "desc" }] }));
+    expect(GET).toHaveBeenCalledWith("/api/platform/administration/maintenance/caches/entries", {
+      params: { query: { startRow: 0, endRow: 25, wildcardSearch: "1", sortBy: "sizeBytes", sortDir: "desc", cacheName: "X" } },
+    });
+    expect(response.rows[0].id).toBe("c:X,k:1");
+    expect(response.totalCount).toBe(3);
+  });
+});
+
 describe("useDatabaseDetail", () => {
   it("reads one database by key and stays idle without a key", async () => {
     GET.mockResolvedValue({ data: { key: "host", databaseName: "OpenTms" }, error: undefined } as never);
@@ -148,6 +163,15 @@ describe("mutations", () => {
     await result.current.mutateAsync();
     expect(POST).toHaveBeenCalledWith("/api/platform/administration/maintenance/caches/clear");
     expect(onSuccess).toHaveBeenCalledWith({ clearedEntryCount: 4, instanceName: "box" });
+  });
+
+  it("removes one cache entry by its full key in the query string", async () => {
+    DELETE.mockResolvedValue({ data: undefined, error: undefined } as never);
+    const onSuccess = vi.fn();
+    const { result } = renderHook(() => useRemoveCacheEntry({ onSuccess }), { wrapper });
+    await result.current.mutateAsync("c:X,k:pn:R,pk:admin");
+    expect(DELETE).toHaveBeenCalledWith("/api/platform/administration/maintenance/caches/entries", { params: { query: { key: "c:X,k:pn:R,pk:admin" } } });
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith("c:X,k:pn:R,pk:admin"));
   });
 
   it("dispatches one outbox by tenant, or the host outbox without one", async () => {

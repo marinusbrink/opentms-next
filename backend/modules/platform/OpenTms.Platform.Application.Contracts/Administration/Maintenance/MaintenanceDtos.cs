@@ -27,6 +27,37 @@ public record CacheClearResultDto
     public string InstanceName { get; init; } = string.Empty;
 }
 
+/// <summary>One named cache (ABP's cache name, the "c:" part of the key) with what it holds.</summary>
+public record CacheNameDto
+{
+    public string Name { get; init; } = string.Empty;
+
+    public int EntryCount { get; init; }
+
+    public long SizeBytes { get; init; }
+}
+
+/// <summary>One cache entry of this instance.</summary>
+public record CacheEntryRowDto
+{
+    /// <summary>The full key as stored; the key of the remove endpoint.</summary>
+    public string Key { get; init; } = string.Empty;
+
+    /// <summary>ABP's cache name, parsed from the key; the raw key when it does not follow ABP's format.</summary>
+    public string CacheName { get; init; } = string.Empty;
+
+    /// <summary>The item's own key within its cache, parsed from the full key.</summary>
+    public string ItemKey { get; init; } = string.Empty;
+
+    public long SizeBytes { get; init; }
+
+    public DateTime CreatedAt { get; init; }
+
+    public DateTime? AbsoluteExpiresAt { get; init; }
+
+    public TimeSpan? SlidingExpiration { get; init; }
+}
+
 // ── Databases ────────────────────────────────────────────────────────────────────────
 
 public record BlobStorageDto

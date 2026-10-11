@@ -1,11 +1,14 @@
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using OpenTms.Platform.Administration.Maintenance;
+using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Caching;
 using Shouldly;
 using Volo.Abp.Authorization;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.MultiTenancy;
 using Xunit;
 
@@ -67,12 +70,53 @@ public class CacheMaintenanceAppServiceTests : OpenTmsEntityFrameworkCoreTestBas
     }
 
     [Fact]
+    public async Task Entries_are_listed_per_named_cache_with_the_abp_key_parsed_filtered_and_removable()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var cacheName = "MaintenanceProbe_" + marker;
+        await _cache.SetAsync($"c:{cacheName},k:item-1", Encoding.UTF8.GetBytes("abc"), new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+        await _cache.SetAsync($"c:{cacheName},k:item-2", Encoding.UTF8.GetBytes("abcdef"), new DistributedCacheEntryOptions());
+        await _cache.SetAsync("plain-" + marker, Encoding.UTF8.GetBytes("x"), new DistributedCacheEntryOptions());
+
+        var names = await _service.GetNamesAsync();
+        var probe = names.Single(n => n.Name == cacheName);
+        probe.EntryCount.ShouldBe(2);
+        probe.SizeBytes.ShouldBe(9);
+        names.ShouldContain(n => n.Name == "plain-" + marker && n.EntryCount == 1);
+
+        var page = await _service.GetEntriesAsync(new GridRequest { StartRow = 0, EndRow = 50 }, cacheName);
+        page.FilteredCount.ShouldBe(2);
+        page.TotalCount.ShouldBeGreaterThanOrEqualTo(3);
+        var first = page.Rows.Single(r => r.ItemKey == "item-1");
+        first.Key.ShouldBe($"c:{cacheName},k:item-1");
+        first.CacheName.ShouldBe(cacheName);
+        first.SizeBytes.ShouldBe(3);
+        first.AbsoluteExpiresAt.ShouldNotBeNull();
+        page.Rows.Single(r => r.ItemKey == "item-2").AbsoluteExpiresAt.ShouldBeNull();
+
+        var searched = await _service.GetEntriesAsync(new GridRequest { StartRow = 0, EndRow = 50, WildcardSearch = "item-2" }, null);
+        searched.Rows.ShouldHaveSingleItem().ItemKey.ShouldBe("item-2");
+
+        var sorted = await _service.GetEntriesAsync(new GridRequest { StartRow = 0, EndRow = 50, SortModels = [new SortModel("sizeBytes", "desc")] }, cacheName);
+        sorted.Rows.Select(r => r.SizeBytes).ShouldBe([6, 3]);
+
+        await _service.RemoveEntryAsync($"c:{cacheName},k:item-1");
+        (await _cache.GetAsync($"c:{cacheName},k:item-1")).ShouldBeNull();
+        (await _service.GetEntriesAsync(new GridRequest { StartRow = 0, EndRow = 50 }, cacheName)).FilteredCount.ShouldBe(1);
+
+        await Should.ThrowAsync<EntityNotFoundException>(() => _service.RemoveEntryAsync("c:nothing,k:here"));
+    }
+
+    [Fact]
     public async Task A_tenant_can_neither_read_nor_clear_the_cache()
     {
         using (_currentTenant.Change(Guid.NewGuid()))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetStatusAsync());
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetNamesAsync());
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetEntriesAsync(new GridRequest { StartRow = 0, EndRow = 50 }, null));
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.ClearAsync());
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.RemoveEntryAsync("c:x,k:y"));
         }
     }
 }

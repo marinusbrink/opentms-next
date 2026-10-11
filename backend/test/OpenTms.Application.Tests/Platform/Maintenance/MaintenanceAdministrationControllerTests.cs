@@ -35,7 +35,10 @@ public class MaintenanceAdministrationControllerTests
 
     [Theory]
     [InlineData(nameof(MaintenanceAdministrationController.GetCacheStatusAsync), PlatformPermissions.Administration.Maintenance.Caches)]
+    [InlineData(nameof(MaintenanceAdministrationController.GetCacheNamesAsync), PlatformPermissions.Administration.Maintenance.Caches)]
+    [InlineData(nameof(MaintenanceAdministrationController.GetCacheEntriesAsync), PlatformPermissions.Administration.Maintenance.Caches)]
     [InlineData(nameof(MaintenanceAdministrationController.ClearCachesAsync), PlatformPermissions.Administration.Maintenance.CachesClear)]
+    [InlineData(nameof(MaintenanceAdministrationController.RemoveCacheEntryAsync), PlatformPermissions.Administration.Maintenance.CachesClear)]
     [InlineData(nameof(MaintenanceAdministrationController.GetDatabasesAsync), PlatformPermissions.Administration.Maintenance.Databases)]
     [InlineData(nameof(MaintenanceAdministrationController.GetDatabasesSummaryAsync), PlatformPermissions.Administration.Maintenance.Databases)]
     [InlineData(nameof(MaintenanceAdministrationController.GetDatabaseAsync), PlatformPermissions.Administration.Maintenance.Databases)]
@@ -68,6 +71,24 @@ public class MaintenanceAdministrationControllerTests
             .ToList();
 
         unguarded.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Cache_entries_map_the_query_string_and_remove_passes_the_full_key()
+    {
+        var result = await _controller.GetCacheEntriesAsync(startRow: 5, endRow: 30, wildcardSearch: "perm", sortBy: "sizeBytes", sortDir: "desc", cacheName: "PermissionGrantCacheItem");
+        result.Result.ShouldBeOfType<OkObjectResult>();
+        _caches.LastRequest!.StartRow.ShouldBe(5);
+        _caches.LastRequest.EndRow.ShouldBe(30);
+        _caches.LastRequest.WildcardSearch.ShouldBe("perm");
+        _caches.LastRequest.SortModels.ShouldHaveSingleItem().ShouldBe(new SortModel("sizeBytes", "desc"));
+        _caches.LastCacheName.ShouldBe("PermissionGrantCacheItem");
+
+        (await _controller.RemoveCacheEntryAsync("c:X,k:pn:R,pk:admin")).ShouldBeOfType<NoContentResult>();
+        _caches.Removed.ShouldBe("c:X,k:pn:R,pk:admin");
+
+        (await _controller.GetCacheNamesAsync()).Result.ShouldBeOfType<OkObjectResult>()
+            .Value.ShouldBeOfType<System.Collections.Generic.List<CacheNameDto>>().ShouldHaveSingleItem().Name.ShouldBe("X");
     }
 
     [Fact]
@@ -141,8 +162,27 @@ public class MaintenanceAdministrationControllerTests
 
     private sealed class FakeCacheService : ICacheMaintenanceAppService
     {
+        public GridRequest? LastRequest { get; private set; }
+        public string? LastCacheName { get; private set; }
+        public string? Removed { get; private set; }
+
         public Task<CacheStatusDto> GetStatusAsync() => Task.FromResult(new CacheStatusDto { ProviderName = "InMemory" });
+        public Task<System.Collections.Generic.List<CacheNameDto>> GetNamesAsync() => Task.FromResult(new System.Collections.Generic.List<CacheNameDto> { new() { Name = "X", EntryCount = 1 } });
+
+        public Task<GridResponse<CacheEntryRowDto>> GetEntriesAsync(GridRequest request, string? cacheName)
+        {
+            LastRequest = request;
+            LastCacheName = cacheName;
+            return Task.FromResult(new GridResponse<CacheEntryRowDto>());
+        }
+
         public Task<CacheClearResultDto> ClearAsync() => Task.FromResult(new CacheClearResultDto { ClearedEntryCount = 3 });
+
+        public Task RemoveEntryAsync(string key)
+        {
+            Removed = key;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeDatabaseService : IDatabaseMaintenanceAppService

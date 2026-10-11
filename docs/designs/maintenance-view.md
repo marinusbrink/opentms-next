@@ -26,7 +26,7 @@ The view is five tabs, each read through its own application service and one con
 
 | Tab | Side | Reads | Acts |
 |---|---|---|---|
-| Caches | host | the registered `IDistributedCache` through `ICacheMaintenance` | clear all entries |
+| Caches | host | the registered `IDistributedCache` through `ICacheMaintenance`: status, the named caches and every entry (key, size, stored, expiry) | clear all entries; remove one entry |
 | Databases | host | the tenant store plus PostgreSQL's catalog (`pg_database`, `pg_stat_database`; per database on open: schemas, `pg_stat_user_tables`, the `AbpBlobs` table) through `IDatabaseStatisticsProvider` | none (clone and download are a later phase, per the PO) |
 | Outbox | both | the outbox table of each listed database through `IOutboxInspector`, plus the in-memory `IOutboxDispatchRegistry` the dispatcher fills | run the dispatcher for one database now |
 | Health | host | ASP.NET Core's `HealthCheckService` through `IHealthReportProvider`, plus process facts | none |
@@ -38,8 +38,11 @@ health-check adapters live in the host (`OpenTms.HttpApi.Host/Maintenance`), so 
 stays free of the Hangfire and health-check packages (AD-13: Hangfire is the host's choice).
 
 **The cache.** The module replaces the framework's in-memory `IDistributedCache` with
-`OpenTmsMemoryDistributedCache`, the same thing with a count and a `Clear()`. It is per
-instance; the UI says so. A distributed cache (proposal AP-13) registers its own
+`OpenTmsMemoryDistributedCache`, the same thing with a count, a `Clear()` and a record per entry
+(key, size, stored at, expiry), kept on `Set` and dropped by the eviction callback, because
+`MemoryCache` exposes no per-entry metadata. ABP's key shape `c:{CacheName},k:{ItemKey}` is parsed
+for the list; a key in another shape is listed under its whole key. It is per instance; the UI
+says so. A distributed cache (proposal AP-13) registers its own
 `IDistributedCache` after this module and brings its own `ICacheMaintenance`.
 
 **The outbox.** `IOutboxInspector` is the one reader of the outbox table besides the
@@ -65,7 +68,9 @@ so the cost is bounded by the page size.
 
 See `openapi/opentms-next.json` (regenerated). Endpoints:
 
-- `GET maintenance/caches`, `POST maintenance/caches/clear`
+- `GET maintenance/caches`, `GET maintenance/caches/names`, `GET maintenance/caches/entries` (grid plus
+  `cacheName`), `POST maintenance/caches/clear`, `DELETE maintenance/caches/entries?key=` (the full key
+  travels in the query string because it contains colons and commas)
 - `GET maintenance/databases` (grid: startRow, endRow, wildcardSearch, sortBy, sortDir),
   `GET maintenance/databases/summary`, `GET maintenance/databases/{key}` (`host` or a tenant id)
 - `GET maintenance/outbox/overview`, `GET maintenance/outbox` (grid), `POST maintenance/outbox/dispatch?tenantId=`
@@ -96,8 +101,10 @@ content; grids are `OpenTmsGrid` (`platform.maintenance.databases`, `platform.ma
 (UI-PERM-002); without any tab, or on the tenant side without the feature, the
 `PermissionDenied` panel shows (UI-PAGE-005).
 
-- **Caches:** a detail card (provider, entries, key prefix, instance), a warning that clearing
-  is per instance, the command **Clear caches** behind a `ConfirmDialog`.
+- **Caches:** cards (provider, entries, caches, total size, key prefix, instance), a warning that
+  clearing is per instance, the entry grid (`platform.maintenance.cacheEntries`) with a named-cache
+  filter in the toolbar, **Remove entry** as a row action (reversible: the item is read again on
+  its next use, so no confirmation), the command **Clear caches** behind a `ConfirmDialog`.
 - **Databases:** summary cards (databases, tenant databases, shared tenants, total size, host
   blob storage, unreachable), the grid, and `DatabaseDetailDialog` (editor dialog, read-only;
   tabs General, Schemas, Largest tables; the two tables are shadcn `Table`, small and fixed).

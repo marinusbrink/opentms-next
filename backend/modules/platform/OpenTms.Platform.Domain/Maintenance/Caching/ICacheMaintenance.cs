@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace OpenTms.Platform.Maintenance.Caching;
@@ -17,6 +18,12 @@ public interface ICacheMaintenance
 {
     Task<CacheStatus> GetStatusAsync();
 
+    /// <summary>The entries held right now, when the implementation can list them; otherwise empty.</summary>
+    Task<IReadOnlyList<CacheEntryInfo>> GetEntriesAsync();
+
     /// <summary>Removes every cached entry. Returns the number of entries removed when known.</summary>
     Task<int?> ClearAsync();
+
+    /// <summary>Removes one entry by its full key. Returns false when there was no such entry.</summary>
+    Task<bool> RemoveAsync(string key);
 }

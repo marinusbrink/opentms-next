@@ -392,6 +392,16 @@
     "Unit:Kilobytes": "KB",
     "Unit:Megabytes": "MB",
     "Unit:Gigabytes": "GB",
-    "Unit:Terabytes": "TB"
+    "Unit:Terabytes": "TB",
+    "Maintenance:CacheEntries": "Items",
+    "Maintenance:Cache": "Cache",
+    "Maintenance:AllCaches": "Alle caches",
+    "Maintenance:CacheKey": "Sleutel",
+    "Maintenance:CreatedAt": "Opgeslagen",
+    "Maintenance:ExpiresAt": "Verloopt",
+    "Maintenance:SlidingExpiration": "Glijdend",
+    "Maintenance:RemoveEntry": "Item verwijderen",
+    "Maintenance:CacheEntryRemoved": "Cache-item verwijderd",
+    "Maintenance:Caches.Count": "{0} ({1})"
   }
 }

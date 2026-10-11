@@ -45,10 +45,42 @@ public class MaintenanceAdministrationController : OpenTmsController
     [ProducesResponseType(typeof(CacheStatusDto), 200)]
     public async Task<ActionResult<CacheStatusDto>> GetCacheStatusAsync() => Ok(await _caches.GetStatusAsync());
 
+    [HttpGet("caches/names")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Caches)]
+    [ProducesResponseType(typeof(List<CacheNameDto>), 200)]
+    public async Task<ActionResult<List<CacheNameDto>>> GetCacheNamesAsync() => Ok(await _caches.GetNamesAsync());
+
+    /// <summary>A page of this instance's cache entries, optionally of one named cache.</summary>
+    [HttpGet("caches/entries")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Caches)]
+    [ProducesResponseType(typeof(GridResponse<CacheEntryRowDto>), 200)]
+    public async Task<ActionResult<GridResponse<CacheEntryRowDto>>> GetCacheEntriesAsync(
+        [FromQuery] int startRow = 0,
+        [FromQuery] int endRow = 50,
+        [FromQuery] string? wildcardSearch = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDir = null,
+        [FromQuery] string? cacheName = null)
+    {
+        var result = await _caches.GetEntriesAsync(BuildGridRequest(startRow, endRow, wildcardSearch, sortBy, sortDir), cacheName);
+        return Ok(result);
+    }
+
     [HttpPost("caches/clear")]
     [Authorize(PlatformPermissions.Administration.Maintenance.CachesClear)]
     [ProducesResponseType(typeof(CacheClearResultDto), 200)]
     public async Task<ActionResult<CacheClearResultDto>> ClearCachesAsync() => Ok(await _caches.ClearAsync());
+
+    /// <summary>Removes one entry; the full key travels in the query string because it contains colons and commas.</summary>
+    [HttpDelete("caches/entries")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.CachesClear)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> RemoveCacheEntryAsync([FromQuery] string key)
+    {
+        await _caches.RemoveEntryAsync(key);
+        return NoContent();
+    }
 
     // ── Databases ────────────────────────────────────────────────────────────
 

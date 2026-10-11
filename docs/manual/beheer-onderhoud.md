@@ -43,14 +43,32 @@ aanzet.
 De applicatie onthoudt veelgebruikte gegevens (rechten, instellingen, featurewaarden)
 in een cache, zodat die niet bij elk verzoek uit de database hoeven te komen.
 
-Je ziet:
+Bovenaan staan de kerncijfers:
 
-| Veld | Betekenis |
+| Kaart | Betekenis |
 |---|---|
 | **Provider** | Waar de cache leeft. Nu: *in het geheugen, per instantie*. |
 | **Items** | Het aantal items dat de cache op dit moment bevat. |
-| **Sleutelvoorvoegsel** | Het voorvoegsel dat voor elke cachesleutel wordt gebruikt (meestal leeg). |
+| **Caches** | Het aantal verschillende caches (elk soort gegeven heeft zijn eigen cache, bijvoorbeeld rechten of instellingen). |
+| **Totale grootte** | De omvang van alle items samen. |
 | **Instantie** | De naam van de machine die dit verzoek beantwoordde. |
+
+Daaronder staat de lijst met alle items die de cache nu bevat:
+
+| Kolom | Betekenis |
+|---|---|
+| **Cache** | De cache waartoe het item behoort, bijvoorbeeld *PermissionGrantCacheItem* (rechten) of *SettingCacheItem* (instellingen). |
+| **Sleutel** | De sleutel van het item binnen zijn cache. |
+| **Grootte** | De omvang van het item. |
+| **Opgeslagen** | Wanneer het item in de cache is gezet. |
+| **Verloopt** | Wanneer het item vanzelf uit de cache gaat (leeg als het geen vaste vervaltijd heeft). |
+
+Met het filter **Cache** in de werkbalk toon je alleen de items van één cache; achter elke
+naam staat het aantal items. Via **Kolommen** kun je ook de glijdende vervaltijd en de
+volledige sleutel tonen.
+
+**Item verwijderen** (rechtermuisknop op een regel) haalt één item uit de cache. Het wordt
+bij het volgende gebruik opnieuw uit de database gelezen.
 
 **Caches legen** verwijdert alle items in één keer. Gebruik dit nadat er rechtstreeks in
 de database iets is aangepast aan rechten, instellingen of features en de wijziging
@@ -62,7 +80,7 @@ het aantal verwijderde items.
 > andere hun items tot die vanzelf verlopen. De waarschuwing onder de gegevens herinnert
 > je hieraan.
 
-<!-- SCREENSHOT: tabblad Caches met de gegevens, de waarschuwing en de knop Caches legen -->
+<!-- SCREENSHOT: tabblad Caches met de kerncijfers, de waarschuwing, het filter Cache en de lijst met items -->
 
 ---
 

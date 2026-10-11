@@ -25,7 +25,9 @@ const clearMutateAsync = vi.fn();
 const dispatchMutate = vi.fn();
 const requeueMutateAsync = vi.fn();
 const deleteMutateAsync = vi.fn();
-const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn() };
+const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn(), cacheEntries: vi.fn() };
+const removeCacheEntryMutate = vi.fn();
+const cacheEntriesFetcherArgs: unknown[] = [];
 const jobsFetcherArgs: unknown[] = [];
 let clearOptions: { onSuccess?: (r: unknown) => void; onError?: (e: unknown) => void } | undefined;
 
@@ -91,6 +93,18 @@ vi.mock("@/domains/platform/administration-maintenance", async (importOriginal) 
       clearOptions = options;
       return { mutateAsync: clearMutateAsync, isPending: false };
     },
+    useCacheNames: () => ({
+      data: [
+        { name: "PermissionGrantCacheItem", entryCount: 10, sizeBytes: 2048 },
+        { name: "SettingCacheItem", entryCount: 2, sizeBytes: 100 },
+      ],
+      refetch: vi.fn(),
+    }),
+    useCacheEntriesGridFetcher: (cacheName: unknown) => {
+      cacheEntriesFetcherArgs.push(cacheName);
+      return fetchers.cacheEntries;
+    },
+    useRemoveCacheEntry: () => ({ mutate: removeCacheEntryMutate, isPending: false }),
     useDatabasesGridFetcher: () => fetchers.databases,
     useDatabasesSummary: () => ({
       data: { databaseCount: 2, tenantDatabaseCount: 1, sharedTenantCount: 1, totalSizeBytes: 2048, unreachableCount: 0, hostBlobStorage: { blobCount: 3, contentBytes: 1024, tableSizeBytes: 4096 } },
@@ -179,6 +193,8 @@ import { MaintenanceView } from "@/apps/admin/maintenance/MaintenanceView";
 beforeEach(() => {
   gridProps.length = 0;
   jobsFetcherArgs.length = 0;
+  cacheEntriesFetcherArgs.length = 0;
+  removeCacheEntryMutate.mockReset();
   clearMutateAsync.mockReset();
   dispatchMutate.mockReset();
   toastSuccess.mockReset();
@@ -234,11 +250,11 @@ describe("MaintenanceView – who sees which tabs (critical)", () => {
     setConfig({ host: true, policies: ALL_POLICIES });
     render(<MaintenanceView />);
     expect(screen.getByText("Maintenance:ProviderInMemory")).toBeInTheDocument();
-    expect(screen.queryByTestId("mock-grid")).not.toBeInTheDocument();
+    expect((await screen.findByTestId("mock-grid")).dataset.gridId).toBe("platform.maintenance.cacheEntries");
 
     fireEvent.click(screen.getByRole("tab", { name: "Maintenance:Databases" }));
-    const grid = await screen.findByTestId("mock-grid");
-    expect(grid.dataset.gridId).toBe("platform.maintenance.databases");
+    await waitFor(() => expect(screen.getByTestId("mock-grid").dataset.gridId).toBe("platform.maintenance.databases"));
+    expect(screen.getAllByTestId("mock-grid")).toHaveLength(1);
     expect(screen.queryByText("Maintenance:ProviderInMemory")).not.toBeInTheDocument();
   });
 });
@@ -274,6 +290,29 @@ describe("CachesTab", () => {
     fireEvent.click(buttons[buttons.length - 1]);
     await waitFor(() => expect(clearMutateAsync).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith("Maintenance:CachesCleared"));
+  });
+
+  it("lists the entries of this instance, filters them by named cache and removes one entry only with the clear permission", async () => {
+    setConfig({ host: true, policies: ALL_POLICIES });
+    const { unmount } = render(<MaintenanceView />);
+    await screen.findByTestId("mock-grid");
+    expect(cacheEntriesFetcherArgs.at(-1)).toBeUndefined(); // all caches
+    expect(screen.getByRole("button", { name: "Maintenance:Cache" })).toHaveTextContent("Maintenance:AllCaches");
+    expect(screen.getByText("Maintenance:TotalSize")).toBeInTheDocument();
+
+
+    const actions = gridProps.at(-1)!.rowActions!([{ key: "c:X,k:1" }]);
+    expect(actions.map((a) => a.id)).toEqual(["remove"]);
+    expect(actions[0].destructive).toBe(true);
+    actions[0].onClick();
+    expect(removeCacheEntryMutate).toHaveBeenCalledWith("c:X,k:1");
+    expect(gridProps.at(-1)!.rowActions!([{ key: "a" }, { key: "b" }])).toHaveLength(0);
+    unmount();
+
+    setConfig({ host: true, policies: ["Platform.Administration.Maintenance", "Platform.Administration.Maintenance.Caches"] });
+    render(<MaintenanceView />);
+    await screen.findByTestId("mock-grid");
+    expect(gridProps.at(-1)!.rowActions!([{ key: "c:X,k:1" }])).toHaveLength(0);
   });
 
   it("reports a failed clear with a toast (UI-FB-004)", () => {

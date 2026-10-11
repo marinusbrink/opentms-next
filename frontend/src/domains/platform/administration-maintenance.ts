@@ -13,6 +13,10 @@ type Schemas = components["schemas"];
 
 export type CacheStatus = Schemas["OpenTms.Platform.Administration.Maintenance.CacheStatusDto"];
 export type CacheClearResult = Schemas["OpenTms.Platform.Administration.Maintenance.CacheClearResultDto"];
+export type CacheName = Schemas["OpenTms.Platform.Administration.Maintenance.CacheNameDto"];
+export type CacheEntryRowDto = Schemas["OpenTms.Platform.Administration.Maintenance.CacheEntryRowDto"];
+/** Grid rows carry `id`; a cache entry's identity is its full key. */
+export type CacheEntryRow = CacheEntryRowDto & { id: string };
 export type DatabaseRowDto = Schemas["OpenTms.Platform.Administration.Maintenance.DatabaseRowDto"];
 export type DatabaseDetail = Schemas["OpenTms.Platform.Administration.Maintenance.DatabaseDetailDto"];
 export type DatabasesSummary = Schemas["OpenTms.Platform.Administration.Maintenance.DatabasesSummaryDto"];
@@ -79,6 +83,7 @@ export function timeSpanToMinutes(value: string | null | undefined): number | nu
 export const maintenanceKeys = {
   all: ["administration", "maintenance"] as const,
   caches: () => ["administration", "maintenance", "caches"] as const,
+  cacheNames: () => ["administration", "maintenance", "caches", "names"] as const,
   databasesSummary: () => ["administration", "maintenance", "databases", "summary"] as const,
   database: (key: string) => ["administration", "maintenance", "databases", key] as const,
   outboxOverview: () => ["administration", "maintenance", "outbox", "overview"] as const,
@@ -104,6 +109,62 @@ export function useCacheStatus() {
       if (error) throw error;
       return data!;
     },
+  });
+}
+
+export function useCacheNames() {
+  return useQuery({
+    queryKey: maintenanceKeys.cacheNames(),
+    queryFn: async (): Promise<CacheName[]> => {
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/caches/names");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCacheEntriesGridFetcher(
+  cacheName: string | undefined,
+  refreshKey = 0,
+): (request: GridRequest) => Promise<GridResponse<CacheEntryRow>> {
+  return useCallback(
+    async (request: GridRequest): Promise<GridResponse<CacheEntryRow>> => {
+      const sortModel = request.sortModels[0];
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/caches/entries", {
+        params: {
+          query: {
+            startRow: request.startRow,
+            endRow: request.endRow,
+            wildcardSearch: request.wildcardSearch ?? undefined,
+            sortBy: sortModel?.colId,
+            sortDir: sortModel?.sort,
+            cacheName,
+          },
+        },
+      });
+      if (error) throw error;
+      const response = toGridResponse<CacheEntryRowDto>(data);
+      return { ...response, rows: response.rows.map((row) => ({ ...row, id: row.key ?? "" })) };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cacheName, refreshKey],
+  );
+}
+
+export function useRemoveCacheEntry(options?: { onSuccess?: (key: string) => void; onError?: (error: unknown) => void }) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (key: string): Promise<void> => {
+      const { error } = await apiClient.DELETE("/api/platform/administration/maintenance/caches/entries", {
+        params: { query: { key } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, key) => {
+      void queryClient.invalidateQueries({ queryKey: maintenanceKeys.caches() });
+      options?.onSuccess?.(key);
+    },
+    onError: options?.onError,
   });
 }
 
