@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,11 +22,31 @@ namespace OpenTms.PostgreSql;
 ///
 /// Server: localhost:5432, postgres/postgres (CLAUDE.md "Running locally"; CI's postgres service),
 /// overridable with OPENTMS_TEST_PG (a connection string without a Database= part).
+///
+/// Database names carry a per-checkout suffix (<see cref="DatabaseSuffix"/>) so two test processes
+/// on the same server never share a database: a second checkout or worktree, or the Stop hook's
+/// verify gate running next to a `dotnet test` in another session, each get their own pair.
+/// The suffix is OPENTMS_TEST_PG_DB_SUFFIX when set (letters, digits and underscores; anything
+/// else becomes an underscore, longer values are cut so the names stay under PostgreSQL's 63-char
+/// identifier limit), otherwise the first eight hex characters of the SHA-256 of the full path of
+/// the directory holding OpenTms.slnx. The same checkout therefore always reuses its own
+/// databases; a deleted worktree leaves its pair behind (docs/local-dev.md says how to clean up).
 /// </summary>
 public static class PostgreSqlTestDatabases
 {
-    public const string HostDatabase = "OpenTms_Tests";
-    public const string TenantADatabase = "OpenTms_Tests_TenantA";
+    private const string HostDatabasePrefix = "OpenTms_Tests_";
+    private const string TenantADatabasePostfix = "_TenantA";
+
+    /// <summary>PostgreSQL identifiers are at most 63 bytes; the suffix gets what the fixed parts leave.</summary>
+    private static readonly int MaxSuffixLength = 63 - HostDatabasePrefix.Length - TenantADatabasePostfix.Length;
+
+    /// <summary>Per-checkout part of both database names. See the class summary for how it is derived.</summary>
+    public static readonly string DatabaseSuffix = ComputeDatabaseSuffix(
+        Environment.GetEnvironmentVariable("OPENTMS_TEST_PG_DB_SUFFIX"),
+        FindSolutionDirectory() ?? AppContext.BaseDirectory);
+
+    public static readonly string HostDatabase = HostDatabasePrefix + DatabaseSuffix;
+    public static readonly string TenantADatabase = HostDatabasePrefix + DatabaseSuffix + TenantADatabasePostfix;
 
     /// <summary>Tenant with its own database (<see cref="TenantADatabase"/>). Set once the databases exist.</summary>
     public static Guid TenantAId { get; private set; }
@@ -42,6 +65,47 @@ public static class PostgreSqlTestDatabases
     public static string ConnectionStringFor(string database) => $"{ServerConnectionString};Database={database}";
 
     public static string HostConnectionString => ConnectionStringFor(HostDatabase);
+
+    /// <summary>
+    /// The suffix for a configured value (OPENTMS_TEST_PG_DB_SUFFIX) or, when that is absent or
+    /// blank, for a checkout directory. Pure, so the naming rules are unit-tested without a server.
+    /// </summary>
+    internal static string ComputeDatabaseSuffix(string? configured, string checkoutDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            var builder = new StringBuilder();
+            foreach (var c in configured.Trim())
+            {
+                builder.Append(char.IsAsciiLetterOrDigit(c) || c == '_' ? c : '_');
+            }
+
+            if (builder.Length > MaxSuffixLength)
+            {
+                builder.Length = MaxSuffixLength;
+            }
+
+            return builder.ToString();
+        }
+
+        var path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(checkoutDirectory));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(path));
+        return Convert.ToHexStringLower(hash)[..8];
+    }
+
+    /// <summary>The directory holding OpenTms.slnx, found by walking up from the test assembly; null outside a checkout.</summary>
+    private static string? FindSolutionDirectory()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory != null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "OpenTms.slnx")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Drops, creates, migrates and seeds the test databases — once per process.</summary>
     public static async Task EnsureCreatedAsync(IServiceProvider serviceProvider)
