@@ -29,6 +29,18 @@ export function DateTimeCell({ value }: CellParams<string | Date | null | undefi
   return <span className="tabular-nums">{f.dateTime(value)}</span>;
 }
 
+/** A byte count (sizes of databases, tables, blobs) in the largest fitting unit. */
+export function BytesCell({ value }: CellParams<number | null | undefined>) {
+  const f = useFormat();
+  return <span className="tabular-nums">{f.bytes(value)}</span>;
+}
+
+/** A share given in percent (0..100). */
+export function PercentCell({ value }: CellParams<number | null | undefined>) {
+  const f = useFormat();
+  return <span className="tabular-nums">{f.percent(value)}</span>;
+}
+
 /** Technical timestamps (UI-FMT-003): logs, audit trails, API messages; culture-independent. */
 export function TimestampCell({ value }: CellParams<string | Date | null | undefined>) {
   const f = useFormat();

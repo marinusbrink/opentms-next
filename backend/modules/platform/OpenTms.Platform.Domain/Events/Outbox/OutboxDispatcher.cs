@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using OpenTms.Platform.Maintenance.Outbox;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.DistributedLocking;
@@ -36,6 +37,7 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
     private readonly IAbpDistributedLock _distributedLock;
     private readonly IConnectionStringResolver _connectionStringResolver;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IOutboxDispatchRegistry _registry;
 
     public OutboxDispatcher(
         IDistributedEventBus distributedEventBus,
@@ -45,7 +47,8 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
         ICurrentTenant currentTenant,
         IAbpDistributedLock distributedLock,
         IConnectionStringResolver connectionStringResolver,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        IOutboxDispatchRegistry registry)
     {
         _distributedEventBus = distributedEventBus;
         _eventBusOptions = eventBusOptions.Value;
@@ -55,6 +58,7 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
         _distributedLock = distributedLock;
         _connectionStringResolver = connectionStringResolver;
         _serviceProvider = serviceProvider;
+        _registry = registry;
     }
 
     /// <summary>
@@ -120,6 +124,8 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
                         Logger.LogWarning(ex,
                             "Outbox event {EventName} ({EventId}) of tenant {TenantId} failed; it and the events behind it in this database are retried on the next run.",
                             outgoingEvent.EventName, outgoingEvent.Id, eventTenantId);
+                        /* The Maintenance view shows the blocking event by name and id (open point AO-10). */
+                        _registry.RecordRun(tenantId, published, $"{outgoingEvent.EventName} ({outgoingEvent.Id}): {ex.GetType().Name}: {ex.Message}");
                         return published;
                     }
 
@@ -138,6 +144,7 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
                 Logger.LogInformation("Dispatched {Count} outbox events for tenant {TenantId}.", published, tenantId);
             }
 
+            _registry.RecordRun(tenantId, published, error: null);
             return published;
         }
     }

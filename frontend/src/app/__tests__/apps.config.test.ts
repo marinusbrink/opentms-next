@@ -10,9 +10,9 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(Array.isArray(adminApp.views)).toBe(true);
   });
 
-  it("admin app has four views: Users, Roles, Organization units and Audit logs with the two logbooks", () => {
-    expect(adminApp.views).toHaveLength(4);
-    const [users, roles, organizationUnits, auditLogs] = adminApp.views!;
+  it("admin app has five views: Users, Roles, Organization units, Audit logs with the two logbooks, and Maintenance", () => {
+    expect(adminApp.views).toHaveLength(5);
+    const [users, roles, organizationUnits, auditLogs, maintenance] = adminApp.views!;
     expect(users.path).toBe("/admin/users");
     expect(users.nameKey).toBe("Administration:Users");
     expect(roles.path).toBe("/admin/roles");
@@ -26,6 +26,8 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(functionalLogbook.nameKey).toBe("Administration:FunctionalLogbook");
     expect(technicalLogbook.path).toBe("/admin/logbook/technical");
     expect(technicalLogbook.nameKey).toBe("Administration:TechnicalLogbook");
+    expect(maintenance.path).toBe("/admin/maintenance");
+    expect(maintenance.nameKey).toBe("Administration:Maintenance");
   });
 
   it("each admin view has a non-null icon (React component)", () => {

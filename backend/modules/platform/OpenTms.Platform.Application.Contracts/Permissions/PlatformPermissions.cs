@@ -47,5 +47,27 @@ public static class PlatformPermissions
             public const string Functional = Default + ".Functional";
             public const string Technical = Default + ".Technical";
         }
+
+        /// <summary>
+        /// The Maintenance view. Host-only tabs (caches, databases, health, background jobs) act on the
+        /// process or the host's stores; the Outbox tab exists on both sides (a tenant sees its own).
+        /// </summary>
+        public static class Maintenance
+        {
+            public const string Default = GroupName + ".Administration.Maintenance";
+
+            public const string Caches = Default + ".Caches";
+            public const string CachesClear = Caches + ".Clear";
+
+            public const string Databases = Default + ".Databases";
+
+            public const string Outbox = Default + ".Outbox";
+            public const string OutboxDispatch = Outbox + ".Dispatch";
+
+            public const string Health = Default + ".Health";
+
+            public const string BackgroundJobs = Default + ".BackgroundJobs";
+            public const string BackgroundJobsManage = BackgroundJobs + ".Manage";
+        }
     }
 }

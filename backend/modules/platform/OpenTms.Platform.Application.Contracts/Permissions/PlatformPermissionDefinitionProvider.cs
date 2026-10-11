@@ -53,6 +53,21 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
             bothSides);
         logbook.AddChild(PlatformPermissions.Administration.Logbook.Functional, L("Permission:Administration.Logbook.Functional"), bothSides);
         logbook.AddChild(PlatformPermissions.Administration.Logbook.Technical, L("Permission:Administration.Logbook.Technical"), bothSides);
+
+        /* Maintenance: the view itself and the Outbox tab exist on both sides; the tabs that act on the
+         * process or on host-owned stores are host-only (docs/designs/maintenance-view.md). */
+        var maintenance = group.AddPermission(
+            PlatformPermissions.Administration.Maintenance.Default,
+            L("Permission:Administration.Maintenance"),
+            bothSides);
+        var caches = maintenance.AddChild(PlatformPermissions.Administration.Maintenance.Caches, L("Permission:Administration.Maintenance.Caches"), MultiTenancySides.Host);
+        caches.AddChild(PlatformPermissions.Administration.Maintenance.CachesClear, L("Permission:Administration.Maintenance.Caches.Clear"), MultiTenancySides.Host);
+        maintenance.AddChild(PlatformPermissions.Administration.Maintenance.Databases, L("Permission:Administration.Maintenance.Databases"), MultiTenancySides.Host);
+        var outbox = maintenance.AddChild(PlatformPermissions.Administration.Maintenance.Outbox, L("Permission:Administration.Maintenance.Outbox"), bothSides);
+        outbox.AddChild(PlatformPermissions.Administration.Maintenance.OutboxDispatch, L("Permission:Administration.Maintenance.Outbox.Dispatch"), bothSides);
+        maintenance.AddChild(PlatformPermissions.Administration.Maintenance.Health, L("Permission:Administration.Maintenance.Health"), MultiTenancySides.Host);
+        var backgroundJobs = maintenance.AddChild(PlatformPermissions.Administration.Maintenance.BackgroundJobs, L("Permission:Administration.Maintenance.BackgroundJobs"), MultiTenancySides.Host);
+        backgroundJobs.AddChild(PlatformPermissions.Administration.Maintenance.BackgroundJobsManage, L("Permission:Administration.Maintenance.BackgroundJobs.Manage"), MultiTenancySides.Host);
     }
 
     private static LocalizableString L(string name)

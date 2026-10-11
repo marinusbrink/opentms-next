@@ -26,6 +26,7 @@ using OpenTms.Orders;
 using OpenTms.PlanningExecution;
 using OpenTms.Platform;
 using OpenTms.Platform.Events.Outbox;
+using OpenTms.Platform.Maintenance.Instances;
 using OpenTms.Reporting;
 using Volo.Abp.BackgroundJobs.Hangfire;
 using Microsoft.OpenApi;
@@ -367,6 +368,13 @@ public class OpenTmsHttpApiHostModule : AbpModule
         if (outboxOptions.DispatchEnabled)
         {
             await context.AddBackgroundWorkerAsync<OutboxDispatchWorker>();
+        }
+
+        /* Instance registry (docs/designs/maintenance-view.md): born, alive, dying. */
+        var registryOptions = context.ServiceProvider.GetRequiredService<IOptions<InstanceRegistryOptions>>().Value;
+        if (registryOptions.Enabled)
+        {
+            await context.AddBackgroundWorkerAsync<InstanceRegistryWorker>();
         }
     }
 }

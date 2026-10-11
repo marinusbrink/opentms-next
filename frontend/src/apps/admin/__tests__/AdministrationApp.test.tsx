@@ -30,6 +30,10 @@ vi.mock("@/apps/admin/logbook/TechnicalLogbookView", () => ({
   TechnicalLogbookView: () => <div data-testid="technical-logbook-view">TechnicalLogbookView</div>,
 }));
 
+vi.mock("@/apps/admin/maintenance/MaintenanceView", () => ({
+  MaintenanceView: () => <div data-testid="maintenance-view">MaintenanceView</div>,
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useLocation } from "@tanstack/react-router";
@@ -78,6 +82,13 @@ describe("AdministrationApp – tab removal (medium risk)", () => {
     render(<AdministrationApp />);
     expect(screen.getByTestId("technical-logbook-view")).toBeInTheDocument();
     expect(screen.queryByTestId("functional-logbook-view")).not.toBeInTheDocument();
+  });
+
+  it("renders MaintenanceView when pathname is /admin/maintenance", () => {
+    setPathname("/admin/maintenance");
+    render(<AdministrationApp />);
+    expect(screen.getByTestId("maintenance-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("users-view")).not.toBeInTheDocument();
   });
 
   it("navigates bare /admin/logbook to the functional logbook", () => {

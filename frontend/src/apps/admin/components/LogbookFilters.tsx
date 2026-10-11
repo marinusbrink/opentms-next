@@ -22,7 +22,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 /* The explicit filter controls of the logbook grids (UI-GRID-005): they render in the grid
  * toolbar's `filters` slot, next to the search box. Each is a small labelled choice. */
 
-interface ChoiceFilterProps<T extends string> {
+export interface ChoiceFilterProps<T extends string> {
   label: string;
   value: T;
   options: readonly T[];
@@ -30,7 +30,7 @@ interface ChoiceFilterProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-function ChoiceFilter<T extends string>({ label, value, options, optionLabel, onChange }: ChoiceFilterProps<T>) {
+export function ChoiceFilter<T extends string>({ label, value, options, optionLabel, onChange }: ChoiceFilterProps<T>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

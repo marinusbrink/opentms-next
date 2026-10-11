@@ -85,3 +85,44 @@ describe("toDate", () => {
     expect(d.getDate()).toBe(9);
   });
 });
+
+describe("createFormatter.bytes", () => {
+  const tUnits = (key: string) =>
+    ({ "Unit:Bytes": "B", "Unit:Kilobytes": "KB", "Unit:Megabytes": "MB", "Unit:Gigabytes": "GB", "Unit:Terabytes": "TB" })[key] ?? key;
+  const f = createFormatter("en", tUnits);
+
+  it("picks the largest unit that keeps the figure above one and shows one decimal from KB up", () => {
+    expect(f.bytes(0)).toBe("0 B");
+    expect(f.bytes(512)).toBe("512 B");
+    expect(f.bytes(1024)).toBe("1.0 KB");
+    expect(f.bytes(1536)).toBe("1.5 KB");
+    expect(f.bytes(5 * 1024 * 1024)).toBe("5.0 MB");
+    expect(f.bytes(3.25 * 1024 ** 3)).toBe("3.3 GB");
+    expect(f.bytes(2 * 1024 ** 4)).toBe("2.0 TB");
+  });
+
+  it("returns an empty string for nothing", () => {
+    expect(f.bytes(null)).toBe("");
+    expect(f.bytes(undefined)).toBe("");
+  });
+
+  it("uses the locale's decimal separator", () => {
+    expect(createFormatter("nl", tUnits).bytes(1536)).toBe("1,5 KB");
+  });
+});
+
+describe("createFormatter.durationSeconds", () => {
+  const tDur = (key: string) =>
+    ({ "Duration:Day": "d", "Duration:Hour": "h", "Duration:Minute": "m", "Duration:Second": "s" })[key] ?? key;
+  const f = createFormatter("en", tDur);
+
+  it("reads down to the second and drops empty parts", () => {
+    expect(f.durationSeconds(30)).toBe("30s");
+    expect(f.durationSeconds(90)).toBe("1m 30s");
+    expect(f.durationSeconds(3600)).toBe("1h");
+    expect(f.durationSeconds(90061)).toBe("1d 1h 1m 1s");
+    expect(f.durationSeconds(0)).toBe("0s");
+    expect(f.durationSeconds(null)).toBe("");
+  });
+});
+
