@@ -17,3 +17,15 @@ works-on-my-machine antidote: facts, not preferences.
 - **The API host runs plain HTTP in local dev**: `http://localhost:44301`
   (a self-signed HTTPS cert breaks browser→API fetches from the SPA). Production
   stays HTTPS behind TLS termination.
+- **The PostgreSQL-backed tests create their own databases per checkout.**
+  `PostgreSqlTestDatabases` (in `backend/test/OpenTms.EntityFrameworkCore.Tests/PostgreSql/`)
+  drops and recreates `OpenTms_Tests_<suffix>` and `OpenTms_Tests_<suffix>_TenantA` once per
+  test process. The suffix is `OPENTMS_TEST_PG_DB_SUFFIX` when set (letters, digits and
+  underscores; other characters become `_`), otherwise the first eight hex characters of the
+  SHA-256 of the full path of the directory holding `OpenTms.slnx`. Two test processes on this
+  machine (a worktree next to the main checkout, the Stop hook's verify gate next to a running
+  `dotnet test`) therefore never share a database; CI gets its own hash the same way. Server
+  and credentials come from `OPENTMS_TEST_PG` (a connection string without `Database=`),
+  default `localhost:5432`, `postgres`/`postgres`. A deleted worktree leaves its pair behind:
+  list them with `SELECT datname FROM pg_database WHERE datname LIKE 'OpenTms\_Tests\_%'`
+  and drop with `DROP DATABASE "<name>" WITH (FORCE)`.

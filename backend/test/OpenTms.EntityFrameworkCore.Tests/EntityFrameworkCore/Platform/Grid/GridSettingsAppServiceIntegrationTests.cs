@@ -14,10 +14,10 @@ namespace OpenTms.EntityFrameworkCore.Platform.Grid;
 /// Integration tests for GridSettingsAppService backed by an in-memory SQLite database.
 /// Risk class: Critical — tenant isolation and data integrity of grid settings.
 ///
-/// Note: SQLite is used in place of PostgreSQL per the CI test infrastructure. The
-/// critical path (ABP ISettingManager with EF Core backing) is identical; only the
-/// SQL dialect differs. PostgreSQL integration is validated by the production health-
-/// tenant smoke test (availability SLO synthetic journey).
+/// The contract of the app service (design #6); the storage behind it is one row per
+/// (tenant, user, grid) since docs/designs/grid-settings-storage.md. SQLite does not enforce
+/// column lengths, so the real schema and database-per-tenant are covered by the PostgreSQL-backed
+/// suite (PostgreSql/Grid/GridUserSettingsPostgreSqlTests).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class GridSettingsAppServiceIntegrationTests : OpenTmsEntityFrameworkCoreTestBase
@@ -75,7 +75,7 @@ public class GridSettingsAppServiceIntegrationTests : OpenTmsEntityFrameworkCore
     }
 
     [Fact]
-    public async Task SetAsync_stores_multiple_gridIds_independently_in_same_blob()
+    public async Task SetAsync_stores_multiple_gridIds_independently()
     {
         var gridId1 = "grid-multi-A-" + Guid.NewGuid().ToString("N");
         var gridId2 = "grid-multi-B-" + Guid.NewGuid().ToString("N");
@@ -155,7 +155,7 @@ public class GridSettingsAppServiceIntegrationTests : OpenTmsEntityFrameworkCore
     [Fact]
     public async Task Tenant_isolation_settings_written_in_tenant_A_are_invisible_in_tenant_B()
     {
-        // The ABP ISettingManager keys user-level settings by (TenantId, UserId).
+        // Rows are IMultiTenant: the ABP data filter scopes every read to the current tenant.
         // Settings written in tenant A must not be readable in tenant B context.
         // A bug here would be a critical SaaS violation (constitution rule 1).
 

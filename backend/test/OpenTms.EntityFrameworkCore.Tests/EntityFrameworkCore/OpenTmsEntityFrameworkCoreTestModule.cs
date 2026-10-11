@@ -1,9 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
-using OpenTms.MasterData.EntityFrameworkCore;
-using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.MasterData.EntityFrameworkCore;
+using OpenTms.Platform.EntityFrameworkCore;
+using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -71,8 +72,12 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         _database.CreateTables(
             new OpenTmsDbContext(new DbContextOptionsBuilder<OpenTmsDbContext>().UseSqlite(_database.ConnectionString).Options));
 
-        /* The module contexts share the database; EnsureCreated stops once any table exists, so their
-         * tables are created explicitly (same connection string: "MasterData" falls back to Default). */
+        /* The module contexts own their tables (schema-per-module) in the same shared in-memory database:
+         * the Platform context holds the per-user grid settings under test, the Master Data context the
+         * ten reference entities (their connection string names fall back to Default). */
+        _database.CreateTables(
+            new PlatformDbContext(new DbContextOptionsBuilder<PlatformDbContext>().UseSqlite(_database.ConnectionString).Options));
+
         using (var masterData = new MasterDataDbContext(
                    new DbContextOptionsBuilder<MasterDataDbContext>().UseSqlite(_database.ConnectionString).UseLocalizedNameTranslation().Options))
         {
@@ -93,6 +98,10 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
 
             /* A module's own Configure<TDbContext> (UseNpgsql) replaces the default action for that
              * context, so each module context is pointed at SQLite here explicitly. */
+            options.Configure<PlatformDbContext>(context =>
+            {
+                context.UseSqlite();
+            });
             options.Configure<MasterDataDbContext>(context =>
             {
                 context.UseSqlite();

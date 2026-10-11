@@ -96,3 +96,17 @@ describe("Platform localization key additions — command bar and role bulk dele
     );
   });
 });
+
+describe("Platform localization key additions — grid settings failure toasts (low risk)", () => {
+  const KEYS = ["Grid:SettingsSaveFailed", "Grid:SettingsResetFailed"];
+
+  for (const lang of ["en", "nl"]) {
+    it(`${lang}.json has every key with a non-empty value`, () => {
+      const { texts } = readPlatformLocale(lang);
+      for (const key of KEYS) {
+        expect(texts[key], key).toBeDefined();
+        expect(texts[key].trim().length, key).toBeGreaterThan(0);
+      }
+    });
+  }
+});

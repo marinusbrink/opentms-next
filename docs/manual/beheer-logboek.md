@@ -49,7 +49,9 @@ Elke regel is één wijziging aan één record. De nieuwste wijziging staat bove
 | **Gebruiker** | Wie de wijziging heeft gedaan. |
 
 Via **Kolommen** rechts in de werkbalk kun je ook de volledige naam van het
-entiteittype tonen.
+entiteittype tonen. Je kolomkeuze, kolombreedtes en sortering worden per gebruiker
+bewaard. Lukt het bewaren een keer niet, dan verschijnt een melding; je huidige
+weergave blijft gewoon staan tot je het scherm verlaat.
 
 ### Filteren en zoeken
 

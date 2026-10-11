@@ -39,6 +39,7 @@ import {
   type GridRowAction,
 } from "@/components/ui/opentms-grid-actions";
 import { OpenTmsGridFooter } from "@/components/ui/opentms-grid-footer";
+import { createGridSettingsPersister } from "@/components/ui/opentms-grid-settings";
 import { OpenTmsGridToolbar } from "@/components/ui/opentms-grid-toolbar";
 import { apiClient } from "@/lib/api/client";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -267,6 +268,9 @@ export function OpenTmsGrid<TRow>({
   // Settings save debounce
   const settingsSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Settings persistence (PUT/DELETE with the visible failure path, UI-FB-005)
+  const settingsPersister = useMemo(() => createGridSettingsPersister(gridId, t), [gridId, t]);
+
   // ── Settings helpers ──────────────────────────────────────────────────────
 
   const syncColumnVisibility = useCallback(() => {
@@ -285,28 +289,10 @@ export function OpenTmsGrid<TRow>({
 
     clearTimeout(settingsSaveDebounceRef.current);
     settingsSaveDebounceRef.current = setTimeout(() => {
-      const colState = api.getColumnState();
-      const columnStates = colState.map((cs, index) => ({
-        colId: cs.colId,
-        visible: !(cs.hide ?? false),
-        order: index,
-        width: cs.width ?? null,
-      }));
-      const sortModels = colState
-        .filter((cs) => cs.sort != null)
-        .sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0))
-        .map((cs) => ({ colId: cs.colId, sort: cs.sort as "asc" | "desc" }));
-
-      void apiClient
-        .PUT("/api/platform/grid-settings/{gridId}", {
-          params: { path: { gridId } },
-          body: { columnStates, sortModels },
-        })
-        .catch(() => {
-          console.error({ event: "GridSettingsSaveFailed", gridId });
-        });
+      // The user already sees the change; a failed save surfaces as a toast (UI-FB-005).
+      void settingsPersister.save(api.getColumnState());
     }, 1000);
-  }, [gridId]);
+  }, [settingsPersister]);
 
   const handleReset = useCallback(() => {
     const api = gridApiRef.current;
@@ -319,15 +305,9 @@ export function OpenTmsGrid<TRow>({
     syncColumnVisibility();
     manualRetryCountRef.current = 0;
 
-    // Fire DELETE in background (failure is acceptable; next mount re-reads settings)
-    void apiClient
-      .DELETE("/api/platform/grid-settings/{gridId}", {
-        params: { path: { gridId } },
-      })
-      .catch(() => {
-        console.error({ event: "GridSettingsResetFailed", gridId });
-      });
-  }, [gridId, syncColumnVisibility]);
+    // DELETE in background: the local revert stands for this session; a failure shows a toast.
+    void settingsPersister.reset();
+  }, [settingsPersister, syncColumnVisibility]);
 
   // ── Column state change handlers ──────────────────────────────────────────
 

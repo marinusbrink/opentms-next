@@ -61,11 +61,13 @@ public class MasterDataMigrationTests : MasterDataPostgreSqlTestBase
         });
     }
 
+    /* The database names are per checkout (main, PR #41), so they are resolved at run time. */
     [Theory]
-    [InlineData(PostgreSqlTestDatabases.HostDatabase)]
-    [InlineData(PostgreSqlTestDatabases.TenantADatabase)]
-    public async Task Every_table_and_the_partial_unique_indexes_exist_in_the_masterdata_schema(string database)
+    [InlineData("host")]
+    [InlineData("tenant-a")]
+    public async Task Every_table_and_the_partial_unique_indexes_exist_in_the_masterdata_schema(string target)
     {
+        var database = target == "host" ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase;
         await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(database));
         await connection.OpenAsync();
 
