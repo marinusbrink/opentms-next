@@ -26,6 +26,9 @@ export type OutboxRowDto = Schemas["OpenTms.Platform.Administration.Maintenance.
 export type OutboxDispatchResult = Schemas["OpenTms.Platform.Administration.Maintenance.OutboxDispatchResultDto"];
 export type HealthReport = Schemas["OpenTms.Platform.Administration.Maintenance.HealthReportDto"];
 export type HealthCheckEntry = Schemas["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"];
+export type InstancesOverview = Schemas["OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto"];
+export type ApplicationInstanceRow = Schemas["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto"];
+export type ApplicationInstanceDetail = Schemas["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto"];
 export type BackgroundJobsOverview = Schemas["OpenTms.Platform.Administration.Maintenance.BackgroundJobsOverviewDto"];
 export type BackgroundJobRow = Schemas["OpenTms.Platform.Administration.Maintenance.BackgroundJobRowDto"];
 
@@ -47,6 +50,11 @@ export const DEFAULT_BACKGROUND_JOB_STATE: BackgroundJobState = "Failed";
 
 export function jobStateKey(state: string | null | undefined): string {
   return state ? `Maintenance:State.${state}` : "";
+}
+
+/** Localization key of an instance status (Running, Unresponsive, Stopped). */
+export function instanceStatusKey(status: string | null | undefined): string {
+  return status ? `Maintenance:Instance.Status.${status}` : "";
 }
 
 /** Localization key of a health status (Healthy, Degraded, Unhealthy); unknown values fall back to the raw text. */
@@ -71,6 +79,15 @@ export function canDeleteJob(state: string | null | undefined): boolean {
   return state === "Failed" || state === "Scheduled" || state === "Enqueued" || state === "Processing";
 }
 
+/** A .NET TimeSpan string from the API ("00:05:00", "1.02:00:00") as seconds. */
+export function timeSpanToSeconds(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = /^(?:(\d+)\.)?(\d+):(\d+):(\d+)/.exec(value);
+  if (!match) return null;
+  const [, days, hours, minutes, seconds] = match;
+  return Number(days ?? 0) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+}
+
 /** A .NET TimeSpan string from the API ("00:05:00", "1.02:00:00") as minutes, for the duration formatter. */
 export function timeSpanToMinutes(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -88,6 +105,8 @@ export const maintenanceKeys = {
   database: (key: string) => ["administration", "maintenance", "databases", key] as const,
   outboxOverview: () => ["administration", "maintenance", "outbox", "overview"] as const,
   health: () => ["administration", "maintenance", "health"] as const,
+  instancesOverview: () => ["administration", "maintenance", "instances", "overview"] as const,
+  instance: (id: string) => ["administration", "maintenance", "instances", id] as const,
   jobsOverview: () => ["administration", "maintenance", "background-jobs", "overview"] as const,
 };
 
@@ -295,6 +314,58 @@ export function useHealthReport() {
     queryKey: maintenanceKeys.health(),
     queryFn: async (): Promise<HealthReport> => {
       const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/health");
+      if (error) throw error;
+      return data!;
+    },
+    staleTime: 0,
+  });
+}
+
+// ── Instances (the registry on the Health tab) ───────────────────────────────────────
+
+export function useInstancesOverview() {
+  return useQuery({
+    queryKey: maintenanceKeys.instancesOverview(),
+    queryFn: async (): Promise<InstancesOverview> => {
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/instances/overview");
+      if (error) throw error;
+      return data!;
+    },
+    staleTime: 0,
+  });
+}
+
+export function useInstancesGridFetcher(refreshKey = 0): (request: GridRequest) => Promise<GridResponse<ApplicationInstanceRow>> {
+  return useCallback(
+    async (request: GridRequest): Promise<GridResponse<ApplicationInstanceRow>> => {
+      const sortModel = request.sortModels[0];
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/instances", {
+        params: {
+          query: {
+            startRow: request.startRow,
+            endRow: request.endRow,
+            wildcardSearch: request.wildcardSearch ?? undefined,
+            sortBy: sortModel?.colId,
+            sortDir: sortModel?.sort,
+          },
+        },
+      });
+      if (error) throw error;
+      return toGridResponse<ApplicationInstanceRow>(data);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey],
+  );
+}
+
+export function useInstanceDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: maintenanceKeys.instance(id ?? ""),
+    enabled: !!id,
+    queryFn: async (): Promise<ApplicationInstanceDetail> => {
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/instances/{id}", {
+        params: { path: { id: id! } },
+      });
       if (error) throw error;
       return data!;
     },

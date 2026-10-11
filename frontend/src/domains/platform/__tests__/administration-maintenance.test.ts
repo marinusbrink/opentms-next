@@ -17,8 +17,10 @@ import {
   canDeleteJob,
   canRequeue,
   healthStatusKey,
+  instanceStatusKey,
   jobStateKey,
   timeSpanToMinutes,
+  timeSpanToSeconds,
   useBackgroundJobsGridFetcher,
   useCacheEntriesGridFetcher,
   useClearCaches,
@@ -26,6 +28,8 @@ import {
   useDatabasesGridFetcher,
   useDeleteBackgroundJob,
   useDispatchOutbox,
+  useInstanceDetail,
+  useInstancesGridFetcher,
   useOutboxGridFetcher,
   useRemoveCacheEntry,
   useRequeueBackgroundJob,
@@ -67,6 +71,10 @@ describe("helpers", () => {
     expect(timeSpanToMinutes("00:00:30")).toBe(1);
     expect(timeSpanToMinutes(null)).toBeNull();
     expect(timeSpanToMinutes("soon")).toBeNull();
+    expect(timeSpanToSeconds("00:00:30")).toBe(30);
+    expect(timeSpanToSeconds("00:01:30")).toBe(90);
+    expect(timeSpanToSeconds("1.00:00:05")).toBe(86405);
+    expect(timeSpanToSeconds(undefined)).toBeNull();
   });
 
   it("builds localization keys for states and statuses", () => {
@@ -74,6 +82,7 @@ describe("helpers", () => {
     expect(jobStateKey(null)).toBe("");
     expect(healthStatusKey("Healthy")).toBe("Maintenance:StatusHealthy");
     expect(healthStatusKey("Weird")).toBe("Weird");
+    expect(instanceStatusKey("Unresponsive")).toBe("Maintenance:Instance.Status.Unresponsive");
   });
 
   it("knows which states can be requeued or deleted", () => {
@@ -140,6 +149,23 @@ describe("useCacheEntriesGridFetcher", () => {
     });
     expect(response.rows[0].id).toBe("c:X,k:1");
     expect(response.totalCount).toBe(3);
+  });
+});
+
+describe("instances", () => {
+  it("lists instances with paging, search and sort, and reads one by id", async () => {
+    GET.mockResolvedValue({ data: { rows: [{ id: "i-1", role: "Api" }], totalCount: 1, filteredCount: 1 }, error: undefined } as never);
+    const { result } = renderHook(() => useInstancesGridFetcher(0));
+    const response = await result.current(request({ wildcardSearch: "api", sortModels: [{ colId: "lastHeartbeatAt", sort: "desc" }] }));
+    expect(GET).toHaveBeenCalledWith("/api/platform/administration/maintenance/instances", {
+      params: { query: { startRow: 0, endRow: 50, wildcardSearch: "api", sortBy: "lastHeartbeatAt", sortDir: "desc" } },
+    });
+    expect(response.rows[0].id).toBe("i-1");
+
+    GET.mockResolvedValue({ data: { id: "i-1", role: "Api", healthEntries: [] }, error: undefined } as never);
+    const detail = renderHook(() => useInstanceDetail("i-1"), { wrapper });
+    await waitFor(() => expect(detail.result.current.data?.role).toBe("Api"));
+    expect(GET).toHaveBeenLastCalledWith("/api/platform/administration/maintenance/instances/{id}", { params: { path: { id: "i-1" } } });
   });
 });
 

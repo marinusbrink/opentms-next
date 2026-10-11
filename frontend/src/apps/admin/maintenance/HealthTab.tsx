@@ -1,18 +1,38 @@
-import { RefreshCw } from "lucide-react";
-import { useMemo } from "react";
+import type { CellClassRules, ColDef } from "ag-grid-community";
+import { FileSearch, RefreshCw, TriangleAlert } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
-import { FormSection } from "@/components/ui/form-section";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LogbookDetailRows } from "@/apps/admin/components/LogbookDetailRows";
+import { BoolCell, BytesCell, TimestampCell } from "@/components/ui/grid-cells";
+import type { GridRowAction } from "@/components/ui/opentms-grid";
+import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
+import { InstanceDetailDialog } from "@/apps/admin/components/InstanceDetailDialog";
 import { StatCards, type StatCard } from "@/apps/admin/components/StatCards";
-import { healthStatusKey, useHealthReport } from "@/domains/platform/administration-maintenance";
+import {
+  healthStatusKey,
+  instanceStatusKey,
+  timeSpanToSeconds,
+  useHealthReport,
+  useInstancesGridFetcher,
+  useInstancesOverview,
+  type ApplicationInstanceRow,
+} from "@/domains/platform/administration-maintenance";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
-import { cn } from "@/lib/utils";
+
+export const INSTANCES_GRID_ID = "platform.maintenance.instances";
+
+/* Status colours by tone token (UI-TOK-005). */
+const statusClassRules: CellClassRules<ApplicationInstanceRow> = {
+  "text-destructive": (params) => params.data?.status === "Unresponsive",
+  "text-muted-foreground": (params) => params.data?.status === "Stopped",
+};
+const healthClassRules: CellClassRules<ApplicationInstanceRow> = {
+  "text-destructive": (params) => params.data?.healthStatus === "Unhealthy",
+  "text-tone-warning": (params) => params.data?.healthStatus === "Degraded",
+};
 
 function toneOf(status: string | null | undefined): StatCard["tone"] {
   if (status === "Unhealthy") return "destructive";
@@ -20,110 +40,140 @@ function toneOf(status: string | null | undefined): StatCard["tone"] {
   return "default";
 }
 
-/* The Health tab: the registered health checks as /health/ready sees them, plus the process. */
+/* The Health tab: the instance registry (every instance of every role: born, alive, dying) as a
+ * grid, with this instance's live health in the cards. Opening a row shows that instance's last
+ * health result and process facts. */
 export function HealthTab() {
   const { t } = useL();
   const f = useFormat();
   const report = useHealthReport();
+  const overview = useInstancesOverview();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [openId, setOpenId] = useState<string | undefined>();
+
+  const fetchRows = useInstancesGridFetcher(refreshKey);
+
+  const refresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    void report.refetch();
+    void overview.refetch();
+  }, [report, overview]);
 
   const commands = useMemo<AppCommandBarCommand[]>(
-    () => [{ id: "refresh", labelKey: "Maintenance:Refresh", icon: RefreshCw, onClick: () => void report.refetch() }],
-    [report],
+    () => [{ id: "refresh", labelKey: "Maintenance:Refresh", icon: RefreshCw, onClick: refresh }],
+    [refresh],
+  );
+
+  const openRecord = useCallback((row: ApplicationInstanceRow) => setOpenId(row.id ?? undefined), []);
+
+  const rowActions = useCallback(
+    (rows: ApplicationInstanceRow[]): GridRowAction[] =>
+      rows.length === 1 ? [{ id: "open", labelKey: "Open", icon: FileSearch, onClick: () => openRecord(rows[0]) }] : [],
+    [openRecord],
   );
 
   const data = report.data;
+  const fleet = overview.data;
+  const silence = f.durationSeconds(timeSpanToSeconds(fleet?.unresponsiveAfter));
+
   const cards = useMemo<StatCard[]>(() => {
-    if (!data) return [];
-    return [
-      { id: "status", label: t("Maintenance:Status"), value: t(healthStatusKey(data.status)), tone: toneOf(data.status) },
-      { id: "duration", label: t("Maintenance:Duration"), value: f.number(data.totalDurationMilliseconds) },
-      { id: "checks", label: t("Maintenance:Checks"), value: f.number(data.entries?.length ?? 0) },
-      { id: "uptime", label: t("Maintenance:Uptime"), value: f.duration((data.process?.uptimeSeconds ?? 0) / 60) },
-    ];
-  }, [data, t, f]);
+    const cards: StatCard[] = [];
+    if (data) {
+      cards.push({ id: "status", label: t("Maintenance:Status"), value: t(healthStatusKey(data.status)), tone: toneOf(data.status) });
+    }
+    if (fleet) {
+      cards.push(
+        { id: "running", label: t("Maintenance:Instance.Running"), value: f.number(fleet.running) },
+        {
+          id: "unresponsive",
+          label: t("Maintenance:Instance.Unresponsive"),
+          value: f.number(fleet.unresponsive),
+          tone: fleet.unresponsive ? "destructive" : "default",
+        },
+        { id: "stopped", label: t("Maintenance:Instance.Status.Stopped"), value: f.number(fleet.stopped) },
+        { id: "heartbeat", label: t("Maintenance:Instance.HeartbeatPeriod"), value: f.durationSeconds(timeSpanToSeconds(fleet.heartbeatPeriod)) },
+      );
+    }
+    return cards;
+  }, [data, fleet, t, f]);
+
+  const columnDefs = useMemo<ColDef<ApplicationInstanceRow>[]>(
+    () => [
+      {
+        colId: "status",
+        field: "status",
+        headerName: t("Maintenance:Instance.Status"),
+        valueGetter: (params) => (params.data ? t(instanceStatusKey(params.data.status)) : ""),
+        cellClassRules: statusClassRules,
+        sortable: true,
+        filter: false,
+        minWidth: 120,
+      },
+      { field: "role", headerName: t("Maintenance:Instance.Role"), sortable: true, filter: false, minWidth: 90 },
+      { field: "machineName", headerName: t("Maintenance:Machine"), sortable: true, filter: false, flex: 1, minWidth: 150 },
+      { field: "isCurrent", headerName: t("Maintenance:Instance.Current"), cellRenderer: BoolCell, sortable: false, filter: false, minWidth: 110 },
+      {
+        colId: "healthStatus",
+        field: "healthStatus",
+        headerName: t("Maintenance:Health"),
+        valueGetter: (params) => (params.data?.healthStatus ? t(healthStatusKey(params.data.healthStatus)) : ""),
+        cellClassRules: healthClassRules,
+        sortable: false,
+        filter: false,
+        minWidth: 100,
+      },
+      { field: "version", headerName: t("Maintenance:Version"), sortable: true, filter: false, flex: 1, minWidth: 160 },
+      { field: "environment", headerName: t("Maintenance:Environment"), sortable: false, filter: false, minWidth: 120, hide: true },
+      { field: "startedAt", headerName: t("Maintenance:StartedAt"), cellRenderer: TimestampCell, sortable: true, filter: false, minWidth: 170 },
+      { field: "lastHeartbeatAt", headerName: t("Maintenance:Instance.LastHeartbeat"), cellRenderer: TimestampCell, sortable: true, filter: false, minWidth: 170 },
+      { field: "stoppedAt", headerName: t("Maintenance:Instance.StoppedAt"), cellRenderer: TimestampCell, sortable: true, filter: false, minWidth: 170 },
+      {
+        colId: "uptimeSeconds",
+        headerName: t("Maintenance:Uptime"),
+        valueGetter: (params) => (params.data ? f.durationSeconds(params.data.uptimeSeconds) : ""),
+        sortable: false,
+        filter: false,
+        minWidth: 100,
+      },
+      { field: "workingSetBytes", headerName: t("Maintenance:WorkingSet"), cellRenderer: BytesCell, type: "rightAligned", sortable: true, filter: false, minWidth: 110, hide: true },
+      { field: "managedMemoryBytes", headerName: t("Maintenance:ManagedMemory"), cellRenderer: BytesCell, type: "rightAligned", sortable: false, filter: false, minWidth: 120, hide: true },
+      { field: "outboxDispatchEnabled", headerName: t("Maintenance:OutboxDispatcher"), cellRenderer: BoolCell, sortable: false, filter: false, minWidth: 110, hide: true },
+      { field: "processId", headerName: t("Maintenance:Instance.ProcessId"), sortable: false, filter: false, minWidth: 100, hide: true },
+    ],
+    [t, f],
+  );
 
   return (
     <div className="flex h-full flex-col">
       <AppCommandBar commands={commands} />
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
-        <div className="grid gap-4">
-          {report.isError && (
-            <Alert variant="destructive">
-              <AlertDescription>{getApiErrorMessage(report.error, t)}</AlertDescription>
-            </Alert>
-          )}
-          {report.isLoading && (
-            <div className="grid gap-3">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-6 w-2/3" />
-              <Skeleton className="h-6 w-1/3" />
-            </div>
-          )}
-          {data && (
-            <>
-              <StatCards cards={cards} />
-
-              <FormSection title={t("Maintenance:Checks")}>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("Maintenance:Check")}</TableHead>
-                      <TableHead>{t("Maintenance:Status")}</TableHead>
-                      <TableHead className="text-right">{t("Maintenance:Duration")}</TableHead>
-                      <TableHead>{t("Maintenance:Tags")}</TableHead>
-                      <TableHead>{t("Maintenance:Error")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data.entries ?? []).map((entry) => (
-                      <TableRow key={entry.name}>
-                        <TableCell className="whitespace-normal">
-                          <div>{entry.name}</div>
-                          {entry.description && <div className="text-label text-muted-foreground">{entry.description}</div>}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            entry.status === "Unhealthy" && "text-destructive",
-                            entry.status === "Degraded" && "text-tone-warning",
-                          )}
-                        >
-                          {t(healthStatusKey(entry.status))}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{f.number(entry.durationMilliseconds)}</TableCell>
-                        <TableCell>{(entry.tags ?? []).join(", ")}</TableCell>
-                        <TableCell className="whitespace-normal text-destructive">{entry.error ?? ""}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </FormSection>
-
-              {data.process && (
-                <FormSection title={t("Maintenance:Process")}>
-                  <LogbookDetailRows
-                    rows={[
-                      { label: t("Maintenance:Application"), value: data.process.applicationName ?? "" },
-                      { label: t("Maintenance:Version"), value: data.process.version ?? "" },
-                      { label: t("Maintenance:Environment"), value: data.process.environment ?? "" },
-                      { label: t("Maintenance:Machine"), value: data.process.machineName ?? "" },
-                      { label: t("Maintenance:StartedAt"), value: f.timestamp(data.process.startedAt), tabular: true },
-                      { label: t("Maintenance:Runtime"), value: data.process.runtimeVersion ?? "" },
-                      { label: t("Maintenance:WorkingSet"), value: f.bytes(data.process.workingSetBytes), tabular: true },
-                      { label: t("Maintenance:ManagedMemory"), value: f.bytes(data.process.managedMemoryBytes), tabular: true },
-                      { label: t("Maintenance:Processors"), value: f.number(data.process.processorCount), tabular: true },
-                      {
-                        label: t("Maintenance:OutboxDispatcher"),
-                        value: t(data.process.outboxDispatchEnabled ? "Maintenance:DispatchOn" : "Maintenance:DispatchOff"),
-                      },
-                    ]}
-                  />
-                </FormSection>
-              )}
-            </>
-          )}
-        </div>
+      <div className="grid gap-3 px-6 pb-3">
+        {(report.isError || overview.isError) && (
+          <Alert variant="destructive">
+            <AlertDescription>{getApiErrorMessage(report.error ?? overview.error, t)}</AlertDescription>
+          </Alert>
+        )}
+        {cards.length > 0 && <StatCards cards={cards} />}
+        {fleet && !fleet.registryEnabled && (
+          <Alert variant="warning">
+            <TriangleAlert aria-hidden="true" />
+            <AlertDescription>{t("Maintenance:Instance.RegistryOff")}</AlertDescription>
+          </Alert>
+        )}
+        {fleet && <p className="text-label text-muted-foreground">{t("Maintenance:Instance.Notice").replace("{0}", silence)}</p>}
       </div>
+
+      <div className="min-h-0 flex-1 px-6 pb-6">
+        <LazyOpenTmsGrid<ApplicationInstanceRow>
+          gridId={INSTANCES_GRID_ID}
+          columnDefs={columnDefs}
+          fetchRows={fetchRows}
+          onOpen={openRecord}
+          rowActions={rowActions}
+        />
+      </div>
+
+      {openId && <InstanceDetailDialog key={openId} instanceId={openId} open onClose={() => setOpenId(undefined)} />}
     </div>
   );
 }

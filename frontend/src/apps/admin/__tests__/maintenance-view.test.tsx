@@ -25,7 +25,7 @@ const clearMutateAsync = vi.fn();
 const dispatchMutate = vi.fn();
 const requeueMutateAsync = vi.fn();
 const deleteMutateAsync = vi.fn();
-const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn(), cacheEntries: vi.fn() };
+const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn(), cacheEntries: vi.fn(), instances: vi.fn() };
 const removeCacheEntryMutate = vi.fn();
 const cacheEntriesFetcherArgs: unknown[] = [];
 const jobsFetcherArgs: unknown[] = [];
@@ -117,6 +117,13 @@ vi.mock("@/domains/platform/administration-maintenance", async (importOriginal) 
     useOutboxGridFetcher: () => fetchers.outbox,
     useDispatchOutbox: () => ({ mutate: dispatchMutate, isPending: false }),
     useHealthReport: () => healthReport,
+    useInstancesOverview: () => ({
+      data: { running: 2, unresponsive: 1, stopped: 3, heartbeatPeriod: "00:00:30", unresponsiveAfter: "00:01:30", registryEnabled: true, currentInstanceId: "i-1" },
+      isError: false,
+      refetch: vi.fn(),
+    }),
+    useInstancesGridFetcher: () => fetchers.instances,
+    useInstanceDetail: () => ({ data: undefined, isLoading: true, isError: false }),
     useBackgroundJobsOverview: () => jobsOverview,
     useBackgroundJobsGridFetcher: (state: unknown) => {
       jobsFetcherArgs.push(state);
@@ -143,6 +150,10 @@ vi.mock("@/components/ui/opentms-grid-lazy", () => ({
       </div>
     );
   },
+}));
+
+vi.mock("@/apps/admin/components/InstanceDetailDialog", () => ({
+  InstanceDetailDialog: ({ instanceId }: { instanceId: string }) => <div data-testid="instance-dialog">{instanceId}</div>,
 }));
 
 vi.mock("@/apps/admin/components/DatabaseDetailDialog", () => ({
@@ -367,15 +378,21 @@ describe("OutboxTab", () => {
 });
 
 describe("HealthTab", () => {
-  it("shows the overall status, every check and the process facts", async () => {
+  it("shows this instance's status, the fleet counts and the instance grid, and opens an instance", async () => {
     setConfig({ host: true, policies: ["Platform.Administration.Maintenance", "Platform.Administration.Maintenance.Health"] });
     render(<MaintenanceView />);
-    expect(screen.getAllByText("Maintenance:StatusDegraded")).toHaveLength(2); // the overall card and the degraded check
-    expect(screen.getByText("Maintenance:StatusHealthy")).toBeInTheDocument();
-    expect(screen.getByText("db")).toBeInTheDocument();
-    expect(screen.getByText("slow")).toBeInTheDocument();
-    expect(screen.getByText("OpenTms.HttpApi.Host")).toBeInTheDocument();
-    expect(screen.getByText("Maintenance:DispatchOn")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:StatusDegraded")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:Instance.Running")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:Instance.Unresponsive")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:Instance.Notice")).toBeInTheDocument();
+
+    const grid = await screen.findByTestId("mock-grid");
+    expect(grid.dataset.gridId).toBe("platform.maintenance.instances");
+
+    const props = gridProps.at(-1)!;
+    expect(props.rowActions!([{ id: "i-2" }]).map((a) => a.id)).toEqual(["open"]);
+    props.onOpen!({ id: "i-2" });
+    expect(await screen.findByTestId("instance-dialog")).toHaveTextContent("i-2");
   });
 });
 

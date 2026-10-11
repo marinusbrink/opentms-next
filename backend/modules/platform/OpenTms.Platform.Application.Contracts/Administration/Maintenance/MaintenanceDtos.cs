@@ -304,6 +304,82 @@ public record HealthReportDto
     public ProcessInfoDto Process { get; init; } = new();
 }
 
+// ── Instances ────────────────────────────────────────────────────────────────────────
+
+/// <summary>One of the <see cref="ApplicationInstanceStatuses"/> values.</summary>
+public static class ApplicationInstanceStatuses
+{
+    public const string Running = "Running";
+    public const string Unresponsive = "Unresponsive";
+    public const string Stopped = "Stopped";
+}
+
+public record ApplicationInstanceRowDto
+{
+    public Guid Id { get; init; }
+
+    public string Role { get; init; } = string.Empty;
+
+    public string MachineName { get; init; } = string.Empty;
+
+    public int ProcessId { get; init; }
+
+    public string Version { get; init; } = string.Empty;
+
+    public string Environment { get; init; } = string.Empty;
+
+    public string Status { get; init; } = string.Empty;
+
+    /// <summary>True for the instance that answered this request.</summary>
+    public bool IsCurrent { get; init; }
+
+    public DateTime StartedAt { get; init; }
+
+    public DateTime LastHeartbeatAt { get; init; }
+
+    public DateTime? StoppedAt { get; init; }
+
+    public double UptimeSeconds { get; init; }
+
+    public string? HealthStatus { get; init; }
+
+    public DateTime? HealthCheckedAt { get; init; }
+
+    public long WorkingSetBytes { get; init; }
+
+    public long ManagedMemoryBytes { get; init; }
+
+    public bool OutboxDispatchEnabled { get; init; }
+}
+
+public record ApplicationInstanceDetailDto : ApplicationInstanceRowDto
+{
+    public string RuntimeVersion { get; init; } = string.Empty;
+
+    public int ProcessorCount { get; init; }
+
+    /// <summary>The health check entries of the last heartbeat.</summary>
+    public List<HealthCheckEntryDto> HealthEntries { get; init; } = new();
+}
+
+public record InstancesOverviewDto
+{
+    public int Running { get; init; }
+
+    public int Unresponsive { get; init; }
+
+    public int Stopped { get; init; }
+
+    public TimeSpan HeartbeatPeriod { get; init; }
+
+    public TimeSpan UnresponsiveAfter { get; init; }
+
+    /// <summary>Whether the instance answering this request registers itself.</summary>
+    public bool RegistryEnabled { get; init; }
+
+    public Guid CurrentInstanceId { get; init; }
+}
+
 // ── Background jobs ──────────────────────────────────────────────────────────────────
 
 public record BackgroundJobServerDto

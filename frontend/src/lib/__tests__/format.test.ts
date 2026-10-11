@@ -111,3 +111,18 @@ describe("createFormatter.bytes", () => {
   });
 });
 
+describe("createFormatter.durationSeconds", () => {
+  const tDur = (key: string) =>
+    ({ "Duration:Day": "d", "Duration:Hour": "h", "Duration:Minute": "m", "Duration:Second": "s" })[key] ?? key;
+  const f = createFormatter("en", tDur);
+
+  it("reads down to the second and drops empty parts", () => {
+    expect(f.durationSeconds(30)).toBe("30s");
+    expect(f.durationSeconds(90)).toBe("1m 30s");
+    expect(f.durationSeconds(3600)).toBe("1h");
+    expect(f.durationSeconds(90061)).toBe("1d 1h 1m 1s");
+    expect(f.durationSeconds(0)).toBe("0s");
+    expect(f.durationSeconds(null)).toBe("");
+  });
+});
+

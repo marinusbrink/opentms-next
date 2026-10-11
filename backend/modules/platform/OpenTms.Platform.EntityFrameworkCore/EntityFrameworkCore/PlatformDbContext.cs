@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Platform.Maintenance.Instances;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -18,6 +19,12 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// </summary>
     public DbSet<OutgoingEventRecord> OutgoingEvents { get; set; } = default!;
 
+    /// <summary>
+    /// The instance registry: platform."ApplicationInstances", written in the host database only
+    /// (the table exists in every database because the schema is shared; tenant databases keep it empty).
+    /// </summary>
+    public DbSet<ApplicationInstance> ApplicationInstances { get; set; } = default!;
+
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
     {
@@ -32,5 +39,20 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
         builder.HasDefaultSchema(PlatformDbProperties.DbSchema);
 
         builder.ConfigureEventOutbox();
+
+        builder.Entity<ApplicationInstance>(b =>
+        {
+            b.ToTable("ApplicationInstances", PlatformDbProperties.DbSchema);
+            b.Property(i => i.Role).HasMaxLength(32).IsRequired();
+            b.Property(i => i.MachineName).HasMaxLength(256).IsRequired();
+            b.Property(i => i.Version).HasMaxLength(256).IsRequired();
+            b.Property(i => i.Environment).HasMaxLength(64).IsRequired();
+            b.Property(i => i.RuntimeVersion).HasMaxLength(128).IsRequired();
+            b.Property(i => i.HealthStatus).HasMaxLength(16);
+            b.Property(i => i.HealthDetails).HasColumnType("jsonb");
+            /* The list reads newest heartbeat first; housekeeping deletes by it. */
+            b.HasIndex(i => i.LastHeartbeatAt);
+            b.HasIndex(i => i.Role);
+        });
     }
 }

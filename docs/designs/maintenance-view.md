@@ -29,7 +29,7 @@ The view is five tabs, each read through its own application service and one con
 | Caches | host | the registered `IDistributedCache` through `ICacheMaintenance`: status, the named caches and every entry (key, size, stored, expiry) | clear all entries; remove one entry |
 | Databases | host | the tenant store plus PostgreSQL's catalog (`pg_database`, `pg_stat_database`; per database on open: schemas, `pg_stat_user_tables`, the `AbpBlobs` table) through `IDatabaseStatisticsProvider` | none (clone and download are a later phase, per the PO) |
 | Outbox | both | the outbox table of each listed database through `IOutboxInspector`, plus the in-memory `IOutboxDispatchRegistry` the dispatcher fills | run the dispatcher for one database now |
-| Health | host | ASP.NET Core's `HealthCheckService` through `IHealthReportProvider`, plus process facts | none |
+| Health | host | the **instance registry** (`platform."ApplicationInstances"` in the host database) plus this instance's live `HealthCheckService` result through `IHealthReportProvider` | none |
 | Background jobs | host | Hangfire's monitoring API through `IBackgroundJobMonitor` | requeue and delete one job |
 
 **Ports and adapters.** The module defines the four ports in `Platform.Domain/Maintenance`.
@@ -50,6 +50,27 @@ dispatcher; the Platform module owns the table (`03-events-and-outbox.md`), modu
 touch it. The dispatcher now records each visit's outcome in `IOutboxDispatchRegistry`, so a
 persistently failing event (open point AO-10) is visible to an administrator by name and id
 instead of only in the log. This does not decide AO-10: nothing is dead-lettered.
+
+**The instance registry (PO decision 2026-10-11, in the working session: "instances should also
+be able to inform that they are born or die").** Every process registers itself at start
+(`ApplicationInstance`: role, machine, process id, version, environment, runtime, start time),
+heartbeats every `InstanceRegistry:HeartbeatPeriod` (30 s) with its health result and memory, and
+marks itself stopped on a graceful shutdown (`InstanceRegistryWorker`, an ABP periodic worker the
+host starts; Cloud Run sends SIGTERM before it removes an autoscaled instance, which runs the
+stop). A killed instance never says goodbye: its heartbeat goes silent and the view shows it as
+**Unresponsive** after `InstanceRegistry:UnresponsiveAfter` (90 s, three heartbeats). Rows are
+written in the **host database** whatever tenant is current: the entity is not `IMultiTenant`,
+and ABP's `EfCoreRepository` routes such entities to the host connection string from any tenant
+context (the registry also switches to the host context explicitly, so the intent is readable).
+It is host-owned operations data, not a tenant entity, so no tenant-filter bypass is involved
+(`04-data-and-tenancy.md`, host-owned rows); the same rule is why its view is host-only. The table exists in every database because the
+Platform schema is shared; tenant databases keep it empty. Heartbeats delete rows past
+`InstanceRegistry:Retention` (7 days). The entity is excluded from the functional logbook (a
+heartbeat per instance per period is machine traffic). The role comes from configuration
+(`InstanceRegistry:Role`, default Api) until the role split selects it (AD-11, AP-12). The health
+entries of the last heartbeat are kept as `jsonb` (AD-06). This registry is the cross-instance
+answer the Health tab needs under Cloud Run: the Api instance that answers a request can only
+describe itself, so the fleet is read from the table, not from the process.
 
 **Why Background jobs is host-only.** Hangfire's storage is the `hangfire` schema of the host
 database and carries no tenant filter. A tenant view would have to filter on serialized job
@@ -74,7 +95,8 @@ See `openapi/opentms-next.json` (regenerated). Endpoints:
 - `GET maintenance/databases` (grid: startRow, endRow, wildcardSearch, sortBy, sortDir),
   `GET maintenance/databases/summary`, `GET maintenance/databases/{key}` (`host` or a tenant id)
 - `GET maintenance/outbox/overview`, `GET maintenance/outbox` (grid), `POST maintenance/outbox/dispatch?tenantId=`
-- `GET maintenance/health`
+- `GET maintenance/health` (this instance, live), `GET maintenance/instances/overview`,
+  `GET maintenance/instances` (grid), `GET maintenance/instances/{id}`
 - `GET maintenance/background-jobs/overview`, `GET maintenance/background-jobs?state=&startRow=&endRow=`,
   `POST maintenance/background-jobs/{jobId}/requeue`, `DELETE maintenance/background-jobs/{jobId}`
 
@@ -90,7 +112,10 @@ the host-only ones for the host admin only (ABP rejects a host-only permission i
 
 ## Migration strategy
 
-Not applicable: no schema change. Hangfire's schema and the outbox table already exist.
+One additive migration in the Platform context (`AddApplicationInstances`): the table
+`platform."ApplicationInstances"` with indexes on `LastHeartbeatAt` (list order, housekeeping) and
+`Role`. Applied by the DbMigrator to the host and every tenant database (the schema is shared);
+only the host database is written. Expand only; nothing is renamed or dropped.
 
 ## UI design
 
@@ -110,7 +135,10 @@ content; grids are `OpenTmsGrid` (`platform.maintenance.databases`, `platform.ma
   tabs General, Schemas, Largest tables; the two tables are shadcn `Table`, small and fixed).
 - **Outbox:** overview cards (dispatcher on/off, sweep period, batch size, instance), the
   registry notice, the grid; **Dispatch now** as a row action.
-- **Health:** status cards, the checks table, the process card; **Refresh** re-runs the checks.
+- **Health:** cards (this instance's live status, running, unresponsive, stopped, heartbeat period),
+  the instance grid (`platform.maintenance.instances`, running first, then unresponsive, then
+  stopped) and `InstanceDetailDialog` (General: lifecycle and process; Health: the last heartbeat's
+  entries). **Refresh** re-reads the list and re-runs this instance's checks.
 - **Background jobs:** cards per state (click to switch), servers and queues, a state filter in
   the grid toolbar, the grid; **Requeue** and **Delete** as row actions behind `ConfirmDialog`s.
 
@@ -125,6 +153,7 @@ Library additions: `BytesCell` and `PercentCell` (grid cells), `Formatter.bytes(
 | Databases against real PostgreSQL | Critical | `DatabaseMaintenanceAppServiceTests` (host, tenant A, shared tenant, detail, not-found) |
 | Outbox counts and dispatch | Critical | `OutboxMaintenanceAppServiceTests` (count before, dispatch, zero after, registry filled) |
 | Cache replacement | High | `OpenTmsMemoryDistributedCacheTests`, `CacheMaintenanceAppServiceTests` |
+| Instance registry: born, alive, dying in the host database whatever tenant is current; statuses; housekeeping; host-only view | Critical | `InstanceRegistryIntegrationTests` (PostgreSQL), `ApplicationInstanceTests` |
 | Health and jobs mapping | High | SQLite service tests over fakes; the Hangfire adapter is exercised by the running host only (no Hangfire storage in tests) |
 | Frontend view, tabs, actions, hooks | Medium | `maintenance-view.test.tsx`, `administration-maintenance.test.ts`, format and config tests |
 
@@ -140,18 +169,24 @@ Host tabs are live for host admins with the permissions on merge (deviation abov
 
 ## Cost & SLO impact
 
-No new service, no new min instances, no egress. Each Databases page costs one catalog query per
+No new service, no new min instances, no egress. The registry adds one small UPDATE per instance
+per heartbeat period (30 s) plus one health run and one DELETE by index on the host database: at
+ten instances, twenty writes a minute. Each Databases page costs one catalog query per
 PostgreSQL server; each Outbox page one short count per listed database; each detail open one
 connection to that database. Health runs the registered checks (one database round trip).
 Per-tenant margin unaffected.
 
 ## Assumptions
 
-1. PostgreSQL 17 catalog columns (`pg_stat_database`, `pg_stat_user_tables`) as read by the
+1. AP-12: the role reaches the registry through configuration (`InstanceRegistry:Role`); the role
+   split's environment variable maps onto it.
+2. Cloud Run delivers SIGTERM and allows the shutdown to finish; a hard kill is covered by the
+   unresponsive rule, not by the stop.
+3. PostgreSQL 17 catalog columns (`pg_stat_database`, `pg_stat_user_tables`) as read by the
    provider; `AbpBlobs` lives in the `public` schema of every database (the application context
    has no default schema).
-2. AP-13 (Redis) will replace the cache; until then the per-instance note stands.
-3. Tenants without a connection string are shared tier (CLAUDE.md, multi-tenancy model).
+4. AP-13 (Redis) will replace the cache; until then the per-instance note stands.
+5. Tenants without a connection string are shared tier (CLAUDE.md, multi-tenancy model).
 
 ## Security quickscan
 

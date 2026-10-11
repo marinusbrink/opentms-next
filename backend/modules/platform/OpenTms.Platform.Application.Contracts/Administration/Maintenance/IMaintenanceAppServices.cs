@@ -54,6 +54,17 @@ public interface IHealthMaintenanceAppService : IApplicationService
     Task<HealthReportDto> GetReportAsync();
 }
 
+/// <summary>The instance registry on the Health tab (host only): every instance of every role, alive or not.</summary>
+public interface IInstanceMaintenanceAppService : IApplicationService
+{
+    Task<InstancesOverviewDto> GetOverviewAsync();
+
+    /// <summary>Newest heartbeat first unless sorted otherwise; stopped instances stay until retention removes them.</summary>
+    Task<GridResponse<ApplicationInstanceRowDto>> GetListAsync(GridRequest request);
+
+    Task<ApplicationInstanceDetailDto> GetAsync(Guid id);
+}
+
 /// <summary>The Background jobs tab (host only): Hangfire's counts, servers, queues and jobs per state.</summary>
 public interface IBackgroundJobMaintenanceAppService : IApplicationService
 {

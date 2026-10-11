@@ -163,18 +163,42 @@ dan alleen voor de host beschikbaar.
 
 ## Gezondheid
 
-Dit tabblad voert dezelfde controles uit als de gezondheidsadressen van de server
-(`/health/ready`) en toont het resultaat.
+Dit tabblad toont het **instantieregister**: elke draaiende (of onlangs gestopte) instantie
+van OpenTMS, van elke rol. Een instantie meldt zich bij de start aan, stuurt elke halve
+minuut een heartbeat met de uitslag van haar gezondheidscontroles, en meldt zich af bij een
+nette afsluiting. Wordt een instantie door het platform hard beëindigd (bij automatisch
+schalen kan dat), dan valt de heartbeat stil en toont het register haar na anderhalve minuut
+als **Reageert niet**.
 
-- De kaarten bovenaan: de totale status (**Gezond**, **Verminderd** of **Ongezond**), de
-  duur, het aantal controles en de uptime van het proces.
-- **Controles:** elke controle met status, duur, tags en, als die er is, de fout.
-- **Proces:** applicatie, versie, omgeving, machine, starttijd, runtime, geheugen, aantal
-  processors en of de outbox-verzender op deze instantie aanstaat.
+- De kaarten bovenaan: de gezondheid van de instantie die jouw verzoek beantwoordt
+  (**Gezond**, **Verminderd** of **Ongezond**), het aantal actieve instanties, het aantal dat
+  niet reageert, het aantal gestopte en het heartbeat-interval.
+- De lijst: één regel per instantie.
 
-Met **Vernieuwen** voer je de controles opnieuw uit.
+| Kolom | Betekenis |
+|---|---|
+| **Status** | **Actief**, **Reageert niet** of **Gestopt**. |
+| **Rol** | De rol van het proces: nu altijd *Api*; later ook *Jobs*, *Ingest* en *Agents*. |
+| **Machine** | De machine of container waarop de instantie draait. |
+| **Deze instantie** | Een vinkje bij de instantie die jouw verzoek beantwoordde. |
+| **Gezondheid** | De uitslag van de laatste gezondheidscontrole van die instantie. |
+| **Versie** | De softwareversie die de instantie draait. Handig om een uitrol te controleren. |
+| **Gestart**, **Laatste heartbeat**, **Gestopt** | De levensloop van de instantie. |
+| **Uptime** | Hoe lang de instantie draait of heeft gedraaid. |
 
-<!-- SCREENSHOT: tabblad Gezondheid met de kaarten, de controles en het proces -->
+Via **Kolommen** kun je ook de omgeving, het werkgeheugen, het managed geheugen, de
+outbox-verzender en het proces-id tonen. Gestopte en stilgevallen instanties blijven een week
+in de lijst staan en verdwijnen daarna vanzelf.
+
+### Een instantie bekijken
+
+Dubbelklik op een regel (of druk op Enter). Je ziet dan onder **Algemeen** de levensloop en
+het proces (versie, omgeving, runtime, geheugen, processors, outbox-verzender) en onder
+**Gezondheid** de uitslag van de laatste heartbeat, controle voor controle.
+
+Met **Vernieuwen** haal je de lijst en de gezondheid van deze instantie opnieuw op.
+
+<!-- SCREENSHOT: tabblad Gezondheid met de kaarten en het instantieregister -->
 
 ---
 

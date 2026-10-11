@@ -25,12 +25,13 @@ public class MaintenanceAdministrationControllerTests
     private readonly FakeDatabaseService _databases = new();
     private readonly FakeOutboxService _outbox = new();
     private readonly FakeHealthService _health = new();
+    private readonly FakeInstanceService _instances = new();
     private readonly FakeBackgroundJobService _jobs = new();
     private readonly MaintenanceAdministrationController _controller;
 
     public MaintenanceAdministrationControllerTests()
     {
-        _controller = new MaintenanceAdministrationController(_caches, _databases, _outbox, _health, _jobs);
+        _controller = new MaintenanceAdministrationController(_caches, _databases, _outbox, _health, _instances, _jobs);
     }
 
     [Theory]
@@ -46,6 +47,9 @@ public class MaintenanceAdministrationControllerTests
     [InlineData(nameof(MaintenanceAdministrationController.GetOutboxesAsync), PlatformPermissions.Administration.Maintenance.Outbox)]
     [InlineData(nameof(MaintenanceAdministrationController.DispatchOutboxAsync), PlatformPermissions.Administration.Maintenance.OutboxDispatch)]
     [InlineData(nameof(MaintenanceAdministrationController.GetHealthAsync), PlatformPermissions.Administration.Maintenance.Health)]
+    [InlineData(nameof(MaintenanceAdministrationController.GetInstancesOverviewAsync), PlatformPermissions.Administration.Maintenance.Health)]
+    [InlineData(nameof(MaintenanceAdministrationController.GetInstancesAsync), PlatformPermissions.Administration.Maintenance.Health)]
+    [InlineData(nameof(MaintenanceAdministrationController.GetInstanceAsync), PlatformPermissions.Administration.Maintenance.Health)]
     [InlineData(nameof(MaintenanceAdministrationController.GetBackgroundJobsOverviewAsync), PlatformPermissions.Administration.Maintenance.BackgroundJobs)]
     [InlineData(nameof(MaintenanceAdministrationController.GetBackgroundJobsAsync), PlatformPermissions.Administration.Maintenance.BackgroundJobs)]
     [InlineData(nameof(MaintenanceAdministrationController.RequeueBackgroundJobAsync), PlatformPermissions.Administration.Maintenance.BackgroundJobsManage)]
@@ -89,6 +93,19 @@ public class MaintenanceAdministrationControllerTests
 
         (await _controller.GetCacheNamesAsync()).Result.ShouldBeOfType<OkObjectResult>()
             .Value.ShouldBeOfType<System.Collections.Generic.List<CacheNameDto>>().ShouldHaveSingleItem().Name.ShouldBe("X");
+    }
+
+    [Fact]
+    public async Task Instances_list_maps_the_query_string_and_detail_returns_the_service_result()
+    {
+        var id = Guid.NewGuid();
+        (await _controller.GetInstancesAsync(startRow: 0, endRow: 20, wildcardSearch: "api", sortBy: "lastHeartbeatAt", sortDir: "desc")).Result.ShouldBeOfType<OkObjectResult>();
+        _instances.LastRequest!.EndRow.ShouldBe(20);
+        _instances.LastRequest.WildcardSearch.ShouldBe("api");
+        _instances.LastRequest.SortModels.ShouldHaveSingleItem().ShouldBe(new SortModel("lastHeartbeatAt", "desc"));
+
+        (await _controller.GetInstanceAsync(id)).Result.ShouldBeOfType<OkObjectResult>().Value.ShouldBeOfType<ApplicationInstanceDetailDto>().Id.ShouldBe(id);
+        (await _controller.GetInstancesOverviewAsync()).Result.ShouldBeOfType<OkObjectResult>().Value.ShouldBeOfType<InstancesOverviewDto>().Running.ShouldBe(2);
     }
 
     [Fact]
@@ -222,6 +239,21 @@ public class MaintenanceAdministrationControllerTests
     private sealed class FakeHealthService : IHealthMaintenanceAppService
     {
         public Task<HealthReportDto> GetReportAsync() => Task.FromResult(new HealthReportDto { Status = "Healthy" });
+    }
+
+    private sealed class FakeInstanceService : IInstanceMaintenanceAppService
+    {
+        public GridRequest? LastRequest { get; private set; }
+
+        public Task<InstancesOverviewDto> GetOverviewAsync() => Task.FromResult(new InstancesOverviewDto { Running = 2 });
+
+        public Task<GridResponse<ApplicationInstanceRowDto>> GetListAsync(GridRequest request)
+        {
+            LastRequest = request;
+            return Task.FromResult(new GridResponse<ApplicationInstanceRowDto>());
+        }
+
+        public Task<ApplicationInstanceDetailDto> GetAsync(Guid id) => Task.FromResult(new ApplicationInstanceDetailDto { Id = id });
     }
 
     private sealed class FakeBackgroundJobService : IBackgroundJobMaintenanceAppService

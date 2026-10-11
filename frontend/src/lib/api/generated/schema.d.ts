@@ -6695,6 +6695,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/maintenance/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/maintenance/instances/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/maintenance/instances/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/maintenance/outbox": {
         parameters: {
             query?: never;
@@ -9172,6 +9302,66 @@ export interface components {
             userId?: string | null;
             userName?: string | null;
         };
+        "OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto": {
+            environment?: string | null;
+            /** Format: date-time */
+            healthCheckedAt?: string | null;
+            healthEntries?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][] | null;
+            healthStatus?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isCurrent?: boolean;
+            /** Format: date-time */
+            lastHeartbeatAt?: string;
+            machineName?: string | null;
+            /** Format: int64 */
+            managedMemoryBytes?: number;
+            outboxDispatchEnabled?: boolean;
+            /** Format: int32 */
+            processId?: number;
+            /** Format: int32 */
+            processorCount?: number;
+            role?: string | null;
+            runtimeVersion?: string | null;
+            /** Format: date-time */
+            startedAt?: string;
+            status?: string | null;
+            /** Format: date-time */
+            stoppedAt?: string | null;
+            /** Format: double */
+            uptimeSeconds?: number;
+            version?: string | null;
+            /** Format: int64 */
+            workingSetBytes?: number;
+        };
+        "OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto": {
+            environment?: string | null;
+            /** Format: date-time */
+            healthCheckedAt?: string | null;
+            healthStatus?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isCurrent?: boolean;
+            /** Format: date-time */
+            lastHeartbeatAt?: string;
+            machineName?: string | null;
+            /** Format: int64 */
+            managedMemoryBytes?: number;
+            outboxDispatchEnabled?: boolean;
+            /** Format: int32 */
+            processId?: number;
+            role?: string | null;
+            /** Format: date-time */
+            startedAt?: string;
+            status?: string | null;
+            /** Format: date-time */
+            stoppedAt?: string | null;
+            /** Format: double */
+            uptimeSeconds?: number;
+            version?: string | null;
+            /** Format: int64 */
+            workingSetBytes?: number;
+        };
         "OpenTms.Platform.Administration.Maintenance.BackgroundJobQueueDto": {
             /** Format: int64 */
             fetched?: number | null;
@@ -9373,6 +9563,21 @@ export interface components {
             /** Format: double */
             totalDurationMilliseconds?: number;
         };
+        "OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto": {
+            /** Format: uuid */
+            currentInstanceId?: string;
+            /** Format: date-span */
+            heartbeatPeriod?: string;
+            registryEnabled?: boolean;
+            /** Format: int32 */
+            running?: number;
+            /** Format: int32 */
+            stopped?: number;
+            /** Format: int32 */
+            unresponsive?: number;
+            /** Format: date-span */
+            unresponsiveAfter?: string;
+        };
         "OpenTms.Platform.Administration.Maintenance.OutboxDispatchResultDto": {
             /** Format: int32 */
             publishedCount?: number;
@@ -9518,6 +9723,13 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

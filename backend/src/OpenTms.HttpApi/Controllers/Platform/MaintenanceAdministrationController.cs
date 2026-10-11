@@ -22,6 +22,7 @@ public class MaintenanceAdministrationController : OpenTmsController
     private readonly IDatabaseMaintenanceAppService _databases;
     private readonly IOutboxMaintenanceAppService _outbox;
     private readonly IHealthMaintenanceAppService _health;
+    private readonly IInstanceMaintenanceAppService _instances;
     private readonly IBackgroundJobMaintenanceAppService _backgroundJobs;
 
     public MaintenanceAdministrationController(
@@ -29,12 +30,14 @@ public class MaintenanceAdministrationController : OpenTmsController
         IDatabaseMaintenanceAppService databases,
         IOutboxMaintenanceAppService outbox,
         IHealthMaintenanceAppService health,
+        IInstanceMaintenanceAppService instances,
         IBackgroundJobMaintenanceAppService backgroundJobs)
     {
         _caches = caches;
         _databases = databases;
         _outbox = outbox;
         _health = health;
+        _instances = instances;
         _backgroundJobs = backgroundJobs;
     }
 
@@ -143,6 +146,33 @@ public class MaintenanceAdministrationController : OpenTmsController
     [Authorize(PlatformPermissions.Administration.Maintenance.Health)]
     [ProducesResponseType(typeof(HealthReportDto), 200)]
     public async Task<ActionResult<HealthReportDto>> GetHealthAsync() => Ok(await _health.GetReportAsync());
+
+    // ── Instances (the registry on the Health tab) ───────────────────────────
+
+    [HttpGet("instances/overview")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Health)]
+    [ProducesResponseType(typeof(InstancesOverviewDto), 200)]
+    public async Task<ActionResult<InstancesOverviewDto>> GetInstancesOverviewAsync() => Ok(await _instances.GetOverviewAsync());
+
+    [HttpGet("instances")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Health)]
+    [ProducesResponseType(typeof(GridResponse<ApplicationInstanceRowDto>), 200)]
+    public async Task<ActionResult<GridResponse<ApplicationInstanceRowDto>>> GetInstancesAsync(
+        [FromQuery] int startRow = 0,
+        [FromQuery] int endRow = 50,
+        [FromQuery] string? wildcardSearch = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDir = null)
+    {
+        var result = await _instances.GetListAsync(BuildGridRequest(startRow, endRow, wildcardSearch, sortBy, sortDir));
+        return Ok(result);
+    }
+
+    [HttpGet("instances/{id:guid}")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Health)]
+    [ProducesResponseType(typeof(ApplicationInstanceDetailDto), 200)]
+    [ProducesResponseType(404)]
+    public async Task<ActionResult<ApplicationInstanceDetailDto>> GetInstanceAsync(Guid id) => Ok(await _instances.GetAsync(id));
 
     // ── Background jobs ──────────────────────────────────────────────────────
 
