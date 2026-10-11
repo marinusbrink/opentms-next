@@ -183,7 +183,7 @@
     "MasterData:AdrPackingGroup": "Verpakkingsgroep",
     "MasterData:AdrDescription": "ADR-omschrijving",
     "MasterData:Adr": "ADR",
-    "MasterData:DefaultsPerLine": "Standaardwaarden per regel",
+    "MasterData:DefaultsPerLine": "Standaard per aantal",
     "MasterData:DefaultQuantity": "Aantal",
     "MasterData:DefaultWeightKg": "Gewicht (kg)",
     "MasterData:DefaultColli": "Colli",

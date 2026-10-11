@@ -183,7 +183,7 @@
     "MasterData:AdrPackingGroup": "Packing group",
     "MasterData:AdrDescription": "ADR description",
     "MasterData:Adr": "ADR",
-    "MasterData:DefaultsPerLine": "Defaults per line",
+    "MasterData:DefaultsPerLine": "Default per amount",
     "MasterData:DefaultQuantity": "Quantity",
     "MasterData:DefaultWeightKg": "Weight (kg)",
     "MasterData:DefaultColli": "Colli",
