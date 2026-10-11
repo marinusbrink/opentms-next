@@ -57,10 +57,16 @@ export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: En
   const remove = countries.useDelete();
   const canDelete = useIsGranted("MasterData.Countries.Delete");
   const currencyLookup = currencies.useLookup(open);
-  const currencyOptions = useMemo(
-    () => (currencyLookup.data ?? []).map((c) => ({ value: c.id ?? "", label: `${c.code ?? ""} ${c.name ?? ""}`.trim() })),
-    [currencyLookup.data],
-  );
+  /* The lookup lists active currencies (pickers offer those); a country's current default may be an
+   * inactive one, so the loaded record's currency is kept as an option and stays visible. */
+  const currencyOptions = useMemo(() => {
+    const options = (currencyLookup.data ?? []).map((c) => ({ value: c.id ?? "", label: `${c.code ?? ""} ${c.name ?? ""}`.trim() }));
+    const current = detail.data?.defaultCurrencyId;
+    if (current && !options.some((o) => o.value === current)) {
+      options.push({ value: current, label: detail.data?.defaultCurrencyCode ?? current });
+    }
+    return options;
+  }, [currencyLookup.data, detail.data?.defaultCurrencyId, detail.data?.defaultCurrencyCode]);
   const zones = useMemo(timeZoneOptions, []);
 
   const save = useCallback(
