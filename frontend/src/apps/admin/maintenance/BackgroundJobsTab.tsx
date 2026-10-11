@@ -111,7 +111,11 @@ export function BackgroundJobsTab() {
         onClick: () => setState(s),
       })),
       { id: "servers", label: t("Maintenance:Servers"), value: f.number(data.servers?.length ?? 0) },
-      { id: "queues", label: t("Maintenance:Queues"), value: (data.queues ?? []).map((q) => `${q.name} (${f.number(q.length)})`).join(", ") },
+      {
+        id: "queues",
+        label: t("Maintenance:Queues"),
+        value: data.queues?.length ? data.queues.map((q) => `${q.name} (${f.number(q.length)})`).join(", ") : f.number(0),
+      },
     ];
   }, [data, state, t, f]);
 
