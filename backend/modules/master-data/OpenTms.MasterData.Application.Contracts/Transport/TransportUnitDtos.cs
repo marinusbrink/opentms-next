@@ -16,7 +16,10 @@ public class TransportUnitRowDto
     public double? LengthCm { get; set; }
     public double? WidthCm { get; set; }
     public double? HeightCm { get; set; }
-    public double? WeightKg { get; set; }
+    public double? TareWeightKg { get; set; }
+    public double? MaxLoadKg { get; set; }
+    public bool IsStackable { get; set; }
+    public int? MaxStackCount { get; set; }
     public double? LoadingMeters { get; set; }
     public double? EpqFactor { get; set; }
     public bool IsExchangeable { get; set; }
@@ -45,7 +48,10 @@ public class TransportUnitDto : MasterDataDetailDtoBase
     public double? LengthCm { get; set; }
     public double? WidthCm { get; set; }
     public double? HeightCm { get; set; }
-    public double? WeightKg { get; set; }
+    public double? TareWeightKg { get; set; }
+    public double? MaxLoadKg { get; set; }
+    public bool IsStackable { get; set; }
+    public int? MaxStackCount { get; set; }
     public double? LoadingMeters { get; set; }
     public double? EpqFactor { get; set; }
     public bool IsExchangeable { get; set; }
@@ -66,7 +72,10 @@ public class TransportUnitCreateDto
     [Range(0, double.MaxValue)] public double? LengthCm { get; set; }
     [Range(0, double.MaxValue)] public double? WidthCm { get; set; }
     [Range(0, double.MaxValue)] public double? HeightCm { get; set; }
-    [Range(0, double.MaxValue)] public double? WeightKg { get; set; }
+    [Range(0, double.MaxValue)] public double? TareWeightKg { get; set; }
+    [Range(0, double.MaxValue)] public double? MaxLoadKg { get; set; }
+    public bool IsStackable { get; set; }
+    [Range(1, 100)] public int? MaxStackCount { get; set; }
     [Range(0, double.MaxValue)] public double? LoadingMeters { get; set; }
     [Range(0, double.MaxValue)] public double? EpqFactor { get; set; }
 

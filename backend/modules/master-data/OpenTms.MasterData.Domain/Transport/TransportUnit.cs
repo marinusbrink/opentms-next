@@ -20,7 +20,17 @@ public class TransportUnit : MasterDataAggregateRoot
 
     public double? HeightCm { get; set; }
 
-    public double? WeightKg { get; set; }
+    /// <summary>The weight of the empty unit; with the goods it gives the gross weight on the document.</summary>
+    public double? TareWeightKg { get; set; }
+
+    /// <summary>The payload the unit may carry (a Europallet about 1,500 kg).</summary>
+    public double? MaxLoadKg { get; set; }
+
+    /// <summary>Planning fills a trailer by floor positions; carriers price a non-stackable unit differently.</summary>
+    public bool IsStackable { get; set; }
+
+    /// <summary>How many of these units stack on top of each other when stackable.</summary>
+    public int? MaxStackCount { get; set; }
 
     public double? LoadingMeters { get; set; }
 

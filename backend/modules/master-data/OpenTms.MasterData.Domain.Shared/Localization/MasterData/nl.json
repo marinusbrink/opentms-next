@@ -195,7 +195,6 @@
     "MasterData:LengthCm": "Lengte (cm)",
     "MasterData:WidthCm": "Breedte (cm)",
     "MasterData:HeightCm": "Hoogte (cm)",
-    "MasterData:WeightKg": "Gewicht (kg)",
     "MasterData:LoadingMeters": "Laadmeters (ldm)",
     "MasterData:EpqFactor": "EPQ-factor",
     "MasterData:IsExchangeable": "Ruilbaar",
@@ -242,6 +241,10 @@
     "MasterData:AdrSpecialProvisions": "Bijzondere bepalingen",
     "MasterData:AdrIsLimitedQuantity": "Gelimiteerde hoeveelheid",
     "MasterData:AdrIsEnvironmentallyHazardous": "Milieugevaarlijk",
-    "MasterData:AdrIsWaste": "Afval"
+    "MasterData:AdrIsWaste": "Afval",
+    "MasterData:TareWeightKg": "Leeggewicht (kg)",
+    "MasterData:MaxLoadKg": "Max. belading (kg)",
+    "MasterData:IsStackable": "Stapelbaar",
+    "MasterData:MaxStackCount": "Max. stapelhoogte (aantal)"
   }
 }

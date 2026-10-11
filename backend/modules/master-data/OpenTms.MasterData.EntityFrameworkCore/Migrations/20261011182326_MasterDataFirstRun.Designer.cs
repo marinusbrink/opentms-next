@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261011171933_MasterDataFirstRun")]
+    [Migration("20261011182326_MasterDataFirstRun")]
     partial class MasterDataFirstRun
     {
         /// <inheritdoc />
@@ -1046,6 +1046,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<bool>("IsExchangeable")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsStackable")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("LastModificationTime");
@@ -1060,17 +1063,23 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<double?>("LoadingMeters")
                         .HasColumnType("double precision");
 
+                    b.Property<double?>("MaxLoadKg")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("MaxStackCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<double?>("TareWeightKg")
+                        .HasColumnType("double precision");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
-
-                    b.Property<double?>("WeightKg")
-                        .HasColumnType("double precision");
 
                     b.Property<double?>("WidthCm")
                         .HasColumnType("double precision");

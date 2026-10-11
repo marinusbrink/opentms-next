@@ -17064,14 +17064,19 @@ export interface components {
             incompatibleTransportUnitIds?: string[] | null;
             isArchived?: boolean;
             isExchangeable?: boolean;
+            isStackable?: boolean;
             /** Format: double */
             lengthCm?: number | null;
             loadFactors?: components["schemas"]["OpenTms.MasterData.Transport.TransportUnitLoadFactorDto"][] | null;
             /** Format: double */
             loadingMeters?: number | null;
+            /** Format: double */
+            maxLoadKg?: number | null;
+            /** Format: int32 */
+            maxStackCount?: number | null;
             name: string;
             /** Format: double */
-            weightKg?: number | null;
+            tareWeightKg?: number | null;
             /** Format: double */
             widthCm?: number | null;
         };
@@ -17091,6 +17096,7 @@ export interface components {
             incompatibleTransportUnits?: components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][] | null;
             isArchived?: boolean;
             isExchangeable?: boolean;
+            isStackable?: boolean;
             /** Format: date-time */
             lastModificationTime?: string | null;
             /** Format: uuid */
@@ -17100,9 +17106,13 @@ export interface components {
             loadFactors?: components["schemas"]["OpenTms.MasterData.Transport.TransportUnitLoadFactorDto"][] | null;
             /** Format: double */
             loadingMeters?: number | null;
+            /** Format: double */
+            maxLoadKg?: number | null;
+            /** Format: int32 */
+            maxStackCount?: number | null;
             name?: string | null;
             /** Format: double */
-            weightKg?: number | null;
+            tareWeightKg?: number | null;
             /** Format: double */
             widthCm?: number | null;
         };
@@ -17127,13 +17137,18 @@ export interface components {
             id?: string;
             isArchived?: boolean;
             isExchangeable?: boolean;
+            isStackable?: boolean;
             /** Format: double */
             lengthCm?: number | null;
             /** Format: double */
             loadingMeters?: number | null;
+            /** Format: double */
+            maxLoadKg?: number | null;
+            /** Format: int32 */
+            maxStackCount?: number | null;
             name?: string | null;
             /** Format: double */
-            weightKg?: number | null;
+            tareWeightKg?: number | null;
             /** Format: double */
             widthCm?: number | null;
         };
@@ -17147,14 +17162,19 @@ export interface components {
             incompatibleTransportUnitIds?: string[] | null;
             isArchived?: boolean;
             isExchangeable?: boolean;
+            isStackable?: boolean;
             /** Format: double */
             lengthCm?: number | null;
             loadFactors?: components["schemas"]["OpenTms.MasterData.Transport.TransportUnitLoadFactorDto"][] | null;
             /** Format: double */
             loadingMeters?: number | null;
+            /** Format: double */
+            maxLoadKg?: number | null;
+            /** Format: int32 */
+            maxStackCount?: number | null;
             name: string;
             /** Format: double */
-            weightKg?: number | null;
+            tareWeightKg?: number | null;
             /** Format: double */
             widthCm?: number | null;
         };

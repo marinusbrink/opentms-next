@@ -8,7 +8,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseNumber } from "@/apps/master-data/components/fields";
+import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger, parseNumber } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
 import { transportUnits, vehicleTypes, type TransportUnitDto } from "@/domains/master-data/entities";
 import { useIsGranted } from "@/lib/auth/permissions";
@@ -29,7 +29,10 @@ interface Values {
   lengthCm: string;
   widthCm: string;
   heightCm: string;
-  weightKg: string;
+  tareWeightKg: string;
+  maxLoadKg: string;
+  isStackable: boolean;
+  maxStackCount: string;
   loadingMeters: string;
   epqFactor: string;
   isExchangeable: boolean;
@@ -37,7 +40,7 @@ interface Values {
   incompatibleTransportUnitIds: string[];
 }
 
-const NUMBER_FIELDS = ["lengthCm", "widthCm", "heightCm", "weightKg", "loadingMeters", "epqFactor"] as const;
+const NUMBER_FIELDS = ["lengthCm", "widthCm", "heightCm", "tareWeightKg", "maxLoadKg", "loadingMeters", "epqFactor"] as const;
 
 let rowCounter = 0;
 
@@ -48,7 +51,10 @@ const initialValues = (dto: TransportUnitDto | undefined): Values => ({
   lengthCm: numberToText(dto?.lengthCm),
   widthCm: numberToText(dto?.widthCm),
   heightCm: numberToText(dto?.heightCm),
-  weightKg: numberToText(dto?.weightKg),
+  tareWeightKg: numberToText(dto?.tareWeightKg),
+  maxLoadKg: numberToText(dto?.maxLoadKg),
+  isStackable: dto?.isStackable ?? false,
+  maxStackCount: numberToText(dto?.maxStackCount),
   loadingMeters: numberToText(dto?.loadingMeters),
   epqFactor: numberToText(dto?.epqFactor),
   isExchangeable: dto?.isExchangeable ?? false,
@@ -69,6 +75,8 @@ const validate = (v: Values): FieldErrors<Values> => {
     const error = numberError(v[field], { min: 0 });
     if (error) errors[field] = error;
   }
+  const stack = numberError(v.maxStackCount, { integer: true, min: 1, max: 100 });
+  if (stack) errors.maxStackCount = stack;
   if (v.loadFactors.some((f) => !f.vehicleTypeId)) errors.loadFactors = "MasterData:LoadFactorVehicleTypeRequired";
   else if (new Set(v.loadFactors.map((f) => f.vehicleTypeId)).size !== v.loadFactors.length) errors.loadFactors = "MasterData:LoadFactorDuplicate";
   return errors;
@@ -117,7 +125,10 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
         lengthCm: parseNumber(v.lengthCm),
         widthCm: parseNumber(v.widthCm),
         heightCm: parseNumber(v.heightCm),
-        weightKg: parseNumber(v.weightKg),
+        tareWeightKg: parseNumber(v.tareWeightKg),
+        maxLoadKg: parseNumber(v.maxLoadKg),
+        isStackable: v.isStackable,
+        maxStackCount: v.isStackable ? parseInteger(v.maxStackCount) : null,
         loadingMeters: parseNumber(v.loadingMeters),
         epqFactor: parseNumber(v.epqFactor),
         isExchangeable: v.isExchangeable,
@@ -142,22 +153,32 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
     {
       value: "general",
       labelKey: "General",
-      fields: ["name", "description", ...NUMBER_FIELDS],
+      fields: ["name", "description", "maxStackCount", ...NUMBER_FIELDS],
       render: (form) => (
-        <FormSection title={t("MasterData:TransportUnit")}>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} className="col-span-2" />
-            <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
-            <NumberField form={form} field="lengthCm" labelKey="MasterData:LengthCm" />
-            <NumberField form={form} field="widthCm" labelKey="MasterData:WidthCm" />
-            <NumberField form={form} field="heightCm" labelKey="MasterData:HeightCm" />
-            <NumberField form={form} field="weightKg" labelKey="MasterData:WeightKg" />
-            <NumberField form={form} field="loadingMeters" labelKey="MasterData:LoadingMeters" />
-            <NumberField form={form} field="epqFactor" labelKey="MasterData:EpqFactor" />
-            <CheckboxField form={form} field="isExchangeable" labelKey="MasterData:IsExchangeable" />
-            <CheckboxField form={form} field="isArchived" labelKey="MasterData:IsArchived" />
-          </div>
-        </FormSection>
+        /* Two topics, two sections (UI-FORM-005; PO 2026-10-11): the unit itself, and its dimensions and capacities. */
+        <div className="grid grid-cols-2 gap-4">
+          <FormSection title={t("MasterData:TransportUnit")}>
+            <div className="grid grid-cols-1 gap-3">
+              <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
+              <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
+              <CheckboxField form={form} field="isExchangeable" labelKey="MasterData:IsExchangeable" />
+              <CheckboxField form={form} field="isArchived" labelKey="MasterData:IsArchived" />
+            </div>
+          </FormSection>
+          <FormSection title={t("MasterData:DimensionsAndCapacities")}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <NumberField form={form} field="lengthCm" labelKey="MasterData:LengthCm" />
+              <NumberField form={form} field="widthCm" labelKey="MasterData:WidthCm" />
+              <NumberField form={form} field="heightCm" labelKey="MasterData:HeightCm" />
+              <NumberField form={form} field="tareWeightKg" labelKey="MasterData:TareWeightKg" />
+              <NumberField form={form} field="maxLoadKg" labelKey="MasterData:MaxLoadKg" />
+              <NumberField form={form} field="loadingMeters" labelKey="MasterData:LoadingMeters" />
+              <NumberField form={form} field="epqFactor" labelKey="MasterData:EpqFactor" />
+              <CheckboxField form={form} field="isStackable" labelKey="MasterData:IsStackable" />
+              <NumberField form={{ ...form, readOnly: form.readOnly || !form.values.isStackable }} field="maxStackCount" labelKey="MasterData:MaxStackCount" />
+            </div>
+          </FormSection>
+        </div>
       ),
     },
     {

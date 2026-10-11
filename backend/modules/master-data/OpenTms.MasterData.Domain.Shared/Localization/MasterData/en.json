@@ -195,7 +195,6 @@
     "MasterData:LengthCm": "Length (cm)",
     "MasterData:WidthCm": "Width (cm)",
     "MasterData:HeightCm": "Height (cm)",
-    "MasterData:WeightKg": "Weight (kg)",
     "MasterData:LoadingMeters": "Loading metres (ldm)",
     "MasterData:EpqFactor": "EPQ factor",
     "MasterData:IsExchangeable": "Exchangeable",
@@ -242,6 +241,10 @@
     "MasterData:AdrSpecialProvisions": "Special provisions",
     "MasterData:AdrIsLimitedQuantity": "Limited quantity",
     "MasterData:AdrIsEnvironmentallyHazardous": "Environmentally hazardous",
-    "MasterData:AdrIsWaste": "Waste"
+    "MasterData:AdrIsWaste": "Waste",
+    "MasterData:TareWeightKg": "Tare weight (kg)",
+    "MasterData:MaxLoadKg": "Max load (kg)",
+    "MasterData:IsStackable": "Stackable",
+    "MasterData:MaxStackCount": "Max stack count"
   }
 }

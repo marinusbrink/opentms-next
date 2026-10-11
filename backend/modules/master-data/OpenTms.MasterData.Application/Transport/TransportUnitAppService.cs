@@ -71,7 +71,10 @@ public class TransportUnitAppService
             "lengthcm" => Order(query, u => u.LengthCm, descending),
             "widthcm" => Order(query, u => u.WidthCm, descending),
             "heightcm" => Order(query, u => u.HeightCm, descending),
-            "weightkg" => Order(query, u => u.WeightKg, descending),
+            "tareweightkg" => Order(query, u => u.TareWeightKg, descending),
+            "maxloadkg" => Order(query, u => u.MaxLoadKg, descending),
+            "isstackable" => Order(query, u => u.IsStackable, descending),
+            "maxstackcount" => Order(query, u => u.MaxStackCount, descending),
             "loadingmeters" => Order(query, u => u.LoadingMeters, descending),
             "epqfactor" => Order(query, u => u.EpqFactor, descending),
             "isexchangeable" => Order(query, u => u.IsExchangeable, descending),
@@ -90,7 +93,10 @@ public class TransportUnitAppService
             LengthCm = u.LengthCm,
             WidthCm = u.WidthCm,
             HeightCm = u.HeightCm,
-            WeightKg = u.WeightKg,
+            TareWeightKg = u.TareWeightKg,
+            MaxLoadKg = u.MaxLoadKg,
+            IsStackable = u.IsStackable,
+            MaxStackCount = u.MaxStackCount,
             LoadingMeters = u.LoadingMeters,
             EpqFactor = u.EpqFactor,
             IsExchangeable = u.IsExchangeable
@@ -109,7 +115,10 @@ public class TransportUnitAppService
             LengthCm = u.LengthCm,
             WidthCm = u.WidthCm,
             HeightCm = u.HeightCm,
-            WeightKg = u.WeightKg,
+            TareWeightKg = u.TareWeightKg,
+            MaxLoadKg = u.MaxLoadKg,
+            IsStackable = u.IsStackable,
+            MaxStackCount = u.MaxStackCount,
             LoadingMeters = u.LoadingMeters,
             EpqFactor = u.EpqFactor,
             IsExchangeable = u.IsExchangeable,
@@ -168,7 +177,10 @@ public class TransportUnitAppService
         unit.LengthCm = input.LengthCm;
         unit.WidthCm = input.WidthCm;
         unit.HeightCm = input.HeightCm;
-        unit.WeightKg = input.WeightKg;
+        unit.TareWeightKg = input.TareWeightKg;
+        unit.MaxLoadKg = input.MaxLoadKg;
+        unit.IsStackable = input.IsStackable;
+        unit.MaxStackCount = input.IsStackable ? input.MaxStackCount : null;
         unit.LoadingMeters = input.LoadingMeters;
         unit.EpqFactor = input.EpqFactor;
         unit.IsExchangeable = input.IsExchangeable;

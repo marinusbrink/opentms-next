@@ -46,7 +46,10 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
         LengthCm = dto.LengthCm,
         WidthCm = dto.WidthCm,
         HeightCm = dto.HeightCm,
-        WeightKg = dto.WeightKg,
+        TareWeightKg = dto.TareWeightKg,
+        MaxLoadKg = dto.MaxLoadKg,
+        IsStackable = dto.IsStackable,
+        MaxStackCount = dto.MaxStackCount,
         LoadingMeters = dto.LoadingMeters,
         EpqFactor = dto.EpqFactor,
         IsExchangeable = dto.IsExchangeable,
@@ -69,7 +72,10 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
             LengthCm = 120,
             WidthCm = 80,
             HeightCm = 15,
-            WeightKg = 25,
+            TareWeightKg = 25,
+            MaxLoadKg = 1500,
+            IsStackable = true,
+            MaxStackCount = 2,
             LoadingMeters = 0.4,
             EpqFactor = 1,
             IsExchangeable = true,
@@ -177,7 +183,7 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
     {
         using var _ = InTenantA();
         await CreateAsync("Europallet");
-        await _service.CreateAsync(new TransportUnitCreateDto { Name = "Rolcontainer", Description = "retail cage", WeightKg = 30 });
+        await _service.CreateAsync(new TransportUnitCreateDto { Name = "Rolcontainer", Description = "retail cage", TareWeightKg = 30 });
         await CreateAsync("Old crate", archived: true);
 
         var visible = await _service.GetListAsync(List<ArchivableListRequestDto>());
@@ -188,8 +194,8 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
 
         (await _service.GetListAsync(List<ArchivableListRequestDto>(search: "pal"))).Rows.ShouldHaveSingleItem().Name.ShouldBe("Europallet");
         (await _service.GetListAsync(List<ArchivableListRequestDto>(search: "cage"))).Rows.ShouldHaveSingleItem().Name.ShouldBe("Rolcontainer");
-        (await _service.GetListAsync(List<ArchivableListRequestDto>(sortBy: "weightKg", sortDir: "desc"))).Rows.First().Name.ShouldBe("Rolcontainer");
-        foreach (var column in new[] { "description", "isArchived", "lengthCm", "widthCm", "heightCm", "loadingMeters", "epqFactor", "isExchangeable" })
+        (await _service.GetListAsync(List<ArchivableListRequestDto>(sortBy: "tareWeightKg", sortDir: "desc"))).Rows.First().Name.ShouldBe("Rolcontainer");
+        foreach (var column in new[] { "description", "isArchived", "lengthCm", "widthCm", "heightCm", "maxLoadKg", "isStackable", "maxStackCount", "loadingMeters", "epqFactor", "isExchangeable" })
         {
             (await _service.GetListAsync(List<ArchivableListRequestDto>(sortBy: column))).Rows.Count.ShouldBe(2, column);
         }

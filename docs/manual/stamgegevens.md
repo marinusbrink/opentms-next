@@ -63,8 +63,9 @@ wilt.
   tunnelbeperkingscode, de vervoerscategorie (0–4, voor de 1000-puntenregel), het vlampunt en de
   bijzondere bepalingen vast, met de vinkjes *gelimiteerde hoeveelheid*, *milieugevaarlijk* en
   *afval* zoals ze op het vervoersdocument horen.
-- Een **transporteenheid** is een verpakkingstype: afmetingen, gewicht, laadmeters, EPQ-factor en
-  of de eenheid wordt geruild (europallet). Op het tabblad *Beladingsfactoren* legt u per
+- Een **transporteenheid** is een verpakkingstype: afmetingen, leeggewicht, maximale belading,
+  laadmeters, EPQ-factor, of de eenheid stapelbaar is en hoe hoog, en of de eenheid wordt geruild
+  (europallet). Op het tabblad *Beladingsfactoren* legt u per
   voertuigtype vast hoeveel eenheden erin passen; elk voertuigtype komt hoogstens één keer voor.
 - Een **temperatuur** heeft een minimum en maximum in graden Celsius.
 - Alle drie hebben het tabblad **Niet combineren met**: de records die niet samen in één rit
