@@ -5,6 +5,7 @@ import { RolesView } from "@/apps/admin/roles/RolesView";
 import { OrganizationUnitsView } from "@/apps/admin/organization-units/OrganizationUnitsView";
 import { FunctionalLogbookView } from "@/apps/admin/logbook/FunctionalLogbookView";
 import { TechnicalLogbookView } from "@/apps/admin/logbook/TechnicalLogbookView";
+import { MaintenanceView } from "@/apps/admin/maintenance/MaintenanceView";
 
 export function AdministrationApp() {
   const location = useLocation();
@@ -24,6 +25,9 @@ export function AdministrationApp() {
   }
   if (location.pathname.startsWith("/admin/organization-units")) {
     return <OrganizationUnitsView />;
+  }
+  if (location.pathname.startsWith("/admin/maintenance")) {
+    return <MaintenanceView />;
   }
   if (location.pathname.startsWith("/admin/logbook/technical")) {
     return <TechnicalLogbookView />;

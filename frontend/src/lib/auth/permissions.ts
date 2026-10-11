@@ -15,3 +15,10 @@ export function useIsFeatureEnabled(name: string): boolean {
   const values = data?.features?.values as Record<string, string | null> | undefined;
   return values?.[name] === "true";
 }
+
+/** True on the host side (no current tenant) once the configuration is known; false while loading. */
+export function useIsHostSide(): boolean {
+  const { data } = useApplicationConfiguration();
+  return data != null && data.currentTenant?.id == null;
+}
+

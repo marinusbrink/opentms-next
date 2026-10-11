@@ -41,6 +41,8 @@ export interface Formatter {
   unitPrice(value: number | null | undefined): string;
   percent(value: number | null | undefined): string;
   duration(minutes: number | null | undefined): string;
+  /** A byte count in the largest unit that keeps the figure above 1 (B, KB, MB, GB, TB), one decimal from KB up. */
+  bytes(value: number | null | undefined): string;
 }
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -116,6 +118,17 @@ export function createFormatter(culture: string, t: (key: string) => string): Fo
       if (hours > 0) parts.push(`${hours}${t("Duration:Hour")}`);
       if (mins > 0 || parts.length === 0) parts.push(`${mins}${t("Duration:Minute")}`);
       return parts.join(" ");
+    },
+    bytes: (value) => {
+      if (value == null || Number.isNaN(value)) return "";
+      const units = ["Unit:Bytes", "Unit:Kilobytes", "Unit:Megabytes", "Unit:Gigabytes", "Unit:Terabytes"];
+      let size = Math.max(0, value);
+      let index = 0;
+      while (size >= 1024 && index < units.length - 1) {
+        size /= 1024;
+        index += 1;
+      }
+      return `${number(size, { decimals: index === 0 ? 0 : 1 })} ${t(units[index])}`;
     },
   };
 }

@@ -123,6 +123,20 @@ public class PlatformPermissionDefinitionTests
             .ShouldBe("Platform.Administration.Logbook.Technical");
     }
 
+    [Fact]
+    public void Maintenance_permissions_have_correct_values()
+    {
+        PlatformPermissions.Administration.Maintenance.Default.ShouldBe("Platform.Administration.Maintenance");
+        PlatformPermissions.Administration.Maintenance.Caches.ShouldBe("Platform.Administration.Maintenance.Caches");
+        PlatformPermissions.Administration.Maintenance.CachesClear.ShouldBe("Platform.Administration.Maintenance.Caches.Clear");
+        PlatformPermissions.Administration.Maintenance.Databases.ShouldBe("Platform.Administration.Maintenance.Databases");
+        PlatformPermissions.Administration.Maintenance.Outbox.ShouldBe("Platform.Administration.Maintenance.Outbox");
+        PlatformPermissions.Administration.Maintenance.OutboxDispatch.ShouldBe("Platform.Administration.Maintenance.Outbox.Dispatch");
+        PlatformPermissions.Administration.Maintenance.Health.ShouldBe("Platform.Administration.Maintenance.Health");
+        PlatformPermissions.Administration.Maintenance.BackgroundJobs.ShouldBe("Platform.Administration.Maintenance.BackgroundJobs");
+        PlatformPermissions.Administration.Maintenance.BackgroundJobsManage.ShouldBe("Platform.Administration.Maintenance.BackgroundJobs.Manage");
+    }
+
     // ── Hierarchy: child permissions are prefixed with their parent ──────────
 
     [Fact]
@@ -207,6 +221,15 @@ public class PlatformPermissionDefinitionTests
             PlatformPermissions.Administration.Logbook.Default,
             PlatformPermissions.Administration.Logbook.Functional,
             PlatformPermissions.Administration.Logbook.Technical,
+            PlatformPermissions.Administration.Maintenance.Default,
+            PlatformPermissions.Administration.Maintenance.Caches,
+            PlatformPermissions.Administration.Maintenance.CachesClear,
+            PlatformPermissions.Administration.Maintenance.Databases,
+            PlatformPermissions.Administration.Maintenance.Outbox,
+            PlatformPermissions.Administration.Maintenance.OutboxDispatch,
+            PlatformPermissions.Administration.Maintenance.Health,
+            PlatformPermissions.Administration.Maintenance.BackgroundJobs,
+            PlatformPermissions.Administration.Maintenance.BackgroundJobsManage,
         };
 
         var distinct = new System.Collections.Generic.HashSet<string>(all);

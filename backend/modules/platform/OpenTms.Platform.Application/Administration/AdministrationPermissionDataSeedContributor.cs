@@ -45,11 +45,34 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.Administration.Logbook.Default,
             PlatformPermissions.Administration.Logbook.Functional,
             PlatformPermissions.Administration.Logbook.Technical,
+            PlatformPermissions.Administration.Maintenance.Default,
+            PlatformPermissions.Administration.Maintenance.Outbox,
+            PlatformPermissions.Administration.Maintenance.OutboxDispatch,
+        ];
+
+        /* Host-only permissions cannot be granted inside a tenant (ABP rejects the side mismatch),
+         * so they are seeded for the host admin only. */
+        string[] hostOnlyPermissions =
+        [
+            PlatformPermissions.Administration.Maintenance.Caches,
+            PlatformPermissions.Administration.Maintenance.CachesClear,
+            PlatformPermissions.Administration.Maintenance.Databases,
+            PlatformPermissions.Administration.Maintenance.Health,
+            PlatformPermissions.Administration.Maintenance.BackgroundJobs,
+            PlatformPermissions.Administration.Maintenance.BackgroundJobsManage,
         ];
 
         foreach (var permission in permissions)
         {
             await _permissionManager.SetAsync(permission, RoleProviderName, AdminRoleName, true);
+        }
+
+        if (context.TenantId == null)
+        {
+            foreach (var permission in hostOnlyPermissions)
+            {
+                await _permissionManager.SetAsync(permission, RoleProviderName, AdminRoleName, true);
+            }
         }
     }
 }
