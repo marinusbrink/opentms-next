@@ -208,9 +208,10 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ConfigureByConvention();
             b.Property(p => p.Prefix).HasMaxLength(MasterDataConsts.MaxPostalCodePrefixLength);
             b.HasOne<Country>().WithMany().HasForeignKey(p => p.CountryId).OnDelete(DeleteBehavior.Restrict);
-            /* The matcher reads one country's ranges. */
+            /* The matcher reads one country's ranges; the list's country filter probes (region, country) per
+             * region, and the leading column still serves the cascade. */
             b.HasIndex(p => p.CountryId);
-            b.HasIndex(p => p.GeographicalRegionId);
+            b.HasIndex(p => new { p.GeographicalRegionId, p.CountryId });
         });
     }
 

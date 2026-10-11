@@ -661,7 +661,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.HasIndex("CountryId");
 
-                    b.HasIndex("GeographicalRegionId");
+                    b.HasIndex("GeographicalRegionId", "CountryId");
 
                     b.ToTable("GeographicalRegionPostalCodeRanges", "masterdata", t =>
                         {

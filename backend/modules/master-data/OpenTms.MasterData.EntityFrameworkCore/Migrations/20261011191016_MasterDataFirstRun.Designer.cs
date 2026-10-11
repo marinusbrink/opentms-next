@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261011182326_MasterDataFirstRun")]
+    [Migration("20261011191016_MasterDataFirstRun")]
     partial class MasterDataFirstRun
     {
         /// <inheritdoc />
@@ -664,7 +664,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.HasIndex("CountryId");
 
-                    b.HasIndex("GeographicalRegionId");
+                    b.HasIndex("GeographicalRegionId", "CountryId");
 
                     b.ToTable("GeographicalRegionPostalCodeRanges", "masterdata", t =>
                         {

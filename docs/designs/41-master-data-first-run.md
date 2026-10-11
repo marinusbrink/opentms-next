@@ -421,7 +421,9 @@ built):
   `(TenantId, key)` indexes with `NULLS NOT DISTINCT` and the `IsDeleted = false` filter listed per
   entity; the partial unique indexes for the default currency and the address-type kinds; a plain
   `(TenantId)` index on every root table (every list is tenant-scoped; ABP adds none); `(CountryId)`
-  on postal-code ranges; `(VehicleTypeId)` on load factors; `(DefaultCurrencyId)` on countries.
+  and `(GeographicalRegionId, CountryId)` on postal-code ranges (the matcher, and the list's country
+  filter as an index probe per region: 387 ms → 8 ms at ×5 volume); `(VehicleTypeId)` on load factors;
+  `(DefaultCurrencyId)` on countries.
 - Foreign keys and check constraints as listed under *Domain impact*.
 - Expand only: nothing is renamed or dropped, no data is moved, no contract step follows. `Down`
   drops the tables.

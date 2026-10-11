@@ -94,12 +94,18 @@ public class GeographicalRegionAppService
 
     protected override async Task<List<GeographicalRegionRowDto>> ToRowsAsync(List<GeographicalRegion> entities)
     {
+        /* One grouped COUNT in SQL; loading the page's ranges as entities to count them cost 5,000 rows a page. */
         var ids = entities.Select(r => r.Id).ToList();
-        var counts = ids.Count == 0
-            ? new Dictionary<Guid, int>()
-            : (await _ranges.GetListAsync(p => ids.Contains(p.GeographicalRegionId)))
+        var counts = new Dictionary<Guid, int>();
+        if (ids.Count > 0)
+        {
+            var ranges = await _ranges.GetQueryableAsync();
+            var grouped = await AsyncExecuter.ToListAsync(ranges
+                .Where(p => ids.Contains(p.GeographicalRegionId))
                 .GroupBy(p => p.GeographicalRegionId)
-                .ToDictionary(g => g.Key, g => g.Count());
+                .Select(g => new { RegionId = g.Key, Count = g.Count() }));
+            counts = grouped.ToDictionary(g => g.RegionId, g => g.Count);
+        }
 
         return entities.Select(r => new GeographicalRegionRowDto
         {

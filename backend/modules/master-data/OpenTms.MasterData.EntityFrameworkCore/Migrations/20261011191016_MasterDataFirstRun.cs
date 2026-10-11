@@ -578,10 +578,10 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 column: "CountryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_GeographicalRegionPostalCodeRanges_GeographicalRegionId",
+                name: "IX_GeographicalRegionPostalCodeRanges_GeographicalRegionId_Cou~",
                 schema: "masterdata",
                 table: "GeographicalRegionPostalCodeRanges",
-                column: "GeographicalRegionId");
+                columns: new[] { "GeographicalRegionId", "CountryId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_GeographicalRegions_TenantId",
