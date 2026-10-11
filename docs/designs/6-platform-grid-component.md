@@ -49,6 +49,11 @@ consume the contract in their own list endpoints.
 
 ### Settings storage
 
+> **Superseded 2026-10-11 by [grid-settings-storage.md](grid-settings-storage.md):** the single
+> setting value below overflowed its 2048 characters at five grids. Settings are now one row per
+> (tenant, user, grid) in `platform."GridUserSettings"`; what is left in the setting value is
+> migrated lazily. The API contract is unchanged.
+
 **Design gate amendment — approved 2026-08-18.** The original spec used one ABP setting
 key per gridId (`OpenTms.Platform.Grid.Settings.{gridId}`). During implementation this
 was found to be infeasible: `ISettingManager` validates every name against
@@ -315,6 +320,8 @@ On any column-state change (visibility toggle, resize, reorder, sort change):
 debounced `PUT /api/platform/grid-settings/{gridId}` with 1 000 ms debounce — the user
 sees the change immediately (no perceived latency). Failed save is logged (structured,
 not a toast — the user's current session state is correct, only persistence failed).
+*Amended by [grid-settings-storage.md](grid-settings-storage.md) §UI design: a failed save or
+reset also shows a toast (UI-FB-005); the local state is still kept.*
 
 **Reset to defaults**: `DELETE /api/platform/grid-settings/{gridId}` fires immediately
 (no debounce); local state reverts to the code-default column definitions without

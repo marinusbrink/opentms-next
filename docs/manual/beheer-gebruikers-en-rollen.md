@@ -75,6 +75,10 @@ volgorde om te keren.
 **Kolommen aan-/uitzetten:** klik op **Kolommen** om te kiezen welke kolommen
 zichtbaar zijn. Met **Vernieuwen** haal je de lijst opnieuw op.
 
+Je kolomkeuze, kolombreedtes en sortering worden per gebruiker bewaard, voor elke
+lijst apart. Lukt het bewaren een keer niet, dan verschijnt een melding; je huidige
+weergave blijft gewoon staan tot je het scherm verlaat.
+
 **Een rij openen:** dubbelklik op een rij (of druk op **Enter** als de rij de focus
 heeft) om de gebruiker te openen. Heb je geen bewerkrecht, dan opent het venster
 alleen-lezen.

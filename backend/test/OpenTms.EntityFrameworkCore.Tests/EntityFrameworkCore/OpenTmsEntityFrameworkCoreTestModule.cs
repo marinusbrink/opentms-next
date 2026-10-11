@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Platform.EntityFrameworkCore;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -58,6 +59,11 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         _database.CreateTables(
             new OpenTmsDbContext(new DbContextOptionsBuilder<OpenTmsDbContext>().UseSqlite(_database.ConnectionString).Options));
 
+        /* The module contexts own their tables (schema-per-module); the Platform context holds the
+         * per-user grid settings under test. Same shared in-memory database as the host context. */
+        _database.CreateTables(
+            new PlatformDbContext(new DbContextOptionsBuilder<PlatformDbContext>().UseSqlite(_database.ConnectionString).Options));
+
         services.Configure<AbpDbConnectionOptions>(options =>
         {
             options.ConnectionStrings.Default = _database.ConnectionString;
@@ -66,6 +72,13 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         services.Configure<AbpDbContextOptions>(options =>
         {
             options.Configure(context =>
+            {
+                context.UseSqlite();
+            });
+
+            /* PlatformEntityFrameworkCoreModule registers a context-specific Npgsql configurer, which
+             * takes precedence over the default one above; replace it for the SQLite tests. */
+            options.Configure<PlatformDbContext>(context =>
             {
                 context.UseSqlite();
             });
