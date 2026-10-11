@@ -39,5 +39,13 @@ public static class PlatformPermissions
             public const string Delete = Default + ".Delete";
             public const string ManageMembers = Default + ".ManageMembers";
         }
+
+        /// <summary>Read-only: the logbooks have no write actions, so there are view permissions only.</summary>
+        public static class Logbook
+        {
+            public const string Default = GroupName + ".Administration.Logbook";
+            public const string Functional = Default + ".Functional";
+            public const string Technical = Default + ".Technical";
+        }
     }
 }

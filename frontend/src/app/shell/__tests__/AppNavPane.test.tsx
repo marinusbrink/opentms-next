@@ -229,6 +229,14 @@ describe("AppNavPane (critical + high risk)", () => {
       expect(screen.getByText("ChildView")).toBeInTheDocument();
     });
 
+    it("expanded: a category whose child is the current page starts open", () => {
+      (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/parent/child" });
+      render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);
+      const child = screen.getByRole("link", { name: /ChildView/ });
+      expect(child).toBeInTheDocument();
+      expect(child.getAttribute("aria-current")).toBe("page");
+    });
+
     it("expanded: clicking entry with children twice collapses sub-list again", () => {
       (useLocation as ReturnType<typeof vi.fn>).mockReturnValue({ pathname: "/admin/other" });
       render(<AppNavPane app={APP_WITH_CHILDREN} collapsed={false} onToggleCollapsed={vi.fn()} />);

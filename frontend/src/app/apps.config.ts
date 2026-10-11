@@ -1,11 +1,14 @@
 import {
   BarChart3,
+  BookOpen,
   CalendarRange,
   Database,
+  History,
   LayoutDashboard,
   Network,
   Plug,
   Receipt,
+  ScrollText,
   Shield,
   ShieldCheck,
   Truck,
@@ -30,8 +33,7 @@ export interface AppView {
   /** Route path (exact or prefix) for active-state matching and navigation. */
   path: string;
   icon: LucideIcon;
-  /** Sub-items for expandable categories. No app uses this in this PBI;
-   *  support must exist in the component so Transport can adopt it later. */
+  /** Sub-items for expandable categories (Administration's "Audit logs" holds the two logbooks). */
   children?: readonly AppView[];
 }
 
@@ -128,6 +130,15 @@ export const APPS: readonly AppDefinition[] = [
       { nameKey: "Administration:Users", path: "/admin/users", icon: Users },
       { nameKey: "Administration:Roles", path: "/admin/roles", icon: ShieldCheck },
       { nameKey: "Administration:OrganizationUnits", path: "/admin/organization-units", icon: Network },
+      {
+        nameKey: "Administration:AuditLogs",
+        path: "/admin/logbook",
+        icon: History,
+        children: [
+          { nameKey: "Administration:FunctionalLogbook", path: "/admin/logbook/functional", icon: BookOpen },
+          { nameKey: "Administration:TechnicalLogbook", path: "/admin/logbook/technical", icon: ScrollText },
+        ],
+      },
     ],
   },
 ];

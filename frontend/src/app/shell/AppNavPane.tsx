@@ -21,9 +21,10 @@ interface NavEntryProps {
 function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   const { t } = useL();
   const location = useLocation();
-  const [childrenOpen, setChildrenOpen] = useState(false);
 
   const isActive = location.pathname === view.path || location.pathname.startsWith(`${view.path}/`);
+  /* A category whose child is the current page starts open, so the active entry is visible. */
+  const [childrenOpen, setChildrenOpen] = useState(isActive);
   const hasChildren = view.children != null && view.children.length > 0;
   const label = t(view.nameKey);
   const Icon = view.icon;

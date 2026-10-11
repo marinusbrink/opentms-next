@@ -112,6 +112,17 @@ public class PlatformPermissionDefinitionTests
             .ShouldBe("Platform.Administration.OrganizationUnits.ManageMembers");
     }
 
+    [Fact]
+    public void Logbook_permissions_have_correct_values()
+    {
+        PlatformPermissions.Administration.Logbook.Default
+            .ShouldBe("Platform.Administration.Logbook");
+        PlatformPermissions.Administration.Logbook.Functional
+            .ShouldBe("Platform.Administration.Logbook.Functional");
+        PlatformPermissions.Administration.Logbook.Technical
+            .ShouldBe("Platform.Administration.Logbook.Technical");
+    }
+
     // ── Hierarchy: child permissions are prefixed with their parent ──────────
 
     [Fact]
@@ -193,6 +204,9 @@ public class PlatformPermissionDefinitionTests
             PlatformPermissions.Administration.OrganizationUnits.Update,
             PlatformPermissions.Administration.OrganizationUnits.Delete,
             PlatformPermissions.Administration.OrganizationUnits.ManageMembers,
+            PlatformPermissions.Administration.Logbook.Default,
+            PlatformPermissions.Administration.Logbook.Functional,
+            PlatformPermissions.Administration.Logbook.Technical,
         };
 
         var distinct = new System.Collections.Generic.HashSet<string>(all);

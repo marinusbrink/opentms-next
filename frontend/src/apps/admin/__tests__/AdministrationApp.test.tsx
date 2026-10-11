@@ -22,6 +22,14 @@ vi.mock("@/apps/admin/organization-units/OrganizationUnitsView", () => ({
   OrganizationUnitsView: () => <div data-testid="organization-units-view">OrganizationUnitsView</div>,
 }));
 
+vi.mock("@/apps/admin/logbook/FunctionalLogbookView", () => ({
+  FunctionalLogbookView: () => <div data-testid="functional-logbook-view">FunctionalLogbookView</div>,
+}));
+
+vi.mock("@/apps/admin/logbook/TechnicalLogbookView", () => ({
+  TechnicalLogbookView: () => <div data-testid="technical-logbook-view">TechnicalLogbookView</div>,
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useLocation } from "@tanstack/react-router";
@@ -55,6 +63,27 @@ describe("AdministrationApp – tab removal (medium risk)", () => {
     expect(screen.getByTestId("organization-units-view")).toBeInTheDocument();
     expect(screen.queryByTestId("users-view")).not.toBeInTheDocument();
     expect(screen.queryByTestId("roles-view")).not.toBeInTheDocument();
+  });
+
+  it("renders FunctionalLogbookView when pathname is /admin/logbook/functional", () => {
+    setPathname("/admin/logbook/functional");
+    render(<AdministrationApp />);
+    expect(screen.getByTestId("functional-logbook-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("technical-logbook-view")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("users-view")).not.toBeInTheDocument();
+  });
+
+  it("renders TechnicalLogbookView when pathname is /admin/logbook/technical", () => {
+    setPathname("/admin/logbook/technical");
+    render(<AdministrationApp />);
+    expect(screen.getByTestId("technical-logbook-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("functional-logbook-view")).not.toBeInTheDocument();
+  });
+
+  it("navigates bare /admin/logbook to the functional logbook", () => {
+    setPathname("/admin/logbook");
+    render(<AdministrationApp />);
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/admin/logbook/functional", replace: true });
   });
 
   it("renders UsersView for any non-roles pathname under /admin", () => {

@@ -10,15 +10,22 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(Array.isArray(adminApp.views)).toBe(true);
   });
 
-  it("admin app has exactly three views: Users, Roles and Organization units", () => {
-    expect(adminApp.views).toHaveLength(3);
-    const [users, roles, organizationUnits] = adminApp.views!;
+  it("admin app has four views: Users, Roles, Organization units and Audit logs with the two logbooks", () => {
+    expect(adminApp.views).toHaveLength(4);
+    const [users, roles, organizationUnits, auditLogs] = adminApp.views!;
     expect(users.path).toBe("/admin/users");
     expect(users.nameKey).toBe("Administration:Users");
     expect(roles.path).toBe("/admin/roles");
     expect(roles.nameKey).toBe("Administration:Roles");
     expect(organizationUnits.path).toBe("/admin/organization-units");
     expect(organizationUnits.nameKey).toBe("Administration:OrganizationUnits");
+    expect(auditLogs.path).toBe("/admin/logbook");
+    expect(auditLogs.nameKey).toBe("Administration:AuditLogs");
+    const [functionalLogbook, technicalLogbook] = auditLogs.children!;
+    expect(functionalLogbook.path).toBe("/admin/logbook/functional");
+    expect(functionalLogbook.nameKey).toBe("Administration:FunctionalLogbook");
+    expect(technicalLogbook.path).toBe("/admin/logbook/technical");
+    expect(technicalLogbook.nameKey).toBe("Administration:TechnicalLogbook");
   });
 
   it("each admin view has a non-null icon (React component)", () => {
@@ -28,9 +35,14 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("admin views do not declare children in this PBI", () => {
+  it("only Audit logs declares children, and every child has an icon", () => {
     adminApp.views!.forEach((view) => {
-      expect(view.children).toBeUndefined();
+      if (view.nameKey === "Administration:AuditLogs") {
+        expect(view.children).toHaveLength(2);
+        view.children!.forEach((child) => expect(child.icon).toBeTruthy());
+      } else {
+        expect(view.children).toBeUndefined();
+      }
     });
   });
 

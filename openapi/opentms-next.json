@@ -413,6 +413,311 @@
         },
         "type": "object"
       },
+      "OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto": {
+        "additionalProperties": false,
+        "properties": {
+          "auditLogId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "changeTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changeType": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityTypeFullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityTypeName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "propertyChanges": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.LogbookPropertyChangeDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "auditLogId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "changeTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changeType": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityTypeFullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityTypeName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Administration.Logbook.LogbookPropertyChangeDto": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "newValue": {
+            "nullable": true,
+            "type": "string"
+          },
+          "originalValue": {
+            "nullable": true,
+            "type": "string"
+          },
+          "propertyName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "propertyTypeFullName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Administration.Logbook.TechnicalLogbookActionDto": {
+        "additionalProperties": false,
+        "properties": {
+          "executionDuration": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "methodName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "parameters": {
+            "nullable": true,
+            "type": "string"
+          },
+          "serviceName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.TechnicalLogbookActionDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "applicationName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "browserInfo": {
+            "nullable": true,
+            "type": "string"
+          },
+          "clientId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "clientIpAddress": {
+            "nullable": true,
+            "type": "string"
+          },
+          "clientName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "comments": {
+            "nullable": true,
+            "type": "string"
+          },
+          "correlationId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityChangeCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "entityChanges": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "exceptions": {
+            "nullable": true,
+            "type": "string"
+          },
+          "executionDuration": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "hasException": {
+            "type": "boolean"
+          },
+          "httpMethod": {
+            "nullable": true,
+            "type": "string"
+          },
+          "httpStatusCode": {
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "impersonatorUserName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "applicationName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "clientIpAddress": {
+            "nullable": true,
+            "type": "string"
+          },
+          "correlationId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "entityChangeCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionDuration": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "hasException": {
+            "type": "boolean"
+          },
+          "httpMethod": {
+            "nullable": true,
+            "type": "string"
+          },
+          "httpStatusCode": {
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.Platform.Administration.OrganizationUnitDeleteCheckDto": {
         "additionalProperties": false,
         "properties": {
@@ -654,6 +959,48 @@
           "rows": {
             "items": {
               "$ref": "#/components/schemas/OpenTms.Platform.Administration.AdministrationUserRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto"
             },
             "nullable": true,
             "type": "array"
@@ -12955,6 +13302,369 @@
         ]
       }
     },
+    "/api/platform/administration/logbook/functional": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "startRow",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "endRow",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wildcardSearch",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortDir",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changeType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entityTypeFullName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entityId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userName",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "LogbookAdministration"
+        ]
+      }
+    },
+    "/api/platform/administration/logbook/functional/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "LogbookAdministration"
+        ]
+      }
+    },
+    "/api/platform/administration/logbook/technical": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "startRow",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "endRow",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wildcardSearch",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortDir",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "httpMethod",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "url",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "httpStatusCode",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hasException",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "correlationId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "LogbookAdministration"
+        ]
+      }
+    },
+    "/api/platform/administration/logbook/technical/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Microsoft.AspNetCore.Mvc.ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "tags": [
+          "LogbookAdministration"
+        ]
+      }
+    },
     "/api/platform/administration/organization-units": {
       "get": {
         "parameters": [
@@ -16109,6 +16819,9 @@
     },
     {
       "name": "GridSettings"
+    },
+    {
+      "name": "LogbookAdministration"
     },
     {
       "name": "Login"
