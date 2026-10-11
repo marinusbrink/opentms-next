@@ -227,6 +227,9 @@
     "MasterData:MinAboveMax": "Het minimum mag niet hoger zijn dan het maximum.",
     "MasterData:InvalidNumber": "Voer een getal in.",
     "MasterData:InvalidIsoCode2": "Voer twee letters in.",
-    "MasterData:InvalidIsoCode3": "Voer drie letters in."
+    "MasterData:InvalidIsoCode3": "Voer drie letters in.",
+    "MasterData:AddNew": "Nieuw toevoegen…",
+    "MasterData:AddNewTransportCharacteristics": "Nieuw transportkenmerk toevoegen…",
+    "MasterData:DimensionsAndCapacities": "Afmetingen en capaciteiten"
   }
 }

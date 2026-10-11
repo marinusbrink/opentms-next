@@ -27,6 +27,14 @@ describe("MultiSelect", () => {
     expect(screen.getByText("Alpha, Gamma")).toBeInTheDocument();
   });
 
+  it("renders the Add new row only when a creator is given", () => {
+    const { unmount } = render(<MultiSelect id="ms" value={[]} onChange={() => {}} options={options} />);
+    expect(screen.queryByText("Add new characteristic…")).toBeNull();
+    unmount();
+    render(<MultiSelect id="ms" value={[]} onChange={() => {}} options={options} onCreateNew={() => {}} createLabel="Add new characteristic…" />);
+    expect(document.querySelectorAll("[data-slot=combobox-trigger] svg").length).toBe(1);
+  });
+
   it("truncates with +N beyond the visible count and never renders chips", () => {
     render(<MultiSelect id="ms" value={["a", "b", "c", "d"]} onChange={() => {}} options={options} maxVisible={2} />);
     expect(screen.getByText("Alpha, Beta, MasterData:MoreSelected")).toBeInTheDocument();

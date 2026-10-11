@@ -47,7 +47,7 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   readOnly: boolean;
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved?: unknown) => void;
   /** The loaded record in edit mode (TanStack query result shape). */
   detail: { data: TDto | undefined; isLoading: boolean; error: unknown };
   /** The record's display name for the title in edit mode. */
@@ -67,6 +67,8 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   notice?: ReactNode;
   /** State badges after the title (UI-DLG-012). */
   badges?: ReactNode;
+  /** An outside change to the values (a lookup's "Add new …" selecting the record it created): applied once per key. */
+  applyValues?: { key: number; update: (values: TValues) => TValues };
 }
 
 const normalise = (value: unknown): unknown =>
@@ -100,6 +102,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   deleteRecord,
   notice,
   badges,
+  applyValues,
 }: MasterDataEditorProps<TValues, TDto>) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -124,6 +127,14 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       setValues(initial);
     }
   }, [loaded, loadedKey, initial]);
+
+  const lastAppliedKey = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (applyValues && applyValues.key !== lastAppliedKey.current) {
+      lastAppliedKey.current = applyValues.key;
+      setValues(applyValues.update);
+    }
+  }, [applyValues]);
 
   const errors = useMemo(() => validate(values), [validate, values]);
   const isDirty = loaded && JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial));
@@ -152,9 +163,9 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
     }
 
     try {
-      await save(values, detail.data);
+      const saved = await save(values, detail.data);
       void queryClient.invalidateQueries({ queryKey: masterDataQueryKey(queryEntity) });
-      onSaved();
+      onSaved(saved);
       onClose();
       toast.success(t(`MasterData:${entityKey}Saved`));
     } catch (err) {

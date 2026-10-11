@@ -1,4 +1,5 @@
-import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,10 @@ export interface MultiSelectProps {
   "aria-required"?: boolean;
   /** How many names show before the rest collapses into "+N". */
   maxVisible?: number;
+  /** UI-LOOK-004: shows an "Add new …" row that opens the entity's editor with the typed term; omit without the Create permission. */
+  onCreateNew?: (term: string) => void;
+  /** The label of that row, already translated. */
+  createLabel?: string;
   className?: string;
 }
 
@@ -42,10 +47,13 @@ export function MultiSelect({
   options,
   disabled = false,
   maxVisible = 3,
+  onCreateNew,
+  createLabel,
   className,
   ...aria
 }: MultiSelectProps) {
   const { t } = useL();
+  const [term, setTerm] = useState("");
   const selected = options.filter((o) => value.includes(o.id));
   const visible = selected.slice(0, maxVisible).map((o) => o.label);
   const rest = selected.length - visible.length;
@@ -64,6 +72,8 @@ export function MultiSelect({
       onValueChange={(next: MultiSelectOption[]) => onChange(next.map((o) => o.id))}
       isItemEqualToValue={(a: MultiSelectOption, b: MultiSelectOption) => a.id === b.id}
       disabled={disabled}
+      inputValue={term}
+      onInputValueChange={(next: string) => setTerm(next)}
     >
       <ComboboxTrigger
         id={id}
@@ -83,8 +93,8 @@ export function MultiSelect({
           />
         }
       >
+        {/* ComboboxTrigger renders the chevron itself. */}
         <span className="truncate text-left">{summary}</span>
-        <ChevronDown aria-hidden="true" className="shrink-0 text-muted-foreground" />
       </ComboboxTrigger>
       <ComboboxContent>
         <ComboboxInput placeholder={t("MasterData:Search")} showTrigger={false} />
@@ -96,6 +106,19 @@ export function MultiSelect({
             </ComboboxItem>
           )}
         </ComboboxList>
+        {onCreateNew && (
+          <div className="border-t border-border p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => onCreateNew(term.trim())}
+            >
+              <Plus aria-hidden="true" /> {createLabel ?? t("MasterData:AddNew")}
+            </Button>
+          </div>
+        )}
       </ComboboxContent>
     </Combobox>
   );

@@ -6,5 +6,8 @@ export interface EntityEditorProps {
   readOnly: boolean;
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** Called after a successful save or delete; a save passes the record the API returned. */
+  onSaved: (saved?: unknown) => void;
+  /** Create mode only: the name a lookup's "Add new …" row was typed with (UI-LOOK-004). */
+  initialName?: string;
 }

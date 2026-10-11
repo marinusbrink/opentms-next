@@ -227,6 +227,9 @@
     "MasterData:MinAboveMax": "The minimum may not exceed the maximum.",
     "MasterData:InvalidNumber": "Enter a number.",
     "MasterData:InvalidIsoCode2": "Enter two letters.",
-    "MasterData:InvalidIsoCode3": "Enter three letters."
+    "MasterData:InvalidIsoCode3": "Enter three letters.",
+    "MasterData:AddNew": "Add new…",
+    "MasterData:AddNewTransportCharacteristics": "Add new transport characteristic…",
+    "MasterData:DimensionsAndCapacities": "Dimensions and capacities"
   }
 }
