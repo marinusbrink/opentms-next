@@ -12,9 +12,6 @@ public class TransportUnit : MasterDataAggregateRoot
 {
     public string Name { get; private set; } = default!;
 
-    /// <summary>The standard packaging code integrations match on (SUTC); optional.</summary>
-    public string? SutcCode { get; private set; }
-
     public bool IsArchived { get; set; }
 
     public double? LengthCm { get; set; }
@@ -45,12 +42,6 @@ public class TransportUnit : MasterDataAggregateRoot
     }
 
     public void SetName(string name) => Name = NormalizeName(name);
-
-    public void SetSutcCode(string? sutcCode)
-    {
-        var value = MasterDataCodes.Normalize(sutcCode);
-        SutcCode = value == null ? null : Check.Length(value, nameof(sutcCode), MasterDataConsts.MaxSutcCodeLength);
-    }
 
     /// <summary>Replaces the load factors: rows with a known id are updated, new rows added, the rest removed.</summary>
     public void SetLoadFactors(IEnumerable<(Guid? Id, Guid VehicleTypeId, double? LoadingCapacityFactor, double? MaxCapacity)> factors, Func<Guid> newId)

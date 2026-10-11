@@ -19,7 +19,6 @@ export function TransportUnitsView() {
   const columnDefs = useMemo<ColDef<TransportUnitRow>[]>(
     () => [
       { field: "name", headerName: t("MasterData:Name"), flex: 2, minWidth: 180 },
-      { field: "sutcCode", headerName: t("MasterData:SutcCode"), flex: 1, minWidth: 100 },
       { field: "lengthCm", headerName: t("MasterData:LengthCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 100 },
       { field: "widthCm", headerName: t("MasterData:WidthCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 100 },
       { field: "heightCm", headerName: t("MasterData:HeightCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 100 },

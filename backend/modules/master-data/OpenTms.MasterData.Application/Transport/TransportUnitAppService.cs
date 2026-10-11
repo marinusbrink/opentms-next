@@ -60,14 +60,12 @@ public class TransportUnitAppService
     protected override IQueryable<TransportUnit> ApplySearch(IQueryable<TransportUnit> query, string term)
         => query.Where(u =>
             u.Name.ToLower().Contains(term) ||
-            (u.SutcCode != null && u.SutcCode.ToLower().Contains(term)) ||
             (u.Description != null && u.Description.ToLower().Contains(term)));
 
     protected override IOrderedQueryable<TransportUnit> ApplySort(IQueryable<TransportUnit> query, string? sortBy, bool descending)
         => (sortBy?.ToLowerInvariant()) switch
         {
             null or "" or "name" => Order(query, u => u.Name, descending),
-            "sutccode" => Order(query, u => u.SutcCode, descending),
             "description" => Order(query, u => u.Description, descending),
             "isarchived" => Order(query, u => u.IsArchived, descending),
             "lengthcm" => Order(query, u => u.LengthCm, descending),
@@ -87,7 +85,6 @@ public class TransportUnitAppService
         {
             Id = u.Id,
             Name = u.Name,
-            SutcCode = u.SutcCode,
             Description = u.Description,
             IsArchived = u.IsArchived,
             LengthCm = u.LengthCm,
@@ -108,7 +105,6 @@ public class TransportUnitAppService
         var dto = new TransportUnitDto
         {
             Name = u.Name,
-            SutcCode = u.SutcCode,
             IsArchived = u.IsArchived,
             LengthCm = u.LengthCm,
             WidthCm = u.WidthCm,
@@ -134,7 +130,7 @@ public class TransportUnitAppService
         return dto;
     }
 
-    protected override MasterDataLookupDto ToLookup(TransportUnit u) => new() { Id = u.Id, Name = u.Name, Code = u.SutcCode };
+    protected override MasterDataLookupDto ToLookup(TransportUnit u) => new() { Id = u.Id, Name = u.Name };
 
     protected override string DisplayNameOf(TransportUnit u) => u.Name;
 
@@ -167,7 +163,6 @@ public class TransportUnitAppService
             throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "loadFactors.vehicleTypeId");
         }
 
-        unit.SetSutcCode(input.SutcCode);
         unit.SetDescription(input.Description);
         unit.IsArchived = input.IsArchived;
         unit.LengthCm = input.LengthCm;

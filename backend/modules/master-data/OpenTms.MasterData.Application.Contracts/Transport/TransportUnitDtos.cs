@@ -11,7 +11,6 @@ public class TransportUnitRowDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string? SutcCode { get; set; }
     public string? Description { get; set; }
     public bool IsArchived { get; set; }
     public double? LengthCm { get; set; }
@@ -42,7 +41,6 @@ public class TransportUnitLoadFactorDto
 public class TransportUnitDto : MasterDataDetailDtoBase
 {
     public string Name { get; set; } = string.Empty;
-    public string? SutcCode { get; set; }
     public bool IsArchived { get; set; }
     public double? LengthCm { get; set; }
     public double? WidthCm { get; set; }
@@ -59,9 +57,6 @@ public class TransportUnitCreateDto
 {
     [Required, MaxLength(MasterDataConsts.MaxNameLength)]
     public string Name { get; set; } = string.Empty;
-
-    [MaxLength(MasterDataConsts.MaxSutcCodeLength)]
-    public string? SutcCode { get; set; }
 
     [MaxLength(MasterDataConsts.MaxDescriptionLength)]
     public string? Description { get; set; }

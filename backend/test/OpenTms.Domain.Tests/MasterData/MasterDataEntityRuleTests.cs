@@ -367,18 +367,6 @@ public class MasterDataEntityRuleTests
     // ── TransportUnit ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void TransportUnit_normalises_the_sutc_code()
-    {
-        var unit = new TransportUnit(Guid.NewGuid(), Tenant, "Europallet");
-
-        unit.SetSutcCode(" pal ");
-        unit.SutcCode.ShouldBe("PAL");
-        unit.SetSutcCode("  ");
-        unit.SutcCode.ShouldBeNull();
-        Should.Throw<ArgumentException>(() => unit.SetSutcCode(new string('s', MasterDataConsts.MaxSutcCodeLength + 1)));
-    }
-
-    [Fact]
     public void TransportUnit_rejects_two_load_factors_for_the_same_vehicle_type()
     {
         var unit = new TransportUnit(Guid.NewGuid(), Tenant, "Europallet");

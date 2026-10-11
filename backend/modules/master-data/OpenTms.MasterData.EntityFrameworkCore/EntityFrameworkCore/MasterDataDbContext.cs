@@ -171,7 +171,6 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ToTable("TransportUnits", MasterDataDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.Property(u => u.Name).HasMaxLength(MasterDataConsts.MaxNameLength).IsRequired();
-            b.Property(u => u.SutcCode).HasMaxLength(MasterDataConsts.MaxSutcCodeLength);
             b.Property(u => u.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
             b.HasMany(u => u.LoadFactors).WithOne().HasForeignKey(f => f.TransportUnitId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(u => u.TenantId);

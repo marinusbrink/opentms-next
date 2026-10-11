@@ -2229,11 +2229,6 @@
             "minLength": 1,
             "type": "string"
           },
-          "sutcCode": {
-            "maxLength": 16,
-            "nullable": true,
-            "type": "string"
-          },
           "weightKg": {
             "format": "double",
             "maximum": 1.7976931348623157e+308,
@@ -2332,10 +2327,6 @@
             "nullable": true,
             "type": "string"
           },
-          "sutcCode": {
-            "nullable": true,
-            "type": "string"
-          },
           "weightKg": {
             "format": "double",
             "nullable": true,
@@ -2426,10 +2417,6 @@
             "nullable": true,
             "type": "string"
           },
-          "sutcCode": {
-            "nullable": true,
-            "type": "string"
-          },
           "weightKg": {
             "format": "double",
             "nullable": true,
@@ -2507,11 +2494,6 @@
           "name": {
             "maxLength": 128,
             "minLength": 1,
-            "type": "string"
-          },
-          "sutcCode": {
-            "maxLength": 16,
-            "nullable": true,
             "type": "string"
           },
           "weightKg": {

@@ -118,7 +118,7 @@ exists in this run, so the `decimal`-for-money question stays open for Financial
   (assessment §3.12 keeps audit, tenant and soft delete on the base), ABP concurrency stamp
   (§3.14). `TenantId` is nullable and never defaulted (§3.6, §4); no `IDataFilter.Disable<IMultiTenant>()`
   anywhere in the module.
-- Codes (`IsoCode`, `IsoAlpha2`, `IsoAlpha3`, `Code`, `SutcCode`) are stored trimmed and upper-cased
+- Codes (`IsoCode`, `IsoAlpha2`, `IsoAlpha3`, `Code`) are stored trimmed and upper-cased
   by the entity; uniqueness is on the stored value.
 - Every unique constraint is a **unique index on `(TenantId, <key>)` with `NULLS NOT DISTINCT`**
   (§4: PostgreSQL treats nulls as distinct, which would allow duplicate host rows later) **and the
@@ -139,7 +139,7 @@ exists in this run, so the `decimal`-for-money question stays open for Financial
 | **TransportCharacteristics** (`TransportCharacteristics`) | `Code` · `Name` · `Description`? | unique `(TenantId, Code)` (§3.2) |
 | **Temperature** (`Temperatures`) | `Name` · `Description`? · `MinCelsius` double? · `MaxCelsius` double? · `IsArchived` bool | unique `(TenantId, Name)`; check `MinCelsius <= MaxCelsius` when both set; incompatibilities in `TemperatureIncompatibilities` (below) |
 | **Product** (`Products`) | `Name` · `Description`? · `IsArchived` · ADR block (PO option A, 2026-10-11: the ADR Table A columns plus the document flags): `IsAdr` bool, `AdrUnNumber` string(4)?, `AdrClass` string(8)?, `AdrClassificationCode` string(8)?, `AdrPackingGroup` string(3)? (`I`, `II`, `III`), `AdrDescription` string(256)? (the proper shipping name), `AdrTechnicalName` string(256)?, `AdrHazardLabels` string(32)?, `AdrHazardIdentificationNumber` string(4)? (Kemler), `AdrTunnelRestrictionCode` string(8)?, `AdrTransportCategory` int? (0–4, the 1.1.3.6 multiplier), `AdrIsEnvironmentallyHazardous`, `AdrIsLimitedQuantity`, `AdrIsWaste` bool, `AdrFlashpointCelsius` double?, `AdrSpecialProvisions` string(64)? · order-line defaults: `DefaultQuantity`, `DefaultWeightKg`, `DefaultColli`, `DefaultVolumeM3`, `DefaultLoadingMeters`, `DefaultEpq`, `DefaultLengthCm`, `DefaultWidthCm`, `DefaultHeightCm` (all double?) | unique `(TenantId, Name)`; when `IsAdr`, `AdrUnNumber` (`^\d{4}$`) and `AdrClass` are required; incompatibilities in `ProductIncompatibilities` |
-| **TransportUnit** (`TransportUnits`) | `Name` · `SutcCode` string(16)? (the standard packaging code integrations match on) · `Description`? · `IsArchived` · `LengthCm`, `WidthCm`, `HeightCm`, `WeightKg`, `LoadingMeters`, `EpqFactor` (double?) · `IsExchangeable` bool (the pallet-exchange flag) | unique `(TenantId, Name)`; child `TransportUnitLoadFactors`; incompatibilities in `TransportUnitIncompatibilities`; balances and transactions are Financial (§2) |
+| **TransportUnit** (`TransportUnits`) | `Name` · `Description`? · `IsArchived` · `LengthCm`, `WidthCm`, `HeightCm`, `WeightKg`, `LoadingMeters`, `EpqFactor` (double?) · `IsExchangeable` bool (the pallet-exchange flag) | unique `(TenantId, Name)`; child `TransportUnitLoadFactors`; incompatibilities in `TransportUnitIncompatibilities`; balances and transactions are Financial (§2) |
 | **TransportUnitLoadFactor** (`TransportUnitLoadFactors`) | `TransportUnitId` **FK → TransportUnits, cascade** · `VehicleTypeId` **FK → VehicleTypes, restrict** · `LoadingCapacityFactor` double? · `MaxCapacity` double? | owned by the unit (`Entity<Guid>`, not an aggregate root); unique `(TransportUnitId, VehicleTypeId)` |
 | **VehicleType** (`VehicleTypes`) | `Name` · `Description`? · `Kind` enum `VehicleTypeKind { Tractor = 1, Trailer = 2, Rigid = 3, Van = 4 }` · `MaxEpq`, `MaxLoadingMeters`, `DefaultLengthCm`, `DefaultWidthCm`, `DefaultHeightCm`, `DefaultGrossVehicleWeightKg` (double?) | unique `(TenantId, Name)`; join `VehicleTypeTransportCharacteristics` (`VehicleTypeId`, `TransportCharacteristicsId`), composite PK, both FKs cascade (§3.3: a join table, no `;`-string) |
 | **GeographicalRegion** (`GeographicalRegions`) | `Name` · `Description`? | unique `(TenantId, Name)`; child `GeographicalRegionPostalCodeRanges`; relation membership and default via-waypoints come later (§2) |
@@ -287,7 +287,7 @@ loads it without the Application layer) runs inside `ICurrentTenant.Change(conte
 | Product | `AdrLanguage` | the document language is not a product property. The other ADR fields OpenTMS had are kept and completed with classification code, transport category, limited quantity, flashpoint and special provisions (PO option A, 2026-10-11): what a transport document and the 1.1.3.6 exemption need. A dangerous-goods catalogue (§5 "Products and packaging") stays a later design; the product's columns then become the override layer |
 | Product | `DefaultAmount` → `DefaultQuantity`; `DefaultWeight` → `DefaultWeightKg`, `DefaultVolume` → `DefaultVolumeM3`, `DefaultEPQ` → `DefaultEpq`, `DefaultWidth/Length/Height` → `…Cm` | unit in the name (§3.5) |
 | TransportUnit | `IsDefault`, `RegisterTransactions`, `OnlyForTransactions`, `TransactionTime`, `TransportUnitTransactionTime`, the `Default*` line defaults | packaging type only; balances are Financial, transaction times Orders (§2, brief); `RegisterTransactions` becomes the explicit `IsExchangeable` flag |
-| TransportUnit | `ConversionFactorForEpq` → `EpqFactor`, `ConversionFactorForLoadingMeters` → `LoadingMeters`; `SutcStandardCode` → `SutcCode` | names say what they hold |
+| TransportUnit | `ConversionFactorForEpq` → `EpqFactor`, `ConversionFactorForLoadingMeters` → `LoadingMeters`; `SutcStandardCode` dropped | names say what they hold; a partner's packaging type code is that partner's mapping and belongs to the Integrations anti-corruption layer (PO, 2026-10-11) |
 | TransportUnit | load factors | kept as a child table with a unique `(unit, vehicle type)` and real FKs (§3.2) |
 | VehicleType | `IsDefault` | Planning settings, later (§3.8) |
 | VehicleType | `DefaultFuelType`, `SpeedCorrectionFactor`, `CostPricePerKm` | not in the brief's field list: fuel type arrives with Vehicle/CO₂ (Reporting), speed correction with routing (AD-12), cost price with Financial tariffs; all additive later |
@@ -341,7 +341,7 @@ the same shape): `startRow` ≥ 0, `endRow` > `startRow` and at most 200 rows ap
 200 chars, `sortBy` one of the row DTO's column ids (whitelist; anything else is rejected with 400),
 `sortDir` `asc` | `desc`. Without `sortBy` the server orders by resolved name (localized entities) or
 `name` ascending. `wildcardSearch` is a case-insensitive contains over a **defined column set per
-entity**: codes and the resolved name for the localized three; `name`, `code`/`sutcCode` and
+entity**: codes and the resolved name for the localized three; `name`, `code` and
 `description` for the others; `adrUnNumber` for products. Entity filters extend the request:
 `CurrencyListRequestDto.isActive?`, `ArchivableListRequestDto.includeArchived` (default false; shared by
 Temperature, Product and TransportUnit), `GeographicalRegionListRequestDto.countryId?` (regions with a range
@@ -381,7 +381,7 @@ as skipped with a localized reason, the rest is deleted in one unit of work. The
 - **Product** row: `id, name, isAdr, adrUnNumber, adrClass, isArchived, defaultWeightKg,
   defaultLoadingMeters, defaultEpq`. Detail: every field of the entity + `incompatibleProducts` +
   audit. Create/Update: every writable field + `incompatibleProductIds`.
-- **TransportUnit** row: `id, name, sutcCode, lengthCm, widthCm, heightCm, weightKg, loadingMeters,
+- **TransportUnit** row: `id, name, lengthCm, widthCm, heightCm, weightKg, loadingMeters,
   epqFactor, isExchangeable, isArchived`. Detail: + `description`, `loadFactors[] { id, vehicleTypeId,
   vehicleTypeName, loadingCapacityFactor, maxCapacity }`, `incompatibleTransportUnits`, audit.
   Create/Update: writable fields + `loadFactors[] { id?, vehicleTypeId, loadingCapacityFactor?,

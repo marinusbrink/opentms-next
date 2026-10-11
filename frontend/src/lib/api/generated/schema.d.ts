@@ -17070,7 +17070,6 @@ export interface components {
             /** Format: double */
             loadingMeters?: number | null;
             name: string;
-            sutcCode?: string | null;
             /** Format: double */
             weightKg?: number | null;
             /** Format: double */
@@ -17102,7 +17101,6 @@ export interface components {
             /** Format: double */
             loadingMeters?: number | null;
             name?: string | null;
-            sutcCode?: string | null;
             /** Format: double */
             weightKg?: number | null;
             /** Format: double */
@@ -17134,7 +17132,6 @@ export interface components {
             /** Format: double */
             loadingMeters?: number | null;
             name?: string | null;
-            sutcCode?: string | null;
             /** Format: double */
             weightKg?: number | null;
             /** Format: double */
@@ -17156,7 +17153,6 @@ export interface components {
             /** Format: double */
             loadingMeters?: number | null;
             name: string;
-            sutcCode?: string | null;
             /** Format: double */
             weightKg?: number | null;
             /** Format: double */

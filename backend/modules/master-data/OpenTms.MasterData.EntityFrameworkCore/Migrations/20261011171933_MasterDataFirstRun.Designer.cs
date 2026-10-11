@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261011170938_MasterDataFirstRun")]
+    [Migration("20261011171933_MasterDataFirstRun")]
     partial class MasterDataFirstRun
     {
         /// <inheritdoc />
@@ -1064,10 +1064,6 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
-
-                    b.Property<string>("SutcCode")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")

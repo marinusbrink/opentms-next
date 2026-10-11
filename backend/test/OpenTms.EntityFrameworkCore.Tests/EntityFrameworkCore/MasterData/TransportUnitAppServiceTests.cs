@@ -35,13 +35,12 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
     private static TransportUnitLoadFactorDto Factor(Guid vehicleTypeId, double? factor = null, double? max = null, Guid? id = null)
         => new() { Id = id, VehicleTypeId = vehicleTypeId, LoadingCapacityFactor = factor, MaxCapacity = max };
 
-    private Task<TransportUnitDto> CreateAsync(string name, bool archived = false, string? sutc = null, params TransportUnitLoadFactorDto[] factors)
-        => _service.CreateAsync(new TransportUnitCreateDto { Name = name, IsArchived = archived, SutcCode = sutc, LoadFactors = [.. factors] });
+    private Task<TransportUnitDto> CreateAsync(string name, bool archived = false, params TransportUnitLoadFactorDto[] factors)
+        => _service.CreateAsync(new TransportUnitCreateDto { Name = name, IsArchived = archived, LoadFactors = [.. factors] });
 
     private static TransportUnitUpdateDto UpdateFrom(TransportUnitDto dto) => new()
     {
         Name = dto.Name,
-        SutcCode = dto.SutcCode,
         Description = dto.Description,
         IsArchived = dto.IsArchived,
         LengthCm = dto.LengthCm,
@@ -66,7 +65,6 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
         var created = await _service.CreateAsync(new TransportUnitCreateDto
         {
             Name = " Europallet ",
-            SutcCode = " pal ",
             Description = "EUR 1",
             LengthCm = 120,
             WidthCm = 80,
@@ -79,7 +77,6 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
         });
 
         created.Name.ShouldBe("Europallet");
-        created.SutcCode.ShouldBe("PAL");
         created.IsExchangeable.ShouldBeTrue();
         created.LoadingMeters.ShouldBe(0.4);
         created.LoadFactors.Count.ShouldBe(2);
@@ -89,12 +86,11 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
 
         (await _service.GetAsync(created.Id)).LoadFactors.Count.ShouldBe(2);
         var row = (await _service.GetListAsync(List<ArchivableListRequestDto>())).Rows.ShouldHaveSingleItem();
-        row.SutcCode.ShouldBe("PAL");
         row.EpqFactor.ShouldBe(1);
         row.IsExchangeable.ShouldBeTrue();
         var lookup = (await _service.GetLookupAsync()).ShouldHaveSingleItem();
         lookup.Name.ShouldBe("Europallet");
-        lookup.Code.ShouldBe("PAL");
+        lookup.Code.ShouldBeNull();
     }
 
     [Fact]
@@ -177,10 +173,10 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
     }
 
     [Fact]
-    public async Task Archived_units_are_hidden_unless_asked_and_list_searches_name_sutc_and_description()
+    public async Task Archived_units_are_hidden_unless_asked_and_list_searches_name_and_description()
     {
         using var _ = InTenantA();
-        await CreateAsync("Europallet", sutc: "PAL");
+        await CreateAsync("Europallet");
         await _service.CreateAsync(new TransportUnitCreateDto { Name = "Rolcontainer", Description = "retail cage", WeightKg = 30 });
         await CreateAsync("Old crate", archived: true);
 
@@ -193,7 +189,7 @@ public class TransportUnitAppServiceTests : MasterDataAppServiceTestBase
         (await _service.GetListAsync(List<ArchivableListRequestDto>(search: "pal"))).Rows.ShouldHaveSingleItem().Name.ShouldBe("Europallet");
         (await _service.GetListAsync(List<ArchivableListRequestDto>(search: "cage"))).Rows.ShouldHaveSingleItem().Name.ShouldBe("Rolcontainer");
         (await _service.GetListAsync(List<ArchivableListRequestDto>(sortBy: "weightKg", sortDir: "desc"))).Rows.First().Name.ShouldBe("Rolcontainer");
-        foreach (var column in new[] { "sutcCode", "description", "isArchived", "lengthCm", "widthCm", "heightCm", "loadingMeters", "epqFactor", "isExchangeable" })
+        foreach (var column in new[] { "description", "isArchived", "lengthCm", "widthCm", "heightCm", "loadingMeters", "epqFactor", "isExchangeable" })
         {
             (await _service.GetListAsync(List<ArchivableListRequestDto>(sortBy: column))).Rows.Count.ShouldBe(2, column);
         }

@@ -24,7 +24,6 @@ interface LoadFactorRow {
 
 interface Values {
   name: string;
-  sutcCode: string;
   description: string;
   isArchived: boolean;
   lengthCm: string;
@@ -44,7 +43,6 @@ let rowCounter = 0;
 
 const initialValues = (dto: TransportUnitDto | undefined): Values => ({
   name: dto?.name ?? "",
-  sutcCode: dto?.sutcCode ?? "",
   description: dto?.description ?? "",
   isArchived: dto?.isArchived ?? false,
   lengthCm: numberToText(dto?.lengthCm),
@@ -114,7 +112,6 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
     async (v: Values, dto: TransportUnitDto | undefined) => {
       const body = {
         name: v.name.trim(),
-        sutcCode: v.sutcCode.trim().toUpperCase() || null,
         description: v.description.trim() || null,
         isArchived: v.isArchived,
         lengthCm: parseNumber(v.lengthCm),
@@ -145,12 +142,11 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
     {
       value: "general",
       labelKey: "General",
-      fields: ["name", "sutcCode", "description", ...NUMBER_FIELDS],
+      fields: ["name", "description", ...NUMBER_FIELDS],
       render: (form) => (
         <FormSection title={t("MasterData:TransportUnit")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
-            <TextField form={form} field="sutcCode" labelKey="MasterData:SutcCode" maxLength={16} upper />
+            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} className="col-span-2" />
             <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
             <NumberField form={form} field="lengthCm" labelKey="MasterData:LengthCm" />
             <NumberField form={form} field="widthCm" labelKey="MasterData:WidthCm" />

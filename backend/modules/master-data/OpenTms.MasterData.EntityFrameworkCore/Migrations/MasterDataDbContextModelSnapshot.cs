@@ -1062,10 +1062,6 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<string>("SutcCode")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");

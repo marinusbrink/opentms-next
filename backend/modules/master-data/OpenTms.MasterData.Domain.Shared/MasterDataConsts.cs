@@ -14,7 +14,6 @@ public static class MasterDataConsts
     public const int IsoAlpha3Length = 3;
     public const int MaxSymbolLength = 8;
     public const int MaxTimeZoneIdLength = 64;
-    public const int MaxSutcCodeLength = 16;
     public const int MaxPostalCodePrefixLength = 16;
     public const int MaxPostalCodeLength = 16;
     public const int AdrUnNumberLength = 4;

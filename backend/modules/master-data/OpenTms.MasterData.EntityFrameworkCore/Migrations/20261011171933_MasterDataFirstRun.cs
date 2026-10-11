@@ -228,7 +228,6 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    SutcCode = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
                     IsArchived = table.Column<bool>(type: "boolean", nullable: false),
                     LengthCm = table.Column<double>(type: "double precision", nullable: true),
                     WidthCm = table.Column<double>(type: "double precision", nullable: true),
