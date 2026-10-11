@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <!-- Reference every module's outermost projects so all module assemblies are loadable. -->
+    <ProjectReference Include="..\..\src\OpenTms.HttpApi\OpenTms.HttpApi.csproj" />
     <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
     <ProjectReference Include="..\..\modules\platform\OpenTms.Platform.EntityFrameworkCore\OpenTms.Platform.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\..\modules\orders\OpenTms.Orders.Application\OpenTms.Orders.Application.csproj" />

@@ -1,5 +1,8 @@
 ﻿using Localization.Resources.AbpUi;
+using System.Net;
 using OpenTms.Localization;
+using OpenTms.MasterData;
+using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.Account;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.FeatureManagement;
@@ -25,6 +28,26 @@ public class OpenTmsHttpApiModule : AbpModule
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         ConfigureLocalization();
+        ConfigureExceptionStatusCodes();
+    }
+
+    /* ABP answers a BusinessException with 403 by default, which the UI would read as a permission
+     * problem. The Master Data conflict codes (duplicate key, in use, default) travel as 409 and the
+     * request-shape codes as 400 (docs/designs/41-master-data-first-run.md, API contract). */
+    private void ConfigureExceptionStatusCodes()
+    {
+        Configure<AbpExceptionHttpStatusCodeOptions>(options =>
+        {
+            foreach (var code in MasterDataErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in MasterDataErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+        });
     }
 
     private void ConfigureLocalization()

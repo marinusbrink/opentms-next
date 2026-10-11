@@ -17,6 +17,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Localization\MasterData\*.json" />
     <Content Remove="Localization\MasterData\*.json" />
+    <EmbeddedResource Include="Seed\*.json" />
+    <Content Remove="Seed\*.json" />
   </ItemGroup>
 
 </Project>

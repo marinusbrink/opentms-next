@@ -1,16 +1,25 @@
 import {
   BarChart3,
+  Boxes,
   BookOpen,
   CalendarRange,
+  Coins,
   Database,
+  Flag,
   History,
   LayoutDashboard,
+  ListTree,
+  MapPin,
+  MapPinned,
   Network,
+  Package,
   Plug,
   Receipt,
   ScrollText,
   Shield,
   ShieldCheck,
+  Tags,
+  Thermometer,
   Truck,
   Users,
   Wrench,
@@ -103,6 +112,48 @@ export const APPS: readonly AppDefinition[] = [
     domains: ["MasterData"],
     icon: Database,
     tileClass: "bg-slate-600",
+    /* The ten reference lists of the first run (docs/designs/41-master-data-first-run.md), grouped
+     * as the old menu was. Views, not modules: every one reads the MasterData domain. */
+    views: [
+      {
+        nameKey: "MasterData:Nav.Relations",
+        path: "/master-data/relations",
+        icon: Users,
+        children: [
+          { nameKey: "MasterData:AddressTypes", path: "/master-data/address-types", icon: MapPin },
+          { nameKey: "MasterData:RelationCategories", path: "/master-data/relation-categories", icon: Tags },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.Transport",
+        path: "/master-data/transport",
+        icon: Package,
+        children: [
+          { nameKey: "MasterData:Products", path: "/master-data/products", icon: Package },
+          { nameKey: "MasterData:TransportUnits", path: "/master-data/transport-units", icon: Boxes },
+          { nameKey: "MasterData:Temperatures", path: "/master-data/temperatures", icon: Thermometer },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.Fleet",
+        path: "/master-data/fleet",
+        icon: Truck,
+        children: [
+          { nameKey: "MasterData:VehicleTypes", path: "/master-data/vehicle-types", icon: Truck },
+          { nameKey: "MasterData:TransportCharacteristics", path: "/master-data/transport-characteristics", icon: ListTree },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.Reference",
+        path: "/master-data/reference",
+        icon: MapPinned,
+        children: [
+          { nameKey: "MasterData:Countries", path: "/master-data/countries", icon: Flag },
+          { nameKey: "MasterData:Currencies", path: "/master-data/currencies", icon: Coins },
+          { nameKey: "MasterData:GeographicalRegions", path: "/master-data/geographical-regions", icon: MapPinned },
+        ],
+      },
+    ],
   },
   {
     id: "integrations",

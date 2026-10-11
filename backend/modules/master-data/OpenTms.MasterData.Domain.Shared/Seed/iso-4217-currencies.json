@@ -1,0 +1,1782 @@
+[
+  {
+    "isoCode": "AED",
+    "isoNumeric": 784,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Verenigde Arabische Emiraten-dirham",
+      "en": "United Arab Emirates Dirham"
+    }
+  },
+  {
+    "isoCode": "AFN",
+    "isoNumeric": 971,
+    "minorUnits": 2,
+    "symbol": "؋",
+    "names": {
+      "nl": "Afghaanse afghani",
+      "en": "Afghan Afghani"
+    }
+  },
+  {
+    "isoCode": "ALL",
+    "isoNumeric": 8,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Albanese lek",
+      "en": "Albanian Lek"
+    }
+  },
+  {
+    "isoCode": "AMD",
+    "isoNumeric": 51,
+    "minorUnits": 2,
+    "symbol": "֏",
+    "names": {
+      "nl": "Armeense dram",
+      "en": "Armenian Dram"
+    }
+  },
+  {
+    "isoCode": "AOA",
+    "isoNumeric": 973,
+    "minorUnits": 2,
+    "symbol": "Kz",
+    "names": {
+      "nl": "Angolese kwanza",
+      "en": "Angolan Kwanza"
+    }
+  },
+  {
+    "isoCode": "ARS",
+    "isoNumeric": 32,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Argentijnse peso",
+      "en": "Argentine Peso"
+    }
+  },
+  {
+    "isoCode": "AUD",
+    "isoNumeric": 36,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Australische dollar",
+      "en": "Australian Dollar"
+    }
+  },
+  {
+    "isoCode": "AWG",
+    "isoNumeric": 533,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Arubaanse gulden",
+      "en": "Aruban Florin"
+    }
+  },
+  {
+    "isoCode": "AZN",
+    "isoNumeric": 944,
+    "minorUnits": 2,
+    "symbol": "₼",
+    "names": {
+      "nl": "Azerbeidzjaanse manat",
+      "en": "Azerbaijani Manat"
+    }
+  },
+  {
+    "isoCode": "BAM",
+    "isoNumeric": 977,
+    "minorUnits": 2,
+    "symbol": "KM",
+    "names": {
+      "nl": "Bosnische convertibele mark",
+      "en": "Bosnia-Herzegovina Convertible Mark"
+    }
+  },
+  {
+    "isoCode": "BBD",
+    "isoNumeric": 52,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Barbadaanse dollar",
+      "en": "Barbadian Dollar"
+    }
+  },
+  {
+    "isoCode": "BDT",
+    "isoNumeric": 50,
+    "minorUnits": 2,
+    "symbol": "৳",
+    "names": {
+      "nl": "Bengalese taka",
+      "en": "Bangladeshi Taka"
+    }
+  },
+  {
+    "isoCode": "BHD",
+    "isoNumeric": 48,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Bahreinse dinar",
+      "en": "Bahraini Dinar"
+    }
+  },
+  {
+    "isoCode": "BIF",
+    "isoNumeric": 108,
+    "minorUnits": 0,
+    "symbol": null,
+    "names": {
+      "nl": "Burundese frank",
+      "en": "Burundian Franc"
+    }
+  },
+  {
+    "isoCode": "BMD",
+    "isoNumeric": 60,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Bermuda-dollar",
+      "en": "Bermudan Dollar"
+    }
+  },
+  {
+    "isoCode": "BND",
+    "isoNumeric": 96,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Bruneise dollar",
+      "en": "Brunei Dollar"
+    }
+  },
+  {
+    "isoCode": "BOB",
+    "isoNumeric": 68,
+    "minorUnits": 2,
+    "symbol": "Bs",
+    "names": {
+      "nl": "Boliviaanse boliviano",
+      "en": "Bolivian Boliviano"
+    }
+  },
+  {
+    "isoCode": "BOV",
+    "isoNumeric": 984,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Boliviaanse mvdol",
+      "en": "Bolivian Mvdol"
+    }
+  },
+  {
+    "isoCode": "BRL",
+    "isoNumeric": 986,
+    "minorUnits": 2,
+    "symbol": "R$",
+    "names": {
+      "nl": "Braziliaanse real",
+      "en": "Brazilian Real"
+    }
+  },
+  {
+    "isoCode": "BSD",
+    "isoNumeric": 44,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Bahamaanse dollar",
+      "en": "Bahamian Dollar"
+    }
+  },
+  {
+    "isoCode": "BTN",
+    "isoNumeric": 64,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Bhutaanse ngultrum",
+      "en": "Bhutanese Ngultrum"
+    }
+  },
+  {
+    "isoCode": "BWP",
+    "isoNumeric": 72,
+    "minorUnits": 2,
+    "symbol": "P",
+    "names": {
+      "nl": "Botswaanse pula",
+      "en": "Botswanan Pula"
+    }
+  },
+  {
+    "isoCode": "BYN",
+    "isoNumeric": 933,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Belarussische roebel",
+      "en": "Belarusian Ruble"
+    }
+  },
+  {
+    "isoCode": "BZD",
+    "isoNumeric": 84,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Belizaanse dollar",
+      "en": "Belize Dollar"
+    }
+  },
+  {
+    "isoCode": "CAD",
+    "isoNumeric": 124,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Canadese dollar",
+      "en": "Canadian Dollar"
+    }
+  },
+  {
+    "isoCode": "CDF",
+    "isoNumeric": 976,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Congolese frank",
+      "en": "Congolese Franc"
+    }
+  },
+  {
+    "isoCode": "CHE",
+    "isoNumeric": 947,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "WIR euro",
+      "en": "WIR Euro"
+    }
+  },
+  {
+    "isoCode": "CHF",
+    "isoNumeric": 756,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Zwitserse frank",
+      "en": "Swiss Franc"
+    }
+  },
+  {
+    "isoCode": "CHW",
+    "isoNumeric": 948,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "WIR franc",
+      "en": "WIR Franc"
+    }
+  },
+  {
+    "isoCode": "CLF",
+    "isoNumeric": 990,
+    "minorUnits": 4,
+    "symbol": null,
+    "names": {
+      "nl": "Chileense unidades de fomento",
+      "en": "Chilean Unit of Account (UF)"
+    }
+  },
+  {
+    "isoCode": "CLP",
+    "isoNumeric": 152,
+    "minorUnits": 0,
+    "symbol": "$",
+    "names": {
+      "nl": "Chileense peso",
+      "en": "Chilean Peso"
+    }
+  },
+  {
+    "isoCode": "CNY",
+    "isoNumeric": 156,
+    "minorUnits": 2,
+    "symbol": "¥",
+    "names": {
+      "nl": "Chinese yuan",
+      "en": "Chinese Yuan"
+    }
+  },
+  {
+    "isoCode": "COP",
+    "isoNumeric": 170,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Colombiaanse peso",
+      "en": "Colombian Peso"
+    }
+  },
+  {
+    "isoCode": "COU",
+    "isoNumeric": 970,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Unidad de Valor Real",
+      "en": "Colombian Real Value Unit"
+    }
+  },
+  {
+    "isoCode": "CRC",
+    "isoNumeric": 188,
+    "minorUnits": 2,
+    "symbol": "₡",
+    "names": {
+      "nl": "Costa Ricaanse colon",
+      "en": "Costa Rican Colón"
+    }
+  },
+  {
+    "isoCode": "CUP",
+    "isoNumeric": 192,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Cubaanse peso",
+      "en": "Cuban Peso"
+    }
+  },
+  {
+    "isoCode": "CVE",
+    "isoNumeric": 132,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Kaapverdische escudo",
+      "en": "Cape Verdean Escudo"
+    }
+  },
+  {
+    "isoCode": "CZK",
+    "isoNumeric": 203,
+    "minorUnits": 2,
+    "symbol": "Kč",
+    "names": {
+      "nl": "Tsjechische kroon",
+      "en": "Czech Koruna"
+    }
+  },
+  {
+    "isoCode": "DJF",
+    "isoNumeric": 262,
+    "minorUnits": 0,
+    "symbol": null,
+    "names": {
+      "nl": "Djiboutiaanse frank",
+      "en": "Djiboutian Franc"
+    }
+  },
+  {
+    "isoCode": "DKK",
+    "isoNumeric": 208,
+    "minorUnits": 2,
+    "symbol": "kr",
+    "names": {
+      "nl": "Deense kroon",
+      "en": "Danish Krone"
+    }
+  },
+  {
+    "isoCode": "DOP",
+    "isoNumeric": 214,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Dominicaanse peso",
+      "en": "Dominican Peso"
+    }
+  },
+  {
+    "isoCode": "DZD",
+    "isoNumeric": 12,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Algerijnse dinar",
+      "en": "Algerian Dinar"
+    }
+  },
+  {
+    "isoCode": "EGP",
+    "isoNumeric": 818,
+    "minorUnits": 2,
+    "symbol": "E£",
+    "names": {
+      "nl": "Egyptisch pond",
+      "en": "Egyptian Pound"
+    }
+  },
+  {
+    "isoCode": "ERN",
+    "isoNumeric": 232,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Eritrese nakfa",
+      "en": "Eritrean Nakfa"
+    }
+  },
+  {
+    "isoCode": "ETB",
+    "isoNumeric": 230,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Ethiopische birr",
+      "en": "Ethiopian Birr"
+    }
+  },
+  {
+    "isoCode": "EUR",
+    "isoNumeric": 978,
+    "minorUnits": 2,
+    "symbol": "€",
+    "names": {
+      "nl": "Euro",
+      "en": "Euro"
+    }
+  },
+  {
+    "isoCode": "FJD",
+    "isoNumeric": 242,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Fiji-dollar",
+      "en": "Fijian Dollar"
+    }
+  },
+  {
+    "isoCode": "FKP",
+    "isoNumeric": 238,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Falklandeilands pond",
+      "en": "Falkland Islands Pound"
+    }
+  },
+  {
+    "isoCode": "GBP",
+    "isoNumeric": 826,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Britse pond",
+      "en": "British Pound"
+    }
+  },
+  {
+    "isoCode": "GEL",
+    "isoNumeric": 981,
+    "minorUnits": 2,
+    "symbol": "₾",
+    "names": {
+      "nl": "Georgische lari",
+      "en": "Georgian Lari"
+    }
+  },
+  {
+    "isoCode": "GHS",
+    "isoNumeric": 936,
+    "minorUnits": 2,
+    "symbol": "GH₵",
+    "names": {
+      "nl": "Ghanese cedi",
+      "en": "Ghanaian Cedi"
+    }
+  },
+  {
+    "isoCode": "GIP",
+    "isoNumeric": 292,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Gibraltarees pond",
+      "en": "Gibraltar Pound"
+    }
+  },
+  {
+    "isoCode": "GMD",
+    "isoNumeric": 270,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Gambiaanse dalasi",
+      "en": "Gambian Dalasi"
+    }
+  },
+  {
+    "isoCode": "GNF",
+    "isoNumeric": 324,
+    "minorUnits": 0,
+    "symbol": "FG",
+    "names": {
+      "nl": "Guinese frank",
+      "en": "Guinean Franc"
+    }
+  },
+  {
+    "isoCode": "GTQ",
+    "isoNumeric": 320,
+    "minorUnits": 2,
+    "symbol": "Q",
+    "names": {
+      "nl": "Guatemalteekse quetzal",
+      "en": "Guatemalan Quetzal"
+    }
+  },
+  {
+    "isoCode": "GYD",
+    "isoNumeric": 328,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Guyaanse dollar",
+      "en": "Guyanaese Dollar"
+    }
+  },
+  {
+    "isoCode": "HKD",
+    "isoNumeric": 344,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Hongkongse dollar",
+      "en": "Hong Kong Dollar"
+    }
+  },
+  {
+    "isoCode": "HNL",
+    "isoNumeric": 340,
+    "minorUnits": 2,
+    "symbol": "L",
+    "names": {
+      "nl": "Hondurese lempira",
+      "en": "Honduran Lempira"
+    }
+  },
+  {
+    "isoCode": "HTG",
+    "isoNumeric": 332,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Haïtiaanse gourde",
+      "en": "Haitian Gourde"
+    }
+  },
+  {
+    "isoCode": "HUF",
+    "isoNumeric": 348,
+    "minorUnits": 2,
+    "symbol": "Ft",
+    "names": {
+      "nl": "Hongaarse forint",
+      "en": "Hungarian Forint"
+    }
+  },
+  {
+    "isoCode": "IDR",
+    "isoNumeric": 360,
+    "minorUnits": 2,
+    "symbol": "Rp",
+    "names": {
+      "nl": "Indonesische roepia",
+      "en": "Indonesian Rupiah"
+    }
+  },
+  {
+    "isoCode": "ILS",
+    "isoNumeric": 376,
+    "minorUnits": 2,
+    "symbol": "₪",
+    "names": {
+      "nl": "Israëlische nieuwe shekel",
+      "en": "Israeli New Shekel"
+    }
+  },
+  {
+    "isoCode": "INR",
+    "isoNumeric": 356,
+    "minorUnits": 2,
+    "symbol": "₹",
+    "names": {
+      "nl": "Indiase roepie",
+      "en": "Indian Rupee"
+    }
+  },
+  {
+    "isoCode": "IQD",
+    "isoNumeric": 368,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Iraakse dinar",
+      "en": "Iraqi Dinar"
+    }
+  },
+  {
+    "isoCode": "IRR",
+    "isoNumeric": 364,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Iraanse rial",
+      "en": "Iranian Rial"
+    }
+  },
+  {
+    "isoCode": "ISK",
+    "isoNumeric": 352,
+    "minorUnits": 0,
+    "symbol": "kr",
+    "names": {
+      "nl": "IJslandse kroon",
+      "en": "Icelandic Króna"
+    }
+  },
+  {
+    "isoCode": "JMD",
+    "isoNumeric": 388,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Jamaicaanse dollar",
+      "en": "Jamaican Dollar"
+    }
+  },
+  {
+    "isoCode": "JOD",
+    "isoNumeric": 400,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Jordaanse dinar",
+      "en": "Jordanian Dinar"
+    }
+  },
+  {
+    "isoCode": "JPY",
+    "isoNumeric": 392,
+    "minorUnits": 0,
+    "symbol": "¥",
+    "names": {
+      "nl": "Japanse yen",
+      "en": "Japanese Yen"
+    }
+  },
+  {
+    "isoCode": "KES",
+    "isoNumeric": 404,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Keniaanse shilling",
+      "en": "Kenyan Shilling"
+    }
+  },
+  {
+    "isoCode": "KGS",
+    "isoNumeric": 417,
+    "minorUnits": 2,
+    "symbol": "⃀",
+    "names": {
+      "nl": "Kirgizische som",
+      "en": "Kyrgyz Som"
+    }
+  },
+  {
+    "isoCode": "KHR",
+    "isoNumeric": 116,
+    "minorUnits": 2,
+    "symbol": "៛",
+    "names": {
+      "nl": "Cambodjaanse riel",
+      "en": "Cambodian Riel"
+    }
+  },
+  {
+    "isoCode": "KMF",
+    "isoNumeric": 174,
+    "minorUnits": 0,
+    "symbol": "CF",
+    "names": {
+      "nl": "Comorese frank",
+      "en": "Comorian Franc"
+    }
+  },
+  {
+    "isoCode": "KPW",
+    "isoNumeric": 408,
+    "minorUnits": 2,
+    "symbol": "₩",
+    "names": {
+      "nl": "Noord-Koreaanse won",
+      "en": "North Korean Won"
+    }
+  },
+  {
+    "isoCode": "KRW",
+    "isoNumeric": 410,
+    "minorUnits": 0,
+    "symbol": "₩",
+    "names": {
+      "nl": "Zuid-Koreaanse won",
+      "en": "South Korean Won"
+    }
+  },
+  {
+    "isoCode": "KWD",
+    "isoNumeric": 414,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Koeweitse dinar",
+      "en": "Kuwaiti Dinar"
+    }
+  },
+  {
+    "isoCode": "KYD",
+    "isoNumeric": 136,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Kaaimaneilandse dollar",
+      "en": "Cayman Islands Dollar"
+    }
+  },
+  {
+    "isoCode": "KZT",
+    "isoNumeric": 398,
+    "minorUnits": 2,
+    "symbol": "₸",
+    "names": {
+      "nl": "Kazachse tenge",
+      "en": "Kazakhstani Tenge"
+    }
+  },
+  {
+    "isoCode": "LAK",
+    "isoNumeric": 418,
+    "minorUnits": 2,
+    "symbol": "₭",
+    "names": {
+      "nl": "Laotiaanse kip",
+      "en": "Laotian Kip"
+    }
+  },
+  {
+    "isoCode": "LBP",
+    "isoNumeric": 422,
+    "minorUnits": 2,
+    "symbol": "L£",
+    "names": {
+      "nl": "Libanees pond",
+      "en": "Lebanese Pound"
+    }
+  },
+  {
+    "isoCode": "LKR",
+    "isoNumeric": 144,
+    "minorUnits": 2,
+    "symbol": "Rs",
+    "names": {
+      "nl": "Sri Lankaanse roepie",
+      "en": "Sri Lankan Rupee"
+    }
+  },
+  {
+    "isoCode": "LRD",
+    "isoNumeric": 430,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Liberiaanse dollar",
+      "en": "Liberian Dollar"
+    }
+  },
+  {
+    "isoCode": "LSL",
+    "isoNumeric": 426,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Lesothaanse loti",
+      "en": "Lesotho Loti"
+    }
+  },
+  {
+    "isoCode": "LYD",
+    "isoNumeric": 434,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Libische dinar",
+      "en": "Libyan Dinar"
+    }
+  },
+  {
+    "isoCode": "MAD",
+    "isoNumeric": 504,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Marokkaanse dirham",
+      "en": "Moroccan Dirham"
+    }
+  },
+  {
+    "isoCode": "MDL",
+    "isoNumeric": 498,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Moldavische leu",
+      "en": "Moldovan Leu"
+    }
+  },
+  {
+    "isoCode": "MGA",
+    "isoNumeric": 969,
+    "minorUnits": 2,
+    "symbol": "Ar",
+    "names": {
+      "nl": "Malagassische ariary",
+      "en": "Malagasy Ariary"
+    }
+  },
+  {
+    "isoCode": "MKD",
+    "isoNumeric": 807,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Macedonische denar",
+      "en": "Macedonian Denar"
+    }
+  },
+  {
+    "isoCode": "MMK",
+    "isoNumeric": 104,
+    "minorUnits": 2,
+    "symbol": "K",
+    "names": {
+      "nl": "Myanmarese kyat",
+      "en": "Myanmar Kyat"
+    }
+  },
+  {
+    "isoCode": "MNT",
+    "isoNumeric": 496,
+    "minorUnits": 2,
+    "symbol": "₮",
+    "names": {
+      "nl": "Mongoolse tugrik",
+      "en": "Mongolian Tugrik"
+    }
+  },
+  {
+    "isoCode": "MOP",
+    "isoNumeric": 446,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Macause pataca",
+      "en": "Macanese Pataca"
+    }
+  },
+  {
+    "isoCode": "MRU",
+    "isoNumeric": 929,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Mauritaanse ouguiya",
+      "en": "Mauritanian Ouguiya"
+    }
+  },
+  {
+    "isoCode": "MUR",
+    "isoNumeric": 480,
+    "minorUnits": 2,
+    "symbol": "Rs",
+    "names": {
+      "nl": "Mauritiaanse roepie",
+      "en": "Mauritian Rupee"
+    }
+  },
+  {
+    "isoCode": "MVR",
+    "isoNumeric": 462,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Maldivische rufiyaa",
+      "en": "Maldivian Rufiyaa"
+    }
+  },
+  {
+    "isoCode": "MWK",
+    "isoNumeric": 454,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Malawische kwacha",
+      "en": "Malawian Kwacha"
+    }
+  },
+  {
+    "isoCode": "MXN",
+    "isoNumeric": 484,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Mexicaanse peso",
+      "en": "Mexican Peso"
+    }
+  },
+  {
+    "isoCode": "MXV",
+    "isoNumeric": 979,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Mexicaanse unidad de inversion (UDI)",
+      "en": "Mexican Investment Unit"
+    }
+  },
+  {
+    "isoCode": "MYR",
+    "isoNumeric": 458,
+    "minorUnits": 2,
+    "symbol": "RM",
+    "names": {
+      "nl": "Maleisische ringgit",
+      "en": "Malaysian Ringgit"
+    }
+  },
+  {
+    "isoCode": "MZN",
+    "isoNumeric": 943,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Mozambikaanse metical",
+      "en": "Mozambican Metical"
+    }
+  },
+  {
+    "isoCode": "NAD",
+    "isoNumeric": 516,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Namibische dollar",
+      "en": "Namibian Dollar"
+    }
+  },
+  {
+    "isoCode": "NGN",
+    "isoNumeric": 566,
+    "minorUnits": 2,
+    "symbol": "₦",
+    "names": {
+      "nl": "Nigeriaanse naira",
+      "en": "Nigerian Naira"
+    }
+  },
+  {
+    "isoCode": "NIO",
+    "isoNumeric": 558,
+    "minorUnits": 2,
+    "symbol": "C$",
+    "names": {
+      "nl": "Nicaraguaanse córdoba",
+      "en": "Nicaraguan Córdoba"
+    }
+  },
+  {
+    "isoCode": "NOK",
+    "isoNumeric": 578,
+    "minorUnits": 2,
+    "symbol": "kr",
+    "names": {
+      "nl": "Noorse kroon",
+      "en": "Norwegian Krone"
+    }
+  },
+  {
+    "isoCode": "NPR",
+    "isoNumeric": 524,
+    "minorUnits": 2,
+    "symbol": "Rs",
+    "names": {
+      "nl": "Nepalese roepie",
+      "en": "Nepalese Rupee"
+    }
+  },
+  {
+    "isoCode": "NZD",
+    "isoNumeric": 554,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Nieuw-Zeelandse dollar",
+      "en": "New Zealand Dollar"
+    }
+  },
+  {
+    "isoCode": "OMR",
+    "isoNumeric": 512,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Omaanse rial",
+      "en": "Omani Rial"
+    }
+  },
+  {
+    "isoCode": "PAB",
+    "isoNumeric": 590,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Panamese balboa",
+      "en": "Panamanian Balboa"
+    }
+  },
+  {
+    "isoCode": "PEN",
+    "isoNumeric": 604,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Peruaanse sol",
+      "en": "Peruvian Sol"
+    }
+  },
+  {
+    "isoCode": "PGK",
+    "isoNumeric": 598,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Papoea-Nieuw-Guinese kina",
+      "en": "Papua New Guinean Kina"
+    }
+  },
+  {
+    "isoCode": "PHP",
+    "isoNumeric": 608,
+    "minorUnits": 2,
+    "symbol": "₱",
+    "names": {
+      "nl": "Filipijnse peso",
+      "en": "Philippine Peso"
+    }
+  },
+  {
+    "isoCode": "PKR",
+    "isoNumeric": 586,
+    "minorUnits": 2,
+    "symbol": "Rs",
+    "names": {
+      "nl": "Pakistaanse roepie",
+      "en": "Pakistani Rupee"
+    }
+  },
+  {
+    "isoCode": "PLN",
+    "isoNumeric": 985,
+    "minorUnits": 2,
+    "symbol": "zł",
+    "names": {
+      "nl": "Poolse zloty",
+      "en": "Polish Zloty"
+    }
+  },
+  {
+    "isoCode": "PYG",
+    "isoNumeric": 600,
+    "minorUnits": 0,
+    "symbol": "₲",
+    "names": {
+      "nl": "Paraguayaanse guarani",
+      "en": "Paraguayan Guarani"
+    }
+  },
+  {
+    "isoCode": "QAR",
+    "isoNumeric": 634,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Qatarese rial",
+      "en": "Qatari Riyal"
+    }
+  },
+  {
+    "isoCode": "RON",
+    "isoNumeric": 946,
+    "minorUnits": 2,
+    "symbol": "lei",
+    "names": {
+      "nl": "Roemeense leu",
+      "en": "Romanian Leu"
+    }
+  },
+  {
+    "isoCode": "RSD",
+    "isoNumeric": 941,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Servische dinar",
+      "en": "Serbian Dinar"
+    }
+  },
+  {
+    "isoCode": "RUB",
+    "isoNumeric": 643,
+    "minorUnits": 2,
+    "symbol": "₽",
+    "names": {
+      "nl": "Russische roebel",
+      "en": "Russian Ruble"
+    }
+  },
+  {
+    "isoCode": "RWF",
+    "isoNumeric": 646,
+    "minorUnits": 0,
+    "symbol": "RF",
+    "names": {
+      "nl": "Rwandese frank",
+      "en": "Rwandan Franc"
+    }
+  },
+  {
+    "isoCode": "SAR",
+    "isoNumeric": 682,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Saoedi-Arabische riyal",
+      "en": "Saudi Riyal"
+    }
+  },
+  {
+    "isoCode": "SBD",
+    "isoNumeric": 90,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Salomon-dollar",
+      "en": "Solomon Islands Dollar"
+    }
+  },
+  {
+    "isoCode": "SCR",
+    "isoNumeric": 690,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Seychelse roepie",
+      "en": "Seychellois Rupee"
+    }
+  },
+  {
+    "isoCode": "SDG",
+    "isoNumeric": 938,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Soedanees pond",
+      "en": "Sudanese Pound"
+    }
+  },
+  {
+    "isoCode": "SEK",
+    "isoNumeric": 752,
+    "minorUnits": 2,
+    "symbol": "kr",
+    "names": {
+      "nl": "Zweedse kroon",
+      "en": "Swedish Krona"
+    }
+  },
+  {
+    "isoCode": "SGD",
+    "isoNumeric": 702,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Singaporese dollar",
+      "en": "Singapore Dollar"
+    }
+  },
+  {
+    "isoCode": "SHP",
+    "isoNumeric": 654,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Sint-Heleens pond",
+      "en": "St. Helena Pound"
+    }
+  },
+  {
+    "isoCode": "SLE",
+    "isoNumeric": 925,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Sierra Leoonse leone",
+      "en": "Sierra Leonean Leone"
+    }
+  },
+  {
+    "isoCode": "SOS",
+    "isoNumeric": 706,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Somalische shilling",
+      "en": "Somali Shilling"
+    }
+  },
+  {
+    "isoCode": "SRD",
+    "isoNumeric": 968,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Surinaamse dollar",
+      "en": "Surinamese Dollar"
+    }
+  },
+  {
+    "isoCode": "SSP",
+    "isoNumeric": 728,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Zuid-Soedanees pond",
+      "en": "South Sudanese Pound"
+    }
+  },
+  {
+    "isoCode": "STN",
+    "isoNumeric": 930,
+    "minorUnits": 2,
+    "symbol": "Db",
+    "names": {
+      "nl": "Santomese dobra",
+      "en": "São Tomé & Príncipe Dobra"
+    }
+  },
+  {
+    "isoCode": "SVC",
+    "isoNumeric": 222,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Salvadoraanse colón",
+      "en": "Salvadoran Colón"
+    }
+  },
+  {
+    "isoCode": "SYP",
+    "isoNumeric": 760,
+    "minorUnits": 2,
+    "symbol": "£",
+    "names": {
+      "nl": "Syrisch pond",
+      "en": "Syrian Pound"
+    }
+  },
+  {
+    "isoCode": "SZL",
+    "isoNumeric": 748,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Swazische lilangeni",
+      "en": "Swazi Lilangeni"
+    }
+  },
+  {
+    "isoCode": "THB",
+    "isoNumeric": 764,
+    "minorUnits": 2,
+    "symbol": "฿",
+    "names": {
+      "nl": "Thaise baht",
+      "en": "Thai Baht"
+    }
+  },
+  {
+    "isoCode": "TJS",
+    "isoNumeric": 972,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Tadzjiekse somoni",
+      "en": "Tajikistani Somoni"
+    }
+  },
+  {
+    "isoCode": "TMT",
+    "isoNumeric": 934,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Turkmeense manat",
+      "en": "Turkmenistani Manat"
+    }
+  },
+  {
+    "isoCode": "TND",
+    "isoNumeric": 788,
+    "minorUnits": 3,
+    "symbol": null,
+    "names": {
+      "nl": "Tunesische dinar",
+      "en": "Tunisian Dinar"
+    }
+  },
+  {
+    "isoCode": "TOP",
+    "isoNumeric": 776,
+    "minorUnits": 2,
+    "symbol": "T$",
+    "names": {
+      "nl": "Tongaanse paʻanga",
+      "en": "Tongan Paʻanga"
+    }
+  },
+  {
+    "isoCode": "TRY",
+    "isoNumeric": 949,
+    "minorUnits": 2,
+    "symbol": "₺",
+    "names": {
+      "nl": "Turkse lira",
+      "en": "Turkish Lira"
+    }
+  },
+  {
+    "isoCode": "TTD",
+    "isoNumeric": 780,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Trinidad en Tobago-dollar",
+      "en": "Trinidad & Tobago Dollar"
+    }
+  },
+  {
+    "isoCode": "TWD",
+    "isoNumeric": 901,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Nieuwe Taiwanese dollar",
+      "en": "New Taiwan Dollar"
+    }
+  },
+  {
+    "isoCode": "TZS",
+    "isoNumeric": 834,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Tanzaniaanse shilling",
+      "en": "Tanzanian Shilling"
+    }
+  },
+  {
+    "isoCode": "UAH",
+    "isoNumeric": 980,
+    "minorUnits": 2,
+    "symbol": "₴",
+    "names": {
+      "nl": "Oekraïense hryvnia",
+      "en": "Ukrainian Hryvnia"
+    }
+  },
+  {
+    "isoCode": "UGX",
+    "isoNumeric": 800,
+    "minorUnits": 0,
+    "symbol": null,
+    "names": {
+      "nl": "Oegandese shilling",
+      "en": "Ugandan Shilling"
+    }
+  },
+  {
+    "isoCode": "USD",
+    "isoNumeric": 840,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Amerikaanse dollar",
+      "en": "US Dollar"
+    }
+  },
+  {
+    "isoCode": "USN",
+    "isoNumeric": 997,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Amerikaanse dollar (volgende dag)",
+      "en": "US Dollar (Next day)"
+    }
+  },
+  {
+    "isoCode": "UYI",
+    "isoNumeric": 940,
+    "minorUnits": 0,
+    "symbol": null,
+    "names": {
+      "nl": "Uruguayaanse peso en geïndexeerde eenheden",
+      "en": "Uruguayan Peso (Indexed Units)"
+    }
+  },
+  {
+    "isoCode": "UYU",
+    "isoNumeric": 858,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Uruguayaanse peso",
+      "en": "Uruguayan Peso"
+    }
+  },
+  {
+    "isoCode": "UYW",
+    "isoNumeric": 927,
+    "minorUnits": 4,
+    "symbol": null,
+    "names": {
+      "nl": "Uruguayaanse nominale salarisindexeenheid",
+      "en": "Uruguayan Nominal Wage Index Unit"
+    }
+  },
+  {
+    "isoCode": "UZS",
+    "isoNumeric": 860,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Oezbeekse sum",
+      "en": "Uzbekistani Som"
+    }
+  },
+  {
+    "isoCode": "VED",
+    "isoNumeric": 926,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Bolívar Soberano",
+      "en": "Bolívar Soberano"
+    }
+  },
+  {
+    "isoCode": "VES",
+    "isoNumeric": 928,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Venezolaanse bolivar",
+      "en": "Venezuelan Bolívar"
+    }
+  },
+  {
+    "isoCode": "VND",
+    "isoNumeric": 704,
+    "minorUnits": 0,
+    "symbol": "₫",
+    "names": {
+      "nl": "Vietnamese dong",
+      "en": "Vietnamese Dong"
+    }
+  },
+  {
+    "isoCode": "VUV",
+    "isoNumeric": 548,
+    "minorUnits": 0,
+    "symbol": null,
+    "names": {
+      "nl": "Vanuatuaanse vatu",
+      "en": "Vanuatu Vatu"
+    }
+  },
+  {
+    "isoCode": "WST",
+    "isoNumeric": 882,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Samoaanse tala",
+      "en": "Samoan Tala"
+    }
+  },
+  {
+    "isoCode": "XAD",
+    "isoNumeric": 396,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Arab Accounting Dinar",
+      "en": "Arab Accounting Dinar"
+    }
+  },
+  {
+    "isoCode": "XAF",
+    "isoNumeric": 950,
+    "minorUnits": 0,
+    "symbol": "FCFA",
+    "names": {
+      "nl": "CFA-frank",
+      "en": "Central African CFA Franc"
+    }
+  },
+  {
+    "isoCode": "XAG",
+    "isoNumeric": 961,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Zilver",
+      "en": "Silver"
+    }
+  },
+  {
+    "isoCode": "XAU",
+    "isoNumeric": 959,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Goud",
+      "en": "Gold"
+    }
+  },
+  {
+    "isoCode": "XBA",
+    "isoNumeric": 955,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Europese samengestelde eenheid",
+      "en": "European Composite Unit"
+    }
+  },
+  {
+    "isoCode": "XBB",
+    "isoNumeric": 956,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Europese monetaire eenheid",
+      "en": "European Monetary Unit"
+    }
+  },
+  {
+    "isoCode": "XBC",
+    "isoNumeric": 957,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Europese rekeneenheid (XBC)",
+      "en": "European Unit of Account (XBC)"
+    }
+  },
+  {
+    "isoCode": "XBD",
+    "isoNumeric": 958,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Europese rekeneenheid (XBD)",
+      "en": "European Unit of Account (XBD)"
+    }
+  },
+  {
+    "isoCode": "XCD",
+    "isoNumeric": 951,
+    "minorUnits": 2,
+    "symbol": "$",
+    "names": {
+      "nl": "Oost-Caribische dollar",
+      "en": "East Caribbean Dollar"
+    }
+  },
+  {
+    "isoCode": "XCG",
+    "isoNumeric": 532,
+    "minorUnits": 2,
+    "symbol": "Cg.",
+    "names": {
+      "nl": "Caribische gulden",
+      "en": "Caribbean guilder"
+    }
+  },
+  {
+    "isoCode": "XDR",
+    "isoNumeric": 960,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Special Drawing Rights",
+      "en": "Special Drawing Rights"
+    }
+  },
+  {
+    "isoCode": "XOF",
+    "isoNumeric": 952,
+    "minorUnits": 0,
+    "symbol": "F CFA",
+    "names": {
+      "nl": "CFA-franc BCEAO",
+      "en": "West African CFA Franc"
+    }
+  },
+  {
+    "isoCode": "XPD",
+    "isoNumeric": 964,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Palladium",
+      "en": "Palladium"
+    }
+  },
+  {
+    "isoCode": "XPF",
+    "isoNumeric": 953,
+    "minorUnits": 0,
+    "symbol": "CFPF",
+    "names": {
+      "nl": "CFP-frank",
+      "en": "CFP Franc"
+    }
+  },
+  {
+    "isoCode": "XPT",
+    "isoNumeric": 962,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Platina",
+      "en": "Platinum"
+    }
+  },
+  {
+    "isoCode": "XSU",
+    "isoNumeric": 994,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Sucre",
+      "en": "Sucre"
+    }
+  },
+  {
+    "isoCode": "XTS",
+    "isoNumeric": 963,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "Valutacode voor testdoeleinden",
+      "en": "Testing Currency Code"
+    }
+  },
+  {
+    "isoCode": "XUA",
+    "isoNumeric": 965,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "ADB-rekeneenheid",
+      "en": "ADB Unit of Account"
+    }
+  },
+  {
+    "isoCode": "XXX",
+    "isoNumeric": 999,
+    "minorUnits": null,
+    "symbol": null,
+    "names": {
+      "nl": "onbekende munteenheid",
+      "en": "Unknown Currency"
+    }
+  },
+  {
+    "isoCode": "YER",
+    "isoNumeric": 886,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Jemenitische rial",
+      "en": "Yemeni Rial"
+    }
+  },
+  {
+    "isoCode": "ZAR",
+    "isoNumeric": 710,
+    "minorUnits": 2,
+    "symbol": "R",
+    "names": {
+      "nl": "Zuid-Afrikaanse rand",
+      "en": "South African Rand"
+    }
+  },
+  {
+    "isoCode": "ZMW",
+    "isoNumeric": 967,
+    "minorUnits": 2,
+    "symbol": "ZK",
+    "names": {
+      "nl": "Zambiaanse kwacha",
+      "en": "Zambian Kwacha"
+    }
+  },
+  {
+    "isoCode": "ZWG",
+    "isoNumeric": 924,
+    "minorUnits": 2,
+    "symbol": null,
+    "names": {
+      "nl": "Zimbabwe Gold",
+      "en": "Zimbabwean Gold"
+    }
+  }
+]
