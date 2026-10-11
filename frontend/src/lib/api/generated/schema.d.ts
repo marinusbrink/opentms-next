@@ -5973,6 +5973,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/logbook/functional": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                    from?: string;
+                    to?: string;
+                    changeType?: string;
+                    entityTypeFullName?: string;
+                    entityId?: string;
+                    userName?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/logbook/functional/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/logbook/technical": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                    from?: string;
+                    to?: string;
+                    userName?: string;
+                    httpMethod?: string;
+                    url?: string;
+                    httpStatusCode?: number;
+                    hasException?: boolean;
+                    correlationId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/logbook/technical/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/organization-units": {
         parameters: {
             query?: never;
@@ -8231,6 +8431,106 @@ export interface components {
             deletedCount?: number;
             skippedRows?: components["schemas"]["OpenTms.Platform.Administration.SkippedRowDto"][] | null;
         };
+        "OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto": {
+            /** Format: uuid */
+            auditLogId?: string;
+            /** Format: date-time */
+            changeTime?: string;
+            changeType?: string | null;
+            entityId?: string | null;
+            entityTypeFullName?: string | null;
+            entityTypeName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            propertyChanges?: components["schemas"]["OpenTms.Platform.Administration.Logbook.LogbookPropertyChangeDto"][] | null;
+            /** Format: uuid */
+            userId?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto": {
+            /** Format: uuid */
+            auditLogId?: string;
+            /** Format: date-time */
+            changeTime?: string;
+            changeType?: string | null;
+            entityId?: string | null;
+            entityTypeFullName?: string | null;
+            entityTypeName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            userId?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Administration.Logbook.LogbookPropertyChangeDto": {
+            /** Format: uuid */
+            id?: string;
+            newValue?: string | null;
+            originalValue?: string | null;
+            propertyName?: string | null;
+            propertyTypeFullName?: string | null;
+        };
+        "OpenTms.Platform.Administration.Logbook.TechnicalLogbookActionDto": {
+            /** Format: int32 */
+            executionDuration?: number;
+            /** Format: date-time */
+            executionTime?: string;
+            /** Format: uuid */
+            id?: string;
+            methodName?: string | null;
+            parameters?: string | null;
+            serviceName?: string | null;
+        };
+        "OpenTms.Platform.Administration.Logbook.TechnicalLogbookDetailDto": {
+            actions?: components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookActionDto"][] | null;
+            applicationName?: string | null;
+            browserInfo?: string | null;
+            clientId?: string | null;
+            clientIpAddress?: string | null;
+            clientName?: string | null;
+            comments?: string | null;
+            correlationId?: string | null;
+            /** Format: int32 */
+            entityChangeCount?: number;
+            entityChanges?: components["schemas"]["OpenTms.Platform.Administration.Logbook.FunctionalLogbookDetailDto"][] | null;
+            exceptions?: string | null;
+            /** Format: int32 */
+            executionDuration?: number;
+            /** Format: date-time */
+            executionTime?: string;
+            hasException?: boolean;
+            httpMethod?: string | null;
+            /** Format: int32 */
+            httpStatusCode?: number | null;
+            /** Format: uuid */
+            id?: string;
+            impersonatorUserName?: string | null;
+            url?: string | null;
+            /** Format: uuid */
+            userId?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto": {
+            applicationName?: string | null;
+            clientIpAddress?: string | null;
+            correlationId?: string | null;
+            /** Format: int32 */
+            entityChangeCount?: number;
+            /** Format: int32 */
+            executionDuration?: number;
+            /** Format: date-time */
+            executionTime?: string;
+            hasException?: boolean;
+            httpMethod?: string | null;
+            /** Format: int32 */
+            httpStatusCode?: number | null;
+            /** Format: uuid */
+            id?: string;
+            url?: string | null;
+            /** Format: uuid */
+            userId?: string | null;
+            userName?: string | null;
+        };
         "OpenTms.Platform.Administration.OrganizationUnitDeleteCheckDto": {
             /** Format: int32 */
             childCount?: number;
@@ -8307,6 +8607,20 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.Platform.Administration.AdministrationUserRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.Logbook.FunctionalLogbookRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.Logbook.TechnicalLogbookRowDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

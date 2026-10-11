@@ -42,6 +42,9 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.Administration.OrganizationUnits.Update,
             PlatformPermissions.Administration.OrganizationUnits.Delete,
             PlatformPermissions.Administration.OrganizationUnits.ManageMembers,
+            PlatformPermissions.Administration.Logbook.Default,
+            PlatformPermissions.Administration.Logbook.Functional,
+            PlatformPermissions.Administration.Logbook.Technical,
         ];
 
         foreach (var permission in permissions)

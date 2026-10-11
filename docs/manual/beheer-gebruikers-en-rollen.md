@@ -21,7 +21,9 @@ gebruikers met de juiste rechten zien deze app.
    te openen.
 2. Klik op de tegel **Beheer** (schildicoon, grijze tegel).
 3. De app opent op de **Gebruikers**-weergave. Links zie je het navigatiepaneel
-   met **Gebruikers**, **Rollen** en **Organisatie-eenheden**.
+   met **Gebruikers**, **Rollen**, **Organisatie-eenheden** en de groep
+   **Auditlogboeken** met het functioneel en het technisch logboek (beschreven in
+   [Beheer — Logboek](beheer-logboek.md)).
 
 <!-- SCREENSHOT: wafel-launcher met de Beheer-tegel zichtbaar -->
 

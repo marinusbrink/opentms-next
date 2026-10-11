@@ -46,6 +46,13 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.Update, L("Permission:Administration.OrganizationUnits.Update"), bothSides);
         organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.Delete, L("Permission:Administration.OrganizationUnits.Delete"), bothSides);
         organizationUnits.AddChild(PlatformPermissions.Administration.OrganizationUnits.ManageMembers, L("Permission:Administration.OrganizationUnits.ManageMembers"), bothSides);
+
+        var logbook = group.AddPermission(
+            PlatformPermissions.Administration.Logbook.Default,
+            L("Permission:Administration.Logbook"),
+            bothSides);
+        logbook.AddChild(PlatformPermissions.Administration.Logbook.Functional, L("Permission:Administration.Logbook.Functional"), bothSides);
+        logbook.AddChild(PlatformPermissions.Administration.Logbook.Technical, L("Permission:Administration.Logbook.Technical"), bothSides);
     }
 
     private static LocalizableString L(string name)

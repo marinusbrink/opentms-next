@@ -29,6 +29,12 @@ export function DateTimeCell({ value }: CellParams<string | Date | null | undefi
   return <span className="tabular-nums">{f.dateTime(value)}</span>;
 }
 
+/** Technical timestamps (UI-FMT-003): logs, audit trails, API messages; culture-independent. */
+export function TimestampCell({ value }: CellParams<string | Date | null | undefined>) {
+  const f = useFormat();
+  return <span className="tabular-nums">{f.timestamp(value)}</span>;
+}
+
 /** A check icon for true, nothing for false (never the words true / false). */
 export function BoolCell({ value }: CellParams<boolean | null | undefined>) {
   if (!value) return null;
