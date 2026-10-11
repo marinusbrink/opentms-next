@@ -1,39 +1,35 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { TextAreaField } from "@/apps/master-data/components/fields";
-import { LocalizedNameFields } from "@/apps/master-data/components/LocalizedNameFields";
+import { TextAreaField, TextField } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
 import { ADDRESS_TYPE_KINDS, addressTypes, type AddressTypeDto, type AddressTypeKind } from "@/domains/master-data/entities";
-import { localizedNameFromMap, localizedNameToMap, resolveLocalizedName, validateLocalizedName, type LocalizedNameValues } from "@/domains/master-data/localized-name";
+import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface Values {
+  name: string;
   kind: AddressTypeKind;
-  names: LocalizedNameValues;
   description: string;
 }
 
-const initialValues = (dto: AddressTypeDto | undefined): Values => ({
+/* One Name field in the user's language (PO, 2026-10-11), as in the currency and country editors. */
+const initialValuesFor = (culture: string) => (dto: AddressTypeDto | undefined): Values => ({
+  name: resolveLocalizedName(dto?.names, culture),
   kind: dto?.kind ?? 0,
-  names: localizedNameFromMap(dto?.names),
   description: dto?.description ?? "",
 });
 
-const validate = (v: Values): FieldErrors<Values> => {
-  const errors: FieldErrors<Values> = {};
-  const name = validateLocalizedName(v.names);
-  if (name) errors.names = name;
-  return errors;
-};
+const validate = (v: Values): FieldErrors<Values> => (v.name.trim() ? {} : { name: "MasterData:Required" });
 
 export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
   const { t, culture } = useL();
   const detail = addressTypes.useDetail(mode === "edit" ? id : undefined);
+  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
   const create = addressTypes.useCreate();
   const update = addressTypes.useUpdate();
   const remove = addressTypes.useDelete();
@@ -41,14 +37,14 @@ export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
 
   const save = useCallback(
     async (v: Values, dto: AddressTypeDto | undefined) => {
-      const body = { kind: v.kind, names: localizedNameToMap(v.names), description: v.description.trim() || null };
+      const body = { kind: v.kind, names: withTextForCulture(dto?.names, culture, v.name), description: v.description.trim() || null };
       if (mode === "create") {
         await create.mutateAsync(body);
       } else {
         await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
       }
     },
-    [create, update, mode, id],
+    [create, update, mode, id, culture],
   );
 
   const kindItems = ADDRESS_TYPE_KINDS.map((k) => ({ value: k.value, label: t(k.key) }));
@@ -57,10 +53,11 @@ export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
     {
       value: "general",
       labelKey: "General",
-      fields: ["kind", "names", "description"],
+      fields: ["name", "kind", "description"],
       render: (form) => (
         <FormSection title={t("MasterData:AddressType")}>
           <div className="grid grid-cols-1 gap-3">
+            <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
             <FormField label={t("MasterData:Kind")} htmlFor={form.id("kind")} required floating="always">
               <Select
                 items={kindItems}
@@ -80,7 +77,6 @@ export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
                 </SelectContent>
               </Select>
             </FormField>
-            <LocalizedNameFields form={form} />
             <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
           </div>
         </FormSection>
