@@ -402,6 +402,16 @@
     "MasterData:InvalidEmail": "Not a valid e-mail address",
     "MasterData:InvalidVatNumber": "Not a valid VAT number",
     "MasterData:InvalidDate": "Not a valid date",
-    "MasterData:AllRoles": "All roles"
+    "MasterData:AllRoles": "All roles",
+    "MasterData:IsBlocked": "Blocked",
+    "MasterData:AllAddressesEqual": "All addresses equal",
+    "MasterData:AllAddressTypes": "All address types",
+    "MasterData:Telephone": "Telephone",
+    "MasterData:Internet": "Internet",
+    "MasterData:Administration": "Administration",
+    "MasterData:Financial": "Financial",
+    "MasterData:Remarks": "Remarks",
+    "MasterData:AddressesPerTypeHint": "The addresses per address type are kept on the Addresses tab.",
+    "MasterData:DefaultAddress": "Default address"
   }
 }

@@ -79,7 +79,8 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         await WithUnitOfWorkAsync(() => _organizationUnits.CreateAsync(new OrganizationUnit(_unit, "Depot Utrecht", null, CurrentTenant.Id)));
     }
 
-    private RelationAddressDto Address(Guid typeId, string street = "Keizersgracht", string postalCode = "1015 CJ", string city = "Amsterdam", Guid? countryId = null, string? timeZone = null, Guid? id = null) => new()
+    /// <summary>A null <paramref name="typeId"/> is the relation's default address ("all addresses equal", PO 2026-10-12).</summary>
+    private RelationAddressDto Address(Guid? typeId, string street = "Keizersgracht", string postalCode = "1015 CJ", string city = "Amsterdam", Guid? countryId = null, string? timeZone = null, Guid? id = null) => new()
     {
         Id = id,
         AddressTypeId = typeId,
@@ -116,6 +117,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         Name = dto.Name,
         Roles = dto.Roles,
         IsArchived = dto.IsArchived,
+        IsBlocked = dto.IsBlocked,
         Phone = dto.Phone,
         Mobile = dto.Mobile,
         Email = dto.Email,
@@ -264,6 +266,158 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         rows.Single(r => r.Code == "NOADDR").CountryCode.ShouldBeNull();
     }
 
+    // ── Default address ("all addresses equal", PO 2026-10-12) ───────────────
+
+    [Fact]
+    public async Task Create_and_update_round_trip_a_default_address_which_comes_first_without_a_type_name()
+    {
+        using var _ = InTenantA();
+        using var culture = UiCulture("en");
+        await SeedReferencesAsync();
+
+        var created = await CreateAsync("DEF01", "Default address", configure: dto =>
+            dto.Addresses = [Address(_postal, "Postbus", "1000 AA", "Zwolle"), Address(null, "Dorpsstraat", "3511 AB", "Utrecht")]);
+
+        created.Addresses.Count.ShouldBe(2);
+        var @default = created.Addresses[0];
+        @default.Id.ShouldNotBeNull();
+        @default.AddressTypeId.ShouldBeNull("the default address has no type");
+        @default.AddressTypeName.ShouldBeNull();
+        @default.Street.ShouldBe("Dorpsstraat");
+        @default.City.ShouldBe("Utrecht");
+        @default.CountryCode.ShouldBe("NL");
+        @default.TimeZoneId.ShouldBe("Europe/Amsterdam", "the country's primary zone is the default for the default address too");
+        created.Addresses[1].AddressTypeId.ShouldBe(_postal);
+        created.Addresses[1].AddressTypeName.ShouldBe("Postal address");
+
+        var fetched = await _service.GetAsync(created.Id);
+        fetched.Addresses.Select(a => a.AddressTypeName).ShouldBe([null, "Postal address"], "the default first, then by type name");
+        var listed = await _service.GetAddressesAsync(created.Id);
+        listed.Select(a => a.AddressTypeName).ShouldBe([null, "Postal address"]);
+        listed[0].Id.ShouldBe(@default.Id);
+
+        /* Update by id: the default row keeps its identity; a typed row is added and sorts after it. */
+        var defaultId = @default.Id!.Value;
+        var update = UpdateFrom(created);
+        update.Addresses = [Address(_visiting, "Keizersgracht", city: "Amsterdam"), Address(null, "Dorpsstraat 2", "3511 AB", "Utrecht", id: defaultId), Address(_postal, "Postbus", "1000 AA", "Zwolle", id: created.Addresses[1].Id)];
+        var updated = await _service.UpdateAsync(created.Id, update);
+        updated.Addresses.Count.ShouldBe(3);
+        updated.Addresses[0].Id.ShouldBe(defaultId);
+        updated.Addresses[0].AddressTypeId.ShouldBeNull();
+        updated.Addresses[0].AddressTypeName.ShouldBeNull();
+        updated.Addresses[0].Street.ShouldBe("Dorpsstraat 2");
+        updated.Addresses.Skip(1).Select(a => a.AddressTypeName).ShouldBe(["Postal address", "Visiting address"]);
+
+        /* Update without an id: the null type matches the existing default row in place. */
+        var again = UpdateFrom(updated);
+        again.Addresses = [Address(null, "Dorpsstraat 3", "3511 AB", "Utrecht"), Address(_visiting, "Keizersgracht", city: "Amsterdam", id: updated.Addresses.Single(a => a.AddressTypeId == _visiting).Id)];
+        var replaced = await _service.UpdateAsync(created.Id, again);
+        replaced.Addresses.Count.ShouldBe(2);
+        replaced.Addresses[0].Id.ShouldBe(defaultId);
+        replaced.Addresses[0].Street.ShouldBe("Dorpsstraat 3");
+        replaced.Addresses[1].AddressTypeId.ShouldBe(_visiting);
+        (await WithUnitOfWorkAsync(() => _addressRows.CountAsync(a => a.RelationId == created.Id))).ShouldBe(2, "the dropped postal row is gone, nothing duplicated");
+        (await WithUnitOfWorkAsync(() => _addressRows.CountAsync(a => a.RelationId == created.Id && a.AddressTypeId == null))).ShouldBe(1);
+
+        /* A second default on update is refused and leaves the stored set alone. */
+        var twoDefaults = UpdateFrom(replaced);
+        twoDefaults.Addresses = [Address(null, "One", id: defaultId), Address(null, "Two")];
+        await ShouldFailAsync(() => _service.UpdateAsync(created.Id, twoDefaults), MasterDataErrorCodes.DuplicateKey, "addressTypeId");
+        (await _service.GetAsync(created.Id)).Addresses.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task The_row_and_lookup_city_come_from_the_visiting_address_else_the_default_else_the_first_by_city()
+    {
+        using var _ = InTenantA();
+        await SeedReferencesAsync();
+        await CreateAsync("VIS", "Visiting wins", configure: dto => dto.Addresses = [Address(null, city: "Utrecht"), Address(_postal, city: "Aalst"), Address(_visiting, city: "Amsterdam")]);
+        await CreateAsync("DEF", "Default next", configure: dto => dto.Addresses = [Address(_postal, city: "Aalst"), Address(_warehouse, city: "Breda"), Address(null, city: "Utrecht", countryId: _be)]);
+        await CreateAsync("FIRST", "First by city", configure: dto => dto.Addresses = [Address(_warehouse, city: "Zwolle"), Address(_postal, city: "Alkmaar")]);
+        await CreateAsync("NONE", "No address");
+
+        var rows = (await _service.GetListAsync(Request())).Rows;
+        rows.Single(r => r.Code == "VIS").City.ShouldBe("Amsterdam", "the visiting address by kind, before the default");
+        rows.Single(r => r.Code == "VIS").CountryCode.ShouldBe("NL");
+        rows.Single(r => r.Code == "DEF").City.ShouldBe("Utrecht", "the default address, before any other typed one");
+        rows.Single(r => r.Code == "DEF").CountryCode.ShouldBe("BE");
+        rows.Single(r => r.Code == "FIRST").City.ShouldBe("Alkmaar", "the first address by city");
+        rows.Single(r => r.Code == "NONE").City.ShouldBeNull();
+
+        var lookup = (await _service.GetLookupPageAsync()).Items;
+        lookup.Count.ShouldBe(4);
+        lookup.Single(l => l.Code == "VIS").City.ShouldBe("Amsterdam");
+        lookup.Single(l => l.Code == "DEF").City.ShouldBe("Utrecht");
+        lookup.Single(l => l.Code == "DEF").CountryCode.ShouldBe("BE");
+        lookup.Single(l => l.Code == "FIRST").City.ShouldBe("Alkmaar");
+        lookup.Single(l => l.Code == "NONE").City.ShouldBeNull();
+
+        /* The city search sees the default address like any other. */
+        (await _service.GetListAsync(Request(search: "utrecht"))).Rows.Select(r => r.Code).ShouldBe(["DEF", "VIS"]);
+    }
+
+    [Fact]
+    public async Task The_city_sort_prefers_the_visiting_address_over_the_default_one()
+    {
+        using var _ = InTenantA();
+        await SeedReferencesAsync();
+        await CreateAsync("BOTH", "Both", configure: dto => dto.Addresses = [Address(null, city: "Amsterdam"), Address(_visiting, city: "Zwolle")]);
+        await CreateAsync("DEFONLY", "Default only", configure: dto => dto.Addresses = [Address(null, city: "Breda"), Address(_postal, city: "Aalst")]);
+        await CreateAsync("VISONLY", "Visiting only", configure: dto => dto.Addresses = [Address(_visiting, city: "Groningen")]);
+        await CreateAsync("TYPED", "Typed only", configure: dto => dto.Addresses = [Address(_postal, city: "Aalst")]);
+
+        (await _service.GetListAsync(Request(sortBy: "city"))).Rows.Select(r => r.Code).ShouldBe(["TYPED", "DEFONLY", "VISONLY", "BOTH"], "no visiting or default address sorts first; BOTH sorts on Zwolle, not Amsterdam");
+        (await _service.GetListAsync(Request(sortBy: "city", sortDir: "desc"))).Rows.Select(r => r.Code).ShouldBe(["BOTH", "VISONLY", "DEFONLY", "TYPED"]);
+    }
+
+    // ── Blocked flag (PO 2026-10-12) ─────────────────────────────────────────
+
+    [Fact]
+    public async Task IsBlocked_round_trips_through_create_update_row_and_detail_and_sorts_without_hiding_anything()
+    {
+        using var _ = InTenantA();
+        var blocked = await CreateAsync("BLK", "Blocked one", configure: dto => dto.IsBlocked = true);
+        var open = await CreateAsync("OPN", "Open one");
+
+        blocked.IsBlocked.ShouldBeTrue();
+        blocked.IsArchived.ShouldBeFalse("blocked is not archived");
+        open.IsBlocked.ShouldBeFalse("off by default");
+        (await _service.GetAsync(blocked.Id)).IsBlocked.ShouldBeTrue();
+        (await _service.GetAsync(open.Id)).IsBlocked.ShouldBeFalse();
+
+        var rows = (await _service.GetListAsync(Request())).Rows;
+        rows.Count.ShouldBe(2, "nothing enforces the block yet: a blocked relation stays listed");
+        rows.Single(r => r.Code == "BLK").IsBlocked.ShouldBeTrue();
+        rows.Single(r => r.Code == "OPN").IsBlocked.ShouldBeFalse();
+        (await _service.GetLookupAsync()).Select(l => l.Code).ShouldBe(["BLK", "OPN"], "a blocked relation is still selectable");
+        (await _service.GetLookupPageAsync()).TotalCount.ShouldBe(2);
+
+        (await _service.GetListAsync(Request(sortBy: "isBlocked", sortDir: "desc"))).Rows.Select(r => r.Code).ShouldBe(["BLK", "OPN"]);
+        (await _service.GetListAsync(Request(sortBy: "isblocked"))).Rows.Select(r => r.Code).ShouldBe(["OPN", "BLK"]);
+
+        /* Update flips it both ways; the other flags are untouched. */
+        var unblock = UpdateFrom(blocked);
+        unblock.IsBlocked = false;
+        var unblocked = await _service.UpdateAsync(blocked.Id, unblock);
+        unblocked.IsBlocked.ShouldBeFalse();
+        unblocked.IsArchived.ShouldBeFalse();
+        unblocked.ConcurrencyStamp.ShouldNotBe(blocked.ConcurrencyStamp);
+
+        var block = UpdateFrom(open);
+        block.IsBlocked = true;
+        block.IsArchived = true;
+        var nowBlocked = await _service.UpdateAsync(open.Id, block);
+        nowBlocked.IsBlocked.ShouldBeTrue();
+        nowBlocked.IsArchived.ShouldBeTrue("both flags are independent");
+        (await _service.GetListAsync(Request(includeArchived: true))).Rows.Single(r => r.Code == "OPN").IsBlocked.ShouldBeTrue();
+        (await _service.GetListAsync(Request())).Rows.ShouldHaveSingleItem().IsBlocked.ShouldBeFalse();
+
+        /* An update that does not mention the flag (false in the DTO) clears it: the DTO is the whole truth. */
+        var silent = UpdateFrom(nowBlocked);
+        silent.IsBlocked = false;
+        (await _service.UpdateAsync(open.Id, silent)).IsBlocked.ShouldBeFalse();
+    }
+
     [Fact]
     public async Task Update_replaces_children_by_id_keeps_unchanged_rows_and_bumps_the_stamp()
     {
@@ -397,6 +551,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.BankAccounts = [Bank("NL91ABNA0417164300"), Bank("nl91 abna 0417 1643 00")]), MasterDataErrorCodes.DuplicateKey, "iban");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(_visiting, timeZone: "Mars/Olympus")]), MasterDataErrorCodes.InvalidTimeZone);
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(_visiting), Address(_visiting, "Other")]), MasterDataErrorCodes.DuplicateKey, "addressTypeId");
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(null), Address(_visiting), Address(null, "Other")]), MasterDataErrorCodes.DuplicateKey, "addressTypeId");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.ContactPersons = [Contact("Jan", "Jansen", "jan@")]), MasterDataErrorCodes.InvalidEmail);
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.ContactPersons = Enumerable.Range(0, MasterDataConsts.MaxContactPersonsPerRelation + 1).Select(i => Contact("P", $"Person {i}")).ToList()), MasterDataErrorCodes.TooManyChildren);
 
@@ -414,6 +569,9 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
 
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(_visiting, countryId: Guid.NewGuid())]), MasterDataErrorCodes.ReferenceNotFound, "addresses.countryId");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(Guid.NewGuid())]), MasterDataErrorCodes.ReferenceNotFound, "addresses.addressTypeId");
+        /* The default address has no type to check; an unknown typed one next to it is still refused. */
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(null), Address(Guid.NewGuid())]), MasterDataErrorCodes.ReferenceNotFound, "addresses.addressTypeId");
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.Addresses = [Address(null, countryId: Guid.NewGuid())]), MasterDataErrorCodes.ReferenceNotFound, "addresses.countryId");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.CategoryIds = [_category, Guid.NewGuid()]), MasterDataErrorCodes.ReferenceNotFound, "categoryIds");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.GeographicalRegionIds = [Guid.NewGuid()]), MasterDataErrorCodes.ReferenceNotFound, "geographicalRegionIds");
         await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.OrganizationUnitIds = [Guid.NewGuid()]), MasterDataErrorCodes.ReferenceNotFound, "organizationUnitIds");

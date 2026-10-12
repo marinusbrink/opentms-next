@@ -278,10 +278,10 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.Property(a => a.PostalCodeKey).HasMaxLength(MasterDataConsts.MaxPostalCodeLength).IsRequired();
             b.Property(a => a.City).HasMaxLength(MasterDataConsts.MaxCityLength).IsRequired();
             b.Property(a => a.TimeZoneId).HasMaxLength(MasterDataConsts.MaxTimeZoneIdLength);
-            b.HasOne<AddressType>().WithMany().HasForeignKey(a => a.AddressTypeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<AddressType>().WithMany().HasForeignKey(a => a.AddressTypeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Country>().WithMany().HasForeignKey(a => a.CountryId).OnDelete(DeleteBehavior.Restrict);
-            /* One address per address type per relation (design 43). */
-            b.HasIndex(a => new { a.RelationId, a.AddressTypeId }).IsUnique();
+            /* One address per address type per relation, and one default address (type null) per relation (design 43, PO 2026-10-12). */
+            b.HasIndex(a => new { a.RelationId, a.AddressTypeId }).IsUnique().AreNullsDistinct(false);
             b.HasIndex(a => a.CountryId);
             b.HasIndex(a => a.AddressTypeId);
             /* The matcher: postcode in a country. */

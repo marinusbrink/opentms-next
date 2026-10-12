@@ -19321,7 +19321,7 @@ export interface components {
         "OpenTms.MasterData.Relations.RelationAddressDto": {
             addressLine2?: string | null;
             /** Format: uuid */
-            addressTypeId: string;
+            addressTypeId?: string | null;
             addressTypeName?: string | null;
             city: string;
             countryCode?: string | null;
@@ -19410,6 +19410,7 @@ export interface components {
             email?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
+            isBlocked?: boolean;
             mobile?: string | null;
             name: string;
             organizationUnitIds?: string[] | null;
@@ -19437,6 +19438,7 @@ export interface components {
             /** Format: uuid */
             id?: string;
             isArchived?: boolean;
+            isBlocked?: boolean;
             /** Format: date-time */
             lastModificationTime?: string | null;
             /** Format: uuid */
@@ -19507,6 +19509,7 @@ export interface components {
             /** Format: uuid */
             id?: string;
             isArchived?: boolean;
+            isBlocked?: boolean;
             name?: string | null;
             phone?: string | null;
             roles?: components["schemas"]["OpenTms.MasterData.Relations.RelationRoles"];
@@ -19524,6 +19527,7 @@ export interface components {
             email?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
+            isBlocked?: boolean;
             mobile?: string | null;
             name: string;
             organizationUnitIds?: string[] | null;

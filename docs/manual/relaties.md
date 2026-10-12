@@ -11,8 +11,8 @@ ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekij
 
 - Zoeken werkt op code, naam, btw-nummer, KvK-nummer en plaats; in code en naam maken accenten en
   hoofdletters geen verschil (*Müller* vindt *muller*).
-- De kolom *Plaats* toont de plaats van het bezoekadres, of van het eerste adres als er geen
-  bezoekadres is.
+- De kolom *Plaats* toont de plaats van het bezoekadres, anders van het algemene adres, anders van
+  het eerste adres.
 - Een relatie wordt **gearchiveerd** in plaats van verwijderd zodra er orders, ritten of facturen
   naar verwijzen. Gearchiveerde relaties verdwijnen uit de keuzelijsten en uit het automatisch
   koppelen; met *Toon gearchiveerd* blijven ze in de lijst zichtbaar. Rechtsklikken op een regel
@@ -21,18 +21,31 @@ ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekij
 
 ## Het record
 
-Het venster heeft vier tabbladen.
+Het venster heeft vijf tabbladen.
 
 **Algemeen**
 
-- *Code* is uniek binnen de tenant en wordt in hoofdletters opgeslagen. *Naam* is verplicht.
-- *Rollen*: kies er minimaal één. De rol *Eigen bedrijf* kan maar één relatie per tenant hebben;
-  een tweede wordt geweigerd.
-- *Contact*: telefoon, mobiel, e-mail, website en de voorkeurstaal waarin de relatie documenten en
-  berichten ontvangt (een van de talen van het platform).
-- *Juridisch*: KvK-nummer en btw-nummer. Beide zijn uniek binnen de tenant; het btw-nummer begint
-  met de landcode (bijvoorbeeld `NL123456789B01`) en wordt zonder spaties en punten opgeslagen.
-- *Indeling*: relatiecategorieën, geografische regio's en organisatie-eenheden.
+- Links: categorieën, geografische regio's, *Code* (uniek binnen de tenant, in hoofdletters) en
+  *Naam*, de *Rollen* (kies er minimaal één; de rol *Eigen bedrijf* kan maar één relatie per tenant
+  hebben), en de blokken *Telefoon* (telefoon, mobiel) en *Internet* (e-mail, website).
+- Rechts: de schakelaars *Gearchiveerd* en *Geblokkeerd* (een blokkade is nu alleen een kenmerk;
+  wat zij tegenhoudt bepalen de orders en de facturatie later), **Alle adressen gelijk** met daaronder
+  het adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone, coördinaten) en de
+  *Opmerkingen*.
+- *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
+  (bezoek, factuur, …). Zet het uit als de adressen per type verschillen; dan beheert u ze op het
+  tabblad *Adressen*. Een adres per type gaat altijd vóór het algemene adres.
+
+**Administratie**
+
+KvK-nummer en btw-nummer (beide uniek binnen de tenant; het btw-nummer begint met de landcode,
+bijvoorbeeld `NL123456789B01`, en wordt zonder spaties en punten opgeslagen), de voorkeurstaal
+waarin de relatie documenten en berichten ontvangt, en de organisatie-eenheden.
+
+**Financieel**
+
+De bankrekeningen: IBAN (wordt gecontroleerd), BIC, bank en rekeninghouder. Precies één rekening is
+de standaard; de eerste rekening wordt dat automatisch.
 
 **Adressen**
 
@@ -44,11 +57,6 @@ coördinaten en tijdzone. De tijdzone wordt uit het land overgenomen als u hem l
 
 Naam, rol (planning, facturatie, verkoop, directie of overig), functie, afdeling en
 contactgegevens. Deze gegevens zijn persoonsgegevens; zie *Privacy* hieronder.
-
-**Bankrekeningen**
-
-IBAN (wordt gecontroleerd), BIC, bank en rekeninghouder. Precies één rekening is de standaard; de
-eerste rekening wordt dat automatisch.
 
 ## Automatisch koppelen
 

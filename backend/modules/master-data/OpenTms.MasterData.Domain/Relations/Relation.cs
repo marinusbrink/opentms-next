@@ -24,6 +24,9 @@ public class Relation : MasterDataAggregateRoot
 
     public bool IsArchived { get; private set; }
 
+    /// <summary>Shown as a flag (PO 2026-10-12, the old "Is geblokkeerd"); Orders and Financial decide later what a block stops.</summary>
+    public bool IsBlocked { get; private set; }
+
     public string? Phone { get; private set; }
 
     public string? Mobile { get; private set; }
@@ -90,6 +93,8 @@ public class Relation : MasterDataAggregateRoot
     public void Archive() => IsArchived = true;
 
     public void Unarchive() => IsArchived = false;
+
+    public void SetBlocked(bool blocked) => IsBlocked = blocked;
 
     public void SetContact(string? phone, string? mobile, string? email, string? website)
     {
@@ -311,7 +316,8 @@ public static class MasterDataPeople
     }
 }
 
-public sealed record RelationAddressInput(Guid? Id, Guid AddressTypeId, Guid CountryId, string Street, string? HouseNumber, string? AddressLine2, string PostalCode, string City, double? Latitude, double? Longitude, string? TimeZoneId);
+/// <summary>An address without an address type is the relation's default: it serves every type that has no address of its own ("all addresses equal").</summary>
+public sealed record RelationAddressInput(Guid? Id, Guid? AddressTypeId, Guid CountryId, string Street, string? HouseNumber, string? AddressLine2, string PostalCode, string City, double? Latitude, double? Longitude, string? TimeZoneId);
 
 public sealed record RelationContactPersonInput(Guid? Id, string FirstName, string? MiddleName, string LastName, ContactPersonRole Role, string? JobTitle, string? Department, string? Email, string? Phone, string? Mobile);
 
@@ -324,7 +330,8 @@ public class RelationAddress : Entity<Guid>, IMultiTenant
 
     public Guid RelationId { get; private set; }
 
-    public Guid AddressTypeId { get; private set; }
+    /// <summary>Null: the default address for every type without one of its own (one per relation, like every type).</summary>
+    public Guid? AddressTypeId { get; private set; }
 
     public Guid CountryId { get; private set; }
 

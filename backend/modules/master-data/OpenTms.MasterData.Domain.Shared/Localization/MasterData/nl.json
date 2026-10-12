@@ -402,6 +402,16 @@
     "MasterData:InvalidEmail": "Geen geldig e-mailadres",
     "MasterData:InvalidVatNumber": "Geen geldig btw-nummer",
     "MasterData:InvalidDate": "Geen geldige datum",
-    "MasterData:AllRoles": "Alle rollen"
+    "MasterData:AllRoles": "Alle rollen",
+    "MasterData:IsBlocked": "Geblokkeerd",
+    "MasterData:AllAddressesEqual": "Alle adressen gelijk",
+    "MasterData:AllAddressTypes": "Alle adrestypen",
+    "MasterData:Telephone": "Telefoon",
+    "MasterData:Internet": "Internet",
+    "MasterData:Administration": "Administratie",
+    "MasterData:Financial": "Financieel",
+    "MasterData:Remarks": "Opmerkingen",
+    "MasterData:AddressesPerTypeHint": "De adressen per adrestype staan op het tabblad Adressen.",
+    "MasterData:DefaultAddress": "Standaardadres"
   }
 }

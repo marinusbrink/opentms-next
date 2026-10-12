@@ -14,11 +14,12 @@ public class RelationRowDto
     public string Name { get; set; } = string.Empty;
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
+    public bool IsBlocked { get; set; }
     public string? VatNumber { get; set; }
     public string? ChamberOfCommerceNumber { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
-    /// <summary>City and country of the visiting address (by kind), else the first address.</summary>
+    /// <summary>City and country of the visiting address (by kind), else the default address, else the first address.</summary>
     public string? City { get; set; }
     public string? CountryCode { get; set; }
     public List<string> CategoryNames { get; set; } = new();
@@ -28,8 +29,8 @@ public class RelationAddressDto
 {
     public Guid? Id { get; set; }
 
-    [Required]
-    public Guid AddressTypeId { get; set; }
+    /// <summary>Null: the default address that serves every address type without one of its own ("all addresses equal").</summary>
+    public Guid? AddressTypeId { get; set; }
 
     public string? AddressTypeName { get; set; }
 
@@ -120,6 +121,7 @@ public class RelationDto : MasterDataDetailDtoBase
     public string Name { get; set; } = string.Empty;
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
+    public bool IsBlocked { get; set; }
     public string? Phone { get; set; }
     public string? Mobile { get; set; }
     public string? Email { get; set; }
@@ -146,6 +148,8 @@ public class RelationCreateDto
     public RelationRoles Roles { get; set; }
 
     public bool IsArchived { get; set; }
+
+    public bool IsBlocked { get; set; }
 
     [MaxLength(MasterDataConsts.MaxPhoneLength)] public string? Phone { get; set; }
     [MaxLength(MasterDataConsts.MaxPhoneLength)] public string? Mobile { get; set; }

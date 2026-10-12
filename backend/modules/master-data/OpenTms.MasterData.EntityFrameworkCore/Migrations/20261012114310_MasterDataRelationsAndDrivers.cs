@@ -25,6 +25,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     SearchKey = table.Column<string>(type: "character varying(160)", maxLength: 160, nullable: false),
                     Roles = table.Column<int>(type: "integer", nullable: false),
                     IsArchived = table.Column<bool>(type: "boolean", nullable: false),
+                    IsBlocked = table.Column<bool>(type: "boolean", nullable: false),
                     Phone = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     Mobile = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -102,7 +103,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: true),
                     RelationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    AddressTypeId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AddressTypeId = table.Column<Guid>(type: "uuid", nullable: true),
                     CountryId = table.Column<Guid>(type: "uuid", nullable: false),
                     Street = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     HouseNumber = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
@@ -364,7 +365,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 schema: "masterdata",
                 table: "RelationAddresses",
                 columns: new[] { "RelationId", "AddressTypeId" },
-                unique: true);
+                unique: true)
+                .Annotation("Npgsql:NullsDistinct", false);
 
             migrationBuilder.CreateIndex(
                 name: "IX_RelationAddresses_TenantId_PostalCodeKey",

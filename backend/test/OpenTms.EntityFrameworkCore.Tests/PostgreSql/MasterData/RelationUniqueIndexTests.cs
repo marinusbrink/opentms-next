@@ -230,6 +230,43 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
     }
 
     [Fact]
+    public async Task A_second_default_address_on_one_relation_is_refused_by_the_index_NULLS_NOT_DISTINCT_while_two_relations_each_have_one()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var nl = await _countries.GetAsync(c => c.IsoAlpha2 == "NL");
+            var visiting = await _addressTypes.GetAsync(t => t.Kind == AddressTypeKind.Visiting);
+            var one = NewRelation(TenantA, "QQ-DEF1", "Default one");
+            var two = NewRelation(TenantA, "QQ-DEF2", "Default two");
+            await _relations.InsertAsync(one, autoSave: true);
+            await _relations.InsertAsync(two, autoSave: true);
+
+            /* The optional FK lets the type be null; the default sits next to a typed address; each relation has its own. */
+            await _addresses.InsertAsync(NewAddress(one.Id, null, nl.Id), autoSave: true);
+            await _addresses.InsertAsync(NewAddress(one.Id, visiting.Id, nl.Id), autoSave: true);
+            await _addresses.InsertAsync(NewAddress(two.Id, null, nl.Id), autoSave: true);
+            (await _addresses.CountAsync(a => a.AddressTypeId == null && (a.RelationId == one.Id || a.RelationId == two.Id))).ShouldBe(2);
+
+            await ShouldViolateUniqueIndexAsync(() => _addresses.InsertAsync(NewAddress(one.Id, null, nl.Id), autoSave: true), "IX_RelationAddresses_RelationId_AddressTypeId");
+        });
+
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            /* The same through an update: a typed address turned into a second default is refused as well. */
+            var nl = await _countries.GetAsync(c => c.IsoAlpha2 == "NL");
+            var postal = await _addressTypes.GetAsync(t => t.Kind == AddressTypeKind.Postal);
+            var relation = NewRelation(TenantA, "QQ-DEF3", "Default three");
+            await _relations.InsertAsync(relation, autoSave: true);
+            await _addresses.InsertAsync(NewAddress(relation.Id, null, nl.Id), autoSave: true);
+            var typed = NewAddress(relation.Id, postal.Id, nl.Id);
+            await _addresses.InsertAsync(typed, autoSave: true);
+
+            typed.Set(new RelationAddressInput(null, null, nl.Id, "Main", "1", null, "1234 AB", "Amsterdam", null, null, null));
+            await ShouldViolateUniqueIndexAsync(() => _addresses.UpdateAsync(typed, autoSave: true), "IX_RelationAddresses_RelationId_AddressTypeId");
+        });
+    }
+
+    [Fact]
     public async Task An_address_needs_an_existing_country_and_address_type_and_a_referenced_one_cannot_be_deleted()
     {
         await InRolledBackTransactionAsync(TenantA, async () =>
@@ -384,7 +421,8 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private RelationAddress NewAddress(Guid relationId, Guid addressTypeId, Guid countryId)
+    /// <summary>A null <paramref name="addressTypeId"/> is the relation's default address ("all addresses equal", PO 2026-10-12).</summary>
+    private RelationAddress NewAddress(Guid relationId, Guid? addressTypeId, Guid countryId)
     {
         var address = new RelationAddress(_guids.Create(), TenantA, relationId);
         address.Set(new RelationAddressInput(null, addressTypeId, countryId, "Main", "1", null, "1234 AB", "Amsterdam", null, null, null));

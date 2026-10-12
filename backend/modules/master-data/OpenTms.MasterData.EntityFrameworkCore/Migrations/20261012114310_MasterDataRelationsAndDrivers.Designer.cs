@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261011200027_MasterDataRelationsAndDrivers")]
+    [Migration("20261012114310_MasterDataRelationsAndDrivers")]
     partial class MasterDataRelationsAndDrivers
     {
         /// <inheritdoc />
@@ -898,6 +898,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsBlocked")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1001,7 +1004,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<Guid>("AddressTypeId")
+                    b.Property<Guid?>("AddressTypeId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("City")
@@ -1056,6 +1059,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.HasIndex("RelationId", "AddressTypeId")
                         .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("RelationId", "AddressTypeId"), false);
 
                     b.HasIndex("TenantId", "PostalCodeKey");
 
@@ -1782,8 +1787,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.HasOne("OpenTms.MasterData.Reference.AddressType", null)
                         .WithMany()
                         .HasForeignKey("AddressTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("OpenTms.MasterData.Reference.Country", null)
                         .WithMany()

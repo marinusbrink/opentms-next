@@ -154,6 +154,7 @@ describe("RelationsView", () => {
       { field: "chamberOfCommerceNumber", header: "MasterData:ChamberOfCommerceNumber", hidden: true, sortable: true },
       { field: "categoryNames", header: "MasterData:Categories", hidden: true, sortable: false },
       { field: "isArchived", header: "MasterData:IsArchived", hidden: true, sortable: true },
+      { field: "isBlocked", header: "MasterData:IsBlocked", hidden: true, sortable: true },
     ]);
     expect(screen.getByText("MasterData:ShowArchived")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "MasterData:Role" })).toBeInTheDocument();

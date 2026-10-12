@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.MasterData;
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261011200027_MasterDataRelationsAndDrivers";
+    private const string Migration = "20261012114310_MasterDataRelationsAndDrivers";
     private const string FirstRunMigration = "20261011191016_MasterDataFirstRun";
 
     private static readonly string[] Tables =
@@ -102,8 +102,12 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
         ownCompany.ShouldContain("\"IsDeleted\" = false");
         ownCompany.ShouldContain("(\"TenantId\")");
 
-        /* One address per type, one IBAN and one default account per relation. */
-        One(indexes, "IX_RelationAddresses_RelationId_AddressTypeId :: ").ShouldContain("UNIQUE");
+        /* One address per type and one default address (type null) per relation (PO 2026-10-12: NULLS NOT DISTINCT), one IBAN and one default account per relation. */
+        var addressType = One(indexes, "IX_RelationAddresses_RelationId_AddressTypeId :: ");
+        addressType.ShouldContain("UNIQUE");
+        addressType.ShouldContain("NULLS NOT DISTINCT");
+        addressType.ShouldContain("(\"RelationId\", \"AddressTypeId\")");
+        addressType.ShouldNotContain("WHERE", Case.Sensitive, "every row takes part, the default address included");
         One(indexes, "IX_RelationBankAccounts_RelationId_Iban :: ").ShouldContain("UNIQUE");
         var defaultAccount = One(indexes, "IX_RelationBankAccounts_RelationId_Default :: ");
         defaultAccount.ShouldContain("UNIQUE");
@@ -144,6 +148,14 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
         /* Platform ids carry no constraint (module rule 1). */
         foreignKeys.ShouldNotContain(fk => fk.Contains("OrganizationUnitId") && !fk.Contains("Relations_RelationId"));
         foreignKeys.ShouldNotContain(fk => fk.Contains("UserId"));
+
+        /* The PO revisions of 2026-10-12: the address type is optional (the default address has none), the blocked flag is a non-null boolean. */
+        var columns = await QueryAsync(connection, "SELECT table_name || '.' || column_name || ' :: ' || data_type || ' :: ' || is_nullable FROM information_schema.columns WHERE table_schema = 'masterdata' AND table_name IN ('Relations', 'RelationAddresses')");
+        columns.ShouldContain("RelationAddresses.AddressTypeId :: uuid :: YES");
+        columns.ShouldContain("RelationAddresses.RelationId :: uuid :: NO");
+        columns.ShouldContain("RelationAddresses.CountryId :: uuid :: NO");
+        columns.ShouldContain("Relations.IsBlocked :: boolean :: NO");
+        columns.ShouldContain("Relations.IsArchived :: boolean :: NO");
 
         /* The run-1 tables are untouched: expand only. */
         tables.ShouldContain("Currencies");

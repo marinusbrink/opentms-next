@@ -83,6 +83,7 @@ export function RelationsView() {
         valueFormatter: (p) => ((p.value as string[] | null | undefined) ?? []).join(", "),
       },
       { field: "isArchived", headerName: t("MasterData:IsArchived"), cellRenderer: BoolCell, flex: 1, minWidth: 100, hide: true },
+      { field: "isBlocked", headerName: t("MasterData:IsBlocked"), cellRenderer: BoolCell, flex: 1, minWidth: 100, hide: true },
     ],
     [t],
   );

@@ -25,7 +25,8 @@ public class RelationEntityRuleTests
     private static Relation NewRelation(RelationRoles roles = RelationRoles.Customer, string code = "acm01", string name = "ACME Transport")
         => new(Guid.NewGuid(), Tenant, code, name, roles);
 
-    private static RelationAddressInput Address(Guid typeId, string street = "Main", string postalCode = "1234 AB", string city = "Amsterdam", Guid? id = null, string? timeZone = null)
+    /// <summary>A null <paramref name="typeId"/> is the relation's default address ("all addresses equal", PO 2026-10-12).</summary>
+    private static RelationAddressInput Address(Guid? typeId, string street = "Main", string postalCode = "1234 AB", string city = "Amsterdam", Guid? id = null, string? timeZone = null)
         => new(id, typeId, Nl, street, "1", null, postalCode, city, null, null, timeZone);
 
     private static RelationContactPersonInput Contact(string first, string last, Guid? id = null, string? email = null)
@@ -224,6 +225,87 @@ public class RelationEntityRuleTests
         ex.Code.ShouldBe(MasterDataErrorCodes.DuplicateKey);
         ex.Data["field"].ShouldBe("addressTypeId");
         relation.Addresses.ShouldBeEmpty();
+    }
+
+    // ── Default address ("all addresses equal", PO 2026-10-12) ───────────────
+
+    [Fact]
+    public void A_default_address_without_type_coexists_with_typed_addresses()
+    {
+        var relation = NewRelation();
+
+        relation.SetAddresses([Address(Visiting, "Visit street"), Address(null, "Default street", city: "Utrecht"), Address(Postal, "PO box")], Guid.NewGuid);
+
+        relation.Addresses.Count.ShouldBe(3);
+        var @default = relation.Addresses.Single(a => a.AddressTypeId == null);
+        @default.Street.ShouldBe("Default street");
+        @default.City.ShouldBe("Utrecht");
+        @default.RelationId.ShouldBe(relation.Id);
+        @default.TenantId.ShouldBe(Tenant);
+        @default.PostalCodeKey.ShouldBe("1234AB");
+        relation.Addresses.Where(a => a.AddressTypeId != null).Select(a => a.AddressTypeId!.Value).ShouldBe([Visiting, Postal], ignoreOrder: true);
+
+        /* A default address on its own is a valid address set too. */
+        var alone = NewRelation(code: "DEF");
+        alone.SetAddresses([Address(null)], Guid.NewGuid);
+        alone.Addresses.ShouldHaveSingleItem().AddressTypeId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Two_default_addresses_are_refused_with_DuplicateKey_like_two_of_one_type()
+    {
+        var relation = NewRelation();
+
+        var ex = Should.Throw<BusinessException>(() => relation.SetAddresses([Address(null), Address(null, "Other")], Guid.NewGuid));
+        ex.Code.ShouldBe(MasterDataErrorCodes.DuplicateKey);
+        ex.Data["field"].ShouldBe("addressTypeId");
+        relation.Addresses.ShouldBeEmpty("a refused set leaves the aggregate untouched");
+
+        /* The same with typed rows in between: null counts as a type of its own. */
+        Should.Throw<BusinessException>(() => relation.SetAddresses([Address(null), Address(Visiting), Address(Postal), Address(null, "Other")], Guid.NewGuid)).Code.ShouldBe(MasterDataErrorCodes.DuplicateKey);
+        relation.Addresses.ShouldBeEmpty();
+
+        /* On an existing set the second default is refused as well, and the set is untouched. */
+        relation.SetAddresses([Address(null, "Kept"), Address(Visiting)], Guid.NewGuid);
+        var keptId = relation.Addresses.Single(a => a.AddressTypeId == null).Id;
+        Should.Throw<BusinessException>(() => relation.SetAddresses([Address(null, "Kept", id: keptId), Address(null, "Second")], Guid.NewGuid)).Code.ShouldBe(MasterDataErrorCodes.DuplicateKey);
+        relation.Addresses.Count.ShouldBe(2);
+        relation.Addresses.Single(a => a.AddressTypeId == null).Street.ShouldBe("Kept");
+    }
+
+    [Fact]
+    public void The_default_address_is_replaced_in_place_by_id_or_by_its_null_type()
+    {
+        var relation = NewRelation();
+        relation.SetAddresses([Address(null, "Default 1"), Address(Visiting, "Visit 1")], Guid.NewGuid);
+        var defaultId = relation.Addresses.Single(a => a.AddressTypeId == null).Id;
+        var visitingId = relation.Addresses.Single(a => a.AddressTypeId == Visiting).Id;
+
+        /* By id: the row keeps its identity and takes the new values. */
+        relation.SetAddresses([Address(null, "Default 2", id: defaultId), Address(Visiting, "Visit 1", id: visitingId)], Guid.NewGuid);
+        relation.Addresses.Count.ShouldBe(2);
+        relation.Addresses.Single(a => a.Id == defaultId).Street.ShouldBe("Default 2");
+        relation.Addresses.Single(a => a.Id == defaultId).AddressTypeId.ShouldBeNull();
+
+        /* Without an id: the null type matches the existing default row, nothing is duplicated. */
+        relation.SetAddresses([Address(null, "Default 3"), Address(Visiting, "Visit 2")], Guid.NewGuid);
+        relation.Addresses.Count.ShouldBe(2);
+        relation.Addresses.Single(a => a.AddressTypeId == null).Id.ShouldBe(defaultId);
+        relation.Addresses.Single(a => a.AddressTypeId == null).Street.ShouldBe("Default 3");
+        relation.Addresses.Single(a => a.AddressTypeId == Visiting).Id.ShouldBe(visitingId);
+        relation.Addresses.Single(a => a.AddressTypeId == Visiting).Street.ShouldBe("Visit 2");
+
+        /* A typed row may become the default by id (and vice versa) as long as the set stays unique. */
+        relation.SetAddresses([Address(null, "Was visiting", id: visitingId)], Guid.NewGuid);
+        var only = relation.Addresses.ShouldHaveSingleItem();
+        only.Id.ShouldBe(visitingId);
+        only.AddressTypeId.ShouldBeNull();
+        only.Street.ShouldBe("Was visiting");
+
+        /* Dropping the default leaves the typed addresses alone. */
+        relation.SetAddresses([Address(null, "Back", id: visitingId), Address(Postal, "PO box")], Guid.NewGuid);
+        relation.SetAddresses([Address(Postal, "PO box")], Guid.NewGuid);
+        relation.Addresses.ShouldHaveSingleItem().AddressTypeId.ShouldBe(Postal);
     }
 
     [Fact]

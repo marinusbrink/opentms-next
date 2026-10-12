@@ -1738,6 +1738,7 @@
           },
           "addressTypeId": {
             "format": "uuid",
+            "nullable": true,
             "type": "string"
           },
           "addressTypeName": {
@@ -1798,7 +1799,6 @@
           }
         },
         "required": [
-          "addressTypeId",
           "city",
           "countryId",
           "postalCode",
@@ -2094,6 +2094,9 @@
           "isArchived": {
             "type": "boolean"
           },
+          "isBlocked": {
+            "type": "boolean"
+          },
           "mobile": {
             "maxLength": 32,
             "nullable": true,
@@ -2216,6 +2219,9 @@
             "type": "string"
           },
           "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
             "type": "boolean"
           },
           "lastModificationTime": {
@@ -2452,6 +2458,9 @@
           "isArchived": {
             "type": "boolean"
           },
+          "isBlocked": {
+            "type": "boolean"
+          },
           "name": {
             "nullable": true,
             "type": "string"
@@ -2535,6 +2544,9 @@
             "type": "array"
           },
           "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
             "type": "boolean"
           },
           "mobile": {

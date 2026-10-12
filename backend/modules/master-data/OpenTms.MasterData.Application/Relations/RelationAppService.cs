@@ -201,9 +201,10 @@ public class RelationAppService
             "vatnumber" => Order(query, r => r.VatNumber, descending),
             "chamberofcommercenumber" => Order(query, r => r.ChamberOfCommerceNumber, descending),
             "isarchived" => Order(query, r => r.IsArchived, descending),
+            "isblocked" => Order(query, r => r.IsBlocked, descending),
             "email" => Order(query, r => r.Email, descending),
             "phone" => Order(query, r => r.Phone, descending),
-            "city" => Order(query, r => r.Addresses.Where(a => visiting.Contains(a.AddressTypeId)).Select(a => a.City).FirstOrDefault(), descending),
+            "city" => Order(query, r => r.Addresses.Where(a => a.AddressTypeId == null || visiting.Contains(a.AddressTypeId.Value)).OrderBy(a => a.AddressTypeId == null ? 1 : 0).Select(a => a.City).FirstOrDefault(), descending),
             _ => throw UnknownSortColumn(sortBy)
         };
     }
@@ -223,6 +224,7 @@ public class RelationAppService
             Name = r.Name,
             Roles = r.Roles,
             IsArchived = r.IsArchived,
+            IsBlocked = r.IsBlocked,
             VatNumber = r.VatNumber,
             ChamberOfCommerceNumber = r.ChamberOfCommerceNumber,
             Phone = r.Phone,
@@ -241,6 +243,7 @@ public class RelationAppService
             Name = r.Name,
             Roles = r.Roles,
             IsArchived = r.IsArchived,
+            IsBlocked = r.IsBlocked,
             Phone = r.Phone,
             Mobile = r.Mobile,
             Email = r.Email,
@@ -333,6 +336,7 @@ public class RelationAppService
         relation.SetContact(input.Phone, input.Mobile, input.Email, input.Website);
         relation.SetPreferredCulture(input.PreferredCulture, _cultures);
         relation.SetDescription(input.Description);
+        relation.SetBlocked(input.IsBlocked);
         if (input.IsArchived)
         {
             relation.Archive();
@@ -350,7 +354,7 @@ public class RelationAppService
             throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "addresses.countryId");
         }
 
-        var typeIds = input.Addresses.Select(a => a.AddressTypeId).Distinct().ToList();
+        var typeIds = input.Addresses.Where(a => a.AddressTypeId != null).Select(a => a.AddressTypeId!.Value).Distinct().ToList();
         if (typeIds.Count > 0 && await _addressTypes.CountAsync(t => typeIds.Contains(t.Id)) != typeIds.Count)
         {
             throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "addresses.addressTypeId");
@@ -425,7 +429,7 @@ public class RelationAppService
 
     private sealed record CityAndCountry(string City, string? CountryCode);
 
-    /// <summary>The visiting address (by kind) of each relation, else its first address, as city and country code.</summary>
+    /// <summary>The visiting address (by kind) of each relation, else its default address, else its first address, as city and country code.</summary>
     private async Task<Dictionary<Guid, CityAndCountry>> VisitingAddressesAsync(List<Guid> relationIds)
     {
         if (relationIds.Count == 0)
@@ -445,7 +449,9 @@ public class RelationAppService
                 g => g.Key,
                 g =>
                 {
-                    var chosen = g.FirstOrDefault(a => visiting.Contains(a.AddressTypeId)) ?? g.OrderBy(a => a.City).First();
+                    var chosen = g.FirstOrDefault(a => a.AddressTypeId != null && visiting.Contains(a.AddressTypeId.Value))
+                        ?? g.FirstOrDefault(a => a.AddressTypeId == null)
+                        ?? g.OrderBy(a => a.City).First();
                     return new CityAndCountry(chosen.City, codes.GetValueOrDefault(chosen.CountryId));
                 });
     }
@@ -468,17 +474,18 @@ public class RelationAppService
     private async Task<IEnumerable<RelationAddressDto>> MapAddressesAsync(ICollection<RelationAddress> addresses)
     {
         var countryIds = addresses.Select(a => a.CountryId).Distinct().ToList();
-        var typeIds = addresses.Select(a => a.AddressTypeId).Distinct().ToList();
+        var typeIds = addresses.Where(a => a.AddressTypeId != null).Select(a => a.AddressTypeId!.Value).Distinct().ToList();
         var codes = countryIds.Count == 0 ? new Dictionary<Guid, string>() : (await _countries.GetListAsync(c => countryIds.Contains(c.Id))).ToDictionary(c => c.Id, c => c.IsoAlpha2);
         var types = typeIds.Count == 0 ? new Dictionary<Guid, string>() : (await _addressTypes.GetListAsync(t => typeIds.Contains(t.Id))).ToDictionary(t => t.Id, t => Resolve(t.Name));
 
         return addresses
-            .OrderBy(a => types.GetValueOrDefault(a.AddressTypeId))
+            .OrderBy(a => a.AddressTypeId == null ? 0 : 1)
+            .ThenBy(a => a.AddressTypeId == null ? null : types.GetValueOrDefault(a.AddressTypeId.Value))
             .Select(a => new RelationAddressDto
             {
                 Id = a.Id,
                 AddressTypeId = a.AddressTypeId,
-                AddressTypeName = types.GetValueOrDefault(a.AddressTypeId),
+                AddressTypeName = a.AddressTypeId == null ? null : types.GetValueOrDefault(a.AddressTypeId.Value),
                 CountryId = a.CountryId,
                 CountryCode = codes.GetValueOrDefault(a.CountryId),
                 Street = a.Street,

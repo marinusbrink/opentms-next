@@ -71,7 +71,7 @@ person search.
 # Design: Master Data, second run: Relation and Driver
 
 **PBI:** above (this file); assessment `docs/input/masterdata-rebuild-assessment.md`
-**Status:** approved (gate 1, PO 2026-10-11: assumptions 1, 3, 4 and 8 confirmed; GAP-03 decided as the `DatePicker` below)
+**Status:** approved (gate 1, PO 2026-10-11: assumptions 1, 3, 4 and 8 confirmed; GAP-03 decided as the `DatePicker` below). Revised by the PO on 2026-10-12 after the old OpenTMS relation screen: the General tab mirrors the old one with the default address inline ("all addresses equal", stored as an address without an address type), roles as a `MultiSelect`, a `Blocked` flag; fax, emergency number, instant messenger and Skype stay dropped.
 **Date:** 2026-10-11
 **Depends on:** design 41 (PR #42) merged: Country, AddressType, RelationCategory, GeographicalRegion,
 `LocalizedName`, the Master data app and the shared list view and editor.
@@ -132,7 +132,7 @@ update as in design 41):
 
 | Child | Fields | Rules |
 |---|---|---|
-| **RelationAddress** | `AddressTypeId` FK → AddressTypes (restrict) · `CountryId` FK → Countries (restrict) · `Street` string(128) · `HouseNumber` string(16)? (number and suffix as typed: "12a", "12-14") · `AddressLine2` string(128)? · `PostalCode` string(16) · `City` string(128) · `Latitude`, `Longitude` double? · `TimeZoneId` string(64) | **one address per address type per relation** (unique `(RelationId, AddressTypeId)`), so "the visiting address" is one row found by kind through AddressType; `PostalCode` stored normalised (upper, no spaces) next to the typed form? No: stored as typed, compared normalised by the matcher; `TimeZoneId` defaults to the country's primary zone and is validated as an IANA id; coordinates come from a geocoder later (Planning), here optional input |
+| **RelationAddress** | `AddressTypeId` FK → AddressTypes (restrict), **null for the relation's default address** ("all addresses equal", PO 2026-10-12: it serves every type without an address of its own; at most one per relation, unique `(RelationId, AddressTypeId)` with NULLS NOT DISTINCT) · `CountryId` FK → Countries (restrict) · `Street` string(128) · `HouseNumber` string(16)? (number and suffix as typed: "12a", "12-14") · `AddressLine2` string(128)? · `PostalCode` string(16) · `City` string(128) · `Latitude`, `Longitude` double? · `TimeZoneId` string(64) | **one address per address type per relation** (unique `(RelationId, AddressTypeId)`), so "the visiting address" is one row found by kind through AddressType; `PostalCode` stored normalised (upper, no spaces) next to the typed form? No: stored as typed, compared normalised by the matcher; `TimeZoneId` defaults to the country's primary zone and is validated as an IANA id; coordinates come from a geocoder later (Planning), here optional input |
 | **RelationContactPerson** | `FirstName` string(64) · `MiddleName` string(32)? · `LastName` string(64) · `Role` enum `ContactPersonRole { Other = 0, Planning, Invoicing, Sales, Management }` (§3.1: "with a role") · `JobTitle` string(64)? · `Department` string(64)? · `Email`, `Phone`, `Mobile` | no uniqueness (people share names); personal data, see quickscan |
 | **RelationBankAccount** | `Iban` string(34) · `Bic` string(11)? · `BankName` string(64)? · `AccountHolder` string(128)? · `IsDefault` bool | IBAN normalised (upper, no spaces) and checksum-validated (ISO 7064 mod 97); **unique per relation**; **one default per relation** (unique partial index) |
 | **RelationCategoryMembership** | `RelationId`, `RelationCategoryId` FK → RelationCategories (cascade) | composite key (§3.3) |
@@ -205,7 +205,7 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 |---|---|---|
 | Relation | `FullName`, `SearchName` | one name, one indexed `SearchKey` (§3.1) |
 | Relation | `IsMe`, categories with system flags | `Roles` flags with the own-company partial index (§3.1) |
-| Relation | `IsBlocked` | nothing enforced it; holds and blocks belong to Financial and Orders settings (§3.1) |
+| Relation | `IsBlocked` | kept as a flag on the PO's request (2026-10-12, the old "Is geblokkeerd"); what a block stops is decided by the Financial and Orders runs (§3.1) |
 | Relation | `CurrencyId`, `VatId`, GL accounts, invoicing options, 48 charge-by and price-list columns, self-billing, purchase orders, incoming invoices | `RelationFinancialSettings` in Financial (§2, §3.1) |
 | Relation | portal users, auto-accept, ETA notifications, forwarding, questionnaires, time slots, default waypoints, access codes, door keys, vehicle types able to access | Orders and Planning settings per RelationId (§2) |
 | Relation | `SurchargesAndDiscounts`, `AvailableProducts`, `AvailableVehicleTypes` and the other delimited lists | join tables where the owning module needs them (§3.3) |
@@ -280,12 +280,21 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
 
 **Relation editor** (`EntityDialog size="lg"`, UI-DLG-003: a header block plus lines), tabs:
 
-1. **General**: sections *Relation* (Code, Name, Roles as a checkbox group, Archived), *Contact*
-   (Phone, Mobile, E-mail, Website, Preferred language `Select`), *Legal* (VAT number, Chamber of
-   commerce), *Classification* (Categories `MultiSelect`, Regions `MultiSelect`, Organisation units
-   `MultiSelect` — DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
-   single-valued; a multi-valued tree picker is a library gap for the component map), Description.
-2. **Addresses**: `LinesGrid` (type, street, house number, postal code, city, country) with Add address
+1. **General** (PO 2026-10-12: the layout of the old OpenTMS General tab): left column Categories
+   `MultiSelect`, Geographical regions `MultiSelect`, Code + Name, Roles `MultiSelect`, the *Telephone*
+   block (Phone, Mobile) and the *Internet* block (E-mail, Website); right column the Archived and
+   Blocked switches, **All addresses equal** with the default address inline (Country
+   `ReferenceCombobox`, Postal code, City, Street, House number, Address line 2, Time zone prefilled
+   from the country, Longitude, Latitude) or, when off, a hint that the addresses live on the
+   Addresses tab; then *Remarks* (Description). No map yet: the geocoder arrives with Planning and a
+   maps provider is a PO choice.
+2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
+   units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
+   single-valued; a multi-valued tree picker is a library gap for the component map).
+3. **Financial**: the bank accounts `LinesGrid` (IBAN, BIC, bank, holder, default; exactly one default);
+   the Financial run adds its relation settings on this tab.
+4. **Addresses**: the per-type addresses, which override the default address for their type:
+   `LinesGrid` (type, street, house number, postal code, city, country) with Add address
    opening `AddressDialog` (`EntityDialog size="md"`, editor variant, on top; eleven fields in two
    columns, above the `sm` tier of UI-DLG-003): the full address form with Country `ReferenceCombobox`,
    Address type `Select`, Time zone `ReferenceCombobox` prefilled from the country (and following a
