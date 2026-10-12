@@ -706,111 +706,115 @@ export function RelationEditor({
         <div className="flex flex-col gap-4">
           {/* Rows 1-2 (PO 2026-10-12): roles with the Archived and Blocked switches (block reason while blocked); categories and regions. */}
           <FormSection title={t("MasterData:Relation")}>
-            <div className="grid grid-cols-12 items-end gap-x-4 gap-y-3">
-              {/* Row 1: roles with the Archived and Blocked switches; the block reason only while blocked. */}
-              <FormField
-                label={t("MasterData:Roles")}
-                htmlFor={form.id("roles")}
-                required
-                error={form.error("roles")}
-                floating="always"
-                className="col-span-6"
-              >
-                <MultiSelect
-                  id={form.id("roles")}
-                  value={form.values.roles}
-                  onChange={(next) => {
-                    form.set("roles", next);
-                    form.blur("roles");
-                  }}
-                  options={roleOptions}
-                  disabled={form.readOnly}
-                />
-              </FormField>
-              <div className="col-span-6 flex items-end justify-end gap-4">
-                <CheckboxField
-                  form={form}
-                  field="isArchived"
-                  labelKey="MasterData:IsArchived"
-                />
-                <CheckboxField
-                  form={form}
-                  field="isBlocked"
-                  labelKey="MasterData:IsBlocked"
-                />
-                {form.values.isBlocked && (
-                  <FormField
-                    label={t("MasterData:BlockReason")}
-                    htmlFor={form.id("blockReason")}
-                    required
-                    error={form.error("blockReason")}
-                    floating="always"
-                    className="w-56"
-                  >
-                    <Select
-                      items={blockReasonOptions}
-                      value={
-                        form.values.blockReason
-                          ? String(form.values.blockReason)
-                          : null
-                      }
-                      onValueChange={(next) => {
-                        form.set("blockReason", next ? Number(next) : 0);
-                        form.blur("blockReason");
-                      }}
-                      disabled={form.readOnly}
+            <div className="flex flex-col gap-3">
+              {/* Row 1: the roles grow into the space the switches and the block reason (while blocked) leave. */}
+              <div className="flex items-end gap-4">
+                <FormField
+                  label={t("MasterData:Roles")}
+                  htmlFor={form.id("roles")}
+                  required
+                  error={form.error("roles")}
+                  floating="always"
+                  className="min-w-0 flex-1"
+                >
+                  <MultiSelect
+                    id={form.id("roles")}
+                    value={form.values.roles}
+                    onChange={(next) => {
+                      form.set("roles", next);
+                      form.blur("roles");
+                    }}
+                    options={roleOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+                <div className="flex shrink-0 items-end gap-4">
+                  <CheckboxField
+                    form={form}
+                    field="isArchived"
+                    labelKey="MasterData:IsArchived"
+                  />
+                  <CheckboxField
+                    form={form}
+                    field="isBlocked"
+                    labelKey="MasterData:IsBlocked"
+                  />
+                  {form.values.isBlocked && (
+                    <FormField
+                      label={t("MasterData:BlockReason")}
+                      htmlFor={form.id("blockReason")}
+                      required
+                      error={form.error("blockReason")}
+                      floating="always"
+                      className="w-56"
                     >
-                      <SelectTrigger
-                        id={form.id("blockReason")}
-                        className="h-10 w-full bg-background"
-                        aria-invalid={
-                          form.error("blockReason") ? true : undefined
+                      <Select
+                        items={blockReasonOptions}
+                        value={
+                          form.values.blockReason
+                            ? String(form.values.blockReason)
+                            : null
                         }
+                        onValueChange={(next) => {
+                          form.set("blockReason", next ? Number(next) : 0);
+                          form.blur("blockReason");
+                        }}
+                        disabled={form.readOnly}
                       >
-                        <SelectValue
-                          placeholder={t("MasterData:BlockReason")}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {blockReasonOptions.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormField>
-                )}
+                        <SelectTrigger
+                          id={form.id("blockReason")}
+                          className="h-10 w-full bg-background"
+                          aria-invalid={
+                            form.error("blockReason") ? true : undefined
+                          }
+                        >
+                          <SelectValue
+                            placeholder={t("MasterData:BlockReason")}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {blockReasonOptions.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormField>
+                  )}
+                </div>
               </div>
               {/* Row 2: classification. */}
-              <FormField
-                label={t("MasterData:Categories")}
-                htmlFor={form.id("categoryIds")}
-                floating="always"
-                className="col-span-6"
-              >
-                <MultiSelect
-                  id={form.id("categoryIds")}
-                  value={form.values.categoryIds}
-                  onChange={(next) => form.set("categoryIds", next)}
-                  options={categoryOptions}
-                  disabled={form.readOnly}
-                />
-              </FormField>
-              <FormField
-                label={t("MasterData:GeographicalRegions")}
-                htmlFor={form.id("geographicalRegionIds")}
-                floating="always"
-                className="col-span-6"
-              >
-                <MultiSelect
-                  id={form.id("geographicalRegionIds")}
-                  value={form.values.geographicalRegionIds}
-                  onChange={(next) => form.set("geographicalRegionIds", next)}
-                  options={regionOptions}
-                  disabled={form.readOnly}
-                />
-              </FormField>
+              <div className="grid grid-cols-2 gap-x-4">
+                <FormField
+                  label={t("MasterData:Categories")}
+                  htmlFor={form.id("categoryIds")}
+                  floating="always"
+                  className="min-w-0"
+                >
+                  <MultiSelect
+                    id={form.id("categoryIds")}
+                    value={form.values.categoryIds}
+                    onChange={(next) => form.set("categoryIds", next)}
+                    options={categoryOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+                <FormField
+                  label={t("MasterData:GeographicalRegions")}
+                  htmlFor={form.id("geographicalRegionIds")}
+                  floating="always"
+                  className="min-w-0"
+                >
+                  <MultiSelect
+                    id={form.id("geographicalRegionIds")}
+                    value={form.values.geographicalRegionIds}
+                    onChange={(next) => form.set("geographicalRegionIds", next)}
+                    options={regionOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+              </div>
             </div>
           </FormSection>
           {/* Row 4 (PO 2026-10-12): the Name and Contact information blocks stacked on the left, the
