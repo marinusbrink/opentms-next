@@ -4,9 +4,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using OpenTms.MasterData;
 using OpenTms.MasterData.EntityFrameworkCore;
+using OpenTms.MasterData.Relations;
 using Shouldly;
+using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.Guids;
 using Xunit;
 
 namespace OpenTms.PostgreSql.MasterData;
@@ -161,6 +165,57 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
         /* The run-1 tables are untouched: expand only. */
         tables.ShouldContain("Currencies");
         tables.ShouldContain("GeographicalRegionPostalCodeRanges");
+    }
+
+    [Theory]
+    [InlineData("host")]
+    [InlineData("tenant-a")]
+    public async Task The_full_name_column_and_the_wider_search_keys_are_in_place(string target)
+    {
+        var database = target == "host" ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase;
+        await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(database));
+        await connection.OpenAsync();
+
+        /* PO 2026-10-12: the optional full name shares the name length; the search key holds name, full name and code (128 + 128 + 32 with separators) on both searchable tables. */
+        var columns = await QueryAsync(connection, "SELECT table_name || '.' || column_name || ' :: ' || data_type || '(' || COALESCE(character_maximum_length::text, '-') || ') :: ' || is_nullable FROM information_schema.columns WHERE table_schema = 'masterdata' AND column_name IN ('FullName', 'SearchKey', 'Name') AND table_name IN ('Relations', 'Drivers')");
+        columns.ShouldContain("Relations.FullName :: character varying(128) :: YES");
+        columns.ShouldContain("Relations.Name :: character varying(128) :: NO");
+        columns.ShouldContain("Relations.SearchKey :: character varying(320) :: NO");
+        columns.ShouldContain("Drivers.SearchKey :: character varying(320) :: NO");
+
+        /* The search-key indexes are the same three on the wider column: the per-tenant B-trees and the trigram GIN. */
+        var indexes = await QueryAsync(connection, "SELECT indexname || ' :: ' || indexdef FROM pg_indexes WHERE schemaname = 'masterdata' AND indexname LIKE '%SearchKey%'");
+        indexes.Count.ShouldBe(3, string.Join("\n", indexes));
+        One(indexes, "IX_Relations_TenantId_SearchKey :: ").ShouldContain("(\"TenantId\", \"SearchKey\")");
+        One(indexes, "IX_Drivers_TenantId_SearchKey :: ").ShouldContain("(\"TenantId\", \"SearchKey\")");
+        One(indexes, "IX_Relations_SearchKey_Trigram :: ").ShouldContain("gin_trgm_ops");
+    }
+
+    [Fact]
+    public async Task A_relation_with_name_full_name_and_code_at_their_limits_is_stored_in_tenant_A_and_found_on_a_full_name_fragment()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var repository = GetRequiredService<IRepository<Relation, Guid>>();
+            var context = await _contextProvider.GetDbContextAsync();
+            var name = new string('n', MasterDataConsts.MaxNameLength);
+            var code = new string('c', MasterDataConsts.MaxCodeLength);
+            var fullName = "Müller & Zn. " + new string('f', MasterDataConsts.MaxNameLength - 13);
+            fullName.Length.ShouldBe(MasterDataConsts.MaxNameLength);
+
+            var relation = new Relation(GetRequiredService<IGuidGenerator>().Create(), TenantA, code, name, RelationRoles.Customer);
+            relation.SetName(name, fullName);
+            relation.SearchKey.Length.ShouldBeGreaterThan(160, "the key no longer fits the pre-PO column; the migration must have widened it");
+            await repository.InsertAsync(relation, autoSave: true);
+            context.ChangeTracker.Clear();
+
+            var key = MasterDataValues.SearchKey("zn. f");
+            var stored = await context.Set<Relation>().Where(r => r.SearchKey.Contains(key)).Select(r => new { r.Id, r.FullName, r.SearchKey }).SingleAsync();
+            stored.Id.ShouldBe(relation.Id);
+            stored.FullName.ShouldBe(fullName);
+            stored.SearchKey.ShouldBe(relation.SearchKey, "PostgreSQL stores the whole key");
+            context.Database.GetDbConnection().Database.ShouldBe(PostgreSqlTestDatabases.TenantADatabase);
+        });
     }
 
     [Fact]

@@ -72,6 +72,100 @@ public class RelationEntityRuleTests
         Should.Throw<ArgumentException>(() => NewRelation(name: new string('n', MasterDataConsts.MaxNameLength + 1)));
     }
 
+    // ── Full name (PO 2026-10-12) ────────────────────────────────────────────
+
+    [Fact]
+    public void A_new_relation_has_no_full_name_and_its_search_key_folds_name_and_code_only()
+    {
+        var relation = NewRelation();
+
+        relation.FullName.ShouldBeNull();
+        relation.SearchKey.ShouldBe("acme transport acm01");
+    }
+
+    [Fact]
+    public void SetName_with_a_full_name_trims_both_and_folds_the_full_name_into_the_search_key_between_name_and_code()
+    {
+        var relation = NewRelation();
+
+        relation.SetName("  ACME Transport ", "  Müller & Zn. Transport Holding B.V.  ");
+
+        relation.Name.ShouldBe("ACME Transport");
+        relation.FullName.ShouldBe("Müller & Zn. Transport Holding B.V.");
+        relation.SearchKey.ShouldBe("acme transport muller zn transport holding b v acm01", "lower-case, diacritics folded, punctuation collapsed to single spaces");
+        relation.SearchKey.ShouldContain(MasterDataValues.SearchKey(relation.FullName));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void An_empty_full_name_is_stored_as_null_and_clears_a_previous_one(string? fullName)
+    {
+        var relation = NewRelation();
+        relation.SetName("ACME Transport", "ACME Transport Holding B.V.");
+        relation.FullName.ShouldNotBeNull();
+
+        relation.SetName("ACME Transport", fullName);
+
+        relation.FullName.ShouldBeNull();
+        relation.SearchKey.ShouldBe("acme transport acm01", "a cleared full name leaves the search key");
+    }
+
+    [Fact]
+    public void SetName_without_a_full_name_clears_it_because_the_caller_states_the_whole_name()
+    {
+        var relation = NewRelation();
+        relation.SetName("ACME Transport", "ACME Transport Holding B.V.");
+
+        relation.SetName("Jansen Logistiek");
+
+        relation.Name.ShouldBe("Jansen Logistiek");
+        relation.FullName.ShouldBeNull();
+        relation.SearchKey.ShouldBe("jansen logistiek acm01");
+    }
+
+    [Fact]
+    public void Recoding_keeps_the_full_name_in_the_search_key()
+    {
+        var relation = NewRelation();
+        relation.SetName("Jansen", "Jansen Transport Holding B.V.");
+
+        relation.SetCode("jan01");
+
+        relation.FullName.ShouldBe("Jansen Transport Holding B.V.");
+        relation.SearchKey.ShouldBe("jansen jansen transport holding b v jan01");
+    }
+
+    [Fact]
+    public void A_full_name_is_bounded_by_the_name_length_after_trimming()
+    {
+        var relation = NewRelation();
+        var atLimit = new string('f', MasterDataConsts.MaxNameLength);
+
+        relation.SetName("ACME Transport", "  " + atLimit + "  ");
+        relation.FullName.ShouldBe(atLimit, "the trimmed value is what is measured");
+
+        Should.Throw<ArgumentException>(() => relation.SetName("ACME Transport", new string('f', MasterDataConsts.MaxNameLength + 1)));
+        relation.FullName.ShouldBe(atLimit, "a refused full name leaves the stored one");
+        relation.SearchKey.ShouldBe("acme transport " + atLimit + " acm01");
+    }
+
+    [Fact]
+    public void Name_full_name_and_code_at_their_limits_fit_the_search_key_without_truncation()
+    {
+        var name = new string('n', MasterDataConsts.MaxNameLength);
+        var fullName = new string('f', MasterDataConsts.MaxNameLength);
+        var code = new string('c', MasterDataConsts.MaxCodeLength);
+
+        var relation = NewRelation(code: code, name: name);
+        relation.SetName(name, fullName);
+
+        relation.SearchKey.ShouldBe($"{name} {fullName} {code}");
+        relation.SearchKey.Length.ShouldBe(MasterDataConsts.MaxNameLength * 2 + MasterDataConsts.MaxCodeLength + 2);
+        relation.SearchKey.Length.ShouldBeLessThanOrEqualTo(MasterDataConsts.MaxSearchKeyLength, "the column holds name, full name and code with separators (PO 2026-10-12)");
+    }
+
     // ── Roles ────────────────────────────────────────────────────────────────
 
     [Theory]

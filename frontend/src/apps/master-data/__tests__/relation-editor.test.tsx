@@ -4,8 +4,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The relation editor (design 43, UI design as revised again by the PO on 2026-10-12) over the
  * shared MasterDataEditor: client validation, the roles MultiSelect to the flags value, the Archived
- * and Blocked switches with the block reason (disabled until Blocked, required while Blocked, posted
- * as 0 otherwise), the Name block (code, name, the optional full name: trimmed, null when empty)
+ * and Blocked switches with the block reason (rendered only while Blocked is ticked, required then,
+ * posted as 0 otherwise), the Name block (code, name, the optional full name: trimmed, null when empty)
  * stacked above the Contact information block in the left column of row 4, the "all addresses
  * equal" default address inline on General (posted first, without an address type, only while the
  * switch is on and something was entered) with its own required fields and the time zone following
@@ -214,6 +214,12 @@ const openRemarks = (scope: HTMLElement) => {
 };
 const mapFrame = () => screen.queryByTitle("MasterData:Map") as HTMLIFrameElement | null;
 const blockReason = () => field(editorDialog(), "MasterData:BlockReason") as unknown as HTMLSelectElement;
+/* The block reason is rendered only while Blocked is ticked (PO 2026-10-12): null while it is not. */
+const queryBlockReason = () => queryField(editorDialog(), "MasterData:BlockReason") as unknown as HTMLSelectElement | null;
+/* The Relation section's fields in DOM order: the FormField labels and the checkbox labels carry a `for`,
+ * the MultiSelect mock's option labels do not. The required marker is stripped. */
+const relationOrder = () =>
+  Array.from(region("MasterData:Relation").querySelectorAll<HTMLLabelElement>("label[for]")).map((el) => el.textContent?.replace(/\s*\*\s*$/, "").trim());
 const lines = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
 const ribbon = (name: string) => within(editorDialog()).getByRole("button", { name });
 const header = () => editorDialog().querySelector<HTMLElement>("[data-slot=entity-dialog-header]")!;
@@ -292,18 +298,26 @@ describe("RelationEditor — layout", () => {
     expect(queryField(editor, "MasterData:Description")).toBeNull();
   });
 
-  it("General (PO 2026-10-12): the Relation block with categories, the switches, the block reason, regions and roles; Name above Contact information on the left, Addresses on the right, nothing below", () => {
+  it("General (PO 2026-10-12): the Relation block with roles, the switches (the block reason only while blocked), categories and regions in that order; Name above Contact information on the left, Addresses on the right, nothing below", () => {
     renderEditor();
     const editor = editorDialog();
 
-    /* Rows 1-3: one section titled after the entity. */
+    /* Rows 1-2: one section titled after the entity. */
     const relation = region("MasterData:Relation");
-    expect(multiSelect(relation, "MasterData:Categories")).toHaveAttribute("data-slot", "mock-multi-select");
+    expect(multiSelect(relation, "MasterData:Roles")).toHaveAttribute("data-slot", "mock-multi-select");
     expect(within(relation).getByRole("checkbox", { name: "MasterData:IsArchived" })).toBeInTheDocument();
     expect(within(relation).getByRole("checkbox", { name: "MasterData:IsBlocked" })).toBeInTheDocument();
-    expect(field(relation, "MasterData:BlockReason").tagName).toBe("SELECT");
+    expect(multiSelect(relation, "MasterData:Categories")).toHaveAttribute("data-slot", "mock-multi-select");
     expect(multiSelect(relation, "MasterData:GeographicalRegions")).toHaveAttribute("data-slot", "mock-multi-select");
-    expect(multiSelect(relation, "MasterData:Roles")).toHaveAttribute("data-slot", "mock-multi-select");
+    /* Row 1: roles, Archived, Blocked; row 2: categories, regions. Not blocked, so no block reason anywhere. */
+    expect(queryBlockReason()).toBeNull();
+    expect(relationOrder()).toEqual(["MasterData:Roles", "MasterData:IsArchived", "MasterData:IsBlocked", "MasterData:Categories", "MasterData:GeographicalRegions"]);
+    /* Ticking Blocked slots the reason select in after the Blocked switch, inside the same section. */
+    fireEvent.click(checkbox("MasterData:IsBlocked"));
+    expect(field(relation, "MasterData:BlockReason").tagName).toBe("SELECT");
+    expect(relationOrder()).toEqual(["MasterData:Roles", "MasterData:IsArchived", "MasterData:IsBlocked", "MasterData:BlockReason", "MasterData:Categories", "MasterData:GeographicalRegions"]);
+    fireEvent.click(checkbox("MasterData:IsBlocked"));
+    expect(queryBlockReason()).toBeNull();
 
     /* Row 4: the Name block (code, name, full name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
     const name = region("MasterData:Name");
@@ -386,14 +400,14 @@ describe("RelationEditor — layout", () => {
     expect(screen.queryByRole("tab", { name: /MasterData:BankAccounts/ })).toBeNull();
   });
 
-  it("a new relation starts with 'all addresses equal' on, the inline default address empty and the block reason disabled", () => {
+  it("a new relation starts with 'all addresses equal' on, the inline default address empty and no block reason select", () => {
     renderEditor();
     const editor = editorDialog();
     expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
     expect(checkbox("MasterData:IsArchived")).not.toBeChecked();
-    expect(blockReason()).toBeDisabled();
-    expect(blockReason().value).toBe("");
+    expect(queryBlockReason()).toBeNull();
+    expect(within(editor).queryByText(/^MasterData:BlockReason/, { selector: "label" })).toBeNull();
     for (const label of ["MasterData:Country", "MasterData:PostalCode", "MasterData:City", "MasterData:Street", "MasterData:HouseNumber", "MasterData:AddressLine2", "MasterData:TimeZone", "MasterData:Longitude", "MasterData:Latitude"]) {
       expect(field(editor, label).value).toBe("");
     }
@@ -433,11 +447,16 @@ describe("RelationEditor — validation", () => {
     expect(POST).not.toHaveBeenCalled();
   });
 
-  it("the block reason is disabled until Blocked is ticked; blocked without a reason is refused with the General tab marked", async () => {
+  it("the block reason is absent until Blocked is ticked, then appears enabled and required; blocked without a reason is refused with the General tab marked", async () => {
     renderEditor();
     fillRequired();
+    expect(queryBlockReason()).toBeNull();
+
+    fireEvent.click(checkbox("MasterData:IsBlocked"));
+    expect(checkbox("MasterData:IsBlocked")).toBeChecked();
     const select = blockReason();
-    expect(select).toBeDisabled();
+    expect(select).toBeEnabled();
+    expect(select.value).toBe("");
     expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
       "—",
       "MasterData:BlockReason.PaymentArrears",
@@ -446,11 +465,7 @@ describe("RelationEditor — validation", () => {
       "MasterData:BlockReason.Dispute",
       "MasterData:BlockReason.Other",
     ]);
-
-    fireEvent.click(checkbox("MasterData:IsBlocked"));
-    expect(checkbox("MasterData:IsBlocked")).toBeChecked();
-    expect(select).toBeEnabled();
-    /* Required only while blocked: the label gets its marker. */
+    /* Required while blocked: the label carries its marker. */
     expect(within(editorDialog()).getByText(/^MasterData:BlockReason/, { selector: "label" })).toHaveTextContent("*");
 
     await submitEditor();
@@ -572,7 +587,7 @@ describe("RelationEditor — create", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("unticking Blocked after a reason was chosen disables the reason again and posts blockReason 0", async () => {
+  it("unticking Blocked after a reason was chosen removes the reason select and posts blockReason 0", async () => {
     renderEditor();
     fillRequired();
     fireEvent.click(checkbox("MasterData:IsBlocked"));
@@ -581,9 +596,8 @@ describe("RelationEditor — create", () => {
 
     fireEvent.click(checkbox("MasterData:IsBlocked"));
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
-    expect(blockReason()).toBeDisabled();
-    expect(blockReason().value).toBe("");
-    expect(within(editorDialog()).getByText(/^MasterData:BlockReason/, { selector: "label" })).not.toHaveTextContent("*");
+    expect(queryBlockReason()).toBeNull();
+    expect(within(editorDialog()).queryByText(/^MasterData:BlockReason/, { selector: "label" })).toBeNull();
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
@@ -914,7 +928,7 @@ describe("RelationEditor — edit", () => {
     expect(checkbox("Region X")).toBeChecked();
     expect(checkbox("MasterData:IsArchived")).toBeChecked();
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
-    expect(blockReason()).toBeDisabled();
+    expect(queryBlockReason()).toBeNull();
 
     /* Only a typed address: "all addresses equal" is off and the per-type hint replaces the inline fields. */
     expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
@@ -1002,10 +1016,11 @@ describe("RelationEditor — edit", () => {
     expect(checkbox("MasterData:IsBlocked")).toBeChecked();
     expect(blockReason()).toBeEnabled();
     expect(blockReason().value).toBe("1");
+    expect(within(region("MasterData:Relation")).getByText(/^MasterData:BlockReason/, { selector: "label" })).toHaveTextContent("*");
 
     fireEvent.click(checkbox("MasterData:IsBlocked"));
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
-    expect(blockReason()).toBeDisabled();
+    expect(queryBlockReason()).toBeNull();
     await submitEditor();
     await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
     expect(putBody().isBlocked).toBe(false);

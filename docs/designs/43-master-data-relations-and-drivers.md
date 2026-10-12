@@ -280,11 +280,11 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
 
 **Relation editor** (`EntityDialog size="lg"`, UI-DLG-003: a header block plus lines), tabs:
 
-1. **General** (PO 2026-10-12, five rows): one *Relation* block with row 1 Categories
-   `MultiSelect` + the Archived and Blocked switches + the **Block reason** `Select` (enum
+1. **General** (PO 2026-10-12): one *Relation* block with row 1 Roles `MultiSelect` + the Archived
+   and Blocked switches + the **Block reason** `Select`, shown only while blocked (enum
    `RelationBlockReason`: payment arrears, credit limit exceeded, insolvency, dispute, other; required
    while blocked, None otherwise; a tenant-maintained list is for the Financial run to decide), row 2
-   Geographical regions `MultiSelect`, row 3 Roles `MultiSelect`; row 4 the *Name* block (Code + Name,
+   Categories `MultiSelect` + Geographical regions `MultiSelect`; row 3 the *Name* block (Code + Name,
    then Full name) stacked above the *Contact information* block (Phone, Mobile, E-mail, Website) on the
    left, next to the *Addresses* block: **All addresses equal** with the default address inline (Country
    `ReferenceCombobox`, Postal code, City, Street, House number, Address line 2, Time zone prefilled

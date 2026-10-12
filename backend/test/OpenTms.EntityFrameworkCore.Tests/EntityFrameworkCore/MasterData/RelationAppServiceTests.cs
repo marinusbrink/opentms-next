@@ -115,6 +115,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
     {
         Code = dto.Code,
         Name = dto.Name,
+        FullName = dto.FullName,
         Roles = dto.Roles,
         IsArchived = dto.IsArchived,
         IsBlocked = dto.IsBlocked,
@@ -369,6 +370,139 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
 
         (await _service.GetListAsync(Request(sortBy: "city"))).Rows.Select(r => r.Code).ShouldBe(["TYPED", "DEFONLY", "VISONLY", "BOTH"], "no visiting or default address sorts first; BOTH sorts on Zwolle, not Amsterdam");
         (await _service.GetListAsync(Request(sortBy: "city", sortDir: "desc"))).Rows.Select(r => r.Code).ShouldBe(["BOTH", "VISONLY", "DEFONLY", "TYPED"]);
+    }
+
+    // ── Full name (PO 2026-10-12) ────────────────────────────────────────────
+
+    [Fact]
+    public async Task FullName_round_trips_through_create_update_detail_and_row_and_is_cleared_by_a_blank_value()
+    {
+        using var _ = InTenantA();
+        var created = await CreateAsync("ACM01", "ACME", configure: dto => dto.FullName = "  ACME Transport & Logistiek B.V.  ");
+        var plain = await CreateAsync("BET01", "Beta");
+
+        created.FullName.ShouldBe("ACME Transport & Logistiek B.V.", "trimmed");
+        created.Name.ShouldBe("ACME");
+        plain.FullName.ShouldBeNull("optional");
+        (await _service.GetAsync(created.Id)).FullName.ShouldBe("ACME Transport & Logistiek B.V.");
+        (await _service.GetAsync(plain.Id)).FullName.ShouldBeNull();
+        var rows = (await _service.GetListAsync(Request())).Rows;
+        rows.Single(r => r.Code == "ACM01").FullName.ShouldBe("ACME Transport & Logistiek B.V.");
+        rows.Single(r => r.Code == "BET01").FullName.ShouldBeNull();
+        (await _service.GetLookupAsync()).Single(l => l.Code == "ACM01").Name.ShouldBe("ACME", "the lookup shows the short name");
+
+        /* Update changes it; the short name stays, the stamp moves. */
+        var rename = UpdateFrom(created);
+        rename.FullName = " ACME Holding N.V. ";
+        var renamed = await _service.UpdateAsync(created.Id, rename);
+        renamed.FullName.ShouldBe("ACME Holding N.V.");
+        renamed.Name.ShouldBe("ACME");
+        renamed.ConcurrencyStamp.ShouldNotBe(created.ConcurrencyStamp);
+        (await _service.GetAsync(created.Id)).FullName.ShouldBe("ACME Holding N.V.");
+        (await _service.GetListAsync(Request())).Rows.Single(r => r.Code == "ACM01").FullName.ShouldBe("ACME Holding N.V.");
+
+        /* An update that carries it unchanged keeps it while the short name changes. */
+        var untouched = UpdateFrom(renamed);
+        untouched.Name = "ACME Transport";
+        var kept = await _service.UpdateAsync(created.Id, untouched);
+        kept.Name.ShouldBe("ACME Transport");
+        kept.FullName.ShouldBe("ACME Holding N.V.");
+
+        /* Blank clears it: the DTO is the whole truth. */
+        var clear = UpdateFrom(kept);
+        clear.FullName = "   ";
+        (await _service.UpdateAsync(created.Id, clear)).FullName.ShouldBeNull();
+        (await _service.GetAsync(created.Id)).FullName.ShouldBeNull();
+        (await _service.GetListAsync(Request())).Rows.Single(r => r.Code == "ACM01").FullName.ShouldBeNull();
+
+        /* A relation born without one can get one later. */
+        var add = UpdateFrom(plain);
+        add.FullName = "Beta Logistics N.V.";
+        (await _service.UpdateAsync(plain.Id, add)).FullName.ShouldBe("Beta Logistics N.V.");
+        (await _service.GetAsync(plain.Id)).FullName.ShouldBe("Beta Logistics N.V.");
+    }
+
+    [Fact]
+    public async Task List_lookup_and_lookup_page_find_a_relation_on_a_fragment_of_its_full_name()
+    {
+        using var _ = InTenantA();
+        var muller = await CreateAsync("ACM01", "ACME", RelationRoles.Customer, dto => dto.FullName = "Müller Transport & Logistiek Holding B.V.");
+        await CreateAsync("BET01", "Beta", RelationRoles.Carrier, dto => dto.FullName = "Beta Logistics N.V.");
+        await CreateAsync("GAM01", "Gamma", RelationRoles.Depot);
+        await CreateAsync("ARC", "Archived", RelationRoles.Customer, dto => { dto.FullName = "Müller Archived B.V."; dto.IsArchived = true; });
+
+        /* The list: folded like the name, archived rows out unless asked for, the counts intact. */
+        (await _service.GetListAsync(Request(search: "holding"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(muller.Id);
+        (await _service.GetListAsync(Request(search: "MÜLLER"))).Rows.Select(r => r.Code).ShouldBe(["ACM01"], "diacritics and case folded; the archived one is out");
+        (await _service.GetListAsync(Request(search: "muller", includeArchived: true))).Rows.Select(r => r.Code).ShouldBe(["ACM01", "ARC"]);
+        (await _service.GetListAsync(Request(search: "transport & logistiek"))).Rows.ShouldHaveSingleItem().Code.ShouldBe("ACM01", "punctuation in the term is folded like in the key");
+        (await _service.GetListAsync(Request(search: "logisti"))).Rows.Select(r => r.Code).ShouldBe(["ACM01", "BET01"]);
+        var searched = await _service.GetListAsync(Request(search: "beta logistics n.v."));
+        searched.Rows.ShouldHaveSingleItem().Code.ShouldBe("BET01");
+        searched.FilteredCount.ShouldBe(1);
+        searched.TotalCount.ShouldBe(3);
+        (await _service.GetListAsync(Request(search: "holding", roles: RelationRoles.Carrier))).Rows.ShouldBeEmpty("the role filter still applies");
+        (await _service.GetListAsync(Request(search: "gamma"))).Rows.ShouldHaveSingleItem().Code.ShouldBe("GAM01", "a relation without a full name is still found on its name");
+        (await _service.GetListAsync(Request(search: "acm01"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(muller.Id, "and on its code");
+
+        /* The lookup and the lookup page use the same key. */
+        (await _service.GetLookupAsync("holding")).ShouldHaveSingleItem().Code.ShouldBe("ACM01");
+        (await _service.GetLookupAsync("logisti")).Select(l => l.Code).ShouldBe(["ACM01", "BET01"]);
+        var page = await _service.GetLookupPageAsync("holding");
+        page.TotalCount.ShouldBe(1);
+        page.Items.ShouldHaveSingleItem().Id.ShouldBe(muller.Id);
+        (await _service.GetLookupPageAsync("MÜLLER")).Items.Select(l => l.Code).ShouldBe(["ACM01"], "the archived one is out");
+        (await _service.GetLookupPageAsync("logisti")).Items.Select(l => l.Code).ShouldBe(["ACM01", "BET01"], "ordered by name");
+        (await _service.GetLookupPageAsync("logisti", roles: RelationRoles.Carrier)).Items.ShouldHaveSingleItem().Code.ShouldBe("BET01");
+        (await _service.GetLookupPageAsync("archived")).TotalCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task The_list_sorts_on_fullName_in_both_directions_with_missing_values_first_ascending()
+    {
+        using var _ = InTenantA();
+        await CreateAsync("ACM01", "ACME", configure: dto => dto.FullName = "Zeta Holding B.V.");
+        await CreateAsync("BET01", "Beta", configure: dto => dto.FullName = "Alpha Logistics N.V.");
+        await CreateAsync("GAM01", "Gamma");
+
+        (await _service.GetListAsync(Request(sortBy: "fullName"))).Rows.Select(r => r.Code).ShouldBe(["GAM01", "BET01", "ACM01"], "missing first, like the other optional columns");
+        (await _service.GetListAsync(Request(sortBy: "FULLNAME", sortDir: "desc"))).Rows.Select(r => r.Code).ShouldBe(["ACM01", "BET01", "GAM01"], "the column name is case-insensitive");
+        (await _service.GetListAsync(Request(sortBy: "name"))).Rows.Select(r => r.Code).ShouldBe(["ACM01", "BET01", "GAM01"], "the name sort is untouched by the full name");
+    }
+
+    [Fact]
+    public async Task A_full_name_of_tenant_A_is_not_searchable_from_tenant_B_which_may_use_the_same_one()
+    {
+        RelationDto a;
+        using (InTenantA())
+        {
+            a = await CreateAsync("ACM01", "ACME", configure: dto => dto.FullName = "Zeldzame Holding B.V.");
+        }
+
+        using (InTenantB())
+        {
+            /* A fresh service: the production instance is request-scoped and never serves two tenants. */
+            var service = GetRequiredService<IRelationAppService>();
+
+            (await service.GetListAsync(Request(search: "zeldzame", includeArchived: true))).Rows.ShouldBeEmpty();
+            (await service.GetListAsync(Request(sortBy: "fullName"))).TotalCount.ShouldBe(0);
+            (await service.GetLookupAsync("zeldzame")).ShouldBeEmpty();
+            (await service.GetLookupPageAsync("zeldzame")).TotalCount.ShouldBe(0);
+
+            /* Tenant B's own relation with the same full name is tenant B's only. */
+            var b = await service.CreateAsync(Make("ACM01", "ACME", RelationRoles.Customer, dto => dto.FullName = "Zeldzame Holding B.V."));
+            b.Id.ShouldNotBe(a.Id);
+            (await service.GetListAsync(Request(search: "zeldzame"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(b.Id);
+            (await service.GetLookupPageAsync("zeldzame")).Items.ShouldHaveSingleItem().Id.ShouldBe(b.Id);
+        }
+
+        using (InTenantA())
+        {
+            var rows = (await _service.GetListAsync(Request(search: "zeldzame"))).Rows;
+            rows.ShouldHaveSingleItem().Id.ShouldBe(a.Id);
+            rows[0].FullName.ShouldBe("Zeldzame Holding B.V.");
+            (await _service.GetLookupPageAsync("zeldzame")).Items.ShouldHaveSingleItem().Id.ShouldBe(a.Id);
+        }
     }
 
     // ── Blocked flag (PO 2026-10-12) ─────────────────────────────────────────

@@ -25,11 +25,11 @@ Het venster heeft vijf tabbladen.
 
 **Algemeen**
 
-- Bovenaan: categorieën, de schakelaars *Gearchiveerd* en *Geblokkeerd* met de *Reden blokkade*
-  (betalingsachterstand, kredietlimiet overschreden, insolventie, geschil of overig; verplicht zodra
-  de relatie geblokkeerd is; een blokkade is nu alleen een kenmerk, wat zij tegenhoudt bepalen de
-  orders en de facturatie later), de geografische regio's en de *Rollen* (kies er minimaal één; de
-  rol *Eigen bedrijf* kan maar één relatie per tenant hebben).
+- Bovenaan: de *Rollen* (kies er minimaal één; de rol *Eigen bedrijf* kan maar één relatie per
+  tenant hebben) met de schakelaars *Gearchiveerd* en *Geblokkeerd*; zodra *Geblokkeerd* aan staat
+  verschijnt de verplichte *Reden blokkade* (betalingsachterstand, kredietlimiet overschreden,
+  insolventie, geschil of overig; een blokkade is nu alleen een kenmerk, wat zij tegenhoudt bepalen de
+  orders en de facturatie later). Daaronder de categorieën en de geografische regio's.
 - Daaronder links *Code* (uniek binnen de tenant, in hoofdletters), *Naam* en *Volledige naam* (de
   statutaire naam als die afwijkt; zoeken werkt ook op de volledige naam), met daaronder de
   *Contactgegevens*: telefoon, mobiel, e-mail en website. Rechts **Alle adressen gelijk** met het
