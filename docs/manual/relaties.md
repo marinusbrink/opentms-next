@@ -25,13 +25,16 @@ Het venster heeft vijf tabbladen.
 
 **Algemeen**
 
-- Links: categorieën, geografische regio's, *Code* (uniek binnen de tenant, in hoofdletters) en
-  *Naam*, de *Rollen* (kies er minimaal één; de rol *Eigen bedrijf* kan maar één relatie per tenant
-  hebben), en de blokken *Telefoon* (telefoon, mobiel) en *Internet* (e-mail, website).
-- Rechts: de schakelaars *Gearchiveerd* en *Geblokkeerd* (een blokkade is nu alleen een kenmerk;
-  wat zij tegenhoudt bepalen de orders en de facturatie later), **Alle adressen gelijk** met daaronder
-  het adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone, coördinaten) en de
-  *Opmerkingen*.
+- Bovenaan: categorieën, de schakelaars *Gearchiveerd* en *Geblokkeerd* met de *Reden blokkade*
+  (betalingsachterstand, kredietlimiet overschreden, insolventie, geschil of overig; verplicht zodra
+  de relatie geblokkeerd is; een blokkade is nu alleen een kenmerk, wat zij tegenhoudt bepalen de
+  orders en de facturatie later), de geografische regio's en de *Rollen* (kies er minimaal één; de
+  rol *Eigen bedrijf* kan maar één relatie per tenant hebben).
+- Daaronder links *Code* (uniek binnen de tenant, in hoofdletters) en *Naam*; rechts **Alle adressen
+  gelijk** met het adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone,
+  coördinaten) en daaronder de tabbladen *Kaart* (een kaart van de ingevulde coördinaten; zonder
+  coördinaten blijft de kaart leeg) en *Opmerkingen*.
+- Onderaan de *Contactgegevens*: telefoon, mobiel, e-mail en website.
 - *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
   (bezoek, factuur, …). Zet het uit als de adressen per type verschillen; dan beheert u ze op het
   tabblad *Adressen*. Een adres per type gaat altijd vóór het algemene adres.

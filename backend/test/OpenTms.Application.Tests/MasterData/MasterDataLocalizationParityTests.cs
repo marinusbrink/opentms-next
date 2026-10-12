@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using OpenTms.MasterData.Relations;
 using Shouldly;
 using Xunit;
 
@@ -67,6 +69,24 @@ public class MasterDataLocalizationParityTests
             expected.Add($"Permission:{entity}.Update");
             expected.Add($"Permission:{entity}.Delete");
         }
+
+        expected.Where(key => !en.ContainsKey(key)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Every_run_2_error_code_and_every_block_reason_has_a_text()
+    {
+        var en = Read("en");
+
+        var expected = new List<string>
+        {
+            MasterDataErrorCodes.OwnCompanyAlreadyExists, MasterDataErrorCodes.RolesRequired, MasterDataErrorCodes.EmployerRoleRequired,
+            MasterDataErrorCodes.InvalidIban, MasterDataErrorCodes.InvalidVatNumber, MasterDataErrorCodes.InvalidEmail, MasterDataErrorCodes.InvalidCulture,
+            MasterDataErrorCodes.UserNotFound, MasterDataErrorCodes.AnonymisedRecordIsReadOnly, MasterDataErrorCodes.TooManyChildren,
+            MasterDataErrorCodes.BlockReasonRequired, "MasterData:BlockReason", "MasterData:BlockReasonRequired"
+        };
+        /* Every selectable reason has a label; None is the empty choice and needs none. */
+        expected.AddRange(Enum.GetValues<RelationBlockReason>().Where(r => r != RelationBlockReason.None).Select(r => $"MasterData:BlockReason.{r}"));
 
         expected.Where(key => !en.ContainsKey(key)).ShouldBeEmpty();
     }

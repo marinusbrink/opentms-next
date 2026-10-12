@@ -412,6 +412,17 @@
     "MasterData:Financial": "Financieel",
     "MasterData:Remarks": "Opmerkingen",
     "MasterData:AddressesPerTypeHint": "De adressen per adrestype staan op het tabblad Adressen.",
-    "MasterData:DefaultAddress": "Standaardadres"
+    "MasterData:DefaultAddress": "Standaardadres",
+    "MasterData:BlockReason": "Reden blokkade",
+    "MasterData:BlockReason.PaymentArrears": "Betalingsachterstand",
+    "MasterData:BlockReason.CreditLimitExceeded": "Kredietlimiet overschreden",
+    "MasterData:BlockReason.Insolvency": "Insolventie",
+    "MasterData:BlockReason.Dispute": "Geschil",
+    "MasterData:BlockReason.Other": "Overig",
+    "MasterData:BlockReasonRequired": "Kies een reden voor de blokkade",
+    "OpenTms.MasterData:BlockReasonRequired": "Een geblokkeerde relatie heeft een reden nodig.",
+    "MasterData:Map": "Kaart",
+    "MasterData:MapNoCoordinates": "Vul de coördinaten van het adres in om de kaart te tonen.",
+    "MasterData:ContactInformation": "Contactgegevens"
   }
 }

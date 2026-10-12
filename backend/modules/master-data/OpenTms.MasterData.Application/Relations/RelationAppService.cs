@@ -225,6 +225,7 @@ public class RelationAppService
             Roles = r.Roles,
             IsArchived = r.IsArchived,
             IsBlocked = r.IsBlocked,
+            BlockReason = r.BlockReason,
             VatNumber = r.VatNumber,
             ChamberOfCommerceNumber = r.ChamberOfCommerceNumber,
             Phone = r.Phone,
@@ -244,6 +245,7 @@ public class RelationAppService
             Roles = r.Roles,
             IsArchived = r.IsArchived,
             IsBlocked = r.IsBlocked,
+            BlockReason = r.BlockReason,
             Phone = r.Phone,
             Mobile = r.Mobile,
             Email = r.Email,
@@ -336,7 +338,7 @@ public class RelationAppService
         relation.SetContact(input.Phone, input.Mobile, input.Email, input.Website);
         relation.SetPreferredCulture(input.PreferredCulture, _cultures);
         relation.SetDescription(input.Description);
-        relation.SetBlocked(input.IsBlocked);
+        relation.SetBlocked(input.IsBlocked, input.BlockReason);
         if (input.IsArchived)
         {
             relation.Archive();

@@ -134,6 +134,105 @@ public class RelationEntityRuleTests
         relation.IsArchived.ShouldBeFalse();
     }
 
+    // ── Blocked flag and reason (PO 2026-10-12) ──────────────────────────────
+
+    [Fact]
+    public void A_new_relation_is_not_blocked_and_carries_no_block_reason()
+    {
+        var relation = NewRelation();
+
+        relation.IsBlocked.ShouldBeFalse();
+        relation.BlockReason.ShouldBe(RelationBlockReason.None);
+    }
+
+    [Theory]
+    [InlineData(RelationBlockReason.PaymentArrears)]
+    [InlineData(RelationBlockReason.CreditLimitExceeded)]
+    [InlineData(RelationBlockReason.Insolvency)]
+    [InlineData(RelationBlockReason.Dispute)]
+    [InlineData(RelationBlockReason.Other)]
+    public void Blocking_with_a_defined_reason_stores_the_flag_and_the_reason(RelationBlockReason reason)
+    {
+        var relation = NewRelation();
+
+        relation.SetBlocked(true, reason);
+
+        relation.IsBlocked.ShouldBeTrue();
+        relation.BlockReason.ShouldBe(reason);
+        relation.IsArchived.ShouldBeFalse("blocked is not archived");
+    }
+
+    [Fact]
+    public void The_reason_of_a_blocked_relation_can_change_while_it_stays_blocked()
+    {
+        var relation = NewRelation();
+        relation.SetBlocked(true, RelationBlockReason.PaymentArrears);
+
+        relation.SetBlocked(true, RelationBlockReason.Insolvency);
+
+        relation.IsBlocked.ShouldBeTrue();
+        relation.BlockReason.ShouldBe(RelationBlockReason.Insolvency);
+    }
+
+    [Theory]
+    [InlineData(RelationBlockReason.None)]
+    [InlineData(RelationBlockReason.PaymentArrears)]
+    [InlineData(RelationBlockReason.Other)]
+    public void Unblocking_stores_not_blocked_and_None_whatever_reason_is_passed(RelationBlockReason reason)
+    {
+        var relation = NewRelation();
+        relation.SetBlocked(true, RelationBlockReason.Dispute);
+
+        relation.SetBlocked(false, reason);
+
+        relation.IsBlocked.ShouldBeFalse();
+        relation.BlockReason.ShouldBe(RelationBlockReason.None, "a reason exists only while the relation is blocked");
+
+        /* On a relation that was never blocked the call ends in the same state. */
+        var fresh = NewRelation(code: "FRS");
+        fresh.SetBlocked(false, reason);
+        fresh.IsBlocked.ShouldBeFalse();
+        fresh.BlockReason.ShouldBe(RelationBlockReason.None);
+    }
+
+    [Fact]
+    public void Blocking_without_a_reason_is_refused_with_BlockReasonRequired_and_leaves_the_aggregate_unchanged()
+    {
+        var relation = NewRelation();
+
+        Should.Throw<BusinessException>(() => relation.SetBlocked(true, RelationBlockReason.None)).Code.ShouldBe(MasterDataErrorCodes.BlockReasonRequired);
+        relation.IsBlocked.ShouldBeFalse();
+        relation.BlockReason.ShouldBe(RelationBlockReason.None);
+
+        /* An already blocked relation keeps its reason: "blocked without a reason" is never a stored state. */
+        relation.SetBlocked(true, RelationBlockReason.CreditLimitExceeded);
+        Should.Throw<BusinessException>(() => relation.SetBlocked(true, RelationBlockReason.None)).Code.ShouldBe(MasterDataErrorCodes.BlockReasonRequired);
+        relation.IsBlocked.ShouldBeTrue();
+        relation.BlockReason.ShouldBe(RelationBlockReason.CreditLimitExceeded);
+    }
+
+    [Theory]
+    [InlineData(6)]
+    [InlineData(42)]
+    [InlineData(-1)]
+    [InlineData(int.MaxValue)]
+    public void An_undefined_reason_is_refused_with_InvalidCode_whether_blocking_or_unblocking(int value)
+    {
+        var reason = (RelationBlockReason)value;
+        var relation = NewRelation();
+        relation.SetBlocked(true, RelationBlockReason.Dispute);
+
+        foreach (var blocked in new[] { true, false })
+        {
+            var ex = Should.Throw<BusinessException>(() => relation.SetBlocked(blocked, reason));
+            ex.Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
+            ex.Data["field"].ShouldBe("blockReason");
+            ex.Data["value"].ShouldBe(value);
+            relation.IsBlocked.ShouldBeTrue("a refused change leaves the flag untouched");
+            relation.BlockReason.ShouldBe(RelationBlockReason.Dispute, "a refused change leaves the reason untouched");
+        }
+    }
+
     // ── Contact and legal fields ─────────────────────────────────────────────
 
     [Fact]

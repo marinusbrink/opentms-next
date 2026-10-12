@@ -118,6 +118,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         Roles = dto.Roles,
         IsArchived = dto.IsArchived,
         IsBlocked = dto.IsBlocked,
+        BlockReason = dto.BlockReason,
         Phone = dto.Phone,
         Mobile = dto.Mobile,
         Email = dto.Email,
@@ -376,7 +377,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
     public async Task IsBlocked_round_trips_through_create_update_row_and_detail_and_sorts_without_hiding_anything()
     {
         using var _ = InTenantA();
-        var blocked = await CreateAsync("BLK", "Blocked one", configure: dto => dto.IsBlocked = true);
+        var blocked = await CreateAsync("BLK", "Blocked one", configure: dto => { dto.IsBlocked = true; dto.BlockReason = RelationBlockReason.Other; });
         var open = await CreateAsync("OPN", "Open one");
 
         blocked.IsBlocked.ShouldBeTrue();
@@ -405,6 +406,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
 
         var block = UpdateFrom(open);
         block.IsBlocked = true;
+        block.BlockReason = RelationBlockReason.PaymentArrears;
         block.IsArchived = true;
         var nowBlocked = await _service.UpdateAsync(open.Id, block);
         nowBlocked.IsBlocked.ShouldBeTrue();
@@ -416,6 +418,72 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         var silent = UpdateFrom(nowBlocked);
         silent.IsBlocked = false;
         (await _service.UpdateAsync(open.Id, silent)).IsBlocked.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_block_needs_a_reason_which_round_trips_through_detail_and_row_and_is_cleared_by_unblocking()
+    {
+        using var _ = InTenantA();
+
+        /* Blocked without a reason, or with an unknown one, is refused and nothing is written. */
+        await ShouldFailAsync(() => CreateAsync("BLK", "Blocked one", configure: dto => dto.IsBlocked = true), MasterDataErrorCodes.BlockReasonRequired);
+        var unknownOnCreate = await ShouldFailAsync(() => CreateAsync("BLK", "Blocked one", configure: dto => { dto.IsBlocked = true; dto.BlockReason = (RelationBlockReason)42; }), MasterDataErrorCodes.InvalidCode, "blockReason");
+        unknownOnCreate.Data["value"].ShouldBe(42);
+        (await _service.GetListAsync(Request(includeArchived: true))).TotalCount.ShouldBe(0);
+        (await _service.GetLookupAsync()).ShouldBeEmpty();
+
+        /* With a reason the block is stored; detail and row carry it. A reason without a block is not stored. */
+        var blocked = await CreateAsync("BLK", "Blocked one", configure: dto => { dto.IsBlocked = true; dto.BlockReason = RelationBlockReason.Insolvency; });
+        var open = await CreateAsync("OPN", "Open one", configure: dto => dto.BlockReason = RelationBlockReason.Dispute);
+        blocked.IsBlocked.ShouldBeTrue();
+        blocked.BlockReason.ShouldBe(RelationBlockReason.Insolvency);
+        open.IsBlocked.ShouldBeFalse();
+        open.BlockReason.ShouldBe(RelationBlockReason.None, "a reason exists only while the relation is blocked");
+        (await _service.GetAsync(blocked.Id)).BlockReason.ShouldBe(RelationBlockReason.Insolvency);
+        (await _service.GetAsync(open.Id)).BlockReason.ShouldBe(RelationBlockReason.None);
+        var rows = (await _service.GetListAsync(Request())).Rows;
+        rows.Single(r => r.Code == "BLK").BlockReason.ShouldBe(RelationBlockReason.Insolvency);
+        rows.Single(r => r.Code == "OPN").BlockReason.ShouldBe(RelationBlockReason.None);
+
+        /* The reason can change while the relation stays blocked. */
+        var rereason = UpdateFrom(blocked);
+        rereason.BlockReason = RelationBlockReason.PaymentArrears;
+        var rereasoned = await _service.UpdateAsync(blocked.Id, rereason);
+        rereasoned.IsBlocked.ShouldBeTrue();
+        rereasoned.BlockReason.ShouldBe(RelationBlockReason.PaymentArrears);
+        (await _service.GetListAsync(Request())).Rows.Single(r => r.Code == "BLK").BlockReason.ShouldBe(RelationBlockReason.PaymentArrears);
+
+        /* Refused updates: blocked without a reason, an unknown reason (blocked or not); the stored record is untouched. */
+        var noReason = UpdateFrom(rereasoned);
+        noReason.BlockReason = RelationBlockReason.None;
+        await ShouldFailAsync(() => _service.UpdateAsync(blocked.Id, noReason), MasterDataErrorCodes.BlockReasonRequired);
+        var unknown = UpdateFrom(rereasoned);
+        unknown.BlockReason = (RelationBlockReason)42;
+        await ShouldFailAsync(() => _service.UpdateAsync(blocked.Id, unknown), MasterDataErrorCodes.InvalidCode, "blockReason");
+        var unknownOpen = UpdateFrom(rereasoned);
+        unknownOpen.IsBlocked = false;
+        unknownOpen.BlockReason = (RelationBlockReason)42;
+        await ShouldFailAsync(() => _service.UpdateAsync(blocked.Id, unknownOpen), MasterDataErrorCodes.InvalidCode, "blockReason");
+        var stillBlocked = await _service.GetAsync(blocked.Id);
+        stillBlocked.IsBlocked.ShouldBeTrue();
+        stillBlocked.BlockReason.ShouldBe(RelationBlockReason.PaymentArrears);
+        stillBlocked.ConcurrencyStamp.ShouldBe(rereasoned.ConcurrencyStamp, "a refused update writes nothing");
+
+        /* Unblocking returns None whatever reason the DTO still carries. */
+        var unblock = UpdateFrom(rereasoned);
+        unblock.IsBlocked = false;
+        var unblocked = await _service.UpdateAsync(blocked.Id, unblock);
+        unblocked.IsBlocked.ShouldBeFalse();
+        unblocked.BlockReason.ShouldBe(RelationBlockReason.None);
+        (await _service.GetAsync(blocked.Id)).BlockReason.ShouldBe(RelationBlockReason.None);
+        (await _service.GetListAsync(Request())).Rows.Single(r => r.Code == "BLK").BlockReason.ShouldBe(RelationBlockReason.None);
+
+        /* Blocking again from the open state needs the reason once more; the refused attempt leaves the stamp valid. */
+        var reblock = UpdateFrom(unblocked);
+        reblock.IsBlocked = true;
+        await ShouldFailAsync(() => _service.UpdateAsync(blocked.Id, reblock), MasterDataErrorCodes.BlockReasonRequired);
+        reblock.BlockReason = RelationBlockReason.Other;
+        (await _service.UpdateAsync(blocked.Id, reblock)).BlockReason.ShouldBe(RelationBlockReason.Other);
     }
 
     [Fact]
@@ -793,7 +861,10 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
                 dto.VatNumber = "NL801234567B01";
                 dto.Addresses = [Address(_visiting)];
                 dto.ContactPersons = [Contact("Jan", "Jansen", "jan@acme.nl")];
+                dto.IsBlocked = true;
+                dto.BlockReason = RelationBlockReason.Insolvency;
             });
+            own.BlockReason.ShouldBe(RelationBlockReason.Insolvency);
         }
 
         using (InTenantB())
@@ -827,6 +898,9 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
             /* Tenant B has its own own-company slot and its own key space. */
             var ownB = await service.CreateAsync(Make("OWN", "Our company", RelationRoles.OwnCompany, dto => dto.VatNumber = "NL801234567B01"));
             ownB.Id.ShouldNotBe(own.Id);
+            ownB.IsBlocked.ShouldBeFalse("tenant A's block is tenant A's fact");
+            ownB.BlockReason.ShouldBe(RelationBlockReason.None);
+            (await service.GetListAsync(Request())).Rows.ShouldAllBe(r => !r.IsBlocked && r.BlockReason == RelationBlockReason.None);
             (await service.GetListAsync(Request())).Rows.ShouldHaveSingleItem().Id.ShouldBe(ownB.Id);
             (await service.GetLookupPageAsync(roles: RelationRoles.OwnCompany)).Items.ShouldHaveSingleItem().Id.ShouldBe(ownB.Id);
             (await service.MatchAsync(new RelationMatchRequestDto { Code = "OWN" })).Matches.ShouldHaveSingleItem().RelationId.ShouldBe(ownB.Id);
@@ -834,8 +908,14 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
 
         using (InTenantA())
         {
-            (await _service.GetListAsync(Request())).Rows.ShouldHaveSingleItem().Id.ShouldBe(own.Id);
-            (await _service.GetAsync(own.Id)).ContactPersons.ShouldHaveSingleItem().Email.ShouldBe("jan@acme.nl");
+            var row = (await _service.GetListAsync(Request())).Rows.ShouldHaveSingleItem();
+            row.Id.ShouldBe(own.Id);
+            row.IsBlocked.ShouldBeTrue();
+            row.BlockReason.ShouldBe(RelationBlockReason.Insolvency);
+            var detail = await _service.GetAsync(own.Id);
+            detail.ContactPersons.ShouldHaveSingleItem().Email.ShouldBe("jan@acme.nl");
+            detail.IsBlocked.ShouldBeTrue("tenant B's activity did not touch tenant A's block");
+            detail.BlockReason.ShouldBe(RelationBlockReason.Insolvency);
         }
     }
 

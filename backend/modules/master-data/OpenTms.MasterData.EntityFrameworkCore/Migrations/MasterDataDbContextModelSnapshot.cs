@@ -847,6 +847,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("BlockReason")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ChamberOfCommerceNumber")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");

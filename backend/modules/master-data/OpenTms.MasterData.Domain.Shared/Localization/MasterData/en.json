@@ -412,6 +412,17 @@
     "MasterData:Financial": "Financial",
     "MasterData:Remarks": "Remarks",
     "MasterData:AddressesPerTypeHint": "The addresses per address type are kept on the Addresses tab.",
-    "MasterData:DefaultAddress": "Default address"
+    "MasterData:DefaultAddress": "Default address",
+    "MasterData:BlockReason": "Block reason",
+    "MasterData:BlockReason.PaymentArrears": "Payment arrears",
+    "MasterData:BlockReason.CreditLimitExceeded": "Credit limit exceeded",
+    "MasterData:BlockReason.Insolvency": "Insolvency",
+    "MasterData:BlockReason.Dispute": "Dispute",
+    "MasterData:BlockReason.Other": "Other",
+    "MasterData:BlockReasonRequired": "Select a block reason",
+    "OpenTms.MasterData:BlockReasonRequired": "A blocked relation needs a block reason.",
+    "MasterData:Map": "Map",
+    "MasterData:MapNoCoordinates": "Enter the coordinates of the address to show the map.",
+    "MasterData:ContactInformation": "Contact information"
   }
 }

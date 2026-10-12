@@ -71,7 +71,7 @@ person search.
 # Design: Master Data, second run: Relation and Driver
 
 **PBI:** above (this file); assessment `docs/input/masterdata-rebuild-assessment.md`
-**Status:** approved (gate 1, PO 2026-10-11: assumptions 1, 3, 4 and 8 confirmed; GAP-03 decided as the `DatePicker` below). Revised by the PO on 2026-10-12 after the old OpenTMS relation screen: the General tab mirrors the old one with the default address inline ("all addresses equal", stored as an address without an address type), roles as a `MultiSelect`, a `Blocked` flag; fax, emergency number, instant messenger and Skype stay dropped.
+**Status:** approved (gate 1, PO 2026-10-11: assumptions 1, 3, 4 and 8 confirmed; GAP-03 decided as the `DatePicker` below). Revised by the PO on 2026-10-12 after the old OpenTMS relation screen: the General tab mirrors the old one with the default address inline ("all addresses equal", stored as an address without an address type), roles as a `MultiSelect`, a `Blocked` flag with a reason, a Map / Remarks section; fax, emergency number, instant messenger and Skype stay dropped.
 **Date:** 2026-10-11
 **Depends on:** design 41 (PR #42) merged: Country, AddressType, RelationCategory, GeographicalRegion,
 `LocalizedName`, the Master data app and the shared list view and editor.
@@ -205,7 +205,7 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 |---|---|---|
 | Relation | `FullName`, `SearchName` | one name, one indexed `SearchKey` (§3.1) |
 | Relation | `IsMe`, categories with system flags | `Roles` flags with the own-company partial index (§3.1) |
-| Relation | `IsBlocked` | kept as a flag on the PO's request (2026-10-12, the old "Is geblokkeerd"); what a block stops is decided by the Financial and Orders runs (§3.1) |
+| Relation | `IsBlocked` | kept as a flag with a `BlockReason` enum on the PO's request (2026-10-12, the old "Is geblokkeerd"); what a block stops is decided by the Financial and Orders runs (§3.1) |
 | Relation | `CurrencyId`, `VatId`, GL accounts, invoicing options, 48 charge-by and price-list columns, self-billing, purchase orders, incoming invoices | `RelationFinancialSettings` in Financial (§2, §3.1) |
 | Relation | portal users, auto-accept, ETA notifications, forwarding, questionnaires, time slots, default waypoints, access codes, door keys, vehicle types able to access | Orders and Planning settings per RelationId (§2) |
 | Relation | `SurchargesAndDiscounts`, `AvailableProducts`, `AvailableVehicleTypes` and the other delimited lists | join tables where the owning module needs them (§3.3) |
@@ -280,14 +280,18 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
 
 **Relation editor** (`EntityDialog size="lg"`, UI-DLG-003: a header block plus lines), tabs:
 
-1. **General** (PO 2026-10-12: the layout of the old OpenTMS General tab): left column Categories
-   `MultiSelect`, Geographical regions `MultiSelect`, Code + Name, Roles `MultiSelect`, the *Telephone*
-   block (Phone, Mobile) and the *Internet* block (E-mail, Website); right column the Archived and
-   Blocked switches, **All addresses equal** with the default address inline (Country
+1. **General** (PO 2026-10-12, five rows): one *Relation* block with row 1 Categories
+   `MultiSelect` + the Archived and Blocked switches + the **Block reason** `Select` (enum
+   `RelationBlockReason`: payment arrears, credit limit exceeded, insolvency, dispute, other; required
+   while blocked, None otherwise; a tenant-maintained list is for the Financial run to decide), row 2
+   Geographical regions `MultiSelect`, row 3 Roles `MultiSelect`; row 4 the *Name* block (Code, Name)
+   next to the *Addresses* block: **All addresses equal** with the default address inline (Country
    `ReferenceCombobox`, Postal code, City, Street, House number, Address line 2, Time zone prefilled
    from the country, Longitude, Latitude) or, when off, a hint that the addresses live on the
-   Addresses tab; then *Remarks* (Description). No map yet: the geocoder arrives with Planning and a
-   maps provider is a PO choice.
+   Addresses tab, then a *Map* / *Remarks* sub-tab strip filling the block: the map is an
+   OpenStreetMap embed of the entered coordinates (no geocoder until Planning; the provider is a
+   reversible choice, one URL and no package), Remarks is the Description; row 5 the *Contact
+   information* block (Phone, Mobile, E-mail, Website).
 2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
    units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
    single-valued; a multi-valued tree picker is a library gap for the component map).

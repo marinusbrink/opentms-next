@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.MasterData;
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261012114310_MasterDataRelationsAndDrivers";
+    private const string Migration = "20261012121014_MasterDataRelationsAndDrivers";
     private const string FirstRunMigration = "20261011191016_MasterDataFirstRun";
 
     private static readonly string[] Tables =
@@ -149,12 +149,13 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
         foreignKeys.ShouldNotContain(fk => fk.Contains("OrganizationUnitId") && !fk.Contains("Relations_RelationId"));
         foreignKeys.ShouldNotContain(fk => fk.Contains("UserId"));
 
-        /* The PO revisions of 2026-10-12: the address type is optional (the default address has none), the blocked flag is a non-null boolean. */
+        /* The PO revisions of 2026-10-12: the address type is optional (the default address has none), the blocked flag is a non-null boolean with a non-null integer reason (None = 0). */
         var columns = await QueryAsync(connection, "SELECT table_name || '.' || column_name || ' :: ' || data_type || ' :: ' || is_nullable FROM information_schema.columns WHERE table_schema = 'masterdata' AND table_name IN ('Relations', 'RelationAddresses')");
         columns.ShouldContain("RelationAddresses.AddressTypeId :: uuid :: YES");
         columns.ShouldContain("RelationAddresses.RelationId :: uuid :: NO");
         columns.ShouldContain("RelationAddresses.CountryId :: uuid :: NO");
         columns.ShouldContain("Relations.IsBlocked :: boolean :: NO");
+        columns.ShouldContain("Relations.BlockReason :: integer :: NO");
         columns.ShouldContain("Relations.IsArchived :: boolean :: NO");
 
         /* The run-1 tables are untouched: expand only. */

@@ -1843,6 +1843,18 @@
         ],
         "type": "object"
       },
+      "OpenTms.MasterData.Relations.RelationBlockReason": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
       "OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto": {
         "additionalProperties": false,
         "properties": {
@@ -2048,6 +2060,9 @@
             "nullable": true,
             "type": "array"
           },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
           "categoryIds": {
             "items": {
               "format": "uuid",
@@ -2161,6 +2176,9 @@
             },
             "nullable": true,
             "type": "array"
+          },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
           },
           "categoryIds": {
             "items": {
@@ -2424,6 +2442,9 @@
       "OpenTms.MasterData.Relations.RelationRowDto": {
         "additionalProperties": false,
         "properties": {
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
           "categoryNames": {
             "items": {
               "type": "string"
@@ -2495,6 +2516,9 @@
             },
             "nullable": true,
             "type": "array"
+          },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
           },
           "categoryIds": {
             "items": {

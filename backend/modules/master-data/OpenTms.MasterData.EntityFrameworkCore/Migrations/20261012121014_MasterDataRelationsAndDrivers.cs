@@ -26,6 +26,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     Roles = table.Column<int>(type: "integer", nullable: false),
                     IsArchived = table.Column<bool>(type: "boolean", nullable: false),
                     IsBlocked = table.Column<bool>(type: "boolean", nullable: false),
+                    BlockReason = table.Column<int>(type: "integer", nullable: false),
                     Phone = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     Mobile = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),

@@ -19347,6 +19347,11 @@ export interface components {
             id?: string | null;
             isDefault?: boolean;
         };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.MasterData.Relations.RelationBlockReason": 0 | 1 | 2 | 3 | 4 | 5;
         "OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto": {
             /** Format: uuid */
             categoryId?: string | null;
@@ -19402,6 +19407,7 @@ export interface components {
         "OpenTms.MasterData.Relations.RelationCreateDto": {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
+            blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code: string;
@@ -19423,6 +19429,7 @@ export interface components {
         "OpenTms.MasterData.Relations.RelationDto": {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
+            blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code?: string | null;
@@ -19500,6 +19507,7 @@ export interface components {
          */
         "OpenTms.MasterData.Relations.RelationRoles": 0 | 1 | 2 | 4 | 8 | 16;
         "OpenTms.MasterData.Relations.RelationRowDto": {
+            blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
             categoryNames?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             city?: string | null;
@@ -19518,6 +19526,7 @@ export interface components {
         "OpenTms.MasterData.Relations.RelationUpdateDto": {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
+            blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code: string;

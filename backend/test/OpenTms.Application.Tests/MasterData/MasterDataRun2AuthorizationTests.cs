@@ -104,11 +104,16 @@ public class MasterDataRun2AuthorizationTests
                  {
                      MasterDataErrorCodes.RolesRequired, MasterDataErrorCodes.EmployerRoleRequired, MasterDataErrorCodes.InvalidIban,
                      MasterDataErrorCodes.InvalidVatNumber, MasterDataErrorCodes.InvalidEmail, MasterDataErrorCodes.InvalidCulture,
-                     MasterDataErrorCodes.UserNotFound, MasterDataErrorCodes.TooManyChildren, MasterDataErrorCodes.InvalidTimeZone
+                     MasterDataErrorCodes.UserNotFound, MasterDataErrorCodes.TooManyChildren, MasterDataErrorCodes.InvalidTimeZone,
+                     MasterDataErrorCodes.BlockReasonRequired, MasterDataErrorCodes.InvalidCode
                  })
         {
             MasterDataErrorCodes.BadRequestCodes.ShouldContain(code);
         }
+
+        /* PO 2026-10-12: a block without a reason is a wrong request, not a state conflict. */
+        MasterDataErrorCodes.BlockReasonRequired.ShouldBe("OpenTms.MasterData:BlockReasonRequired");
+        MasterDataErrorCodes.ConflictCodes.ShouldNotContain(MasterDataErrorCodes.BlockReasonRequired);
 
         MasterDataErrorCodes.ConflictCodes.Intersect(MasterDataErrorCodes.BadRequestCodes).ShouldBeEmpty();
     }

@@ -166,7 +166,8 @@ function renderEditor(props: Partial<React.ComponentProps<typeof DriverEditor>> 
 const dialogs = () => Array.from(document.querySelectorAll<HTMLElement>("[role=dialog]"));
 const editorDialog = () => dialogs()[0];
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const field = (scope: HTMLElement, label: string) => within(scope).getByLabelText(new RegExp(`^${escape(label)}`)) as HTMLInputElement;
+/* Form controls only: the nested relation editor's "MasterData:Name" FormSection carries its title as aria-label too. */
+const field = (scope: HTMLElement, label: string) => within(scope).getByLabelText(new RegExp(`^${escape(label)}`), { selector: "input, select, textarea" }) as HTMLInputElement;
 const typeInto = (scope: HTMLElement, label: string, value: string) => fireEvent.change(field(scope, label), { target: { value } });
 const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
 const lines = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-line]"));

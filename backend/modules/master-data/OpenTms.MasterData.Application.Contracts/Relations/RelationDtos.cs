@@ -15,6 +15,7 @@ public class RelationRowDto
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
     public bool IsBlocked { get; set; }
+    public RelationBlockReason BlockReason { get; set; }
     public string? VatNumber { get; set; }
     public string? ChamberOfCommerceNumber { get; set; }
     public string? Phone { get; set; }
@@ -122,6 +123,7 @@ public class RelationDto : MasterDataDetailDtoBase
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
     public bool IsBlocked { get; set; }
+    public RelationBlockReason BlockReason { get; set; }
     public string? Phone { get; set; }
     public string? Mobile { get; set; }
     public string? Email { get; set; }
@@ -150,6 +152,7 @@ public class RelationCreateDto
     public bool IsArchived { get; set; }
 
     public bool IsBlocked { get; set; }
+    public RelationBlockReason BlockReason { get; set; }
 
     [MaxLength(MasterDataConsts.MaxPhoneLength)] public string? Phone { get; set; }
     [MaxLength(MasterDataConsts.MaxPhoneLength)] public string? Mobile { get; set; }

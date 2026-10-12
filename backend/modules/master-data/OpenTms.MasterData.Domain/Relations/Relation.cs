@@ -27,6 +27,9 @@ public class Relation : MasterDataAggregateRoot
     /// <summary>Shown as a flag (PO 2026-10-12, the old "Is geblokkeerd"); Orders and Financial decide later what a block stops.</summary>
     public bool IsBlocked { get; private set; }
 
+    /// <summary>None unless blocked.</summary>
+    public RelationBlockReason BlockReason { get; private set; }
+
     public string? Phone { get; private set; }
 
     public string? Mobile { get; private set; }
@@ -94,7 +97,21 @@ public class Relation : MasterDataAggregateRoot
 
     public void Unarchive() => IsArchived = false;
 
-    public void SetBlocked(bool blocked) => IsBlocked = blocked;
+    public void SetBlocked(bool blocked, RelationBlockReason reason)
+    {
+        if (!Enum.IsDefined(reason))
+        {
+            throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "blockReason").WithData("value", (int)reason);
+        }
+
+        if (blocked && reason == RelationBlockReason.None)
+        {
+            throw new BusinessException(MasterDataErrorCodes.BlockReasonRequired);
+        }
+
+        IsBlocked = blocked;
+        BlockReason = blocked ? reason : RelationBlockReason.None;
+    }
 
     public void SetContact(string? phone, string? mobile, string? email, string? website)
     {

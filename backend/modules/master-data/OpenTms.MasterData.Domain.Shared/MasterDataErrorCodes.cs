@@ -35,6 +35,7 @@ public static class MasterDataErrorCodes
     public const string UserNotFound = Namespace + ":UserNotFound";
     public const string AnonymisedRecordIsReadOnly = Namespace + ":AnonymisedRecordIsReadOnly";
     public const string TooManyChildren = Namespace + ":TooManyChildren";
+    public const string BlockReasonRequired = Namespace + ":BlockReasonRequired";
 
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
@@ -47,6 +48,6 @@ public static class MasterDataErrorCodes
     public static readonly string[] BadRequestCodes =
     [
         InvalidTimeZone, AdrFieldsRequired, InvalidPostalCodeRange, InvalidTemperatureRange, InvalidCode, ReferenceNotFound, UnknownSortColumn, NameRequired, TooManyRows,
-        RolesRequired, EmployerRoleRequired, InvalidIban, InvalidVatNumber, InvalidEmail, InvalidCulture, UserNotFound, TooManyChildren
+        RolesRequired, EmployerRoleRequired, InvalidIban, InvalidVatNumber, InvalidEmail, InvalidCulture, UserNotFound, TooManyChildren, BlockReasonRequired
     ];
 }

@@ -13,6 +13,15 @@ import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AddressMap } from "@/apps/master-data/components/AddressMap";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import {
   CheckboxField,
@@ -41,7 +50,9 @@ import {
   type ContactRow,
 } from "@/apps/master-data/editors/ContactPersonDialog";
 import {
+  BLOCK_REASONS,
   RELATION_ROLES,
+  blockReasonKey,
   contactPersonRoleKey,
   countries,
   geographicalRegions,
@@ -63,9 +74,10 @@ import { useLanguages } from "@/lib/i18n/languages";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The relation editor (design 43, UI design as revised by the PO on 2026-10-12 after the old OpenTMS
- * screen): `lg`. General mirrors the old tab: classification and the Archived/Blocked switches on
- * top, name and roles, the Telephone and Internet blocks on the left; on the right "All addresses
- * equal" with the default address inline (stored without an address type) and the remarks. Then
+ * screen): `lg`. General: one block with categories, the Archived and Blocked switches (with the
+ * block reason), regions and roles; then the Name block next to the Addresses block ("All addresses
+ * equal" with the default address inline, stored without an address type, and a Map / Remarks
+ * section); then the Contact information block. Then
  * Administration (legal numbers, preferred language, organisation units), Financial (bank accounts,
  * exactly one default), Addresses (the per-type addresses, in their own dialog; they override the
  * default), Contact persons, and Record identification. Archive and Unarchive are ribbon commands,
@@ -87,6 +99,7 @@ interface Values {
   roles: string[];
   isArchived: boolean;
   isBlocked: boolean;
+  blockReason: number;
   phone: string;
   mobile: string;
   email: string;
@@ -149,6 +162,7 @@ const initialValuesFor =
       roles: rolesToList(dto?.roles),
       isArchived: dto?.isArchived ?? false,
       isBlocked: dto?.isBlocked ?? false,
+      blockReason: dto?.blockReason ?? 0,
       phone: dto?.phone ?? "",
       mobile: dto?.mobile ?? "",
       email: dto?.email ?? "",
@@ -220,6 +234,8 @@ const validate = (v: Values): FieldErrors<Values> => {
   if (!v.code.trim()) errors.code = "MasterData:CodeRequired";
   if (!v.name.trim()) errors.name = "MasterData:NameRequired";
   if (v.roles.length === 0) errors.roles = "MasterData:RolesRequired";
+  if (v.isBlocked && v.blockReason === 0)
+    errors.blockReason = "MasterData:BlockReasonRequired";
   const email = emailError(v.email);
   if (email) errors.email = email;
   if (v.allAddressesEqual && hasDefaultAddressInput(v)) {
@@ -244,6 +260,7 @@ const GENERAL_FIELDS: (keyof Values & string)[] = [
   "roles",
   "isArchived",
   "isBlocked",
+  "blockReason",
   "phone",
   "mobile",
   "email",
@@ -333,6 +350,11 @@ export function RelationEditor({
     () => RELATION_ROLES.map((r) => ({ id: String(r.value), label: t(r.key) })),
     [t],
   );
+  const blockReasonOptions = useMemo(
+    () =>
+      BLOCK_REASONS.map((r) => ({ value: String(r.value), label: t(r.key) })),
+    [t],
+  );
 
   /* The nested dialogs live outside the tabs, so their result reaches the form through applyValues. */
   const [applyValues, setApplyValues] = useState<
@@ -409,6 +431,9 @@ export function RelationEditor({
         roles: listToRoles(v.roles) as RelationRoles,
         isArchived: v.isArchived,
         isBlocked: v.isBlocked,
+        blockReason: (v.isBlocked
+          ? v.blockReason
+          : 0) as RelationDto["blockReason"],
         phone: text(v.phone),
         mobile: text(v.mobile),
         email: text(v.email),
@@ -674,59 +699,96 @@ export function RelationEditor({
       labelKey: "General",
       fields: GENERAL_FIELDS,
       render: (form) => (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-          {/* Left column: classification, name and roles, the Telephone and Internet blocks (the old General tab). */}
-          <div className="flex flex-col gap-3">
-            <FormField
-              label={t("MasterData:Categories")}
-              htmlFor={form.id("categoryIds")}
-              floating="always"
-            >
-              <MultiSelect
-                id={form.id("categoryIds")}
-                value={form.values.categoryIds}
-                onChange={(next) => form.set("categoryIds", next)}
-                options={categoryOptions}
-                disabled={form.readOnly}
-              />
-            </FormField>
-            <FormField
-              label={t("MasterData:GeographicalRegions")}
-              htmlFor={form.id("geographicalRegionIds")}
-              floating="always"
-            >
-              <MultiSelect
-                id={form.id("geographicalRegionIds")}
-                value={form.values.geographicalRegionIds}
-                onChange={(next) => form.set("geographicalRegionIds", next)}
-                options={regionOptions}
-                disabled={form.readOnly}
-              />
-            </FormField>
-            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-              <TextField
-                form={form}
-                field="code"
-                labelKey="MasterData:Code"
-                required
-                maxLength={32}
-                upper
-              />
-              <TextField
-                form={form}
-                field="name"
-                labelKey="MasterData:Name"
-                required
-                maxLength={128}
-                className="col-span-2"
-              />
+        <div className="flex flex-col gap-4">
+          {/* Rows 1-3 (PO 2026-10-12): classification with the Archived and Blocked switches, regions, roles. */}
+          <FormSection title={t("MasterData:Relation")}>
+            <div className="grid grid-cols-12 items-end gap-x-4 gap-y-3">
+              <FormField
+                label={t("MasterData:Categories")}
+                htmlFor={form.id("categoryIds")}
+                floating="always"
+                className="col-span-6"
+              >
+                <MultiSelect
+                  id={form.id("categoryIds")}
+                  value={form.values.categoryIds}
+                  onChange={(next) => form.set("categoryIds", next)}
+                  options={categoryOptions}
+                  disabled={form.readOnly}
+                />
+              </FormField>
+              <div className="col-span-6 flex items-end justify-end gap-4">
+                <CheckboxField
+                  form={form}
+                  field="isArchived"
+                  labelKey="MasterData:IsArchived"
+                />
+                <CheckboxField
+                  form={form}
+                  field="isBlocked"
+                  labelKey="MasterData:IsBlocked"
+                />
+                <FormField
+                  label={t("MasterData:BlockReason")}
+                  htmlFor={form.id("blockReason")}
+                  required={form.values.isBlocked}
+                  error={form.error("blockReason")}
+                  floating="always"
+                  className="w-56"
+                >
+                  <Select
+                    items={blockReasonOptions}
+                    value={
+                      form.values.isBlocked && form.values.blockReason
+                        ? String(form.values.blockReason)
+                        : null
+                    }
+                    onValueChange={(next) => {
+                      form.set("blockReason", next ? Number(next) : 0);
+                      form.blur("blockReason");
+                    }}
+                    disabled={form.readOnly || !form.values.isBlocked}
+                  >
+                    <SelectTrigger
+                      id={form.id("blockReason")}
+                      className="h-10 w-full bg-background"
+                      aria-invalid={
+                        form.error("blockReason") ? true : undefined
+                      }
+                    >
+                      <SelectValue placeholder={t("MasterData:BlockReason")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {blockReasonOptions.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
+              <FormField
+                label={t("MasterData:GeographicalRegions")}
+                htmlFor={form.id("geographicalRegionIds")}
+                floating="always"
+                className="col-span-12"
+              >
+                <MultiSelect
+                  id={form.id("geographicalRegionIds")}
+                  value={form.values.geographicalRegionIds}
+                  onChange={(next) => form.set("geographicalRegionIds", next)}
+                  options={regionOptions}
+                  disabled={form.readOnly}
+                />
+              </FormField>
               <FormField
                 label={t("MasterData:Roles")}
                 htmlFor={form.id("roles")}
                 required
                 error={form.error("roles")}
                 floating="always"
-                className="col-span-3"
+                className="col-span-12"
               >
                 <MultiSelect
                   id={form.id("roles")}
@@ -740,157 +802,202 @@ export function RelationEditor({
                 />
               </FormField>
             </div>
-            <FormSection title={t("MasterData:Telephone")}>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          </FormSection>
+          {/* Row 4: the name block and the addresses block (address section plus the Map / Remarks section). */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormSection title={t("MasterData:Name")}>
+              <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                 <TextField
                   form={form}
-                  field="phone"
-                  labelKey="MasterData:Phone"
+                  field="code"
+                  labelKey="MasterData:Code"
+                  required
                   maxLength={32}
+                  upper
                 />
                 <TextField
                   form={form}
-                  field="mobile"
-                  labelKey="MasterData:Mobile"
-                  maxLength={32}
+                  field="name"
+                  labelKey="MasterData:Name"
+                  required
+                  maxLength={128}
+                  className="col-span-2"
                 />
               </div>
             </FormSection>
-            <FormSection title={t("MasterData:Internet")}>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <TextField
-                  form={form}
-                  field="email"
-                  labelKey="MasterData:Email"
-                  maxLength={256}
-                />
-                <TextField
-                  form={form}
-                  field="website"
-                  labelKey="MasterData:Website"
-                  maxLength={256}
-                />
-              </div>
+            <FormSection
+              title={t("MasterData:Addresses")}
+              className="flex flex-col"
+            >
+              <CheckboxField
+                form={form}
+                field="allAddressesEqual"
+                labelKey="MasterData:AllAddressesEqual"
+                className="font-medium uppercase tracking-wide text-label"
+              />
+              {form.values.allAddressesEqual ? (
+                <div className="grid grid-cols-6 gap-x-4 gap-y-3">
+                  <FormField
+                    label={t("MasterData:Country")}
+                    htmlFor={form.id("addrCountryId")}
+                    required={hasDefaultAddressInput(form.values)}
+                    error={form.error("addrCountryId")}
+                    floating="always"
+                    className="col-span-2"
+                  >
+                    <ReferenceCombobox
+                      id={form.id("addrCountryId")}
+                      value={form.values.addrCountryId}
+                      onChange={(next) => {
+                        form.set("addrCountryId", next);
+                        form.blur("addrCountryId");
+                        if (next) setZoneSource(next);
+                      }}
+                      options={countryOptions}
+                      disabled={form.readOnly}
+                    />
+                  </FormField>
+                  <TextField
+                    form={form}
+                    field="addrPostalCode"
+                    labelKey="MasterData:PostalCode"
+                    maxLength={16}
+                    className="col-span-2"
+                  />
+                  <TextField
+                    form={form}
+                    field="addrCity"
+                    labelKey="MasterData:City"
+                    maxLength={128}
+                    className="col-span-2"
+                  />
+                  <TextField
+                    form={form}
+                    field="addrStreet"
+                    labelKey="MasterData:Street"
+                    maxLength={128}
+                    className="col-span-4"
+                  />
+                  <TextField
+                    form={form}
+                    field="addrHouseNumber"
+                    labelKey="MasterData:HouseNumber"
+                    maxLength={16}
+                    className="col-span-2"
+                  />
+                  <TextField
+                    form={form}
+                    field="addrAddressLine2"
+                    labelKey="MasterData:AddressLine2"
+                    maxLength={128}
+                    className="col-span-6"
+                  />
+                  <FormField
+                    label={t("MasterData:TimeZone")}
+                    htmlFor={form.id("addrTimeZoneId")}
+                    floating="always"
+                    className="col-span-2"
+                  >
+                    <ReferenceCombobox
+                      id={form.id("addrTimeZoneId")}
+                      value={form.values.addrTimeZoneId}
+                      onChange={(next) => form.set("addrTimeZoneId", next)}
+                      options={zones}
+                      disabled={form.readOnly}
+                    />
+                  </FormField>
+                  <NumberField
+                    form={form}
+                    field="addrLongitude"
+                    labelKey="MasterData:Longitude"
+                    className="col-span-2"
+                  />
+                  <NumberField
+                    form={form}
+                    field="addrLatitude"
+                    labelKey="MasterData:Latitude"
+                    className="col-span-2"
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("MasterData:AddressesPerTypeHint")}
+                </p>
+              )}
+              <Tabs
+                defaultValue="map"
+                className="mt-3 flex min-h-72 flex-1 flex-col gap-2"
+              >
+                <TabsList
+                  variant="line"
+                  className="h-auto justify-start gap-0 rounded-none p-0"
+                >
+                  <TabsTrigger value="map">{t("MasterData:Map")}</TabsTrigger>
+                  <TabsTrigger value="remarks">
+                    {t("MasterData:Remarks")}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent
+                  value="map"
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <AddressMap
+                    latitude={
+                      form.values.allAddressesEqual
+                        ? parseNumber(form.values.addrLatitude)
+                        : null
+                    }
+                    longitude={
+                      form.values.allAddressesEqual
+                        ? parseNumber(form.values.addrLongitude)
+                        : null
+                    }
+                  />
+                </TabsContent>
+                <TabsContent
+                  value="remarks"
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <TextAreaField
+                    form={form}
+                    field="description"
+                    labelKey="MasterData:Remarks"
+                    maxLength={2500}
+                    className="flex-1"
+                  />
+                </TabsContent>
+              </Tabs>
             </FormSection>
           </div>
-          {/* Right column: the switches, the default address ("all addresses equal") and the remarks. */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-end gap-6">
-              <CheckboxField
+          {/* Row 5: contact information. */}
+          <FormSection title={t("MasterData:ContactInformation")}>
+            <div className="grid grid-cols-4 gap-x-4 gap-y-3">
+              <TextField
                 form={form}
-                field="isArchived"
-                labelKey="MasterData:IsArchived"
+                field="phone"
+                labelKey="MasterData:Phone"
+                maxLength={32}
               />
-              <CheckboxField
+              <TextField
                 form={form}
-                field="isBlocked"
-                labelKey="MasterData:IsBlocked"
+                field="mobile"
+                labelKey="MasterData:Mobile"
+                maxLength={32}
+              />
+              <TextField
+                form={form}
+                field="email"
+                labelKey="MasterData:Email"
+                maxLength={256}
+              />
+              <TextField
+                form={form}
+                field="website"
+                labelKey="MasterData:Website"
+                maxLength={256}
               />
             </div>
-            <CheckboxField
-              form={form}
-              field="allAddressesEqual"
-              labelKey="MasterData:AllAddressesEqual"
-              className="font-medium uppercase tracking-wide text-label"
-            />
-            {form.values.allAddressesEqual ? (
-              <div className="grid grid-cols-6 gap-x-4 gap-y-3">
-                <FormField
-                  label={t("MasterData:Country")}
-                  htmlFor={form.id("addrCountryId")}
-                  required={hasDefaultAddressInput(form.values)}
-                  error={form.error("addrCountryId")}
-                  floating="always"
-                  className="col-span-2"
-                >
-                  <ReferenceCombobox
-                    id={form.id("addrCountryId")}
-                    value={form.values.addrCountryId}
-                    onChange={(next) => {
-                      form.set("addrCountryId", next);
-                      form.blur("addrCountryId");
-                      if (next) setZoneSource(next);
-                    }}
-                    options={countryOptions}
-                    disabled={form.readOnly}
-                  />
-                </FormField>
-                <TextField
-                  form={form}
-                  field="addrPostalCode"
-                  labelKey="MasterData:PostalCode"
-                  maxLength={16}
-                  className="col-span-2"
-                />
-                <TextField
-                  form={form}
-                  field="addrCity"
-                  labelKey="MasterData:City"
-                  maxLength={128}
-                  className="col-span-2"
-                />
-                <TextField
-                  form={form}
-                  field="addrStreet"
-                  labelKey="MasterData:Street"
-                  maxLength={128}
-                  className="col-span-4"
-                />
-                <TextField
-                  form={form}
-                  field="addrHouseNumber"
-                  labelKey="MasterData:HouseNumber"
-                  maxLength={16}
-                  className="col-span-2"
-                />
-                <TextField
-                  form={form}
-                  field="addrAddressLine2"
-                  labelKey="MasterData:AddressLine2"
-                  maxLength={128}
-                  className="col-span-6"
-                />
-                <FormField
-                  label={t("MasterData:TimeZone")}
-                  htmlFor={form.id("addrTimeZoneId")}
-                  floating="always"
-                  className="col-span-2"
-                >
-                  <ReferenceCombobox
-                    id={form.id("addrTimeZoneId")}
-                    value={form.values.addrTimeZoneId}
-                    onChange={(next) => form.set("addrTimeZoneId", next)}
-                    options={zones}
-                    disabled={form.readOnly}
-                  />
-                </FormField>
-                <NumberField
-                  form={form}
-                  field="addrLongitude"
-                  labelKey="MasterData:Longitude"
-                  className="col-span-2"
-                />
-                <NumberField
-                  form={form}
-                  field="addrLatitude"
-                  labelKey="MasterData:Latitude"
-                  className="col-span-2"
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t("MasterData:AddressesPerTypeHint")}
-              </p>
-            )}
-            <FormSection title={t("MasterData:Remarks")}>
-              <TextAreaField
-                form={form}
-                field="description"
-                labelKey="MasterData:Remarks"
-                maxLength={2500}
-              />
-            </FormSection>
-          </div>
+          </FormSection>
         </div>
       ),
     },
@@ -1038,7 +1145,12 @@ export function RelationEditor({
           <Badge variant="outline">{t("MasterData:Archived")}</Badge>
         )}
         {detail.data.isBlocked && (
-          <Badge variant="destructive">{t("MasterData:IsBlocked")}</Badge>
+          <Badge variant="destructive">
+            {t("MasterData:IsBlocked")}
+            {blockReasonKey(detail.data.blockReason)
+              ? `: ${t(blockReasonKey(detail.data.blockReason)!)}`
+              : ""}
+          </Badge>
         )}
       </>
     ) : undefined;

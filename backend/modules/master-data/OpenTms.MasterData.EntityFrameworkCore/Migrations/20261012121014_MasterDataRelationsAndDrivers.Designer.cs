@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261012114310_MasterDataRelationsAndDrivers")]
+    [Migration("20261012121014_MasterDataRelationsAndDrivers")]
     partial class MasterDataRelationsAndDrivers
     {
         /// <inheritdoc />
@@ -849,6 +849,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("BlockReason")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ChamberOfCommerceNumber")
                         .HasMaxLength(32)
