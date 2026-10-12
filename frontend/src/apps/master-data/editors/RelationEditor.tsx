@@ -96,6 +96,7 @@ interface BankRow {
 interface Values {
   code: string;
   name: string;
+  fullName: string;
   roles: string[];
   isArchived: boolean;
   isBlocked: boolean;
@@ -159,6 +160,7 @@ const initialValuesFor =
     return {
       code: dto?.code ?? "",
       name: dto?.name ?? initialName ?? "",
+      fullName: dto?.fullName ?? "",
       roles: rolesToList(dto?.roles),
       isArchived: dto?.isArchived ?? false,
       isBlocked: dto?.isBlocked ?? false,
@@ -257,6 +259,7 @@ const validate = (v: Values): FieldErrors<Values> => {
 const GENERAL_FIELDS: (keyof Values & string)[] = [
   "code",
   "name",
+  "fullName",
   "roles",
   "isArchived",
   "isBlocked",
@@ -428,6 +431,7 @@ export function RelationEditor({
       const body = {
         code: v.code.trim().toUpperCase(),
         name: v.name.trim(),
+        fullName: text(v.fullName),
         roles: listToRoles(v.roles) as RelationRoles,
         isArchived: v.isArchived,
         isBlocked: v.isBlocked,
@@ -803,28 +807,66 @@ export function RelationEditor({
               </FormField>
             </div>
           </FormSection>
-          {/* Row 4: the name block and the addresses block (address section plus the Map / Remarks section). */}
+          {/* Row 4 (PO 2026-10-12): the Name and Contact information blocks stacked on the left, the
+           * Addresses block (address section plus the Map / Remarks section) on the right. */}
           <div className="grid grid-cols-2 gap-4">
-            <FormSection title={t("MasterData:Name")}>
-              <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                <TextField
-                  form={form}
-                  field="code"
-                  labelKey="MasterData:Code"
-                  required
-                  maxLength={32}
-                  upper
-                />
-                <TextField
-                  form={form}
-                  field="name"
-                  labelKey="MasterData:Name"
-                  required
-                  maxLength={128}
-                  className="col-span-2"
-                />
-              </div>
-            </FormSection>
+            <div className="flex flex-col gap-4">
+              <FormSection title={t("MasterData:Name")}>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                  <TextField
+                    form={form}
+                    field="code"
+                    labelKey="MasterData:Code"
+                    required
+                    maxLength={32}
+                    upper
+                  />
+                  <TextField
+                    form={form}
+                    field="name"
+                    labelKey="MasterData:Name"
+                    required
+                    maxLength={128}
+                    className="col-span-2"
+                  />
+                  <TextField
+                    form={form}
+                    field="fullName"
+                    labelKey="MasterData:RelationFullName"
+                    maxLength={128}
+                    className="col-span-3"
+                  />
+                </div>
+              </FormSection>
+              <FormSection title={t("MasterData:ContactInformation")}>
+                <div className="grid grid-cols-1 gap-y-3">
+                  <TextField
+                    form={form}
+                    field="phone"
+                    labelKey="MasterData:Phone"
+                    maxLength={32}
+                  />
+                  <TextField
+                    form={form}
+                    field="mobile"
+                    labelKey="MasterData:Mobile"
+                    maxLength={32}
+                  />
+                  <TextField
+                    form={form}
+                    field="email"
+                    labelKey="MasterData:Email"
+                    maxLength={256}
+                  />
+                  <TextField
+                    form={form}
+                    field="website"
+                    labelKey="MasterData:Website"
+                    maxLength={256}
+                  />
+                </div>
+              </FormSection>
+            </div>
             <FormSection
               title={t("MasterData:Addresses")}
               className="flex flex-col"
@@ -969,35 +1011,6 @@ export function RelationEditor({
               </Tabs>
             </FormSection>
           </div>
-          {/* Row 5: contact information. */}
-          <FormSection title={t("MasterData:ContactInformation")}>
-            <div className="grid grid-cols-4 gap-x-4 gap-y-3">
-              <TextField
-                form={form}
-                field="phone"
-                labelKey="MasterData:Phone"
-                maxLength={32}
-              />
-              <TextField
-                form={form}
-                field="mobile"
-                labelKey="MasterData:Mobile"
-                maxLength={32}
-              />
-              <TextField
-                form={form}
-                field="email"
-                labelKey="MasterData:Email"
-                maxLength={256}
-              />
-              <TextField
-                form={form}
-                field="website"
-                labelKey="MasterData:Website"
-                maxLength={256}
-              />
-            </div>
-          </FormSection>
         </div>
       ),
     },

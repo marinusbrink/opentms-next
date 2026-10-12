@@ -19414,6 +19414,7 @@ export interface components {
             contactPersons?: components["schemas"]["OpenTms.MasterData.Relations.RelationContactPersonDto"][] | null;
             description?: string | null;
             email?: string | null;
+            fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
             isBlocked?: boolean;
@@ -19441,6 +19442,7 @@ export interface components {
             creatorId?: string | null;
             description?: string | null;
             email?: string | null;
+            fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             /** Format: uuid */
             id?: string;
@@ -19514,6 +19516,7 @@ export interface components {
             code?: string | null;
             countryCode?: string | null;
             email?: string | null;
+            fullName?: string | null;
             /** Format: uuid */
             id?: string;
             isArchived?: boolean;
@@ -19534,6 +19537,7 @@ export interface components {
             contactPersons?: components["schemas"]["OpenTms.MasterData.Relations.RelationContactPersonDto"][] | null;
             description?: string | null;
             email?: string | null;
+            fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
             isBlocked?: boolean;

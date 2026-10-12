@@ -203,7 +203,7 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 
 | Area | Dropped or changed | Reason |
 |---|---|---|
-| Relation | `FullName`, `SearchName` | one name, one indexed `SearchKey` (§3.1) |
+| Relation | `SearchName` | one indexed `SearchKey` over name, full name and code (§3.1); `FullName` is back on the PO's request (2026-10-12), optional, 128 characters |
 | Relation | `IsMe`, categories with system flags | `Roles` flags with the own-company partial index (§3.1) |
 | Relation | `IsBlocked` | kept as a flag with a `BlockReason` enum on the PO's request (2026-10-12, the old "Is geblokkeerd"); what a block stops is decided by the Financial and Orders runs (§3.1) |
 | Relation | `CurrencyId`, `VatId`, GL accounts, invoicing options, 48 charge-by and price-list columns, self-billing, purchase orders, incoming invoices | `RelationFinancialSettings` in Financial (§2, §3.1) |
@@ -284,14 +284,14 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
    `MultiSelect` + the Archived and Blocked switches + the **Block reason** `Select` (enum
    `RelationBlockReason`: payment arrears, credit limit exceeded, insolvency, dispute, other; required
    while blocked, None otherwise; a tenant-maintained list is for the Financial run to decide), row 2
-   Geographical regions `MultiSelect`, row 3 Roles `MultiSelect`; row 4 the *Name* block (Code, Name)
-   next to the *Addresses* block: **All addresses equal** with the default address inline (Country
+   Geographical regions `MultiSelect`, row 3 Roles `MultiSelect`; row 4 the *Name* block (Code + Name,
+   then Full name) stacked above the *Contact information* block (Phone, Mobile, E-mail, Website) on the
+   left, next to the *Addresses* block: **All addresses equal** with the default address inline (Country
    `ReferenceCombobox`, Postal code, City, Street, House number, Address line 2, Time zone prefilled
    from the country, Longitude, Latitude) or, when off, a hint that the addresses live on the
    Addresses tab, then a *Map* / *Remarks* sub-tab strip filling the block: the map is an
    OpenStreetMap embed of the entered coordinates (no geocoder until Planning; the provider is a
-   reversible choice, one URL and no package), Remarks is the Description; row 5 the *Contact
-   information* block (Phone, Mobile, E-mail, Website).
+   reversible choice, one URL and no package), Remarks is the Description.
 2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
    units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
    single-valued; a multi-valued tree picker is a library gap for the component map).

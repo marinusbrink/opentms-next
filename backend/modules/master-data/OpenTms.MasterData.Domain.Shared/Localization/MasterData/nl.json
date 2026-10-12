@@ -423,6 +423,7 @@
     "OpenTms.MasterData:BlockReasonRequired": "Een geblokkeerde relatie heeft een reden nodig.",
     "MasterData:Map": "Kaart",
     "MasterData:MapNoCoordinates": "Vul de coördinaten van het adres in om de kaart te tonen.",
-    "MasterData:ContactInformation": "Contactgegevens"
+    "MasterData:ContactInformation": "Contactgegevens",
+    "MasterData:RelationFullName": "Volledige naam"
   }
 }

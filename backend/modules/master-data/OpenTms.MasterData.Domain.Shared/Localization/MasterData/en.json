@@ -423,6 +423,7 @@
     "OpenTms.MasterData:BlockReasonRequired": "A blocked relation needs a block reason.",
     "MasterData:Map": "Map",
     "MasterData:MapNoCoordinates": "Enter the coordinates of the address to show the map.",
-    "MasterData:ContactInformation": "Contact information"
+    "MasterData:ContactInformation": "Contact information",
+    "MasterData:RelationFullName": "Full name"
   }
 }

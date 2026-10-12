@@ -8,7 +8,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoolCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
@@ -36,7 +42,11 @@ export function RelationsView() {
   const [role, setRole] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const extra = useMemo<RelationListExtra>(
-    () => ({ includeArchived: showArchived, roles: role ? Number(role) : undefined, categoryId: categoryId ?? undefined }),
+    () => ({
+      includeArchived: showArchived,
+      roles: role ? Number(role) : undefined,
+      categoryId: categoryId ?? undefined,
+    }),
     [showArchived, role, categoryId],
   );
   const fetchRows = relations.useGridFetcher(extra);
@@ -46,33 +56,94 @@ export function RelationsView() {
   const unarchive = useUnarchiveRelation();
   const canUpdate = useIsGranted("MasterData.Relations.Update");
   const categoryLookup = relationCategories.useLookup();
-  const categoryOptions = useMemo(() => (categoryLookup.data ?? []).map((c) => ({ value: c.id ?? "", label: c.name ?? "" })), [categoryLookup.data]);
+  const categoryOptions = useMemo(
+    () =>
+      (categoryLookup.data ?? []).map((c) => ({
+        value: c.id ?? "",
+        label: c.name ?? "",
+      })),
+    [categoryLookup.data],
+  );
   const roleOptions = useMemo(
-    () => [{ value: null, label: t("MasterData:AllRoles") }, ...RELATION_ROLES.map((r) => ({ value: String(r.value), label: t(r.key) }))],
+    () => [
+      { value: null, label: t("MasterData:AllRoles") },
+      ...RELATION_ROLES.map((r) => ({
+        value: String(r.value),
+        label: t(r.key),
+      })),
+    ],
     [t],
   );
 
-  const [archiveTarget, setArchiveTarget] = useState<{ row: RelationRow; refresh: () => void } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<{
+    row: RelationRow;
+    refresh: () => void;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const columnDefs = useMemo<ColDef<RelationRow>[]>(
     () => [
-      { field: "code", headerName: t("MasterData:Code"), flex: 1, minWidth: 110 },
-      { field: "name", headerName: t("MasterData:Name"), flex: 2, minWidth: 180 },
+      {
+        field: "code",
+        headerName: t("MasterData:Code"),
+        flex: 1,
+        minWidth: 110,
+      },
+      {
+        field: "name",
+        headerName: t("MasterData:Name"),
+        flex: 2,
+        minWidth: 180,
+      },
       {
         field: "roles",
         headerName: t("MasterData:Roles"),
         flex: 2,
         minWidth: 160,
         sortable: false,
-        valueFormatter: (p) => relationRoleKeys(p.value as number | undefined).map((key) => t(key)).join(", "),
+        valueFormatter: (p) =>
+          relationRoleKeys(p.value as number | undefined)
+            .map((key) => t(key))
+            .join(", "),
       },
-      { field: "city", headerName: t("MasterData:City"), flex: 1, minWidth: 130 },
-      { field: "countryCode", headerName: t("MasterData:Country"), flex: 1, minWidth: 90, sortable: false },
-      { field: "vatNumber", headerName: t("MasterData:VatNumber"), flex: 1, minWidth: 140 },
-      { field: "phone", headerName: t("MasterData:Phone"), flex: 1, minWidth: 130 },
-      { field: "email", headerName: t("MasterData:Email"), flex: 2, minWidth: 180 },
-      { field: "chamberOfCommerceNumber", headerName: t("MasterData:ChamberOfCommerceNumber"), flex: 1, minWidth: 140, hide: true },
+      {
+        field: "city",
+        headerName: t("MasterData:City"),
+        flex: 1,
+        minWidth: 130,
+      },
+      {
+        field: "countryCode",
+        headerName: t("MasterData:Country"),
+        flex: 1,
+        minWidth: 90,
+        sortable: false,
+      },
+      {
+        field: "vatNumber",
+        headerName: t("MasterData:VatNumber"),
+        flex: 1,
+        minWidth: 140,
+      },
+      {
+        field: "phone",
+        headerName: t("MasterData:Phone"),
+        flex: 1,
+        minWidth: 130,
+      },
+      {
+        field: "email",
+        headerName: t("MasterData:Email"),
+        flex: 2,
+        minWidth: 180,
+      },
+      {
+        field: "chamberOfCommerceNumber",
+        headerName: t("MasterData:ChamberOfCommerceNumber"),
+        flex: 1,
+        minWidth: 140,
+        hide: true,
+      },
       {
         field: "categoryNames",
         headerName: t("MasterData:Categories"),
@@ -80,10 +151,32 @@ export function RelationsView() {
         minWidth: 160,
         hide: true,
         sortable: false,
-        valueFormatter: (p) => ((p.value as string[] | null | undefined) ?? []).join(", "),
+        valueFormatter: (p) =>
+          ((p.value as string[] | null | undefined) ?? []).join(", "),
       },
-      { field: "isArchived", headerName: t("MasterData:IsArchived"), cellRenderer: BoolCell, flex: 1, minWidth: 100, hide: true },
-      { field: "isBlocked", headerName: t("MasterData:IsBlocked"), cellRenderer: BoolCell, flex: 1, minWidth: 100, hide: true },
+      {
+        field: "isArchived",
+        headerName: t("MasterData:IsArchived"),
+        cellRenderer: BoolCell,
+        flex: 1,
+        minWidth: 100,
+        hide: true,
+      },
+      {
+        field: "fullName",
+        headerName: t("MasterData:RelationFullName"),
+        flex: 2,
+        minWidth: 160,
+        hide: true,
+      },
+      {
+        field: "isBlocked",
+        headerName: t("MasterData:IsBlocked"),
+        cellRenderer: BoolCell,
+        flex: 1,
+        minWidth: 100,
+        hide: true,
+      },
     ],
     [t],
   );
@@ -94,7 +187,9 @@ export function RelationsView() {
         ? [
             {
               id: "archive",
-              labelKey: row.isArchived ? "MasterData:Unarchive" : "MasterData:Archive",
+              labelKey: row.isArchived
+                ? "MasterData:Unarchive"
+                : "MasterData:Archive",
               icon: row.isArchived ? ArchiveRestore : Archive,
               onClick: () => setArchiveTarget({ row, refresh }),
             },
@@ -110,7 +205,13 @@ export function RelationsView() {
     try {
       await (row.isArchived ? unarchive : archive).mutateAsync(row.id!);
       setArchiveTarget(null);
-      toast.success(t(row.isArchived ? "MasterData:RelationUnarchived" : "MasterData:RelationArchived"));
+      toast.success(
+        t(
+          row.isArchived
+            ? "MasterData:RelationUnarchived"
+            : "MasterData:RelationArchived",
+        ),
+      );
       refresh();
     } catch (err) {
       toast.error(getApiErrorMessage(err, t));
@@ -132,12 +233,24 @@ export function RelationsView() {
         fetchRows={fetchRows}
         rowName={(row) => row.name ?? ""}
         deleteOne={deleteOne}
-        bulkDelete={{ mutateAsync: (selection) => bulk.mutateAsync({ selection, extra }) }}
+        bulkDelete={{
+          mutateAsync: (selection) => bulk.mutateAsync({ selection, extra }),
+        }}
         filters={
           <>
             <div className="w-48">
-              <Select items={roleOptions} value={role} onValueChange={(next) => setRole((next as string | null) ?? null)}>
-                <SelectTrigger id="relations-role-filter" className="h-9 w-full bg-background" aria-label={t("MasterData:Role")}>
+              <Select
+                items={roleOptions}
+                value={role}
+                onValueChange={(next) =>
+                  setRole((next as string | null) ?? null)
+                }
+              >
+                <SelectTrigger
+                  id="relations-role-filter"
+                  className="h-9 w-full bg-background"
+                  aria-label={t("MasterData:Role")}
+                >
                   <SelectValue placeholder={t("MasterData:Role")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -150,17 +263,34 @@ export function RelationsView() {
               </Select>
             </div>
             <div className="w-64">
-              <ReferenceCombobox id="relations-category-filter" value={categoryId} onChange={setCategoryId} options={categoryOptions} placeholder={t("MasterData:RelationCategory")} />
+              <ReferenceCombobox
+                id="relations-category-filter"
+                value={categoryId}
+                onChange={setCategoryId}
+                options={categoryOptions}
+                placeholder={t("MasterData:RelationCategory")}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={showArchived} onCheckedChange={(next) => setShowArchived(next === true)} />
+              <Checkbox
+                checked={showArchived}
+                onCheckedChange={(next) => setShowArchived(next === true)}
+              />
               {t("MasterData:ShowArchived")}
             </label>
           </>
         }
         extraRowActions={extraRowActions}
         renderEditor={(state, onClose, onSaved) => (
-          <RelationEditor key={`${state.mode}-${state.id ?? "new"}`} mode={state.mode} id={state.id} readOnly={state.readOnly} open onClose={onClose} onSaved={onSaved} />
+          <RelationEditor
+            key={`${state.mode}-${state.id ?? "new"}`}
+            mode={state.mode}
+            id={state.id}
+            readOnly={state.readOnly}
+            open
+            onClose={onClose}
+            onSaved={onSaved}
+          />
         )}
       />
       <ConfirmDialog
@@ -168,9 +298,19 @@ export function RelationsView() {
         onOpenChange={(open) => {
           if (!open && !busy) setArchiveTarget(null);
         }}
-        title={t(targetArchived ? "MasterData:UnarchiveRelation" : "MasterData:ArchiveRelation")}
-        description={t(targetArchived ? "MasterData:UnarchiveRelationQuestion" : "MasterData:ArchiveRelationQuestion").replace("{0}", archiveTarget?.row.name ?? "")}
-        confirmLabel={t(targetArchived ? "MasterData:Unarchive" : "MasterData:Archive")}
+        title={t(
+          targetArchived
+            ? "MasterData:UnarchiveRelation"
+            : "MasterData:ArchiveRelation",
+        )}
+        description={t(
+          targetArchived
+            ? "MasterData:UnarchiveRelationQuestion"
+            : "MasterData:ArchiveRelationQuestion",
+        ).replace("{0}", archiveTarget?.row.name ?? "")}
+        confirmLabel={t(
+          targetArchived ? "MasterData:Unarchive" : "MasterData:Archive",
+        )}
         onConfirm={toggleArchive}
       />
     </>

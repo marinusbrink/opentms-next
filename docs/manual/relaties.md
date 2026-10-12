@@ -9,8 +9,8 @@ ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekij
 
 ## De lijst
 
-- Zoeken werkt op code, naam, btw-nummer, KvK-nummer en plaats; in code en naam maken accenten en
-  hoofdletters geen verschil (*Müller* vindt *muller*).
+- Zoeken werkt op code, naam, volledige naam, btw-nummer, KvK-nummer en plaats; in code en naam
+  maken accenten en hoofdletters geen verschil (*Müller* vindt *muller*).
 - De kolom *Plaats* toont de plaats van het bezoekadres, anders van het algemene adres, anders van
   het eerste adres.
 - Een relatie wordt **gearchiveerd** in plaats van verwijderd zodra er orders, ritten of facturen
@@ -30,11 +30,12 @@ Het venster heeft vijf tabbladen.
   de relatie geblokkeerd is; een blokkade is nu alleen een kenmerk, wat zij tegenhoudt bepalen de
   orders en de facturatie later), de geografische regio's en de *Rollen* (kies er minimaal één; de
   rol *Eigen bedrijf* kan maar één relatie per tenant hebben).
-- Daaronder links *Code* (uniek binnen de tenant, in hoofdletters) en *Naam*; rechts **Alle adressen
-  gelijk** met het adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone,
-  coördinaten) en daaronder de tabbladen *Kaart* (een kaart van de ingevulde coördinaten; zonder
-  coördinaten blijft de kaart leeg) en *Opmerkingen*.
-- Onderaan de *Contactgegevens*: telefoon, mobiel, e-mail en website.
+- Daaronder links *Code* (uniek binnen de tenant, in hoofdletters), *Naam* en *Volledige naam* (de
+  statutaire naam als die afwijkt; zoeken werkt ook op de volledige naam), met daaronder de
+  *Contactgegevens*: telefoon, mobiel, e-mail en website. Rechts **Alle adressen gelijk** met het
+  adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone, coördinaten) en
+  daaronder de tabbladen *Kaart* (een kaart van de ingevulde coördinaten; zonder coördinaten blijft de
+  kaart leeg) en *Opmerkingen*.
 - *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
   (bezoek, factuur, …). Zet het uit als de adressen per type verschillen; dan beheert u ze op het
   tabblad *Adressen*. Een adres per type gaat altijd vóór het algemene adres.

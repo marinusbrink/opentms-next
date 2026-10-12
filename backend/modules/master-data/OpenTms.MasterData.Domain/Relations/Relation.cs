@@ -17,6 +17,9 @@ public class Relation : MasterDataAggregateRoot
 
     public string Name { get; private set; } = default!;
 
+    /// <summary>The legal or full name when it differs from the short name (PO 2026-10-12, the old "Volledige naam"); searched like the name.</summary>
+    public string? FullName { get; private set; }
+
     /// <summary>Lower-case, diacritics folded: name and code. Indexed (B-tree and trigram), never shown.</summary>
     public string SearchKey { get; private set; } = string.Empty;
 
@@ -73,13 +76,15 @@ public class Relation : MasterDataAggregateRoot
     public void SetCode(string code)
     {
         Code = MasterDataCodes.NormalizeRequired(code, MasterDataConsts.MaxCodeLength, "code");
-        SearchKey = MasterDataValues.SearchKey(Name, Code);
+        SearchKey = MasterDataValues.SearchKey(Name, FullName, Code);
     }
 
-    public void SetName(string name)
+    public void SetName(string name, string? fullName = null)
     {
         Name = NormalizeName(name);
-        SearchKey = MasterDataValues.SearchKey(Name, Code);
+        var full = fullName?.Trim();
+        FullName = string.IsNullOrEmpty(full) ? null : Check.Length(full, nameof(fullName), MasterDataConsts.MaxNameLength);
+        SearchKey = MasterDataValues.SearchKey(Name, FullName, Code);
     }
 
     /// <summary>At least one role; OwnCompany uniqueness per tenant is the partial index plus the service check.</summary>

@@ -12,6 +12,7 @@ public class RelationRowDto
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? FullName { get; set; }
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
     public bool IsBlocked { get; set; }
@@ -120,6 +121,7 @@ public class RelationDto : MasterDataDetailDtoBase
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? FullName { get; set; }
     public RelationRoles Roles { get; set; }
     public bool IsArchived { get; set; }
     public bool IsBlocked { get; set; }
@@ -146,6 +148,9 @@ public class RelationCreateDto
 
     [Required, MaxLength(MasterDataConsts.MaxNameLength)]
     public string Name { get; set; } = string.Empty;
+
+    [MaxLength(MasterDataConsts.MaxNameLength)]
+    public string? FullName { get; set; }
 
     public RelationRoles Roles { get; set; }
 

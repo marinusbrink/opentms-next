@@ -198,6 +198,7 @@ public class RelationAppService
         {
             null or "" or "name" => Order(query, r => r.Name, descending),
             "code" => Order(query, r => r.Code, descending),
+            "fullname" => Order(query, r => r.FullName, descending),
             "vatnumber" => Order(query, r => r.VatNumber, descending),
             "chamberofcommercenumber" => Order(query, r => r.ChamberOfCommerceNumber, descending),
             "isarchived" => Order(query, r => r.IsArchived, descending),
@@ -222,6 +223,7 @@ public class RelationAppService
             Id = r.Id,
             Code = r.Code,
             Name = r.Name,
+            FullName = r.FullName,
             Roles = r.Roles,
             IsArchived = r.IsArchived,
             IsBlocked = r.IsBlocked,
@@ -242,6 +244,7 @@ public class RelationAppService
         {
             Code = r.Code,
             Name = r.Name,
+            FullName = r.FullName,
             Roles = r.Roles,
             IsArchived = r.IsArchived,
             IsBlocked = r.IsBlocked,
@@ -309,7 +312,6 @@ public class RelationAppService
             relation.SetCode(code);
         }
 
-        relation.SetName(input.Name);
         relation.SetRoles(input.Roles);
         await ApplyAsync(relation, input);
     }
@@ -335,6 +337,7 @@ public class RelationAppService
             await EnsureUniqueAsync(r => r.ChamberOfCommerceNumber == coc && r.Id != relation.Id, "chamberOfCommerceNumber", coc);
         }
 
+        relation.SetName(input.Name, input.FullName);
         relation.SetContact(input.Phone, input.Mobile, input.Email, input.Website);
         relation.SetPreferredCulture(input.PreferredCulture, _cultures);
         relation.SetDescription(input.Description);

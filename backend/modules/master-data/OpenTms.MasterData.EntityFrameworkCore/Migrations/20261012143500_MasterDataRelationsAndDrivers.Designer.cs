@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261012121014_MasterDataRelationsAndDrivers")]
+    [Migration("20261012143500_MasterDataRelationsAndDrivers")]
     partial class MasterDataRelationsAndDrivers
     {
         /// <inheritdoc />
@@ -130,8 +130,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.Property<string>("SearchKey")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
@@ -898,6 +898,10 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ExtraProperties");
 
+                    b.Property<string>("FullName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
 
@@ -940,8 +944,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.Property<string>("SearchKey")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")

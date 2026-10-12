@@ -241,6 +241,7 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ConfigureByConvention();
             b.Property(r => r.Code).HasMaxLength(MasterDataConsts.MaxCodeLength).IsRequired();
             b.Property(r => r.Name).HasMaxLength(MasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(r => r.FullName).HasMaxLength(MasterDataConsts.MaxNameLength);
             b.Property(r => r.SearchKey).HasMaxLength(MasterDataConsts.MaxSearchKeyLength).IsRequired();
             b.Property(r => r.Phone).HasMaxLength(MasterDataConsts.MaxPhoneLength);
             b.Property(r => r.Mobile).HasMaxLength(MasterDataConsts.MaxPhoneLength);

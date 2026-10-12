@@ -87,8 +87,8 @@ beforeAll(() => {
 });
 
 const relationRows = [
-  { id: "r1", code: "ACME", name: "Acme", roles: 3, city: "Delft", countryCode: "NL", isArchived: false },
-  { id: "r2", code: "OLD", name: "Old Carrier", roles: 2, city: "Gouda", countryCode: "NL", isArchived: true },
+  { id: "r1", code: "ACME", name: "Acme", fullName: null, roles: 3, city: "Delft", countryCode: "NL", isArchived: false },
+  { id: "r2", code: "OLD", name: "Old Carrier", fullName: null, roles: 2, city: "Gouda", countryCode: "NL", isArchived: true },
 ];
 const driverRows = [
   { id: "d1", code: "DRV1", fullName: "Jan Jansen", firstName: "Jan", lastName: "Jansen", isArchived: false },
@@ -137,7 +137,7 @@ describe("RelationsView", () => {
     expect(listCalls("/api/master-data/relation")).toHaveLength(0);
   });
 
-  it("renders the grid masterData.relations with the designed columns; the server-unsortable ones are not sortable", async () => {
+  it("renders the grid masterData.relations with the designed columns (the full name hidden after the visible ones); the server-unsortable ones are not sortable", async () => {
     grants = { "MasterData.Relations": true };
     renderView(<RelationsView />);
     const grid = await screen.findByTestId("mock-grid");
@@ -154,6 +154,7 @@ describe("RelationsView", () => {
       { field: "chamberOfCommerceNumber", header: "MasterData:ChamberOfCommerceNumber", hidden: true, sortable: true },
       { field: "categoryNames", header: "MasterData:Categories", hidden: true, sortable: false },
       { field: "isArchived", header: "MasterData:IsArchived", hidden: true, sortable: true },
+      { field: "fullName", header: "MasterData:RelationFullName", hidden: true, sortable: true },
       { field: "isBlocked", header: "MasterData:IsBlocked", hidden: true, sortable: true },
     ]);
     expect(screen.getByText("MasterData:ShowArchived")).toBeInTheDocument();

@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.MasterData;
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261012121014_MasterDataRelationsAndDrivers";
+    private const string Migration = "20261012143500_MasterDataRelationsAndDrivers";
     private const string FirstRunMigration = "20261011191016_MasterDataFirstRun";
 
     private static readonly string[] Tables =

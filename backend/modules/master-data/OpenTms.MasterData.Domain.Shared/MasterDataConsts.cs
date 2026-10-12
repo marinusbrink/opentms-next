@@ -40,7 +40,8 @@ public static class MasterDataConsts
     public const int MaxSearchLength = 200;
 
     // Run 2: Relation and Driver (design 43)
-    public const int MaxSearchKeyLength = 160;
+    /// <summary>Folded name, full name and code with separators (128 + 128 + 32).</summary>
+    public const int MaxSearchKeyLength = 320;
     public const int MaxPhoneLength = 32;
     public const int MaxEmailLength = 256;
     public const int MaxWebsiteLength = 256;

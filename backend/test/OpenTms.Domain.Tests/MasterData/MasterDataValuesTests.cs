@@ -143,7 +143,8 @@ public class MasterDataValuesTests
     [Fact]
     public void SearchKey_is_cut_to_the_column_length()
     {
-        var key = MasterDataValues.SearchKey(new string('a', 128), new string('b', 32), new string('c', 32));
+        /* Name, full name and code fill the column (128 + 128 + 32 plus separators); a fourth part is cut. */
+        var key = MasterDataValues.SearchKey(new string('a', 128), new string('b', 128), new string('c', 32), new string('d', 64));
 
         key.Length.ShouldBe(MasterDataConsts.MaxSearchKeyLength);
         key.ShouldStartWith(new string('a', 128) + " ");

@@ -5,12 +5,13 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 /* The relation editor (design 43, UI design as revised again by the PO on 2026-10-12) over the
  * shared MasterDataEditor: client validation, the roles MultiSelect to the flags value, the Archived
  * and Blocked switches with the block reason (disabled until Blocked, required while Blocked, posted
- * as 0 otherwise), the "all addresses equal" default address inline on General (posted first,
- * without an address type, only while the switch is on and something was entered) with its own
- * required fields and the time zone following the country, the Map / Remarks sub-tabs under the
- * address (the OpenStreetMap embed once both coordinates are valid, the description textarea), the
- * Contact information block, the per-type addresses and contact persons staged through their own
- * dialogs, the bank accounts inline on Financial with exactly one default, the Administration
+ * as 0 otherwise), the Name block (code, name, the optional full name: trimmed, null when empty)
+ * stacked above the Contact information block in the left column of row 4, the "all addresses
+ * equal" default address inline on General (posted first, without an address type, only while the
+ * switch is on and something was entered) with its own required fields and the time zone following
+ * the country, the Map / Remarks sub-tabs under the address (the OpenStreetMap embed once both
+ * coordinates are valid, the description textarea), the per-type addresses and contact persons
+ * staged through their own dialogs, the bank accounts inline on Financial with exactly one default, the Administration
  * fields, the full DTO on create and update, server errors through getApiErrorMessage, the loaded
  * record over all tabs, the badges (Blocked with its reason), the confirmed Archive / Unarchive and
  * Delete commands. The domain hooks are real; the generated client is the mock; the Tabs of the
@@ -108,6 +109,7 @@ const stored: RelationDto = {
   id: "r1",
   code: "ACME",
   name: "Acme",
+  fullName: null,
   /* Customer | OwnCompany: the generated enum names single flags, a combination is the same flags enum to the server. */
   roles: 17 as RelationRoles,
   isArchived: false,
@@ -249,6 +251,7 @@ const postedDefaultAddress = { id: null, addressTypeId: null, countryId: "c-1", 
 const emptyBody = {
   code: "ACME",
   name: "Acme",
+  fullName: null,
   roles: 1,
   isArchived: false,
   isBlocked: false,
@@ -289,7 +292,7 @@ describe("RelationEditor — layout", () => {
     expect(queryField(editor, "MasterData:Description")).toBeNull();
   });
 
-  it("General (PO 2026-10-12): the Relation block with categories, the switches, the block reason, regions and roles; Name next to Addresses; Contact information below", () => {
+  it("General (PO 2026-10-12): the Relation block with categories, the switches, the block reason, regions and roles; Name above Contact information on the left, Addresses on the right, nothing below", () => {
     renderEditor();
     const editor = editorDialog();
 
@@ -302,10 +305,11 @@ describe("RelationEditor — layout", () => {
     expect(multiSelect(relation, "MasterData:GeographicalRegions")).toHaveAttribute("data-slot", "mock-multi-select");
     expect(multiSelect(relation, "MasterData:Roles")).toHaveAttribute("data-slot", "mock-multi-select");
 
-    /* Row 4: the Name block (code, name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
+    /* Row 4: the Name block (code, name, full name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
     const name = region("MasterData:Name");
     expect(field(name, "MasterData:Code")).toBeInTheDocument();
     expect(field(name, "MasterData:Name")).toBeInTheDocument();
+    expect(field(name, "MasterData:RelationFullName")).toBeInTheDocument();
     const addresses = region("MasterData:Addresses");
     expect(within(addresses).getByRole("checkbox", { name: "MasterData:AllAddressesEqual" })).toBeInTheDocument();
     expect(field(addresses, "MasterData:Street")).toBeInTheDocument();
@@ -315,18 +319,47 @@ describe("RelationEditor — layout", () => {
     expect(addresses.querySelector("[data-slot=address-map]")).not.toBeNull();
     expect(mapFrame()).toBeNull();
 
-    /* Row 5: the four contact fields in one section. */
+    /* The four contact fields in one section, stacked under the Name block in the same (left) column. */
     const contact = region("MasterData:ContactInformation");
     for (const label of ["MasterData:Phone", "MasterData:Mobile", "MasterData:Email", "MasterData:Website"]) {
       expect(field(contact, label)).toBeInTheDocument();
     }
     expect(within(contact).getAllByRole("textbox")).toHaveLength(4);
+    const column = name.parentElement!;
+    expect(contact.parentElement).toBe(column);
+    expect(Array.from(column.children).map((el) => el.getAttribute("aria-label"))).toEqual(["MasterData:Name", "MasterData:ContactInformation"]);
+    /* The row holds that column and the Addresses block, nothing else; there is no row 5. */
+    const row = column.parentElement!;
+    expect(row.children).toHaveLength(2);
+    expect(row.firstElementChild).toBe(column);
+    expect(row.lastElementChild).toBe(addresses);
+    expect(row.nextElementSibling).toBeNull();
+    expect(addresses.parentElement).not.toBe(column);
+    expect(within(contact).queryByLabelText(/^MasterData:RelationFullName/, { selector: CONTROLS })).toBeNull();
 
     /* The Telephone, Internet and Remarks sections of the previous layout are gone. */
     expect(queryRegion("MasterData:Telephone")).toBeNull();
     expect(queryRegion("MasterData:Internet")).toBeNull();
     expect(queryRegion("MasterData:Remarks")).toBeNull();
     expect(within(editor).queryByRole("textbox", { name: "MasterData:Remarks", hidden: true })).toBeNull();
+  });
+
+  it("the Name section holds code, name and full name in that order; full name is optional, max 128", () => {
+    renderEditor();
+    const name = region("MasterData:Name");
+    const code = field(name, "MasterData:Code");
+    const shortName = field(name, "MasterData:Name");
+    const fullName = field(name, "MasterData:RelationFullName");
+    expect(within(name).getAllByRole("textbox").map((el) => el.id)).toEqual([code.id, shortName.id, fullName.id]);
+    expect(fullName.maxLength).toBe(128);
+    expect(fullName.value).toBe("");
+    expect(fullName).not.toHaveAttribute("aria-required");
+    expect(within(name).getByText(/^MasterData:RelationFullName/, { selector: "label" })).not.toHaveTextContent("*");
+    /* Code and Name keep their required markers. */
+    expect(code).toHaveAttribute("aria-required", "true");
+    expect(shortName).toHaveAttribute("aria-required", "true");
+    /* The field lives on General only. */
+    expect(within(editorDialog()).getAllByLabelText(/^MasterData:RelationFullName/, { selector: CONTROLS })).toHaveLength(1);
   });
 
   it("the Administration tab holds the legal numbers, the preferred language and the organisation units; Financial holds the bank accounts", async () => {
@@ -556,6 +589,26 @@ describe("RelationEditor — create", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("MasterData:BlockReasonRequired")).toBeNull();
     expect(postedBody()).toMatchObject({ isBlocked: false, blockReason: 0 });
+  });
+
+  it("posts the full name trimmed", async () => {
+    renderEditor();
+    fillRequired();
+    typeInto(region("MasterData:Name"), "MasterData:RelationFullName", "  Acme Transport B.V.  ");
+    expect(field(editorDialog(), "MasterData:RelationFullName").value).toBe("  Acme Transport B.V.  ");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody()).toEqual({ ...emptyBody, fullName: "Acme Transport B.V." });
+  });
+
+  it("posts the full name as null when it is empty or whitespace only; it is never required", async () => {
+    renderEditor();
+    fillRequired();
+    typeInto(region("MasterData:Name"), "MasterData:RelationFullName", "   ");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().fullName).toBeNull();
+    expect(screen.queryByText(/Required$/)).toBeNull();
   });
 
   it("the Map sub-tab shows the no-coordinates text until both coordinates are valid, then the OpenStreetMap embed; 'all addresses equal' off removes the map", async () => {
@@ -1002,6 +1055,42 @@ describe("RelationEditor — edit", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it("loads the full name into the Name section and sends it, changed, with the update", async () => {
+    detail = { ...stored, fullName: "Acme Transport B.V." };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+    const name = region("MasterData:Name");
+    expect(field(name, "MasterData:RelationFullName").value).toBe("Acme Transport B.V.");
+    expect(field(name, "MasterData:Name").value).toBe("Acme");
+    expect(header()).toHaveTextContent("MasterData:Relation Acme");
+
+    /* Untouched, the loaded value travels with the update. */
+    typeInto(editorDialog(), "MasterData:Name", "Acme Transport");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody()).toMatchObject({ name: "Acme Transport", fullName: "Acme Transport B.V.", concurrencyStamp: "stamp-1" });
+
+    /* Changed, the new value travels trimmed. */
+    PUT.mockClear();
+    typeInto(name, "MasterData:RelationFullName", " Acme Transport Holding B.V. ");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().fullName).toBe("Acme Transport Holding B.V.");
+  });
+
+  it("clearing the full name of a loaded record updates it to null", async () => {
+    detail = { ...stored, fullName: "Acme Transport B.V." };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:RelationFullName").value).toBe("Acme Transport B.V."));
+    await waitForLookups();
+    typeInto(editorDialog(), "MasterData:RelationFullName", "");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().fullName).toBeNull();
+    expect(putBody().name).toBe("Acme");
+  });
+
   it("Archive confirms, calls the archive endpoint and closes; an archived record offers Unarchive", async () => {
     const { onSaved, onClose } = renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
@@ -1076,6 +1165,7 @@ describe("RelationEditor — edit", () => {
     expect(field(editor, "MasterData:Street")).toBeDisabled();
     expect(field(editor, "MasterData:TimeZone")).toBeDisabled();
     expect(field(editor, "MasterData:Phone")).toBeDisabled();
+    expect(field(editor, "MasterData:RelationFullName")).toBeDisabled();
     expect(mapFrame()).not.toBeNull();
     expect(openRemarks(editor)).toBeDisabled();
     expect(screen.queryByText("MasterData:NewAddress")).toBeNull();
