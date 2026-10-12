@@ -63,6 +63,7 @@ export function FormField({
       <div className="relative">
         {control}
         <label
+          id={`${htmlFor}-label`}
           htmlFor={htmlFor}
           data-slot="field-label"
           className={cn(

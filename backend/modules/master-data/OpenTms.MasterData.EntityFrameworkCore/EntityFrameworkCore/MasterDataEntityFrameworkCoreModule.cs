@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.MasterData.Drivers;
 using OpenTms.MasterData.Fleet;
+using OpenTms.MasterData.Relations;
 using OpenTms.MasterData.Regions;
 using OpenTms.MasterData.Transport;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
@@ -26,6 +28,14 @@ public class MasterDataEntityFrameworkCoreModule : AbpModule
             options.Entity<VehicleType>(e => e.DefaultWithDetailsFunc = q => q.Include(v => v.Characteristics));
             options.Entity<TransportUnit>(e => e.DefaultWithDetailsFunc = q => q.Include(u => u.LoadFactors));
             options.Entity<GeographicalRegion>(e => e.DefaultWithDetailsFunc = q => q.Include(r => r.PostalCodeRanges));
+            options.Entity<Relation>(e => e.DefaultWithDetailsFunc = q => q
+                .Include(r => r.Addresses)
+                .Include(r => r.ContactPersons)
+                .Include(r => r.BankAccounts)
+                .Include(r => r.Categories)
+                .Include(r => r.GeographicalRegions)
+                .Include(r => r.OrganizationUnits));
+            options.Entity<Driver>(e => e.DefaultWithDetailsFunc = q => q.Include(d => d.Qualifications));
         });
 
         Configure<AbpDbContextOptions>(options =>

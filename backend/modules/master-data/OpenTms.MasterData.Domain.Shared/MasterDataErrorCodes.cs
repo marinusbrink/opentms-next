@@ -24,15 +24,29 @@ public static class MasterDataErrorCodes
     public const string NameRequired = Namespace + ":NameRequired";
     public const string TooManyRows = Namespace + ":TooManyRows";
 
+    // Run 2: Relation and Driver (design 43)
+    public const string OwnCompanyAlreadyExists = Namespace + ":OwnCompanyAlreadyExists";
+    public const string RolesRequired = Namespace + ":RolesRequired";
+    public const string EmployerRoleRequired = Namespace + ":EmployerRoleRequired";
+    public const string InvalidIban = Namespace + ":InvalidIban";
+    public const string InvalidVatNumber = Namespace + ":InvalidVatNumber";
+    public const string InvalidEmail = Namespace + ":InvalidEmail";
+    public const string InvalidCulture = Namespace + ":InvalidCulture";
+    public const string UserNotFound = Namespace + ":UserNotFound";
+    public const string AnonymisedRecordIsReadOnly = Namespace + ":AnonymisedRecordIsReadOnly";
+    public const string TooManyChildren = Namespace + ":TooManyChildren";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
-        DuplicateKey, InUse, DefaultCannotBeDeleted, DefaultMustBeActive, SelfIncompatibility, DuplicateLoadFactor
+        DuplicateKey, InUse, DefaultCannotBeDeleted, DefaultMustBeActive, SelfIncompatibility, DuplicateLoadFactor,
+        OwnCompanyAlreadyExists, AnonymisedRecordIsReadOnly
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
     public static readonly string[] BadRequestCodes =
     [
-        InvalidTimeZone, AdrFieldsRequired, InvalidPostalCodeRange, InvalidTemperatureRange, InvalidCode, ReferenceNotFound, UnknownSortColumn, NameRequired, TooManyRows
+        InvalidTimeZone, AdrFieldsRequired, InvalidPostalCodeRange, InvalidTemperatureRange, InvalidCode, ReferenceNotFound, UnknownSortColumn, NameRequired, TooManyRows,
+        RolesRequired, EmployerRoleRequired, InvalidIban, InvalidVatNumber, InvalidEmail, InvalidCulture, UserNotFound, TooManyChildren
     ];
 }

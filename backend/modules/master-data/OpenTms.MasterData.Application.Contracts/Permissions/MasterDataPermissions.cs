@@ -88,6 +88,25 @@ public static class MasterDataPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    // Run 2 (design 43)
+    public static class Relations
+    {
+        public const string Default = GroupName + ".Relations";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class Drivers
+    {
+        public const string Default = GroupName + ".Drivers";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+        /// <summary>GDPR art. 17: replace the person fields and clear contact details, user link and qualifications.</summary>
+        public const string Anonymise = Default + ".Anonymise";
+    }
+
     /// <summary>Every (view, create, update, delete) quadruple, for the definition provider and the tests.</summary>
     public static readonly (string Entity, string Default, string Create, string Update, string Delete)[] All =
     [
@@ -101,5 +120,7 @@ public static class MasterDataPermissions
         ("TransportUnits", TransportUnits.Default, TransportUnits.Create, TransportUnits.Update, TransportUnits.Delete),
         ("VehicleTypes", VehicleTypes.Default, VehicleTypes.Create, VehicleTypes.Update, VehicleTypes.Delete),
         ("GeographicalRegions", GeographicalRegions.Default, GeographicalRegions.Create, GeographicalRegions.Update, GeographicalRegions.Delete),
+        ("Relations", Relations.Default, Relations.Create, Relations.Update, Relations.Delete),
+        ("Drivers", Drivers.Default, Drivers.Create, Drivers.Update, Drivers.Delete),
     ];
 }

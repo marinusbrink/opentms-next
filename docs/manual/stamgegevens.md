@@ -6,12 +6,13 @@ navigatiepaneel:
 
 | Groep | Lijsten |
 |---|---|
-| Relaties | Adrestypen, Relatiecategorieën |
+| Relaties | [Relaties](relaties.md), Adrestypen, Relatiecategorieën |
 | Transport | Producten, Transporteenheden, Temperaturen |
-| Wagenpark | Voertuigtypen, Transportkenmerken |
+| Wagenpark | [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
 | Regio's en lijsten | Landen, Valuta's, Geografische regio's |
 
-De app is per tenant ingeschakeld (functie *Stamgegevens-app (eerste run)*). Zolang de functie
+De app is per tenant ingeschakeld (functie *Stamgegevens-app (eerste run)*; de lijsten Relaties en
+Chauffeurs hebben de eigen functie *Relaties en chauffeurs*). Zolang de functie
 uit staat, tonen de pagina's de melding dat u geen toegang heeft. Elke lijst heeft eigen rechten
 voor bekijken, aanmaken, wijzigen en verwijderen; zonder het recht om te wijzigen opent een
 record alleen-lezen.

@@ -113,3 +113,11 @@ export function numberError(value: string | null | undefined, options?: { intege
   if (options?.max != null && n > options.max) return "MasterData:InvalidNumber";
   return undefined;
 }
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The validation key for an e-mail text: undefined when empty or shaped like an address (the server checks the same shape). */
+export function emailError(value: string | null | undefined): string | undefined {
+  const text = (value ?? "").trim();
+  return !text || EMAIL_SHAPE.test(text) ? undefined : "MasterData:InvalidEmail";
+}

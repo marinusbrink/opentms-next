@@ -23,7 +23,180 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("OpenTms.MasterData.Drivers.Driver", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("EmployerRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Initials")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<bool>("IsAnonymised")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("PreferredCulture")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("SearchKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployerRelationId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Code"), false);
+
+                    b.HasIndex("TenantId", "SearchKey");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasFilter("\"UserId\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "UserId"), false);
+
+                    b.ToTable("Drivers", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Drivers.DriverQualification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("DriverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Number")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<DateOnly?>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DriverId");
+
+                    b.HasIndex("TenantId", "ValidUntil");
+
+                    b.ToTable("DriverQualifications", "masterdata");
+                });
 
             modelBuilder.Entity("OpenTms.MasterData.Fleet.TransportCharacteristics", b =>
                 {
@@ -669,6 +842,267 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Relations.Relation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChamberOfCommerceNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("PreferredCulture")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Roles")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SearchKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<string>("VatNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ChamberOfCommerceNumber")
+                        .IsUnique()
+                        .HasFilter("\"ChamberOfCommerceNumber\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "ChamberOfCommerceNumber"), false);
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Code"), false);
+
+                    b.HasIndex("TenantId", "Roles");
+
+                    b.HasIndex("TenantId", "SearchKey");
+
+                    b.HasIndex("TenantId", "VatNumber")
+                        .IsUnique()
+                        .HasFilter("\"VatNumber\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "VatNumber"), false);
+
+                    b.HasIndex(new[] { "SearchKey" }, "IX_Relations_SearchKey_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "SearchKey" }, "IX_Relations_SearchKey_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "SearchKey" }, "IX_Relations_SearchKey_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "TenantId" }, "IX_Relations_TenantId_OwnCompany")
+                        .IsUnique()
+                        .HasFilter("(\"Roles\" & 16) = 16 AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "TenantId" }, "IX_Relations_TenantId_OwnCompany"), false);
+
+                    b.ToTable("Relations", "masterdata", t =>
+                        {
+                            t.HasCheckConstraint("CK_Relations_Roles", "\"Roles\" > 0 AND \"Roles\" <= 31");
+                        });
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationAddress", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AddressLine2")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("AddressTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("CountryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HouseNumber")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("PostalCodeKey")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Street")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddressTypeId");
+
+                    b.HasIndex("CountryId");
+
+                    b.HasIndex("RelationId", "AddressTypeId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PostalCodeKey");
+
+                    b.ToTable("RelationAddresses", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationBankAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountHolder")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("BankName")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Bic")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)");
+
+                    b.Property<string>("Iban")
+                        .IsRequired()
+                        .HasMaxLength(34)
+                        .HasColumnType("character varying(34)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelationId", "Iban")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "RelationId" }, "IX_RelationBankAccounts_RelationId_Default")
+                        .IsUnique()
+                        .HasFilter("\"IsDefault\" = true");
+
+                    b.ToTable("RelationBankAccounts", "masterdata");
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Relations.RelationCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -740,6 +1174,121 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Name"), false);
 
                     b.ToTable("RelationCategories", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationCategoryMembership", b =>
+                {
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RelationCategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("RelationId", "RelationCategoryId");
+
+                    b.HasIndex("RelationCategoryId");
+
+                    b.ToTable("RelationCategoryMemberships", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationContactPerson", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("MiddleName")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Mobile")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelationId");
+
+                    b.HasIndex("TenantId", "Email");
+
+                    b.ToTable("RelationContactPersons", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationGeographicalRegion", b =>
+                {
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GeographicalRegionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("RelationId", "GeographicalRegionId");
+
+                    b.HasIndex("GeographicalRegionId");
+
+                    b.ToTable("RelationGeographicalRegions", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationOrganizationUnit", b =>
+                {
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("RelationId", "OrganizationUnitId");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.ToTable("RelationOrganizationUnits", "masterdata");
                 });
 
             modelBuilder.Entity("OpenTms.MasterData.Transport.Product", b =>
@@ -1125,6 +1674,23 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.ToTable("TransportUnitLoadFactors", "masterdata");
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Drivers.Driver", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany()
+                        .HasForeignKey("EmployerRelationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Drivers.DriverQualification", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Drivers.Driver", null)
+                        .WithMany("Qualifications")
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleTypeTransportCharacteristics", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Fleet.TransportCharacteristics", null)
@@ -1208,6 +1774,84 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationAddress", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Reference.AddressType", null)
+                        .WithMany()
+                        .HasForeignKey("AddressTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Reference.Country", null)
+                        .WithMany()
+                        .HasForeignKey("CountryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("Addresses")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationBankAccount", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("BankAccounts")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationCategoryMembership", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.RelationCategory", null)
+                        .WithMany()
+                        .HasForeignKey("RelationCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("Categories")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationContactPerson", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("ContactPersons")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationGeographicalRegion", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Regions.GeographicalRegion", null)
+                        .WithMany()
+                        .HasForeignKey("GeographicalRegionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("GeographicalRegions")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationOrganizationUnit", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("OrganizationUnits")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Transport.TransportUnitLoadFactor", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Transport.TransportUnit", null)
@@ -1223,6 +1867,11 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Drivers.Driver", b =>
+                {
+                    b.Navigation("Qualifications");
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleType", b =>
                 {
                     b.Navigation("Characteristics");
@@ -1231,6 +1880,21 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
             modelBuilder.Entity("OpenTms.MasterData.Regions.GeographicalRegion", b =>
                 {
                     b.Navigation("PostalCodeRanges");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.Relation", b =>
+                {
+                    b.Navigation("Addresses");
+
+                    b.Navigation("BankAccounts");
+
+                    b.Navigation("Categories");
+
+                    b.Navigation("ContactPersons");
+
+                    b.Navigation("GeographicalRegions");
+
+                    b.Navigation("OrganizationUnits");
                 });
 
             modelBuilder.Entity("OpenTms.MasterData.Transport.TransportUnit", b =>

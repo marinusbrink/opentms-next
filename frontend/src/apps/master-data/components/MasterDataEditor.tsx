@@ -71,13 +71,14 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   applyValues?: { key: number; update: (values: TValues) => TValues };
 }
 
-const normalise = (value: unknown): unknown =>
+/** Empty strings become null, recursively, so dirty compares values and not touches (UI-FORM-009). */
+export const normaliseValues = (value: unknown): unknown =>
   typeof value === "string"
     ? value.trim() || null
     : Array.isArray(value)
-      ? value.map(normalise)
+      ? value.map(normaliseValues)
       : value && typeof value === "object"
-        ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normalise(v)]))
+        ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normaliseValues(v)]))
         : value;
 
 let instanceCounter = 0;
@@ -137,7 +138,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   }, [applyValues]);
 
   const errors = useMemo(() => validate(values), [validate, values]);
-  const isDirty = loaded && JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial));
+  const isDirty = loaded && JSON.stringify(normaliseValues(values)) !== JSON.stringify(normaliseValues(initial));
 
   const form: FormContext<TValues> = {
     values,

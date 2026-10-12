@@ -17,6 +17,13 @@ public class MasterDataFeatureDefinitionProvider : FeatureDefinitionProvider
             displayName: L("Feature:FirstRun"),
             description: L("Feature:FirstRun.Description"),
             valueType: new ToggleStringValueType());
+
+        group.AddFeature(
+            MasterDataFeatures.Relations,
+            defaultValue: "false",
+            displayName: L("Feature:Relations"),
+            description: L("Feature:Relations.Description"),
+            valueType: new ToggleStringValueType());
     }
 
     private static LocalizableString L(string name) => LocalizableString.Create<MasterDataResource>(name);

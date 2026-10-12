@@ -6,6 +6,7 @@ import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
+import { timeZoneOptions } from "@/apps/master-data/components/time-zones";
 import { countries, currencies, type CountryDto } from "@/domains/master-data/entities";
 import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import { useIsGranted } from "@/lib/auth/permissions";
@@ -41,12 +42,6 @@ const validate = (v: Values): FieldErrors<Values> => {
   if (!v.name.trim()) errors.name = "MasterData:Required";
   return errors;
 };
-
-/** The browser's IANA zones (every id the server accepts is in this list on a current runtime). */
-function timeZoneOptions(): { value: string; label: string }[] {
-  const ids = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-  return ids.map((id) => ({ value: id, label: id }));
-}
 
 export function CountryEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
   const { t, culture } = useL();

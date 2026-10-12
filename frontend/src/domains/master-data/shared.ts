@@ -17,6 +17,8 @@ export type BulkDeleteResult = Schemas["OpenTms.MasterData.MasterDataBulkDeleteR
 export type LocalizedNameMap = Record<string, string | null | undefined>;
 
 export const MASTER_DATA_FEATURE = "MasterData.FirstRun";
+/** Run 2 (design 43): the Relations and Drivers lists sit behind their own per-tenant feature. */
+export const RELATIONS_FEATURE = "MasterData.Relations";
 export const LOOKUP_TAKE = 500;
 
 /** The flat list query the services bind (startRow, endRow, wildcardSearch, sortBy, sortDir + entity filters). */
@@ -49,7 +51,9 @@ export type MasterDataPath =
   | "/api/master-data/product"
   | "/api/master-data/transport-unit"
   | "/api/master-data/vehicle-type"
-  | "/api/master-data/geographical-region";
+  | "/api/master-data/geographical-region"
+  | "/api/master-data/relation"
+  | "/api/master-data/driver";
 
 export function masterDataQueryKey(entity: string, ...rest: unknown[]) {
   return ["masterData", entity, ...rest] as const;

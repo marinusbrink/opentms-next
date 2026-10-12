@@ -5,12 +5,12 @@
  * Lazy-import this file like opentms-grid.tsx (ag-grid-enterprise stays out of the main chunk):
  * use LazyLinesGrid from lines-grid-lazy.tsx. */
 
-import { useCallback, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
-import type { ColDef, GetContextMenuItemsParams, GridApi, GridReadyEvent, ICellRendererParams } from "ag-grid-community";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import type { CellKeyDownEvent, ColDef, GetContextMenuItemsParams, GridApi, GridReadyEvent, ICellRendererParams, RowDoubleClickedEvent } from "ag-grid-community";
 import { ModuleRegistry } from "ag-grid-community";
 import { AllEnterpriseModule } from "ag-grid-enterprise";
 import { AgGridReact } from "ag-grid-react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { opentmsGridTheme } from "@/components/ui/grid-theme";
@@ -29,12 +29,16 @@ export interface LinesGridProps<TRow> {
   toolbar?: ReactNode;
   /** Read-only editors (UI-PERM-004): no toolbar, no removal, no editing. */
   readOnly?: boolean;
+  /** Lines edited in their own dialog instead of inline (design 43: addresses, contact persons): double click,
+   *  Enter and the Edit item of the context menu open the line (UI-GRID-007); a ghost pencil at the row end too. */
+  onOpen?: (row: TRow) => void;
   /** Localized text for the no-rows overlay. */
   emptyText?: string;
   className?: string;
 }
 
 const REMOVE_COLUMN_ID = "__remove__";
+const OPEN_COLUMN_ID = "__open__";
 
 export function LinesGrid<TRow>({
   rows,
@@ -43,11 +47,18 @@ export function LinesGrid<TRow>({
   columnDefs,
   toolbar,
   readOnly = false,
+  onOpen,
   emptyText,
   className,
 }: LinesGridProps<TRow>) {
   const { t } = useL();
   const apiRef = useRef<GridApi<TRow> | null>(null);
+  /* Popup editors and menus are appended to the enclosing dialog (or the page) instead of the grid root, so a
+   * popup taller than the lines area (the date editor's calendar) is not clipped by the grid's own bounds. */
+  const [popupParent, setPopupParent] = useState<HTMLElement | null>(null);
+  const hostRef = useCallback((element: HTMLDivElement | null) => {
+    setPopupParent(element ? ((element.closest('[role="dialog"]') as HTMLElement | null) ?? document.body) : null);
+  }, []);
 
   /* Escape inside an open cell editor cancels that edit and nothing else: the surrounding editor
    * dialog must not see it as a close request (UI-DLG-008). */
@@ -66,9 +77,30 @@ export function LinesGrid<TRow>({
   );
 
   const removeLabel = t("Remove");
+  const editLabel = t("Edit");
 
   const allColumnDefs = useMemo<ColDef<TRow>[]>(() => {
     if (readOnly) return columnDefs;
+    const openColumn: ColDef<TRow> | null = onOpen
+      ? {
+          colId: OPEN_COLUMN_ID,
+          headerName: "",
+          width: 44,
+          minWidth: 44,
+          maxWidth: 44,
+          pinned: "right",
+          sortable: false,
+          filter: false,
+          resizable: false,
+          suppressMovable: true,
+          cellRenderer: (params: ICellRendererParams<TRow>) =>
+            params.data == null ? null : (
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={editLabel} title={editLabel} onClick={() => onOpen(params.data as TRow)}>
+                <Pencil />
+              </Button>
+            ),
+        }
+      : null;
     const removeColumn: ColDef<TRow> = {
       colId: REMOVE_COLUMN_ID,
       headerName: "",
@@ -94,8 +126,8 @@ export function LinesGrid<TRow>({
           </Button>
         ),
     };
-    return [...columnDefs, removeColumn];
-  }, [columnDefs, readOnly, removeLabel, removeRows]);
+    return [...columnDefs, ...(openColumn ? [openColumn] : []), removeColumn];
+  }, [columnDefs, editLabel, onOpen, readOnly, removeLabel, removeRows]);
 
   const getContextMenuItems = useCallback(
     (params: GetContextMenuItemsParams<TRow>) => {
@@ -103,9 +135,28 @@ export function LinesGrid<TRow>({
       const clicked = params.node?.data as TRow | undefined;
       const targets = resolveTargetRows(clicked, params.api.getSelectedRows(), getRowId);
       if (targets.length === 0) return [];
-      return [{ name: removeLabel, action: () => removeRows(targets), cssClasses: ["text-destructive"] }];
+      return [
+        ...(onOpen && clicked && targets.length === 1 ? [{ name: editLabel, action: () => onOpen(clicked) }] : []),
+        { name: removeLabel, action: () => removeRows(targets), cssClasses: ["text-destructive"] },
+      ];
     },
-    [getRowId, readOnly, removeLabel, removeRows],
+    [editLabel, getRowId, onOpen, readOnly, removeLabel, removeRows],
+  );
+
+  const openRow = useCallback(
+    (event: RowDoubleClickedEvent<TRow>) => {
+      if (onOpen && event.data != null) onOpen(event.data);
+    },
+    [onOpen],
+  );
+
+  /* Enter opens the line when no cell is being edited (UI-GRID-007); inline editors keep their own Enter. */
+  const openRowOnEnter = useCallback(
+    (event: CellKeyDownEvent<TRow>) => {
+      const key = (event.event as KeyboardEvent | null | undefined)?.key;
+      if (onOpen && key === "Enter" && event.data != null && event.api.getEditingCells().length === 0) onOpen(event.data);
+    },
+    [onOpen],
   );
 
   const noRowsOverlayComponent = useCallback(
@@ -114,7 +165,7 @@ export function LinesGrid<TRow>({
   );
 
   return (
-    <div className={cn("flex h-full flex-col gap-2", className)} data-slot="lines-grid" onKeyDown={stopEscapeWhileEditing}>
+    <div ref={hostRef} className={cn("flex h-full flex-col gap-2", className)} data-slot="lines-grid" onKeyDown={stopEscapeWhileEditing}>
       {!readOnly && toolbar && <div className="flex items-center gap-2">{toolbar}</div>}
       <div className="min-h-0 flex-1 rounded-lg border bg-background">
         <AgGridReact<TRow>
@@ -128,12 +179,15 @@ export function LinesGrid<TRow>({
           rowSelection={readOnly ? undefined : { mode: "multiRow", checkboxes: false, headerCheckbox: false, enableClickSelection: true }}
           singleClickEdit
           stopEditingWhenCellsLoseFocus
+          popupParent={popupParent}
           /* AG Grid edits the row object in place; hand the form a fresh copy so React state and the
            * dirty guard (UI-FORM-009) see the change. */
           onCellValueChanged={(event) =>
             onRowsChange(rows.map((row) => (row === event.data ? ({ ...(event.data as TRow) } as TRow) : row)))
           }
           getContextMenuItems={getContextMenuItems}
+          onRowDoubleClicked={onOpen ? openRow : undefined}
+          onCellKeyDown={onOpen ? openRowOnEnter : undefined}
           suppressContextMenu={readOnly}
           preventDefaultOnContextMenu={!readOnly}
           noRowsOverlayComponent={noRowsOverlayComponent}

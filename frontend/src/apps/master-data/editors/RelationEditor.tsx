@@ -1,0 +1,559 @@
+import { useCallback, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { useQueryClient } from "@tanstack/react-query";
+import { Archive, ArchiveRestore, Plus } from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { CheckboxGroup } from "@/components/ui/checkbox-group";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { FormField } from "@/components/ui/form-field";
+import { FormSection } from "@/components/ui/form-section";
+import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
+import { CheckboxField, TextAreaField, TextField, emailError, numberToText, parseNumber } from "@/apps/master-data/components/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/apps/master-data/components/MasterDataEditor";
+import { AddressDialog, type AddressRow } from "@/apps/master-data/editors/AddressDialog";
+import { ContactPersonDialog, contactFullName, type ContactRow } from "@/apps/master-data/editors/ContactPersonDialog";
+import {
+  RELATION_ROLES,
+  contactPersonRoleKey,
+  geographicalRegions,
+  listToRoles,
+  relationCategories,
+  relationRoleKeys,
+  relations,
+  rolesToList,
+  useArchiveRelation,
+  useUnarchiveRelation,
+  type RelationDto,
+  type RelationRoles,
+} from "@/domains/master-data/entities";
+import { masterDataQueryKey } from "@/domains/master-data/shared";
+import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { useIsGranted } from "@/lib/auth/permissions";
+import { useLanguages } from "@/lib/i18n/languages";
+import { useL } from "@/lib/i18n/LocalizationProvider";
+
+/* The relation editor (design 43, UI design): `lg`, tabs General (Relation, Contact, Legal,
+ * Classification, Description), Addresses and Contact persons (lines opened in their own dialog),
+ * Bank accounts (lines edited inline, exactly one default), then Record identification. Archive and
+ * Unarchive are ribbon commands, confirmed; the roles and Archived show as badges after the title. */
+
+interface BankRow {
+  key: string;
+  id: string | null;
+  iban: string;
+  bic: string;
+  bankName: string;
+  accountHolder: string;
+  isDefault: boolean;
+}
+
+interface Values {
+  code: string;
+  name: string;
+  roles: string[];
+  isArchived: boolean;
+  phone: string;
+  mobile: string;
+  email: string;
+  website: string;
+  preferredCulture: string | null;
+  chamberOfCommerceNumber: string;
+  vatNumber: string;
+  categoryIds: string[];
+  geographicalRegionIds: string[];
+  organizationUnitIds: string[];
+  description: string;
+  addresses: AddressRow[];
+  contactPersons: ContactRow[];
+  bankAccounts: BankRow[];
+}
+
+let rowCounter = 0;
+
+const initialValuesFor =
+  (initialName: string | undefined) =>
+  (dto: RelationDto | undefined): Values => ({
+    code: dto?.code ?? "",
+    name: dto?.name ?? initialName ?? "",
+    roles: rolesToList(dto?.roles),
+    isArchived: dto?.isArchived ?? false,
+    phone: dto?.phone ?? "",
+    mobile: dto?.mobile ?? "",
+    email: dto?.email ?? "",
+    website: dto?.website ?? "",
+    preferredCulture: dto?.preferredCulture ?? null,
+    chamberOfCommerceNumber: dto?.chamberOfCommerceNumber ?? "",
+    vatNumber: dto?.vatNumber ?? "",
+    categoryIds: dto?.categoryIds ?? [],
+    geographicalRegionIds: dto?.geographicalRegionIds ?? [],
+    organizationUnitIds: dto?.organizationUnitIds ?? [],
+    description: dto?.description ?? "",
+    addresses: (dto?.addresses ?? []).map((a) => ({
+      key: a.id ?? `new-${++rowCounter}`,
+      id: a.id ?? null,
+      addressTypeId: a.addressTypeId,
+      addressTypeName: a.addressTypeName ?? "",
+      countryId: a.countryId,
+      countryCode: a.countryCode ?? "",
+      street: a.street,
+      houseNumber: a.houseNumber ?? "",
+      addressLine2: a.addressLine2 ?? "",
+      postalCode: a.postalCode,
+      city: a.city,
+      latitude: numberToText(a.latitude),
+      longitude: numberToText(a.longitude),
+      timeZoneId: a.timeZoneId ?? null,
+    })),
+    contactPersons: (dto?.contactPersons ?? []).map((c) => ({
+      key: c.id ?? `new-${++rowCounter}`,
+      id: c.id ?? null,
+      firstName: c.firstName,
+      middleName: c.middleName ?? "",
+      lastName: c.lastName,
+      role: c.role ?? 0,
+      jobTitle: c.jobTitle ?? "",
+      department: c.department ?? "",
+      email: c.email ?? "",
+      phone: c.phone ?? "",
+      mobile: c.mobile ?? "",
+    })),
+    bankAccounts: (dto?.bankAccounts ?? []).map((b) => ({
+      key: b.id ?? `new-${++rowCounter}`,
+      id: b.id ?? null,
+      iban: b.iban,
+      bic: b.bic ?? "",
+      bankName: b.bankName ?? "",
+      accountHolder: b.accountHolder ?? "",
+      isDefault: b.isDefault ?? false,
+    })),
+  });
+
+const validate = (v: Values): FieldErrors<Values> => {
+  const errors: FieldErrors<Values> = {};
+  if (!v.code.trim()) errors.code = "MasterData:CodeRequired";
+  if (!v.name.trim()) errors.name = "MasterData:NameRequired";
+  if (v.roles.length === 0) errors.roles = "MasterData:RolesRequired";
+  const email = emailError(v.email);
+  if (email) errors.email = email;
+  if (v.bankAccounts.some((b) => !b.iban.trim())) errors.bankAccounts = "MasterData:IbanRequired";
+  return errors;
+};
+
+const GENERAL_FIELDS: (keyof Values & string)[] = [
+  "code",
+  "name",
+  "roles",
+  "isArchived",
+  "phone",
+  "mobile",
+  "email",
+  "website",
+  "preferredCulture",
+  "chamberOfCommerceNumber",
+  "vatNumber",
+  "categoryIds",
+  "geographicalRegionIds",
+  "organizationUnitIds",
+  "description",
+];
+
+export function RelationEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
+  const { t } = useL();
+  const queryClient = useQueryClient();
+  const detail = relations.useDetail(mode === "edit" ? id : undefined);
+  const initialValues = useMemo(() => initialValuesFor(initialName), [initialName]);
+  const create = relations.useCreate();
+  const update = relations.useUpdate();
+  const remove = relations.useDelete();
+  const archive = useArchiveRelation();
+  const unarchive = useUnarchiveRelation();
+  const canDelete = useIsGranted("MasterData.Relations.Delete");
+
+  const categoryLookup = relationCategories.useLookup(open);
+  const regionLookup = geographicalRegions.useLookup(open);
+  /* DEVIATION(UI-LOOK-001): organisation units are a MultiSelect, not a TreeSelect: a relation belongs to
+   * several units and TreeSelect is single-valued, approved in docs/designs/43-master-data-relations-and-drivers.md. */
+  const units = useAllOrganizationUnits();
+  const languages = useLanguages();
+  const categoryOptions = useMemo(() => (categoryLookup.data ?? []).map((i) => ({ id: i.id ?? "", label: i.name ?? "" })), [categoryLookup.data]);
+  const regionOptions = useMemo(() => (regionLookup.data ?? []).map((i) => ({ id: i.id ?? "", label: i.name ?? "" })), [regionLookup.data]);
+  const unitOptions = useMemo(() => (units.data ?? []).map((u) => ({ id: u.id ?? "", label: u.displayName ?? "" })), [units.data]);
+  const languageOptions = useMemo(() => languages.map((l) => ({ value: l.cultureName, label: l.displayName })), [languages]);
+  const roleOptions = useMemo(() => RELATION_ROLES.map((r) => ({ id: String(r.value), label: t(r.key) })), [t]);
+
+  /* The nested dialogs live outside the tabs, so their result reaches the form through applyValues. */
+  const [applyValues, setApplyValues] = useState<{ key: number; update: (values: Values) => Values } | undefined>();
+  const apply = useCallback((update: (values: Values) => Values) => setApplyValues((previous) => ({ key: (previous?.key ?? 0) + 1, update })), []);
+  const [addressDialog, setAddressDialog] = useState<{ row: AddressRow | null; usedTypeIds: string[] } | null>(null);
+  const [contactDialog, setContactDialog] = useState<{ row: ContactRow | null } | null>(null);
+
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const archived = detail.data?.isArchived === true;
+
+  const toggleArchive = async () => {
+    if (!id) return;
+    try {
+      await (archived ? unarchive : archive).mutateAsync(id);
+      void queryClient.invalidateQueries({ queryKey: masterDataQueryKey(relations.entity) });
+      setConfirmArchive(false);
+      toast.success(t(archived ? "MasterData:RelationUnarchived" : "MasterData:RelationArchived"));
+      onSaved();
+      onClose();
+    } catch (err) {
+      setConfirmArchive(false);
+      setActionError(getApiErrorMessage(err, t));
+    }
+  };
+
+  const save = useCallback(
+    async (v: Values, dto: RelationDto | undefined) => {
+      const text = (value: string) => value.trim() || null;
+      const body = {
+        code: v.code.trim().toUpperCase(),
+        name: v.name.trim(),
+        roles: listToRoles(v.roles) as RelationRoles,
+        isArchived: v.isArchived,
+        phone: text(v.phone),
+        mobile: text(v.mobile),
+        email: text(v.email),
+        website: text(v.website),
+        preferredCulture: v.preferredCulture,
+        chamberOfCommerceNumber: text(v.chamberOfCommerceNumber),
+        vatNumber: text(v.vatNumber),
+        description: text(v.description),
+        categoryIds: v.categoryIds,
+        geographicalRegionIds: v.geographicalRegionIds,
+        organizationUnitIds: v.organizationUnitIds,
+        addresses: v.addresses.map((a) => ({
+          id: a.id,
+          addressTypeId: a.addressTypeId!,
+          countryId: a.countryId!,
+          street: a.street.trim(),
+          houseNumber: text(a.houseNumber),
+          addressLine2: text(a.addressLine2),
+          postalCode: a.postalCode.trim(),
+          city: a.city.trim(),
+          latitude: parseNumber(a.latitude),
+          longitude: parseNumber(a.longitude),
+          timeZoneId: a.timeZoneId,
+        })),
+        contactPersons: v.contactPersons.map((c) => ({
+          id: c.id,
+          firstName: c.firstName.trim(),
+          middleName: text(c.middleName),
+          lastName: c.lastName.trim(),
+          role: c.role,
+          jobTitle: text(c.jobTitle),
+          department: text(c.department),
+          email: text(c.email),
+          phone: text(c.phone),
+          mobile: text(c.mobile),
+        })),
+        bankAccounts: v.bankAccounts.map((b) => ({
+          id: b.id,
+          iban: b.iban.replace(/\s+/g, "").toUpperCase(),
+          bic: text(b.bic),
+          bankName: text(b.bankName),
+          accountHolder: text(b.accountHolder),
+          isDefault: b.isDefault,
+        })),
+      };
+      if (mode === "create") {
+        return create.mutateAsync(body);
+      }
+      return update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
+    },
+    [create, update, mode, id],
+  );
+
+  const addressColumns = useMemo<ColDef<AddressRow>[]>(
+    () => [
+      { field: "addressTypeName", headerName: t("MasterData:AddressType"), flex: 1, minWidth: 120 },
+      { field: "street", headerName: t("MasterData:Street"), flex: 2, minWidth: 160 },
+      { field: "houseNumber", headerName: t("MasterData:HouseNumber"), flex: 1, minWidth: 90 },
+      { field: "postalCode", headerName: t("MasterData:PostalCode"), flex: 1, minWidth: 100 },
+      { field: "city", headerName: t("MasterData:City"), flex: 2, minWidth: 140 },
+      { field: "countryCode", headerName: t("MasterData:Country"), flex: 1, minWidth: 80 },
+    ],
+    [t],
+  );
+
+  const contactColumns = useMemo<ColDef<ContactRow>[]>(
+    () => [
+      { colId: "name", headerName: t("MasterData:FullName"), flex: 2, minWidth: 160, valueGetter: (p) => (p.data ? contactFullName(p.data) : "") },
+      { field: "role", headerName: t("MasterData:Role"), flex: 1, minWidth: 120, valueFormatter: (p) => t(contactPersonRoleKey(p.value as ContactRow["role"])) },
+      { field: "email", headerName: t("MasterData:Email"), flex: 2, minWidth: 160 },
+      { field: "phone", headerName: t("MasterData:Phone"), flex: 1, minWidth: 120 },
+    ],
+    [t],
+  );
+
+  const bankColumns = useMemo<ColDef<BankRow>[]>(
+    () => [
+      { field: "iban", headerName: t("MasterData:Iban"), flex: 2, minWidth: 200, editable: !readOnly, cellEditor: "agTextCellEditor", cellEditorParams: { maxLength: 34 } },
+      { field: "bic", headerName: t("MasterData:Bic"), flex: 1, minWidth: 110, editable: !readOnly, cellEditor: "agTextCellEditor", cellEditorParams: { maxLength: 11 } },
+      { field: "bankName", headerName: t("MasterData:BankName"), flex: 2, minWidth: 140, editable: !readOnly, cellEditor: "agTextCellEditor", cellEditorParams: { maxLength: 64 } },
+      { field: "accountHolder", headerName: t("MasterData:AccountHolder"), flex: 2, minWidth: 160, editable: !readOnly, cellEditor: "agTextCellEditor", cellEditorParams: { maxLength: 128 } },
+      { field: "isDefault", headerName: t("MasterData:IsDefault"), flex: 1, minWidth: 100, editable: !readOnly, cellRenderer: "agCheckboxCellRenderer", cellEditor: "agCheckboxCellEditor" },
+    ],
+    [readOnly, t],
+  );
+
+  /* Exactly one default account: marking one unmarks the others (the server marks the first when none is). */
+  const setBankRows = (form: FormContext<Values>, rows: BankRow[]) => {
+    const previous = form.values.bankAccounts;
+    const newlyDefault = rows.find((r) => r.isDefault && !previous.find((p) => p.key === r.key)?.isDefault);
+    form.set("bankAccounts", newlyDefault ? rows.map((r) => ({ ...r, isDefault: r.key === newlyDefault.key })) : rows);
+  };
+
+  const tabs: EditorTab<Values>[] = [
+    {
+      value: "general",
+      labelKey: "General",
+      fields: GENERAL_FIELDS,
+      render: (form) => (
+        <div className="grid grid-cols-2 gap-4">
+          <FormSection title={t("MasterData:Relation")}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <TextField form={form} field="code" labelKey="MasterData:Code" required maxLength={32} upper />
+              <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
+              <FormField label={t("MasterData:Roles")} htmlFor={form.id("roles")} required error={form.error("roles")} floating="always" className="col-span-2">
+                <CheckboxGroup
+                  id={form.id("roles")}
+                  value={form.values.roles}
+                  onChange={(next) => {
+                    form.set("roles", next);
+                    form.blur("roles");
+                  }}
+                  options={roleOptions}
+                  columns={2}
+                  disabled={form.readOnly}
+                />
+              </FormField>
+              <CheckboxField form={form} field="isArchived" labelKey="MasterData:IsArchived" className="col-span-2" />
+            </div>
+          </FormSection>
+          <FormSection title={t("MasterData:Contact")}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <TextField form={form} field="phone" labelKey="MasterData:Phone" maxLength={32} />
+              <TextField form={form} field="mobile" labelKey="MasterData:Mobile" maxLength={32} />
+              <TextField form={form} field="email" labelKey="MasterData:Email" maxLength={256} />
+              <TextField form={form} field="website" labelKey="MasterData:Website" maxLength={256} />
+              <FormField label={t("MasterData:PreferredCulture")} htmlFor={form.id("preferredCulture")} floating="always" className="col-span-2">
+                <ReferenceCombobox
+                  id={form.id("preferredCulture")}
+                  value={form.values.preferredCulture}
+                  onChange={(next) => form.set("preferredCulture", next)}
+                  options={languageOptions}
+                  disabled={form.readOnly}
+                />
+              </FormField>
+            </div>
+          </FormSection>
+          <FormSection title={t("MasterData:Legal")}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <TextField form={form} field="chamberOfCommerceNumber" labelKey="MasterData:ChamberOfCommerceNumber" maxLength={32} />
+              <TextField form={form} field="vatNumber" labelKey="MasterData:VatNumber" maxLength={32} upper />
+            </div>
+          </FormSection>
+          <FormSection title={t("MasterData:Classification")}>
+            <div className="grid grid-cols-1 gap-3">
+              <FormField label={t("MasterData:Categories")} htmlFor={form.id("categoryIds")} floating="always">
+                <MultiSelect id={form.id("categoryIds")} value={form.values.categoryIds} onChange={(next) => form.set("categoryIds", next)} options={categoryOptions} disabled={form.readOnly} />
+              </FormField>
+              <FormField label={t("MasterData:GeographicalRegions")} htmlFor={form.id("geographicalRegionIds")} floating="always">
+                <MultiSelect id={form.id("geographicalRegionIds")} value={form.values.geographicalRegionIds} onChange={(next) => form.set("geographicalRegionIds", next)} options={regionOptions} disabled={form.readOnly} />
+              </FormField>
+              <FormField label={t("MasterData:OrganizationUnits")} htmlFor={form.id("organizationUnitIds")} floating="always">
+                <MultiSelect id={form.id("organizationUnitIds")} value={form.values.organizationUnitIds} onChange={(next) => form.set("organizationUnitIds", next)} options={unitOptions} disabled={form.readOnly} />
+              </FormField>
+            </div>
+          </FormSection>
+          <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
+        </div>
+      ),
+    },
+    {
+      value: "addresses",
+      labelKey: "MasterData:Addresses",
+      fields: ["addresses"],
+      render: (form) => (
+        <div className="flex h-80 flex-col gap-2">
+          <LazyLinesGrid<AddressRow>
+            rows={form.values.addresses}
+            onRowsChange={(rows) => form.set("addresses", rows)}
+            getRowId={(row) => row.key}
+            columnDefs={addressColumns}
+            readOnly={form.readOnly}
+            onOpen={(row) => setAddressDialog({ row, usedTypeIds: form.values.addresses.filter((a) => a.key !== row.key).map((a) => a.addressTypeId ?? "").filter(Boolean) })}
+            toolbar={
+              <Button type="button" size="sm" variant="outline" onClick={() => setAddressDialog({ row: null, usedTypeIds: form.values.addresses.map((a) => a.addressTypeId ?? "").filter(Boolean) })}>
+                <Plus /> {t("MasterData:NewAddress")}
+              </Button>
+            }
+          />
+        </div>
+      ),
+    },
+    {
+      value: "contactPersons",
+      labelKey: "MasterData:ContactPersons",
+      fields: ["contactPersons"],
+      render: (form) => (
+        <div className="flex h-80 flex-col gap-2">
+          <LazyLinesGrid<ContactRow>
+            rows={form.values.contactPersons}
+            onRowsChange={(rows) => form.set("contactPersons", rows)}
+            getRowId={(row) => row.key}
+            columnDefs={contactColumns}
+            readOnly={form.readOnly}
+            onOpen={(row) => setContactDialog({ row })}
+            toolbar={
+              <Button type="button" size="sm" variant="outline" onClick={() => setContactDialog({ row: null })}>
+                <Plus /> {t("MasterData:NewContactPerson")}
+              </Button>
+            }
+          />
+        </div>
+      ),
+    },
+    {
+      value: "bankAccounts",
+      labelKey: "MasterData:BankAccounts",
+      fields: ["bankAccounts"],
+      render: (form) => (
+        <div className="flex h-80 flex-col gap-2">
+          {form.error("bankAccounts") && <p className="text-label text-destructive">{form.error("bankAccounts")}</p>}
+          <LazyLinesGrid<BankRow>
+            rows={form.values.bankAccounts}
+            onRowsChange={(rows) => setBankRows(form, rows)}
+            getRowId={(row) => row.key}
+            columnDefs={bankColumns}
+            readOnly={form.readOnly}
+            toolbar={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  form.set("bankAccounts", [
+                    ...form.values.bankAccounts,
+                    { key: `new-${++rowCounter}`, id: null, iban: "", bic: "", bankName: "", accountHolder: "", isDefault: form.values.bankAccounts.length === 0 },
+                  ])
+                }
+              >
+                <Plus /> {t("MasterData:AddBankAccount")}
+              </Button>
+            }
+          />
+        </div>
+      ),
+    },
+  ];
+
+  const badges =
+    mode === "edit" && detail.data ? (
+      <>
+        {relationRoleKeys(detail.data.roles).map((key) => (
+          <Badge key={key} variant="secondary">
+            {t(key)}
+          </Badge>
+        ))}
+        {archived && <Badge variant="outline">{t("MasterData:Archived")}</Badge>}
+      </>
+    ) : undefined;
+
+  return (
+    <>
+      <MasterDataEditor<Values, RelationDto>
+        entityKey="Relation"
+        queryEntity={relations.entity}
+        size="lg"
+        mode={mode}
+        readOnly={readOnly}
+        open={open}
+        onClose={onClose}
+        onSaved={onSaved}
+        detail={detail}
+        titleOf={(dto) => dto.name ?? ""}
+        initialValues={initialValues}
+        validate={validate}
+        save={save}
+        isSaving={create.isPending || update.isPending}
+        tabs={tabs}
+        extraCommands={
+          mode === "edit" && !readOnly
+            ? [
+                {
+                  id: "archive",
+                  labelKey: archived ? "MasterData:Unarchive" : "MasterData:Archive",
+                  icon: archived ? ArchiveRestore : Archive,
+                  groupKey: "MasterData:Relation",
+                  disabled: !detail.data,
+                  onClick: () => setConfirmArchive(true),
+                },
+              ]
+            : undefined
+        }
+        deleteRecord={mode === "edit" && canDelete ? remove : undefined}
+        notice={
+          actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : undefined
+        }
+        badges={badges}
+        applyValues={applyValues}
+      />
+      {addressDialog && (
+        <AddressDialog
+          open
+          row={addressDialog.row}
+          usedAddressTypeIds={addressDialog.usedTypeIds}
+          readOnly={readOnly}
+          onClose={() => setAddressDialog(null)}
+          onSave={(row) =>
+            apply((values) => ({
+              ...values,
+              addresses: values.addresses.some((a) => a.key === row.key) ? values.addresses.map((a) => (a.key === row.key ? row : a)) : [...values.addresses, row],
+            }))
+          }
+        />
+      )}
+      {contactDialog && (
+        <ContactPersonDialog
+          open
+          row={contactDialog.row}
+          readOnly={readOnly}
+          onClose={() => setContactDialog(null)}
+          onSave={(row) =>
+            apply((values) => ({
+              ...values,
+              contactPersons: values.contactPersons.some((c) => c.key === row.key) ? values.contactPersons.map((c) => (c.key === row.key ? row : c)) : [...values.contactPersons, row],
+            }))
+          }
+        />
+      )}
+      <ConfirmDialog
+        open={confirmArchive}
+        onOpenChange={(next) => {
+          if (!next) setConfirmArchive(false);
+        }}
+        title={t(archived ? "MasterData:UnarchiveRelation" : "MasterData:ArchiveRelation")}
+        description={t(archived ? "MasterData:UnarchiveRelationQuestion" : "MasterData:ArchiveRelationQuestion").replace("{0}", detail.data?.name ?? "")}
+        confirmLabel={t(archived ? "MasterData:Unarchive" : "MasterData:Archive")}
+        onConfirm={toggleArchive}
+      />
+    </>
+  );
+}

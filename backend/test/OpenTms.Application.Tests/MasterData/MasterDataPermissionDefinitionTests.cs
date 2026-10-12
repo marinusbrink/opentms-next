@@ -18,7 +18,9 @@ public class MasterDataPermissionDefinitionTests
     private static readonly string[] Entities =
     [
         "Currencies", "Countries", "AddressTypes", "RelationCategories", "TransportCharacteristics",
-        "Temperatures", "Products", "TransportUnits", "VehicleTypes", "GeographicalRegions"
+        "Temperatures", "Products", "TransportUnits", "VehicleTypes", "GeographicalRegions",
+        /* Run 2 (design 43). */
+        "Relations", "Drivers"
     ];
 
     [Fact]
@@ -28,9 +30,9 @@ public class MasterDataPermissionDefinitionTests
     }
 
     [Fact]
-    public void All_lists_the_ten_entities_with_view_create_update_and_delete_names()
+    public void All_lists_the_twelve_entities_with_view_create_update_and_delete_names()
     {
-        MasterDataPermissions.All.Length.ShouldBe(10);
+        MasterDataPermissions.All.Length.ShouldBe(12);
         MasterDataPermissions.All.Select(p => p.Entity).ShouldBe(Entities);
 
         foreach (var (entity, view, create, update, delete) in MasterDataPermissions.All)
@@ -58,14 +60,20 @@ public class MasterDataPermissionDefinitionTests
         MasterDataPermissions.TransportUnits.Delete.ShouldBe("MasterData.TransportUnits.Delete");
         MasterDataPermissions.VehicleTypes.Create.ShouldBe("MasterData.VehicleTypes.Create");
         MasterDataPermissions.GeographicalRegions.Default.ShouldBe("MasterData.GeographicalRegions");
+        MasterDataPermissions.Relations.Default.ShouldBe("MasterData.Relations");
+        MasterDataPermissions.Drivers.Delete.ShouldBe("MasterData.Drivers.Delete");
+        MasterDataPermissions.Drivers.Anonymise.ShouldBe("MasterData.Drivers.Anonymise");
     }
 
     [Fact]
-    public void The_forty_permission_strings_are_unique()
+    public void The_forty_nine_permission_strings_are_unique()
     {
-        var all = MasterDataPermissions.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete }).ToList();
+        /* 12 entities x 4 plus the Anonymise child of Drivers (design 43). */
+        var all = MasterDataPermissions.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete })
+            .Append(MasterDataPermissions.Drivers.Anonymise)
+            .ToList();
 
-        all.Count.ShouldBe(40);
-        new HashSet<string>(all).Count.ShouldBe(40);
+        all.Count.ShouldBe(49);
+        new HashSet<string>(all).Count.ShouldBe(49);
     }
 }

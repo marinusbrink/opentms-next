@@ -99,7 +99,12 @@ position or device data lives here (the device binding of a driver is the Integr
 **Cross-module references** (ids without constraint, validated through the owner's published surface):
 `Driver.UserId` → ABP identity user (Platform), `RelationOrganizationUnit.OrganizationUnitId` → ABP
 organisation unit (Platform). Both are host-managed tables outside the `masterdata` schema, so no
-foreign key (module rule 1). In-module references are real foreign keys.
+foreign key (module rule 1). In-module references are real foreign keys. Users are validated and
+searched through ABP's `IIdentityUserLookupAppService` (its `AbpIdentity.UserLookup` permission is
+needed next to `Drivers.Update` to link an account); organisation units through ABP's
+`IOrganizationUnitRepository` (a tenant-filtered framework repository; the open-source Identity module
+publishes no lookup service for them). Both are framework packages (`Volo.Abp.Identity.*`), not another
+OpenTms module, so module rule 2 is not touched.
 
 ### Relation
 
@@ -170,18 +175,21 @@ agent call; a synchronous call into Master Data that the calling module's design
 
 ```
 RelationMatchRequest { Code?, VatNumber?, ChamberOfCommerceNumber?, Email?, Name?, PostalCode?, CountryId?, Roles? }
+                     (Email is accepted for the contact-person rule of a later run; no rule of this run reads it)
 RelationMatchResult  { Matches: [{ RelationId, Name, Code, Kind: Exact | NameAndPostalCode | NameOnly, Score 0–100 }] }
 ```
 
 Order of evaluation, first non-empty result wins: exact code; exact VAT number; exact chamber-of-
-commerce number; normalised name **and** normalised postcode (any address) in the country; normalised
-name alone, at most ten candidates ordered by trigram similarity. Archived relations are excluded;
+commerce number; normalised name (contained in the search key) **and** normalised postcode (any address) in the country; normalised
+name alone, at most ten candidates whose search key *contains* the normalised name, shortest search key
+first (the closest name; a score of 40 to 60 tells the caller how much of the key the name covers).
+Archived relations are excluded;
 `Roles` narrows to relations carrying one of the roles. The matcher never creates anything: an import
 either uses a match or hands the party to the intake flow as a *proposal* (design of the Orders run).
 
 **Search index.** `SearchKey` gets a B-tree index for prefix search and a **trigram GIN index**
-(`pg_trgm`) for contains and similarity, because 20,000 relations with "contains" on name is the
-hottest lookup. The migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` in every database
+(`pg_trgm`) for contains, because 20,000 relations with "contains" on name is the hottest lookup
+(the index serves `LIKE '%…%'`; no similarity operator is used, so no extra EF package is needed). The migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` in every database
 (Cloud SQL supports it); see Assumptions.
 
 ### Feature flag and permissions
@@ -220,14 +228,14 @@ bulk delete). OpenAPI and the typed client are regenerated.
 | Service | Route root | Extra operations |
 |---|---|---|
 | `RelationAppService` | `/api/master-data/relation` | `GET /lookup?term=&take=&roles=` (server search over `SearchKey`, pages of 25 for `EntityLookup`: `skip`, `take`), `GET /{id}/addresses`, `POST /match` (`RelationMatchRequest` → `RelationMatchResult`), `POST /{id}/archive`, `POST /{id}/unarchive` |
-| `DriverAppService` | `/api/master-data/driver` | `GET /lookup?term=&take=&employerRelationId=`, `POST /{id}/archive`, `POST /{id}/unarchive`, `POST /{id}/anonymise` (GDPR art. 17, `Drivers.Anonymise`) |
+| `DriverAppService` | `/api/master-data/driver` | `GET /lookup?term=&take=&employerRelationId=`, `GET /user-lookup-page?term=&skip=&take=` (the tenant's users for the account picker, pages of 25, `Drivers.Update`), `POST /{id}/archive`, `POST /{id}/unarchive`, `POST /{id}/anonymise` (GDPR art. 17, `Drivers.Anonymise`) |
 
 Request and DTO shapes:
 
 - `RelationListRequestDto`: `roles?` (flags), `includeArchived` (default false), `categoryId?`,
   `organizationUnitId?`; `wildcardSearch` over `SearchKey` (name, code), VAT number, chamber-of-commerce
   number, city of any address. `sortBy` whitelist: `name`, `code`, `city` (the visiting address),
-  `vatNumber`, `isArchived`.
+  `vatNumber`, `chamberOfCommerceNumber`, `phone`, `email`, `isArchived`.
 - `RelationRowDto`: `id, code, name, roles, isArchived, vatNumber, chamberOfCommerceNumber, phone,
   email, city, countryCode` (the visiting address by kind, else the first), `categoryNames`.
 - `RelationDto`: the fields above plus `description, preferredCulture, website, mobile`, `addresses[]`
@@ -275,13 +283,15 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
 1. **General**: sections *Relation* (Code, Name, Roles as a checkbox group, Archived), *Contact*
    (Phone, Mobile, E-mail, Website, Preferred language `Select`), *Legal* (VAT number, Chamber of
    commerce), *Classification* (Categories `MultiSelect`, Regions `MultiSelect`, Organisation units
-   `TreeSelect`), Description.
+   `MultiSelect` — DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
+   single-valued; a multi-valued tree picker is a library gap for the component map), Description.
 2. **Addresses**: `LinesGrid` (type, street, house number, postal code, city, country) with Add address
-   opening `AddressDialog` (`EntityDialog size="sm"`, editor variant, on top): the full address form
-   with Country `ReferenceCombobox`, Address type `Select`, Time zone `ReferenceCombobox` prefilled
-   from the country. One address per type: the type picker hides types already used.
+   opening `AddressDialog` (`EntityDialog size="md"`, editor variant, on top; eleven fields in two
+   columns, above the `sm` tier of UI-DLG-003): the full address form with Country `ReferenceCombobox`,
+   Address type `Select`, Time zone `ReferenceCombobox` prefilled from the country (and following a
+   changed country while the user has not chosen a zone). One address per type: the type picker hides types already used.
 3. **Contact persons**: `LinesGrid` (name, role, e-mail, phone) with Add contact person opening
-   `ContactPersonDialog` (`sm`).
+   `ContactPersonDialog` (`md`, nine fields in two columns).
 4. **Bank accounts**: `LinesGrid` edited inline (IBAN, BIC, bank, holder, default) as the ranges of
    design 41; IBAN checked on submit.
 5. Record identification.
@@ -321,7 +331,7 @@ component map's §4 rows for GAP-01 and GAP-03 are closed by these decisions (ca
 | Migration incl. `pg_trgm` and every index | **Critical** | PostgreSQL migration test as run 1 |
 | Uniqueness: code, VAT, CoC, driver code, user, IBAN per relation, address per type; the own-company and default-account partial indexes | **Critical** | PostgreSQL index-violation tests through the repository, friendly 409 through the service |
 | Personal data: anonymise leaves no name, contact or qualification; the record stays referable by id; art. 15 export selector returns a driver and contact persons by e-mail | **Critical** | service tests |
-| Matcher: order of rules, normalisation (postcode per country, diacritics), archived excluded, role filter, at most ten name candidates by similarity | **High** | PostgreSQL (trigram) tests, table-driven |
+| Matcher: order of rules, normalisation (postcode per country, diacritics), archived excluded, role filter, at most ten name candidates, shortest first | **High** | PostgreSQL (trigram) tests, table-driven |
 | CRUD, children replace semantics, role rules (at least one, employer role), IBAN and VAT shape, time-zone default from country | **High** | SQLite service tests |
 | Volume ×5: 100,000 relations with 150,000 addresses: list, lookup by name fragment, matcher, driver list | **High** | PostgreSQL volume test with cold and warm runs, index use |
 | Frontend: two lists, the relation editor with its three child dialogs, the driver editor, `EntityLookup`, `CheckboxGroup` | **Medium** | vitest |
@@ -342,7 +352,7 @@ relations and drivers from OpenTMS need a mapping, not a copy.
   index is the largest part, about 10 MB); 1,000 tenants mostly far smaller. No jobs, no external calls,
   no egress. Min instances unchanged; per-tenant margin unaffected.
 - Budgets: interactive reads (list, lookup, matcher) p95 < 300 ms; the lookup is index-only on
-  `SearchKey`; the matcher is three index probes plus one similarity scan with a limit. Mutations
+  `SearchKey`; the matcher is three index probes plus one trigram-indexed contains scan with a limit. Mutations
   p95 < 500 ms; the largest write is a relation with ten addresses, twenty contacts and three accounts in
   one transaction.
 
@@ -385,8 +395,8 @@ relations and drivers from OpenTMS need a mapping, not a copy.
   (50 addresses, 100 contact persons, 10 bank accounts, 20 qualifications per record), lookup pages
   bounded at 25, matcher candidates at 10.
 - **Attack surface:** two conventional controllers behind authentication, permissions and the feature;
-  the matcher is a read; no anonymous endpoint, no upload, no raw SQL (the trigram similarity goes
-  through the Npgsql `EF.Functions` translations), no outbound call.
+  the matcher is a read; no anonymous endpoint, no upload, no raw SQL (the contains query is a plain LINQ
+  `Contains`, which Npgsql translates to `LIKE` and the trigram index serves), no outbound call.
 - **Tenant isolation:** every entity `IMultiTenant`; no filter bypass anywhere.
 - **Logging:** ids and counts only; never names, e-mail addresses, IBANs or phone numbers.
 - **Personal data (GDPR):** `RelationContactPerson` and `Driver` are personal data. **Art. 15:** the

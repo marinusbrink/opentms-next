@@ -2,11 +2,13 @@ import {
   BarChart3,
   Boxes,
   BookOpen,
+  Building2,
   CalendarRange,
   Coins,
   Database,
   Flag,
   History,
+  IdCard,
   LayoutDashboard,
   ListTree,
   MapPin,
@@ -113,13 +115,16 @@ export const APPS: readonly AppDefinition[] = [
     icon: Database,
     tileClass: "bg-slate-600",
     /* The ten reference lists of the first run (docs/designs/41-master-data-first-run.md), grouped
-     * as the old menu was. Views, not modules: every one reads the MasterData domain. */
+     * as the old menu was, plus Relations and Drivers of the second run (design 43; both behind the
+     * MasterData.Relations feature, which the views check). Views, not modules: every one reads the
+     * MasterData domain. The Relations list owns the group's own path. */
     views: [
       {
         nameKey: "MasterData:Nav.Relations",
         path: "/master-data/relations",
         icon: Users,
         children: [
+          { nameKey: "MasterData:Relations", path: "/master-data/relations", icon: Building2 },
           { nameKey: "MasterData:AddressTypes", path: "/master-data/address-types", icon: MapPin },
           { nameKey: "MasterData:RelationCategories", path: "/master-data/relation-categories", icon: Tags },
         ],
@@ -139,6 +144,7 @@ export const APPS: readonly AppDefinition[] = [
         path: "/master-data/fleet",
         icon: Truck,
         children: [
+          { nameKey: "MasterData:Drivers", path: "/master-data/drivers", icon: IdCard },
           { nameKey: "MasterData:VehicleTypes", path: "/master-data/vehicle-types", icon: Truck },
           { nameKey: "MasterData:TransportCharacteristics", path: "/master-data/transport-characteristics", icon: ListTree },
         ],

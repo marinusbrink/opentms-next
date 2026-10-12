@@ -39,7 +39,7 @@ public sealed class TestFeatureValueProvider : FeatureValueProvider, ITransientD
 
     public override Task<string?> GetOrNullAsync(FeatureDefinition feature)
     {
-        if (feature.Name == MasterDataFeatures.FirstRun)
+        if (feature.Name is MasterDataFeatures.FirstRun or MasterDataFeatures.Relations)
         {
             return Task.FromResult<string?>(FirstRunOverride.Value ?? "true");
         }

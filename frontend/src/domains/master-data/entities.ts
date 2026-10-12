@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
+import type { EntityLookupPage, EntityLookupQuery } from "@/components/ui/entity-lookup";
 import { apiClient } from "@/lib/api/client";
 import { createMasterDataHooks, masterDataQueryKey, type LookupItem, type Schemas } from "@/domains/master-data/shared";
 
@@ -145,6 +146,202 @@ export function useRegionMatches(countryId: string | undefined, postalCode: stri
       });
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+/* ── Run 2 (design 43): Relation and Driver ─────────────────────────────────────────────────────── */
+
+export type RelationRoles = Schemas["OpenTms.MasterData.Relations.RelationRoles"];
+export type ContactPersonRole = Schemas["OpenTms.MasterData.Relations.ContactPersonRole"];
+export type RelationRow = Schemas["OpenTms.MasterData.Relations.RelationRowDto"];
+export type RelationDto = Schemas["OpenTms.MasterData.Relations.RelationDto"];
+export type RelationCreateDto = Schemas["OpenTms.MasterData.Relations.RelationCreateDto"];
+export type RelationUpdateDto = Schemas["OpenTms.MasterData.Relations.RelationUpdateDto"];
+export type RelationAddressDto = Schemas["OpenTms.MasterData.Relations.RelationAddressDto"];
+export type RelationContactPersonDto = Schemas["OpenTms.MasterData.Relations.RelationContactPersonDto"];
+export type RelationBankAccountDto = Schemas["OpenTms.MasterData.Relations.RelationBankAccountDto"];
+export type RelationLookupDto = Schemas["OpenTms.MasterData.Relations.RelationLookupDto"];
+export type RelationMatchRequestDto = Schemas["OpenTms.MasterData.Relations.RelationMatchRequestDto"];
+export type RelationMatchResultDto = Schemas["OpenTms.MasterData.Relations.RelationMatchResultDto"];
+/** The relation list filters (design 43 API contract); `roles` is the flags value. */
+export type RelationListExtra = { includeArchived?: boolean; roles?: number; categoryId?: string; organizationUnitId?: string };
+
+export const relations = createMasterDataHooks<RelationRow, RelationDto, RelationCreateDto, RelationUpdateDto, RelationListExtra>(
+  "relations",
+  "/api/master-data/relation",
+);
+
+/** The flags of `RelationRoles` as the UI lists them; a relation carries one or more. */
+export const RELATION_ROLES: { value: number; key: string }[] = [
+  { value: 1, key: "MasterData:Role.Customer" },
+  { value: 2, key: "MasterData:Role.Carrier" },
+  { value: 4, key: "MasterData:Role.Creditor" },
+  { value: 8, key: "MasterData:Role.Depot" },
+  { value: 16, key: "MasterData:Role.OwnCompany" },
+];
+/** Carrier | OwnCompany: the roles a driver's employer must carry (design 43). */
+export const EMPLOYER_ROLES = 2 | 16;
+
+/** The generated enum names the single flags; a combination is the same flags enum to the server. */
+export function asRoles(flags: number | undefined): RelationRoles | undefined {
+  return flags == null || flags === 0 ? undefined : (flags as RelationRoles);
+}
+export function rolesToList(flags: number | undefined): string[] {
+  return RELATION_ROLES.filter((r) => ((flags ?? 0) & r.value) === r.value).map((r) => String(r.value));
+}
+export function listToRoles(list: string[]): number {
+  return list.reduce((sum, v) => sum | Number(v), 0);
+}
+export function relationRoleKeys(flags: number | undefined): string[] {
+  return RELATION_ROLES.filter((r) => ((flags ?? 0) & r.value) === r.value).map((r) => r.key);
+}
+
+export const CONTACT_PERSON_ROLES: { value: ContactPersonRole; key: string }[] = [
+  { value: 0, key: "MasterData:ContactPersonRole.Other" },
+  { value: 1, key: "MasterData:ContactPersonRole.Planning" },
+  { value: 2, key: "MasterData:ContactPersonRole.Invoicing" },
+  { value: 3, key: "MasterData:ContactPersonRole.Sales" },
+  { value: 4, key: "MasterData:ContactPersonRole.Management" },
+];
+export function contactPersonRoleKey(role: ContactPersonRole | undefined): string {
+  return CONTACT_PERSON_ROLES.find((r) => r.value === role)?.key ?? "MasterData:ContactPersonRole.Other";
+}
+
+/** The option an EntityLookup over relations holds (UI-LOOK-003: the name closed; code and place in the list). */
+export interface RelationOption {
+  id: string;
+  code: string;
+  name: string;
+  city: string | null;
+  countryCode: string | null;
+  roles: number;
+}
+export function toRelationOption(dto: RelationLookupDto): RelationOption {
+  return { id: dto.id ?? "", code: dto.code ?? "", name: dto.name ?? "", city: dto.city ?? null, countryCode: dto.countryCode ?? null, roles: dto.roles ?? 0 };
+}
+/** Server-searched pages for EntityLookup (UI-LOOK-002), optionally narrowed to relations carrying one of `roles`. */
+export function relationLookupPage(roles?: number): (q: EntityLookupQuery) => Promise<EntityLookupPage<RelationOption>> {
+  return async ({ term, skip, take }) => {
+    const { data, error } = await apiClient.GET("/api/master-data/relation/lookup-page", {
+      params: { query: { term: term || undefined, skip, take, roles: asRoles(roles) } },
+    });
+    if (error) throw error;
+    return { items: (data?.items ?? []).map(toRelationOption), totalCount: data?.totalCount ?? 0 };
+  };
+}
+
+export function useRelationAddresses(id: string | undefined) {
+  return useQuery({
+    queryKey: masterDataQueryKey("relations", "addresses", id),
+    enabled: id != null,
+    queryFn: async (): Promise<RelationAddressDto[]> => {
+      const { data, error } = await apiClient.GET("/api/master-data/relation/{id}/addresses", { params: { path: { id: id! } } });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+/** The matcher (design 43 §3.15): finds existing relations for a party; it never creates one. */
+export function useMatchRelations() {
+  return useMutation({
+    mutationFn: async (request: RelationMatchRequestDto): Promise<RelationMatchResultDto> => {
+      const { data, error } = await apiClient.POST("/api/master-data/relation/match", { body: request });
+      if (error) throw error;
+      return data as RelationMatchResultDto;
+    },
+  });
+}
+
+export function useArchiveRelation() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST("/api/master-data/relation/{id}/archive", { params: { path: { id } } });
+      if (error) throw error;
+    },
+  });
+}
+
+export function useUnarchiveRelation() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST("/api/master-data/relation/{id}/unarchive", { params: { path: { id } } });
+      if (error) throw error;
+    },
+  });
+}
+
+export type DriverQualificationKind = Schemas["OpenTms.MasterData.Drivers.DriverQualificationKind"];
+export type DriverRow = Schemas["OpenTms.MasterData.Drivers.DriverRowDto"];
+export type DriverDto = Schemas["OpenTms.MasterData.Drivers.DriverDto"];
+export type DriverCreateDto = Schemas["OpenTms.MasterData.Drivers.DriverCreateDto"];
+export type DriverUpdateDto = Schemas["OpenTms.MasterData.Drivers.DriverUpdateDto"];
+export type DriverQualificationDto = Schemas["OpenTms.MasterData.Drivers.DriverQualificationDto"];
+export type DriverUserLookupDto = Schemas["OpenTms.MasterData.Drivers.DriverUserLookupDto"];
+export type DriverListExtra = { includeArchived?: boolean; employerRelationId?: string };
+
+export const drivers = createMasterDataHooks<DriverRow, DriverDto, DriverCreateDto, DriverUpdateDto, DriverListExtra>(
+  "drivers",
+  "/api/master-data/driver",
+);
+
+export const QUALIFICATION_KINDS: { value: DriverQualificationKind; key: string }[] = [
+  { value: 1, key: "MasterData:QualificationKind.DrivingLicenceB" },
+  { value: 2, key: "MasterData:QualificationKind.DrivingLicenceC" },
+  { value: 3, key: "MasterData:QualificationKind.DrivingLicenceCE" },
+  { value: 4, key: "MasterData:QualificationKind.Code95" },
+  { value: 5, key: "MasterData:QualificationKind.AdrCertificate" },
+  { value: 6, key: "MasterData:QualificationKind.TachographCard" },
+  { value: 7, key: "MasterData:QualificationKind.ForkliftLicence" },
+  { value: 0, key: "MasterData:QualificationKind.Other" },
+];
+export function qualificationKindKey(kind: DriverQualificationKind | undefined): string {
+  return QUALIFICATION_KINDS.find((k) => k.value === kind)?.key ?? "MasterData:QualificationKind.Other";
+}
+
+/** The option the user-account lookup holds: an ABP identity user of the tenant (Platform published surface). */
+export interface UserOption {
+  id: string;
+  name: string;
+  userName: string;
+  email: string | null;
+}
+export function toUserOption(dto: DriverUserLookupDto): UserOption {
+  return { id: dto.id ?? "", name: dto.name ?? "", userName: dto.userName ?? "", email: dto.email ?? null };
+}
+export async function userLookupPage({ term, skip, take }: EntityLookupQuery): Promise<EntityLookupPage<UserOption>> {
+  const { data, error } = await apiClient.GET("/api/master-data/driver/user-lookup-page", {
+    params: { query: { term: term || undefined, skip, take } },
+  });
+  if (error) throw error;
+  return { items: (data?.items ?? []).map(toUserOption), totalCount: data?.totalCount ?? 0 };
+}
+
+export function useArchiveDriver() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST("/api/master-data/driver/{id}/archive", { params: { path: { id } } });
+      if (error) throw error;
+    },
+  });
+}
+
+export function useUnarchiveDriver() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST("/api/master-data/driver/{id}/unarchive", { params: { path: { id } } });
+      if (error) throw error;
+    },
+  });
+}
+
+/** GDPR art. 17 (design 43): replaces the person fields, clears contact details, user link and qualifications; idempotent. */
+export function useAnonymiseDriver() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST("/api/master-data/driver/{id}/anonymise", { params: { path: { id } } });
+      if (error) throw error;
     },
   });
 }
