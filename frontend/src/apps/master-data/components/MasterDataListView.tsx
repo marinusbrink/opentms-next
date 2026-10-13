@@ -34,6 +34,8 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   entityKey: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
+  /** The per-tenant feature the view sits behind (constitution rule 4); defaults to the first-run flag. */
+  feature?: string;
   gridId: string;
   columnDefs: ColDef<TRow>[];
   fetchRows: (request: GridRequest) => Promise<GridResponse<TRow>>;
@@ -42,8 +44,8 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   bulkDelete: { mutateAsync: (selection: GridSelectionDto) => Promise<BulkDeleteResult> };
   /** The toolbar filters (UI-GRID-005). */
   filters?: ReactNode;
-  /** Extra row actions between Edit and Delete (UI-GRID-008 order). */
-  extraRowActions?: (row: TRow) => GridRowAction[];
+  /** Extra row actions between Edit and Delete (UI-GRID-008 order); `refresh` reloads the grid after the action. */
+  extraRowActions?: (row: TRow, refresh: () => void) => GridRowAction[];
   /** Renders the entity's editor for the open state; `onSaved` refreshes the grid. */
   renderEditor: (state: EditorState, onClose: () => void, onSaved: () => void) => ReactNode;
 }
@@ -54,6 +56,7 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
 export function MasterDataListView<TRow extends { id?: string }>({
   entityKey,
   permission,
+  feature,
   gridId,
   columnDefs,
   fetchRows,
@@ -65,7 +68,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
   renderEditor,
 }: MasterDataListViewProps<TRow>) {
   const { t } = useL();
-  const featureEnabled = useIsFeatureEnabled(MASTER_DATA_FEATURE);
+  const featureEnabled = useIsFeatureEnabled(feature ?? MASTER_DATA_FEATURE);
   const canView = useIsGranted(permission);
   const canCreate = useIsGranted(`${permission}.Create`);
   const canUpdate = useIsGranted(`${permission}.Update`);
@@ -139,7 +142,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
       const single = rows.length === 1 ? rows[0] : undefined;
       return [
         ...(canUpdate && single ? [{ id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => openRecord(single) }] : []),
-        ...(single && extraRowActions ? extraRowActions(single) : []),
+        ...(single && extraRowActions ? extraRowActions(single, invalidateGrid) : []),
         ...(canDelete
           ? [
               {
@@ -163,7 +166,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
           : []),
       ];
     },
-    [canDelete, canUpdate, extraRowActions, openRecord],
+    [canDelete, canUpdate, extraRowActions, invalidateGrid, openRecord],
   );
 
   const deleteSingle = async () => {

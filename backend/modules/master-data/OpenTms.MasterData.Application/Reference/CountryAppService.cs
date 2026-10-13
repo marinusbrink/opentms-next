@@ -54,6 +54,36 @@ public class CountryAppService
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);
 
+    /// <summary>The one place that changes the tenant default: clears the old, marks the new, one transaction (the currency pattern).</summary>
+    [Authorize(MasterDataPermissions.Countries.Update)]
+    public async Task SetDefaultAsync(Guid id)
+    {
+        var country = await Repository.GetAsync(id);
+        if (country.IsDefault)
+        {
+            return;
+        }
+
+        foreach (var previous in await Repository.GetListAsync(c => c.IsDefault))
+        {
+            previous.ClearDefault();
+            await Repository.UpdateAsync(previous);
+        }
+
+        /* The partial unique index checks every statement: the old default must be cleared in the
+         * database before the new one is marked, still inside the same transaction. */
+        await FlushAsync();
+        country.MarkDefault();
+        await Repository.UpdateAsync(country, autoSave: true);
+    }
+
+    [Authorize(MasterDataPermissions.Countries.Default)]
+    public async Task<CountryDto?> GetDefaultAsync()
+    {
+        var country = await Repository.FirstOrDefaultAsync(c => c.IsDefault);
+        return country == null ? null : await ToDtoAsync(country);
+    }
+
     protected override IQueryable<Country> ApplySearch(IQueryable<Country> query, string term)
     {
         var language = UiLanguage;
@@ -76,6 +106,7 @@ public class CountryAppService
             "primarytimezoneid" => Order(query, c => c.PrimaryTimeZoneId, descending),
             "description" => Order(query, c => c.Description, descending),
             "defaultcurrencycode" => Order(query, c => c.DefaultCurrencyId, descending),
+            "isdefault" => Order(query, c => c.IsDefault, descending),
             _ => throw UnknownSortColumn(sortBy)
         };
     }
@@ -93,7 +124,8 @@ public class CountryAppService
             Description = c.Description,
             DefaultCurrencyId = c.DefaultCurrencyId,
             DefaultCurrencyCode = c.DefaultCurrencyId == null ? null : codes.GetValueOrDefault(c.DefaultCurrencyId.Value),
-            PrimaryTimeZoneId = c.PrimaryTimeZoneId
+            PrimaryTimeZoneId = c.PrimaryTimeZoneId,
+            IsDefault = c.IsDefault
         }).ToList();
     }
 
@@ -121,7 +153,8 @@ public class CountryAppService
             Names = ToNamesDto(c.Name),
             DefaultCurrencyId = c.DefaultCurrencyId,
             DefaultCurrencyCode = c.DefaultCurrencyId == null ? null : codes.GetValueOrDefault(c.DefaultCurrencyId.Value),
-            PrimaryTimeZoneId = c.PrimaryTimeZoneId
+            PrimaryTimeZoneId = c.PrimaryTimeZoneId,
+            IsDefault = c.IsDefault
         };
         MapAudit(c, dto);
         return dto;
@@ -177,6 +210,11 @@ public class CountryAppService
 
     protected override async Task<string?> GetDeleteBlockerAsync(Country country)
     {
+        if (country.IsDefault)
+        {
+            return L["MasterData:DefaultCountryCannotBeDeleted"];
+        }
+
         if (await _ranges.AnyAsync(r => r.CountryId == country.Id))
         {
             return L["MasterData:InUseByGeographicalRegions"];

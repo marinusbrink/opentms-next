@@ -426,6 +426,13 @@
     "Maintenance:Instance.NoHealthYet": "No health result yet",
     "Maintenance:Instance.Title": "Instance",
     "Maintenance:Instance.LastHealth": "Last health result",
-    "Duration:Second": "s"
+    "Duration:Second": "s",
+    "AddNew": "Add new…",
+    "Loading": "Loading",
+    "MoreSelected": "+{0}",
+    "NoItemsFound": "No items found",
+    "PickDate": "Pick a date",
+    "Search": "Search",
+    "TypeToSearch": "Type to search"
   }
 }

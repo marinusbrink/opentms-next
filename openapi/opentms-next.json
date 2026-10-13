@@ -28,6 +28,444 @@
         },
         "type": "object"
       },
+      "OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "employerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "includeArchived": {
+            "type": "boolean"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridSelectionDto"
+          }
+        },
+        "required": [
+          "selection"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "employerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "initials": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "lastName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "middleName": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "maxLength": 10,
+            "nullable": true,
+            "type": "string"
+          },
+          "qualifications": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverQualificationDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "firstName",
+          "lastName"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
+          "creationTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "creatorId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "employerName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "employerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "initials": {
+            "nullable": true,
+            "type": "string"
+          },
+          "isAnonymised": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "lastModificationTime": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastModifierId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "middleName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "nullable": true,
+            "type": "string"
+          },
+          "qualifications": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverQualificationDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverQualificationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverQualificationKind"
+          },
+          "number": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "validFrom": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "validUntil": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverQualificationKind": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.MasterData.Drivers.DriverRowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "employerName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "employerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hasUser": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isAnonymised": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "lastName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "nullable": true,
+            "type": "string"
+          },
+          "qualificationsExpiring": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "employerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "initials": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "lastName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "middleName": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "maxLength": 10,
+            "nullable": true,
+            "type": "string"
+          },
+          "qualifications": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverQualificationDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "userId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "concurrencyStamp",
+          "firstName",
+          "lastName"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverUserLookupDto": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "userName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Drivers.DriverUserLookupPageDto": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUserLookupDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.MasterData.Fleet.TransportCharacteristicsCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -724,6 +1162,9 @@
             "format": "uuid",
             "type": "string"
           },
+          "isDefault": {
+            "type": "boolean"
+          },
           "isoAlpha2": {
             "nullable": true,
             "type": "string"
@@ -784,6 +1225,9 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
           },
           "isoAlpha2": {
             "nullable": true,
@@ -1279,6 +1723,177 @@
         ],
         "type": "object"
       },
+      "OpenTms.MasterData.Relations.ContactPersonRole": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.MasterData.Relations.RelationAddressDto": {
+        "additionalProperties": false,
+        "properties": {
+          "addressLine2": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "addressTypeId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "addressTypeName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "countryCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "countryId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "houseNumber": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "houseNumberSuffix": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "latitude": {
+            "format": "double",
+            "maximum": 90,
+            "minimum": -90,
+            "nullable": true,
+            "type": "number"
+          },
+          "longitude": {
+            "format": "double",
+            "maximum": 180,
+            "minimum": -180,
+            "nullable": true,
+            "type": "number"
+          },
+          "postalCode": {
+            "maxLength": 16,
+            "minLength": 1,
+            "type": "string"
+          },
+          "street": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "timeZoneId": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "city",
+          "countryId",
+          "postalCode",
+          "street"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationBankAccountDto": {
+        "additionalProperties": false,
+        "properties": {
+          "accountHolder": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "bankName": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "bic": {
+            "maxLength": 11,
+            "nullable": true,
+            "type": "string"
+          },
+          "iban": {
+            "maxLength": 34,
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "iban"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationBlockReason": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "categoryId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "includeArchived": {
+            "type": "boolean"
+          },
+          "organizationUnitId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridSelectionDto"
+          }
+        },
+        "required": [
+          "selection"
+        ],
+        "type": "object"
+      },
       "OpenTms.MasterData.Relations.RelationCategoryCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -1376,6 +1991,661 @@
           }
         },
         "required": [
+          "concurrencyStamp",
+          "name"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationContactPersonDto": {
+        "additionalProperties": false,
+        "properties": {
+          "department": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "jobTitle": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "middleName": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.ContactPersonRole"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationCreateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "bankAccounts": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBankAccountDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
+          "categoryIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chamberOfCommerceNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "contactPersons": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationContactPersonDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "description": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "geographicalRegionIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
+            "type": "boolean"
+          },
+          "mobile": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "organizationUnitIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "phone": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "maxLength": 10,
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "vatNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "website": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationDto": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "bankAccounts": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBankAccountDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
+          "categoryIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chamberOfCommerceNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
+          "contactPersons": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationContactPersonDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "creationTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "creatorId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "geographicalRegionIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
+            "type": "boolean"
+          },
+          "lastModificationTime": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastModifierId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "mobile": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "organizationUnitIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "vatNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "website": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationLookupDto": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "countryCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationLookupPageDto": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationLookupDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationMatchDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchKind"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "relationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "score": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationMatchKind": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.MasterData.Relations.RelationMatchRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "chamberOfCommerceNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "countryId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "vatNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationMatchResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchDto"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationRoles": {
+        "enum": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.MasterData.Relations.RelationRowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
+          "categoryNames": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chamberOfCommerceNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "city": {
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "nullable": true,
+            "type": "string"
+          },
+          "countryCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
+            "type": "boolean"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "vatNumber": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "bankAccounts": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBankAccountDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "blockReason": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
+          },
+          "categoryIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "chamberOfCommerceNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string"
+          },
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "contactPersons": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationContactPersonDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "description": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          },
+          "fullName": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "geographicalRegionIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "isBlocked": {
+            "type": "boolean"
+          },
+          "mobile": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "organizationUnitIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "phone": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "preferredCulture": {
+            "maxLength": 10,
+            "nullable": true,
+            "type": "string"
+          },
+          "roles": {
+            "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "vatNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "website": {
+            "maxLength": 256,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
           "concurrencyStamp",
           "name"
         ],
@@ -4382,6 +5652,27 @@
         },
         "type": "object"
       },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Drivers.DriverRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
         "additionalProperties": false,
         "properties": {
@@ -4518,6 +5809,27 @@
           "rows": {
             "items": {
               "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationCategoryRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Relations.RelationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRowDto"
             },
             "nullable": true,
             "type": "array"
@@ -15854,6 +17166,155 @@
         ]
       }
     },
+    "/api/master-data/country/default": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Reference.CountryDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Reference.CountryDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Reference.CountryDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Country"
+        ]
+      }
+    },
     "/api/master-data/country/lookup": {
       "get": {
         "parameters": [
@@ -16384,6 +17845,152 @@
               }
             },
             "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Country"
+        ]
+      }
+    },
+    "/api/master-data/country/{id}/set-default": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
           },
           "400": {
             "content": {
@@ -17852,6 +19459,1826 @@
         },
         "tags": [
           "Currency"
+        ]
+      }
+    },
+    "/api/master-data/driver": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "IncludeArchived",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "EmployerRelationId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "StartRow",
+            "schema": {
+              "format": "int32",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "EndRow",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "WildcardSearch",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortDir",
+            "schema": {
+              "maxLength": 4,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Descending",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Drivers.DriverRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Drivers.DriverRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Drivers.DriverRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverCreateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/bulk-delete": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/lookup": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "take",
+            "schema": {
+              "default": 500,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/user-lookup-page": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "take",
+            "schema": {
+              "default": 25,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUserLookupPageDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUserLookupPageDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUserLookupPageDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUpdateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Drivers.DriverDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/{id}/anonymise": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/{id}/archive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
+        ]
+      }
+    },
+    "/api/master-data/driver/{id}/unarchive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Driver"
         ]
       }
     },
@@ -20428,6 +23855,402 @@
         ]
       }
     },
+    "/api/master-data/relation": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "Roles",
+            "schema": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+            }
+          },
+          {
+            "in": "query",
+            "name": "IncludeArchived",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "CategoryId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "OrganizationUnitId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "StartRow",
+            "schema": {
+              "format": "int32",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "EndRow",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "WildcardSearch",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortDir",
+            "schema": {
+              "maxLength": 4,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Descending",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Relations.RelationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Relations.RelationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Relations.RelationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationCreateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
     "/api/master-data/relation-category": {
       "get": {
         "parameters": [
@@ -21616,6 +25439,1643 @@
         },
         "tags": [
           "RelationCategory"
+        ]
+      }
+    },
+    "/api/master-data/relation/bulk-delete": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBulkDeleteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataBulkDeleteResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/lookup": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "take",
+            "schema": {
+              "default": 500,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/lookup-page": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "take",
+            "schema": {
+              "default": 25,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "roles",
+            "schema": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationLookupPageDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationLookupPageDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationLookupPageDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/match": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchRequestDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationMatchResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      },
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationUpdateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/{id}/addresses": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationAddressDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/{id}/archive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
+        ]
+      }
+    },
+    "/api/master-data/relation/{id}/unarchive": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Relation"
         ]
       }
     },
@@ -33742,6 +39202,9 @@
       "name": "Currency"
     },
     {
+      "name": "Driver"
+    },
+    {
       "name": "DynamicClaims"
     },
     {
@@ -33776,6 +39239,9 @@
     },
     {
       "name": "Profile"
+    },
+    {
+      "name": "Relation"
     },
     {
       "name": "RelationCategory"

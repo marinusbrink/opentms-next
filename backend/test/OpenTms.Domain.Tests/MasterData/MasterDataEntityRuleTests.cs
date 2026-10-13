@@ -266,6 +266,43 @@ public class MasterDataEntityRuleTests
         Should.Throw<ArgumentOutOfRangeException>(() => country.SetIsoNumeric(-1));
     }
 
+    [Fact]
+    public void Country_starts_without_the_default_and_mark_and_clear_toggle_it()
+    {
+        /* PO 2026-10-13: the tenant's one default country, mirroring the currency default of run 1. */
+        var country = new Country(Guid.NewGuid(), Tenant, "NL", "NLD", Name("Netherlands"));
+        country.IsDefault.ShouldBeFalse();
+
+        country.MarkDefault();
+        country.IsDefault.ShouldBeTrue();
+
+        country.MarkDefault();
+        country.IsDefault.ShouldBeTrue("marking twice is idempotent");
+
+        country.ClearDefault();
+        country.IsDefault.ShouldBeFalse();
+
+        country.ClearDefault();
+        country.IsDefault.ShouldBeFalse("clearing twice is idempotent");
+    }
+
+    [Fact]
+    public void Country_default_is_independent_of_its_currency_and_time_zone()
+    {
+        var country = new Country(Guid.NewGuid(), Tenant, "AQ", "ATA", Name("Antarctica"));
+
+        /* Unlike the currency default there is no active flag to guard: a country without currency or zone may be the default. */
+        country.MarkDefault();
+
+        country.IsDefault.ShouldBeTrue();
+        country.DefaultCurrencyId.ShouldBeNull();
+        country.PrimaryTimeZoneId.ShouldBeNull();
+        country.SetDefaultCurrency(null);
+        country.SetPrimaryTimeZone(null);
+        country.SetIsoCodes("aq", "ata");
+        country.IsDefault.ShouldBeTrue("changing the other attributes does not touch the default");
+    }
+
     // ── AddressType ───────────────────────────────────────────────────────────
 
     [Fact]

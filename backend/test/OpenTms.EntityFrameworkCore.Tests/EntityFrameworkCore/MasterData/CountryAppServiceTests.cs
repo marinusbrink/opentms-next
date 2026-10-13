@@ -1,21 +1,26 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTms.Features;
 using OpenTms.MasterData;
+using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Authorization;
 using Volo.Abp.Data;
 using Volo.Abp.Domain.Entities;
+using Volo.Abp.Features;
 using Volo.Abp.Validation;
 using Xunit;
 
 namespace OpenTms.EntityFrameworkCore.MasterData;
 
 /// <summary>
-/// CountryAppService on SQLite (design 41). Risk class: Critical for tenant isolation and the two
-/// unique ISO keys; High for the currency reference, time-zone validation, in-use and bulk delete.
+/// CountryAppService on SQLite (design 41; default country per PO 2026-10-13). Risk class: Critical for
+/// tenant isolation, the two unique ISO keys and the single default with its feature and permission gates;
+/// High for the currency reference, time-zone validation, the default rules, in-use and bulk delete.
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class CountryAppServiceTests : MasterDataAppServiceTestBase
@@ -247,6 +252,166 @@ public class CountryAppServiceTests : MasterDataAppServiceTestBase
         (await _service.BulkDeleteAsync(new MasterDataBulkDeleteRequestDto { Selection = Explicit(be.Id) })).DeletedCount.ShouldBe(0);
     }
 
+    // ── Default country (PO 2026-10-13, Critical for the single default and its gates, High for the rules) ──
+
+    [Fact]
+    public async Task SetDefault_moves_the_flag_from_the_previous_country_to_the_new_one_in_one_call()
+    {
+        using var _ = InTenantA();
+        var nl = await CreateAsync("NL", "NLD", "Netherlands");
+        var be = await CreateAsync("BE", "BEL", "Belgium");
+        await CreateAsync("DE", "DEU", "Germany");
+
+        nl.IsDefault.ShouldBeFalse("a new country is never the default");
+        (await _service.GetListAsync(List())).Rows.ShouldAllBe(r => !r.IsDefault);
+
+        await _service.SetDefaultAsync(nl.Id);
+        (await _service.GetAsync(nl.Id)).IsDefault.ShouldBeTrue();
+        (await _service.GetListAsync(List())).Rows.Count(r => r.IsDefault).ShouldBe(1);
+
+        await _service.SetDefaultAsync(be.Id);
+        var rows = (await _service.GetListAsync(List())).Rows;
+        rows.Count(r => r.IsDefault).ShouldBe(1);
+        rows.Single(r => r.IsDefault).Id.ShouldBe(be.Id);
+        (await _service.GetAsync(nl.Id)).IsDefault.ShouldBeFalse();
+        (await _service.GetAsync(be.Id)).IsDefault.ShouldBeTrue();
+
+        await Should.ThrowAsync<EntityNotFoundException>(() => _service.SetDefaultAsync(Guid.NewGuid()));
+        (await _service.GetListAsync(List())).Rows.Single(r => r.IsDefault).Id.ShouldBe(be.Id, "a failed call leaves the default alone");
+    }
+
+    [Fact]
+    public async Task SetDefault_on_the_current_default_is_a_no_op()
+    {
+        using var _ = InTenantA();
+        var nl = await CreateAsync("NL", "NLD", "Netherlands");
+        await CreateAsync("BE", "BEL", "Belgium");
+        await _service.SetDefaultAsync(nl.Id);
+        var before = await _service.GetAsync(nl.Id);
+
+        await _service.SetDefaultAsync(nl.Id);
+
+        var after = await _service.GetAsync(nl.Id);
+        after.IsDefault.ShouldBeTrue();
+        after.ConcurrencyStamp.ShouldBe(before.ConcurrencyStamp, "nothing is written when the country already is the default");
+        (await _service.GetListAsync(List())).Rows.Count(r => r.IsDefault).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task The_row_and_the_detail_carry_the_default_and_the_list_sorts_on_it()
+    {
+        using var _ = InTenantA();
+        using var culture = UiCulture("en");
+        await CreateAsync("NL", "NLD", "Netherlands");
+        var be = await CreateAsync("BE", "BEL", "Belgium");
+        await CreateAsync("DE", "DEU", "Germany");
+        await _service.SetDefaultAsync(be.Id);
+
+        var rows = (await _service.GetListAsync(List())).Rows;
+        rows.Single(r => r.IsoAlpha2 == "BE").IsDefault.ShouldBeTrue();
+        rows.Where(r => r.IsoAlpha2 != "BE").ShouldAllBe(r => !r.IsDefault);
+        (await _service.GetAsync(be.Id)).IsDefault.ShouldBeTrue();
+
+        (await _service.GetListAsync(List(sortBy: "isDefault", sortDir: "desc"))).Rows.First().IsoAlpha2.ShouldBe("BE");
+        (await _service.GetListAsync(List(sortBy: "isDefault", sortDir: "asc"))).Rows.Last().IsoAlpha2.ShouldBe("BE");
+        (await _service.GetListAsync(List(sortBy: "IsDefault"))).Rows.Count.ShouldBe(3, "the sort key is case-insensitive like the others");
+
+        /* The default is a command, never a writable field; an ordinary update leaves it alone. */
+        typeof(CountryCreateDto).GetProperty("IsDefault").ShouldBeNull();
+        typeof(CountryUpdateDto).GetProperty("IsDefault").ShouldBeNull();
+        var update = UpdateFrom(await _service.GetAsync(be.Id));
+        update.Description = "still the default";
+        (await _service.UpdateAsync(be.Id, update)).IsDefault.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetDefault_returns_the_default_country_or_null_while_none_is_set()
+    {
+        using var _ = InTenantA();
+        using var culture = UiCulture("nl");
+        (await _service.GetDefaultAsync()).ShouldBeNull("a tenant starts without a default country");
+
+        var nl = await CreateAsync("NL", "NLD", "Netherlands", "Nederland");
+        var be = await CreateAsync("BE", "BEL", "Belgium", "België");
+        (await _service.GetDefaultAsync()).ShouldBeNull("creating countries does not pick one");
+
+        await _service.SetDefaultAsync(nl.Id);
+        var current = await _service.GetDefaultAsync();
+        current.ShouldNotBeNull();
+        current!.Id.ShouldBe(nl.Id);
+        current.IsDefault.ShouldBeTrue();
+        current.Name.ShouldBe("Nederland");
+        current.IsoAlpha2.ShouldBe("NL");
+        current.ConcurrencyStamp.ShouldBe((await _service.GetAsync(nl.Id)).ConcurrencyStamp, "the same detail as GetAsync");
+
+        await _service.SetDefaultAsync(be.Id);
+        (await _service.GetDefaultAsync())!.Id.ShouldBe(be.Id);
+    }
+
+    [Fact]
+    public async Task The_default_country_cannot_be_deleted_until_another_takes_over()
+    {
+        using var _ = InTenantA();
+        var nl = await CreateAsync("NL", "NLD", "Netherlands");
+        var be = await CreateAsync("BE", "BEL", "Belgium");
+        var de = await CreateAsync("DE", "DEU", "Germany");
+        await _service.SetDefaultAsync(nl.Id);
+
+        using (UiCulture("en"))
+        {
+            var ex = await Should.ThrowAsync<BusinessException>(() => _service.DeleteAsync(nl.Id));
+            ex.Code.ShouldBe(MasterDataErrorCodes.InUse);
+            ex.Data["reason"].ShouldBe("The default country cannot be deleted. Make another country the default first.");
+        }
+
+        using (UiCulture("nl"))
+        {
+            var ex = await Should.ThrowAsync<BusinessException>(() => _service.DeleteAsync(nl.Id));
+            ex.Code.ShouldBe(MasterDataErrorCodes.InUse);
+            ex.Data["reason"].ShouldBe("Het standaardland kan niet worden verwijderd. Maak eerst een ander land de standaard.");
+
+            /* Bulk: the other country deletes, the default is skipped with the same localized reason. */
+            var bulk = await _service.BulkDeleteAsync(new MasterDataBulkDeleteRequestDto { Selection = Explicit(nl.Id, de.Id) });
+            bulk.DeletedCount.ShouldBe(1);
+            var skipped = bulk.SkippedRows.ShouldHaveSingleItem();
+            skipped.Id.ShouldBe(nl.Id);
+            skipped.Name.ShouldBe("NL");
+            skipped.Reason.ShouldBe("Het standaardland kan niet worden verwijderd. Maak eerst een ander land de standaard.");
+        }
+
+        (await _service.GetAsync(nl.Id)).IsDefault.ShouldBeTrue();
+        await Should.ThrowAsync<EntityNotFoundException>(() => _service.GetAsync(de.Id));
+
+        /* Once the default moved, the former default deletes like any other country. */
+        await _service.SetDefaultAsync(be.Id);
+        await _service.DeleteAsync(nl.Id);
+        await Should.ThrowAsync<EntityNotFoundException>(() => _service.GetAsync(nl.Id));
+        (await _service.GetDefaultAsync())!.Id.ShouldBe(be.Id);
+
+        /* A filter-based bulk delete skips the default as well. */
+        (await _service.BulkDeleteAsync(new MasterDataBulkDeleteRequestDto { Selection = FilterBased() })).DeletedCount.ShouldBe(0);
+        (await _service.GetAsync(be.Id)).IsDefault.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task With_the_flag_off_SetDefault_and_GetDefault_are_refused_before_touching_data()
+    {
+        using var _ = InTenantA();
+        var nl = await CreateAsync("NL", "NLD", "Netherlands");
+
+        using (TestFeatureValueProvider.Override("false"))
+        {
+            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeFalse();
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.SetDefaultAsync(nl.Id));
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetDefaultAsync());
+        }
+
+        (await _service.GetAsync(nl.Id)).IsDefault.ShouldBeFalse("the refused call wrote nothing");
+        (await _service.GetDefaultAsync()).ShouldBeNull();
+        await _service.SetDefaultAsync(nl.Id);
+        (await _service.GetDefaultAsync())!.Id.ShouldBe(nl.Id);
+    }
+
     // ── Tenant isolation (Critical) ───────────────────────────────────────────
 
     [Fact]
@@ -274,6 +439,45 @@ public class CountryAppServiceTests : MasterDataAppServiceTestBase
         using (InTenantA())
         {
             (await _service.GetListAsync(List())).Rows.ShouldHaveSingleItem().Id.ShouldBe(nl.Id);
+        }
+    }
+
+    [Fact]
+    public async Task The_default_country_of_tenant_A_is_neither_visible_nor_settable_from_tenant_B()
+    {
+        CountryDto nl;
+        using (InTenantA())
+        {
+            nl = await CreateAsync("NL", "NLD", "Netherlands");
+            await CreateAsync("BE", "BEL", "Belgium");
+            await _service.SetDefaultAsync(nl.Id);
+        }
+
+        using (InTenantB())
+        {
+            (await _service.GetDefaultAsync()).ShouldBeNull("tenant A's default is not tenant B's");
+            await Should.ThrowAsync<EntityNotFoundException>(() => _service.SetDefaultAsync(nl.Id));
+            (await _service.GetListAsync(List(sortBy: "isDefault", sortDir: "desc"))).Rows.ShouldBeEmpty();
+
+            /* Tenant B picks its own default with the same code; the ids differ. */
+            var own = await CreateAsync("NL", "NLD", "Netherlands B");
+            own.Id.ShouldNotBe(nl.Id);
+            await _service.SetDefaultAsync(own.Id);
+            var defaultOfB = await _service.GetDefaultAsync();
+            defaultOfB.ShouldNotBeNull();
+            defaultOfB!.Id.ShouldBe(own.Id);
+        }
+
+        /* The host has no tenant default and cannot reach tenant A's row either. */
+        (await _service.GetDefaultAsync()).ShouldBeNull();
+        await Should.ThrowAsync<EntityNotFoundException>(() => _service.SetDefaultAsync(nl.Id));
+
+        using (InTenantA())
+        {
+            var defaultOfA = await _service.GetDefaultAsync();
+            defaultOfA.ShouldNotBeNull();
+            defaultOfA!.Id.ShouldBe(nl.Id);
+            (await _service.GetListAsync(List())).Rows.Count(r => r.IsDefault).ShouldBe(1);
         }
     }
 }

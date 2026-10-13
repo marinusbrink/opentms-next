@@ -18,6 +18,11 @@ public class MasterDataPermissionDefinitionProvider : PermissionDefinitionProvid
             permission.AddChild(create, L($"Permission:{entity}.Create"), bothSides);
             permission.AddChild(update, L($"Permission:{entity}.Update"), bothSides);
             permission.AddChild(delete, L($"Permission:{entity}.Delete"), bothSides);
+
+            if (entity == "Drivers")
+            {
+                permission.AddChild(MasterDataPermissions.Drivers.Anonymise, L("Permission:Drivers.Anonymise"), bothSides);
+            }
         }
     }
 

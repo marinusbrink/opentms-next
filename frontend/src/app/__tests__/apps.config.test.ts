@@ -54,16 +54,19 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("the Master data app lists its ten reference lists in four groups (design 41)", () => {
+  it("the Master data app lists its twelve lists in four groups (designs 41 and 43)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
     expect(masterData.views).toHaveLength(4);
     const paths = masterData.views!.flatMap((group) => group.children!.map((child) => child.path));
     expect(paths).toEqual([
+      /* Design 43: Relations first in its group (it owns the group's path), Drivers first in Fleet. */
+      "/master-data/relations",
       "/master-data/address-types",
       "/master-data/relation-categories",
       "/master-data/products",
       "/master-data/transport-units",
       "/master-data/temperatures",
+      "/master-data/drivers",
       "/master-data/vehicle-types",
       "/master-data/transport-characteristics",
       "/master-data/countries",

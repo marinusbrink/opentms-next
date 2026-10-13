@@ -426,6 +426,13 @@
     "Maintenance:Instance.NoHealthYet": "Nog geen gezondheidsuitslag",
     "Maintenance:Instance.Title": "Instantie",
     "Maintenance:Instance.LastHealth": "Laatste gezondheidsuitslag",
-    "Duration:Second": "s"
+    "Duration:Second": "s",
+    "AddNew": "Nieuw toevoegen…",
+    "Loading": "Laden",
+    "MoreSelected": "+{0}",
+    "NoItemsFound": "Geen items gevonden",
+    "PickDate": "Kies een datum",
+    "Search": "Zoeken",
+    "TypeToSearch": "Typ om te zoeken"
   }
 }

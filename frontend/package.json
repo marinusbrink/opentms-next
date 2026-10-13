@@ -26,6 +26,7 @@
     "oidc-client-ts": "^3.5.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.8",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^19.2.8",
     "react-oidc-context": "^3.3.1",
     "shadcn": "^4.17.0",

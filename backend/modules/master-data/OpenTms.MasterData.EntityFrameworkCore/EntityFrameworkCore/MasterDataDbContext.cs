@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.MasterData.Drivers;
 using OpenTms.MasterData.Fleet;
 using OpenTms.MasterData.Incompatibilities;
 using OpenTms.MasterData.Reference;
@@ -31,6 +32,17 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
     public DbSet<TransportUnitIncompatibility> TransportUnitIncompatibilities { get; set; } = default!;
     public DbSet<GeographicalRegion> GeographicalRegions { get; set; } = default!;
     public DbSet<GeographicalRegionPostalCodeRange> GeographicalRegionPostalCodeRanges { get; set; } = default!;
+
+    // Run 2 (design 43)
+    public DbSet<Relation> Relations { get; set; } = default!;
+    public DbSet<RelationAddress> RelationAddresses { get; set; } = default!;
+    public DbSet<RelationContactPerson> RelationContactPersons { get; set; } = default!;
+    public DbSet<RelationBankAccount> RelationBankAccounts { get; set; } = default!;
+    public DbSet<RelationCategoryMembership> RelationCategoryMemberships { get; set; } = default!;
+    public DbSet<RelationGeographicalRegion> RelationGeographicalRegions { get; set; } = default!;
+    public DbSet<RelationOrganizationUnit> RelationOrganizationUnits { get; set; } = default!;
+    public DbSet<Driver> Drivers { get; set; } = default!;
+    public DbSet<DriverQualification> DriverQualifications { get; set; } = default!;
 
     public MasterDataDbContext(DbContextOptions<MasterDataDbContext> options)
         : base(options)
@@ -78,6 +90,8 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasIndex(c => c.DefaultCurrencyId);
             b.HasIndex(c => new { c.TenantId, c.IsoAlpha2 }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(c => new { c.TenantId, c.IsoAlpha3 }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The one default country per tenant (PO 2026-10-13), like the currency. */
+            b.HasIndex(c => c.TenantId, "IX_Countries_TenantId_Default").IsUnique().AreNullsDistinct(false).HasFilter("\"IsDefault\" = true AND " + NotDeleted);
         });
 
         builder.Entity<AddressType>(b =>
@@ -212,6 +226,159 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
              * region, and the leading column still serves the cascade. */
             b.HasIndex(p => p.CountryId);
             b.HasIndex(p => new { p.GeographicalRegionId, p.CountryId });
+        });
+
+        ConfigureRelationsAndDrivers(builder);
+    }
+
+    /* Run 2 (design 43): Relation with its children and memberships, Driver with qualifications. */
+    private static void ConfigureRelationsAndDrivers(ModelBuilder builder)
+    {
+        /* Trigram index for "contains" on the search key at 20,000 relations (design 43, search index). */
+        builder.HasPostgresExtension("pg_trgm");
+
+        builder.Entity<Relation>(b =>
+        {
+            b.ToTable("Relations", MasterDataDbProperties.DbSchema, t => t.HasCheckConstraint("CK_Relations_Roles", "\"Roles\" > 0 AND \"Roles\" <= 31"));
+            b.ConfigureByConvention();
+            b.Property(r => r.Code).HasMaxLength(MasterDataConsts.MaxCodeLength).IsRequired();
+            b.Property(r => r.Name).HasMaxLength(MasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(r => r.FullName).HasMaxLength(MasterDataConsts.MaxNameLength);
+            b.Property(r => r.SearchKey).HasMaxLength(MasterDataConsts.MaxSearchKeyLength).IsRequired();
+            b.Property(r => r.Phone).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.Property(r => r.Mobile).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.Property(r => r.Email).HasMaxLength(MasterDataConsts.MaxEmailLength);
+            b.Property(r => r.Website).HasMaxLength(MasterDataConsts.MaxWebsiteLength);
+            b.Property(r => r.ChamberOfCommerceNumber).HasMaxLength(MasterDataConsts.MaxLegalNumberLength);
+            b.Property(r => r.VatNumber).HasMaxLength(MasterDataConsts.MaxLegalNumberLength);
+            b.Property(r => r.PreferredCulture).HasMaxLength(MasterDataConsts.MaxCultureLength);
+            b.Property(r => r.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.HasMany(r => r.Addresses).WithOne().HasForeignKey(a => a.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.ContactPersons).WithOne().HasForeignKey(c => c.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.BankAccounts).WithOne().HasForeignKey(a => a.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.Categories).WithOne().HasForeignKey(m => m.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.GeographicalRegions).WithOne().HasForeignKey(m => m.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.OrganizationUnits).WithOne().HasForeignKey(m => m.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(r => r.TenantId);
+            b.HasIndex(r => new { r.TenantId, r.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            b.HasIndex(r => new { r.TenantId, r.VatNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"VatNumber\" IS NOT NULL AND " + NotDeleted);
+            b.HasIndex(r => new { r.TenantId, r.ChamberOfCommerceNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"ChamberOfCommerceNumber\" IS NOT NULL AND " + NotDeleted);
+            /* Exactly one own company per tenant (assessment §3.1). */
+            b.HasIndex(r => r.TenantId, "IX_Relations_TenantId_OwnCompany").IsUnique().AreNullsDistinct(false).HasFilter("(\"Roles\" & 16) = 16 AND " + NotDeleted);
+            b.HasIndex(r => new { r.TenantId, r.SearchKey });
+            b.HasIndex(r => r.SearchKey, "IX_Relations_SearchKey_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
+            b.HasIndex(r => new { r.TenantId, r.Roles });
+        });
+
+        builder.Entity<RelationAddress>(b =>
+        {
+            b.ToTable("RelationAddresses", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(a => a.Street).HasMaxLength(MasterDataConsts.MaxStreetLength).IsRequired();
+            b.Property(a => a.HouseNumber).HasMaxLength(MasterDataConsts.MaxHouseNumberLength);
+            b.Property(a => a.HouseNumberSuffix).HasMaxLength(MasterDataConsts.MaxHouseNumberLength);
+            b.Property(a => a.AddressLine2).HasMaxLength(MasterDataConsts.MaxAddressLine2Length);
+            b.Property(a => a.PostalCode).HasMaxLength(MasterDataConsts.MaxPostalCodeLength).IsRequired();
+            b.Property(a => a.PostalCodeKey).HasMaxLength(MasterDataConsts.MaxPostalCodeLength).IsRequired();
+            b.Property(a => a.City).HasMaxLength(MasterDataConsts.MaxCityLength).IsRequired();
+            b.Property(a => a.TimeZoneId).HasMaxLength(MasterDataConsts.MaxTimeZoneIdLength);
+            b.HasOne<AddressType>().WithMany().HasForeignKey(a => a.AddressTypeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Country>().WithMany().HasForeignKey(a => a.CountryId).OnDelete(DeleteBehavior.Restrict);
+            /* One address per address type per relation, and one default address (type null) per relation (design 43, PO 2026-10-12). */
+            b.HasIndex(a => new { a.RelationId, a.AddressTypeId }).IsUnique().AreNullsDistinct(false);
+            b.HasIndex(a => a.CountryId);
+            b.HasIndex(a => a.AddressTypeId);
+            /* The matcher: postcode in a country. */
+            b.HasIndex(a => new { a.TenantId, a.PostalCodeKey });
+        });
+
+        builder.Entity<RelationContactPerson>(b =>
+        {
+            b.ToTable("RelationContactPersons", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.FirstName).HasMaxLength(MasterDataConsts.MaxPersonNameLength).IsRequired();
+            b.Property(c => c.MiddleName).HasMaxLength(MasterDataConsts.MaxMiddleNameLength);
+            b.Property(c => c.LastName).HasMaxLength(MasterDataConsts.MaxPersonNameLength).IsRequired();
+            b.Property(c => c.JobTitle).HasMaxLength(MasterDataConsts.MaxJobTitleLength);
+            b.Property(c => c.Department).HasMaxLength(MasterDataConsts.MaxJobTitleLength);
+            b.Property(c => c.Email).HasMaxLength(MasterDataConsts.MaxEmailLength);
+            b.Property(c => c.Phone).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.Property(c => c.Mobile).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.HasIndex(c => c.RelationId);
+            b.HasIndex(c => new { c.TenantId, c.Email });
+        });
+
+        builder.Entity<RelationBankAccount>(b =>
+        {
+            b.ToTable("RelationBankAccounts", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(a => a.Iban).HasMaxLength(MasterDataConsts.MaxIbanLength).IsRequired();
+            b.Property(a => a.Bic).HasMaxLength(MasterDataConsts.MaxBicLength);
+            b.Property(a => a.BankName).HasMaxLength(MasterDataConsts.MaxBankNameLength);
+            b.Property(a => a.AccountHolder).HasMaxLength(MasterDataConsts.MaxAccountHolderLength);
+            b.HasIndex(a => new { a.RelationId, a.Iban }).IsUnique();
+            b.HasIndex(a => a.RelationId, "IX_RelationBankAccounts_RelationId_Default").IsUnique().HasFilter("\"IsDefault\" = true");
+        });
+
+        builder.Entity<RelationCategoryMembership>(b =>
+        {
+            b.ToTable("RelationCategoryMemberships", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(m => new { m.RelationId, m.RelationCategoryId });
+            b.HasOne<RelationCategory>().WithMany().HasForeignKey(m => m.RelationCategoryId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(m => m.RelationCategoryId);
+        });
+
+        builder.Entity<RelationGeographicalRegion>(b =>
+        {
+            b.ToTable("RelationGeographicalRegions", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(m => new { m.RelationId, m.GeographicalRegionId });
+            b.HasOne<GeographicalRegion>().WithMany().HasForeignKey(m => m.GeographicalRegionId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(m => m.GeographicalRegionId);
+        });
+
+        builder.Entity<RelationOrganizationUnit>(b =>
+        {
+            b.ToTable("RelationOrganizationUnits", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(m => new { m.RelationId, m.OrganizationUnitId });
+            b.HasIndex(m => m.OrganizationUnitId);
+        });
+
+        builder.Entity<Driver>(b =>
+        {
+            b.ToTable("Drivers", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(d => d.Code).HasMaxLength(MasterDataConsts.MaxCodeLength).IsRequired();
+            b.Property(d => d.FirstName).HasMaxLength(MasterDataConsts.MaxPersonNameLength).IsRequired();
+            b.Property(d => d.MiddleName).HasMaxLength(MasterDataConsts.MaxMiddleNameLength);
+            b.Property(d => d.LastName).HasMaxLength(MasterDataConsts.MaxPersonNameLength).IsRequired();
+            b.Property(d => d.Initials).HasMaxLength(MasterDataConsts.MaxInitialsLength);
+            b.Property(d => d.SearchKey).HasMaxLength(MasterDataConsts.MaxSearchKeyLength).IsRequired();
+            b.Property(d => d.Phone).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.Property(d => d.Mobile).HasMaxLength(MasterDataConsts.MaxPhoneLength);
+            b.Property(d => d.Email).HasMaxLength(MasterDataConsts.MaxEmailLength);
+            b.Property(d => d.PreferredCulture).HasMaxLength(MasterDataConsts.MaxCultureLength);
+            b.Property(d => d.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.Ignore(d => d.FullName);
+            b.HasOne<Relation>().WithMany().HasForeignKey(d => d.EmployerRelationId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(d => d.Qualifications).WithOne().HasForeignKey(q => q.DriverId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(d => d.TenantId);
+            b.HasIndex(d => new { d.TenantId, d.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            b.HasIndex(d => new { d.TenantId, d.UserId }).IsUnique().AreNullsDistinct(false).HasFilter("\"UserId\" IS NOT NULL AND " + NotDeleted);
+            b.HasIndex(d => new { d.TenantId, d.SearchKey });
+            b.HasIndex(d => d.EmployerRelationId);
+        });
+
+        builder.Entity<DriverQualification>(b =>
+        {
+            b.ToTable("DriverQualifications", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(q => q.Number).HasMaxLength(MasterDataConsts.MaxQualificationNumberLength);
+            b.Property(q => q.Description).HasMaxLength(MasterDataConsts.MaxQualificationDescriptionLength);
+            b.HasIndex(q => q.DriverId);
+            b.HasIndex(q => new { q.TenantId, q.ValidUntil });
         });
     }
 
