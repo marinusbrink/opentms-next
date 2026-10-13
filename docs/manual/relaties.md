@@ -39,7 +39,10 @@ Het venster heeft vier tabbladen.
 - Met de functie *Adres opzoeken op postcode* (per tenant in te schakelen; recht *Adres opzoeken*) vult
   het systeem na de postcode en het huisnummer de plaats, de straat en de coördinaten in voor zover die
   nog leeg zijn (Nederland via PDOK, andere landen via OpenStreetMap). Wat u zelf had ingevuld blijft
-  staan; vindt de bron niets, dan gebeurt er niets.
+  staan; vindt de bron niets, dan gebeurt er niets. Voor Nederland toont het veld *Postcode* tijdens het
+  typen een lijst: vier cijfers geven de postcodes met hun straat, een volledige postcode de adressen op
+  die postcode. Een keuze uit de lijst vult postcode, straat, huisnummer, bijvoegsel, plaats en
+  coördinaten in.
 - *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
   (bezoek, post, …). Zet het uit als de adressen per type verschillen: naast de schakelaar verschijnt
   dan een tabblad per adrestype met dezelfde velden. Een leeg tabblad is geen adres; zodra u iets

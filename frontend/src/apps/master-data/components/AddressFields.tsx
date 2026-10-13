@@ -1,5 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import {
@@ -98,6 +105,47 @@ export interface AddressFieldsProps {
   onCountryPicked: (countryId: string) => void;
   /** Design 44: asked when the postal code or the house number loses focus; fills only the empty fields. Absent while the feature is off. */
   onLookup?: (row: AddressRow) => Promise<AddressLookupFill | null>;
+  /** The postal-code dropdown: lines for what was typed so far in the row's country. Absent while the feature is off. */
+  onSuggest?: (
+    row: AddressRow,
+    term: string,
+  ) => Promise<AddressSuggestionLine[]>;
+}
+
+const SUGGEST_DELAY_MS = 250;
+const SUGGEST_MIN_LENGTH = 3;
+
+/** One line of the postal-code dropdown (PO 2026-10-13). */
+export interface AddressSuggestionLine {
+  label: string;
+  postalCode: string;
+  street?: string | null;
+  houseNumber?: string | null;
+  houseNumberSuffix?: string | null;
+  city?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+/** A chosen line is the user's own pick: it sets the postal code, street, city and coordinates, and the number and suffix when it carries a number. */
+export function applySuggestion(
+  row: AddressRow,
+  line: AddressSuggestionLine,
+): AddressRow {
+  const coordinate = (value: number | null | undefined, current: string) =>
+    value == null ? current : String(value);
+  return {
+    ...row,
+    postalCode: line.postalCode,
+    street: line.street ?? row.street,
+    city: line.city ?? row.city,
+    houseNumber: line.houseNumber ?? row.houseNumber,
+    houseNumberSuffix: line.houseNumber
+      ? (line.houseNumberSuffix ?? "")
+      : row.houseNumberSuffix,
+    latitude: coordinate(line.latitude, row.latitude),
+    longitude: coordinate(line.longitude, row.longitude),
+  };
 }
 
 /** What a lookup may fill in: the editor keeps what the user typed. */
@@ -148,6 +196,7 @@ export function AddressFields({
   zoneOptions,
   onCountryPicked,
   onLookup,
+  onSuggest,
 }: AddressFieldsProps) {
   const { t } = useL();
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -182,6 +231,38 @@ export function AddressFields({
       setLookingUp(false);
     }
   };
+
+  /* The postal-code dropdown: asked SUGGEST_DELAY_MS after the last keystroke; a late answer for an older term is dropped. */
+  const [suggestions, setSuggestions] = useState<AddressSuggestionLine[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [term, setTerm] = useState<string | null>(null);
+  const requestId = useRef(0);
+  useEffect(() => {
+    /* Every term change invalidates the request in flight, also when the new term asks nothing. */
+    const id = ++requestId.current;
+    if (
+      !onSuggest ||
+      term == null ||
+      term.replace(/\s+/g, "").length < SUGGEST_MIN_LENGTH ||
+      !rowRef.current.countryId
+    ) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      onSuggest(rowRef.current, term)
+        .then((lines) => {
+          if (id !== requestId.current) return;
+          setSuggestions(lines);
+          setSuggestOpen(lines.length > 0);
+        })
+        .catch(() => {
+          if (id === requestId.current) setSuggestions([]);
+        });
+    }, SUGGEST_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [term, onSuggest]);
   const id = (field: string) => `${idPrefix}-${field}`;
 
   const text = (
@@ -241,7 +322,71 @@ export function AddressFields({
           disabled={readOnly}
         />
       </FormField>
-      {text("postalCode", "MasterData:PostalCode", "col-span-3", 16, true)}
+      {onSuggest && !readOnly ? (
+        <FormField
+          label={t("MasterData:PostalCode")}
+          htmlFor={id("postalCode")}
+          required={required}
+          error={error("postalCode")}
+          className="col-span-3"
+        >
+          <Combobox
+            items={suggestions}
+            filter={null}
+            value={null}
+            open={suggestOpen && suggestions.length > 0}
+            onOpenChange={(next: boolean) =>
+              setSuggestOpen(next && suggestions.length > 0)
+            }
+            inputValue={row.postalCode}
+            onInputValueChange={(next: string, details: { reason: string }) => {
+              /* Only typing changes the postal code here; a picked line sets the whole address in onValueChange. */
+              /* Typing and pasting only: after a pick the combobox resets its text ("input-clear"), which must not empty the postal code. */
+              if (
+                details.reason !== "input-change" &&
+                details.reason !== "input-paste"
+              )
+                return;
+              onChange({ ...rowRef.current, postalCode: next });
+              setTerm(next);
+            }}
+            itemToStringLabel={(line: AddressSuggestionLine) => line.postalCode}
+            isItemEqualToValue={(
+              a: AddressSuggestionLine,
+              b: AddressSuggestionLine,
+            ) => a.label === b.label}
+            onValueChange={(line: AddressSuggestionLine | null) => {
+              if (!line) return;
+              onChange(applySuggestion(rowRef.current, line));
+              setTerm(null);
+              setSuggestOpen(false);
+            }}
+          >
+            <ComboboxInput
+              id={id("postalCode")}
+              showTrigger={false}
+              maxLength={16}
+              autoComplete="off"
+              aria-invalid={error("postalCode") ? true : undefined}
+              onBlur={() => {
+                touch("postalCode");
+                void lookup();
+              }}
+            />
+            <ComboboxContent className="min-w-80">
+              <ComboboxList>
+                {(line: AddressSuggestionLine) => (
+                  <ComboboxItem key={line.label} value={line}>
+                    {line.label}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        </FormField>
+      ) : (
+        text("postalCode", "MasterData:PostalCode", "col-span-3", 16, true)
+      )}
       {text("city", "MasterData:City", "col-span-4", 128, true)}
       <FormField
         label={t("MasterData:TimeZone")}

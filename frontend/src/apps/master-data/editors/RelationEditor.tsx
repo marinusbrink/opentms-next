@@ -35,6 +35,7 @@ import { AddressMap } from "@/apps/master-data/components/AddressMap";
 import {
   ADDRESS_LOOKUP_FEATURE,
   ADDRESS_LOOKUP_PERMISSION,
+  fetchAddressSuggestions,
   lookupAddress,
 } from "@/domains/integrations/address-lookup";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
@@ -371,6 +372,23 @@ export function RelationEditor({
                   longitude: found.longitude,
                 }
               : null;
+          }
+        : undefined,
+    [lookupOn, countryLookup.data],
+  );
+  const onSuggest = useMemo(
+    () =>
+      lookupOn
+        ? async (row: AddressRow, term: string) => {
+            const code = countryLookup.data?.find(
+              (c) => c.id === row.countryId,
+            )?.code;
+            if (!code) return [];
+            return (await fetchAddressSuggestions(code, term)).map((line) => ({
+              ...line,
+              label: line.label ?? line.postalCode ?? "",
+              postalCode: line.postalCode ?? "",
+            }));
           }
         : undefined,
     [lookupOn, countryLookup.data],
@@ -765,6 +783,7 @@ export function RelationEditor({
                   setZoneSource({ addressKey: DEFAULT_KEY, countryId })
                 }
                 onLookup={onLookup}
+                onSuggest={onSuggest}
               />
             ) : currentTypeId ? (
               <AddressFields
@@ -780,6 +799,7 @@ export function RelationEditor({
                   setZoneSource({ addressKey: currentTypeId, countryId })
                 }
                 onLookup={onLookup}
+                onSuggest={onSuggest}
               />
             ) : (
               <p className="text-sm text-muted-foreground">

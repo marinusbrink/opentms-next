@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The inline address of the relation editor (design 43 as revised by the PO on 2026-10-13 after the
  * old screen): the pure rules (an untouched address is no address; once anything was entered country,
@@ -10,7 +10,9 @@ import { describe, expect, it, vi } from "vitest";
  * submitted, the country pick handed to the caller for the time-zone follow, read-only).
  * Risk class: Medium (UI flow) for the component, Low for the pure helpers — unit and component tests
  * per the matrix. Design 44 (the postal-code lookup: applyLookup's fill-only-empty rule and the blur
- * trigger) is covered at the end of this file. */
+ * trigger) is covered at the end of this file, followed by the postal-code suggestions dropdown (PO
+ * 2026-10-13, design 44 "Suggestions" / "UI": applySuggestion's user's-pick rule, the Base UI combobox
+ * with its 250 ms debounce, the three-character minimum, the stale-answer rule and the pick). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
@@ -20,7 +22,7 @@ vi.mock("@/components/ui/reference-combobox", async () => {
   return { ReferenceCombobox: mocks.MockReferenceCombobox };
 });
 
-import { AddressFields, applyLookup, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressLookupFill, type AddressRow } from "@/apps/master-data/components/AddressFields";
+import { AddressFields, applyLookup, applySuggestion, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressLookupFill, type AddressRow, type AddressSuggestionLine } from "@/apps/master-data/components/AddressFields";
 
 const complete = (): AddressRow => ({ ...newAddressRow("type-1"), countryId: "c-1", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: "Building B", postalCode: "2611 AA", city: "Delft", latitude: "52.01", longitude: "4.36", timeZoneId: "Europe/Amsterdam" });
 
@@ -553,5 +555,394 @@ describe("AddressFields — postal-code lookup (design 44)", () => {
     await waitFor(() => expect(block()).not.toHaveAttribute("aria-busy"));
     expect(onChange).not.toHaveBeenCalled();
     expect(values()).toEqual({ ...EMPTY_VALUES, houseNumber: "7" });
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * The postal-code suggestions dropdown (PO 2026-10-13, extension of design 44).
+ * Risk class: Low for applySuggestion (pure helper), Medium (UI flow) for the combobox — unit and
+ * component tests per the matrix. The feature/permission gate is the editor's and is covered in
+ * relation-editor.test.tsx. */
+
+/** A postal-code line: four digits and letters with their street, no number. */
+const PC_LINE: AddressSuggestionLine = { label: "1012 AB Dam, Amsterdam", postalCode: "1012 AB", street: "Dam", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932 };
+/** An address line: a number with its suffix. */
+const ADDRESS_LINE: AddressSuggestionLine = { label: "Dam 1A, 1012 AB Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: 52.373, longitude: 4.893 };
+/** An address line with a number and no suffix. */
+const PLAIN_NUMBER_LINE: AddressSuggestionLine = { label: "Dam 3, 1012 AB Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: "3", houseNumberSuffix: null, city: "Amsterdam", latitude: 52.3732, longitude: 4.8933 };
+
+describe("applySuggestion (PO 2026-10-13)", () => {
+  it("an address line sets postal code, street, city, number, suffix and the coordinates as text; everything else stays", () => {
+    const row: AddressRow = { ...newAddressRow("type-1"), key: "row-x", id: "a9", countryId: "c-1", addressLine2: "Unit 3", timeZoneId: "Europe/Amsterdam" };
+    expect(applySuggestion(row, ADDRESS_LINE)).toEqual({ ...row, postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: "52.373", longitude: "4.893" });
+  });
+
+  it("is the user's own pick: it overwrites what was typed, unlike the blur lookup", () => {
+    const row: AddressRow = { ...complete(), postalCode: "1012ab" };
+    expect(applySuggestion(row, ADDRESS_LINE)).toEqual({ ...row, postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: "52.373", longitude: "4.893" });
+  });
+
+  it("a line with a number and no suffix clears the row's suffix (null or absent alike)", () => {
+    const row: AddressRow = { ...complete(), houseNumber: "12", houseNumberSuffix: "b" };
+    expect(applySuggestion(row, PLAIN_NUMBER_LINE)).toMatchObject({ houseNumber: "3", houseNumberSuffix: "" });
+    const { houseNumberSuffix: _omitted, ...withoutSuffix } = PLAIN_NUMBER_LINE;
+    void _omitted;
+    expect(applySuggestion(row, withoutSuffix)).toMatchObject({ houseNumber: "3", houseNumberSuffix: "" });
+  });
+
+  it("a postal-code line keeps the row's number and suffix and sets the rest", () => {
+    const row: AddressRow = { ...newAddressRow(), countryId: "c-1", houseNumber: "7", houseNumberSuffix: "b", street: "Old street", city: "Delft", latitude: "52.01", longitude: "4.36" };
+    expect(applySuggestion(row, PC_LINE)).toEqual({ ...row, postalCode: "1012 AB", street: "Dam", city: "Amsterdam", latitude: "52.3731", longitude: "4.8932" });
+    expect(applySuggestion(row, { ...PC_LINE, houseNumber: null, houseNumberSuffix: "X" })).toMatchObject({ houseNumber: "7", houseNumberSuffix: "b" });
+  });
+
+  it("an absent or null street, city or coordinate keeps the row's value; a zero coordinate is a value", () => {
+    const row: AddressRow = { ...complete() };
+    expect(applySuggestion(row, { label: "1012", postalCode: "1012 AB" })).toEqual({ ...row, postalCode: "1012 AB" });
+    expect(applySuggestion(row, { label: "1012", postalCode: "1012 AB", street: null, city: null, latitude: null, longitude: null })).toEqual({ ...row, postalCode: "1012 AB" });
+    expect(applySuggestion(row, { label: "0", postalCode: "0", latitude: 0, longitude: 0 })).toMatchObject({ latitude: "0", longitude: "0" });
+  });
+
+  it("returns a new row and leaves its input untouched", () => {
+    const row = newAddressRow();
+    const result = applySuggestion(row, ADDRESS_LINE);
+    expect(result).not.toBe(row);
+    expect(row).toMatchObject({ postalCode: "", street: "", houseNumber: "", houseNumberSuffix: "", city: "", latitude: "", longitude: "" });
+  });
+});
+
+type Suggest = (row: AddressRow, term: string) => Promise<AddressSuggestionLine[]>;
+
+interface LinesDeferred {
+  promise: Promise<AddressSuggestionLine[]>;
+  resolve: (value: AddressSuggestionLine[]) => void;
+}
+const linesDeferred = (): LinesDeferred => {
+  let resolve!: LinesDeferred["resolve"];
+  const promise = new Promise<AddressSuggestionLine[]>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+};
+
+/** A row the dropdown applies to: the country is set, nothing typed yet. */
+const suggestReady = (): AddressRow => ({ ...newAddressRow(), key: "row-s", countryId: "c-1", timeZoneId: "Europe/Amsterdam" });
+const postal = () => control("MasterData:PostalCode");
+/* Base UI reads `inputType` to tell typing from autofill. */
+const typePostal = (value: string, inputType = "insertText") => fireEvent.input(postal(), { target: { value }, inputType });
+/* The debounce runs on the fake clock; the async variant also lets the answered promise settle. */
+const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+/* The dropdown's lines only, not the country and time-zone selects' options. */
+const suggestionItems = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=combobox-item][role=option]"));
+const options = () => suggestionItems().map((el) => el.textContent?.trim());
+const option = (label: string) => suggestionItems().find((el) => el.textContent?.trim() === label)!;
+
+describe("AddressFields — postal-code suggestions (PO 2026-10-13)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("with onSuggest the postal code is a combobox under the same id and label, autocomplete off, max 16; the field order is unchanged", () => {
+    render(<Harness idPrefix="rel-defaultAddress" onSuggest={vi.fn<Suggest>().mockResolvedValue([])} />);
+    expect(labels()).toEqual(LABELS);
+    expect(postal()).toHaveAttribute("role", "combobox");
+    expect(screen.getByRole("combobox", { name: /^MasterData:PostalCode/ })).toBe(postal());
+    expect(postal().id).toBe("rel-defaultAddress-postalCode");
+    expect(postal()).toHaveAttribute("autocomplete", "off");
+    expect(postal().maxLength).toBe(16);
+    expect(postal()).not.toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: /^MasterData:PostalCode/ })).toBeNull();
+  });
+
+  it("without onSuggest (the feature is off) the postal code stays a plain textbox", () => {
+    render(<Harness />);
+    expect(screen.getByRole("textbox", { name: /^MasterData:PostalCode/ })).toBe(postal());
+    expect(screen.queryByRole("combobox", { name: /^MasterData:PostalCode/ })).toBeNull();
+  });
+
+  it("read-only keeps the plain disabled textbox and never asks, onSuggest notwithstanding", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([PC_LINE]);
+    render(<Harness initial={{ ...suggestReady(), postalCode: "1012AB" }} onSuggest={onSuggest} readOnly />);
+    expect(screen.getByRole("textbox", { name: /^MasterData:PostalCode/ })).toBe(postal());
+    expect(postal()).toBeDisabled();
+    expect(postal().value).toBe("1012AB");
+    expect(screen.queryByRole("combobox", { name: /^MasterData:PostalCode/ })).toBeNull();
+    await advance(1000);
+    expect(onSuggest).not.toHaveBeenCalled();
+  });
+
+  it("typing updates the postal code on every keystroke and asks once, 250 ms after the last keystroke, with the row as it is and the term", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([]);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={suggestReady()} onChange={onChange} onSuggest={onSuggest} />);
+    typePostal("1");
+    typePostal("10");
+    typePostal("101");
+    await advance(200);
+    typePostal("1012");
+    expect(onChange).toHaveBeenCalledTimes(4);
+    expect(onChange).toHaveBeenLastCalledWith({ ...suggestReady(), postalCode: "1012" });
+    expect(postal().value).toBe("1012");
+    await advance(249);
+    expect(onSuggest).not.toHaveBeenCalled();
+    await advance(1);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(onSuggest).toHaveBeenCalledWith({ ...suggestReady(), postalCode: "1012" }, "1012");
+    await advance(1000);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+  });
+
+  it("a paste counts as typing", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([]);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("1012 AB", "insertFromPaste");
+    expect(postal().value).toBe("1012 AB");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledWith({ ...suggestReady(), postalCode: "1012 AB" }, "1012 AB");
+  });
+
+  it("asks only from three non-space characters on; spaces do not count", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([]);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("10");
+    await advance(1000);
+    typePostal("1 0 ");
+    await advance(1000);
+    typePostal("   ");
+    await advance(1000);
+    expect(onSuggest).not.toHaveBeenCalled();
+    typePostal("10 1");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(onSuggest).toHaveBeenCalledWith(expect.objectContaining({ postalCode: "10 1" }), "10 1");
+  });
+
+  it("does not ask without a country; once a country is picked the next keystroke asks", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([]);
+    render(<Harness initial={{ ...suggestReady(), countryId: null }} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(1000);
+    expect(onSuggest).not.toHaveBeenCalled();
+    expect(postal().value).toBe("1012");
+    fireEvent.change(control("MasterData:Country"), { target: { value: "c-1" } });
+    typePostal("1012A");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(onSuggest).toHaveBeenCalledWith(expect.objectContaining({ countryId: "c-1", postalCode: "1012A" }), "1012A");
+  });
+
+  it("the popup opens only when lines come back, one option per line by its label", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValueOnce([]).mockResolvedValueOnce([PC_LINE, ADDRESS_LINE]);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("9999");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+
+    typePostal("1012");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(2);
+    expect(options()).toEqual([PC_LINE.label, ADDRESS_LINE.label]);
+    expect(postal()).toHaveAttribute("aria-expanded", "true");
+    /* Typing stays free: nothing was picked, the postal code is as typed. */
+    expect(postal().value).toBe("1012");
+  });
+
+  it("a failing suggestion request is silent: no popup, no error, the typed postal code stays", async () => {
+    const onSuggest = vi.fn<Suggest>().mockRejectedValue(new Error("provider down"));
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={suggestReady()} onChange={onChange} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(options()).toEqual([]);
+    expect(errors()).toEqual([]);
+    expect(postal().value).toBe("1012");
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("an answer for an older term is dropped when the newer one answered first", async () => {
+    const first = linesDeferred();
+    const second = linesDeferred();
+    const onSuggest = vi.fn<Suggest>().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    typePostal("1012AB");
+    await advance(250);
+    expect(onSuggest.mock.calls.map(([, term]) => term)).toEqual(["1012", "1012AB"]);
+    await act(async () => {
+      second.resolve([ADDRESS_LINE]);
+      await second.promise;
+    });
+    expect(options()).toEqual([ADDRESS_LINE.label]);
+    await act(async () => {
+      first.resolve([PC_LINE, PLAIN_NUMBER_LINE]);
+      await first.promise;
+    });
+    expect(options()).toEqual([ADDRESS_LINE.label]);
+  });
+
+  it("an answer for an older term is dropped once the user typed on, even before the newer request went out", async () => {
+    const first = linesDeferred();
+    const onSuggest = vi.fn<Suggest>().mockReturnValueOnce(first.promise).mockResolvedValue([]);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    typePostal("1012A");
+    await act(async () => {
+      first.resolve([PC_LINE]);
+      await first.promise;
+    });
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("an answer for an older term is dropped once the user erased the term below three characters", async () => {
+    const first = linesDeferred();
+    const onSuggest = vi.fn<Suggest>().mockReturnValueOnce(first.promise);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("101");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    typePostal("10");
+    await act(async () => {
+      first.resolve([PC_LINE]);
+      await first.promise;
+    });
+    /* The field reads "10"; lines for "101" must not open. */
+    expect(postal().value).toBe("10");
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("an answer for an older term is dropped once the user cleared the postal code", async () => {
+    const first = linesDeferred();
+    const onSuggest = vi.fn<Suggest>().mockReturnValueOnce(first.promise);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={suggestReady()} onChange={onChange} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    typePostal("", "deleteContentBackward");
+    expect(onChange).toHaveBeenLastCalledWith({ ...suggestReady(), postalCode: "" });
+    await act(async () => {
+      first.resolve([PC_LINE]);
+      await first.promise;
+    });
+    expect(postal().value).toBe("");
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("an answer still in flight when the user picked a line is dropped: the popup stays closed after the pick", async () => {
+    const second = linesDeferred();
+    const onSuggest = vi.fn<Suggest>().mockResolvedValueOnce([PC_LINE]).mockReturnValueOnce(second.promise);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    expect(options()).toEqual([PC_LINE.label]);
+    typePostal("1012A");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(2);
+    /* The user picks from the list still showing before the answer for "1012A" arrives. */
+    fireEvent.click(option(PC_LINE.label));
+    await advance(0);
+    expect(postal().value).toBe("1012 AB");
+    expect(options()).toEqual([]);
+    await act(async () => {
+      second.resolve([ADDRESS_LINE]);
+      await second.promise;
+    });
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("picking an address line applies it through onChange, closes the popup and keeps the line's postal code (the combobox's own text reset does not empty it); nothing more is asked", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([PC_LINE, ADDRESS_LINE]);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    const initial: AddressRow = { ...suggestReady(), addressLine2: "Unit 3" };
+    render(<Harness initial={initial} onChange={onChange} onSuggest={onSuggest} />);
+    typePostal("1012ab");
+    await advance(250);
+    expect(options()).toEqual([PC_LINE.label, ADDRESS_LINE.label]);
+    const typedCalls = onChange.mock.calls.length;
+
+    fireEvent.click(option(ADDRESS_LINE.label));
+    await advance(0);
+    const picked: AddressRow = { ...initial, postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: "52.373", longitude: "4.893" };
+    expect(onChange.mock.calls[typedCalls][0]).toEqual(picked);
+    /* Whatever followed the pick did not touch the postal code. */
+    for (const [row] of onChange.mock.calls.slice(typedCalls)) expect(row.postalCode).toBe("1012 AB");
+    expect(onChange).toHaveBeenLastCalledWith(picked);
+    expect(postal().value).toBe("1012 AB");
+    expect(control("MasterData:Street").value).toBe("Dam");
+    expect(control("MasterData:Nr").value).toBe("1");
+    expect(control("MasterData:HouseNumberSuffix").value).toBe("A");
+    expect(control("MasterData:City").value).toBe("Amsterdam");
+    expect(control("MasterData:Latitude").value).toBe("52.373");
+    expect(control("MasterData:Longitude").value).toBe("4.893");
+    expect(control("MasterData:Building").value).toBe("Unit 3");
+    expect(options()).toEqual([]);
+    expect(postal()).toHaveAttribute("aria-expanded", "false");
+    await advance(1000);
+    expect(onSuggest).toHaveBeenCalledTimes(1);
+    expect(postal().value).toBe("1012 AB");
+  });
+
+  it("picking a postal-code line keeps the typed number and suffix", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([PC_LINE, ADDRESS_LINE]);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    const initial: AddressRow = { ...suggestReady(), houseNumber: "7", houseNumberSuffix: "b" };
+    render(<Harness initial={initial} onChange={onChange} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    fireEvent.click(option(PC_LINE.label));
+    await advance(0);
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, postalCode: "1012 AB", street: "Dam", city: "Amsterdam", latitude: "52.3731", longitude: "4.8932" });
+    expect(control("MasterData:Nr").value).toBe("7");
+    expect(control("MasterData:HouseNumberSuffix").value).toBe("b");
+    expect(options()).toEqual([]);
+  });
+
+  it("typing on after a pick asks again for the new term", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([PC_LINE]);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} />);
+    typePostal("1012");
+    await advance(250);
+    fireEvent.click(option(PC_LINE.label));
+    await advance(0);
+    expect(postal().value).toBe("1012 AB");
+    typePostal("1012 AC");
+    await advance(250);
+    expect(onSuggest).toHaveBeenCalledTimes(2);
+    expect(onSuggest).toHaveBeenLastCalledWith(expect.objectContaining({ postalCode: "1012 AC", street: "Dam" }), "1012 AC");
+  });
+
+  it("blur still runs the design-44 lookup with the typed postal code and marks the field touched", async () => {
+    const onSuggest = vi.fn<Suggest>().mockResolvedValue([]);
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(FILL);
+    render(<Harness initial={suggestReady()} onSuggest={onSuggest} onLookup={onLookup} />);
+    typePostal("1012AB");
+    fireEvent.blur(postal());
+    expect(onLookup).toHaveBeenCalledTimes(1);
+    expect(onLookup).toHaveBeenCalledWith({ ...suggestReady(), postalCode: "1012AB" });
+    await advance(0);
+    expect(values()).toEqual(FILLED_TEXT);
+    expect(postal().value).toBe("1012AB");
+  });
+
+  it("an emptied postal code shows its required error after blur, on the combobox too", async () => {
+    render(<Harness initial={{ ...suggestReady(), street: "Dam", city: "Amsterdam", postalCode: "1012" }} onSuggest={vi.fn<Suggest>().mockResolvedValue([])} />);
+    expect(errors()).toEqual([]);
+    typePostal("", "deleteContentBackward");
+    fireEvent.blur(postal());
+    await advance(0);
+    expect(errors()).toEqual(["MasterData:PostalCodeRequired"]);
+    expect(postal()).toHaveAttribute("aria-invalid", "true");
   });
 });

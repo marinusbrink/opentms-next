@@ -24,6 +24,13 @@ public class AddressLookupCacheItem
     public AddressLookupResultDto Result { get; set; } = new();
 }
 
+/// <summary>Cached dropdown lines; public data like the lookup's answers.</summary>
+[IgnoreMultiTenancy]
+public class AddressSuggestionsCacheItem
+{
+    public List<AddressSuggestionDto> Suggestions { get; set; } = new();
+}
+
 /// <summary>
 /// The postal-code lookup of design 44: the anti-corruption layer in front of the providers. Keys, rate
 /// limits and parsing stay here; the editor only ever sees <see cref="AddressLookupResultDto"/>. A provider
@@ -35,15 +42,76 @@ public class AddressLookupAppService : IntegrationsAppServiceBase, IAddressLooku
     private const int MaxPostalCodeLength = 16;
     private const int MaxHouseNumberLength = 16;
 
+    private const int MaxSuggestions = 10;
+    private const int MinSuggestionTermLength = 3;
+
     private readonly IEnumerable<IAddressLookupProvider> _providers;
+    private readonly IEnumerable<IAddressSuggestionProvider> _suggestionProviders;
     private readonly IDistributedCache<AddressLookupCacheItem> _cache;
+    private readonly IDistributedCache<AddressSuggestionsCacheItem> _suggestionCache;
     private readonly AddressLookupOptions _options;
 
-    public AddressLookupAppService(IEnumerable<IAddressLookupProvider> providers, IDistributedCache<AddressLookupCacheItem> cache, IOptions<AddressLookupOptions> options)
+    public AddressLookupAppService(
+        IEnumerable<IAddressLookupProvider> providers,
+        IEnumerable<IAddressSuggestionProvider> suggestionProviders,
+        IDistributedCache<AddressLookupCacheItem> cache,
+        IDistributedCache<AddressSuggestionsCacheItem> suggestionCache,
+        IOptions<AddressLookupOptions> options)
     {
         _providers = providers;
+        _suggestionProviders = suggestionProviders;
         _cache = cache;
+        _suggestionCache = suggestionCache;
         _options = options.Value;
+    }
+
+    [Authorize(IntegrationsPermissions.AddressLookup)]
+    public async Task<List<AddressSuggestionDto>> GetSuggestionsAsync(string countryCode, string term)
+    {
+        var country = (countryCode ?? string.Empty).Trim().ToUpperInvariant();
+        var text = (term ?? string.Empty).Trim();
+        if (country.Length != 2 || !country.All(char.IsLetter) || text.Length > MaxPostalCodeLength + MaxHouseNumberLength + 1)
+        {
+            throw new AbpValidationException("countryCode and term have the shape of a postal-code search.");
+        }
+
+        if (text.Replace(" ", string.Empty).Length < MinSuggestionTermLength)
+        {
+            return [];
+        }
+
+        var provider = _suggestionProviders.FirstOrDefault(p => p.Supports(country));
+        if (provider == null)
+        {
+            return [];
+        }
+
+        var key = $"{country}|{text.Replace(" ", string.Empty).ToUpperInvariant()}";
+        var cached = await _suggestionCache.GetAsync(key);
+        if (cached != null)
+        {
+            return cached.Suggestions;
+        }
+
+        List<AddressSuggestionDto> suggestions;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_options.TimeoutSeconds + 2));
+            suggestions = await provider.SuggestAsync(country, text, MaxSuggestions, cts.Token);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            /* No address data in the log (rule 5): the provider and the country only. */
+            Logger.LogWarning(ex, "Address suggestions through {Provider} failed for country {Country}.", provider.Name, country);
+            return [];
+        }
+
+        if (suggestions.Count > 0)
+        {
+            await _suggestionCache.SetAsync(key, new AddressSuggestionsCacheItem { Suggestions = suggestions }, new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(_options.CacheDays) });
+        }
+
+        return suggestions;
     }
 
     [Authorize(IntegrationsPermissions.AddressLookup)]

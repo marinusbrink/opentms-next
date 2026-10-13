@@ -23,7 +23,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * is the mock; the Tabs (the address types, Map / Remarks) are the real Base UI component.
  * Risk class: Medium (UI flow) — component tests per the matrix. The postal-code lookup of design 44
  * (its feature and permission gate: Critical / authorization, the UI half of it; the fill: Medium) is
- * covered at the end of this file. */
+ * covered at the end of this file, followed by its postal-code suggestions dropdown (PO 2026-10-13;
+ * the same gate, the alpha-2 code and the pick posted). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => (k.endsWith("Question") ? `${k} {0}` : k), culture: "en", isLoading: false }),
@@ -165,12 +166,17 @@ let detail: RelationDto = stored;
 const LOOKUP_FOUND = { found: true, street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, provider: "PDOK" };
 let lookupResult: Record<string, unknown> = LOOKUP_FOUND;
 let lookupFails = false;
+/** The postal-code dropdown (PO 2026-10-13): the lines GET /api/integrations/address-lookup/suggestions answers. */
+const SUGGESTED_PC = { label: "1012 AB Dam, Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: null, houseNumberSuffix: null, city: "Amsterdam", latitude: 52.3731, longitude: 4.8932 };
+const SUGGESTED_ADDRESS = { label: "Dam 1A, 1012 AB Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: 52.373, longitude: 4.893 };
+let suggestions: Record<string, unknown>[] = [SUGGESTED_PC, SUGGESTED_ADDRESS];
 
 beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
   features = { "MasterData.Relations": "true" };
   lookupResult = LOOKUP_FOUND;
   lookupFails = false;
+  suggestions = [SUGGESTED_PC, SUGGESTED_ADDRESS];
   detail = stored;
   addressTypes = ADDRESS_TYPES;
   defaultCountry = null;
@@ -198,6 +204,8 @@ beforeEach(() => {
         return ok([{ id: "ou-1", displayName: "Unit 1" }]);
       case "/api/integrations/address-lookup":
         return lookupFails ? failed({ error: { code: "Forbidden", message: "no" } }, 403) : ok(lookupResult);
+      case "/api/integrations/address-lookup/suggestions":
+        return ok(suggestions);
       default:
         return ok(undefined);
     }
@@ -2070,5 +2078,147 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(postedBody().addresses[0]).toMatchObject({ postalCode: "1012AB", city: "Delft", street: "Dam", latitude: null, longitude: null });
+  });
+});
+
+describe("RelationEditor — postal-code suggestions (PO 2026-10-13)", () => {
+  const SUGGEST_PATH = "/api/integrations/address-lookup/suggestions";
+  const suggestCalls = () => GET.mock.calls.filter(([path]) => path === SUGGEST_PATH);
+  const suggestQuery = (index = 0) => suggestCalls()[index][1]!.params!.query;
+  const waitForPrefill = (editor: HTMLElement) => waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+  const featureOn = () => {
+    features = { ...features, "Integrations.AddressLookup": "true" };
+  };
+  const permissionOn = () => {
+    grants = { ...grants, "Integrations.AddressLookup": true };
+  };
+  const postalCode = (editor: HTMLElement) => field(editor, "MasterData:PostalCode");
+  /* Base UI reads `inputType` to tell typing from autofill. */
+  const typePostal = (editor: HTMLElement, value: string) => fireEvent.input(postalCode(editor), { target: { value }, inputType: "insertText" });
+  const suggestionItems = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=combobox-item][role=option]"));
+  const options = () => suggestionItems().map((el) => el.textContent?.trim());
+  /* Longer than the 250 ms debounce, in real time, inside act. */
+  const pastDebounce = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+
+  it("feature on and permission held: typing 1012 in the default address asks the suggestions with the country's alpha-2 code once; picking a line fills postal code, street, number, suffix, city and coordinates, and they are posted", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(postalCode(editor)).toHaveAttribute("role", "combobox");
+
+    typePostal(editor, "1");
+    typePostal(editor, "10");
+    typePostal(editor, "101");
+    typePostal(editor, "1012");
+    expect(postalCode(editor).value).toBe("1012");
+    expect(suggestCalls()).toHaveLength(0);
+    await waitFor(() => expect(options()).toEqual([SUGGESTED_PC.label, SUGGESTED_ADDRESS.label]));
+    expect(suggestCalls()).toHaveLength(1);
+    expect(suggestQuery()).toEqual({ countryCode: "NL", term: "1012" });
+
+    fireEvent.click(suggestionItems().find((el) => el.textContent?.trim() === SUGGESTED_ADDRESS.label)!);
+    await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
+    expect(postalCode(editor).value).toBe("1012 AB");
+    expect(field(editor, "MasterData:Nr").value).toBe("1");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("A");
+    expect(field(editor, "MasterData:City").value).toBe("Amsterdam");
+    expect(field(editor, "MasterData:Latitude").value).toBe("52.373");
+    expect(field(editor, "MasterData:Longitude").value).toBe("4.893");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    await waitFor(() => expect(options()).toEqual([]));
+    await pastDebounce();
+    expect(suggestCalls()).toHaveLength(1);
+
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: null, countryId: "c-1", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", addressLine2: null, postalCode: "1012 AB", city: "Amsterdam", latitude: 52.373, longitude: 4.893, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("another country sends its own alpha-2 code; a line without a label shows its postal code", async () => {
+    featureOn();
+    permissionOn();
+    suggestions = [{ ...SUGGESTED_PC, label: null, postalCode: "10115", street: null, city: "Berlin" }];
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
+    typePostal(editor, "101");
+    await waitFor(() => expect(suggestCalls()).toHaveLength(1));
+    expect(suggestQuery()).toEqual({ countryCode: "DE", term: "101" });
+    await waitFor(() => expect(options()).toEqual(["10115"]));
+  });
+
+  it("the address-type tabs get the dropdown too: the Visiting tab's pick is posted with its type", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    await waitForPrefill(editor);
+    expect(postalCode(editor)).toHaveAttribute("role", "combobox");
+    typePostal(editor, "1012");
+    await waitFor(() => expect(options()).toEqual([SUGGESTED_PC.label, SUGGESTED_ADDRESS.label]));
+    expect(suggestQuery()).toEqual({ countryCode: "NL", term: "1012" });
+    fireEvent.click(suggestionItems().find((el) => el.textContent?.trim() === SUGGESTED_PC.label)!);
+    await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
+    typeInto(editor, "MasterData:Nr", "5");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: "type-1", countryId: "c-1", street: "Dam", houseNumber: "5", houseNumberSuffix: null, addressLine2: null, postalCode: "1012 AB", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  for (const [name, setup] of [
+    ["feature off, permission held", () => permissionOn()],
+    ["permission missing, feature on (UI-PERM-001: hidden, never a refused call)", () => featureOn()],
+    ["neither the feature nor the permission", () => {}],
+  ] as const) {
+    it(`${name}: the postal code is a plain textbox and typing asks no suggestions`, async () => {
+      setup();
+      defaultCountry = NL_DEFAULT;
+      renderEditor();
+      await waitForLookups();
+      const editor = editorDialog();
+      await waitForPrefill(editor);
+      expect(postalCode(editor)).not.toHaveAttribute("role");
+      expect(within(editor).getByRole("textbox", { name: /^MasterData:PostalCode/ })).toBe(postalCode(editor));
+      typePostal(editor, "1012");
+      expect(postalCode(editor).value).toBe("1012");
+      await pastDebounce();
+      expect(suggestCalls()).toHaveLength(0);
+      expect(options()).toEqual([]);
+    });
+  }
+
+  it("a read-only editor keeps the plain textbox, feature and permission notwithstanding", async () => {
+    featureOn();
+    permissionOn();
+    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForTypeTabs();
+    await waitFor(() => expect(postalCode(editor).value).toBe("2611 AA"));
+    expect(postalCode(editor)).not.toHaveAttribute("role");
+    expect(postalCode(editor)).toBeDisabled();
+    await pastDebounce();
+    expect(suggestCalls()).toHaveLength(0);
   });
 });

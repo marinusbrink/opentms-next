@@ -23,5 +23,7 @@ public class IntegrationsApplicationModule : AbpModule
          * the national source must come before the worldwide fallback (conventional registration would be alphabetical). */
         context.Services.AddTransient<IAddressLookupProvider, PdokAddressLookupProvider>();
         context.Services.AddTransient<IAddressLookupProvider, NominatimAddressLookupProvider>();
+        /* The dropdown asks on every keystroke: only sources whose terms allow that (PDOK; not Nominatim). */
+        context.Services.AddTransient<IAddressSuggestionProvider, PdokAddressLookupProvider>();
     }
 }

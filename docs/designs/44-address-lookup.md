@@ -23,6 +23,13 @@ Permission `Integrations.AddressLookup` (both sides); feature `Integrations.Addr
 (constitution rule 4). Input shape is validated (two-letter country, postal code ≤ 16, house number ≤ 16);
 a provider that is down or has no answer gives `found = false`, never an error for the user.
 
+**Suggestions (PO 2026-10-13):** `GET /api/integrations/address-lookup/suggestions?countryCode=NL&term=1012`
+→ at most ten `AddressSuggestionDto { label, postalCode, street?, houseNumber?, houseNumberSuffix?, city?,
+latitude?, longitude? }`. Four digits (and maybe a letter) list the postal codes with their street; a full
+postal code (maybe with a house number) lists the addresses on it in house-number order. A term under three
+characters, a country without a suggestion source, or a provider that is down give an empty list. Same
+permission and feature; cached like the lookup.
+
 ## Providers
 
 | Country | Provider | Why |
@@ -30,7 +37,10 @@ a provider that is down or has no answer gives `found = false`, never an error f
 | NL | PDOK Locatieserver (BAG) | authoritative, free, no key; postal code + house number → street, city, coordinates |
 | others | OpenStreetMap Nominatim | free, no key; postal code → place and centroid (no street); usage policy: real User-Agent, ≤ 1 request/s, honoured with a process-wide throttle; a self-hosted instance or a commercial provider (Geoapify, LocationIQ, HERE, Google) is a configuration change behind the same interface |
 
-`IAddressLookupProvider` is tried in registration order, the first that supports the country answers.
+`IAddressLookupProvider` is tried in registration order, the first that supports the country answers;
+the registration is explicit in the module (PDOK before Nominatim), not by convention. Suggestions come from
+`IAddressSuggestionProvider`, which only PDOK implements: Nominatim's usage policy forbids autocomplete, so
+other countries get the blur lookup but no dropdown until a provider that allows it is chosen.
 Settings in section `AddressLookup` (`PdokBaseUrl`, `NominatimEnabled`, `NominatimBaseUrl`, `UserAgent`,
 `TimeoutSeconds`, `CacheDays`). Google is not used: its terms require showing results on a Google map,
 which the editor's OpenStreetMap map does not.
@@ -44,7 +54,12 @@ postal code or house number (rule 5). Outbound traffic: two hosts, configurable;
 
 ## UI
 
-`AddressFields` asks the lookup when the postal code or the house number loses focus while the country
+The postal code is a combobox: 250 ms after the last keystroke (three or more characters, a country set) it
+shows the suggestions; picking a line is the user's own choice and sets the postal code, street, city and
+coordinates, and the number and suffix when the line carries a number. Typing stays free: a postal code
+without a matching line is kept as typed.
+
+`AddressFields` also asks the lookup when the postal code or the house number loses focus while the country
 and the postal code are known, and fills only the empty fields among city, street, latitude and longitude
 (house number too when the user typed none and the provider confirms one). A failed lookup is silent.
 Only while the feature is on for the tenant and the user holds the permission.

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,19 @@ public interface IAddressLookupProvider
 
     /// <summary>Null when the provider has no answer; throws only for transport errors, which the service turns into "not found".</summary>
     Task<AddressLookupResultDto?> LookupAsync(string countryCode, string postalCode, string? houseNumber, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// A source that may be asked on every keystroke (the postal-code dropdown). Nominatim's usage policy forbids
+/// autocomplete, so only sources that allow it implement this.
+/// </summary>
+public interface IAddressSuggestionProvider
+{
+    string Name { get; }
+
+    bool Supports(string countryCode);
+
+    Task<List<AddressSuggestionDto>> SuggestAsync(string countryCode, string term, int max, CancellationToken cancellationToken);
 }
 
 /// <summary>Configuration section "AddressLookup".</summary>

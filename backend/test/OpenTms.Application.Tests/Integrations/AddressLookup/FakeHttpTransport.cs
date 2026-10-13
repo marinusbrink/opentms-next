@@ -95,6 +95,27 @@ public static class Recorded
         {"response":{"numFound":1,"start":0,"maxScore":9.1,"docs":[{"woonplaatsnaam":"Amsterdam","straatnaam":"Dam","centroide_ll":"POINT(4.8925 52.3731)"}]}}
         """;
 
+    /* Suggestions (PO 2026-10-13), q=postcode:1012AB, fq=type:adres, sorted by number, letter, addition: one line per
+     * address. huisnummer is a number; the letter and the addition are separate strings. The last document has no
+     * postcode (a shape the provider must drop), the fourth no centroid. */
+    public const string PdokSuggestAdres = """
+        {"response":{"numFound":5,"start":0,"maxScore":12.0,"docs":[
+          {"weergavenaam":"Stationsplein 7, 1012AB Amsterdam","postcode":"1012AB","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","huisnummer":7,"centroide_ll":"POINT(4.90012 52.37891)"},
+          {"weergavenaam":"Stationsplein 7A, 1012AB Amsterdam","postcode":"1012AB","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","huisnummer":7,"huisletter":"A","centroide_ll":"POINT(4.90013 52.37892)"},
+          {"weergavenaam":"Stationsplein 7P-1, 1012AB Amsterdam","postcode":"1012AB","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","huisnummer":7,"huisletter":"P","huisnummertoevoeging":"1","centroide_ll":"POINT(4.90014 52.37893)"},
+          {"weergavenaam":"Stationsplein 9-2, 1012AB Amsterdam","postcode":"1012AB","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","huisnummer":9,"huisnummertoevoeging":"2"},
+          {"weergavenaam":"Stationsplein, Amsterdam","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","huisnummer":11}
+        ]}}
+        """;
+
+    /* Suggestions, q=postcode:1012*, fq=type:postcode, sort=postcode asc: one line per postal code with its street. */
+    public const string PdokSuggestPostcode = """
+        {"response":{"numFound":2,"start":0,"maxScore":8.0,"docs":[
+          {"weergavenaam":"Stationsplein, 1012AB Amsterdam","postcode":"1012AB","straatnaam":"Stationsplein","woonplaatsnaam":"Amsterdam","centroide_ll":"POINT(4.9001 52.3789)"},
+          {"weergavenaam":"Damrak, 1012AC Amsterdam","postcode":"1012AC","straatnaam":"Damrak","woonplaatsnaam":"Amsterdam","centroide_ll":"POINT(4.8945 52.3752)"}
+        ]}}
+        """;
+
     public const string PdokEmpty = """
         {"response":{"numFound":0,"start":0,"maxScore":0.0,"docs":[]}}
         """;

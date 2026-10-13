@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -39,6 +40,7 @@ public class AddressLookupAppServiceTests : OpenTmsTestBase<AddressLookupTestMod
     private readonly CapturingLog _log;
     private readonly IDistributedCache<AddressLookupCacheItem> _cache;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IDistributedCache<AddressSuggestionsCacheItem> _suggestionCache;
 
     public AddressLookupAppServiceTests()
     {
@@ -49,6 +51,7 @@ public class AddressLookupAppServiceTests : OpenTmsTestBase<AddressLookupTestMod
         _log = GetRequiredService<CapturingLog>();
         _cache = GetRequiredService<IDistributedCache<AddressLookupCacheItem>>();
         _currentTenant = GetRequiredService<ICurrentTenant>();
+        _suggestionCache = GetRequiredService<IDistributedCache<AddressSuggestionsCacheItem>>();
     }
 
     private static readonly string SixteenChars = new('A', 16);
@@ -389,5 +392,331 @@ public class AddressLookupAppServiceTests : OpenTmsTestBase<AddressLookupTestMod
         _options.NominatimBaseUrl.ShouldBe("https://nominatim.openstreetmap.org/search");
         _options.CacheDays.ShouldBe(30);
         _options.TimeoutSeconds.ShouldBe(5);
+    }
+
+    /* ══ Suggestions: the postal-code dropdown (PO 2026-10-13, extension of design 44) ════════════════════
+     * Risk classes as for the lookup: Critical for the feature gate and the log rule, High for the provider
+     * call, the validation and the cache. The provider chain with a recording source is in
+     * AddressSuggestionChainTests (its own container: an extra provider must not leak into these tests). */
+
+    /* ── Input validation ───────────────────────────────────────────────────────────────────────── */
+
+    /* "1012 AB" + 25 spaces + "7" = 33 characters: the longest accepted term, and still a PDOK shape. */
+    private static readonly string ThirtyThreeChars = "1012 AB" + new string(' ', 25) + "7";
+    private static readonly string ThirtyFourChars = "1012 AB" + new string(' ', 26) + "7";
+
+    [Theory]
+    [InlineData("N", "1012")]
+    [InlineData("NLD", "1012")]
+    [InlineData("", "1012")]
+    [InlineData("  ", "1012")]
+    [InlineData("1A", "1012")]
+    [InlineData("N1", "1012")]
+    [InlineData("N-", "1012")]
+    [InlineData(null, "1012")]
+    public async Task Suggestions_with_a_country_of_the_wrong_shape_are_refused_before_any_provider_is_asked(string? country, string term)
+    {
+        using var _ = _currentTenant.Change(Guid.NewGuid());
+
+        await Should.ThrowAsync<AbpValidationException>(() => _service.GetSuggestionsAsync(country!, term));
+
+        _transport.Requests.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_term_longer_than_33_characters_is_refused_and_33_pass()
+    {
+        ThirtyThreeChars.Length.ShouldBe(33);
+        ThirtyFourChars.Length.ShouldBe(34);
+        _transport.RespondJson(Recorded.PdokSuggestAdres);
+
+        await Should.ThrowAsync<AbpValidationException>(() => _service.GetSuggestionsAsync("NL", ThirtyFourChars));
+        _transport.Requests.ShouldBeEmpty();
+
+        var lines = await _service.GetSuggestionsAsync("NL", ThirtyThreeChars);
+
+        lines.ShouldNotBeEmpty();
+        _transport.Requests.ShouldHaveSingleItem().Query["q"].ShouldBe("postcode:1012AB and huisnummer:7");
+    }
+
+    [Fact]
+    public async Task Blanks_around_the_term_do_not_count_towards_its_length()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+
+        var lines = await _service.GetSuggestionsAsync(" nl ", new string(' ', 40) + "1012" + new string(' ', 40));
+
+        lines.Count.ShouldBe(2);
+        _transport.Requests.ShouldHaveSingleItem().Query["q"].ShouldBe("postcode:1012*");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1")]
+    [InlineData("10")]
+    [InlineData("1 0")]
+    [InlineData(" 1   0 ")]
+    public async Task A_term_under_three_characters_spaces_ignored_gives_no_lines_without_a_request(string? term)
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+
+        var lines = await _service.GetSuggestionsAsync("NL", term!);
+
+        lines.ShouldNotBeNull();
+        lines.ShouldBeEmpty();
+        _transport.Requests.ShouldBeEmpty();
+        _factory.ClientNames.ShouldBeEmpty();
+        _log.Entries.ShouldBeEmpty("a short term is not a failure");
+    }
+
+    /* ── Provider ───────────────────────────────────────────────────────────────────────────────── */
+
+    [Fact]
+    public void Only_PDOK_is_registered_as_a_suggestion_source()
+    {
+        GetRequiredService<IEnumerable<IAddressSuggestionProvider>>().Select(p => p.Name).ShouldBe(["pdok"], "Nominatim's usage policy forbids autocomplete");
+    }
+
+    [Fact]
+    public async Task Four_digits_in_the_Netherlands_list_the_postal_codes_through_PDOK()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+
+        var lines = await _service.GetSuggestionsAsync("nl", "1012");
+
+        var request = _transport.Requests.ShouldHaveSingleItem();
+        request.Uri.Host.ShouldBe("api.pdok.nl");
+        request.Query["q"].ShouldBe("postcode:1012*");
+        request.Query["fq"].ShouldBe("type:postcode");
+        request.Query["rows"].ShouldBe("10", "at most ten lines");
+        request.UserAgent.ShouldBe(_options.UserAgent);
+        _factory.ClientNames.ShouldBe(["pdok"]);
+        lines.Select(l => l.PostalCode).ShouldBe(["1012AB", "1012AC"]);
+        lines[0].Label.ShouldBe("Stationsplein, 1012AB Amsterdam");
+        lines[0].Street.ShouldBe("Stationsplein");
+        lines[0].City.ShouldBe("Amsterdam");
+        lines[0].HouseNumber.ShouldBeNull();
+        lines[0].Latitude.ShouldBe(52.3789);
+        lines[0].Longitude.ShouldBe(4.9001);
+    }
+
+    [Fact]
+    public async Task A_full_postal_code_with_a_number_lists_its_addresses_through_PDOK()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestAdres);
+
+        var lines = await _service.GetSuggestionsAsync("NL", "1012 ab 7");
+
+        var query = _transport.Requests.ShouldHaveSingleItem().Query;
+        query["q"].ShouldBe("postcode:1012AB and huisnummer:7");
+        query["fq"].ShouldBe("type:adres");
+        query["sort"].ShouldBe("huisnummer asc,huisletter asc,huisnummertoevoeging asc");
+        lines.Select(l => (l.HouseNumber, l.HouseNumberSuffix)).ShouldBe([("7", null), ("7", "A"), ("7", "P-1"), ("9", "2")]);
+    }
+
+    [Theory]
+    [InlineData("DE", "10115")]
+    [InlineData("BE", "1000")]
+    [InlineData("FR", "75001")]
+    public async Task A_country_without_a_suggestion_source_gives_no_lines_and_never_asks_Nominatim(string country, string term)
+    {
+        _options.NominatimEnabled.ShouldBeTrue("the default configuration: Nominatim answers the lookup for these countries");
+        _transport.RespondPerProvider();
+
+        var lines = await _service.GetSuggestionsAsync(country, term);
+
+        lines.ShouldBeEmpty();
+        _transport.Requests.ShouldBeEmpty("no suggestion source, no request; Nominatim is never asked on every keystroke");
+        _log.Entries.ShouldBeEmpty("no source is not a failure");
+        (await _suggestionCache.GetAsync($"{country}|{term}")).ShouldBeNull();
+    }
+
+    /* ── Cache ──────────────────────────────────────────────────────────────────────────────────── */
+
+    [Fact]
+    public async Task Lines_are_served_from_the_cache_without_asking_PDOK_again()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+
+        var first = await _service.GetSuggestionsAsync("NL", "1012");
+        _transport.Fail(new HttpRequestException("the provider is gone"));
+        var second = await _service.GetSuggestionsAsync("NL", "1012");
+
+        _transport.Requests.Count.ShouldBe(1);
+        second.Select(l => (l.Label, l.PostalCode, l.Street, l.City, l.HouseNumber, l.HouseNumberSuffix, l.Latitude, l.Longitude))
+            .ShouldBe(first.Select(l => (l.Label, l.PostalCode, l.Street, l.City, l.HouseNumber, l.HouseNumberSuffix, l.Latitude, l.Longitude)));
+        _log.Entries.ShouldBeEmpty("the failing transport was never reached");
+    }
+
+    [Fact]
+    public async Task The_suggestion_cache_key_is_country_and_term_upper_case_without_spaces()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestAdres);
+
+        await _service.GetSuggestionsAsync("nl", "1012 ab 7");
+        await _service.GetSuggestionsAsync("NL", "1012AB7");
+        await _service.GetSuggestionsAsync("Nl", "  1012 AB  7 ");
+
+        _transport.Requests.Count.ShouldBe(1);
+        (await _suggestionCache.GetAsync("NL|1012AB7")).ShouldNotBeNull("the key is COUNTRY|TERM, upper case, without spaces");
+        (await _suggestionCache.GetAsync("NL|1012AB7"))!.Suggestions.Count.ShouldBe(4);
+    }
+
+    [Fact]
+    public async Task A_longer_term_is_a_different_key()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+
+        await _service.GetSuggestionsAsync("NL", "1012");
+        await _service.GetSuggestionsAsync("NL", "1012A");
+
+        _transport.Requests.Select(r => r.Query["q"]).ShouldBe(["postcode:1012*", "postcode:1012A*"]);
+        (await _suggestionCache.GetAsync("NL|1012")).ShouldNotBeNull();
+        (await _suggestionCache.GetAsync("NL|1012A")).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task An_empty_list_is_not_cached()
+    {
+        _transport.RespondJson(Recorded.PdokEmpty);
+
+        (await _service.GetSuggestionsAsync("NL", "9999")).ShouldBeEmpty();
+        (await _service.GetSuggestionsAsync("NL", "9999")).ShouldBeEmpty();
+
+        _transport.Requests.Count.ShouldBe(2, "an empty answer is asked again next time");
+        (await _suggestionCache.GetAsync("NL|9999")).ShouldBeNull();
+        _log.Entries.ShouldBeEmpty("no lines is not a failure");
+    }
+
+    [Fact]
+    public async Task The_suggestion_cache_and_the_lookup_cache_are_separate()
+    {
+        _transport.RespondJson(Recorded.PdokPostcode);
+        (await _service.GetAsync("NL", "1012AB")).Found.ShouldBeTrue();
+
+        _transport.RespondJson(Recorded.PdokSuggestAdres);
+        var lines = await _service.GetSuggestionsAsync("NL", "1012AB");
+
+        lines.Count.ShouldBe(4, "a cached lookup answer is no list of lines");
+        _transport.Requests.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task Cached_lines_are_shared_by_every_tenant_because_they_are_public_data()
+    {
+        /* [IgnoreMultiTenancy] on AddressSuggestionsCacheItem: a postal code's lines are the same for tenant A and B,
+         * and they carry nothing of either tenant. Pinned so a change to a per-tenant cache is deliberate. */
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+        List<AddressSuggestionDto> first;
+        using (_currentTenant.Change(Guid.NewGuid()))
+        {
+            first = await _service.GetSuggestionsAsync("NL", "1012");
+        }
+
+        first.Count.ShouldBe(2);
+        _transport.Fail(new HttpRequestException("the provider is gone"));
+        using (_currentTenant.Change(Guid.NewGuid()))
+        {
+            (await _service.GetSuggestionsAsync("NL", "1012")).Select(l => l.Label).ShouldBe(first.Select(l => l.Label));
+        }
+
+        using (_currentTenant.Change(null))
+        {
+            (await _service.GetSuggestionsAsync("NL", "1012")).Count.ShouldBe(2);
+        }
+
+        _transport.Requests.Count.ShouldBe(1);
+    }
+
+    /* ── Provider failure (never an error for the user; rule 5 on the log) ─────────────────────── */
+
+    [Fact]
+    public async Task A_throwing_transport_gives_no_lines_and_logs_the_provider_and_the_country_only()
+    {
+        _transport.Fail(new HttpRequestException("connection refused"));
+
+        var lines = await _service.GetSuggestionsAsync("NL", "1012 AB 7");
+
+        lines.ShouldBeEmpty();
+        var entry = _log.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Category.ShouldBe(typeof(AddressLookupAppService).FullName);
+        entry.Message.ShouldContain("pdok");
+        entry.Message.ShouldContain("NL");
+        entry.Everything.ShouldNotContain("1012", Case.Insensitive, "no postal code in the log (rule 5)");
+        entry.Everything.ShouldNotContain("postcode:", Case.Insensitive, "no query in the log (rule 5)");
+        entry.Exception.ShouldNotBeNull();
+        entry.Exception.ShouldContain("connection refused");
+    }
+
+    [Fact]
+    public async Task A_failing_status_gives_no_lines_and_logs_without_the_term()
+    {
+        _transport.RespondStatus(HttpStatusCode.InternalServerError);
+
+        var lines = await _service.GetSuggestionsAsync("NL", "1012AB 7");
+
+        lines.ShouldBeEmpty();
+        var entry = _log.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldContain("pdok");
+        entry.Message.ShouldContain("NL");
+        entry.Everything.ShouldNotContain("1012", Case.Insensitive, "no postal code in the log (rule 5)");
+        entry.Everything.ShouldNotContain("huisnummer", Case.Insensitive, "no house number in the log (rule 5)");
+        entry.Exception.ShouldNotBeNull();
+        entry.Exception.ShouldContain("500");
+    }
+
+    [Fact]
+    public async Task A_failure_is_not_cached_so_the_next_keystroke_asks_again()
+    {
+        _transport.Fail(new HttpRequestException("connection refused"));
+        (await _service.GetSuggestionsAsync("NL", "1012")).ShouldBeEmpty();
+        (await _suggestionCache.GetAsync("NL|1012")).ShouldBeNull();
+
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+        var lines = await _service.GetSuggestionsAsync("NL", "1012");
+
+        lines.Count.ShouldBe(2);
+        _transport.Requests.Count.ShouldBe(2);
+    }
+
+    /* ── Feature gate (constitution rule 4) ─────────────────────────────────────────────────────── */
+
+    [Fact]
+    public async Task With_the_feature_off_suggestions_are_refused_before_any_provider_or_cache_is_touched()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+        using var _ = _currentTenant.Change(Guid.NewGuid());
+
+        using (TestFeatureValueProvider.OverrideAddressLookup("false"))
+        {
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetSuggestionsAsync("NL", "1012"));
+            /* The gate comes before the method body: even a term that would short-circuit is refused. */
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetSuggestionsAsync("NL", "10"));
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetSuggestionsAsync("DE", "10115"));
+            _transport.Requests.ShouldBeEmpty();
+            (await _suggestionCache.GetAsync("NL|1012")).ShouldBeNull();
+        }
+
+        /* With the flag on (the test default) the same call reaches PDOK. */
+        (await _service.GetSuggestionsAsync("NL", "1012")).Count.ShouldBe(2);
+        _transport.Requests.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task With_the_feature_off_a_cached_list_is_not_served_either()
+    {
+        _transport.RespondJson(Recorded.PdokSuggestPostcode);
+        using var _ = _currentTenant.Change(Guid.NewGuid());
+        (await _service.GetSuggestionsAsync("NL", "1012")).Count.ShouldBe(2);
+        (await _suggestionCache.GetAsync("NL|1012")).ShouldNotBeNull();
+
+        using (TestFeatureValueProvider.OverrideAddressLookup("false"))
+        {
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetSuggestionsAsync("NL", "1012"));
+        }
     }
 }

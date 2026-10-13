@@ -16,6 +16,7 @@ import { apiClient } from "@/lib/api/client";
 import {
   ADDRESS_LOOKUP_FEATURE,
   ADDRESS_LOOKUP_PERMISSION,
+  fetchAddressSuggestions,
   lookupAddress,
 } from "@/domains/integrations/address-lookup";
 
@@ -69,5 +70,49 @@ describe("lookupAddress", () => {
     const error = { error: { code: "Forbidden", message: "no" } };
     GET.mockResolvedValue(failed(error));
     await expect(lookupAddress("NL", "1012AB", null)).rejects.toBe(error);
+  });
+});
+
+/* The postal-code dropdown (PO 2026-10-13, extension of design 44): one GET on the suggestions route with the
+ * country code and the typed term; the list as the server sends it, an empty list for no body, the client's
+ * error thrown (the component drops it silently). Risk class: Medium — the request shape is the contract. */
+describe("fetchAddressSuggestions", () => {
+  const SUGGESTIONS_PATH = "/api/integrations/address-lookup/suggestions";
+  const LINES = [
+    { label: "Stationsplein, 1012AB Amsterdam", postalCode: "1012AB", street: "Stationsplein", houseNumber: null, houseNumberSuffix: null, city: "Amsterdam", latitude: 52.3789, longitude: 4.9001 },
+    { label: "Damrak, 1012AC Amsterdam", postalCode: "1012AC", street: "Damrak", houseNumber: null, houseNumberSuffix: null, city: "Amsterdam", latitude: 52.3752, longitude: 4.8945 },
+  ];
+
+  it("asks GET /api/integrations/address-lookup/suggestions with the country code and the term as query parameters and hands the list back as sent", async () => {
+    GET.mockResolvedValue(ok(LINES));
+    const result = await fetchAddressSuggestions("NL", "1012");
+    expect(GET).toHaveBeenCalledTimes(1);
+    expect(GET).toHaveBeenCalledWith(SUGGESTIONS_PATH, { params: { query: { countryCode: "NL", term: "1012" } } });
+    expect(result).toEqual(LINES);
+  });
+
+  it("passes the term untouched: spaces and case are the server's to normalise", async () => {
+    GET.mockResolvedValue(ok([]));
+    await fetchAddressSuggestions("NL", "1012 ab 7");
+    expect(GET).toHaveBeenCalledWith(SUGGESTIONS_PATH, { params: { query: { countryCode: "NL", term: "1012 ab 7" } } });
+  });
+
+  it("answers an empty list for an empty answer and for a missing body", async () => {
+    GET.mockResolvedValueOnce(ok([]));
+    expect(await fetchAddressSuggestions("NL", "9999")).toEqual([]);
+    GET.mockResolvedValueOnce(ok(undefined));
+    expect(await fetchAddressSuggestions("NL", "9999")).toEqual([]);
+  });
+
+  it("throws the client's error (the dropdown decides that a failure is silent)", async () => {
+    const error = { error: { code: "Forbidden", message: "no" } };
+    GET.mockResolvedValue(failed(error));
+    await expect(fetchAddressSuggestions("NL", "1012")).rejects.toBe(error);
+  });
+
+  it("does not touch the lookup route", async () => {
+    GET.mockResolvedValue(ok([]));
+    await fetchAddressSuggestions("NL", "1012");
+    expect((GET.mock.calls as unknown as [string][]).map(([path]) => path)).toEqual([SUGGESTIONS_PATH]);
   });
 });

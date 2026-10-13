@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -97,6 +99,69 @@ public class AddressLookupAuthorizationTests
 
         var dto = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("OpenTms.Integrations.AddressLookup.AddressLookupResultDto").GetProperty("properties");
         dto.EnumerateObject().Select(p => p.Name).ShouldBe(["found", "street", "houseNumber", "city", "latitude", "longitude", "provider"], ignoreOrder: true);
+    }
+
+    /* ── Suggestions: the postal-code dropdown (PO 2026-10-13, extension of design 44) ──────────────────── */
+
+    [Fact]
+    public void GetSuggestionsAsync_carries_the_AddressLookup_permission()
+    {
+        var method = typeof(AddressLookupAppService).GetMethod(nameof(AddressLookupAppService.GetSuggestionsAsync), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+
+        method.ShouldNotBeNull();
+        var authorize = method.GetCustomAttribute<AuthorizeAttribute>();
+        authorize.ShouldNotBeNull("the dropdown needs the same permission as the lookup");
+        authorize.Policy.ShouldBe(IntegrationsPermissions.AddressLookup);
+        /* The feature gate sits on the class and so covers the new method: no method-level opt-out. */
+        method.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
+        method.GetCustomAttribute<RequiresFeatureAttribute>().ShouldBeNull("the class-level feature gate applies; a method-level one would be a second, divergent gate");
+    }
+
+    [Fact]
+    public void The_contract_declares_GetSuggestionsAsync_with_country_and_term_returning_a_list_of_lines()
+    {
+        var method = typeof(IAddressLookupAppService).GetMethod(nameof(IAddressLookupAppService.GetSuggestionsAsync));
+
+        method.ShouldNotBeNull();
+        method.GetParameters().Select(p => (p.Name, p.ParameterType)).ShouldBe([("countryCode", typeof(string)), ("term", typeof(string))]);
+        method.ReturnType.ShouldBe(typeof(Task<List<AddressSuggestionDto>>));
+        typeof(AddressSuggestionDto).GetProperties().Select(p => p.Name)
+            .ShouldBe(["Label", "PostalCode", "Street", "HouseNumber", "HouseNumberSuffix", "City", "Latitude", "Longitude"], ignoreOrder: true);
+        new AddressSuggestionDto().Label.ShouldBe(string.Empty);
+        new AddressSuggestionDto().PostalCode.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void The_suggestions_cache_item_is_shared_by_every_tenant_on_purpose()
+    {
+        /* Public data like the lookup's answers: no tenant prefix on the key. Behaviour proven in the container tests. */
+        typeof(AddressSuggestionsCacheItem).GetCustomAttribute<IgnoreMultiTenancyAttribute>().ShouldNotBeNull();
+        new AddressSuggestionsCacheItem().Suggestions.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void The_committed_api_contract_exposes_the_suggestions_with_country_and_term_and_an_array_of_lines()
+    {
+        var path = Path.Combine(FindRepositoryRoot(), "openapi", "opentms-next.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+
+        var paths = document.RootElement.GetProperty("paths");
+        paths.TryGetProperty("/api/integrations/address-lookup/suggestions", out var route).ShouldBeTrue("GET /api/integrations/address-lookup/suggestions is in the committed contract");
+        route.EnumerateObject().Select(p => p.Name).ShouldBe(["get"], "a read: GET only");
+        var operation = route.GetProperty("get");
+        operation.GetProperty("parameters").EnumerateArray()
+            .Select(p => (p.GetProperty("name").GetString(), p.GetProperty("in").GetString()))
+            .ShouldBe([("countryCode", "query"), ("term", "query")]);
+        operation.GetProperty("tags").EnumerateArray().Select(t => t.GetString()).ShouldBe(["AddressLookup"]);
+        var schema = operation.GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        schema.GetProperty("type").GetString().ShouldBe("array");
+        schema.GetProperty("items").GetProperty("$ref").GetString().ShouldBe("#/components/schemas/OpenTms.Integrations.AddressLookup.AddressSuggestionDto");
+
+        var dto = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("OpenTms.Integrations.AddressLookup.AddressSuggestionDto").GetProperty("properties");
+        dto.EnumerateObject().Select(p => p.Name).ShouldBe(["label", "postalCode", "street", "houseNumber", "houseNumberSuffix", "city", "latitude", "longitude"], ignoreOrder: true);
+        dto.GetProperty("houseNumber").GetProperty("type").GetString().ShouldBe("string", "the number travels as text, like the lookup's");
+        dto.GetProperty("latitude").GetProperty("format").GetString().ShouldBe("double");
+        dto.GetProperty("longitude").GetProperty("format").GetString().ShouldBe("double");
     }
 
     private static string FindRepositoryRoot()
