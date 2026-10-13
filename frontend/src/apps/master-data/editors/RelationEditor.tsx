@@ -67,6 +67,7 @@ import {
   relations,
   rolesToList,
   useArchiveRelation,
+  useDefaultCountry,
   useUnarchiveRelation,
   type RelationDto,
   type RelationRoles,
@@ -156,8 +157,12 @@ const toAddressRow = (
   timeZoneId: a.timeZoneId ?? null,
 });
 
+/** A new relation's default address starts with the tenant's default country and its zone (PO 2026-10-13), as part of the initial values so an untouched record stays clean. */
 const initialValuesFor =
-  (initialName: string | undefined) =>
+  (
+    initialName: string | undefined,
+    defaultCountry: { id: string; timeZoneId: string | null } | null,
+  ) =>
   (dto: RelationDto | undefined): Values => {
     const stored = dto?.addresses ?? [];
     const defaultAddress = stored.find((a) => !a.addressTypeId);
@@ -184,7 +189,12 @@ const initialValuesFor =
       allAddressesEqual: dto ? defaultAddress != null : true,
       defaultAddress: defaultAddress
         ? { ...toAddressRow(defaultAddress), key: DEFAULT_KEY }
-        : { ...newAddressRow(), key: DEFAULT_KEY },
+        : {
+            ...newAddressRow(),
+            key: DEFAULT_KEY,
+            countryId: dto ? null : (defaultCountry?.id ?? null),
+            timeZoneId: dto ? null : (defaultCountry?.timeZoneId ?? null),
+          },
       addresses: stored
         .filter((a) => Boolean(a.addressTypeId))
         .map(toAddressRow),
@@ -275,10 +285,21 @@ export function RelationEditor({
   const { t } = useL();
   const queryClient = useQueryClient();
   const detail = relations.useDetail(mode === "edit" ? id : undefined);
+  const defaultCountry = useDefaultCountry(open);
+  const defaultCountryId = defaultCountry.data?.id ?? null;
+  const defaultCountryZone = defaultCountry.data?.primaryTimeZoneId ?? null;
   const initialValues = useMemo(
-    () => initialValuesFor(initialName),
-    [initialName],
+    () =>
+      initialValuesFor(
+        initialName,
+        defaultCountryId
+          ? { id: defaultCountryId, timeZoneId: defaultCountryZone }
+          : null,
+      ),
+    [initialName, defaultCountryId, defaultCountryZone],
   );
+  /* A new relation waits for the default country (cached after the first open) so its initial values hold it. */
+  const ready = mode !== "create" || defaultCountry.isFetched;
   const create = relations.useCreate();
   const update = relations.useUpdate();
   const remove = relations.useDelete();
@@ -372,6 +393,27 @@ export function RelationEditor({
     countryId: string;
   } | null>(null);
   const autoZone = useRef<Map<string, string>>(new Map());
+  /* A new address starts with the default country and its zone; that zone counts as filled in by a
+   * country, so picking another country still lets the zone follow. */
+  const prefilled = (row: AddressRow): AddressRow => {
+    if (row.countryId || !defaultCountryId) return row;
+    const key = row.addressTypeId ?? DEFAULT_KEY;
+    if (defaultCountryZone && !autoZone.current.has(key))
+      autoZone.current.set(key, defaultCountryZone);
+    return {
+      ...row,
+      countryId: defaultCountryId,
+      timeZoneId: row.timeZoneId ?? defaultCountryZone,
+    };
+  };
+  useEffect(() => {
+    if (
+      mode === "create" &&
+      defaultCountryZone &&
+      !autoZone.current.has(DEFAULT_KEY)
+    )
+      autoZone.current.set(DEFAULT_KEY, defaultCountryZone);
+  }, [mode, defaultCountryZone]);
   const zoneCountry = countries.useDetail(zoneSource?.countryId);
   useEffect(() => {
     const dto = zoneCountry.data;
@@ -602,7 +644,7 @@ export function RelationEditor({
   /* The typed address of an address type, or an empty one that only enters the form once edited. */
   const typedAddress = (form: FormContext<Values>, typeId: string) =>
     form.values.addresses.find((a) => a.addressTypeId === typeId) ??
-    newAddressRow(typeId);
+    prefilled(newAddressRow(typeId));
   const setTypedAddress = (form: FormContext<Values>, row: AddressRow) => {
     const exists = form.values.addresses.some(
       (a) => a.addressTypeId === row.addressTypeId,
@@ -1084,6 +1126,9 @@ export function RelationEditor({
         )}
       </>
     ) : undefined;
+
+  /* The editor seeds its form state when it mounts: a new relation is not mounted before its default country is known. */
+  if (!ready) return null;
 
   return (
     <>

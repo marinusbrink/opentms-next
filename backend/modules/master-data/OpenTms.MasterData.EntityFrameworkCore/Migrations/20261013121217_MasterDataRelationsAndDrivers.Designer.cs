@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261013104833_MasterDataRelationsAndDrivers")]
+    [Migration("20261013121217_MasterDataRelationsAndDrivers")]
     partial class MasterDataRelationsAndDrivers
     {
         /// <inheritdoc />
@@ -573,6 +573,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ExtraProperties");
 
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -629,6 +632,12 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasFilter("\"IsDeleted\" = false");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "IsoAlpha3"), false);
+
+                    b.HasIndex(new[] { "TenantId" }, "IX_Countries_TenantId_Default")
+                        .IsUnique()
+                        .HasFilter("\"IsDefault\" = true AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "TenantId" }, "IX_Countries_TenantId_Default"), false);
 
                     b.ToTable("Countries", "masterdata");
                 });

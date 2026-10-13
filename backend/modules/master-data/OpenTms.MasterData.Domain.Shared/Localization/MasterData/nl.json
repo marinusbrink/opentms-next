@@ -428,6 +428,9 @@
     "MasterData:HouseNumberSuffix": "Bijvoegsel",
     "MasterData:Building": "Gebouw",
     "MasterData:AddressIncomplete": "Maak het adres compleet: land, straat, postcode en plaats zijn verplicht.",
-    "MasterData:Nr": "Nr."
+    "MasterData:Nr": "Nr.",
+    "MasterData:DefaultCountrySet": "Standaardland ingesteld",
+    "MasterData:DefaultCountryCannotBeDeleted": "Het standaardland kan niet worden verwijderd. Maak eerst een ander land de standaard.",
+    "MasterData:SetAsDefaultCountryQuestion": "{0} het standaardland van deze tenant maken?"
   }
 }

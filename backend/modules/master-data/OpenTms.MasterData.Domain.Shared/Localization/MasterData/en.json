@@ -428,6 +428,9 @@
     "MasterData:HouseNumberSuffix": "Suffix",
     "MasterData:Building": "Building",
     "MasterData:AddressIncomplete": "Complete the address: country, street, postal code and city are required.",
-    "MasterData:Nr": "No."
+    "MasterData:Nr": "No.",
+    "MasterData:DefaultCountrySet": "Default country set",
+    "MasterData:DefaultCountryCannotBeDeleted": "The default country cannot be deleted. Make another country the default first.",
+    "MasterData:SetAsDefaultCountryQuestion": "Make {0} the default country of this tenant?"
   }
 }

@@ -44,7 +44,10 @@ tonen alleen actieve valuta's. Precies één valuta is de **standaard** van de t
 met **Als standaard instellen** in het record van een andere, actieve valuta.
 
 Een land heeft een standaardvaluta en een tijdzone (IANA-naam, bijvoorbeeld
-`Europe/Amsterdam`). De ISO-codes (alpha-2, alpha-3, numeriek) zijn uniek per tenant. Een
+`Europe/Amsterdam`). De ISO-codes (alpha-2, alpha-3, numeriek) zijn uniek per tenant. Hoogstens één
+land is het **standaardland** van de tenant (**Als standaard instellen** in het record van het land);
+een nieuw adres van een relatie begint met dat land en zijn tijdzone, en het standaardland kan niet
+worden verwijderd. Een
 herstart van de inlezing voegt alleen ontbrekende rijen toe; namen en instellingen die u heeft
 aangepast blijven staan, en een verwijderde rij komt niet terug.
 

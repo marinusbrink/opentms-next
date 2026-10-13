@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using OpenTms.MasterData;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Relations;
 using OpenTms.Platform.Localization;
@@ -15,8 +16,8 @@ namespace OpenTms.PostgreSql.MasterData;
 /// <summary>
 /// The unique and partial unique indexes of the masterdata schema, exercised through the repository
 /// so the application service's friendly check is bypassed (design 41, "Uniqueness and the single
-/// default"). Risk class: Critical — the index is the one enforced place for the natural keys, the
-/// single default currency and the one-Visiting-one-Postal rule.
+/// default"; default country per PO 2026-10-13). Risk class: Critical — the index is the one enforced place
+/// for the natural keys, the single default currency, the single default country and the one-Visiting-one-Postal rule.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataUniqueIndexTests : MasterDataPostgreSqlTestBase
@@ -26,9 +27,11 @@ public class MasterDataUniqueIndexTests : MasterDataPostgreSqlTestBase
     private readonly IRepository<AddressType, Guid> _addressTypes;
     private readonly IRepository<RelationCategory, Guid> _categories;
     private readonly IGuidGenerator _guids;
+    private readonly ICountryAppService _countryService;
 
     public MasterDataUniqueIndexTests()
     {
+        _countryService = GetRequiredService<ICountryAppService>();
         _currencies = GetRequiredService<IRepository<Currency, Guid>>();
         _countries = GetRequiredService<IRepository<Country, Guid>>();
         _addressTypes = GetRequiredService<IRepository<AddressType, Guid>>();
@@ -66,6 +69,92 @@ public class MasterDataUniqueIndexTests : MasterDataPostgreSqlTestBase
                 return _currencies.InsertAsync(second, autoSave: true);
             },
             "IX_Currencies_TenantId_Default"));
+    }
+
+    [Fact]
+    public async Task A_second_default_country_is_refused_by_the_partial_index_while_two_tenants_each_have_one()
+    {
+        /* PO 2026-10-13: one default country per tenant, the currency pattern. The shared tenant and the host share the
+         * host database; tenant A has its own. The violation comes last: it aborts the shared tenant's transaction. */
+        await InRolledBackTransactionAsync(SharedTenant, async () =>
+        {
+            var sharedNl = await _countries.GetAsync(c => c.IsoAlpha2 == "NL");
+            sharedNl.MarkDefault();
+            await _countries.UpdateAsync(sharedNl, autoSave: true);
+            (await _countries.CountAsync(c => c.IsDefault)).ShouldBe(1);
+
+            using (CurrentTenant.Change(TenantA))
+            {
+                var nlOfA = await _countries.GetAsync(c => c.IsoAlpha2 == "NL");
+                nlOfA.Id.ShouldNotBe(sharedNl.Id);
+                nlOfA.MarkDefault();
+                await _countries.UpdateAsync(nlOfA, autoSave: true);
+                (await _countries.CountAsync(c => c.IsDefault)).ShouldBe(1);
+            }
+
+            using (CurrentTenant.Change(null))
+            {
+                /* The host (TenantId null) keeps its own single default in the same database as the shared tenant. */
+                var hostDefault = new Country(_guids.Create(), null, "QQ", "QQA", Name("Host default"));
+                hostDefault.MarkDefault();
+                await _countries.InsertAsync(hostDefault, autoSave: true);
+                (await _countries.CountAsync(c => c.IsDefault)).ShouldBe(1);
+            }
+
+            (await _countries.CountAsync(c => c.IsDefault)).ShouldBe(1, "the host's default is not the shared tenant's");
+
+            await ShouldViolateUniqueIndexAsync(
+                async () =>
+                {
+                    var sharedBe = await _countries.GetAsync(c => c.IsoAlpha2 == "BE");
+                    sharedBe.MarkDefault();
+                    await _countries.UpdateAsync(sharedBe, autoSave: true);
+                },
+                "IX_Countries_TenantId_Default");
+        });
+    }
+
+    [Fact]
+    public async Task A_second_default_country_for_the_host_is_refused_because_null_tenant_ids_are_not_distinct()
+    {
+        await InRolledBackTransactionAsync(null, async () =>
+        {
+            var first = new Country(_guids.Create(), null, "QQ", "QQA", Name("Host default"));
+            first.MarkDefault();
+            await _countries.InsertAsync(first, autoSave: true);
+
+            await ShouldViolateUniqueIndexAsync(
+                () =>
+                {
+                    var second = new Country(_guids.Create(), null, "QX", "QXA", Name("Second host default"));
+                    second.MarkDefault();
+                    return _countries.InsertAsync(second, autoSave: true);
+                },
+                "IX_Countries_TenantId_Default");
+        });
+    }
+
+    [Fact]
+    public async Task SetDefault_through_the_service_swaps_the_default_country_under_the_partial_index()
+    {
+        /* The service clears and flushes before it marks (the index checks every statement); SQLite cannot prove that. */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var nl = await _countries.GetAsync(c => c.IsoAlpha2 == "NL");
+            var be = await _countries.GetAsync(c => c.IsoAlpha2 == "BE");
+            (await _countryService.GetDefaultAsync()).ShouldBeNull("the seed sets no default country");
+
+            await _countryService.SetDefaultAsync(nl.Id);
+            (await _countryService.GetDefaultAsync())!.Id.ShouldBe(nl.Id);
+
+            await _countryService.SetDefaultAsync(be.Id);
+            await _countryService.SetDefaultAsync(be.Id);
+            await FlushAsync();
+
+            (await _countries.CountAsync(c => c.IsDefault)).ShouldBe(1);
+            (await _countryService.GetDefaultAsync())!.Id.ShouldBe(be.Id);
+            (await _countries.GetAsync(nl.Id)).IsDefault.ShouldBeFalse();
+        });
     }
 
     [Fact]

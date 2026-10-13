@@ -14,6 +14,14 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
             migrationBuilder.AlterDatabase()
                 .Annotation("Npgsql:PostgresExtension:pg_trgm", ",,");
 
+            migrationBuilder.AddColumn<bool>(
+                name: "IsDefault",
+                schema: "masterdata",
+                table: "Countries",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.CreateTable(
                 name: "Relations",
                 schema: "masterdata",
@@ -304,6 +312,15 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Countries_TenantId_Default",
+                schema: "masterdata",
+                table: "Countries",
+                column: "TenantId",
+                unique: true,
+                filter: "\"IsDefault\" = true AND \"IsDeleted\" = false")
+                .Annotation("Npgsql:NullsDistinct", false);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DriverQualifications_DriverId",
                 schema: "masterdata",
                 table: "DriverQualifications",
@@ -523,6 +540,16 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
             migrationBuilder.DropTable(
                 name: "Relations",
                 schema: "masterdata");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Countries_TenantId_Default",
+                schema: "masterdata",
+                table: "Countries");
+
+            migrationBuilder.DropColumn(
+                name: "IsDefault",
+                schema: "masterdata",
+                table: "Countries");
 
             migrationBuilder.AlterDatabase()
                 .OldAnnotation("Npgsql:PostgresExtension:pg_trgm", ",,");

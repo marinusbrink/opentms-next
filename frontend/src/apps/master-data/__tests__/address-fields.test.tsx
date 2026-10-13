@@ -41,21 +41,33 @@ describe("hasAddressInput", () => {
     expect(hasAddressInput({ ...newAddressRow(), street: "   ", city: "\t", latitude: " " })).toBe(false);
   });
 
-  it("any text field or the country counts as input", () => {
-    expect(hasAddressInput({ ...newAddressRow(), countryId: "c-1" })).toBe(true);
+  it("any text field counts as input: street, number, suffix, building, postal code, city, latitude or longitude", () => {
     for (const field of TEXT_FIELDS) {
       expect(hasAddressInput({ ...newAddressRow(), [field]: "x" }), field).toBe(true);
     }
   });
 
-  it("a time zone alone is not an address (it follows the country; nothing to post without one)", () => {
+  it("the country does not count by itself (PO 2026-10-13: a new address starts with the tenant's default country), nor does the time zone, nor both together", () => {
+    expect(hasAddressInput({ ...newAddressRow(), countryId: "c-1" })).toBe(false);
     expect(hasAddressInput({ ...newAddressRow(), timeZoneId: "Europe/Amsterdam" })).toBe(false);
+    expect(hasAddressInput({ ...newAddressRow(), countryId: "c-1", timeZoneId: "Europe/Amsterdam" })).toBe(false);
+    /* With the country and zone prefilled, the first typed character makes it an address. */
+    expect(hasAddressInput({ ...newAddressRow(), countryId: "c-1", timeZoneId: "Europe/Amsterdam", city: "D" })).toBe(true);
   });
 });
 
 describe("validateAddressRow", () => {
-  it("has nothing to say about an untouched address", () => {
+  it("has nothing to say about an untouched address, prefilled country and time zone included", () => {
     expect(validateAddressRow(newAddressRow())).toEqual({});
+    expect(validateAddressRow({ ...newAddressRow(), countryId: "c-1", timeZoneId: "Europe/Amsterdam" })).toEqual({});
+  });
+
+  it("once something was entered next to the prefilled country, the country is satisfied and the other three are required", () => {
+    expect(validateAddressRow({ ...newAddressRow(), countryId: "c-1", timeZoneId: "Europe/Amsterdam", houseNumber: "1" })).toEqual({
+      street: "MasterData:StreetRequired",
+      postalCode: "MasterData:PostalCodeRequired",
+      city: "MasterData:CityRequired",
+    });
   });
 
   it("once something was entered, country, street, postal code and city are required", () => {
@@ -199,6 +211,33 @@ describe("AddressFields — required and errors", () => {
     /* Clearing the input again drops the markers. */
     fireEvent.change(control("MasterData:HouseNumberSuffix"), { target: { value: "" } });
     expect(labelOf("MasterData:Country")).not.toHaveTextContent("*");
+  });
+
+  it("a row that starts with the country and its time zone prefilled is still untouched: no markers, no errors on submit, until a text field is entered", () => {
+    const prefilled = { ...newAddressRow(), countryId: "c-1", timeZoneId: "Europe/Amsterdam" };
+    const { rerender } = render(<Harness initial={prefilled} />);
+    expect(control("MasterData:Country").value).toBe("c-1");
+    expect(control("MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    for (const label of LABELS) {
+      expect(labelOf(label), label).not.toHaveTextContent("*");
+      expect(control(label), label).not.toHaveAttribute("aria-required");
+    }
+    /* Submitted with nothing but the prefill: nothing is required, nothing flagged. */
+    rerender(<Harness initial={prefilled} showErrors />);
+    expect(errors()).toEqual([]);
+    for (const label of LABELS) {
+      expect(control(label), label).not.toHaveAttribute("aria-invalid");
+    }
+    /* Picking another country alone keeps it untouched too. */
+    fireEvent.change(control("MasterData:Country"), { target: { value: "c-2" } });
+    expect(labelOf("MasterData:Street")).not.toHaveTextContent("*");
+    expect(errors()).toEqual([]);
+    /* The first text entry makes it an address: the three text fields are required, the country already satisfied. */
+    fireEvent.change(control("MasterData:City"), { target: { value: "Delft" } });
+    expect(labelOf("MasterData:Country")).toHaveTextContent("*");
+    expect(labelOf("MasterData:Street")).toHaveTextContent("*");
+    expect(errors()).toEqual(["MasterData:PostalCodeRequired", "MasterData:StreetRequired"]);
+    expect(control("MasterData:Country")).not.toHaveAttribute("aria-invalid");
   });
 
   it("shows a field's error after its own blur only, bound to the input through aria-describedby", () => {

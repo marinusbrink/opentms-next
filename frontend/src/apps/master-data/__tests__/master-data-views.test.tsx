@@ -42,13 +42,23 @@ vi.mock("@/domains/master-data/entities", () => {
     addressTypeKindKey: () => "MasterData:AddressTypeKind.Other",
     vehicleTypeKindKey: () => "",
     useSetDefaultCurrency: mutation,
+    useSetDefaultCountry: mutation,
+    useDefaultCountry: () => ({ data: null, isLoading: false, error: null }),
   };
 });
 
+/* The grid renders its filters and its column definitions (field, visibility, the cell renderer by name). */
 vi.mock("@/components/ui/opentms-grid", () => ({
-  OpenTmsGrid: (props: { gridId: string; filters?: React.ReactNode }) => (
+  OpenTmsGrid: (props: { gridId: string; filters?: React.ReactNode; columnDefs: { field?: string; colId?: string; headerName?: string; hide?: boolean; cellRenderer?: unknown }[] }) => (
     <div data-testid="mock-grid" data-grid-id={props.gridId}>
       {props.filters}
+      <div data-slot="mock-grid-columns">
+        {props.columnDefs.map((col, index) => (
+          <span key={index} data-column={col.field ?? col.colId} data-hidden={col.hide ? "true" : undefined} data-cell-renderer={typeof col.cellRenderer === "function" ? col.cellRenderer.name : undefined}>
+            {col.headerName}
+          </span>
+        ))}
+      </div>
     </div>
   ),
 }));
@@ -137,6 +147,29 @@ describe("Master data list views", () => {
     render(<GeographicalRegionsView />);
     await screen.findByTestId("mock-grid");
     expect(screen.getByTestId("country-filter")).toBeInTheDocument();
+  });
+
+  it("the countries grid shows the IsDefault column (BoolCell) right after the time zone, visible (PO 2026-10-13)", async () => {
+    grants = { "MasterData.Countries": true };
+    render(<CountriesView />);
+    const grid = await screen.findByTestId("mock-grid");
+    expect(grid.getAttribute("data-grid-id")).toBe("masterData.countries");
+    const columns = Array.from(grid.querySelectorAll("[data-slot=mock-grid-columns] > span")).map((el) => ({
+      field: el.getAttribute("data-column"),
+      header: el.textContent,
+      hidden: el.getAttribute("data-hidden") === "true",
+      renderer: el.getAttribute("data-cell-renderer"),
+    }));
+    expect(columns).toEqual([
+      { field: "isoAlpha2", header: "MasterData:IsoAlpha2", hidden: false, renderer: null },
+      { field: "isoAlpha3", header: "MasterData:IsoAlpha3", hidden: false, renderer: null },
+      { field: "name", header: "MasterData:Name", hidden: false, renderer: null },
+      { field: "defaultCurrencyCode", header: "MasterData:DefaultCurrency", hidden: false, renderer: null },
+      { field: "primaryTimeZoneId", header: "MasterData:PrimaryTimeZone", hidden: false, renderer: null },
+      { field: "isDefault", header: "MasterData:IsDefault", hidden: false, renderer: "BoolCell" },
+      { field: "isoNumeric", header: "MasterData:IsoNumeric", hidden: true, renderer: "NumberCell" },
+      { field: "description", header: "MasterData:Description", hidden: true, renderer: null },
+    ]);
   });
 
   it.each([

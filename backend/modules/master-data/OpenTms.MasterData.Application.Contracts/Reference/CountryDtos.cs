@@ -18,6 +18,7 @@ public class CountryRowDto
     public Guid? DefaultCurrencyId { get; set; }
     public string? DefaultCurrencyCode { get; set; }
     public string? PrimaryTimeZoneId { get; set; }
+    public bool IsDefault { get; set; }
 }
 
 public class CountryDto : MasterDataDetailDtoBase
@@ -30,6 +31,7 @@ public class CountryDto : MasterDataDetailDtoBase
     public Guid? DefaultCurrencyId { get; set; }
     public string? DefaultCurrencyCode { get; set; }
     public string? PrimaryTimeZoneId { get; set; }
+    public bool IsDefault { get; set; }
 }
 
 public class CountryCreateDto
@@ -70,4 +72,10 @@ public interface ICountryAppService : IApplicationService
     Task<CountryDto> UpdateAsync(Guid id, CountryUpdateDto input);
     Task DeleteAsync(Guid id);
     Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input);
+
+    /// <summary>Makes this country the tenant's one default (PO 2026-10-13); clears the previous one.</summary>
+    Task SetDefaultAsync(Guid id);
+
+    /// <summary>The tenant's default country, or null while none is set; new addresses start with it.</summary>
+    Task<CountryDto?> GetDefaultAsync();
 }

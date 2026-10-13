@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.MasterData.Drivers;
 using OpenTms.MasterData.Features;
+using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Relations;
 using Shouldly;
 using Volo.Abp.Features;
@@ -116,6 +117,37 @@ public class MasterDataRun2AuthorizationTests
         MasterDataErrorCodes.ConflictCodes.ShouldNotContain(MasterDataErrorCodes.BlockReasonRequired);
 
         MasterDataErrorCodes.ConflictCodes.Intersect(MasterDataErrorCodes.BadRequestCodes).ShouldBeEmpty();
+    }
+
+    /* PO 2026-10-13: the default country, mirroring the currency default of run 1. Critical — authorization. */
+    [Theory]
+    [InlineData(nameof(CountryAppService.SetDefaultAsync), MasterDataPermissions.Countries.Update)]
+    [InlineData(nameof(CountryAppService.GetDefaultAsync), MasterDataPermissions.Countries.Default)]
+    [InlineData(nameof(CountryAppService.DeleteAsync), MasterDataPermissions.Countries.Delete)]
+    public void The_default_country_commands_carry_the_update_and_read_permissions(string method, string permission)
+    {
+        PolicyOf(typeof(CountryAppService), method).ShouldBe(permission);
+    }
+
+    [Fact]
+    public void SetDefault_is_not_reachable_through_the_read_or_create_permission_and_sits_behind_the_FirstRun_feature()
+    {
+        var policy = PolicyOf(typeof(CountryAppService), nameof(CountryAppService.SetDefaultAsync));
+        policy.ShouldBe("MasterData.Countries.Update");
+        policy.ShouldNotBe(MasterDataPermissions.Countries.Default);
+        policy.ShouldNotBe(MasterDataPermissions.Countries.Create);
+        policy.ShouldNotBe(MasterDataPermissions.Currencies.Update, "the country default is gated by the country permission, not the currency one");
+
+        var feature = typeof(CountryAppService).GetCustomAttribute<RequiresFeatureAttribute>();
+        feature.ShouldNotBeNull();
+        feature.Features.ShouldBe([MasterDataFeatures.FirstRun]);
+
+        typeof(CountryAppService)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(m => !m.IsSpecialName)
+            .Where(m => m.GetCustomAttribute<AuthorizeAttribute>()?.Policy == null)
+            .Select(m => m.Name)
+            .ShouldBeEmpty("every public method of CountryAppService needs [Authorize(<permission>)]");
     }
 
     private static string? PolicyOf(Type service, string method)

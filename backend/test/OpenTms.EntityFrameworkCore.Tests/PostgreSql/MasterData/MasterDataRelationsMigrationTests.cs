@@ -26,7 +26,7 @@ namespace OpenTms.PostgreSql.MasterData;
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261013104833_MasterDataRelationsAndDrivers";
+    private const string Migration = "20261013121217_MasterDataRelationsAndDrivers";
     private const string FirstRunMigration = "20261011191016_MasterDataFirstRun";
 
     private static readonly string[] Tables =
@@ -279,6 +279,36 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
     }
 
     /// <summary>Exactly one row starting with <paramref name="prefix"/>; the assertion names it when absent.</summary>
+    [Theory]
+    [InlineData("host")]
+    [InlineData("tenant-a")]
+    public async Task The_default_country_column_and_its_partial_unique_index_mirror_the_currency_default(string target)
+    {
+        /* PO 2026-10-13: Countries.IsDefault arrives in this migration, non-null with default false (expand only), and one
+         * default per tenant is enforced like the currency default: unique on TenantId, NULLS NOT DISTINCT, filtered. */
+        var database = target == "host" ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase;
+        await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(database));
+        await connection.OpenAsync();
+
+        var columns = await QueryAsync(connection, "SELECT column_name || ' :: ' || data_type || ' :: ' || is_nullable || ' :: ' || COALESCE(column_default, '-') FROM information_schema.columns WHERE table_schema = 'masterdata' AND table_name = 'Countries' AND column_name = 'IsDefault'");
+        columns.ShouldHaveSingleItem().ShouldBe("IsDefault :: boolean :: NO :: false");
+
+        var indexes = await QueryAsync(connection, "SELECT indexname || ' :: ' || indexdef FROM pg_indexes WHERE schemaname = 'masterdata' AND tablename IN ('Countries', 'Currencies')");
+        var countryDefault = One(indexes, "IX_Countries_TenantId_Default :: ");
+        countryDefault.ShouldContain("UNIQUE");
+        countryDefault.ShouldContain("NULLS NOT DISTINCT");
+        countryDefault.ShouldContain("(\"TenantId\")");
+        countryDefault.ShouldContain("\"IsDefault\" = true");
+        countryDefault.ShouldContain("\"IsDeleted\" = false");
+        countryDefault.ShouldNotContain("\"IsoAlpha2\"", Case.Sensitive, "the default index is on the tenant alone");
+
+        var currencyDefault = One(indexes, "IX_Currencies_TenantId_Default :: ");
+        countryDefault.Replace("Countries", "Currencies").ShouldBe(currencyDefault, "the same definition as the run-1 currency default");
+
+        /* One index enforces it: no second definition on the column. */
+        indexes.Count(i => i.Contains("\"IsDefault\" = true") && i.Contains("\"Countries\"")).ShouldBe(1);
+    }
+
     private static string One(List<string> rows, string prefix, string? because = null)
     {
         rows.ShouldContain(r => r.StartsWith(prefix, StringComparison.Ordinal), because ?? prefix);

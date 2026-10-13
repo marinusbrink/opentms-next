@@ -21,6 +21,9 @@ public class Country : MasterDataAggregateRoot
     /// <summary>IANA zone id (assessment §2.2: IANA, not Windows); null where tzdata has no zone.</summary>
     public string? PrimaryTimeZoneId { get; private set; }
 
+    /// <summary>The tenant's one default country (PO 2026-10-13): new addresses start with it; the partial unique index enforces one per tenant.</summary>
+    public bool IsDefault { get; private set; }
+
     protected Country()
     {
     }
@@ -51,6 +54,11 @@ public class Country : MasterDataAggregateRoot
     }
 
     public void SetDefaultCurrency(Guid? currencyId) => DefaultCurrencyId = currencyId;
+
+    /// <summary>Only the application service's SetDefault command calls this, after clearing the previous default.</summary>
+    public void MarkDefault() => IsDefault = true;
+
+    public void ClearDefault() => IsDefault = false;
 
     /// <summary>Validates against the runtime's IANA database (ICU on Linux and macOS, the built-in mapping on Windows).</summary>
     public void SetPrimaryTimeZone(string? timeZoneId)

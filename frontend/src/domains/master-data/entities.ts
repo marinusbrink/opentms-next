@@ -42,6 +42,35 @@ export function useSetDefaultCurrency() {
   });
 }
 
+/** The tenant's one default country (PO 2026-10-13): new addresses start with it. */
+export function useSetDefaultCountry() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/country/{id}/set-default",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+export function useDefaultCountry(enabled = true) {
+  return useQuery({
+    queryKey: ["masterData", "countries", "default"],
+    enabled,
+    queryFn: async (): Promise<CountryDto | null> => {
+      const { data, error, response } = await apiClient.GET(
+        "/api/master-data/country/default",
+      );
+      if (error) throw error;
+      return response.status === 204
+        ? null
+        : ((data as CountryDto | undefined) ?? null);
+    },
+  });
+}
+
 export type CountryRow = Schemas["OpenTms.MasterData.Reference.CountryRowDto"];
 export type CountryDto = Schemas["OpenTms.MasterData.Reference.CountryDto"];
 export type CountryCreateDto =

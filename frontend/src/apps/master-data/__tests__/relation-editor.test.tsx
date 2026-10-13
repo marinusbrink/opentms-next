@@ -112,6 +112,11 @@ const ADDRESS_TYPES = [
 ];
 let addressTypes = ADDRESS_TYPES;
 
+/** The tenant's default country (PO 2026-10-13): new addresses start with it and its time zone; null = none set (the server answers 204). */
+const NL_DEFAULT = { id: "c-1", isoAlpha2: "NL", isoAlpha3: "NLD", name: "Netherlands", primaryTimeZoneId: "Europe/Amsterdam", isDefault: true };
+let defaultCountry: typeof NL_DEFAULT | null = null;
+const noContent = () => ({ data: undefined, error: undefined, response: { status: 204 } });
+
 /** The relation's visiting address: the first type's tab. */
 const visitingAddress: AddressDto = { id: "a1", addressTypeId: "type-1", addressTypeName: "Visiting address", countryId: "c-1", countryCode: "NL", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" };
 /** The relation's postal address: the second type's tab. */
@@ -154,10 +159,13 @@ beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
   detail = stored;
   addressTypes = ADDRESS_TYPES;
+  defaultCountry = null;
   GET.mockReset().mockImplementation(async (path, init) => {
     switch (path) {
       case "/api/master-data/relation/{id}":
         return ok(detail);
+      case "/api/master-data/country/default":
+        return defaultCountry ? ok(defaultCountry) : noContent();
       case "/api/master-data/relation-category/lookup":
         return ok([{ id: "cat-1", name: "Cat A" }, { id: "cat-2", name: "Cat B" }]);
       case "/api/master-data/geographical-region/lookup":
@@ -183,10 +191,10 @@ beforeEach(() => {
   DELETE.mockReset().mockResolvedValue(ok(undefined));
 });
 
-function renderEditor(props: Partial<React.ComponentProps<typeof RelationEditor>> = {}) {
+const newClient = () => new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+function renderEditor(props: Partial<React.ComponentProps<typeof RelationEditor>> = {}, client: QueryClient = newClient()) {
   const onClose = vi.fn();
   const onSaved = vi.fn();
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const { unmount } = render(
     <QueryClientProvider client={client}>
       <RelationEditor mode="create" readOnly={false} open onClose={onClose} onSaved={onSaved} {...props} />
@@ -266,6 +274,8 @@ const submitEditor = () =>
   });
 
 const waitForLookups = () => waitFor(() => expect(screen.getByRole("checkbox", { name: "Cat A" })).toBeInTheDocument());
+/* A new relation opens once the default country is known (PO 2026-10-13): the dialog mounts after that GET. */
+const waitForEditor = () => waitFor(() => expect(editorDialog()).toBeDefined());
 
 const fillRequired = () => {
   typeInto(editorDialog(), "MasterData:Code", "acme");
@@ -351,8 +361,9 @@ const putBody = () => PUT.mock.calls[0][1]!.body as PutBody;
 const loadedAddress = (dto: AddressDto): PutAddress => ({ id: dto.id ?? null, addressTypeId: dto.addressTypeId ?? null, countryId: dto.countryId, street: dto.street, houseNumber: dto.houseNumber ?? null, houseNumberSuffix: dto.houseNumberSuffix ?? null, addressLine2: dto.addressLine2 ?? null, postalCode: dto.postalCode, city: dto.city, latitude: dto.latitude ?? null, longitude: dto.longitude ?? null, timeZoneId: dto.timeZoneId ?? null });
 
 describe("RelationEditor — layout", () => {
-  it("has the tabs General, Administration, Financial, Contact persons (no Addresses tab) and the roles as a MultiSelect", () => {
+  it("has the tabs General, Administration, Financial, Contact persons (no Addresses tab) and the roles as a MultiSelect", async () => {
     renderEditor();
+    await waitForEditor();
     const tabs = editorTabs().map((el) => el.textContent?.trim());
     expect(tabs.slice(0, 4)).toEqual(["General", "MasterData:Administration", "MasterData:Financial", "MasterData:ContactPersons"]);
     /* The record identification icon tab closes the strip; the address-type and Map / Remarks tabs are not part of it. */
@@ -368,8 +379,9 @@ describe("RelationEditor — layout", () => {
     expect(screen.queryByText("MasterData:NewAddress")).toBeNull();
   });
 
-  it("General (PO 2026-10-12/13): the Relation block with roles, the switches (the block reason only while blocked), categories and regions in that order; Name above Contact information on the left, Addresses on the right, nothing below", () => {
+  it("General (PO 2026-10-12/13): the Relation block with roles, the switches (the block reason only while blocked), categories and regions in that order; Name above Contact information on the left, Addresses on the right, nothing below", async () => {
     renderEditor();
+    await waitForEditor();
     const editor = editorDialog();
 
     /* Rows 1-2: one section titled after the entity. */
@@ -524,6 +536,7 @@ describe("RelationEditor — layout", () => {
 describe("RelationEditor — validation", () => {
   it("refuses a new relation without code, name and at least one role, marks the tab and sends nothing", async () => {
     renderEditor();
+    await waitForEditor();
     await submitEditor();
     expect(POST).not.toHaveBeenCalled();
     expect(screen.getByText("MasterData:CodeRequired")).toBeInTheDocument();
@@ -539,6 +552,7 @@ describe("RelationEditor — validation", () => {
 
   it("validates the e-mail shape on blur and clears the roles error once a role is picked", async () => {
     renderEditor();
+    await waitForEditor();
     const email = field(editorDialog(), "MasterData:Email");
     fireEvent.change(email, { target: { value: "not-an-address" } });
     expect(screen.queryByText("MasterData:InvalidEmail")).toBeNull();
@@ -556,6 +570,7 @@ describe("RelationEditor — validation", () => {
 
   it("the block reason is absent until Blocked is ticked, then appears enabled and required; blocked without a reason is refused with the General tab marked", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     expect(queryBlockReason()).toBeNull();
 
@@ -700,6 +715,7 @@ describe("RelationEditor — validation", () => {
 
   it("refuses a bank account line without an IBAN and marks the Financial tab", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     tab("MasterData:Financial");
     fireEvent.click(screen.getByText("MasterData:AddBankAccount"));
@@ -709,8 +725,9 @@ describe("RelationEditor — validation", () => {
     expect(screen.getByRole("tab", { name: /MasterData:Financial/ }).className).toContain("text-destructive");
   });
 
-  it("prefills the name from a lookup's Add new … term (initialName)", () => {
+  it("prefills the name from a lookup's Add new … term (initialName)", async () => {
     renderEditor({ initialName: "Zeeland Transport" });
+    await waitForEditor();
     expect(field(editorDialog(), "MasterData:Name").value).toBe("Zeeland Transport");
   });
 });
@@ -773,6 +790,7 @@ describe("RelationEditor — create", () => {
 
   it("unticking Blocked after a reason was chosen removes the reason select and posts blockReason 0", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     fireEvent.click(checkbox("MasterData:IsBlocked"));
     fireEvent.change(blockReason(), { target: { value: "2" } });
@@ -791,6 +809,7 @@ describe("RelationEditor — create", () => {
 
   it("posts the full name trimmed", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     typeInto(region("MasterData:Name"), "MasterData:RelationFullName", "  Acme Transport B.V.  ");
     expect(field(editorDialog(), "MasterData:RelationFullName").value).toBe("  Acme Transport B.V.  ");
@@ -801,6 +820,7 @@ describe("RelationEditor — create", () => {
 
   it("posts the full name as null when it is empty or whitespace only; it is never required", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     typeInto(region("MasterData:Name"), "MasterData:RelationFullName", "   ");
     await submitEditor();
@@ -870,6 +890,7 @@ describe("RelationEditor — create", () => {
 
   it("the Remarks sub-tab holds the description textarea, keeps it across the sub-tabs and posts it", async () => {
     renderEditor();
+    await waitForEditor();
     fillRequired();
     const editor = editorDialog();
     expect(within(editor).queryByRole("textbox", { name: "MasterData:Remarks", hidden: true })).toBeNull();
@@ -1155,6 +1176,7 @@ describe("RelationEditor — create", () => {
   it("shows a server conflict (409) through getApiErrorMessage and keeps the editor open", async () => {
     POST.mockResolvedValue(failed({ error: { code: "MasterData:RelationCodeAlreadyExists", message: "A relation with code ACME already exists." } }, 409));
     const { onSaved, onClose } = renderEditor();
+    await waitForEditor();
     fillRequired();
     await submitEditor();
     expect(await screen.findByText("A relation with code ACME already exists.")).toBeInTheDocument();
@@ -1509,5 +1531,277 @@ describe("RelationEditor — edit", () => {
     expect(field(again, "MasterData:Street")).toBeDisabled();
     expect(field(again, "MasterData:Street").value).toBe("PO Box");
     expect(field(again, "MasterData:Building")).toBeDisabled();
+  });
+});
+
+describe("RelationEditor — default country (PO 2026-10-13)", () => {
+  const defaultCalls = () => GET.mock.calls.filter(([path]) => path === "/api/master-data/country/default");
+  const waitForPrefill = (editor: HTMLElement) => waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+
+  it("a new relation starts its default address with the tenant's default country and its time zone, untouched: no required markers, nothing posted without further input", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(defaultCalls()).toHaveLength(1);
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    for (const label of ADDRESS_LABELS.filter((l) => l !== "MasterData:Country" && l !== "MasterData:TimeZone")) {
+      expect(field(editor, label).value, label).toBe("");
+    }
+    /* The prefill is no input: no markers, no errors. */
+    expect(addressLabel("MasterData:Country")).not.toHaveTextContent("*");
+    expect(addressLabel("MasterData:Street")).not.toHaveTextContent("*");
+    expect(addressLabel("MasterData:City")).not.toHaveTextContent("*");
+
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
+    expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+    expect(postedBody()).toEqual(emptyBody);
+  });
+
+  it("a new relation with only the prefill closes without the dirty guard: nothing was entered (UI-FORM-009)", async () => {
+    defaultCountry = NL_DEFAULT;
+    const { onClose } = renderEditor();
+    await waitForLookups();
+    await waitFor(() => expect(defaultCalls()).toHaveLength(1));
+    /* The ribbon Close (the header X is a Close too). */
+    fireEvent.click(within(editorDialog().querySelector<HTMLElement>("[data-slot=entity-dialog-ribbon]")!).getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("UnsavedChanges")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("entering the rest of the default address posts it with the default country and its zone, without an address type", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    typeInto(editor, "MasterData:PostalCode", "2611 AB");
+    typeInto(editor, "MasterData:City", "Delft");
+    typeInto(editor, "MasterData:Street", "Station street");
+    /* Now it is an address: the country marker is on and already satisfied. */
+    expect(addressLabel("MasterData:Country")).toHaveTextContent("*");
+    expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    /* No country was picked by hand: the per-country detail was never needed. */
+    expect(GET).not.toHaveBeenCalledWith("/api/master-data/country/{id}", expect.anything());
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: null, countryId: "c-1", street: "Station street", houseNumber: null, houseNumberSuffix: null, addressLine2: null, postalCode: "2611 AB", city: "Delft", latitude: null, longitude: null, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("an address-type tab's empty row is prefilled the same way; untouched tabs post nothing, a filled one posts the default country with its type", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    expect(field(editor, "MasterData:Street").value).toBe("");
+    expect(addressLabel("MasterData:Street")).not.toHaveTextContent("*");
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    expect(addressLabel("MasterData:Street")).not.toHaveTextContent("*");
+
+    /* Both tabs prefilled only: nothing travels. */
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
+    expect(postedBody().addresses).toEqual([]);
+
+    /* Filling the Postal tab posts it with its type and the default country; the Visiting tab still posts nothing. */
+    POST.mockClear();
+    typeInto(editor, "MasterData:PostalCode", "2600 AA");
+    typeInto(editor, "MasterData:City", "Delft");
+    typeInto(editor, "MasterData:Street", "PO Box");
+    typeInto(editor, "MasterData:Nr", "99");
+    typeTab("Visiting address");
+    expect(field(editor, "MasterData:Street").value).toBe("");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: "type-2", countryId: "c-1", street: "PO Box", houseNumber: "99", houseNumberSuffix: null, addressLine2: null, postalCode: "2600 AA", city: "Delft", latitude: null, longitude: null, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("picking another country over the prefill lets the time zone follow it: the prefilled zone was the default country's, not the user's", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/master-data/country/{id}", { params: { path: { id: "c-2" } } }));
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
+  });
+
+  it("clearing the prefilled country leaves it empty (no re-prefill) and the address stays no address", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "" } });
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
+    /* The same on a type tab: a cleared country is kept as cleared. */
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "" } });
+    typeTab("Postal address");
+    typeTab("Visiting address");
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    expect(field(editor, "MasterData:Country").value).toBe("");
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([]);
+  });
+
+  it("a loaded record is not overwritten: its default address keeps its own country and zone; an empty type tab is prefilled but not posted", async () => {
+    defaultCountry = NL_DEFAULT;
+    detail = { ...stored, addresses: [defaultAddress, visitingAddress] };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+    await waitFor(() => expect(defaultCalls()).toHaveLength(1));
+    const editor = editorDialog();
+    expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
+    expect(field(editor, "MasterData:Country").value).toBe("c-2");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin");
+    expect(field(editor, "MasterData:City").value).toBe("Berlin");
+
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:Street").value).toBe("Main street");
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    expect(field(editor, "MasterData:Street").value).toBe("");
+    expect(addressLabel("MasterData:Street")).not.toHaveTextContent("*");
+
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().addresses).toEqual([loadedAddress(visitingAddress)]);
+  });
+
+  it("a loaded record with only a typed address keeps its hidden default address empty when the switch is turned on in edit mode", async () => {
+    defaultCountry = NL_DEFAULT;
+    detail = { ...stored, addresses: [visitingAddress] };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+    await waitFor(() => expect(defaultCalls()).toHaveLength(1));
+    const editor = editorDialog();
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:Street").value).toBe("Main street");
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    /* Edit mode: the stored data rules; the default address was never prefilled. */
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().addresses).toEqual([]);
+  });
+
+  it("without a default country (204) the fields stay empty on the default address and on every type tab", async () => {
+    defaultCountry = null;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitFor(() => expect(defaultCalls()).toHaveLength(1));
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Country").value).toBe("");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([]);
+  });
+
+  it("a default country without a time zone prefills the country only", async () => {
+    defaultCountry = { ...NL_DEFAULT, primaryTimeZoneId: null as unknown as string };
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+  });
+
+  it("the default country is fetched once the editor is open, not while closed", async () => {
+    defaultCountry = NL_DEFAULT;
+    const { unmount } = renderEditor({ open: false });
+    await Promise.resolve();
+    expect(defaultCalls()).toHaveLength(0);
+    unmount();
+    renderEditor();
+    await waitFor(() => expect(defaultCalls()).toHaveLength(1));
+  });
+});
+
+describe("RelationEditor — default country, warm cache", () => {
+  it("a second open on the same query client (the default country cached) starts with the default country and zone", async () => {
+    defaultCountry = NL_DEFAULT;
+    const client = newClient();
+    const first = renderEditor({}, client);
+    await waitForLookups();
+    await waitFor(() => expect(GET.mock.calls.filter(([path]) => path === "/api/master-data/country/default")).toHaveLength(1));
+    first.unmount();
+
+    renderEditor({}, client);
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    /* Untouched: the ribbon Close leaves without the dirty guard. */
+    fireEvent.click(within(editor.querySelector<HTMLElement>("[data-slot=entity-dialog-ribbon]")!).getByRole("button", { name: "Close" }));
+    expect(screen.queryByText("UnsavedChanges")).toBeNull();
+  });
+
+  it("warm cache: picking another country over the prefilled one lets the time zone follow it (the prefilled zone was the default country's, not the user's)", async () => {
+    defaultCountry = NL_DEFAULT;
+    const client = newClient();
+    const first = renderEditor({}, client);
+    await waitForLookups();
+    await waitFor(() => expect(GET.mock.calls.filter(([path]) => path === "/api/master-data/country/default")).toHaveLength(1));
+    first.unmount();
+
+    renderEditor({}, client);
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/master-data/country/{id}", { params: { path: { id: "c-2" } } }));
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
   });
 });

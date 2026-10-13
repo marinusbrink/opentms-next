@@ -90,6 +90,8 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasIndex(c => c.DefaultCurrencyId);
             b.HasIndex(c => new { c.TenantId, c.IsoAlpha2 }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(c => new { c.TenantId, c.IsoAlpha3 }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The one default country per tenant (PO 2026-10-13), like the currency. */
+            b.HasIndex(c => c.TenantId, "IX_Countries_TenantId_Default").IsUnique().AreNullsDistinct(false).HasFilter("\"IsDefault\" = true AND " + NotDeleted);
         });
 
         builder.Entity<AddressType>(b =>

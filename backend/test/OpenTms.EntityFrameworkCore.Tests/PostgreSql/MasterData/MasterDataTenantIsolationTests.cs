@@ -209,4 +209,48 @@ public class MasterDataTenantIsolationTests : MasterDataPostgreSqlTestBase
             }
         });
     }
+
+    [Fact]
+    public async Task The_default_country_of_tenant_A_is_unreachable_from_the_shared_tenant_and_the_host()
+    {
+        /* PO 2026-10-13: GetDefault and SetDefault are tenant-scoped like every other read and write (constitution rule 1). */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var nl = (await _countries.GetListAsync(List<MasterDataListRequestDto>(search: "NLD"))).Rows.Single(r => r.IsoAlpha3 == "NLD");
+            (await _countries.GetDefaultAsync()).ShouldBeNull("the seed sets no default country");
+            await _countries.SetDefaultAsync(nl.Id);
+            (await _countries.GetDefaultAsync())!.Id.ShouldBe(nl.Id);
+
+            foreach (var other in new Guid?[] { SharedTenant, null })
+            {
+                using (CurrentTenant.Change(other))
+                {
+                    (await _countries.GetDefaultAsync()).ShouldBeNull(other == null ? "tenant A's default leaks into the host" : "tenant A's default leaks into the shared tenant");
+                    await Should.ThrowAsync<EntityNotFoundException>(() => _countries.SetDefaultAsync(nl.Id));
+                    (await _countries.GetListAsync(List<MasterDataListRequestDto>(sortBy: "isDefault", sortDir: "desc", end: 5))).Rows.ShouldAllBe(r => !r.IsDefault);
+                    await FlushAsync();
+                }
+            }
+
+            /* The shared tenant picks its own default: its own NL row, in the host database. */
+            using (CurrentTenant.Change(SharedTenant))
+            {
+                var sharedNl = (await _countries.GetListAsync(List<MasterDataListRequestDto>(search: "NLD"))).Rows.Single(r => r.IsoAlpha3 == "NLD");
+                sharedNl.Id.ShouldNotBe(nl.Id);
+                await _countries.SetDefaultAsync(sharedNl.Id);
+                (await _countries.GetDefaultAsync())!.Id.ShouldBe(sharedNl.Id);
+                var top = (await _countries.GetListAsync(List<MasterDataListRequestDto>(sortBy: "isDefault", sortDir: "desc", end: 5))).Rows;
+                top.First().Id.ShouldBe(sharedNl.Id);
+                top.Count(r => r.IsDefault).ShouldBe(1);
+            }
+
+            using (CurrentTenant.Change(null))
+            {
+                (await _countries.GetDefaultAsync()).ShouldBeNull("the shared tenant's default is not the host's");
+            }
+
+            (await _countries.GetDefaultAsync())!.Id.ShouldBe(nl.Id);
+            (await _countries.GetListAsync(List<MasterDataListRequestDto>(sortBy: "isDefault", sortDir: "desc", end: 5))).Rows.First().Id.ShouldBe(nl.Id);
+        });
+    }
 }

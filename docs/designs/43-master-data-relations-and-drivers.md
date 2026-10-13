@@ -192,6 +192,17 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 (the index serves `LIKE '%…%'`; no similarity operator is used, so no extra EF package is needed). The migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` in every database
 (Cloud SQL supports it); see Assumptions.
 
+### Default country (PO 2026-10-13)
+
+Run 1's `Country` gains `IsDefault`: exactly one default per tenant (unique partial index
+`IX_Countries_TenantId_Default` on `(TenantId)` where `IsDefault`, like the currency), changed only through
+`CountryAppService.SetDefaultAsync` (`Countries.Update`, `POST /api/master-data/country/{id}/set-default`,
+clears the previous default in the same transaction) and read through `GetDefaultAsync`
+(`GET /api/master-data/country/default`, null while none is set). The default country cannot be deleted.
+Every new address of a relation starts with the default country and its primary time zone; an address
+that holds only those two is still "no address". The column lands in this run's migration (additive on
+`Countries`); the Countries editor shows the badge and the **Set as default** command of the currency.
+
 ### Feature flag and permissions
 
 - Feature `MasterData.Relations` (group `MasterData`, default `false`, per tenant) on every new

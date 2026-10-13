@@ -56,8 +56,8 @@ export function newAddressRow(addressTypeId: string | null = null): AddressRow {
 
 /** Something was entered: the address counts and its required fields apply. */
 export function hasAddressInput(row: AddressRow): boolean {
+  /* The country and the time zone do not count by themselves: a new address starts with the tenant's default country and its zone. */
   return Boolean(
-    row.countryId ||
     row.street.trim() ||
     row.houseNumber.trim() ||
     row.houseNumberSuffix.trim() ||
