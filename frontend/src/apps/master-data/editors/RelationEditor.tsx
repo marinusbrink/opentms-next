@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormField } from "@/components/ui/form-field";
-import { FormSection } from "@/components/ui/form-section";
+import {
+  FORM_SECTION_CAPTION,
+  FormSection,
+} from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
@@ -92,6 +95,8 @@ const DEFAULT_KEY = "default";
 const SUB_TAB_LIST = "h-8 justify-start gap-0 rounded-none p-0";
 const SUB_TAB =
   "h-8 flex-none rounded-none border-0 px-3 text-label font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
+/** The address-type tabs read like the block's caption (the switch beside them): caption size and brand ink, the active one underlined. */
+const CAPTION_TAB = `h-7 flex-none rounded-none border-0 px-3 ${FORM_SECTION_CAPTION} after:bottom-0 after:bg-brand hover:text-brand data-active:text-brand`;
 
 interface BankRow {
   key: string;
@@ -627,107 +632,120 @@ export function RelationEditor({
       form.error("defaultAddress") || form.error("addresses"),
     );
     return (
-      <FormSection title={t("MasterData:Addresses")} className="flex flex-col">
-        {/* The old header: the switch, and while it is off one tab per address type beside it. */}
-        <div className="flex items-end gap-4">
-          <CheckboxField
-            form={form}
-            field="allAddressesEqual"
-            labelKey="MasterData:AllAddressesEqual"
-            className="shrink-0 font-medium uppercase tracking-wide text-label"
-          />
-          {!allEqual && currentTypeId && (
-            <Tabs
-              value={currentTypeId}
-              onValueChange={(value) => setActiveTypeId(String(value))}
-              className="min-w-0 flex-1"
-            >
-              <TabsList
-                variant="line"
-                className={SUB_TAB_LIST}
-                aria-label={t("MasterData:AddressType")}
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <FormSection
+          aria-label={t("MasterData:Addresses")}
+          className="flex flex-col"
+        >
+          {/* The old header is the caption: the switch, and while it is off one tab per address type beside it. */}
+          <div className="mb-3 flex min-h-7 items-center gap-4">
+            <CheckboxField
+              form={form}
+              field="allAddressesEqual"
+              labelKey="MasterData:AllAddressesEqual"
+              className={`h-auto shrink-0 ${FORM_SECTION_CAPTION}`}
+            />
+            {!allEqual && currentTypeId && (
+              <Tabs
+                value={currentTypeId}
+                onValueChange={(value) => setActiveTypeId(String(value))}
+                className="min-w-0 flex-1"
               >
-                {addressTypeTabs.map((type) => (
-                  <TabsTrigger
-                    key={type.id}
-                    value={type.id}
-                    className={SUB_TAB}
-                  >
-                    {type.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          )}
-        </div>
-        {(form.error("defaultAddress") || form.error("addresses")) && (
-          <p className="mt-2 text-label text-destructive">
-            {form.error("defaultAddress") ?? form.error("addresses")}
-          </p>
-        )}
-        <div className="mt-2">
-          {allEqual ? (
-            <AddressFields
-              idPrefix={form.id("defaultAddress")}
-              row={form.values.defaultAddress}
-              onChange={(row) => form.set("defaultAddress", row)}
-              readOnly={form.readOnly}
-              showErrors={showErrors}
-              countryOptions={countryOptions}
-              zoneOptions={zones}
-              onCountryPicked={(countryId) =>
-                setZoneSource({ addressKey: DEFAULT_KEY, countryId })
-              }
-            />
-          ) : currentTypeId ? (
-            <AddressFields
-              key={currentTypeId}
-              idPrefix={form.id(`address-${currentTypeId}`)}
-              row={typedAddress(form, currentTypeId)}
-              onChange={(row) => setTypedAddress(form, row)}
-              readOnly={form.readOnly}
-              showErrors={showErrors}
-              countryOptions={countryOptions}
-              zoneOptions={zones}
-              onCountryPicked={(countryId) =>
-                setZoneSource({ addressKey: currentTypeId, countryId })
-              }
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("MasterData:AddressesPerTypeHint")}
+                <TabsList
+                  variant="line"
+                  className="h-7 justify-start gap-0 rounded-none p-0"
+                  aria-label={t("MasterData:AddressType")}
+                >
+                  {addressTypeTabs.map((type) => (
+                    <TabsTrigger
+                      key={type.id}
+                      value={type.id}
+                      className={CAPTION_TAB}
+                    >
+                      {type.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+          </div>
+          {(form.error("defaultAddress") || form.error("addresses")) && (
+            <p className="mt-2 text-label text-destructive">
+              {form.error("defaultAddress") ?? form.error("addresses")}
             </p>
           )}
-        </div>
-        <Tabs
-          defaultValue="map"
-          className="mt-2 flex min-h-48 flex-1 flex-col gap-2"
+          <div className="mt-2">
+            {allEqual ? (
+              <AddressFields
+                idPrefix={form.id("defaultAddress")}
+                row={form.values.defaultAddress}
+                onChange={(row) => form.set("defaultAddress", row)}
+                readOnly={form.readOnly}
+                showErrors={showErrors}
+                countryOptions={countryOptions}
+                zoneOptions={zones}
+                onCountryPicked={(countryId) =>
+                  setZoneSource({ addressKey: DEFAULT_KEY, countryId })
+                }
+              />
+            ) : currentTypeId ? (
+              <AddressFields
+                key={currentTypeId}
+                idPrefix={form.id(`address-${currentTypeId}`)}
+                row={typedAddress(form, currentTypeId)}
+                onChange={(row) => setTypedAddress(form, row)}
+                readOnly={form.readOnly}
+                showErrors={showErrors}
+                countryOptions={countryOptions}
+                zoneOptions={zones}
+                onCountryPicked={(countryId) =>
+                  setZoneSource({ addressKey: currentTypeId, countryId })
+                }
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t("MasterData:AddressesPerTypeHint")}
+              </p>
+            )}
+          </div>
+        </FormSection>
+        <FormSection
+          aria-label={t("MasterData:Map")}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <TabsList variant="line" className={SUB_TAB_LIST}>
-            <TabsTrigger value="map" className={SUB_TAB}>
-              {t("MasterData:Map")}
-            </TabsTrigger>
-            <TabsTrigger value="remarks" className={SUB_TAB}>
-              {t("MasterData:Remarks")}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="map" className="flex min-h-0 flex-1 flex-col">
-            <AddressMap
-              latitude={activeRow ? parseNumber(activeRow.latitude) : null}
-              longitude={activeRow ? parseNumber(activeRow.longitude) : null}
-            />
-          </TabsContent>
-          <TabsContent value="remarks" className="flex min-h-0 flex-1 flex-col">
-            <TextAreaField
-              form={form}
-              field="description"
-              labelKey="MasterData:Remarks"
-              maxLength={2500}
-              className="flex-1"
-            />
-          </TabsContent>
-        </Tabs>
-      </FormSection>
+          <Tabs
+            defaultValue="map"
+            className="flex min-h-40 flex-1 flex-col gap-2"
+          >
+            <TabsList variant="line" className={SUB_TAB_LIST}>
+              <TabsTrigger value="map" className={SUB_TAB}>
+                {t("MasterData:Map")}
+              </TabsTrigger>
+              <TabsTrigger value="remarks" className={SUB_TAB}>
+                {t("MasterData:Remarks")}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="map" className="flex min-h-0 flex-1 flex-col">
+              <AddressMap
+                latitude={activeRow ? parseNumber(activeRow.latitude) : null}
+                longitude={activeRow ? parseNumber(activeRow.longitude) : null}
+              />
+            </TabsContent>
+            <TabsContent
+              value="remarks"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <TextAreaField
+                form={form}
+                field="description"
+                labelKey="MasterData:Remarks"
+                maxLength={2500}
+                className="flex-1"
+              />
+            </TabsContent>
+          </Tabs>
+        </FormSection>
+      </div>
     );
   };
 
@@ -738,7 +756,7 @@ export function RelationEditor({
       fields: GENERAL_FIELDS,
       render: (form) => (
         <div className="flex flex-col gap-3">
-          <FormSection title={t("MasterData:Relation")}>
+          <FormSection aria-label={t("MasterData:Relation")}>
             <div className="flex flex-col gap-2">
               {/* Row 1: the roles grow into the space the switches and the block reason (while blocked) leave. */}
               <div className="flex items-end gap-4">

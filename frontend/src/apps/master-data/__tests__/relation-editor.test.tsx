@@ -7,13 +7,15 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * flags value, the Archived and Blocked switches with the block reason (rendered only while Blocked is
  * ticked, required then, posted as 0 otherwise), the Name block (code, name, the optional full name:
  * trimmed, null when empty) stacked above the Contact information block in the left column, the
- * Addresses block on the right with the old header: "All addresses equal" and, while it is off, one
- * tab per address type of the tenant with the same inline AddressFields (a tab's address enters the
+ * Addresses block on the right whose caption is the old header itself (PO 2026-10-13: no "Addresses"
+ * heading): "All addresses equal" in the caption style and, while it is off, one caption-styled tab per
+ * address type of the tenant beside it, with the same inline AddressFields (a tab's address enters the
  * form once edited; an untouched one is no address; once anything is entered country, street, postal
  * code and city are required, per field after blur or submit, and the editor-level
  * AddressIncomplete marks General); while it is on, the single default address (posted without an
- * address type). The time zone follows the country per address; the Map / Remarks sub-tabs under the
- * address show the active address' coordinates and the description. Then the contact persons staged
+ * address type). The time zone follows the country per address; the Map / Remarks sub-tabs sit in their
+ * own caption-less Map section directly below the Addresses block in the same right column and show the
+ * active address' coordinates and the description. Then the contact persons staged
  * through their dialog, the bank accounts inline on Financial with exactly one default, the
  * Administration fields, the full DTO on create and update, server errors through
  * getApiErrorMessage, the loaded record over all tabs, the badges (Blocked with its reason), the
@@ -69,6 +71,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
+import { FORM_SECTION_CAPTION } from "@/components/ui/form-section";
 import type { RelationDto, RelationRoles } from "@/domains/master-data/entities";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;
@@ -223,8 +226,9 @@ const typeTabs = () => within(typeTabList()).getAllByRole("tab", { hidden: true 
 const activeTypeTab = () => within(typeTabList()).getAllByRole("tab", { hidden: true }).find((el) => el.getAttribute("aria-selected") === "true")?.textContent?.trim();
 const typeTab = (name: string) => fireEvent.click(within(typeTabList()).getByRole("tab", { name, hidden: true }));
 const waitForTypeTabs = () => waitFor(() => expect(typeTabs()).toEqual(ADDRESS_TYPES.map((x) => x.name)));
-/* The Map / Remarks strip under the inline address (real Base UI Tabs: an inactive panel is unmounted); the other tablist of the block. */
-const mapStrip = () => within(region("MasterData:Addresses")).getAllByRole("tablist", { hidden: true }).find((el) => el.getAttribute("aria-label") !== TYPE_TABS)!;
+/* The Map / Remarks strip (real Base UI Tabs: an inactive panel is unmounted) lives in its own caption-less Map section below the Addresses block. */
+const mapSection = () => region("MasterData:Map");
+const mapStrip = () => within(mapSection()).getByRole("tablist", { hidden: true });
 const subTab = (name: string) => fireEvent.click(within(mapStrip()).getByRole("tab", { name: new RegExp(`^${escape(name)}`), hidden: true }));
 const subTabs = () => within(mapStrip()).getAllByRole("tab", { hidden: true }).map((el) => el.textContent?.trim());
 /* The textarea by its accessible name, on the Remarks sub-tab; the FormField label names it. */
@@ -245,6 +249,9 @@ const relationOrder = () =>
 const addressBlock = () => region("MasterData:Addresses").querySelector<HTMLElement>("[data-slot=address-fields]");
 const addressLabels = () => Array.from(addressBlock()!.querySelectorAll<HTMLLabelElement>("label")).map((el) => el.textContent?.replace(/\s*\*\s*$/, "").trim());
 const addressLabel = (label: string) => within(region("MasterData:Addresses")).getByText(new RegExp(`^${escape(label)}`), { selector: "label" });
+/* The Addresses block's caption row: the "All addresses equal" switch (styled as the caption) and, while it is off, the address-type tabs. */
+const addressesCaption = () => checkbox("MasterData:AllAddressesEqual").closest("label")!.parentElement!;
+const captionClasses = FORM_SECTION_CAPTION.split(/\s+/);
 const generalTab = () => screen.getByRole("tab", { name: /General/ });
 const lines = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
 const ribbon = (name: string) => within(editorDialog()).getByRole("button", { name });
@@ -382,18 +389,32 @@ describe("RelationEditor — layout", () => {
     fireEvent.click(checkbox("MasterData:IsBlocked"));
     expect(queryBlockReason()).toBeNull();
 
-    /* The Name block (code, name, full name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
+    /* The Name block (code, name, full name) next to the Addresses block (the switch as its caption, the inline address) and the Map section (the Map / Remarks strip). */
     const name = region("MasterData:Name");
     expect(field(name, "MasterData:Code")).toBeInTheDocument();
     expect(field(name, "MasterData:Name")).toBeInTheDocument();
     expect(field(name, "MasterData:RelationFullName")).toBeInTheDocument();
     const addresses = region("MasterData:Addresses");
-    expect(within(addresses).getByRole("checkbox", { name: "MasterData:AllAddressesEqual" })).toBeInTheDocument();
+    const switchBox = within(addresses).getByRole("checkbox", { name: "MasterData:AllAddressesEqual" });
+    expect(switchBox).toBeInTheDocument();
     expect(field(addresses, "MasterData:Street")).toBeInTheDocument();
+    /* No "Addresses" heading (PO 2026-10-13): the switch is the caption, in the caption style, on the section's first row. */
+    expect(addresses.querySelector("h3")).toBeNull();
+    expect(within(addresses).queryByRole("heading", { hidden: true })).toBeNull();
+    const switchLabel = switchBox.closest("label")!;
+    for (const cls of captionClasses) expect(switchLabel, cls).toHaveClass(cls);
+    expect(addresses.firstElementChild).toBe(addressesCaption());
+    expect(addressesCaption().contains(switchLabel)).toBe(true);
+    /* The Map / Remarks strip and the map itself are in the Map section, not in the Addresses block; that section has no heading either. */
+    const map = mapSection();
+    expect(map.querySelector("h3")).toBeNull();
+    expect(within(addresses).queryByRole("tablist", { hidden: true })).toBeNull();
+    expect(mapStrip().parentElement!.closest("section")).toBe(map);
     expect(subTabs()).toEqual(["MasterData:Map", "MasterData:Remarks"]);
     /* Map is the default sub-tab; without coordinates it explains what to enter. */
-    expect(within(addresses).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
-    expect(addresses.querySelector("[data-slot=address-map]")).not.toBeNull();
+    expect(within(map).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(map.querySelector("[data-slot=address-map]")).not.toBeNull();
+    expect(addresses.querySelector("[data-slot=address-map]")).toBeNull();
     expect(mapFrame()).toBeNull();
 
     /* The four contact fields in one section, stacked under the Name block in the same (left) column. */
@@ -405,13 +426,18 @@ describe("RelationEditor — layout", () => {
     const column = name.parentElement!;
     expect(contact.parentElement).toBe(column);
     expect(Array.from(column.children).map((el) => el.getAttribute("aria-label"))).toEqual(["MasterData:Name", "MasterData:ContactInformation"]);
-    /* The row holds that column and the Addresses block, nothing else; there is no row below. */
+    /* The row holds that column and the right column (the Addresses block, then the Map section), nothing else; there is no row below. */
     const row = column.parentElement!;
     expect(row.children).toHaveLength(2);
     expect(row.firstElementChild).toBe(column);
-    expect(row.lastElementChild).toBe(addresses);
+    const right = row.lastElementChild as HTMLElement;
+    expect(right).not.toBe(column);
+    expect(right.tagName).toBe("DIV");
+    expect(addresses.parentElement).toBe(right);
+    expect(map.parentElement).toBe(right);
+    expect(Array.from(right.children).map((el) => el.getAttribute("aria-label"))).toEqual(["MasterData:Addresses", "MasterData:Map"]);
+    expect(addresses.nextElementSibling).toBe(map);
     expect(row.nextElementSibling).toBeNull();
-    expect(addresses.parentElement).not.toBe(column);
     expect(within(contact).queryByLabelText(/^MasterData:RelationFullName/, { selector: CONTROLS })).toBeNull();
 
     /* The Telephone, Internet and Remarks sections of the previous layout are gone. */
@@ -431,9 +457,10 @@ describe("RelationEditor — layout", () => {
     /* The old labels are gone (exact: "HouseNumber" is a prefix of the new suffix label). */
     expect(within(editor).queryByLabelText(/^MasterData:HouseNumber(\s*\*)?$/, { selector: CONTROLS })).toBeNull();
     expect(within(editor).queryByLabelText(/^MasterData:AddressLine2(\s*\*)?$/, { selector: CONTROLS })).toBeNull();
-    /* One block, after the header with the switch. */
+    /* One block, after the caption row with the switch (the section's first row; no heading before it). */
     expect(addresses.querySelectorAll("[data-slot=address-fields]")).toHaveLength(1);
-    const header = checkbox("MasterData:AllAddressesEqual").closest("label")!.parentElement!;
+    const header = addressesCaption();
+    expect(addresses.firstElementChild).toBe(header);
     expect(header.compareDocumentPosition(addressBlock()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     /* The ids: `${form.id("defaultAddress")}-${field}`, the editor's instance prefix taken from the Code field. */
     const prefix = field(editor, "MasterData:Code").id.replace(/-code$/, "");
@@ -786,14 +813,14 @@ describe("RelationEditor — create", () => {
     renderEditor();
     await waitForLookups();
     const editor = editorDialog();
-    const addresses = region("MasterData:Addresses");
-    expect(within(addresses).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    const map = mapSection();
+    expect(within(map).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
     expect(mapFrame()).toBeNull();
 
     /* One coordinate is not enough. */
     typeInto(editor, "MasterData:Latitude", "52.01");
     expect(mapFrame()).toBeNull();
-    expect(within(addresses).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(within(map).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
 
     typeInto(editor, "MasterData:Longitude", "4,36");
     const frame = mapFrame();
@@ -801,12 +828,13 @@ describe("RelationEditor — create", () => {
     expect(frame!.src).toContain("openstreetmap.org");
     expect(frame!.src).toContain("marker=52.01000,4.36000");
     expect(frame!.src).toContain("bbox=4.35000,52.00000,4.37000,52.02000");
-    expect(within(addresses).queryByText("MasterData:MapNoCoordinates")).toBeNull();
+    expect(map.contains(frame)).toBe(true);
+    expect(within(map).queryByText("MasterData:MapNoCoordinates")).toBeNull();
 
     /* An out-of-range coordinate drops the map again. */
     typeInto(editor, "MasterData:Latitude", "95");
     expect(mapFrame()).toBeNull();
-    expect(within(addresses).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(within(map).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
     typeInto(editor, "MasterData:Latitude", "52.01");
     expect(mapFrame()).not.toBeNull();
 
@@ -814,7 +842,7 @@ describe("RelationEditor — create", () => {
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
     await waitForTypeTabs();
     expect(mapFrame()).toBeNull();
-    expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(within(mapSection()).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
     expect(mapFrame()!.src).toContain("marker=52.01000,4.36000");
   });
@@ -831,7 +859,7 @@ describe("RelationEditor — create", () => {
 
     typeTab("Postal address");
     expect(mapFrame()).toBeNull();
-    expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(within(mapSection()).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
     typeInto(editor, "MasterData:Latitude", "52.52");
     typeInto(editor, "MasterData:Longitude", "13.4");
     expect(mapFrame()!.src).toContain("marker=52.52000,13.40000");
@@ -849,13 +877,15 @@ describe("RelationEditor — create", () => {
     const textarea = openRemarks(editor);
     expect(textarea.tagName).toBe("TEXTAREA");
     expect(textarea.maxLength).toBe(2500);
-    /* The map panel is unmounted while Remarks is in front. */
-    expect(region("MasterData:Addresses").querySelector("[data-slot=address-map]")).toBeNull();
+    /* The textarea sits in the Map section; the map panel is unmounted while Remarks is in front. */
+    expect(mapSection().contains(textarea)).toBe(true);
+    expect(mapSection().querySelector("[data-slot=address-map]")).toBeNull();
     fireEvent.change(textarea, { target: { value: " Deliver before 10:00 " } });
 
     subTab("MasterData:Map");
     expect(within(editor).queryByRole("textbox", { name: "MasterData:Remarks", hidden: true })).toBeNull();
-    expect(region("MasterData:Addresses").querySelector("[data-slot=address-map]")).not.toBeNull();
+    expect(mapSection().querySelector("[data-slot=address-map]")).not.toBeNull();
+    expect(region("MasterData:Addresses").querySelector("[data-slot=address-map]")).toBeNull();
     expect(openRemarks(editor).value).toBe(" Deliver before 10:00 ");
 
     await submitEditor();
@@ -895,9 +925,14 @@ describe("RelationEditor — create", () => {
     expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
     await waitForTypeTabs();
     expect(activeTypeTab()).toBe("Visiting address");
-    /* The tabs sit in the header beside the switch, before the address fields. */
-    const header = checkbox("MasterData:AllAddressesEqual").closest("label")!.parentElement!;
+    /* The tabs sit in the Addresses section's first row beside the switch, before the address fields, in the caption style. */
+    const header = addressesCaption();
+    expect(region("MasterData:Addresses").firstElementChild).toBe(header);
     expect(header.contains(typeTabList())).toBe(true);
+    for (const tabEl of within(typeTabList()).getAllByRole("tab", { hidden: true })) {
+      for (const cls of captionClasses) expect(tabEl, cls).toHaveClass(cls);
+    }
+    expect(header.compareDocumentPosition(addressBlock()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
     /* The same inline fields, now for the Visiting tab and empty: the default address is out of sight. */
     expect(addressLabels()).toEqual(ADDRESS_LABELS);
@@ -909,8 +944,9 @@ describe("RelationEditor — create", () => {
     typeTab("Postal address");
     expect(field(editor, "MasterData:Country").id).toBe(`${prefix}-address-type-2-countryId`);
     expect(field(editor, "MasterData:City").value).toBe("");
-    /* The Map / Remarks strip stays with the section. */
+    /* The Map / Remarks strip stays in the Map section below. */
     expect(subTabs()).toEqual(["MasterData:Map", "MasterData:Remarks"]);
+    expect(within(region("MasterData:Addresses")).getAllByRole("tablist", { hidden: true })).toHaveLength(1);
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
@@ -931,7 +967,7 @@ describe("RelationEditor — create", () => {
     expect(addressBlock()).toBeNull();
     expect(queryField(editor, "MasterData:Street")).toBeNull();
     expect(mapFrame()).toBeNull();
-    expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    expect(within(mapSection()).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));

@@ -286,15 +286,16 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
    while blocked, None otherwise; a tenant-maintained list is for the Financial run to decide), row 2
    Categories `MultiSelect` + Geographical regions `MultiSelect`; row 3 the *Name* block (Code + Name,
    then Full name) stacked above the *Contact information* block (Phone, Mobile, E-mail, Website) on the
-   left, next to the *Addresses* block (PO 2026-10-13, the old screen): the **All addresses equal**
-   switch with, while it is off, one tab per address type of the tenant beside it; the switch on shows
+   left, next to the *Addresses* block (PO 2026-10-13, the old screen): no caption; the **All addresses
+   equal** switch in the caption's place and style with, while it is off, one tab per address type of
+   the tenant beside it in the same style; the switch on shows
    the default address inline, each tab shows that type's address with the same fields (Country as the
    two-letter code in a searchable `ReferenceCombobox`, Postal code, City, Time zone prefilled from the
    country; Street, No., Suffix; Building, Longitude, Latitude). An untouched address is none; once
-   something is entered, country, street, postal code and city are required. Below it a *Map* /
-   *Remarks* sub-tab strip filling the block: the map is an OpenStreetMap embed of the active address'
-   coordinates (no geocoder until Planning; the provider is a reversible choice, one URL and no
-   package), Remarks is the Description.
+   something is entered, country, street, postal code and city are required. Below it a caption-less
+   block with the *Map* / *Remarks* sub-tab strip (brand underline, like the editor's strip): the map
+   is an OpenStreetMap embed of the active address' coordinates (no geocoder until Planning; the
+   provider is a reversible choice, one URL and no package), Remarks is the Description.
 2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
    units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
    single-valued; a multi-valued tree picker is a library gap for the component map).
