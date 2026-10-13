@@ -87,6 +87,12 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 
 const DEFAULT_KEY = "default";
 
+/* The in-block tab strips (address types, Map / Remarks) wear the editor strip's look: uppercase, brand
+ * underline, compact (UI-TOK-001: the brand token, no raw colour). */
+const SUB_TAB_LIST = "h-8 justify-start gap-0 rounded-none p-0";
+const SUB_TAB =
+  "h-8 flex-none rounded-none border-0 px-3 text-label font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
+
 interface BankRow {
   key: string;
   id: string | null;
@@ -638,14 +644,14 @@ export function RelationEditor({
             >
               <TabsList
                 variant="line"
-                className="h-auto justify-start gap-0 rounded-none p-0"
+                className={SUB_TAB_LIST}
                 aria-label={t("MasterData:AddressType")}
               >
                 {addressTypeTabs.map((type) => (
                   <TabsTrigger
                     key={type.id}
                     value={type.id}
-                    className="uppercase tracking-wide"
+                    className={SUB_TAB}
                   >
                     {type.name}
                   </TabsTrigger>
@@ -659,7 +665,7 @@ export function RelationEditor({
             {form.error("defaultAddress") ?? form.error("addresses")}
           </p>
         )}
-        <div className="mt-3">
+        <div className="mt-2">
           {allEqual ? (
             <AddressFields
               idPrefix={form.id("defaultAddress")}
@@ -695,16 +701,13 @@ export function RelationEditor({
         </div>
         <Tabs
           defaultValue="map"
-          className="mt-3 flex min-h-72 flex-1 flex-col gap-2"
+          className="mt-2 flex min-h-48 flex-1 flex-col gap-2"
         >
-          <TabsList
-            variant="line"
-            className="h-auto justify-start gap-0 rounded-none p-0"
-          >
-            <TabsTrigger value="map" className="uppercase tracking-wide">
+          <TabsList variant="line" className={SUB_TAB_LIST}>
+            <TabsTrigger value="map" className={SUB_TAB}>
               {t("MasterData:Map")}
             </TabsTrigger>
-            <TabsTrigger value="remarks" className="uppercase tracking-wide">
+            <TabsTrigger value="remarks" className={SUB_TAB}>
               {t("MasterData:Remarks")}
             </TabsTrigger>
           </TabsList>
@@ -734,9 +737,9 @@ export function RelationEditor({
       labelKey: "General",
       fields: GENERAL_FIELDS,
       render: (form) => (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <FormSection title={t("MasterData:Relation")}>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               {/* Row 1: the roles grow into the space the switches and the block reason (while blocked) leave. */}
               <div className="flex items-end gap-4">
                 <FormField
@@ -848,8 +851,8 @@ export function RelationEditor({
             </div>
           </FormSection>
           {/* The Name and Contact information blocks stacked on the left, the Addresses block on the right. */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
               <FormSection title={t("MasterData:Name")}>
                 <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                   <TextField
@@ -1069,7 +1072,7 @@ export function RelationEditor({
       <MasterDataEditor<Values, RelationDto>
         entityKey="Relation"
         queryEntity={relations.entity}
-        size="lg"
+        size="full"
         mode={mode}
         readOnly={readOnly}
         open={open}

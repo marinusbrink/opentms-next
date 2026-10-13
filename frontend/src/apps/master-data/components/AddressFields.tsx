@@ -161,7 +161,7 @@ export function AddressFields({
   return (
     <div
       data-slot="address-fields"
-      className="grid grid-cols-12 gap-x-4 gap-y-3"
+      className="grid grid-cols-12 gap-x-3 gap-y-2"
     >
       <FormField
         label={t("MasterData:Country")}

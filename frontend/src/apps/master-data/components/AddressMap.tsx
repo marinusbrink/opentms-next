@@ -43,7 +43,7 @@ export function AddressMap({
     <div
       data-slot="address-map"
       className={cn(
-        "flex min-h-64 flex-1 overflow-hidden rounded-md border border-border bg-muted",
+        "flex min-h-40 flex-1 overflow-hidden rounded-md border border-border bg-muted",
         className,
       )}
     >

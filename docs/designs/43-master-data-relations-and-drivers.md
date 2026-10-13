@@ -278,7 +278,7 @@ City, Country, VAT number, Phone, E-mail; hidden: CoC number, Categories, Archiv
 toolbar: Role (`Select`), Category (`ReferenceCombobox`), Show archived. Row actions: Edit, Archive /
 Unarchive, Delete. Command bar: New relation, Delete selected.
 
-**Relation editor** (`EntityDialog size="lg"`, UI-DLG-003: a header block plus lines), tabs:
+**Relation editor** (`EntityDialog size="full"`: UI-DLG-003 lists the relation among the large records; PO 2026-10-13), tabs:
 
 1. **General** (PO 2026-10-12): one *Relation* block with row 1 Roles `MultiSelect` + the Archived
    and Blocked switches + the **Block reason** `Select`, shown only while blocked (enum
