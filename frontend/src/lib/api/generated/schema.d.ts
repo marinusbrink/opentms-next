@@ -19328,6 +19328,7 @@ export interface components {
             /** Format: uuid */
             countryId: string;
             houseNumber?: string | null;
+            houseNumberSuffix?: string | null;
             /** Format: uuid */
             id?: string | null;
             /** Format: double */

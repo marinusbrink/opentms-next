@@ -205,11 +205,11 @@ public class RelationVolumeTests : MasterDataPostgreSqlTestBase
                 relation.SetContact(null, null, i % 4 == 0 ? $"planning{i}@volume.test" : null, null);
                 var inputs = new List<RelationAddressInput>
                 {
-                    new(null, visitingTypeId, countryId, $"Volumestraat {i % 300}", $"{i % 150 + 1}", null, PostalCode(i), Cities[i % Cities.Length], null, null, "Europe/Amsterdam")
+                    new(null, visitingTypeId, countryId, $"Volumestraat {i % 300}", $"{i % 150 + 1}", null, null, PostalCode(i), Cities[i % Cities.Length], null, null, "Europe/Amsterdam")
                 };
                 if (i % 2 == 0)
                 {
-                    inputs.Add(new(null, postalTypeId, countryId, "Postbus", $"{i % 9000}", null, PostalCode(i + 1), Cities[(i + 1) % Cities.Length], null, null, "Europe/Amsterdam"));
+                    inputs.Add(new(null, postalTypeId, countryId, "Postbus", $"{i % 9000}", null, null, PostalCode(i + 1), Cities[(i + 1) % Cities.Length], null, null, "Europe/Amsterdam"));
                 }
 
                 relation.SetAddresses(inputs, () => _guids.Create());

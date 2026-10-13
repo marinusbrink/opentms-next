@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(MasterDataDbContext))]
-    [Migration("20261012143500_MasterDataRelationsAndDrivers")]
+    [Migration("20261013104833_MasterDataRelationsAndDrivers")]
     partial class MasterDataRelationsAndDrivers
     {
         /// <inheritdoc />
@@ -1023,6 +1023,10 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("HouseNumber")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("HouseNumberSuffix")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 

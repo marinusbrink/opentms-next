@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using OpenTms.MasterData;
 using OpenTms.MasterData.EntityFrameworkCore;
+using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Relations;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -25,7 +26,7 @@ namespace OpenTms.PostgreSql.MasterData;
 [Collection(PostgreSqlTestCollection.Name)]
 public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261012143500_MasterDataRelationsAndDrivers";
+    private const string Migration = "20261013104833_MasterDataRelationsAndDrivers";
     private const string FirstRunMigration = "20261011191016_MasterDataFirstRun";
 
     private static readonly string[] Tables =
@@ -189,6 +190,49 @@ public class MasterDataRelationsMigrationTests : MasterDataPostgreSqlTestBase
         One(indexes, "IX_Relations_TenantId_SearchKey :: ").ShouldContain("(\"TenantId\", \"SearchKey\")");
         One(indexes, "IX_Drivers_TenantId_SearchKey :: ").ShouldContain("(\"TenantId\", \"SearchKey\")");
         One(indexes, "IX_Relations_SearchKey_Trigram :: ").ShouldContain("gin_trgm_ops");
+    }
+
+    [Theory]
+    [InlineData("host")]
+    [InlineData("tenant-a")]
+    public async Task The_house_number_suffix_column_sits_next_to_the_house_number_at_the_same_length(string target)
+    {
+        var database = target == "host" ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase;
+        await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(database));
+        await connection.OpenAsync();
+
+        /* PO 2026-10-13: the suffix is its own optional column, bounded like the number (MaxHouseNumberLength = 16); the number itself is unchanged. */
+        var columns = await QueryAsync(connection, "SELECT column_name || ' :: ' || data_type || '(' || COALESCE(character_maximum_length::text, '-') || ') :: ' || is_nullable FROM information_schema.columns WHERE table_schema = 'masterdata' AND table_name = 'RelationAddresses' AND column_name IN ('HouseNumber', 'HouseNumberSuffix')");
+        columns.Count.ShouldBe(2, string.Join("\n", columns));
+        columns.ShouldContain($"HouseNumber :: character varying({MasterDataConsts.MaxHouseNumberLength}) :: YES");
+        columns.ShouldContain($"HouseNumberSuffix :: character varying({MasterDataConsts.MaxHouseNumberLength}) :: YES");
+
+        /* No index or constraint targets the suffix: it is a display field, not a key. */
+        var indexes = await QueryAsync(connection, "SELECT indexname || ' :: ' || indexdef FROM pg_indexes WHERE schemaname = 'masterdata' AND tablename = 'RelationAddresses'");
+        indexes.ShouldNotContain(i => i.Contains("HouseNumberSuffix"), "the suffix carries no index");
+    }
+
+    [Fact]
+    public async Task A_relation_address_with_number_and_suffix_round_trips_in_tenant_A()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var repository = GetRequiredService<IRepository<Relation, Guid>>();
+            var context = await _contextProvider.GetDbContextAsync();
+            var guids = GetRequiredService<IGuidGenerator>();
+            var country = await context.Set<Country>().Where(c => c.IsoAlpha2 == "NL").Select(c => c.Id).SingleAsync();
+
+            var relation = new Relation(guids.Create(), TenantA, "SFX01", "Suffix B.V.", RelationRoles.Customer);
+            relation.SetAddresses([new RelationAddressInput(null, null, country, "Dorpsstraat", "12", " a ", null, "1234 AB", "Utrecht", null, null, null)], guids.Create);
+            await repository.InsertAsync(relation, autoSave: true);
+            context.ChangeTracker.Clear();
+
+            var stored = await context.Set<RelationAddress>().Where(a => a.RelationId == relation.Id).Select(a => new { a.HouseNumber, a.HouseNumberSuffix, a.TenantId }).SingleAsync();
+            stored.HouseNumber.ShouldBe("12");
+            stored.HouseNumberSuffix.ShouldBe("a", "PostgreSQL stores the trimmed suffix in its own column");
+            stored.TenantId.ShouldBe(TenantA);
+            context.Database.GetDbConnection().Database.ShouldBe(PostgreSqlTestDatabases.TenantADatabase);
+        });
     }
 
     [Fact]

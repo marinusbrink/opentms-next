@@ -424,6 +424,10 @@
     "MasterData:Map": "Kaart",
     "MasterData:MapNoCoordinates": "Vul de coördinaten van het adres in om de kaart te tonen.",
     "MasterData:ContactInformation": "Contactgegevens",
-    "MasterData:RelationFullName": "Volledige naam"
+    "MasterData:RelationFullName": "Volledige naam",
+    "MasterData:HouseNumberSuffix": "Bijvoegsel",
+    "MasterData:Building": "Gebouw",
+    "MasterData:AddressIncomplete": "Maak het adres compleet: land, straat, postcode en plaats zijn verplicht.",
+    "MasterData:Nr": "Nr."
   }
 }

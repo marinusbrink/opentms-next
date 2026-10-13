@@ -109,6 +109,7 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     CountryId = table.Column<Guid>(type: "uuid", nullable: false),
                     Street = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     HouseNumber = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
+                    HouseNumberSuffix = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
                     AddressLine2 = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     PostalCode = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
                     PostalCodeKey = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),

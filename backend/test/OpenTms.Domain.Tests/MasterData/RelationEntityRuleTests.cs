@@ -26,8 +26,8 @@ public class RelationEntityRuleTests
         => new(Guid.NewGuid(), Tenant, code, name, roles);
 
     /// <summary>A null <paramref name="typeId"/> is the relation's default address ("all addresses equal", PO 2026-10-12).</summary>
-    private static RelationAddressInput Address(Guid? typeId, string street = "Main", string postalCode = "1234 AB", string city = "Amsterdam", Guid? id = null, string? timeZone = null)
-        => new(id, typeId, Nl, street, "1", null, postalCode, city, null, null, timeZone);
+    private static RelationAddressInput Address(Guid? typeId, string street = "Main", string postalCode = "1234 AB", string city = "Amsterdam", Guid? id = null, string? timeZone = null, string? houseNumber = "1", string? suffix = null)
+        => new(id, typeId, Nl, street, houseNumber, suffix, null, postalCode, city, null, null, timeZone);
 
     private static RelationContactPersonInput Contact(string first, string last, Guid? id = null, string? email = null)
         => new(id, first, null, last, ContactPersonRole.Planning, null, null, email, null, null);
@@ -520,7 +520,7 @@ public class RelationEntityRuleTests
     {
         var address = new RelationAddress(Guid.NewGuid(), Tenant, Guid.NewGuid());
 
-        address.Set(new RelationAddressInput(null, Visiting, Nl, " Main ", " 12a ", "", " 1234 ab ", " Amsterdam ", 52.37, 4.89, " Europe/Amsterdam "));
+        address.Set(new RelationAddressInput(null, Visiting, Nl, " Main ", " 12a ", "", null, " 1234 ab ", " Amsterdam ", 52.37, 4.89, " Europe/Amsterdam "));
         address.Street.ShouldBe("Main");
         address.HouseNumber.ShouldBe("12a");
         address.AddressLine2.ShouldBeNull();
@@ -534,11 +534,107 @@ public class RelationEntityRuleTests
         Should.Throw<ArgumentException>(() => address.Set(Address(Visiting, street: " ")));
         Should.Throw<ArgumentException>(() => address.Set(Address(Visiting, postalCode: "")));
         Should.Throw<ArgumentException>(() => address.Set(Address(Visiting, city: "")));
-        Should.Throw<BusinessException>(() => address.Set(new RelationAddressInput(null, Visiting, Nl, "Main", null, null, "1234", "City", 91, 0, null))).Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
-        Should.Throw<BusinessException>(() => address.Set(new RelationAddressInput(null, Visiting, Nl, "Main", null, null, "1234", "City", 0, -181, null))).Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
+        Should.Throw<BusinessException>(() => address.Set(new RelationAddressInput(null, Visiting, Nl, "Main", null, null, null, "1234", "City", 91, 0, null))).Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
+        Should.Throw<BusinessException>(() => address.Set(new RelationAddressInput(null, Visiting, Nl, "Main", null, null, null, "1234", "City", 0, -181, null))).Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
         var ex = Should.Throw<BusinessException>(() => address.Set(Address(Visiting, timeZone: "Mars/Olympus")));
         ex.Code.ShouldBe(MasterDataErrorCodes.InvalidTimeZone);
         ex.Data["value"].ShouldBe("Mars/Olympus");
+    }
+
+    // ── House-number suffix (PO 2026-10-13) ──────────────────────────────────
+
+    [Fact]
+    public void The_house_number_suffix_is_stored_trimmed_next_to_the_number_and_shares_its_length()
+    {
+        var address = new RelationAddress(Guid.NewGuid(), Tenant, Guid.NewGuid());
+
+        address.Set(Address(Visiting, houseNumber: " 12 ", suffix: " a "));
+
+        address.HouseNumber.ShouldBe("12");
+        address.HouseNumberSuffix.ShouldBe("a", "the suffix is kept apart from the number, trimmed");
+
+        /* Any text is a suffix: letters, a range dash, a word; the limit is the house-number length after trimming. */
+        address.Set(Address(Visiting, houseNumber: "12", suffix: "-14"));
+        address.HouseNumberSuffix.ShouldBe("-14");
+        var atLimit = new string('s', MasterDataConsts.MaxHouseNumberLength);
+        address.Set(Address(Visiting, houseNumber: "12", suffix: "  " + atLimit + "  "));
+        address.HouseNumberSuffix.ShouldBe(atLimit, "the trimmed value is what is measured");
+
+        /* A suffix without a number is allowed by the entity: both fields are optional and independent. */
+        address.Set(Address(Visiting, houseNumber: null, suffix: "bis"));
+        address.HouseNumber.ShouldBeNull();
+        address.HouseNumberSuffix.ShouldBe("bis");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void An_empty_house_number_suffix_is_stored_as_null_and_clears_a_previous_one(string? suffix)
+    {
+        var address = new RelationAddress(Guid.NewGuid(), Tenant, Guid.NewGuid());
+        address.Set(Address(Visiting, houseNumber: "12", suffix: "a"));
+        address.HouseNumberSuffix.ShouldBe("a");
+
+        address.Set(Address(Visiting, houseNumber: "12", suffix: suffix));
+
+        address.HouseNumber.ShouldBe("12", "clearing the suffix leaves the number");
+        address.HouseNumberSuffix.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_seventeen_character_house_number_suffix_is_refused_and_adds_nothing_to_the_aggregate()
+    {
+        var tooLong = new string('s', MasterDataConsts.MaxHouseNumberLength + 1);
+
+        /* On a fresh child the refusal is an argument error like every other over-long optional text. */
+        var address = new RelationAddress(Guid.NewGuid(), Tenant, Guid.NewGuid());
+        Should.Throw<ArgumentException>(() => address.Set(Address(Visiting, houseNumber: "12", suffix: tooLong)));
+
+        /* Sixteen characters of padding around a short suffix are not a seventeen-character suffix. */
+        address.Set(Address(Visiting, houseNumber: "12", suffix: new string(' ', 8) + "a" + new string(' ', 8)));
+        address.HouseNumberSuffix.ShouldBe("a");
+
+        /* On an empty aggregate a refused set adds nothing. */
+        var fresh = NewRelation(code: "FRS");
+        Should.Throw<ArgumentException>(() => fresh.SetAddresses([Address(Visiting, houseNumber: "12", suffix: tooLong)], Guid.NewGuid));
+        fresh.Addresses.ShouldBeEmpty("a refused set on an empty aggregate adds nothing");
+
+        /* Next to an existing row a refused new row is not added and the existing row keeps its values; nothing is removed either. */
+        var relation = NewRelation();
+        relation.SetAddresses([Address(Visiting, "Kept", houseNumber: "12", suffix: "a")], Guid.NewGuid);
+        var keptId = relation.Addresses.Single().Id;
+        Should.Throw<ArgumentException>(() => relation.SetAddresses([Address(Visiting, "Kept", id: keptId, houseNumber: "12", suffix: "a"), Address(Postal, "New", houseNumber: "1", suffix: tooLong)], Guid.NewGuid));
+        var kept = relation.Addresses.ShouldHaveSingleItem();
+        kept.Id.ShouldBe(keptId);
+        kept.Street.ShouldBe("Kept");
+        kept.HouseNumber.ShouldBe("12");
+        kept.HouseNumberSuffix.ShouldBe("a");
+    }
+
+    [Fact]
+    public void A_refused_house_number_suffix_leaves_an_existing_address_row_as_it_was()
+    {
+        /* The aggregate promises "a refused input leaves the aggregate untouched" (Relation.SetAddresses). For a row updated in place that
+           means the row keeps every field it had, like Relation.SetName keeps the stored full name when the new one is refused. */
+        var tooLong = new string('s', MasterDataConsts.MaxHouseNumberLength + 1);
+
+        var address = new RelationAddress(Guid.NewGuid(), Tenant, Guid.NewGuid());
+        address.Set(Address(Visiting, street: "Kept", houseNumber: "12", suffix: "a"));
+        Should.Throw<ArgumentException>(() => address.Set(Address(Visiting, street: "Changed", houseNumber: "99", suffix: tooLong)));
+        address.Street.ShouldBe("Kept", "a refused change leaves the row untouched");
+        address.HouseNumber.ShouldBe("12", "a refused change leaves the row untouched");
+        address.HouseNumberSuffix.ShouldBe("a");
+
+        var relation = NewRelation();
+        relation.SetAddresses([Address(Visiting, "Kept", houseNumber: "12", suffix: "a")], Guid.NewGuid);
+        var keptId = relation.Addresses.Single().Id;
+        Should.Throw<ArgumentException>(() => relation.SetAddresses([Address(Visiting, "Changed", id: keptId, houseNumber: "99", suffix: tooLong)], Guid.NewGuid));
+        var kept = relation.Addresses.ShouldHaveSingleItem();
+        kept.Id.ShouldBe(keptId);
+        kept.Street.ShouldBe("Kept", "a refused change leaves the row untouched");
+        kept.HouseNumber.ShouldBe("12", "a refused change leaves the row untouched");
+        kept.HouseNumberSuffix.ShouldBe("a");
     }
 
     [Fact]

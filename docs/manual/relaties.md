@@ -21,7 +21,7 @@ ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekij
 
 ## Het record
 
-Het venster heeft vijf tabbladen.
+Het venster heeft vier tabbladen.
 
 **Algemeen**
 
@@ -32,13 +32,15 @@ Het venster heeft vijf tabbladen.
   orders en de facturatie later). Daaronder de categorieën en de geografische regio's.
 - Daaronder links *Code* (uniek binnen de tenant, in hoofdletters), *Naam* en *Volledige naam* (de
   statutaire naam als die afwijkt; zoeken werkt ook op de volledige naam), met daaronder de
-  *Contactgegevens*: telefoon, mobiel, e-mail en website. Rechts **Alle adressen gelijk** met het
-  adres (land, postcode, plaats, straat, huisnummer, adresregel 2, tijdzone, coördinaten) en
-  daaronder de tabbladen *Kaart* (een kaart van de ingevulde coördinaten; zonder coördinaten blijft de
-  kaart leeg) en *Opmerkingen*.
+  *Contactgegevens*: telefoon, mobiel, e-mail en website. Rechts het blok *Adressen*: **Alle adressen
+  gelijk** met het adres (land als tweeletterige code, postcode, plaats, tijdzone; straat, nr.,
+  bijvoegsel; gebouw, lengte- en breedtegraad) en daaronder de tabbladen *Kaart* (een kaart van de
+  ingevulde coördinaten; zonder coördinaten blijft de kaart leeg) en *Opmerkingen*.
 - *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
-  (bezoek, factuur, …). Zet het uit als de adressen per type verschillen; dan beheert u ze op het
-  tabblad *Adressen*. Een adres per type gaat altijd vóór het algemene adres.
+  (bezoek, post, …). Zet het uit als de adressen per type verschillen: naast de schakelaar verschijnt
+  dan een tabblad per adrestype met dezelfde velden. Een leeg tabblad is geen adres; zodra u iets
+  invult zijn land, straat, postcode en plaats verplicht. Een adres per type gaat altijd vóór het
+  algemene adres.
 
 **Administratie**
 
@@ -50,12 +52,6 @@ waarin de relatie documenten en berichten ontvangt, en de organisatie-eenheden.
 
 De bankrekeningen: IBAN (wordt gecontroleerd), BIC, bank en rekeninghouder. Precies één rekening is
 de standaard; de eerste rekening wordt dat automatisch.
-
-**Adressen**
-
-Per adrestype (bezoekadres, factuuradres, …) heeft een relatie hoogstens één adres. **Nieuw**
-opent een venster met adrestype, land, straat, huisnummer, adresregel 2, postcode, plaats,
-coördinaten en tijdzone. De tijdzone wordt uit het land overgenomen als u hem leeg laat.
 
 **Contactpersonen**
 

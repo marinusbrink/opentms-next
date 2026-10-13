@@ -2,20 +2,23 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { Mock } from "vitest";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The relation editor (design 43, UI design as revised again by the PO on 2026-10-12) over the
- * shared MasterDataEditor: client validation, the roles MultiSelect to the flags value, the Archived
- * and Blocked switches with the block reason (rendered only while Blocked is ticked, required then,
- * posted as 0 otherwise), the Name block (code, name, the optional full name: trimmed, null when empty)
- * stacked above the Contact information block in the left column of row 4, the "all addresses
- * equal" default address inline on General (posted first, without an address type, only while the
- * switch is on and something was entered) with its own required fields and the time zone following
- * the country, the Map / Remarks sub-tabs under the address (the OpenStreetMap embed once both
- * coordinates are valid, the description textarea), the per-type addresses and contact persons
- * staged through their own dialogs, the bank accounts inline on Financial with exactly one default, the Administration
- * fields, the full DTO on create and update, server errors through getApiErrorMessage, the loaded
- * record over all tabs, the badges (Blocked with its reason), the confirmed Archive / Unarchive and
- * Delete commands. The domain hooks are real; the generated client is the mock; the Tabs of the
- * Map / Remarks strip are the real Base UI component.
+/* The relation editor (design 43, UI design as revised by the PO on 2026-10-12/13 after the old
+ * OpenTMS screen) over the shared MasterDataEditor: client validation, the roles MultiSelect to the
+ * flags value, the Archived and Blocked switches with the block reason (rendered only while Blocked is
+ * ticked, required then, posted as 0 otherwise), the Name block (code, name, the optional full name:
+ * trimmed, null when empty) stacked above the Contact information block in the left column, the
+ * Addresses block on the right with the old header: "All addresses equal" and, while it is off, one
+ * tab per address type of the tenant with the same inline AddressFields (a tab's address enters the
+ * form once edited; an untouched one is no address; once anything is entered country, street, postal
+ * code and city are required, per field after blur or submit, and the editor-level
+ * AddressIncomplete marks General); while it is on, the single default address (posted without an
+ * address type). The time zone follows the country per address; the Map / Remarks sub-tabs under the
+ * address show the active address' coordinates and the description. Then the contact persons staged
+ * through their dialog, the bank accounts inline on Financial with exactly one default, the
+ * Administration fields, the full DTO on create and update, server errors through
+ * getApiErrorMessage, the loaded record over all tabs, the badges (Blocked with its reason), the
+ * confirmed Archive / Unarchive and Delete commands. The domain hooks are real; the generated client
+ * is the mock; the Tabs (the address types, Map / Remarks) are the real Base UI component.
  * Risk class: Medium (UI flow) — component tests per the matrix. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -65,7 +68,6 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
-import { AddressDialog, newAddressRow } from "@/apps/master-data/editors/AddressDialog";
 import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
 import type { RelationDto, RelationRoles } from "@/domains/master-data/entities";
 
@@ -100,10 +102,19 @@ beforeAll(() => {
 
 type AddressDto = NonNullable<RelationDto["addresses"]>[number];
 
-/** The relation's typed (Visiting) address: it belongs on the Addresses tab. */
-const visitingAddress: AddressDto = { id: "a1", addressTypeId: "type-1", addressTypeName: "Visiting", countryId: "c-1", countryCode: "NL", street: "Main street", houseNumber: "1", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" };
-/** The relation's default address (no type): it belongs in the inline fields on General. */
-const defaultAddress: AddressDto = { id: "a0", addressTypeId: null, addressTypeName: null, countryId: "c-2", countryCode: "DE", street: "Station street", houseNumber: "12", addressLine2: "Unit 3", postalCode: "10115", city: "Berlin", latitude: 52.52, longitude: 13.4, timeZoneId: "Europe/Berlin" };
+/** The tenant's address types: one tab each while "all addresses equal" is off. */
+const ADDRESS_TYPES = [
+  { id: "type-1", name: "Visiting address" },
+  { id: "type-2", name: "Postal address" },
+];
+let addressTypes = ADDRESS_TYPES;
+
+/** The relation's visiting address: the first type's tab. */
+const visitingAddress: AddressDto = { id: "a1", addressTypeId: "type-1", addressTypeName: "Visiting address", countryId: "c-1", countryCode: "NL", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" };
+/** The relation's postal address: the second type's tab. */
+const postalAddress: AddressDto = { id: "a2", addressTypeId: "type-2", addressTypeName: "Postal address", countryId: "c-1", countryCode: "NL", street: "PO Box", houseNumber: "99", houseNumberSuffix: null, addressLine2: "Mail room", postalCode: "2600 AA", city: "Delft", latitude: null, longitude: null, timeZoneId: "Europe/Amsterdam" };
+/** The relation's default address (no type): the inline fields while "all addresses equal" is on. */
+const defaultAddress: AddressDto = { id: "a0", addressTypeId: null, addressTypeName: null, countryId: "c-2", countryCode: "DE", street: "Station street", houseNumber: "12", houseNumberSuffix: "b", addressLine2: "Unit 3", postalCode: "10115", city: "Berlin", latitude: 52.52, longitude: 13.4, timeZoneId: "Europe/Berlin" };
 
 const stored: RelationDto = {
   id: "r1",
@@ -139,6 +150,7 @@ let detail: RelationDto = stored;
 beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
   detail = stored;
+  addressTypes = ADDRESS_TYPES;
   GET.mockReset().mockImplementation(async (path, init) => {
     switch (path) {
       case "/api/master-data/relation/{id}":
@@ -148,7 +160,7 @@ beforeEach(() => {
       case "/api/master-data/geographical-region/lookup":
         return ok([{ id: "reg-1", name: "Region X" }]);
       case "/api/master-data/address-type/lookup":
-        return ok([{ id: "type-1", name: "Visiting" }, { id: "type-2", name: "Postal" }]);
+        return ok(addressTypes);
       case "/api/master-data/country/lookup":
         return ok([{ id: "c-1", code: "NL", name: "Netherlands" }, { id: "c-2", code: "DE", name: "Germany" }]);
       case "/api/master-data/country/{id}":
@@ -197,15 +209,24 @@ const multiSelect = (scope: HTMLElement, label: string) => {
 /* The roles are a MultiSelect; its mock renders one checkbox per option named after the role key. */
 const roleBox = (key: string) => screen.getByRole("checkbox", { name: `MasterData:Role.${key}` });
 const checkbox = (name: string) => screen.getByRole("checkbox", { name });
-/* The editor's own tab strip sits in the ribbon; the Map / Remarks sub-tabs on General are tabs too. */
+/* The editor's own tab strip sits in the ribbon; the address-type tabs and the Map / Remarks sub-tabs on General are tabs too. */
 const editorTabs = () => within(editorDialog().querySelector<HTMLElement>("[data-slot=entity-dialog-ribbon]")!).getAllByRole("tab");
 /* Inactive tab panels are aria-hidden (UI-DLG-015), so role queries need the tab active; label queries do not. */
 const tab = (name: string) => fireEvent.click(within(editorDialog().querySelector<HTMLElement>("[data-slot=entity-dialog-ribbon]")!).getByRole("tab", { name: new RegExp(`^${escape(name)}`) }));
 const region = (name: string) => within(editorDialog()).getByRole("region", { name, hidden: true });
 const queryRegion = (name: string) => within(editorDialog()).queryByRole("region", { name, hidden: true });
-/* The Map / Remarks strip under the inline address (real Base UI Tabs: an inactive panel is unmounted). */
-const subTab = (name: string) => fireEvent.click(within(region("MasterData:Addresses")).getByRole("tab", { name: new RegExp(`^${escape(name)}`), hidden: true }));
-const subTabs = () => within(region("MasterData:Addresses")).getAllByRole("tab", { hidden: true }).map((el) => el.textContent?.trim());
+/* The address-type tabs in the Addresses block's header (real Base UI Tabs; the list is named after the address type). */
+const TYPE_TABS = "MasterData:AddressType";
+const typeTabList = () => within(region("MasterData:Addresses")).getByRole("tablist", { name: TYPE_TABS, hidden: true });
+const queryTypeTabList = () => within(region("MasterData:Addresses")).queryByRole("tablist", { name: TYPE_TABS, hidden: true });
+const typeTabs = () => within(typeTabList()).getAllByRole("tab", { hidden: true }).map((el) => el.textContent?.trim());
+const activeTypeTab = () => within(typeTabList()).getAllByRole("tab", { hidden: true }).find((el) => el.getAttribute("aria-selected") === "true")?.textContent?.trim();
+const typeTab = (name: string) => fireEvent.click(within(typeTabList()).getByRole("tab", { name, hidden: true }));
+const waitForTypeTabs = () => waitFor(() => expect(typeTabs()).toEqual(ADDRESS_TYPES.map((x) => x.name)));
+/* The Map / Remarks strip under the inline address (real Base UI Tabs: an inactive panel is unmounted); the other tablist of the block. */
+const mapStrip = () => within(region("MasterData:Addresses")).getAllByRole("tablist", { hidden: true }).find((el) => el.getAttribute("aria-label") !== TYPE_TABS)!;
+const subTab = (name: string) => fireEvent.click(within(mapStrip()).getByRole("tab", { name: new RegExp(`^${escape(name)}`), hidden: true }));
+const subTabs = () => within(mapStrip()).getAllByRole("tab", { hidden: true }).map((el) => el.textContent?.trim());
 /* The textarea by its accessible name, on the Remarks sub-tab; the FormField label names it. */
 const remarks = (scope: HTMLElement) => within(scope).getByRole("textbox", { name: "MasterData:Remarks", hidden: true }) as HTMLTextAreaElement;
 const openRemarks = (scope: HTMLElement) => {
@@ -220,9 +241,16 @@ const queryBlockReason = () => queryField(editorDialog(), "MasterData:BlockReaso
  * the MultiSelect mock's option labels do not. The required marker is stripped. */
 const relationOrder = () =>
   Array.from(region("MasterData:Relation").querySelectorAll<HTMLLabelElement>("label[for]")).map((el) => el.textContent?.replace(/\s*\*\s*$/, "").trim());
+/* The inline address block (one at a time: the default address or the active type's) and its labels in order. */
+const addressBlock = () => region("MasterData:Addresses").querySelector<HTMLElement>("[data-slot=address-fields]");
+const addressLabels = () => Array.from(addressBlock()!.querySelectorAll<HTMLLabelElement>("label")).map((el) => el.textContent?.replace(/\s*\*\s*$/, "").trim());
+const addressLabel = (label: string) => within(region("MasterData:Addresses")).getByText(new RegExp(`^${escape(label)}`), { selector: "label" });
+const generalTab = () => screen.getByRole("tab", { name: /General/ });
 const lines = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
 const ribbon = (name: string) => within(editorDialog()).getByRole("button", { name });
 const header = () => editorDialog().querySelector<HTMLElement>("[data-slot=entity-dialog-header]")!;
+
+const ADDRESS_LABELS = ["MasterData:Country", "MasterData:PostalCode", "MasterData:City", "MasterData:TimeZone", "MasterData:Street", "MasterData:Nr", "MasterData:HouseNumberSuffix", "MasterData:Building", "MasterData:Longitude", "MasterData:Latitude"];
 
 const submitEditor = () =>
   act(async () => {
@@ -238,21 +266,39 @@ const fillRequired = () => {
   fireEvent.click(roleBox("Customer"));
 };
 
-/** Fills the inline default address on General (country first, so the time zone follows). */
-const fillDefaultAddress = async () => {
+interface AddressInput {
+  countryId: string;
+  zone: string;
+  postalCode: string;
+  city: string;
+  street: string;
+  houseNumber?: string;
+  houseNumberSuffix?: string;
+  addressLine2?: string;
+  longitude?: string;
+  latitude?: string;
+}
+
+/** Fills the inline address block in front (country first, so the time zone follows). */
+const fillAddress = async (input: AddressInput) => {
   const editor = editorDialog();
-  fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
-  await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam"));
-  typeInto(editor, "MasterData:PostalCode", " 2611 AB ");
-  typeInto(editor, "MasterData:City", "Delft");
-  typeInto(editor, "MasterData:Street", " Station street ");
-  typeInto(editor, "MasterData:HouseNumber", "12");
-  typeInto(editor, "MasterData:AddressLine2", "Unit 3");
-  typeInto(editor, "MasterData:Longitude", "4,36");
-  typeInto(editor, "MasterData:Latitude", "52.01");
+  fireEvent.change(field(editor, "MasterData:Country"), { target: { value: input.countryId } });
+  await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe(input.zone));
+  typeInto(editor, "MasterData:PostalCode", input.postalCode);
+  typeInto(editor, "MasterData:City", input.city);
+  typeInto(editor, "MasterData:Street", input.street);
+  if (input.houseNumber != null) typeInto(editor, "MasterData:Nr", input.houseNumber);
+  if (input.houseNumberSuffix != null) typeInto(editor, "MasterData:HouseNumberSuffix", input.houseNumberSuffix);
+  if (input.addressLine2 != null) typeInto(editor, "MasterData:Building", input.addressLine2);
+  if (input.longitude != null) typeInto(editor, "MasterData:Longitude", input.longitude);
+  if (input.latitude != null) typeInto(editor, "MasterData:Latitude", input.latitude);
 };
 
-const postedDefaultAddress = { id: null, addressTypeId: null, countryId: "c-1", street: "Station street", houseNumber: "12", addressLine2: "Unit 3", postalCode: "2611 AB", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" };
+const fillDefaultAddress = () => fillAddress({ countryId: "c-1", zone: "Europe/Amsterdam", postalCode: " 2611 AB ", city: "Delft", street: " Station street ", houseNumber: "12", houseNumberSuffix: " b ", addressLine2: "Unit 3", longitude: "4,36", latitude: "52.01" });
+const postedDefaultAddress = { id: null, addressTypeId: null, countryId: "c-1", street: "Station street", houseNumber: "12", houseNumberSuffix: "b", addressLine2: "Unit 3", postalCode: "2611 AB", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" };
+
+const fillVisitingAddress = () => fillAddress({ countryId: "c-1", zone: "Europe/Amsterdam", postalCode: "2611 AA", city: "Delft", street: " Main street ", houseNumber: "1", houseNumberSuffix: "a", latitude: "52,01" });
+const postedVisitingAddress = { id: null, addressTypeId: "type-1", countryId: "c-1", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: null, timeZoneId: "Europe/Amsterdam" };
 
 const emptyBody = {
   code: "ACME",
@@ -279,16 +325,32 @@ const emptyBody = {
 };
 
 const postedBody = () => POST.mock.calls.find(([path]) => path === "/api/master-data/relation")![1]!.body as typeof emptyBody;
-type PutBody = Omit<typeof emptyBody, "addresses" | "contactPersons" | "bankAccounts"> & { concurrencyStamp: string; addresses: { id: string | null; addressTypeId: string | null }[]; contactPersons: { id: string | null }[]; bankAccounts: { id: string | null; iban: string }[] };
+interface PutAddress {
+  id: string | null;
+  addressTypeId: string | null;
+  countryId: string;
+  street: string;
+  houseNumber: string | null;
+  houseNumberSuffix: string | null;
+  addressLine2: string | null;
+  postalCode: string;
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+  timeZoneId: string | null;
+}
+type PutBody = Omit<typeof emptyBody, "addresses" | "contactPersons" | "bankAccounts"> & { concurrencyStamp: string; addresses: PutAddress[]; contactPersons: { id: string | null }[]; bankAccounts: { id: string | null; iban: string }[] };
 const putBody = () => PUT.mock.calls[0][1]!.body as PutBody;
+const loadedAddress = (dto: AddressDto): PutAddress => ({ id: dto.id ?? null, addressTypeId: dto.addressTypeId ?? null, countryId: dto.countryId, street: dto.street, houseNumber: dto.houseNumber ?? null, houseNumberSuffix: dto.houseNumberSuffix ?? null, addressLine2: dto.addressLine2 ?? null, postalCode: dto.postalCode, city: dto.city, latitude: dto.latitude ?? null, longitude: dto.longitude ?? null, timeZoneId: dto.timeZoneId ?? null });
 
 describe("RelationEditor — layout", () => {
-  it("has the tabs General, Administration, Financial, Addresses, Contact persons and the roles as a MultiSelect", () => {
+  it("has the tabs General, Administration, Financial, Contact persons (no Addresses tab) and the roles as a MultiSelect", () => {
     renderEditor();
     const tabs = editorTabs().map((el) => el.textContent?.trim());
-    expect(tabs.slice(0, 5)).toEqual(["General", "MasterData:Administration", "MasterData:Financial", "MasterData:Addresses", "MasterData:ContactPersons"]);
-    /* The record identification icon tab closes the strip; the Map / Remarks sub-tabs are not part of it. */
-    expect(tabs).toHaveLength(6);
+    expect(tabs.slice(0, 4)).toEqual(["General", "MasterData:Administration", "MasterData:Financial", "MasterData:ContactPersons"]);
+    /* The record identification icon tab closes the strip; the address-type and Map / Remarks tabs are not part of it. */
+    expect(tabs).toHaveLength(5);
+    expect(tabs).not.toContain("MasterData:Addresses");
 
     const editor = editorDialog();
     expect(multiSelect(editor, "MasterData:Roles")).toHaveAttribute("data-slot", "mock-multi-select");
@@ -296,9 +358,10 @@ describe("RelationEditor — layout", () => {
     expect(multiSelect(editor, "MasterData:GeographicalRegions")).toHaveAttribute("data-slot", "mock-multi-select");
     expect(document.querySelector("[data-slot=checkbox-group]")).toBeNull();
     expect(queryField(editor, "MasterData:Description")).toBeNull();
+    expect(screen.queryByText("MasterData:NewAddress")).toBeNull();
   });
 
-  it("General (PO 2026-10-12): the Relation block with roles, the switches (the block reason only while blocked), categories and regions in that order; Name above Contact information on the left, Addresses on the right, nothing below", () => {
+  it("General (PO 2026-10-12/13): the Relation block with roles, the switches (the block reason only while blocked), categories and regions in that order; Name above Contact information on the left, Addresses on the right, nothing below", () => {
     renderEditor();
     const editor = editorDialog();
 
@@ -319,7 +382,7 @@ describe("RelationEditor — layout", () => {
     fireEvent.click(checkbox("MasterData:IsBlocked"));
     expect(queryBlockReason()).toBeNull();
 
-    /* Row 4: the Name block (code, name, full name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
+    /* The Name block (code, name, full name) next to the Addresses block (the switch, the inline address, the Map / Remarks strip). */
     const name = region("MasterData:Name");
     expect(field(name, "MasterData:Code")).toBeInTheDocument();
     expect(field(name, "MasterData:Name")).toBeInTheDocument();
@@ -342,7 +405,7 @@ describe("RelationEditor — layout", () => {
     const column = name.parentElement!;
     expect(contact.parentElement).toBe(column);
     expect(Array.from(column.children).map((el) => el.getAttribute("aria-label"))).toEqual(["MasterData:Name", "MasterData:ContactInformation"]);
-    /* The row holds that column and the Addresses block, nothing else; there is no row 5. */
+    /* The row holds that column and the Addresses block, nothing else; there is no row below. */
     const row = column.parentElement!;
     expect(row.children).toHaveLength(2);
     expect(row.firstElementChild).toBe(column);
@@ -358,22 +421,32 @@ describe("RelationEditor — layout", () => {
     expect(within(editor).queryByRole("textbox", { name: "MasterData:Remarks", hidden: true })).toBeNull();
   });
 
-  it("the Name section holds code, name and full name in that order; full name is optional, max 128", () => {
+  it("the Addresses block (PO 2026-10-13): the old field rows and labels, the control ids under the default address, the country options as codes only, the switch before the address", async () => {
     renderEditor();
-    const name = region("MasterData:Name");
-    const code = field(name, "MasterData:Code");
-    const shortName = field(name, "MasterData:Name");
-    const fullName = field(name, "MasterData:RelationFullName");
-    expect(within(name).getAllByRole("textbox").map((el) => el.id)).toEqual([code.id, shortName.id, fullName.id]);
-    expect(fullName.maxLength).toBe(128);
-    expect(fullName.value).toBe("");
-    expect(fullName).not.toHaveAttribute("aria-required");
-    expect(within(name).getByText(/^MasterData:RelationFullName/, { selector: "label" })).not.toHaveTextContent("*");
-    /* Code and Name keep their required markers. */
-    expect(code).toHaveAttribute("aria-required", "true");
-    expect(shortName).toHaveAttribute("aria-required", "true");
-    /* The field lives on General only. */
-    expect(within(editorDialog()).getAllByLabelText(/^MasterData:RelationFullName/, { selector: CONTROLS })).toHaveLength(1);
+    await waitForLookups();
+    const editor = editorDialog();
+    const addresses = region("MasterData:Addresses");
+    /* Country, Postal code, City, Time zone / Street, No., Suffix / Building, Longitude, Latitude. */
+    expect(addressLabels()).toEqual(ADDRESS_LABELS);
+    /* The old labels are gone (exact: "HouseNumber" is a prefix of the new suffix label). */
+    expect(within(editor).queryByLabelText(/^MasterData:HouseNumber(\s*\*)?$/, { selector: CONTROLS })).toBeNull();
+    expect(within(editor).queryByLabelText(/^MasterData:AddressLine2(\s*\*)?$/, { selector: CONTROLS })).toBeNull();
+    /* One block, after the header with the switch. */
+    expect(addresses.querySelectorAll("[data-slot=address-fields]")).toHaveLength(1);
+    const header = checkbox("MasterData:AllAddressesEqual").closest("label")!.parentElement!;
+    expect(header.compareDocumentPosition(addressBlock()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    /* The ids: `${form.id("defaultAddress")}-${field}`, the editor's instance prefix taken from the Code field. */
+    const prefix = field(editor, "MasterData:Code").id.replace(/-code$/, "");
+    expect(prefix).not.toBe(field(editor, "MasterData:Code").id);
+    expect(field(editor, "MasterData:Country").id).toBe(`${prefix}-defaultAddress-countryId`);
+    expect(field(editor, "MasterData:Street").id).toBe(`${prefix}-defaultAddress-street`);
+    expect(field(editor, "MasterData:Nr").id).toBe(`${prefix}-defaultAddress-houseNumber`);
+    expect(field(editor, "MasterData:HouseNumberSuffix").id).toBe(`${prefix}-defaultAddress-houseNumberSuffix`);
+    expect(field(editor, "MasterData:Building").id).toBe(`${prefix}-defaultAddress-addressLine2`);
+    expect(field(editor, "MasterData:TimeZone").id).toBe(`${prefix}-defaultAddress-timeZoneId`);
+    /* The country shows the two-letter code only (the old screen). */
+    await waitFor(() => expect(Array.from((field(editor, "MasterData:Country") as unknown as HTMLSelectElement).options).map((o) => o.textContent)).toEqual(["—", "NL", "DE"]));
+    expect(within(addresses).queryByText(/Netherlands/)).toBeNull();
   });
 
   it("the Administration tab holds the legal numbers, the preferred language and the organisation units; Financial holds the bank accounts", async () => {
@@ -398,19 +471,25 @@ describe("RelationEditor — layout", () => {
     expect(within(bank).getByText("MasterData:AddBankAccount")).toBeInTheDocument();
     expect(within(bank).getByText("MasterData:Iban")).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /MasterData:BankAccounts/ })).toBeNull();
+    expect(screen.queryByRole("tab", { name: /^MasterData:Addresses/ })).toBeNull();
   });
 
-  it("a new relation starts with 'all addresses equal' on, the inline default address empty and no block reason select", () => {
+  it("a new relation starts with 'all addresses equal' on, the inline default address empty, no address-type tabs and no block reason select", async () => {
     renderEditor();
+    await waitForLookups();
     const editor = editorDialog();
     expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
     expect(checkbox("MasterData:IsArchived")).not.toBeChecked();
     expect(queryBlockReason()).toBeNull();
     expect(within(editor).queryByText(/^MasterData:BlockReason/, { selector: "label" })).toBeNull();
-    for (const label of ["MasterData:Country", "MasterData:PostalCode", "MasterData:City", "MasterData:Street", "MasterData:HouseNumber", "MasterData:AddressLine2", "MasterData:TimeZone", "MasterData:Longitude", "MasterData:Latitude"]) {
-      expect(field(editor, label).value).toBe("");
+    for (const label of ADDRESS_LABELS) {
+      expect(field(editor, label).value, label).toBe("");
     }
+    /* Untouched: no required markers on the address yet. */
+    expect(addressLabel("MasterData:Country")).not.toHaveTextContent("*");
+    expect(addressLabel("MasterData:Street")).not.toHaveTextContent("*");
+    expect(queryTypeTabList()).toBeNull();
     expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
   });
 });
@@ -426,8 +505,9 @@ describe("RelationEditor — validation", () => {
     /* An untouched default address is not an error, even with the switch on; neither is an unblocked relation without a reason. */
     expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
     expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
     expect(screen.queryByText("MasterData:BlockReasonRequired")).toBeNull();
-    expect(screen.getByRole("tab", { name: /General/ }).className).toContain("text-destructive");
+    expect(generalTab().className).toContain("text-destructive");
   });
 
   it("validates the e-mail shape on blur and clears the roles error once a role is picked", async () => {
@@ -472,7 +552,7 @@ describe("RelationEditor — validation", () => {
     expect(POST).not.toHaveBeenCalled();
     expect(screen.getByText("MasterData:BlockReasonRequired")).toBeInTheDocument();
     expect(select).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("tab", { name: /General/ }).className).toContain("text-destructive");
+    expect(generalTab().className).toContain("text-destructive");
 
     /* Picking a reason clears the error and the save goes through with the reason. */
     fireEvent.change(select, { target: { value: "1" } });
@@ -483,7 +563,7 @@ describe("RelationEditor — validation", () => {
     expect(postedBody()).toMatchObject({ isBlocked: true, blockReason: 1 });
   });
 
-  it("a partly entered default address needs country, street, postal code and city, and coordinates within range", async () => {
+  it("a partly entered default address needs country, street, postal code and city and coordinates within range: per field and as AddressIncomplete on submit, General marked", async () => {
     renderEditor();
     await waitForLookups();
     fillRequired();
@@ -491,14 +571,27 @@ describe("RelationEditor — validation", () => {
     typeInto(editor, "MasterData:City", "Delft");
     typeInto(editor, "MasterData:Latitude", "95");
     typeInto(editor, "MasterData:Longitude", "-181");
+    /* Entering something makes the four required: the markers appear. */
+    expect(addressLabel("MasterData:Country")).toHaveTextContent("*");
+    expect(addressLabel("MasterData:Street")).toHaveTextContent("*");
+    expect(addressLabel("MasterData:PostalCode")).toHaveTextContent("*");
+    expect(addressLabel("MasterData:City")).toHaveTextContent("*");
+    expect(addressLabel("MasterData:Nr")).not.toHaveTextContent("*");
+    /* Nothing was blurred and nothing submitted: no errors yet. */
+    expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:InvalidNumber")).toBeNull();
+
     await submitEditor();
     expect(POST).not.toHaveBeenCalled();
+    expect(screen.getByText("MasterData:AddressIncomplete")).toBeInTheDocument();
     expect(screen.getByText("MasterData:CountryRequired")).toBeInTheDocument();
     expect(screen.getByText("MasterData:StreetRequired")).toBeInTheDocument();
     expect(screen.getByText("MasterData:PostalCodeRequired")).toBeInTheDocument();
     expect(screen.queryByText("MasterData:CityRequired")).toBeNull();
     expect(screen.getAllByText("MasterData:InvalidNumber")).toHaveLength(2);
-    expect(screen.getByRole("tab", { name: /General/ }).className).toContain("text-destructive");
+    expect(field(editor, "MasterData:Country")).toHaveAttribute("aria-invalid", "true");
+    expect(field(editor, "MasterData:City")).not.toHaveAttribute("aria-invalid");
+    expect(generalTab().className).toContain("text-destructive");
 
     /* Completing the address clears the errors and it is posted. */
     fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
@@ -508,10 +601,74 @@ describe("RelationEditor — validation", () => {
     typeInto(editor, "MasterData:Longitude", "4.36");
     await waitFor(() => expect(screen.queryByText("MasterData:CountryRequired")).toBeNull());
     expect(screen.queryByText("MasterData:InvalidNumber")).toBeNull();
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
+    expect(generalTab().className).not.toContain("text-destructive");
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(postedBody().addresses).toHaveLength(1);
-    expect(postedBody().addresses[0]).toMatchObject({ addressTypeId: null, countryId: "c-1", street: "Station street", city: "Delft", postalCode: "2611 AB", latitude: 52.01, longitude: 4.36 });
+    expect(postedBody().addresses[0]).toMatchObject({ addressTypeId: null, countryId: "c-1", street: "Station street", city: "Delft", postalCode: "2611 AB", latitude: 52.01, longitude: 4.36, houseNumberSuffix: null, addressLine2: null });
+  });
+
+  it("an address field shows its own error after blur, before any submit, without the editor-level message or the tab mark", async () => {
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    typeInto(editor, "MasterData:City", "Delft");
+    fireEvent.blur(field(editor, "MasterData:Street"));
+    expect(screen.getByText("MasterData:StreetRequired")).toBeInTheDocument();
+    expect(field(editor, "MasterData:Street")).toHaveAttribute("aria-invalid", "true");
+    /* Only the blurred field; the editor-level error and the tab mark wait for the submit. */
+    expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:PostalCodeRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
+    expect(generalTab().className).not.toContain("text-destructive");
+    typeInto(editor, "MasterData:Street", "Station street");
+    expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+  });
+
+  it("an incomplete typed address (switch off) is refused with AddressIncomplete and its per-field errors on its tab; another tab stays clean; completing it posts the address with its type", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    const editor = editorDialog();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    typeInto(editor, "MasterData:City", "Delft");
+
+    await submitEditor();
+    expect(POST).not.toHaveBeenCalled();
+    expect(screen.getByText("MasterData:AddressIncomplete")).toBeInTheDocument();
+    expect(screen.getByText("MasterData:CountryRequired")).toBeInTheDocument();
+    expect(screen.getByText("MasterData:StreetRequired")).toBeInTheDocument();
+    expect(screen.getByText("MasterData:PostalCodeRequired")).toBeInTheDocument();
+    expect(screen.queryByText("MasterData:CityRequired")).toBeNull();
+    expect(generalTab().className).toContain("text-destructive");
+
+    /* The untouched Postal tab carries no error of its own; the editor-level message stays. */
+    typeTab("Postal address");
+    expect(activeTypeTab()).toBe("Postal address");
+    expect(field(editor, "MasterData:City").value).toBe("");
+    expect(screen.queryByText("MasterData:CountryRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+    expect(screen.getByText("MasterData:AddressIncomplete")).toBeInTheDocument();
+    expect(generalTab().className).toContain("text-destructive");
+
+    /* Back on the Visiting tab the errors are still there; completing it clears everything. */
+    typeTab("Visiting address");
+    expect(field(editor, "MasterData:City").value).toBe("Delft");
+    expect(screen.getByText("MasterData:StreetRequired")).toBeInTheDocument();
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
+    typeInto(editor, "MasterData:Street", "Main street");
+    typeInto(editor, "MasterData:PostalCode", "2611 AA");
+    await waitFor(() => expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull());
+    expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+    expect(generalTab().className).not.toContain("text-destructive");
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toHaveLength(1);
+    expect(postedBody().addresses[0]).toMatchObject({ addressTypeId: "type-1", countryId: "c-1", street: "Main street", postalCode: "2611 AA", city: "Delft" });
   });
 
   it("refuses a bank account line without an IBAN and marks the Financial tab", async () => {
@@ -625,7 +782,7 @@ describe("RelationEditor — create", () => {
     expect(screen.queryByText(/Required$/)).toBeNull();
   });
 
-  it("the Map sub-tab shows the no-coordinates text until both coordinates are valid, then the OpenStreetMap embed; 'all addresses equal' off removes the map", async () => {
+  it("the Map sub-tab shows the no-coordinates text until both coordinates are valid, then the OpenStreetMap embed; 'all addresses equal' off shows the (empty) active type's map instead", async () => {
     renderEditor();
     await waitForLookups();
     const editor = editorDialog();
@@ -653,11 +810,33 @@ describe("RelationEditor — create", () => {
     typeInto(editor, "MasterData:Latitude", "52.01");
     expect(mapFrame()).not.toBeNull();
 
-    /* Without the default address there is nothing to map. */
+    /* With the switch off the map follows the active type's address, which is empty. */
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
     expect(mapFrame()).toBeNull();
     expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    expect(mapFrame()!.src).toContain("marker=52.01000,4.36000");
+  });
+
+  it("the map follows the active address-type tab", async () => {
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    typeInto(editor, "MasterData:Latitude", "52.01");
+    typeInto(editor, "MasterData:Longitude", "4.36");
+    expect(mapFrame()!.src).toContain("marker=52.01000,4.36000");
+
+    typeTab("Postal address");
+    expect(mapFrame()).toBeNull();
+    expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+    typeInto(editor, "MasterData:Latitude", "52.52");
+    typeInto(editor, "MasterData:Longitude", "13.4");
+    expect(mapFrame()!.src).toContain("marker=52.52000,13.40000");
+
+    typeTab("Visiting address");
     expect(mapFrame()!.src).toContain("marker=52.01000,4.36000");
   });
 
@@ -684,73 +863,140 @@ describe("RelationEditor — create", () => {
     expect(postedBody().description).toBe("Deliver before 10:00");
   });
 
-  it("posts the inline default address first, without an address type, ahead of the typed addresses", async () => {
+  it("posts the inline default address, trimmed, with the suffix and the building, without an address type, and nothing else while the switch is on", async () => {
     renderEditor();
     await waitForLookups();
     fillRequired();
+    /* A typed address entered earlier does not travel while "all addresses equal" is on. */
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    await fillVisitingAddress();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    expect(queryTypeTabList()).toBeNull();
     await fillDefaultAddress();
-
-    tab("MasterData:Addresses");
-    fireEvent.click(screen.getByText("MasterData:NewAddress"));
-    const child = childDialog();
-    await waitFor(() => expect(within(field(child, "MasterData:AddressType")).getByText("Postal")).toBeInTheDocument());
-    fireEvent.change(field(child, "MasterData:AddressType"), { target: { value: "type-2" } });
-    fireEvent.change(field(child, "MasterData:Country"), { target: { value: "c-1" } });
-    typeInto(child, "MasterData:Street", "PO Box");
-    typeInto(child, "MasterData:HouseNumber", "99");
-    typeInto(child, "MasterData:PostalCode", "2600 AA");
-    typeInto(child, "MasterData:City", "Delft");
-    fireEvent.click(within(child).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(dialogs()).toHaveLength(1));
-    /* The default address is not a line on the Addresses tab. */
-    expect(lines()).toHaveLength(1);
-    expect(lines()[0]).toHaveTextContent("Postal");
+    expect(field(editorDialog(), "MasterData:HouseNumberSuffix").value).toBe(" b ");
+    expect(field(editorDialog(), "MasterData:Building").value).toBe("Unit 3");
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
-    expect(postedBody().addresses).toEqual([
-      postedDefaultAddress,
-      { id: null, addressTypeId: "type-2", countryId: "c-1", street: "PO Box", houseNumber: "99", addressLine2: null, postalCode: "2600 AA", city: "Delft", latitude: null, longitude: null, timeZoneId: "Europe/Amsterdam" },
-    ]);
+    expect(postedBody().addresses).toEqual([postedDefaultAddress]);
   });
 
-  it("'all addresses equal' off hides the inline address, shows the per-type hint and posts no default address even when one was entered", async () => {
+  it("'all addresses equal' off hides the default address and shows one tab per address type of the tenant with empty inline fields; an untouched tab posts nothing", async () => {
     renderEditor();
     await waitForLookups();
     fillRequired();
     const editor = editorDialog();
-    /* Enter a partial address first: with the switch off neither its fields nor its validation apply. */
+    /* Enter a partial default address first: with the switch off neither its fields nor its validation apply. */
     fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
     typeInto(editor, "MasterData:City", "Delft");
 
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
     expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
-    expect(screen.getByText("MasterData:AddressesPerTypeHint")).toBeInTheDocument();
-    for (const label of ["MasterData:Country", "MasterData:PostalCode", "MasterData:City", "MasterData:Street", "MasterData:HouseNumber", "MasterData:AddressLine2", "MasterData:TimeZone", "MasterData:Longitude", "MasterData:Latitude"]) {
-      expect(queryField(editor, label)).toBeNull();
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    /* The tabs sit in the header beside the switch, before the address fields. */
+    const header = checkbox("MasterData:AllAddressesEqual").closest("label")!.parentElement!;
+    expect(header.contains(typeTabList())).toBe(true);
+    expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
+    /* The same inline fields, now for the Visiting tab and empty: the default address is out of sight. */
+    expect(addressLabels()).toEqual(ADDRESS_LABELS);
+    for (const label of ADDRESS_LABELS) {
+      expect(field(editor, label).value, label).toBe("");
     }
+    const prefix = field(editor, "MasterData:Code").id.replace(/-code$/, "");
+    expect(field(editor, "MasterData:Country").id).toBe(`${prefix}-address-type-1-countryId`);
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Country").id).toBe(`${prefix}-address-type-2-countryId`);
+    expect(field(editor, "MasterData:City").value).toBe("");
     /* The Map / Remarks strip stays with the section. */
     expect(subTabs()).toEqual(["MasterData:Map", "MasterData:Remarks"]);
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:AddressIncomplete")).toBeNull();
     expect(postedBody().addresses).toEqual([]);
   });
 
-  it("switching 'all addresses equal' back on brings the inline fields back with what was entered", async () => {
+  it("without address types for the tenant, the switch off shows the per-type hint and nothing is posted", async () => {
+    addressTypes = [];
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    const editor = editorDialog();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    expect(screen.getByText("MasterData:AddressesPerTypeHint")).toBeInTheDocument();
+    expect(queryTypeTabList()).toBeNull();
+    expect(addressBlock()).toBeNull();
+    expect(queryField(editor, "MasterData:Street")).toBeNull();
+    expect(mapFrame()).toBeNull();
+    expect(within(region("MasterData:Addresses")).getByText("MasterData:MapNoCoordinates")).toBeInTheDocument();
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([]);
+  });
+
+  it("fills the Visiting tab (time zone from its country) and posts it with its address type; the empty Postal tab posts nothing; each tab keeps its own values", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    const editor = editorDialog();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    await fillVisitingAddress();
+    expect(GET).toHaveBeenCalledWith("/api/master-data/country/{id}", { params: { path: { id: "c-1" } } });
+
+    /* The Postal tab is its own, empty address; back on Visiting the values are still there. */
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Street").value).toBe("");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    expect(addressLabel("MasterData:Country")).not.toHaveTextContent("*");
+    typeTab("Visiting address");
+    expect(field(editor, "MasterData:Street").value).toBe(" Main street ");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("a");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([postedVisitingAddress]);
+  });
+
+  it("fills both tabs and posts both typed addresses, each with its type, in the order they were entered", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    typeTab("Postal address");
+    await fillAddress({ countryId: "c-2", zone: "Europe/Berlin", postalCode: "10115", city: "Berlin", street: "PO Box", houseNumber: "99", addressLine2: " Mail room " });
+    typeTab("Visiting address");
+    await fillVisitingAddress();
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: "type-2", countryId: "c-2", street: "PO Box", houseNumber: "99", houseNumberSuffix: null, addressLine2: "Mail room", postalCode: "10115", city: "Berlin", latitude: null, longitude: null, timeZoneId: "Europe/Berlin" },
+      postedVisitingAddress,
+    ]);
+  });
+
+  it("switching 'all addresses equal' back on brings the inline default fields back with what was entered", async () => {
     renderEditor();
     await waitForLookups();
     const editor = editorDialog();
     typeInto(editor, "MasterData:City", "Delft");
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
-    expect(queryField(editor, "MasterData:City")).toBeNull();
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:City").value).toBe("");
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
     expect(field(editor, "MasterData:City").value).toBe("Delft");
+    expect(queryTypeTabList()).toBeNull();
     expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
   });
 
-  it("the inline address's time zone follows the chosen country until the user picks one by hand", async () => {
+  it("the default address's time zone follows the chosen country until the user picks one by hand", async () => {
     renderEditor();
     await waitForLookups();
     const editor = editorDialog();
@@ -774,56 +1020,33 @@ describe("RelationEditor — create", () => {
     expect(zone.value).toBe("Europe/London");
   });
 
-  it("stages an address through the AddressDialog (time zone from the country) and posts it with the relation", async () => {
+  it("a typed address's time zone follows its own country, apart from the other tab's and the default address's", async () => {
     renderEditor();
     await waitForLookups();
-    fillRequired();
-    tab("MasterData:Addresses");
-    fireEvent.click(screen.getByText("MasterData:NewAddress"));
-    const child = childDialog();
-    expect(within(child).getByText("MasterData:NewAddress")).toBeInTheDocument();
-    await waitFor(() => expect(within(field(child, "MasterData:AddressType")).getByText("Visiting")).toBeInTheDocument());
+    const editor = editorDialog();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
 
-    /* An empty address is refused inside the dialog; nothing reaches the editor. */
-    fireEvent.click(within(child).getByRole("button", { name: "Save" }));
-    expect(within(child).getByText("MasterData:AddressTypeRequired")).toBeInTheDocument();
-    expect(within(child).getByText("MasterData:CountryRequired")).toBeInTheDocument();
-    expect(within(child).getByText("MasterData:StreetRequired")).toBeInTheDocument();
-    expect(within(child).getByText("MasterData:PostalCodeRequired")).toBeInTheDocument();
-    expect(within(child).getByText("MasterData:CityRequired")).toBeInTheDocument();
-    expect(lines()).toHaveLength(0);
+    /* Visiting: NL, then DE replaces the zone the country filled in. */
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam"));
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
 
-    fireEvent.change(field(child, "MasterData:AddressType"), { target: { value: "type-1" } });
-    fireEvent.change(field(child, "MasterData:Country"), { target: { value: "c-1" } });
-    await waitFor(() => expect(field(child, "MasterData:TimeZone").value).toBe("Europe/Amsterdam"));
-    typeInto(child, "MasterData:Street", " Main street ");
-    typeInto(child, "MasterData:HouseNumber", "1");
-    typeInto(child, "MasterData:PostalCode", "2611 AA");
-    typeInto(child, "MasterData:City", "Delft");
-    typeInto(child, "MasterData:Latitude", "52,01");
-    fireEvent.click(within(child).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(dialogs()).toHaveLength(1));
+    /* Postal: untouched by that; its own pick fills its own zone, a hand-picked zone stays. */
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    fireEvent.change(field(editor, "MasterData:TimeZone"), { target: { value: "Europe/London" } });
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-1" } });
+    await waitFor(() => expect(GET.mock.calls.filter(([path, init]) => path === "/api/master-data/country/{id}" && init?.params?.path?.id === "c-1")).toHaveLength(2));
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/London");
+    typeTab("Visiting address");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin");
 
-    expect(lines()).toHaveLength(1);
-    expect(lines()[0]).toHaveTextContent("Visiting");
-    expect(lines()[0]).toHaveTextContent("Main street");
-    expect(lines()[0]).toHaveTextContent("NL");
-
-    /* A second address may not reuse the type: the dialog no longer offers Visiting. */
-    fireEvent.click(screen.getByText("MasterData:NewAddress"));
-    const second = childDialog();
-    await waitFor(() => expect(within(field(second, "MasterData:AddressType")).getByText("Postal")).toBeInTheDocument());
-    expect(within(field(second, "MasterData:AddressType")).queryByText("Visiting")).toBeNull();
-    /* The header X and the ribbon Close command share the name; either closes an untouched dialog. */
-    fireEvent.click(within(second).getAllByRole("button", { name: "Close" })[0]);
-    await waitFor(() => expect(dialogs()).toHaveLength(1));
-
-    await submitEditor();
-    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
-    /* No default address was entered, so only the typed one travels. */
-    expect(postedBody().addresses).toEqual([
-      { id: null, addressTypeId: "type-1", countryId: "c-1", street: "Main street", houseNumber: "1", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: null, timeZoneId: "Europe/Amsterdam" },
-    ]);
+    /* The default address did not follow either country. */
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    expect(field(editor, "MasterData:TimeZone").value).toBe("");
+    expect(field(editor, "MasterData:Country").value).toBe("");
   });
 
   it("stages a contact person through its dialog and posts it with the relation", async () => {
@@ -906,7 +1129,7 @@ describe("RelationEditor — create", () => {
 });
 
 describe("RelationEditor — edit", () => {
-  it("loads the record into every tab and shows the roles and Archived as badges; without a typeless address the hint shows", async () => {
+  it("loads the record into every tab and shows the roles and Archived as badges; with only a typed address the switch is off and its tab is filled", async () => {
     detail = { ...stored, isArchived: true };
     renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
@@ -930,10 +1153,24 @@ describe("RelationEditor — edit", () => {
     expect(checkbox("MasterData:IsBlocked")).not.toBeChecked();
     expect(queryBlockReason()).toBeNull();
 
-    /* Only a typed address: "all addresses equal" is off and the per-type hint replaces the inline fields. */
+    /* Only a typed address: "all addresses equal" is off, the Visiting tab holds it, the Postal tab is empty. */
     expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
-    expect(screen.getByText("MasterData:AddressesPerTypeHint")).toBeInTheDocument();
-    expect(queryField(editor, "MasterData:Country")).toBeNull();
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:Street").value).toBe("Main street");
+    expect(field(editor, "MasterData:Nr").value).toBe("1");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("a");
+    expect(field(editor, "MasterData:Building").value).toBe("");
+    expect(field(editor, "MasterData:PostalCode").value).toBe("2611 AA");
+    expect(field(editor, "MasterData:City").value).toBe("Delft");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    expect(field(editor, "MasterData:Latitude").value).toBe("52.01");
+    expect(field(editor, "MasterData:Longitude").value).toBe("4.36");
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Street").value).toBe("");
+    typeTab("Visiting address");
 
     expect(field(editor, "MasterData:PreferredCulture").value).toBe("nl");
     expect(field(editor, "MasterData:VatNumber").value).toBe("NL123456789B01");
@@ -947,62 +1184,94 @@ describe("RelationEditor — edit", () => {
     expect(within(header()).getByText("MasterData:Archived")).toBeInTheDocument();
     expect(within(header()).queryByText(/MasterData:IsBlocked/)).toBeNull();
 
-    /* The line grids in tab order: Financial, Addresses, Contact persons. */
+    /* The line grids in tab order: Financial, Contact persons; the addresses are no grid any more. */
     const all = lines();
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(2);
     expect(within(all[0]).getByLabelText("MasterData:Iban")).toHaveValue("NL91ABNA0417164300");
     expect(within(all[0]).getByLabelText("MasterData:IsDefault")).toBeChecked();
-    expect(all[1]).toHaveTextContent("Visiting");
-    expect(all[1]).toHaveTextContent("Main street");
-    expect(all[2]).toHaveTextContent("Jan van Jansen");
-    expect(all[2]).toHaveTextContent("MasterData:ContactPersonRole.Invoicing");
+    expect(all[1]).toHaveTextContent("Jan van Jansen");
+    expect(all[1]).toHaveTextContent("MasterData:ContactPersonRole.Invoicing");
   });
 
-  it("a loaded typeless address fills the inline default address and its map, the typed one goes to Addresses, and the update keeps both ids", async () => {
+  it("a loaded typeless address opens with the switch on, fills the inline default address (suffix and building included) and its map; the update keeps its id and posts the default only", async () => {
     detail = { ...stored, addresses: [visitingAddress, defaultAddress] };
     renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     await waitForLookups();
     const editor = editorDialog();
     expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
+    expect(queryTypeTabList()).toBeNull();
     expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
     await waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-2"));
     expect(field(editor, "MasterData:PostalCode").value).toBe("10115");
     expect(field(editor, "MasterData:City").value).toBe("Berlin");
     expect(field(editor, "MasterData:Street").value).toBe("Station street");
-    expect(field(editor, "MasterData:HouseNumber").value).toBe("12");
-    expect(field(editor, "MasterData:AddressLine2").value).toBe("Unit 3");
+    expect(field(editor, "MasterData:Nr").value).toBe("12");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("b");
+    expect(field(editor, "MasterData:Building").value).toBe("Unit 3");
     expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin");
     expect(field(editor, "MasterData:Latitude").value).toBe("52.52");
     expect(field(editor, "MasterData:Longitude").value).toBe("13.4");
     /* The Map sub-tab shows the loaded coordinates straight away. */
     expect(mapFrame()!.src).toContain("marker=52.52000,13.40000");
 
-    /* The Addresses tab shows the typed address only. */
-    const addressLines = lines().filter((line) => line.textContent?.includes("Visiting") || line.textContent?.includes("Station street"));
-    expect(addressLines).toHaveLength(1);
-    expect(addressLines[0]).toHaveTextContent("Visiting");
-
-    typeInto(editor, "MasterData:HouseNumber", "14");
+    typeInto(editor, "MasterData:Nr", "14");
     await submitEditor();
     await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
-    expect(putBody().addresses).toEqual([
-      { id: "a0", addressTypeId: null, countryId: "c-2", street: "Station street", houseNumber: "14", addressLine2: "Unit 3", postalCode: "10115", city: "Berlin", latitude: 52.52, longitude: 13.4, timeZoneId: "Europe/Berlin" },
-      { id: "a1", addressTypeId: "type-1", countryId: "c-1", street: "Main street", houseNumber: "1", addressLine2: null, postalCode: "2611 AA", city: "Delft", latitude: 52.01, longitude: 4.36, timeZoneId: "Europe/Amsterdam" },
-    ]);
+    /* "All addresses equal" on: the single default address travels, the typed one does not. */
+    expect(putBody().addresses).toEqual([{ ...loadedAddress(defaultAddress), houseNumber: "14" }]);
   });
 
-  it("turning 'all addresses equal' off on a loaded record drops its default address from the update", async () => {
+  it("turning 'all addresses equal' off on a loaded record shows its typed address on its tab and drops the default address from the update", async () => {
     detail = { ...stored, addresses: [defaultAddress, visitingAddress] };
     renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     await waitForLookups();
     await waitFor(() => expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked());
+    const editor = editorDialog();
     fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
-    expect(screen.getByText("MasterData:AddressesPerTypeHint")).toBeInTheDocument();
+    await waitForTypeTabs();
+    expect(screen.queryByText("MasterData:AddressesPerTypeHint")).toBeNull();
+    expect(field(editor, "MasterData:Street").value).toBe("Main street");
+    expect(mapFrame()!.src).toContain("marker=52.01000,4.36000");
     await submitEditor();
     await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
-    expect(putBody().addresses.map((a) => a.id)).toEqual(["a1"]);
+    expect(putBody().addresses).toEqual([loadedAddress(visitingAddress)]);
+  });
+
+  it("a loaded record with a visiting and a postal address shows both tabs filled; editing the suffix and the building updates both with their ids", async () => {
+    detail = { ...stored, addresses: [visitingAddress, postalAddress] };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+    const editor = editorDialog();
+    expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
+    await waitForTypeTabs();
+    expect(field(editor, "MasterData:Street").value).toBe("Main street");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("a");
+
+    typeTab("Postal address");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:Street").value).toBe("PO Box");
+    expect(field(editor, "MasterData:Nr").value).toBe("99");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("");
+    expect(field(editor, "MasterData:Building").value).toBe("Mail room");
+    expect(field(editor, "MasterData:PostalCode").value).toBe("2600 AA");
+    expect(field(editor, "MasterData:Latitude").value).toBe("");
+    expect(mapFrame()).toBeNull();
+    typeInto(editor, "MasterData:HouseNumberSuffix", " bis ");
+    typeInto(editor, "MasterData:Building", "");
+
+    typeTab("Visiting address");
+    typeInto(editor, "MasterData:Building", " Building B ");
+    typeInto(editor, "MasterData:HouseNumberSuffix", "");
+
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().addresses).toEqual([
+      { ...loadedAddress(visitingAddress), houseNumberSuffix: null, addressLine2: "Building B" },
+      { ...loadedAddress(postalAddress), houseNumberSuffix: "bis", addressLine2: null },
+    ]);
   });
 
   it("a blocked record shows a destructive Blocked badge with its reason and the reason selected; unticking Blocked updates isBlocked and posts blockReason 0", async () => {
@@ -1064,7 +1333,7 @@ describe("RelationEditor — edit", () => {
     expect(body.isBlocked).toBe(false);
     expect(body.blockReason).toBe(0);
     expect(body.description).toBe("Main customer");
-    expect(body.addresses.map((a) => a.id)).toEqual(["a1"]);
+    expect(body.addresses).toEqual([loadedAddress(visitingAddress)]);
     expect(body.contactPersons.map((c) => c.id)).toEqual(["cp1"]);
     expect(body.bankAccounts).toEqual([{ id: "b1", iban: "NL91ABNA0417164300", bic: "ABNANL2A", bankName: "ABN", accountHolder: "Acme BV", isDefault: true }]);
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -1160,9 +1429,9 @@ describe("RelationEditor — edit", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
-  it("is read-only without Update: no Save, no Archive, disabled fields, no line toolbar (UI-PERM-004)", async () => {
+  it("is read-only without Update: no Save, no Archive, disabled fields (the address fields included), no line toolbar (UI-PERM-004)", async () => {
     detail = { ...stored, isBlocked: true, blockReason: 2, addresses: [defaultAddress, visitingAddress] };
-    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    const first = renderEditor({ mode: "edit", id: "r1", readOnly: true });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     await waitForLookups();
     const editor = editorDialog();
@@ -1176,64 +1445,33 @@ describe("RelationEditor — edit", () => {
     expect(blockReason()).toBeDisabled();
     expect(blockReason().value).toBe("2");
     expect(checkbox("MasterData:AllAddressesEqual")).toHaveAttribute("data-disabled");
-    expect(field(editor, "MasterData:Country")).toBeDisabled();
-    expect(field(editor, "MasterData:Street")).toBeDisabled();
-    expect(field(editor, "MasterData:TimeZone")).toBeDisabled();
+    expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
+    for (const label of ADDRESS_LABELS) {
+      expect(field(editor, label), label).toBeDisabled();
+    }
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("b");
     expect(field(editor, "MasterData:Phone")).toBeDisabled();
     expect(field(editor, "MasterData:RelationFullName")).toBeDisabled();
     expect(mapFrame()).not.toBeNull();
     expect(openRemarks(editor)).toBeDisabled();
-    expect(screen.queryByText("MasterData:NewAddress")).toBeNull();
     expect(screen.queryByText("MasterData:AddBankAccount")).toBeNull();
-    expect(document.querySelectorAll("[data-slot=mock-lines-grid][data-readonly=true]")).toHaveLength(3);
-  });
-});
+    expect(screen.queryByText("MasterData:NewContactPerson")).toBeNull();
+    expect(document.querySelectorAll("[data-slot=mock-lines-grid][data-readonly=true]")).toHaveLength(2);
+    first.unmount();
 
-describe("AddressDialog — one address per type", () => {
-  it("refuses an address whose type another address of the relation already uses (AddressTypeAlreadyUsed)", async () => {
-    const onSave = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const row = { ...newAddressRow(), addressTypeId: "type-1", countryId: "c-1", street: "Main street", postalCode: "2611 AA", city: "Delft" };
-    render(
-      <QueryClientProvider client={client}>
-        <AddressDialog open row={row} usedAddressTypeIds={["type-1"]} readOnly={false} onClose={() => {}} onSave={onSave} />
-      </QueryClientProvider>,
-    );
-    const dialog = dialogs()[0];
-    await waitFor(() => expect(within(field(dialog, "MasterData:Country")).getByText("NL Netherlands")).toBeInTheDocument());
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(within(dialog).getByText("MasterData:AddressTypeAlreadyUsed")).toBeInTheDocument();
-    expect(onSave).not.toHaveBeenCalled();
-    /* The used type is not even offered. */
-    expect(within(field(dialog, "MasterData:AddressType")).queryByText("Visiting")).toBeNull();
-    expect(within(field(dialog, "MasterData:AddressType")).getByText("Postal")).toBeInTheDocument();
-  });
-
-  it("validates coordinates and resolves the type name and country code for the staged line", async () => {
-    const onSave = vi.fn();
-    const onClose = vi.fn();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <AddressDialog open row={null} usedAddressTypeIds={[]} readOnly={false} onClose={onClose} onSave={onSave} />
-      </QueryClientProvider>,
-    );
-    const dialog = dialogs()[0];
-    await waitFor(() => expect(within(field(dialog, "MasterData:AddressType")).getByText("Postal")).toBeInTheDocument());
-    fireEvent.change(field(dialog, "MasterData:AddressType"), { target: { value: "type-2" } });
-    fireEvent.change(field(dialog, "MasterData:Country"), { target: { value: "c-2" } });
-    typeInto(dialog, "MasterData:Street", "Hauptstrasse");
-    typeInto(dialog, "MasterData:PostalCode", "10115");
-    typeInto(dialog, "MasterData:City", "Berlin");
-    typeInto(dialog, "MasterData:Latitude", "95");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(within(dialog).getByText("MasterData:InvalidNumber")).toBeInTheDocument();
-    expect(onSave).not.toHaveBeenCalled();
-
-    typeInto(dialog, "MasterData:Latitude", "");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave.mock.calls[0][0]).toEqual(expect.objectContaining({ addressTypeId: "type-2", addressTypeName: "Postal", countryId: "c-2", countryCode: "DE", street: "Hauptstrasse", city: "Berlin" }));
-    expect(onClose).toHaveBeenCalled();
+    /* Typed addresses only: the tabs still switch, their fields stay disabled. */
+    detail = { ...stored, addresses: [visitingAddress, postalAddress] };
+    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+    await waitForTypeTabs();
+    const again = editorDialog();
+    expect(checkbox("MasterData:AllAddressesEqual")).not.toBeChecked();
+    expect(field(again, "MasterData:Street")).toBeDisabled();
+    expect(field(again, "MasterData:Street").value).toBe("Main street");
+    typeTab("Postal address");
+    expect(field(again, "MasterData:Street")).toBeDisabled();
+    expect(field(again, "MasterData:Street").value).toBe("PO Box");
+    expect(field(again, "MasterData:Building")).toBeDisabled();
   });
 });

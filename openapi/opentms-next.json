@@ -1763,6 +1763,11 @@
             "nullable": true,
             "type": "string"
           },
+          "houseNumberSuffix": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "nullable": true,

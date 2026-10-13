@@ -384,7 +384,7 @@ public class RelationAppService
         }
 
         relation.SetAddresses(
-            input.Addresses.Select(a => new RelationAddressInput(a.Id, a.AddressTypeId, a.CountryId, a.Street, a.HouseNumber, a.AddressLine2, a.PostalCode, a.City, a.Latitude, a.Longitude, a.TimeZoneId)),
+            input.Addresses.Select(a => new RelationAddressInput(a.Id, a.AddressTypeId, a.CountryId, a.Street, a.HouseNumber, a.HouseNumberSuffix, a.AddressLine2, a.PostalCode, a.City, a.Latitude, a.Longitude, a.TimeZoneId)),
             () => GuidGenerator.Create());
         var zones = countries.ToDictionary(c => c.Id, c => c.PrimaryTimeZoneId);
         foreach (var address in relation.Addresses)
@@ -495,6 +495,7 @@ public class RelationAppService
                 CountryCode = codes.GetValueOrDefault(a.CountryId),
                 Street = a.Street,
                 HouseNumber = a.HouseNumber,
+                HouseNumberSuffix = a.HouseNumberSuffix,
                 AddressLine2 = a.AddressLine2,
                 PostalCode = a.PostalCode,
                 City = a.City,

@@ -21,15 +21,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AddressFields,
+  hasAddressInput,
+  newAddressRow,
+  validateAddressRow,
+  type AddressRow,
+} from "@/apps/master-data/components/AddressFields";
 import { AddressMap } from "@/apps/master-data/components/AddressMap";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import {
   CheckboxField,
-  NumberField,
   TextAreaField,
   TextField,
   emailError,
-  numberError,
   numberToText,
   parseNumber,
 } from "@/apps/master-data/components/fields";
@@ -39,10 +44,6 @@ import {
   type FieldErrors,
   type FormContext,
 } from "@/apps/master-data/components/MasterDataEditor";
-import {
-  AddressDialog,
-  type AddressRow,
-} from "@/apps/master-data/editors/AddressDialog";
 import { timeZoneOptions } from "@/apps/master-data/components/time-zones";
 import {
   ContactPersonDialog,
@@ -52,6 +53,7 @@ import {
 import {
   BLOCK_REASONS,
   RELATION_ROLES,
+  addressTypes,
   blockReasonKey,
   contactPersonRoleKey,
   countries,
@@ -73,15 +75,17 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { useLanguages } from "@/lib/i18n/languages";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The relation editor (design 43, UI design as revised by the PO on 2026-10-12 after the old OpenTMS
- * screen): `lg`. General: one block with categories, the Archived and Blocked switches (with the
- * block reason), regions and roles; then the Name block next to the Addresses block ("All addresses
- * equal" with the default address inline, stored without an address type, and a Map / Remarks
- * section); then the Contact information block. Then
- * Administration (legal numbers, preferred language, organisation units), Financial (bank accounts,
- * exactly one default), Addresses (the per-type addresses, in their own dialog; they override the
- * default), Contact persons, and Record identification. Archive and Unarchive are ribbon commands,
- * confirmed; the roles, Archived and Blocked show as badges after the title. */
+/* The relation editor (design 43 as revised by the PO on 2026-10-12/13 after the old OpenTMS screen):
+ * `lg`. General: the Relation block (roles with the Archived and Blocked switches and the block reason
+ * while blocked; categories and regions), then the Name and Contact information blocks stacked next to
+ * the Addresses block. The Addresses block is the old one: "All addresses equal" with one inline
+ * address (stored without an address type), or, when off, one tab per address type with the same
+ * inline fields; below it the Map / Remarks section. Then Administration (legal numbers, preferred
+ * language, organisation units), Financial (bank accounts, exactly one default), Contact persons and
+ * Record identification. Archive and Unarchive are ribbon commands, confirmed; the roles, Archived
+ * and Blocked show as badges after the title. */
+
+const DEFAULT_KEY = "default";
 
 interface BankRow {
   key: string;
@@ -112,51 +116,40 @@ interface Values {
   geographicalRegionIds: string[];
   organizationUnitIds: string[];
   description: string;
-  /** "All addresses equal": the default address below serves every type without an address of its own. */
+  /** "All addresses equal": the default address serves every type without an address of its own. */
   allAddressesEqual: boolean;
-  defaultAddressId: string | null;
-  addrCountryId: string | null;
-  addrPostalCode: string;
-  addrCity: string;
-  addrTimeZoneId: string | null;
-  addrStreet: string;
-  addrHouseNumber: string;
-  addrAddressLine2: string;
-  addrLatitude: string;
-  addrLongitude: string;
-  /** The addresses with an address type (the Addresses tab). */
+  defaultAddress: AddressRow;
+  /** The addresses with an address type (one tab each while "all addresses equal" is off). */
   addresses: AddressRow[];
   contactPersons: ContactRow[];
   bankAccounts: BankRow[];
 }
 
-const DEFAULT_ADDRESS_FIELDS: (keyof Values & string)[] = [
-  "allAddressesEqual",
-  "addrCountryId",
-  "addrPostalCode",
-  "addrCity",
-  "addrTimeZoneId",
-  "addrStreet",
-  "addrHouseNumber",
-  "addrAddressLine2",
-  "addrLatitude",
-  "addrLongitude",
-];
-
-const hasDefaultAddressInput = (v: Values) =>
-  Boolean(
-    v.addrCountryId ||
-    v.addrStreet.trim() ||
-    v.addrPostalCode.trim() ||
-    v.addrCity.trim(),
-  );
-
 let rowCounter = 0;
+
+const toAddressRow = (
+  a: NonNullable<RelationDto["addresses"]>[number],
+): AddressRow => ({
+  key: a.id ?? `new-${++rowCounter}`,
+  id: a.id ?? null,
+  addressTypeId: a.addressTypeId ?? null,
+  countryId: a.countryId,
+  street: a.street,
+  houseNumber: a.houseNumber ?? "",
+  houseNumberSuffix: a.houseNumberSuffix ?? "",
+  addressLine2: a.addressLine2 ?? "",
+  postalCode: a.postalCode,
+  city: a.city,
+  latitude: numberToText(a.latitude),
+  longitude: numberToText(a.longitude),
+  timeZoneId: a.timeZoneId ?? null,
+});
 
 const initialValuesFor =
   (initialName: string | undefined) =>
   (dto: RelationDto | undefined): Values => {
-    const defaultAddress = dto?.addresses?.find((a) => !a.addressTypeId);
+    const stored = dto?.addresses ?? [];
+    const defaultAddress = stored.find((a) => !a.addressTypeId);
     return {
       code: dto?.code ?? "",
       name: dto?.name ?? initialName ?? "",
@@ -178,34 +171,12 @@ const initialValuesFor =
       description: dto?.description ?? "",
       /* A new relation starts with one address for all types, like the old screen; a loaded one follows its data. */
       allAddressesEqual: dto ? defaultAddress != null : true,
-      defaultAddressId: defaultAddress?.id ?? null,
-      addrCountryId: defaultAddress?.countryId ?? null,
-      addrPostalCode: defaultAddress?.postalCode ?? "",
-      addrCity: defaultAddress?.city ?? "",
-      addrTimeZoneId: defaultAddress?.timeZoneId ?? null,
-      addrStreet: defaultAddress?.street ?? "",
-      addrHouseNumber: defaultAddress?.houseNumber ?? "",
-      addrAddressLine2: defaultAddress?.addressLine2 ?? "",
-      addrLatitude: numberToText(defaultAddress?.latitude),
-      addrLongitude: numberToText(defaultAddress?.longitude),
-      addresses: (dto?.addresses ?? [])
+      defaultAddress: defaultAddress
+        ? { ...toAddressRow(defaultAddress), key: DEFAULT_KEY }
+        : { ...newAddressRow(), key: DEFAULT_KEY },
+      addresses: stored
         .filter((a) => Boolean(a.addressTypeId))
-        .map((a) => ({
-          key: a.id ?? `new-${++rowCounter}`,
-          id: a.id ?? null,
-          addressTypeId: a.addressTypeId ?? null,
-          addressTypeName: a.addressTypeName ?? "",
-          countryId: a.countryId,
-          countryCode: a.countryCode ?? "",
-          street: a.street,
-          houseNumber: a.houseNumber ?? "",
-          addressLine2: a.addressLine2 ?? "",
-          postalCode: a.postalCode,
-          city: a.city,
-          latitude: numberToText(a.latitude),
-          longitude: numberToText(a.longitude),
-          timeZoneId: a.timeZoneId ?? null,
-        })),
+        .map(toAddressRow),
       contactPersons: (dto?.contactPersons ?? []).map((c) => ({
         key: c.id ?? `new-${++rowCounter}`,
         id: c.id ?? null,
@@ -231,6 +202,9 @@ const initialValuesFor =
     };
   };
 
+const addressIncomplete = (row: AddressRow) =>
+  hasAddressInput(row) && Object.keys(validateAddressRow(row)).length > 0;
+
 const validate = (v: Values): FieldErrors<Values> => {
   const errors: FieldErrors<Values> = {};
   if (!v.code.trim()) errors.code = "MasterData:CodeRequired";
@@ -240,16 +214,11 @@ const validate = (v: Values): FieldErrors<Values> => {
     errors.blockReason = "MasterData:BlockReasonRequired";
   const email = emailError(v.email);
   if (email) errors.email = email;
-  if (v.allAddressesEqual && hasDefaultAddressInput(v)) {
-    if (!v.addrCountryId) errors.addrCountryId = "MasterData:CountryRequired";
-    if (!v.addrStreet.trim()) errors.addrStreet = "MasterData:StreetRequired";
-    if (!v.addrPostalCode.trim())
-      errors.addrPostalCode = "MasterData:PostalCodeRequired";
-    if (!v.addrCity.trim()) errors.addrCity = "MasterData:CityRequired";
-    const latitude = numberError(v.addrLatitude, { min: -90, max: 90 });
-    if (latitude) errors.addrLatitude = latitude;
-    const longitude = numberError(v.addrLongitude, { min: -180, max: 180 });
-    if (longitude) errors.addrLongitude = longitude;
+  if (v.allAddressesEqual) {
+    if (addressIncomplete(v.defaultAddress))
+      errors.defaultAddress = "MasterData:AddressIncomplete";
+  } else if (v.addresses.some(addressIncomplete)) {
+    errors.addresses = "MasterData:AddressIncomplete";
   }
   if (v.bankAccounts.some((b) => !b.iban.trim()))
     errors.bankAccounts = "MasterData:IbanRequired";
@@ -271,7 +240,9 @@ const GENERAL_FIELDS: (keyof Values & string)[] = [
   "categoryIds",
   "geographicalRegionIds",
   "description",
-  ...DEFAULT_ADDRESS_FIELDS,
+  "allAddressesEqual",
+  "defaultAddress",
+  "addresses",
 ];
 
 const ADMINISTRATION_FIELDS: (keyof Values & string)[] = [
@@ -307,15 +278,7 @@ export function RelationEditor({
   const categoryLookup = relationCategories.useLookup(open);
   const regionLookup = geographicalRegions.useLookup(open);
   const countryLookup = countries.useLookup(open);
-  const countryOptions = useMemo(
-    () =>
-      (countryLookup.data ?? []).map((c) => ({
-        value: c.id ?? "",
-        label: `${c.code ?? ""} ${c.name ?? ""}`.trim(),
-      })),
-    [countryLookup.data],
-  );
-  const zones = useMemo(timeZoneOptions, []);
+  const typeLookup = addressTypes.useLookup(open);
   /* DEVIATION(UI-LOOK-001): organisation units are a MultiSelect, not a TreeSelect: a relation belongs to
    * several units and TreeSelect is single-valued, approved in docs/designs/43-master-data-relations-and-drivers.md. */
   const units = useAllOrganizationUnits();
@@ -336,6 +299,24 @@ export function RelationEditor({
       })),
     [regionLookup.data],
   );
+  /* The two-letter code only, like the old screen; the combobox searches it. */
+  const countryOptions = useMemo(
+    () =>
+      (countryLookup.data ?? []).map((c) => ({
+        value: c.id ?? "",
+        label: c.code ?? "",
+      })),
+    [countryLookup.data],
+  );
+  const addressTypeTabs = useMemo(
+    () =>
+      (typeLookup.data ?? []).map((item) => ({
+        id: item.id ?? "",
+        name: item.name ?? "",
+      })),
+    [typeLookup.data],
+  );
+  const zones = useMemo(timeZoneOptions, []);
   const unitOptions = useMemo(
     () =>
       (units.data ?? []).map((u) => ({
@@ -359,7 +340,7 @@ export function RelationEditor({
     [t],
   );
 
-  /* The nested dialogs live outside the tabs, so their result reaches the form through applyValues. */
+  /* The nested dialog and the time-zone follow live outside the tabs, so their result reaches the form through applyValues. */
   const [applyValues, setApplyValues] = useState<
     { key: number; update: (values: Values) => Values } | undefined
   >();
@@ -368,33 +349,42 @@ export function RelationEditor({
       setApplyValues((previous) => ({ key: (previous?.key ?? 0) + 1, update })),
     [],
   );
-  const [addressDialog, setAddressDialog] = useState<{
-    row: AddressRow | null;
-    usedTypeIds: string[];
-  } | null>(null);
   const [contactDialog, setContactDialog] = useState<{
     row: ContactRow | null;
   } | null>(null);
+  const [activeTypeId, setActiveTypeId] = useState<string | null>(null);
 
-  /* The default address' time zone follows the country while it is empty or still a zone a previous
-   * country filled in (the same rule as the address dialog). */
-  const [zoneSource, setZoneSource] = useState<string | null>(null);
-  const autoZone = useRef<string | null>(null);
-  const zoneCountry = countries.useDetail(zoneSource ?? undefined);
+  /* An address' time zone follows the country while it is empty or still a zone a previous country
+   * filled in; a zone the user chose stays. The source names the address (default or an address type). */
+  const [zoneSource, setZoneSource] = useState<{
+    addressKey: string;
+    countryId: string;
+  } | null>(null);
+  const autoZone = useRef<Map<string, string>>(new Map());
+  const zoneCountry = countries.useDetail(zoneSource?.countryId);
   useEffect(() => {
     const dto = zoneCountry.data;
-    if (zoneSource && dto?.id === zoneSource) {
+    if (zoneSource && dto?.id === zoneSource.countryId) {
+      const { addressKey } = zoneSource;
       setZoneSource(null);
       const zone = dto.primaryTimeZoneId ?? null;
-      if (zone) {
-        const previous = autoZone.current;
-        autoZone.current = zone;
-        apply((values) =>
-          !values.addrTimeZoneId || values.addrTimeZoneId === previous
-            ? { ...values, addrTimeZoneId: zone }
-            : values,
-        );
-      }
+      if (!zone) return;
+      const previous = autoZone.current.get(addressKey) ?? null;
+      autoZone.current.set(addressKey, zone);
+      const follow = (row: AddressRow) =>
+        !row.timeZoneId || row.timeZoneId === previous
+          ? { ...row, timeZoneId: zone }
+          : row;
+      apply((values) =>
+        addressKey === DEFAULT_KEY
+          ? { ...values, defaultAddress: follow(values.defaultAddress) }
+          : {
+              ...values,
+              addresses: values.addresses.map((a) =>
+                a.addressTypeId === addressKey ? follow(a) : a,
+              ),
+            },
+      );
     }
   }, [zoneCountry.data, zoneSource, apply]);
 
@@ -428,6 +418,24 @@ export function RelationEditor({
   const save = useCallback(
     async (v: Values, dto: RelationDto | undefined) => {
       const text = (value: string) => value.trim() || null;
+      const toDto = (a: AddressRow) => ({
+        id: a.id,
+        addressTypeId: a.addressTypeId,
+        countryId: a.countryId!,
+        street: a.street.trim(),
+        houseNumber: text(a.houseNumber),
+        houseNumberSuffix: text(a.houseNumberSuffix),
+        addressLine2: text(a.addressLine2),
+        postalCode: a.postalCode.trim(),
+        city: a.city.trim(),
+        latitude: parseNumber(a.latitude),
+        longitude: parseNumber(a.longitude),
+        timeZoneId: a.timeZoneId,
+      });
+      /* The default address while "all addresses equal" is on, else the per-type addresses; an untouched address is none. */
+      const addresses = (v.allAddressesEqual ? [v.defaultAddress] : v.addresses)
+        .filter(hasAddressInput)
+        .map(toDto);
       const body = {
         code: v.code.trim().toUpperCase(),
         name: v.name.trim(),
@@ -449,39 +457,7 @@ export function RelationEditor({
         categoryIds: v.categoryIds,
         geographicalRegionIds: v.geographicalRegionIds,
         organizationUnitIds: v.organizationUnitIds,
-        addresses: [
-          /* The default address (no type) only while "all addresses equal" is on and something was entered. */
-          ...(v.allAddressesEqual && hasDefaultAddressInput(v)
-            ? [
-                {
-                  id: v.defaultAddressId,
-                  addressTypeId: null,
-                  countryId: v.addrCountryId!,
-                  street: v.addrStreet.trim(),
-                  houseNumber: text(v.addrHouseNumber),
-                  addressLine2: text(v.addrAddressLine2),
-                  postalCode: v.addrPostalCode.trim(),
-                  city: v.addrCity.trim(),
-                  latitude: parseNumber(v.addrLatitude),
-                  longitude: parseNumber(v.addrLongitude),
-                  timeZoneId: v.addrTimeZoneId,
-                },
-              ]
-            : []),
-          ...v.addresses.map((a) => ({
-            id: a.id,
-            addressTypeId: a.addressTypeId!,
-            countryId: a.countryId!,
-            street: a.street.trim(),
-            houseNumber: text(a.houseNumber),
-            addressLine2: text(a.addressLine2),
-            postalCode: a.postalCode.trim(),
-            city: a.city.trim(),
-            latitude: parseNumber(a.latitude),
-            longitude: parseNumber(a.longitude),
-            timeZoneId: a.timeZoneId,
-          })),
-        ],
+        addresses,
         contactPersons: v.contactPersons.map((c) => ({
           id: c.id,
           firstName: c.firstName.trim(),
@@ -512,48 +488,6 @@ export function RelationEditor({
       });
     },
     [create, update, mode, id],
-  );
-
-  const addressColumns = useMemo<ColDef<AddressRow>[]>(
-    () => [
-      {
-        field: "addressTypeName",
-        headerName: t("MasterData:AddressType"),
-        flex: 1,
-        minWidth: 120,
-      },
-      {
-        field: "street",
-        headerName: t("MasterData:Street"),
-        flex: 2,
-        minWidth: 160,
-      },
-      {
-        field: "houseNumber",
-        headerName: t("MasterData:HouseNumber"),
-        flex: 1,
-        minWidth: 90,
-      },
-      {
-        field: "postalCode",
-        headerName: t("MasterData:PostalCode"),
-        flex: 1,
-        minWidth: 100,
-      },
-      {
-        field: "city",
-        headerName: t("MasterData:City"),
-        flex: 2,
-        minWidth: 140,
-      },
-      {
-        field: "countryCode",
-        headerName: t("MasterData:Country"),
-        flex: 1,
-        minWidth: 80,
-      },
-    ],
-    [t],
   );
 
   const contactColumns = useMemo<ColDef<ContactRow>[]>(
@@ -654,47 +588,144 @@ export function RelationEditor({
     );
   };
 
-  const addressesTab: EditorTab<Values> = {
-    value: "addresses",
-    labelKey: "MasterData:Addresses",
-    fields: ["addresses"],
-    render: (form) => (
-      <div className="flex h-80 flex-col gap-2">
-        <LazyLinesGrid<AddressRow>
-          rows={form.values.addresses}
-          onRowsChange={(rows) => form.set("addresses", rows)}
-          getRowId={(row) => row.key}
-          columnDefs={addressColumns}
-          readOnly={form.readOnly}
-          onOpen={(row) =>
-            setAddressDialog({
-              row,
-              usedTypeIds: form.values.addresses
-                .filter((a) => a.key !== row.key)
-                .map((a) => a.addressTypeId ?? "")
-                .filter(Boolean),
-            })
-          }
-          toolbar={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setAddressDialog({
-                  row: null,
-                  usedTypeIds: form.values.addresses
-                    .map((a) => a.addressTypeId ?? "")
-                    .filter(Boolean),
-                })
-              }
+  /* The typed address of an address type, or an empty one that only enters the form once edited. */
+  const typedAddress = (form: FormContext<Values>, typeId: string) =>
+    form.values.addresses.find((a) => a.addressTypeId === typeId) ??
+    newAddressRow(typeId);
+  const setTypedAddress = (form: FormContext<Values>, row: AddressRow) => {
+    const exists = form.values.addresses.some(
+      (a) => a.addressTypeId === row.addressTypeId,
+    );
+    form.set(
+      "addresses",
+      exists
+        ? form.values.addresses.map((a) =>
+            a.addressTypeId === row.addressTypeId ? row : a,
+          )
+        : [...form.values.addresses, row],
+    );
+  };
+
+  const renderAddressesBlock = (form: FormContext<Values>) => {
+    const allEqual = form.values.allAddressesEqual;
+    const currentTypeId =
+      activeTypeId && addressTypeTabs.some((x) => x.id === activeTypeId)
+        ? activeTypeId
+        : (addressTypeTabs[0]?.id ?? null);
+    const activeRow: AddressRow | null = allEqual
+      ? form.values.defaultAddress
+      : currentTypeId
+        ? typedAddress(form, currentTypeId)
+        : null;
+    const showErrors = Boolean(
+      form.error("defaultAddress") || form.error("addresses"),
+    );
+    return (
+      <FormSection title={t("MasterData:Addresses")} className="flex flex-col">
+        {/* The old header: the switch, and while it is off one tab per address type beside it. */}
+        <div className="flex items-end gap-4">
+          <CheckboxField
+            form={form}
+            field="allAddressesEqual"
+            labelKey="MasterData:AllAddressesEqual"
+            className="shrink-0 font-medium uppercase tracking-wide text-label"
+          />
+          {!allEqual && currentTypeId && (
+            <Tabs
+              value={currentTypeId}
+              onValueChange={(value) => setActiveTypeId(String(value))}
+              className="min-w-0 flex-1"
             >
-              <Plus /> {t("MasterData:NewAddress")}
-            </Button>
-          }
-        />
-      </div>
-    ),
+              <TabsList
+                variant="line"
+                className="h-auto justify-start gap-0 rounded-none p-0"
+                aria-label={t("MasterData:AddressType")}
+              >
+                {addressTypeTabs.map((type) => (
+                  <TabsTrigger
+                    key={type.id}
+                    value={type.id}
+                    className="uppercase tracking-wide"
+                  >
+                    {type.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
+        {(form.error("defaultAddress") || form.error("addresses")) && (
+          <p className="mt-2 text-label text-destructive">
+            {form.error("defaultAddress") ?? form.error("addresses")}
+          </p>
+        )}
+        <div className="mt-3">
+          {allEqual ? (
+            <AddressFields
+              idPrefix={form.id("defaultAddress")}
+              row={form.values.defaultAddress}
+              onChange={(row) => form.set("defaultAddress", row)}
+              readOnly={form.readOnly}
+              showErrors={showErrors}
+              countryOptions={countryOptions}
+              zoneOptions={zones}
+              onCountryPicked={(countryId) =>
+                setZoneSource({ addressKey: DEFAULT_KEY, countryId })
+              }
+            />
+          ) : currentTypeId ? (
+            <AddressFields
+              key={currentTypeId}
+              idPrefix={form.id(`address-${currentTypeId}`)}
+              row={typedAddress(form, currentTypeId)}
+              onChange={(row) => setTypedAddress(form, row)}
+              readOnly={form.readOnly}
+              showErrors={showErrors}
+              countryOptions={countryOptions}
+              zoneOptions={zones}
+              onCountryPicked={(countryId) =>
+                setZoneSource({ addressKey: currentTypeId, countryId })
+              }
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("MasterData:AddressesPerTypeHint")}
+            </p>
+          )}
+        </div>
+        <Tabs
+          defaultValue="map"
+          className="mt-3 flex min-h-72 flex-1 flex-col gap-2"
+        >
+          <TabsList
+            variant="line"
+            className="h-auto justify-start gap-0 rounded-none p-0"
+          >
+            <TabsTrigger value="map" className="uppercase tracking-wide">
+              {t("MasterData:Map")}
+            </TabsTrigger>
+            <TabsTrigger value="remarks" className="uppercase tracking-wide">
+              {t("MasterData:Remarks")}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="map" className="flex min-h-0 flex-1 flex-col">
+            <AddressMap
+              latitude={activeRow ? parseNumber(activeRow.latitude) : null}
+              longitude={activeRow ? parseNumber(activeRow.longitude) : null}
+            />
+          </TabsContent>
+          <TabsContent value="remarks" className="flex min-h-0 flex-1 flex-col">
+            <TextAreaField
+              form={form}
+              field="description"
+              labelKey="MasterData:Remarks"
+              maxLength={2500}
+              className="flex-1"
+            />
+          </TabsContent>
+        </Tabs>
+      </FormSection>
+    );
   };
 
   const tabs: EditorTab<Values>[] = [
@@ -704,7 +735,6 @@ export function RelationEditor({
       fields: GENERAL_FIELDS,
       render: (form) => (
         <div className="flex flex-col gap-4">
-          {/* Rows 1-2 (PO 2026-10-12): roles with the Archived and Blocked switches (block reason while blocked); categories and regions. */}
           <FormSection title={t("MasterData:Relation")}>
             <div className="flex flex-col gap-3">
               {/* Row 1: the roles grow into the space the switches and the block reason (while blocked) leave. */}
@@ -817,8 +847,7 @@ export function RelationEditor({
               </div>
             </div>
           </FormSection>
-          {/* Row 4 (PO 2026-10-12): the Name and Contact information blocks stacked on the left, the
-           * Addresses block (address section plus the Map / Remarks section) on the right. */}
+          {/* The Name and Contact information blocks stacked on the left, the Addresses block on the right. */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-4">
               <FormSection title={t("MasterData:Name")}>
@@ -877,149 +906,7 @@ export function RelationEditor({
                 </div>
               </FormSection>
             </div>
-            <FormSection
-              title={t("MasterData:Addresses")}
-              className="flex flex-col"
-            >
-              <CheckboxField
-                form={form}
-                field="allAddressesEqual"
-                labelKey="MasterData:AllAddressesEqual"
-                className="font-medium uppercase tracking-wide text-label"
-              />
-              {form.values.allAddressesEqual ? (
-                <div className="grid grid-cols-6 gap-x-4 gap-y-3">
-                  <FormField
-                    label={t("MasterData:Country")}
-                    htmlFor={form.id("addrCountryId")}
-                    required={hasDefaultAddressInput(form.values)}
-                    error={form.error("addrCountryId")}
-                    floating="always"
-                    className="col-span-2"
-                  >
-                    <ReferenceCombobox
-                      id={form.id("addrCountryId")}
-                      value={form.values.addrCountryId}
-                      onChange={(next) => {
-                        form.set("addrCountryId", next);
-                        form.blur("addrCountryId");
-                        if (next) setZoneSource(next);
-                      }}
-                      options={countryOptions}
-                      disabled={form.readOnly}
-                    />
-                  </FormField>
-                  <TextField
-                    form={form}
-                    field="addrPostalCode"
-                    labelKey="MasterData:PostalCode"
-                    maxLength={16}
-                    className="col-span-2"
-                  />
-                  <TextField
-                    form={form}
-                    field="addrCity"
-                    labelKey="MasterData:City"
-                    maxLength={128}
-                    className="col-span-2"
-                  />
-                  <TextField
-                    form={form}
-                    field="addrStreet"
-                    labelKey="MasterData:Street"
-                    maxLength={128}
-                    className="col-span-4"
-                  />
-                  <TextField
-                    form={form}
-                    field="addrHouseNumber"
-                    labelKey="MasterData:HouseNumber"
-                    maxLength={16}
-                    className="col-span-2"
-                  />
-                  <TextField
-                    form={form}
-                    field="addrAddressLine2"
-                    labelKey="MasterData:AddressLine2"
-                    maxLength={128}
-                    className="col-span-6"
-                  />
-                  <FormField
-                    label={t("MasterData:TimeZone")}
-                    htmlFor={form.id("addrTimeZoneId")}
-                    floating="always"
-                    className="col-span-2"
-                  >
-                    <ReferenceCombobox
-                      id={form.id("addrTimeZoneId")}
-                      value={form.values.addrTimeZoneId}
-                      onChange={(next) => form.set("addrTimeZoneId", next)}
-                      options={zones}
-                      disabled={form.readOnly}
-                    />
-                  </FormField>
-                  <NumberField
-                    form={form}
-                    field="addrLongitude"
-                    labelKey="MasterData:Longitude"
-                    className="col-span-2"
-                  />
-                  <NumberField
-                    form={form}
-                    field="addrLatitude"
-                    labelKey="MasterData:Latitude"
-                    className="col-span-2"
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("MasterData:AddressesPerTypeHint")}
-                </p>
-              )}
-              <Tabs
-                defaultValue="map"
-                className="mt-3 flex min-h-72 flex-1 flex-col gap-2"
-              >
-                <TabsList
-                  variant="line"
-                  className="h-auto justify-start gap-0 rounded-none p-0"
-                >
-                  <TabsTrigger value="map">{t("MasterData:Map")}</TabsTrigger>
-                  <TabsTrigger value="remarks">
-                    {t("MasterData:Remarks")}
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent
-                  value="map"
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <AddressMap
-                    latitude={
-                      form.values.allAddressesEqual
-                        ? parseNumber(form.values.addrLatitude)
-                        : null
-                    }
-                    longitude={
-                      form.values.allAddressesEqual
-                        ? parseNumber(form.values.addrLongitude)
-                        : null
-                    }
-                  />
-                </TabsContent>
-                <TabsContent
-                  value="remarks"
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <TextAreaField
-                    form={form}
-                    field="description"
-                    labelKey="MasterData:Remarks"
-                    maxLength={2500}
-                    className="flex-1"
-                  />
-                </TabsContent>
-              </Tabs>
-            </FormSection>
+            {renderAddressesBlock(form)}
           </div>
         </div>
       ),
@@ -1126,7 +1013,6 @@ export function RelationEditor({
         </FormSection>
       ),
     },
-    addressesTab,
     {
       value: "contactPersons",
       labelKey: "MasterData:ContactPersons",
@@ -1223,23 +1109,6 @@ export function RelationEditor({
         badges={badges}
         applyValues={applyValues}
       />
-      {addressDialog && (
-        <AddressDialog
-          open
-          row={addressDialog.row}
-          usedAddressTypeIds={addressDialog.usedTypeIds}
-          readOnly={readOnly}
-          onClose={() => setAddressDialog(null)}
-          onSave={(row) =>
-            apply((values) => ({
-              ...values,
-              addresses: values.addresses.some((a) => a.key === row.key)
-                ? values.addresses.map((a) => (a.key === row.key ? row : a))
-                : [...values.addresses, row],
-            }))
-          }
-        />
-      )}
       {contactDialog && (
         <ContactPersonDialog
           open

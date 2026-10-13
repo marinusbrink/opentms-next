@@ -81,9 +81,11 @@ public class Relation : MasterDataAggregateRoot
 
     public void SetName(string name, string? fullName = null)
     {
-        Name = NormalizeName(name);
+        var normalized = NormalizeName(name);
         var full = fullName?.Trim();
-        FullName = string.IsNullOrEmpty(full) ? null : Check.Length(full, nameof(fullName), MasterDataConsts.MaxNameLength);
+        var fullChecked = string.IsNullOrEmpty(full) ? null : Check.Length(full, nameof(fullName), MasterDataConsts.MaxNameLength);
+        Name = normalized;
+        FullName = fullChecked;
         SearchKey = MasterDataValues.SearchKey(Name, FullName, Code);
     }
 
@@ -339,7 +341,7 @@ public static class MasterDataPeople
 }
 
 /// <summary>An address without an address type is the relation's default: it serves every type that has no address of its own ("all addresses equal").</summary>
-public sealed record RelationAddressInput(Guid? Id, Guid? AddressTypeId, Guid CountryId, string Street, string? HouseNumber, string? AddressLine2, string PostalCode, string City, double? Latitude, double? Longitude, string? TimeZoneId);
+public sealed record RelationAddressInput(Guid? Id, Guid? AddressTypeId, Guid CountryId, string Street, string? HouseNumber, string? HouseNumberSuffix, string? AddressLine2, string PostalCode, string City, double? Latitude, double? Longitude, string? TimeZoneId);
 
 public sealed record RelationContactPersonInput(Guid? Id, string FirstName, string? MiddleName, string LastName, ContactPersonRole Role, string? JobTitle, string? Department, string? Email, string? Phone, string? Mobile);
 
@@ -360,6 +362,9 @@ public class RelationAddress : Entity<Guid>, IMultiTenant
     public string Street { get; private set; } = default!;
 
     public string? HouseNumber { get; private set; }
+
+    /// <summary>The addition behind the number ("a", "-14", "bis"), kept apart from the number like the old screen (PO 2026-10-13).</summary>
+    public string? HouseNumberSuffix { get; private set; }
 
     public string? AddressLine2 { get; private set; }
 
@@ -389,14 +394,13 @@ public class RelationAddress : Entity<Guid>, IMultiTenant
 
     public void Set(RelationAddressInput input)
     {
-        AddressTypeId = input.AddressTypeId;
-        CountryId = input.CountryId;
-        Street = Check.NotNullOrWhiteSpace(input.Street, nameof(input.Street), MasterDataConsts.MaxStreetLength).Trim();
-        HouseNumber = Optional(input.HouseNumber, MasterDataConsts.MaxHouseNumberLength, nameof(input.HouseNumber));
-        AddressLine2 = Optional(input.AddressLine2, MasterDataConsts.MaxAddressLine2Length, nameof(input.AddressLine2));
-        PostalCode = Check.NotNullOrWhiteSpace(input.PostalCode, nameof(input.PostalCode), MasterDataConsts.MaxPostalCodeLength).Trim();
-        PostalCodeKey = MasterDataCodes.NormalizePostalCode(PostalCode);
-        City = Check.NotNullOrWhiteSpace(input.City, nameof(input.City), MasterDataConsts.MaxCityLength).Trim();
+        /* Validate everything first, assign at the end: a refused input leaves the row as it was. */
+        var street = Check.NotNullOrWhiteSpace(input.Street, nameof(input.Street), MasterDataConsts.MaxStreetLength).Trim();
+        var houseNumber = Optional(input.HouseNumber, MasterDataConsts.MaxHouseNumberLength, nameof(input.HouseNumber));
+        var houseNumberSuffix = Optional(input.HouseNumberSuffix, MasterDataConsts.MaxHouseNumberLength, nameof(input.HouseNumberSuffix));
+        var addressLine2 = Optional(input.AddressLine2, MasterDataConsts.MaxAddressLine2Length, nameof(input.AddressLine2));
+        var postalCode = Check.NotNullOrWhiteSpace(input.PostalCode, nameof(input.PostalCode), MasterDataConsts.MaxPostalCodeLength).Trim();
+        var city = Check.NotNullOrWhiteSpace(input.City, nameof(input.City), MasterDataConsts.MaxCityLength).Trim();
         if (input.Latitude is < -90 or > 90)
         {
             throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "latitude").WithData("value", input.Latitude);
@@ -407,15 +411,23 @@ public class RelationAddress : Entity<Guid>, IMultiTenant
             throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "longitude").WithData("value", input.Longitude);
         }
 
-        Latitude = input.Latitude;
-        Longitude = input.Longitude;
-
         var zone = input.TimeZoneId?.Trim();
         if (!string.IsNullOrEmpty(zone) && (zone.Length > MasterDataConsts.MaxTimeZoneIdLength || !TimeZoneInfo.TryFindSystemTimeZoneById(zone, out _)))
         {
             throw new BusinessException(MasterDataErrorCodes.InvalidTimeZone).WithData("value", zone);
         }
 
+        AddressTypeId = input.AddressTypeId;
+        CountryId = input.CountryId;
+        Street = street;
+        HouseNumber = houseNumber;
+        HouseNumberSuffix = houseNumberSuffix;
+        AddressLine2 = addressLine2;
+        PostalCode = postalCode;
+        PostalCodeKey = MasterDataCodes.NormalizePostalCode(postalCode);
+        City = city;
+        Latitude = input.Latitude;
+        Longitude = input.Longitude;
         TimeZoneId = string.IsNullOrEmpty(zone) ? null : zone;
     }
 

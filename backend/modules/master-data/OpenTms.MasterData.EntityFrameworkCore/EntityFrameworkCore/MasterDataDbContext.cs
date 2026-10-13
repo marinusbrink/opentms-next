@@ -274,6 +274,7 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ConfigureByConvention();
             b.Property(a => a.Street).HasMaxLength(MasterDataConsts.MaxStreetLength).IsRequired();
             b.Property(a => a.HouseNumber).HasMaxLength(MasterDataConsts.MaxHouseNumberLength);
+            b.Property(a => a.HouseNumberSuffix).HasMaxLength(MasterDataConsts.MaxHouseNumberLength);
             b.Property(a => a.AddressLine2).HasMaxLength(MasterDataConsts.MaxAddressLine2Length);
             b.Property(a => a.PostalCode).HasMaxLength(MasterDataConsts.MaxPostalCodeLength).IsRequired();
             b.Property(a => a.PostalCodeKey).HasMaxLength(MasterDataConsts.MaxPostalCodeLength).IsRequired();

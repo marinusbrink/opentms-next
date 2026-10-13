@@ -80,13 +80,14 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
     }
 
     /// <summary>A null <paramref name="typeId"/> is the relation's default address ("all addresses equal", PO 2026-10-12).</summary>
-    private RelationAddressDto Address(Guid? typeId, string street = "Keizersgracht", string postalCode = "1015 CJ", string city = "Amsterdam", Guid? countryId = null, string? timeZone = null, Guid? id = null) => new()
+    private RelationAddressDto Address(Guid? typeId, string street = "Keizersgracht", string postalCode = "1015 CJ", string city = "Amsterdam", Guid? countryId = null, string? timeZone = null, Guid? id = null, string? houseNumber = "12a", string? suffix = null) => new()
     {
         Id = id,
         AddressTypeId = typeId,
         CountryId = countryId ?? _nl,
         Street = street,
-        HouseNumber = "12a",
+        HouseNumber = houseNumber,
+        HouseNumberSuffix = suffix,
         PostalCode = postalCode,
         City = city,
         TimeZoneId = timeZone
@@ -130,8 +131,8 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         Description = dto.Description,
         Addresses = dto.Addresses.Select(a => new RelationAddressDto
         {
-            Id = a.Id, AddressTypeId = a.AddressTypeId, CountryId = a.CountryId, Street = a.Street, HouseNumber = a.HouseNumber, AddressLine2 = a.AddressLine2,
-            PostalCode = a.PostalCode, City = a.City, Latitude = a.Latitude, Longitude = a.Longitude, TimeZoneId = a.TimeZoneId
+            Id = a.Id, AddressTypeId = a.AddressTypeId, CountryId = a.CountryId, Street = a.Street, HouseNumber = a.HouseNumber, HouseNumberSuffix = a.HouseNumberSuffix,
+            AddressLine2 = a.AddressLine2, PostalCode = a.PostalCode, City = a.City, Latitude = a.Latitude, Longitude = a.Longitude, TimeZoneId = a.TimeZoneId
         }).ToList(),
         ContactPersons = dto.ContactPersons.Select(c => new RelationContactPersonDto
         {
@@ -370,6 +371,64 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
 
         (await _service.GetListAsync(Request(sortBy: "city"))).Rows.Select(r => r.Code).ShouldBe(["TYPED", "DEFONLY", "VISONLY", "BOTH"], "no visiting or default address sorts first; BOTH sorts on Zwolle, not Amsterdam");
         (await _service.GetListAsync(Request(sortBy: "city", sortDir: "desc"))).Rows.Select(r => r.Code).ShouldBe(["BOTH", "VISONLY", "DEFONLY", "TYPED"]);
+    }
+
+    // ── House-number suffix (PO 2026-10-13) ──────────────────────────────────
+
+    [Fact]
+    public async Task An_address_number_and_suffix_round_trip_through_create_update_detail_and_the_address_list()
+    {
+        using var _ = InTenantA();
+        await SeedReferencesAsync();
+
+        /* Create: number "12" with suffix "a", the suffix padded like a user would type it; a typed address without a suffix next to it. */
+        var created = await CreateAsync("SFX01", "Suffix B.V.", configure: dto =>
+            dto.Addresses = [Address(null, "Dorpsstraat", "3511 AB", "Utrecht", houseNumber: "12", suffix: " a "), Address(_postal, "Postbus", "1000 AA", "Zwolle", houseNumber: "7")]);
+
+        created.Addresses.Count.ShouldBe(2);
+        var @default = created.Addresses.Single(a => a.AddressTypeId == null);
+        @default.HouseNumber.ShouldBe("12");
+        @default.HouseNumberSuffix.ShouldBe("a", "trimmed, kept apart from the number");
+        var postal = created.Addresses.Single(a => a.AddressTypeId == _postal);
+        postal.HouseNumber.ShouldBe("7");
+        postal.HouseNumberSuffix.ShouldBeNull();
+
+        /* Detail and the address list read the same stored values. */
+        var fetched = await _service.GetAsync(created.Id);
+        fetched.Addresses.Single(a => a.Id == @default.Id).HouseNumberSuffix.ShouldBe("a");
+        fetched.Addresses.Single(a => a.Id == postal.Id).HouseNumberSuffix.ShouldBeNull();
+        var listed = await _service.GetAddressesAsync(created.Id);
+        listed.Count.ShouldBe(2);
+        listed.Single(a => a.Id == @default.Id).HouseNumber.ShouldBe("12");
+        listed.Single(a => a.Id == @default.Id).HouseNumberSuffix.ShouldBe("a");
+        listed.Single(a => a.Id == postal.Id).HouseNumberSuffix.ShouldBeNull();
+        (await WithUnitOfWorkAsync(() => _addressRows.GetAsync(@default.Id!.Value))).HouseNumberSuffix.ShouldBe("a", "the column holds the trimmed suffix");
+
+        /* Update by id: the default address changes its suffix, the postal one gains one, the stamp moves on. */
+        var update = UpdateFrom(created);
+        update.Addresses = [Address(null, "Dorpsstraat", "3511 AB", "Utrecht", id: @default.Id, houseNumber: "12", suffix: "bis"), Address(_postal, "Postbus", "1000 AA", "Zwolle", id: postal.Id, houseNumber: "7", suffix: "-9")];
+        var updated = await _service.UpdateAsync(created.Id, update);
+
+        updated.ConcurrencyStamp.ShouldNotBe(created.ConcurrencyStamp);
+        updated.Addresses.Count.ShouldBe(2);
+        updated.Addresses.Single(a => a.Id == @default.Id).HouseNumber.ShouldBe("12");
+        updated.Addresses.Single(a => a.Id == @default.Id).HouseNumberSuffix.ShouldBe("bis");
+        updated.Addresses.Single(a => a.Id == postal.Id).HouseNumberSuffix.ShouldBe("-9");
+        (await _service.GetAddressesAsync(created.Id)).Select(a => a.HouseNumberSuffix).ShouldBe(["bis", "-9"], "the default first, then by type name");
+
+        /* An unchanged round trip through UpdateFrom keeps the suffix: the update DTO carries it like every other address field. */
+        var same = await _service.UpdateAsync(created.Id, UpdateFrom(updated));
+        same.Addresses.Single(a => a.Id == @default.Id).HouseNumberSuffix.ShouldBe("bis");
+        same.Addresses.Single(a => a.Id == postal.Id).HouseNumberSuffix.ShouldBe("-9");
+
+        /* Clearing: an empty suffix is stored as null, the number stays. */
+        var cleared = UpdateFrom(same);
+        cleared.Addresses = [Address(null, "Dorpsstraat", "3511 AB", "Utrecht", id: @default.Id, houseNumber: "12", suffix: ""), Address(_postal, "Postbus", "1000 AA", "Zwolle", id: postal.Id, houseNumber: "7", suffix: "   ")];
+        var clearedResult = await _service.UpdateAsync(created.Id, cleared);
+        clearedResult.Addresses.ShouldAllBe(a => a.HouseNumberSuffix == null);
+        clearedResult.Addresses.Single(a => a.Id == @default.Id).HouseNumber.ShouldBe("12");
+        (await _service.GetAddressesAsync(created.Id)).ShouldAllBe(a => a.HouseNumberSuffix == null);
+        (await WithUnitOfWorkAsync(() => _addressRows.GetAsync(@default.Id!.Value))).HouseNumberSuffix.ShouldBeNull();
     }
 
     // ── Full name (PO 2026-10-12) ────────────────────────────────────────────

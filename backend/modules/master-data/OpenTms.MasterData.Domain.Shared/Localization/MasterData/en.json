@@ -424,6 +424,10 @@
     "MasterData:Map": "Map",
     "MasterData:MapNoCoordinates": "Enter the coordinates of the address to show the map.",
     "MasterData:ContactInformation": "Contact information",
-    "MasterData:RelationFullName": "Full name"
+    "MasterData:RelationFullName": "Full name",
+    "MasterData:HouseNumberSuffix": "Suffix",
+    "MasterData:Building": "Building",
+    "MasterData:AddressIncomplete": "Complete the address: country, street, postal code and city are required.",
+    "MasterData:Nr": "No."
   }
 }

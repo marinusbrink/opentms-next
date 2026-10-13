@@ -261,7 +261,7 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
             var typed = NewAddress(relation.Id, postal.Id, nl.Id);
             await _addresses.InsertAsync(typed, autoSave: true);
 
-            typed.Set(new RelationAddressInput(null, null, nl.Id, "Main", "1", null, "1234 AB", "Amsterdam", null, null, null));
+            typed.Set(new RelationAddressInput(null, null, nl.Id, "Main", "1", null, null, "1234 AB", "Amsterdam", null, null, null));
             await ShouldViolateUniqueIndexAsync(() => _addresses.UpdateAsync(typed, autoSave: true), "IX_RelationAddresses_RelationId_AddressTypeId");
         });
     }
@@ -425,7 +425,7 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
     private RelationAddress NewAddress(Guid relationId, Guid? addressTypeId, Guid countryId)
     {
         var address = new RelationAddress(_guids.Create(), TenantA, relationId);
-        address.Set(new RelationAddressInput(null, addressTypeId, countryId, "Main", "1", null, "1234 AB", "Amsterdam", null, null, null));
+        address.Set(new RelationAddressInput(null, addressTypeId, countryId, "Main", "1", null, null, "1234 AB", "Amsterdam", null, null, null));
         return address;
     }
 

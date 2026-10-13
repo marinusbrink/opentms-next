@@ -212,7 +212,7 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 | Relation | `TransportCompanyId`, `RelationGroupId`, `CarrierCode` | the serving carrier is a planning setting; RelationGroup is dropped by the PO (§2.1); a partner's carrier code is Integrations mapping |
 | Relation | `Iban`, `BankName`, `Bic` columns | `RelationBankAccount` child with IBAN validation (§3.1) |
 | Relation | `FaxNumber`, `EmergencyNumber`, `InstantMessagerAddress`, `SkypeAddress` | not used; an emergency number is a depot contact person with a role |
-| RelationAddress | `Number` int + `NumberSuffix`, `AddressLine1` | `HouseNumber` string as typed, `Street`; `TimeZoneId` as IANA (§3.1) |
+| RelationAddress | `Number` int, `AddressLine1` | `HouseNumber` string as typed plus `HouseNumberSuffix` (PO 2026-10-13, the old "Nr." and "Bijvoegsel"), `Street`; `AddressLine2` shown as *Building*; `TimeZoneId` as IANA (§3.1) |
 | RelationAddress | several addresses of one type | one per address type per relation, found by kind (§3.4: "which address of the relation" is explicit) |
 | RelationContactPerson | no role | `Role` enum (§3.1) |
 | Driver | a Relation in the driver category | own aggregate with employer, user account and qualifications (§3.1) |
@@ -286,23 +286,23 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
    while blocked, None otherwise; a tenant-maintained list is for the Financial run to decide), row 2
    Categories `MultiSelect` + Geographical regions `MultiSelect`; row 3 the *Name* block (Code + Name,
    then Full name) stacked above the *Contact information* block (Phone, Mobile, E-mail, Website) on the
-   left, next to the *Addresses* block: **All addresses equal** with the default address inline (Country
-   `ReferenceCombobox`, Postal code, City, Street, House number, Address line 2, Time zone prefilled
-   from the country, Longitude, Latitude) or, when off, a hint that the addresses live on the
-   Addresses tab, then a *Map* / *Remarks* sub-tab strip filling the block: the map is an
-   OpenStreetMap embed of the entered coordinates (no geocoder until Planning; the provider is a
-   reversible choice, one URL and no package), Remarks is the Description.
+   left, next to the *Addresses* block (PO 2026-10-13, the old screen): the **All addresses equal**
+   switch with, while it is off, one tab per address type of the tenant beside it; the switch on shows
+   the default address inline, each tab shows that type's address with the same fields (Country as the
+   two-letter code in a searchable `ReferenceCombobox`, Postal code, City, Time zone prefilled from the
+   country; Street, No., Suffix; Building, Longitude, Latitude). An untouched address is none; once
+   something is entered, country, street, postal code and city are required. Below it a *Map* /
+   *Remarks* sub-tab strip filling the block: the map is an OpenStreetMap embed of the active address'
+   coordinates (no geocoder until Planning; the provider is a reversible choice, one URL and no
+   package), Remarks is the Description.
 2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
    units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
    single-valued; a multi-valued tree picker is a library gap for the component map).
 3. **Financial**: the bank accounts `LinesGrid` (IBAN, BIC, bank, holder, default; exactly one default);
    the Financial run adds its relation settings on this tab.
-4. **Addresses**: the per-type addresses, which override the default address for their type:
-   `LinesGrid` (type, street, house number, postal code, city, country) with Add address
-   opening `AddressDialog` (`EntityDialog size="md"`, editor variant, on top; eleven fields in two
-   columns, above the `sm` tier of UI-DLG-003): the full address form with Country `ReferenceCombobox`,
-   Address type `Select`, Time zone `ReferenceCombobox` prefilled from the country (and following a
-   changed country while the user has not chosen a zone). One address per type: the type picker hides types already used.
+4. ~~Addresses tab~~ (dropped by the PO on 2026-10-13: the per-type addresses are the tabs inside the
+   General tab's Addresses block; `AddressDialog` no longer exists). One address per type still holds:
+   a tab is that type's one address.
 3. **Contact persons**: `LinesGrid` (name, role, e-mail, phone) with Add contact person opening
    `ContactPersonDialog` (`md`, nine fields in two columns).
 4. **Bank accounts**: `LinesGrid` edited inline (IBAN, BIC, bank, holder, default) as the ranges of

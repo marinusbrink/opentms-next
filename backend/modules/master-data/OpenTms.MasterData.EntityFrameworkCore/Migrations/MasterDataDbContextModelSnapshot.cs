@@ -1023,6 +1023,10 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<string>("HouseNumberSuffix")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<double?>("Latitude")
                         .HasColumnType("double precision");
 

@@ -47,6 +47,9 @@ public class RelationAddressDto
     [MaxLength(MasterDataConsts.MaxHouseNumberLength)]
     public string? HouseNumber { get; set; }
 
+    [MaxLength(MasterDataConsts.MaxHouseNumberLength)]
+    public string? HouseNumberSuffix { get; set; }
+
     [MaxLength(MasterDataConsts.MaxAddressLine2Length)]
     public string? AddressLine2 { get; set; }
 
