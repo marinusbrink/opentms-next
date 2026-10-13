@@ -28,13 +28,18 @@ public class MasterDataEntityFrameworkCoreModule : AbpModule
             options.Entity<VehicleType>(e => e.DefaultWithDetailsFunc = q => q.Include(v => v.Characteristics));
             options.Entity<TransportUnit>(e => e.DefaultWithDetailsFunc = q => q.Include(u => u.LoadFactors));
             options.Entity<GeographicalRegion>(e => e.DefaultWithDetailsFunc = q => q.Include(r => r.PostalCodeRanges));
+            /* Eight child collections: split queries, so the detail load is one query per collection
+             * instead of the cartesian product of all child counts. */
             options.Entity<Relation>(e => e.DefaultWithDetailsFunc = q => q
+                .AsSplitQuery()
                 .Include(r => r.Addresses)
                 .Include(r => r.ContactPersons)
                 .Include(r => r.BankAccounts)
                 .Include(r => r.Categories)
                 .Include(r => r.GeographicalRegions)
-                .Include(r => r.OrganizationUnits));
+                .Include(r => r.OrganizationUnits)
+                .Include(r => r.ExternalIdentifiers)
+                .Include(r => r.TransportCharacteristics));
             options.Entity<Driver>(e => e.DefaultWithDetailsFunc = q => q.Include(d => d.Qualifications));
         });
 

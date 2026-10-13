@@ -431,6 +431,19 @@
     "MasterData:Nr": "No.",
     "MasterData:DefaultCountrySet": "Default country set",
     "MasterData:DefaultCountryCannotBeDeleted": "The default country cannot be deleted. Make another country the default first.",
-    "MasterData:SetAsDefaultCountryQuestion": "Make {0} the default country of this tenant?"
+    "MasterData:SetAsDefaultCountryQuestion": "Make {0} the default country of this tenant?",
+    "MasterData:Company": "Company",
+    "MasterData:Bank": "Bank",
+    "MasterData:DebtorNumber": "Debtor number",
+    "MasterData:CreditorNumber": "Creditor number",
+    "MasterData:CarrierCode": "Carrier code",
+    "MasterData:ExternalIdentifiers": "External identification numbers",
+    "MasterData:ExternalIdentifier": "Id",
+    "MasterData:ExternalSource": "Source",
+    "MasterData:AddExternalIdentifier": "Add identification number",
+    "MasterData:AddTransportCharacteristic": "Add characteristic",
+    "MasterData:ExternalIdentifierIncomplete": "Fill both the id and the source",
+    "OpenTms.MasterData:ExternalIdentifierIncomplete": "An external identification number needs both an id and a source.",
+    "MasterData:InUseByRelations": "used as currency by a relation"
   }
 }

@@ -859,6 +859,10 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<int>("BlockReason")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CarrierCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("ChamberOfCommerceNumber")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
@@ -882,6 +886,17 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.Property<Guid?>("CreatorId")
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
+
+                    b.Property<string>("CreditorNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("CurrencyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DebtorNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<Guid?>("DeleterId")
                         .HasColumnType("uuid")
@@ -967,6 +982,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CurrencyId");
+
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "ChamberOfCommerceNumber")
@@ -980,6 +997,18 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasFilter("\"IsDeleted\" = false");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Code"), false);
+
+                    b.HasIndex("TenantId", "CreditorNumber")
+                        .IsUnique()
+                        .HasFilter("\"CreditorNumber\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "CreditorNumber"), false);
+
+                    b.HasIndex("TenantId", "DebtorNumber")
+                        .IsUnique()
+                        .HasFilter("\"DebtorNumber\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "DebtorNumber"), false);
 
                     b.HasIndex("TenantId", "Roles");
 
@@ -1278,6 +1307,40 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.ToTable("RelationContactPersons", "masterdata");
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationExternalIdentifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Identifier")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelationId");
+
+                    b.HasIndex("TenantId", "Source", "Identifier")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Source", "Identifier"), false);
+
+                    b.ToTable("RelationExternalIdentifiers", "masterdata");
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Relations.RelationGeographicalRegion", b =>
                 {
                     b.Property<Guid>("RelationId")
@@ -1314,6 +1377,25 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.HasIndex("OrganizationUnitId");
 
                     b.ToTable("RelationOrganizationUnits", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationTransportCharacteristic", b =>
+                {
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TransportCharacteristicsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("RelationId", "TransportCharacteristicsId");
+
+                    b.HasIndex("TransportCharacteristicsId");
+
+                    b.ToTable("RelationTransportCharacteristics", "masterdata");
                 });
 
             modelBuilder.Entity("OpenTms.MasterData.Transport.Product", b =>
@@ -1799,6 +1881,14 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Relations.Relation", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Reference.Currency", null)
+                        .WithMany()
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Relations.RelationAddress", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Reference.AddressType", null)
@@ -1852,6 +1942,15 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationExternalIdentifier", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("ExternalIdentifiers")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Relations.RelationGeographicalRegion", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Regions.GeographicalRegion", null)
@@ -1872,6 +1971,21 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.HasOne("OpenTms.MasterData.Relations.Relation", null)
                         .WithMany("OrganizationUnits")
                         .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Relations.RelationTransportCharacteristic", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany("TransportCharacteristics")
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Fleet.TransportCharacteristics", null)
+                        .WithMany()
+                        .HasForeignKey("TransportCharacteristicsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -1916,9 +2030,13 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     b.Navigation("ContactPersons");
 
+                    b.Navigation("ExternalIdentifiers");
+
                     b.Navigation("GeographicalRegions");
 
                     b.Navigation("OrganizationUnits");
+
+                    b.Navigation("TransportCharacteristics");
                 });
 
             modelBuilder.Entity("OpenTms.MasterData.Transport.TransportUnit", b =>

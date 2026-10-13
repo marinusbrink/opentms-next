@@ -17,11 +17,13 @@ public class TransportCharacteristicsAppService
       ITransportCharacteristicsAppService
 {
     private readonly IRepository<VehicleTypeTransportCharacteristics> _joins;
+    private readonly IRepository<Relations.RelationTransportCharacteristic> _relationJoins;
 
-    public TransportCharacteristicsAppService(IRepository<TransportCharacteristics, Guid> repository, IRepository<VehicleTypeTransportCharacteristics> joins)
+    public TransportCharacteristicsAppService(IRepository<TransportCharacteristics, Guid> repository, IRepository<VehicleTypeTransportCharacteristics> joins, IRepository<Relations.RelationTransportCharacteristic> relationJoins)
         : base(repository)
     {
         _joins = joins;
+        _relationJoins = relationJoins;
     }
 
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
@@ -32,6 +34,23 @@ public class TransportCharacteristicsAppService
 
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
+
+    /// <summary>A page of the picker, searched on the server over code, name and description, ordered by name.</summary>
+    [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
+    public async Task<TransportCharacteristicsLookupPageDto> GetLookupPageAsync(string? term = null, int skip = 0, int take = MasterDataConsts.LookupPageSize)
+    {
+        var query = await Repository.GetQueryableAsync();
+        var normalized = NormalizeTerm(term);
+        if (normalized != null)
+        {
+            query = ApplySearch(query, normalized);
+        }
+
+        var totalCount = await AsyncExecuter.LongCountAsync(query);
+        var page = await AsyncExecuter.ToListAsync(query.OrderBy(c => c.Name).ThenBy(c => c.Code)
+            .Skip(Math.Max(0, skip)).Take(Math.Clamp(take, 1, MasterDataConsts.LookupPageSize)));
+        return new TransportCharacteristicsLookupPageDto { Items = await ToRowsAsync(page), TotalCount = totalCount };
+    }
 
     [Authorize(MasterDataPermissions.TransportCharacteristics.Create)]
     public Task<TransportCharacteristicsDto> CreateAsync(TransportCharacteristicsCreateDto input) => CreateInternalAsync(input);
@@ -95,6 +114,10 @@ public class TransportCharacteristicsAppService
     }
 
     /// <summary>The join rows cascade in the database but not on a soft delete, so they go explicitly.</summary>
-    protected override Task BeforeDeleteAsync(TransportCharacteristics entity)
-        => _joins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
+    /// <summary>A soft delete fires no FK cascade: the memberships of vehicle types and relations (PO 2026-10-13) go explicitly.</summary>
+    protected override async Task BeforeDeleteAsync(TransportCharacteristics entity)
+    {
+        await _joins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
+        await _relationJoins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
+    }
 }

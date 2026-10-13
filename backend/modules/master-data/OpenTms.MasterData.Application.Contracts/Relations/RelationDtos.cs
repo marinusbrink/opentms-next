@@ -120,6 +120,17 @@ public class RelationBankAccountDto
     public bool IsDefault { get; set; }
 }
 
+public class RelationExternalIdentifierDto
+{
+    public Guid? Id { get; set; }
+
+    [Required, MaxLength(MasterDataConsts.MaxExternalSourceLength)]
+    public string Source { get; set; } = string.Empty;
+
+    [Required, MaxLength(MasterDataConsts.MaxExternalIdentifierLength)]
+    public string Identifier { get; set; } = string.Empty;
+}
+
 public class RelationDto : MasterDataDetailDtoBase
 {
     public string Code { get; set; } = string.Empty;
@@ -136,12 +147,20 @@ public class RelationDto : MasterDataDetailDtoBase
     public string? ChamberOfCommerceNumber { get; set; }
     public string? VatNumber { get; set; }
     public string? PreferredCulture { get; set; }
+    public string? DebtorNumber { get; set; }
+    public string? CreditorNumber { get; set; }
+    public string? CarrierCode { get; set; }
+    public Guid? CurrencyId { get; set; }
     public List<RelationAddressDto> Addresses { get; set; } = new();
     public List<RelationContactPersonDto> ContactPersons { get; set; } = new();
     public List<RelationBankAccountDto> BankAccounts { get; set; } = new();
     public List<Guid> CategoryIds { get; set; } = new();
     public List<Guid> GeographicalRegionIds { get; set; } = new();
     public List<Guid> OrganizationUnitIds { get; set; } = new();
+    public List<RelationExternalIdentifierDto> ExternalIdentifiers { get; set; } = new();
+    public List<Guid> TransportCharacteristicIds { get; set; } = new();
+    /// <summary>The same characteristics with code, name and description, for the Administration grid; read-only.</summary>
+    public List<Fleet.TransportCharacteristicsRowDto> TransportCharacteristics { get; set; } = new();
 }
 
 public class RelationCreateDto
@@ -169,6 +188,10 @@ public class RelationCreateDto
     [MaxLength(MasterDataConsts.MaxLegalNumberLength)] public string? ChamberOfCommerceNumber { get; set; }
     [MaxLength(MasterDataConsts.MaxLegalNumberLength)] public string? VatNumber { get; set; }
     [MaxLength(MasterDataConsts.MaxCultureLength)] public string? PreferredCulture { get; set; }
+    [MaxLength(MasterDataConsts.MaxAccountNumberLength)] public string? DebtorNumber { get; set; }
+    [MaxLength(MasterDataConsts.MaxAccountNumberLength)] public string? CreditorNumber { get; set; }
+    [MaxLength(MasterDataConsts.MaxCarrierCodeLength)] public string? CarrierCode { get; set; }
+    public Guid? CurrencyId { get; set; }
     [MaxLength(MasterDataConsts.MaxDescriptionLength)] public string? Description { get; set; }
 
     public List<RelationAddressDto> Addresses { get; set; } = new();
@@ -177,6 +200,8 @@ public class RelationCreateDto
     public List<Guid> CategoryIds { get; set; } = new();
     public List<Guid> GeographicalRegionIds { get; set; } = new();
     public List<Guid> OrganizationUnitIds { get; set; } = new();
+    public List<RelationExternalIdentifierDto> ExternalIdentifiers { get; set; } = new();
+    public List<Guid> TransportCharacteristicIds { get; set; } = new();
 }
 
 public class RelationUpdateDto : RelationCreateDto, IMasterDataUpdateDto

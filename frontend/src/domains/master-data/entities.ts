@@ -142,6 +142,68 @@ export const transportCharacteristics = createMasterDataHooks<
   TransportCharacteristicsUpdateDto
 >("transportCharacteristics", "/api/master-data/transport-characteristics");
 
+/** The tenant's default currency (one per tenant), for a new relation's currency (PO 2026-10-13). */
+export function useDefaultCurrency(enabled = true) {
+  return useQuery({
+    queryKey: ["masterData", "currencies", "default"],
+    enabled,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<{ id: string; isoCode: string } | null> => {
+      const { data, error } = await apiClient.GET("/api/master-data/currency", {
+        params: {
+          query: {
+            StartRow: 0,
+            EndRow: 1,
+            SortBy: "isDefault",
+            SortDir: "desc",
+          },
+        },
+      });
+      if (error) throw error;
+      const row = (data?.rows ?? [])[0];
+      return row?.isDefault && row.id
+        ? { id: row.id, isoCode: row.isoCode ?? "" }
+        : null;
+    },
+  });
+}
+
+/** Server-searched pages of transport characteristics for EntityLookup (UI-LOOK-002); rows carry code and description. */
+export async function transportCharacteristicLookupPage({
+  term,
+  skip,
+  take,
+}: EntityLookupQuery): Promise<
+  EntityLookupPage<TransportCharacteristicOption>
+> {
+  const { data, error } = await apiClient.GET(
+    "/api/master-data/transport-characteristics/lookup-page",
+    { params: { query: { term: term || undefined, skip, take } } },
+  );
+  if (error) throw error;
+  return {
+    items: (data?.items ?? []).map(toTransportCharacteristicOption),
+    totalCount: data?.totalCount ?? 0,
+  };
+}
+
+export interface TransportCharacteristicOption {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+}
+export function toTransportCharacteristicOption(
+  dto: TransportCharacteristicsRow,
+): TransportCharacteristicOption {
+  return {
+    id: dto.id ?? "",
+    code: dto.code ?? "",
+    name: dto.name ?? "",
+    description: dto.description ?? null,
+  };
+}
+
 export type VehicleTypeKind =
   Schemas["OpenTms.MasterData.Fleet.VehicleTypeKind"];
 export type VehicleTypeRow =

@@ -431,6 +431,19 @@
     "MasterData:Nr": "Nr.",
     "MasterData:DefaultCountrySet": "Standaardland ingesteld",
     "MasterData:DefaultCountryCannotBeDeleted": "Het standaardland kan niet worden verwijderd. Maak eerst een ander land de standaard.",
-    "MasterData:SetAsDefaultCountryQuestion": "{0} het standaardland van deze tenant maken?"
+    "MasterData:SetAsDefaultCountryQuestion": "{0} het standaardland van deze tenant maken?",
+    "MasterData:Company": "Bedrijf",
+    "MasterData:Bank": "Bank",
+    "MasterData:DebtorNumber": "Debiteurnummer",
+    "MasterData:CreditorNumber": "Crediteurnummer",
+    "MasterData:CarrierCode": "Vervoerder code",
+    "MasterData:ExternalIdentifiers": "Externe identificatienummers",
+    "MasterData:ExternalIdentifier": "Id",
+    "MasterData:ExternalSource": "Bron",
+    "MasterData:AddExternalIdentifier": "Identificatienummer toevoegen",
+    "MasterData:AddTransportCharacteristic": "Kenmerk toevoegen",
+    "MasterData:ExternalIdentifierIncomplete": "Vul zowel het id als de bron in",
+    "OpenTms.MasterData:ExternalIdentifierIncomplete": "Een extern identificatienummer heeft een id en een bron nodig.",
+    "MasterData:InUseByRelations": "in gebruik als valuta van een relatie"
   }
 }

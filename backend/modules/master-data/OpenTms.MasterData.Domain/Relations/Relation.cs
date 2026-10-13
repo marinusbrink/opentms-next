@@ -47,6 +47,18 @@ public class Relation : MasterDataAggregateRoot
 
     public string? PreferredCulture { get; private set; }
 
+    /// <summary>The relation's number in the accounting package as a customer (PO 2026-10-13); unique per tenant when set.</summary>
+    public string? DebtorNumber { get; private set; }
+
+    /// <summary>The relation's number in the accounting package as a supplier; unique per tenant when set.</summary>
+    public string? CreditorNumber { get; private set; }
+
+    /// <summary>The carrier's own code, as the old "Vervoerder code"; free text.</summary>
+    public string? CarrierCode { get; private set; }
+
+    /// <summary>The relation's currency (in-module FK to Currency); a new relation starts with the tenant's default currency.</summary>
+    public Guid? CurrencyId { get; private set; }
+
     public virtual ICollection<RelationAddress> Addresses { get; private set; } = new List<RelationAddress>();
 
     public virtual ICollection<RelationContactPerson> ContactPersons { get; private set; } = new List<RelationContactPerson>();
@@ -58,6 +70,12 @@ public class Relation : MasterDataAggregateRoot
     public virtual ICollection<RelationGeographicalRegion> GeographicalRegions { get; private set; } = new List<RelationGeographicalRegion>();
 
     public virtual ICollection<RelationOrganizationUnit> OrganizationUnits { get; private set; } = new List<RelationOrganizationUnit>();
+
+    /// <summary>The relation's ids in other systems (EDI partners, accounting, portals), as the old "Externe identificatienummers".</summary>
+    public virtual ICollection<RelationExternalIdentifier> ExternalIdentifiers { get; private set; } = new List<RelationExternalIdentifier>();
+
+    /// <summary>The transport characteristics the relation requires or offers, as the old "Transportkenmerken".</summary>
+    public virtual ICollection<RelationTransportCharacteristic> TransportCharacteristics { get; private set; } = new List<RelationTransportCharacteristic>();
 
     protected Relation()
     {
@@ -143,6 +161,83 @@ public class Relation : MasterDataAggregateRoot
         }
 
         VatNumber = vat;
+    }
+
+    /// <summary>Debtor and creditor numbers: trimmed and upper-cased like codes, empty = none.</summary>
+    public void SetAccountNumbers(string? debtorNumber, string? creditorNumber)
+    {
+        var debtor = MasterDataCodes.Normalize(debtorNumber);
+        var creditor = MasterDataCodes.Normalize(creditorNumber);
+        if (debtor is { Length: > MasterDataConsts.MaxAccountNumberLength })
+        {
+            throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "debtorNumber").WithData("value", debtor);
+        }
+
+        if (creditor is { Length: > MasterDataConsts.MaxAccountNumberLength })
+        {
+            throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "creditorNumber").WithData("value", creditor);
+        }
+
+        DebtorNumber = debtor;
+        CreditorNumber = creditor;
+    }
+
+    public void SetCarrierCode(string? carrierCode) => CarrierCode = Text(carrierCode, MasterDataConsts.MaxCarrierCodeLength, nameof(carrierCode));
+
+    public void SetCurrency(Guid? currencyId) => CurrencyId = currencyId;
+
+    /// <summary>Replaces the external ids; one (source, identifier) pair once per relation, validated before anything changes.</summary>
+    public void SetExternalIdentifiers(IEnumerable<RelationExternalIdentifierInput> inputs, Func<Guid> newId)
+    {
+        var wanted = inputs.Select(i => (i.Id, Source: Text(i.Source, MasterDataConsts.MaxExternalSourceLength, "source"), Identifier: Text(i.Identifier, MasterDataConsts.MaxExternalIdentifierLength, "identifier"))).ToList();
+        if (wanted.Count > MasterDataConsts.MaxExternalIdentifiersPerRelation)
+        {
+            throw new BusinessException(MasterDataErrorCodes.TooManyChildren).WithData("max", MasterDataConsts.MaxExternalIdentifiersPerRelation).WithData("kind", "externalIdentifiers");
+        }
+
+        if (wanted.Any(w => w.Source == null || w.Identifier == null))
+        {
+            throw new BusinessException(MasterDataErrorCodes.ExternalIdentifierIncomplete);
+        }
+
+        if (wanted.Select(w => (w.Source!.ToUpperInvariant(), w.Identifier!)).Distinct().Count() != wanted.Count)
+        {
+            throw new BusinessException(MasterDataErrorCodes.DuplicateKey).WithData("field", "externalIdentifiers").WithData("value", string.Empty);
+        }
+
+        var keep = new HashSet<Guid>();
+        foreach (var w in wanted)
+        {
+            var existing = w.Id != null ? ExternalIdentifiers.FirstOrDefault(e => e.Id == w.Id.Value) : null;
+            if (existing == null)
+            {
+                existing = new RelationExternalIdentifier(newId(), TenantId, Id, w.Source!, w.Identifier!);
+                ExternalIdentifiers.Add(existing);
+            }
+            else
+            {
+                existing.Set(w.Source!, w.Identifier!);
+            }
+
+            keep.Add(existing.Id);
+        }
+
+        foreach (var stale in ExternalIdentifiers.Where(e => !keep.Contains(e.Id)).ToList())
+        {
+            ExternalIdentifiers.Remove(stale);
+        }
+    }
+
+    /// <summary>Replaces the transport characteristics; at most MaxTransportCharacteristicsPerRelation distinct ones.</summary>
+    public void SetTransportCharacteristics(IEnumerable<Guid> ids)
+    {
+        var wanted = ids.Distinct().ToList();
+        if (wanted.Count > MasterDataConsts.MaxTransportCharacteristicsPerRelation)
+        {
+            throw new BusinessException(MasterDataErrorCodes.TooManyChildren).WithData("max", MasterDataConsts.MaxTransportCharacteristicsPerRelation).WithData("kind", "transportCharacteristics");
+        }
+
+        SyncJoin(TransportCharacteristics, wanted, c => c.TransportCharacteristicsId, id => new RelationTransportCharacteristic(TenantId, Id, id));
     }
 
     public void SetPreferredCulture(string? culture, IReadOnlyCollection<string> configuredCultures)
@@ -550,6 +645,60 @@ public class RelationBankAccount : Entity<Guid>, IMultiTenant
     }
 
     public void MarkDefault(bool isDefault) => IsDefault = isDefault;
+}
+
+public sealed record RelationExternalIdentifierInput(Guid? Id, string Source, string Identifier);
+
+/// <summary>An id of the relation in another system: the source names the system ("EDI", "Exact", "portal"), the identifier is its key there.</summary>
+public class RelationExternalIdentifier : Entity<Guid>, IMultiTenant
+{
+    public Guid? TenantId { get; private set; }
+
+    public Guid RelationId { get; private set; }
+
+    public string Source { get; private set; } = default!;
+
+    public string Identifier { get; private set; } = default!;
+
+    protected RelationExternalIdentifier()
+    {
+    }
+
+    public RelationExternalIdentifier(Guid id, Guid? tenantId, Guid relationId, string source, string identifier)
+        : base(id)
+    {
+        TenantId = tenantId;
+        RelationId = relationId;
+        Set(source, identifier);
+    }
+
+    public void Set(string source, string identifier)
+    {
+        Source = Check.NotNullOrWhiteSpace(source, nameof(source), MasterDataConsts.MaxExternalSourceLength).Trim();
+        Identifier = Check.NotNullOrWhiteSpace(identifier, nameof(identifier), MasterDataConsts.MaxExternalIdentifierLength).Trim();
+    }
+}
+
+public class RelationTransportCharacteristic : Entity, IMultiTenant
+{
+    public Guid? TenantId { get; private set; }
+
+    public Guid RelationId { get; private set; }
+
+    public Guid TransportCharacteristicsId { get; private set; }
+
+    protected RelationTransportCharacteristic()
+    {
+    }
+
+    public RelationTransportCharacteristic(Guid? tenantId, Guid relationId, Guid transportCharacteristicsId)
+    {
+        TenantId = tenantId;
+        RelationId = relationId;
+        TransportCharacteristicsId = transportCharacteristicsId;
+    }
+
+    public override object[] GetKeys() => [RelationId, TransportCharacteristicsId];
 }
 
 public class RelationCategoryMembership : Entity, IMultiTenant

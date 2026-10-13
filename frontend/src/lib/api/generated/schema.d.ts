@@ -12577,6 +12577,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/master-data/transport-characteristics/lookup-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    term?: string;
+                    skip?: number;
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/master-data/transport-characteristics/{id}": {
         parameters: {
             query?: never;
@@ -19401,6 +19508,11 @@ export interface components {
             lastModifierId?: string | null;
             name?: string | null;
         };
+        "OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto": {
+            items?: components["schemas"]["OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
         "OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto": {
             code?: string | null;
             description?: string | null;
@@ -19858,12 +19970,18 @@ export interface components {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
             blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
+            carrierCode?: string | null;
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code: string;
             contactPersons?: components["schemas"]["OpenTms.MasterData.Relations.RelationContactPersonDto"][] | null;
+            creditorNumber?: string | null;
+            /** Format: uuid */
+            currencyId?: string | null;
+            debtorNumber?: string | null;
             description?: string | null;
             email?: string | null;
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Relations.RelationExternalIdentifierDto"][] | null;
             fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
@@ -19874,6 +19992,7 @@ export interface components {
             phone?: string | null;
             preferredCulture?: string | null;
             roles?: components["schemas"]["OpenTms.MasterData.Relations.RelationRoles"];
+            transportCharacteristicIds?: string[] | null;
             vatNumber?: string | null;
             website?: string | null;
         };
@@ -19881,6 +20000,7 @@ export interface components {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
             blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
+            carrierCode?: string | null;
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code?: string | null;
@@ -19890,8 +20010,13 @@ export interface components {
             creationTime?: string;
             /** Format: uuid */
             creatorId?: string | null;
+            creditorNumber?: string | null;
+            /** Format: uuid */
+            currencyId?: string | null;
+            debtorNumber?: string | null;
             description?: string | null;
             email?: string | null;
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Relations.RelationExternalIdentifierDto"][] | null;
             fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             /** Format: uuid */
@@ -19908,8 +20033,16 @@ export interface components {
             phone?: string | null;
             preferredCulture?: string | null;
             roles?: components["schemas"]["OpenTms.MasterData.Relations.RelationRoles"];
+            transportCharacteristicIds?: string[] | null;
+            transportCharacteristics?: components["schemas"]["OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto"][] | null;
             vatNumber?: string | null;
             website?: string | null;
+        };
+        "OpenTms.MasterData.Relations.RelationExternalIdentifierDto": {
+            /** Format: uuid */
+            id?: string | null;
+            identifier: string;
+            source: string;
         };
         "OpenTms.MasterData.Relations.RelationLookupDto": {
             city?: string | null;
@@ -19980,13 +20113,19 @@ export interface components {
             addresses?: components["schemas"]["OpenTms.MasterData.Relations.RelationAddressDto"][] | null;
             bankAccounts?: components["schemas"]["OpenTms.MasterData.Relations.RelationBankAccountDto"][] | null;
             blockReason?: components["schemas"]["OpenTms.MasterData.Relations.RelationBlockReason"];
+            carrierCode?: string | null;
             categoryIds?: string[] | null;
             chamberOfCommerceNumber?: string | null;
             code: string;
             concurrencyStamp: string;
             contactPersons?: components["schemas"]["OpenTms.MasterData.Relations.RelationContactPersonDto"][] | null;
+            creditorNumber?: string | null;
+            /** Format: uuid */
+            currencyId?: string | null;
+            debtorNumber?: string | null;
             description?: string | null;
             email?: string | null;
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Relations.RelationExternalIdentifierDto"][] | null;
             fullName?: string | null;
             geographicalRegionIds?: string[] | null;
             isArchived?: boolean;
@@ -19997,6 +20136,7 @@ export interface components {
             phone?: string | null;
             preferredCulture?: string | null;
             roles?: components["schemas"]["OpenTms.MasterData.Relations.RelationRoles"];
+            transportCharacteristicIds?: string[] | null;
             vatNumber?: string | null;
             website?: string | null;
         };

@@ -15,6 +15,13 @@ public class TransportCharacteristicsRowDto
     public string? Description { get; set; }
 }
 
+/// <summary>One page of the server-searched characteristics picker (UI-LOOK-002); the items carry code and description for the relation's grid.</summary>
+public class TransportCharacteristicsLookupPageDto
+{
+    public List<TransportCharacteristicsRowDto> Items { get; set; } = new();
+    public long TotalCount { get; set; }
+}
+
 public class TransportCharacteristicsDto : MasterDataDetailDtoBase
 {
     public string Code { get; set; } = string.Empty;
@@ -44,6 +51,7 @@ public interface ITransportCharacteristicsAppService : IApplicationService
     Task<GridResponse<TransportCharacteristicsRowDto>> GetListAsync(MasterDataListRequestDto input);
     Task<TransportCharacteristicsDto> GetAsync(Guid id);
     Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake);
+    Task<TransportCharacteristicsLookupPageDto> GetLookupPageAsync(string? term = null, int skip = 0, int take = MasterDataConsts.LookupPageSize);
     Task<TransportCharacteristicsDto> CreateAsync(TransportCharacteristicsCreateDto input);
     Task<TransportCharacteristicsDto> UpdateAsync(Guid id, TransportCharacteristicsUpdateDto input);
     Task DeleteAsync(Guid id);

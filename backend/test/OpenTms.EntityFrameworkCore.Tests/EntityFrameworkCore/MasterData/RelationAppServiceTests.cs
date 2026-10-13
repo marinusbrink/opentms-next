@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using OpenTms.Features;
 using OpenTms.MasterData;
 using OpenTms.MasterData.Drivers;
+using OpenTms.MasterData.Fleet;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
 using OpenTms.MasterData.Relations;
@@ -15,6 +16,7 @@ using Volo.Abp.Data;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
+using Volo.Abp.Validation;
 using Xunit;
 
 namespace OpenTms.EntityFrameworkCore.MasterData;
@@ -38,6 +40,10 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
     private readonly IRepository<RelationContactPerson, Guid> _contactRows;
     private readonly IRepository<RelationBankAccount, Guid> _bankRows;
     private readonly IRepository<RelationCategoryMembership> _membershipRows;
+    private readonly ICurrencyAppService _currencies;
+    private readonly ITransportCharacteristicsAppService _characteristics;
+    private readonly IRepository<RelationExternalIdentifier, Guid> _externalRows;
+    private readonly IRepository<RelationTransportCharacteristic> _characteristicRows;
 
     private Guid _nl;
     private Guid _be;
@@ -61,6 +67,10 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         _contactRows = GetRequiredService<IRepository<RelationContactPerson, Guid>>();
         _bankRows = GetRequiredService<IRepository<RelationBankAccount, Guid>>();
         _membershipRows = GetRequiredService<IRepository<RelationCategoryMembership>>();
+        _currencies = GetRequiredService<ICurrencyAppService>();
+        _characteristics = GetRequiredService<ITransportCharacteristicsAppService>();
+        _externalRows = GetRequiredService<IRepository<RelationExternalIdentifier, Guid>>();
+        _characteristicRows = GetRequiredService<IRepository<RelationTransportCharacteristic>>();
     }
 
     // ── set-up ───────────────────────────────────────────────────────────────
@@ -128,6 +138,12 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         ChamberOfCommerceNumber = dto.ChamberOfCommerceNumber,
         VatNumber = dto.VatNumber,
         PreferredCulture = dto.PreferredCulture,
+        DebtorNumber = dto.DebtorNumber,
+        CreditorNumber = dto.CreditorNumber,
+        CarrierCode = dto.CarrierCode,
+        CurrencyId = dto.CurrencyId,
+        ExternalIdentifiers = dto.ExternalIdentifiers.Select(e => new RelationExternalIdentifierDto { Id = e.Id, Source = e.Source, Identifier = e.Identifier }).ToList(),
+        TransportCharacteristicIds = [.. dto.TransportCharacteristicIds],
         Description = dto.Description,
         Addresses = dto.Addresses.Select(a => new RelationAddressDto
         {
@@ -1036,6 +1052,594 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         (await _service.BulkDeleteAsync(new RelationBulkDeleteRequestDto { Selection = FilterBased(), IncludeArchived = true })).DeletedCount.ShouldBe(1);
         (await _service.GetListAsync(Request(includeArchived: true))).Rows.ShouldHaveSingleItem().Id.ShouldBe(a.Id);
         c.Id.ShouldNotBe(d.Id);
+    }
+
+    // ── Administration (PO 2026-10-13) ───────────────────────────────────────
+    // Risk class: High — the debtor and creditor numbers are the accounting keys of the relation, the
+    // external identifiers the key other systems find it by; Critical for their tenant isolation below.
+
+    private async Task<Guid> CurrencyAsync(string iso) => (await _currencies.CreateAsync(new CurrencyCreateDto { IsoCode = iso, Names = Names(iso) })).Id;
+
+    private async Task<Guid> CharacteristicAsync(string code, string name) => (await _characteristics.CreateAsync(new TransportCharacteristicsCreateDto { Code = code, Name = name })).Id;
+
+    private static RelationExternalIdentifierDto External(string source, string identifier, Guid? id = null) => new() { Id = id, Source = source, Identifier = identifier };
+
+    [Fact]
+    public async Task Administration_values_round_trip_through_create_and_detail_with_the_external_ids_ordered_by_source_then_identifier()
+    {
+        using var _ = InTenantA();
+        var eur = await CurrencyAsync("EUR");
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods");
+        var reefer = await CharacteristicAsync("FRIG", "Refrigerated");
+
+        var created = await CreateAsync("ACM01", "ACME", configure: dto =>
+        {
+            dto.DebtorNumber = " deb-01 ";
+            dto.CreditorNumber = "cr01";
+            dto.CarrierCode = "  dhl-Nl ";
+            dto.CurrencyId = eur;
+            dto.ExternalIdentifiers = [External("Portal", "B-2"), External(" EDI ", " 8712345000001 "), External("Portal", "A-1")];
+            dto.TransportCharacteristicIds = [adr, reefer, adr];
+        });
+
+        foreach (var detail in new[] { created, await _service.GetAsync(created.Id) })
+        {
+            detail.DebtorNumber.ShouldBe("DEB-01");
+            detail.CreditorNumber.ShouldBe("CR01");
+            detail.CarrierCode.ShouldBe("dhl-Nl");
+            detail.CurrencyId.ShouldBe(eur);
+            detail.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "8712345000001"), ("Portal", "A-1"), ("Portal", "B-2")]);
+            detail.ExternalIdentifiers.ShouldAllBe(e => e.Id != null);
+            detail.TransportCharacteristicIds.ShouldBe([adr, reefer], ignoreOrder: true);
+        }
+
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == created.Id))).ShouldBe(3);
+        (await WithUnitOfWorkAsync(() => _characteristicRows.CountAsync(c => c.RelationId == created.Id))).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_relation_without_administration_values_stores_nulls_and_empty_lists()
+    {
+        using var _ = InTenantA();
+
+        var created = await CreateAsync("ACM01", "ACME", configure: dto =>
+        {
+            dto.DebtorNumber = "   ";
+            dto.CreditorNumber = "";
+            dto.CarrierCode = " ";
+        });
+
+        created.DebtorNumber.ShouldBeNull();
+        created.CreditorNumber.ShouldBeNull();
+        created.CarrierCode.ShouldBeNull();
+        created.CurrencyId.ShouldBeNull();
+        created.ExternalIdentifiers.ShouldBeEmpty();
+        created.TransportCharacteristicIds.ShouldBeEmpty();
+        /* Two relations without numbers are no duplicates. */
+        (await CreateAsync("OTH", "Other")).DebtorNumber.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Update_replaces_external_ids_in_place_by_id_resyncs_the_characteristics_and_clears_the_numbers_and_currency()
+    {
+        using var _ = InTenantA();
+        var eur = await CurrencyAsync("EUR");
+        var usd = await CurrencyAsync("USD");
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods");
+        var reefer = await CharacteristicAsync("FRIG", "Refrigerated");
+        var tail = await CharacteristicAsync("TAIL", "Tail lift");
+        var created = await CreateAsync("ACM01", "ACME", configure: dto =>
+        {
+            dto.DebtorNumber = "D1";
+            dto.CreditorNumber = "C1";
+            dto.CarrierCode = "DHL";
+            dto.CurrencyId = eur;
+            dto.ExternalIdentifiers = [External("EDI", "1"), External("Exact", "1001"), External("Portal", "P-1")];
+            dto.TransportCharacteristicIds = [adr, reefer];
+        });
+        var edi = created.ExternalIdentifiers.Single(e => e.Source == "EDI").Id!.Value;
+        var exact = created.ExternalIdentifiers.Single(e => e.Source == "Exact").Id!.Value;
+
+        var update = UpdateFrom(created);
+        update.CurrencyId = usd;
+        update.ExternalIdentifiers = [External("EDI", "2", edi), External("Exact", "1001", exact), External("Webshop", "W-9")];
+        update.TransportCharacteristicIds = [reefer, tail];
+        var updated = await _service.UpdateAsync(created.Id, update);
+
+        updated.CurrencyId.ShouldBe(usd);
+        updated.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "2"), ("Exact", "1001"), ("Webshop", "W-9")]);
+        updated.ExternalIdentifiers.Single(e => e.Source == "EDI").Id.ShouldBe(edi, "a row with a known id is updated in place");
+        updated.ExternalIdentifiers.Single(e => e.Source == "Exact").Id.ShouldBe(exact);
+        updated.TransportCharacteristicIds.ShouldBe([reefer, tail], ignoreOrder: true);
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == created.Id))).ShouldBe(3, "the removed Portal row is gone from the table");
+        (await WithUnitOfWorkAsync(() => _characteristicRows.CountAsync(c => c.RelationId == created.Id))).ShouldBe(2);
+
+        var clear = UpdateFrom(updated);
+        clear.DebtorNumber = "";
+        clear.CreditorNumber = null;
+        clear.CarrierCode = "  ";
+        clear.CurrencyId = null;
+        clear.ExternalIdentifiers = [];
+        clear.TransportCharacteristicIds = [];
+        var cleared = await _service.UpdateAsync(created.Id, clear);
+
+        cleared.DebtorNumber.ShouldBeNull();
+        cleared.CreditorNumber.ShouldBeNull();
+        cleared.CarrierCode.ShouldBeNull();
+        cleared.CurrencyId.ShouldBeNull();
+        cleared.ExternalIdentifiers.ShouldBeEmpty();
+        cleared.TransportCharacteristicIds.ShouldBeEmpty();
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == created.Id))).ShouldBe(0);
+        (await WithUnitOfWorkAsync(() => _characteristicRows.CountAsync(c => c.RelationId == created.Id))).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Duplicate_debtor_and_creditor_numbers_are_refused_with_DuplicateKey_and_freed_by_delete()
+    {
+        using var _ = InTenantA();
+        var first = await CreateAsync("ACM01", "ACME", configure: dto =>
+        {
+            dto.DebtorNumber = "DEB01";
+            dto.CreditorNumber = "CRE01";
+        });
+
+        var debtor = await ShouldFailAsync(() => CreateAsync("OTH", "Other", configure: dto => dto.DebtorNumber = " deb01 "), MasterDataErrorCodes.DuplicateKey, "debtorNumber");
+        debtor.Data["value"].ShouldBe("DEB01");
+        await ShouldFailAsync(() => CreateAsync("OTH", "Other", configure: dto => dto.CreditorNumber = "cre01"), MasterDataErrorCodes.DuplicateKey, "creditorNumber");
+
+        /* The two columns are separate key spaces: one relation's debtor number may be another's creditor number. */
+        var crossed = await CreateAsync("OTH", "Other", configure: dto =>
+        {
+            dto.DebtorNumber = "CRE01";
+            dto.CreditorNumber = "DEB01";
+        });
+        crossed.DebtorNumber.ShouldBe("CRE01");
+
+        /* The relation's own numbers are no conflict on update; another relation taking them is. */
+        var same = UpdateFrom(first);
+        same.Name = "ACME again";
+        (await _service.UpdateAsync(first.Id, same)).DebtorNumber.ShouldBe("DEB01");
+        var clash = UpdateFrom(crossed);
+        clash.DebtorNumber = "DEB01";
+        await ShouldFailAsync(() => _service.UpdateAsync(crossed.Id, clash), MasterDataErrorCodes.DuplicateKey, "debtorNumber");
+        clash = UpdateFrom(crossed);
+        clash.CreditorNumber = "CRE01";
+        await ShouldFailAsync(() => _service.UpdateAsync(crossed.Id, clash), MasterDataErrorCodes.DuplicateKey, "creditorNumber");
+
+        await _service.DeleteAsync(first.Id);
+        var freed = await CreateAsync("NEW", "ACME reborn", configure: dto =>
+        {
+            dto.DebtorNumber = "DEB01";
+            dto.CreditorNumber = "CRE01";
+        });
+        freed.DebtorNumber.ShouldBe("DEB01");
+    }
+
+    [Fact]
+    public async Task Unknown_currency_or_transport_characteristic_is_ReferenceNotFound_and_nothing_is_written()
+    {
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods");
+
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.CurrencyId = Guid.NewGuid()), MasterDataErrorCodes.ReferenceNotFound, "currencyId");
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.TransportCharacteristicIds = [adr, Guid.NewGuid()]), MasterDataErrorCodes.ReferenceNotFound, "transportCharacteristicIds");
+
+        (await _service.GetListAsync(Request())).TotalCount.ShouldBe(0);
+        (await WithUnitOfWorkAsync(() => _characteristicRows.GetCountAsync())).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task External_ids_are_validated_through_the_service_and_one_pair_names_one_relation_per_tenant()
+    {
+        using var _ = InTenantA();
+        var acme = await CreateAsync("ACM01", "ACME", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712345000001")]);
+
+        /* An empty or blank source or identifier never reaches the domain rule: the DTO's [Required] refuses it first (HTTP 400 either way). */
+        await Should.ThrowAsync<AbpValidationException>(() => CreateAsync("A", "A", configure: dto => dto.ExternalIdentifiers = [External("EDI", "")]));
+        await Should.ThrowAsync<AbpValidationException>(() => CreateAsync("A", "A", configure: dto => dto.ExternalIdentifiers = [External("  ", "1")]));
+        await Should.ThrowAsync<AbpValidationException>(() => CreateAsync("A", "A", configure: dto => dto.ExternalIdentifiers = [External("EDI", new string('i', MasterDataConsts.MaxExternalIdentifierLength + 1))]));
+        await ShouldFailAsync(() => CreateAsync("A", "A", configure: dto => dto.ExternalIdentifiers = [External("Exact", "1"), External("exact", "1")]), MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+        await ShouldFailAsync(
+            () => CreateAsync("A", "A", configure: dto => dto.ExternalIdentifiers = Enumerable.Range(0, MasterDataConsts.MaxExternalIdentifiersPerRelation + 1).Select(i => External("EDI", $"X-{i}")).ToList()),
+            MasterDataErrorCodes.TooManyChildren);
+
+        /* The same pair on another relation of the tenant: refused, on create and on update. */
+        await ShouldFailAsync(() => CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers = [External(" EDI ", " 8712345000001 ")]), MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+        var other = await CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers = [External("Exact", "8712345000001")]);
+        var clash = UpdateFrom(other);
+        clash.ExternalIdentifiers = [.. clash.ExternalIdentifiers, External("EDI", "8712345000001")];
+        await ShouldFailAsync(() => _service.UpdateAsync(other.Id, clash), MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+        (await _service.GetAsync(other.Id)).ExternalIdentifiers.ShouldHaveSingleItem().Source.ShouldBe("Exact");
+
+        /* Resaving the relation that owns the pair is no conflict. */
+        var same = UpdateFrom(acme);
+        same.Name = "ACME again";
+        (await _service.UpdateAsync(acme.Id, same)).ExternalIdentifiers.ShouldHaveSingleItem().Identifier.ShouldBe("8712345000001");
+
+        /* Delete clears the relation's external ids, which frees the pair. */
+        await _service.DeleteAsync(acme.Id);
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == acme.Id))).ShouldBe(0);
+        var freed = UpdateFrom(await _service.GetAsync(other.Id));
+        freed.ExternalIdentifiers = [.. freed.ExternalIdentifiers, External("EDI", "8712345000001")];
+        (await _service.UpdateAsync(other.Id, freed)).ExternalIdentifiers.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task Delete_clears_the_external_ids_and_the_transport_characteristics()
+    {
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods");
+        var acme = await CreateAsync("ACM01", "ACME", configure: dto =>
+        {
+            dto.ExternalIdentifiers = [External("EDI", "1"), External("Exact", "2")];
+            dto.TransportCharacteristicIds = [adr];
+        });
+
+        await _service.DeleteAsync(acme.Id);
+
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == acme.Id))).ShouldBe(0);
+        (await WithUnitOfWorkAsync(() => _characteristicRows.CountAsync(c => c.RelationId == acme.Id))).ShouldBe(0);
+        /* The characteristic itself stays. */
+        (await _characteristics.GetAsync(adr)).Code.ShouldBe("ADR");
+    }
+
+    [Fact]
+    public async Task A_currency_a_relation_uses_cannot_be_deleted_like_a_country_default_FK_restrict()
+    {
+        /* Design 43: Relations.CurrencyId is an FK to Currencies with restrict. The currency is soft-deleted, so the
+         * database never sees the delete; the service's in-use check is the one place restrict can hold (the
+         * InUseByCountries pattern). Otherwise the relation points at a deleted currency and can no longer be saved. */
+        using var _ = InTenantA();
+        var usd = await CurrencyAsync("USD");
+        var acme = await CreateAsync("ACM01", "ACME", configure: dto => dto.CurrencyId = usd);
+
+        var ex = await Should.ThrowAsync<BusinessException>(() => _currencies.DeleteAsync(usd));
+        ex.Code.ShouldBe(MasterDataErrorCodes.InUse);
+
+        var resave = UpdateFrom(await _service.GetAsync(acme.Id));
+        resave.Name = "ACME again";
+        (await _service.UpdateAsync(acme.Id, resave)).CurrencyId.ShouldBe(usd);
+    }
+
+    [Fact]
+    public async Task Deleting_a_transport_characteristic_removes_it_from_the_relations_that_carry_it_FK_cascade()
+    {
+        /* Design 43: RelationTransportCharacteristics → TransportCharacteristics cascade. The characteristic is
+         * soft-deleted, so the cascade must come from the service, as it does for vehicle types; otherwise the relation
+         * keeps a deleted characteristic and resaving it is refused with ReferenceNotFound. */
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods");
+        var reefer = await CharacteristicAsync("FRIG", "Refrigerated");
+        var acme = await CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [adr, reefer]);
+
+        await _characteristics.DeleteAsync(adr);
+
+        var detail = await _service.GetAsync(acme.Id);
+        detail.TransportCharacteristicIds.ShouldBe([reefer]);
+        var resave = UpdateFrom(detail);
+        resave.Name = "ACME again";
+        (await _service.UpdateAsync(acme.Id, resave)).TransportCharacteristicIds.ShouldBe([reefer]);
+    }
+
+    [Fact]
+    public async Task Tenant_B_may_reuse_tenant_As_debtor_creditor_and_external_ids_but_not_its_currency_or_characteristics()
+    {
+        RelationDto acmeA;
+        Guid eurA, adrA;
+        using (InTenantA())
+        {
+            eurA = await CurrencyAsync("EUR");
+            adrA = await CharacteristicAsync("ADR", "Dangerous goods");
+            acmeA = await CreateAsync("ACM01", "ACME", configure: dto =>
+            {
+                dto.DebtorNumber = "DEB01";
+                dto.CreditorNumber = "CRE01";
+                dto.CarrierCode = "DHL";
+                dto.CurrencyId = eurA;
+                dto.ExternalIdentifiers = [External("EDI", "8712345000001")];
+                dto.TransportCharacteristicIds = [adrA];
+            });
+        }
+
+        using (InTenantB())
+        {
+            var service = GetRequiredService<IRelationAppService>();
+
+            await Should.ThrowAsync<EntityNotFoundException>(() => service.GetAsync(acmeA.Id));
+            (await service.GetListAsync(Request(search: "DEB01"))).Rows.ShouldBeEmpty();
+
+            /* Tenant A's reference ids are not tenant B's. */
+            await ShouldFailAsync(() => service.CreateAsync(Make("X", "X", RelationRoles.Customer, dto => dto.CurrencyId = eurA)), MasterDataErrorCodes.ReferenceNotFound, "currencyId");
+            await ShouldFailAsync(() => service.CreateAsync(Make("X", "X", RelationRoles.Customer, dto => dto.TransportCharacteristicIds = [adrA])), MasterDataErrorCodes.ReferenceNotFound, "transportCharacteristicIds");
+
+            /* Tenant B's own key space: the same numbers and the same external id are free. */
+            var acmeB = await service.CreateAsync(Make("ACM01", "ACME B", RelationRoles.Customer, dto =>
+            {
+                dto.DebtorNumber = "DEB01";
+                dto.CreditorNumber = "CRE01";
+                dto.ExternalIdentifiers = [External("EDI", "8712345000001")];
+            }));
+            acmeB.Id.ShouldNotBe(acmeA.Id);
+            acmeB.DebtorNumber.ShouldBe("DEB01");
+            acmeB.CarrierCode.ShouldBeNull("tenant A's carrier code is tenant A's fact");
+            acmeB.CurrencyId.ShouldBeNull();
+            acmeB.TransportCharacteristicIds.ShouldBeEmpty();
+            var externalB = acmeB.ExternalIdentifiers.ShouldHaveSingleItem();
+            externalB.Id.ShouldNotBe(acmeA.ExternalIdentifiers.Single().Id);
+
+            /* Tenant B cannot reach tenant A's external-id row by its id: an update naming it creates B's own row. */
+            var hijack = UpdateFrom(acmeB);
+            hijack.ExternalIdentifiers = [External("Exact", "1", acmeA.ExternalIdentifiers.Single().Id)];
+            var afterHijack = await service.UpdateAsync(acmeB.Id, hijack);
+            afterHijack.ExternalIdentifiers.ShouldHaveSingleItem().Id.ShouldNotBe(acmeA.ExternalIdentifiers.Single().Id);
+            (await WithUnitOfWorkAsync(() => _externalRows.GetCountAsync())).ShouldBe(1, "tenant B sees its own row only");
+        }
+
+        using (InTenantA())
+        {
+            var detail = await _service.GetAsync(acmeA.Id);
+            detail.DebtorNumber.ShouldBe("DEB01");
+            detail.CreditorNumber.ShouldBe("CRE01");
+            detail.CarrierCode.ShouldBe("DHL");
+            detail.CurrencyId.ShouldBe(eurA);
+            detail.ExternalIdentifiers.ShouldHaveSingleItem().Source.ShouldBe("EDI");
+            detail.ExternalIdentifiers[0].Identifier.ShouldBe("8712345000001");
+            detail.TransportCharacteristicIds.ShouldBe([adrA]);
+            (await WithUnitOfWorkAsync(() => _externalRows.GetCountAsync())).ShouldBe(1, "tenant A sees its own row only");
+        }
+    }
+
+    // ── Characteristics in the detail and external-id uniqueness (test engineer, design 43, PO 2026-10-13) ──
+    // Risk class: High for the detail mapping (MapTransportCharacteristicsAsync) and the one-query uniqueness
+    // check of external ids; Critical for the tenant-isolation cases (the detail must never show another
+    // tenant's characteristic, and another tenant's external ids never count against this one).
+
+    private async Task<Guid> CharacteristicAsync(string code, string name, string? description)
+        => (await _characteristics.CreateAsync(new TransportCharacteristicsCreateDto { Code = code, Name = name, Description = description })).Id;
+
+    [Fact]
+    public async Task Detail_lists_the_characteristics_with_code_name_and_description_ordered_by_name_then_code()
+    {
+        using var _ = InTenantA();
+        var tail = await CharacteristicAsync("TAIL", "Tail lift", "for pallets");
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods", null);
+        var frig2 = await CharacteristicAsync("FRIG2", "Cooled", null);
+        var frig = await CharacteristicAsync("FRIG", "Cooled", "reefer");
+        await CharacteristicAsync("XTRA", "Extra", "not on the relation");
+
+        var created = await CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [tail, adr, frig2, frig, adr]);
+
+        foreach (var detail in new[] { created, await _service.GetAsync(created.Id) })
+        {
+            detail.TransportCharacteristics.Select(c => c.Code).ShouldBe(["FRIG", "FRIG2", "ADR", "TAIL"], "by name; the two 'Cooled' rows by code");
+            detail.TransportCharacteristics.Select(c => c.Id).ShouldBe([frig, frig2, adr, tail]);
+            detail.TransportCharacteristics.Select(c => c.Id).ShouldBe(detail.TransportCharacteristicIds, ignoreOrder: true);
+            detail.TransportCharacteristics[0].Name.ShouldBe("Cooled");
+            detail.TransportCharacteristics[0].Description.ShouldBe("reefer");
+            detail.TransportCharacteristics[2].Name.ShouldBe("Dangerous goods");
+            detail.TransportCharacteristics[2].Description.ShouldBeNull();
+            detail.TransportCharacteristics[3].Description.ShouldBe("for pallets");
+        }
+
+        var update = UpdateFrom(created);
+        update.TransportCharacteristicIds = [adr];
+        var updated = await _service.UpdateAsync(created.Id, update);
+        updated.TransportCharacteristics.ShouldHaveSingleItem().Code.ShouldBe("ADR");
+        updated.TransportCharacteristicIds.ShouldBe([adr]);
+    }
+
+    [Fact]
+    public async Task Detail_characteristics_are_empty_without_any_and_after_clearing_them()
+    {
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods", null);
+
+        var created = await CreateAsync("ACM01", "ACME");
+        created.TransportCharacteristics.ShouldBeEmpty();
+        (await _service.GetAsync(created.Id)).TransportCharacteristics.ShouldBeEmpty();
+
+        var add = UpdateFrom(created);
+        add.TransportCharacteristicIds = [adr];
+        var withOne = await _service.UpdateAsync(created.Id, add);
+        withOne.TransportCharacteristics.ShouldHaveSingleItem().Id.ShouldBe(adr);
+
+        var clear = UpdateFrom(withOne);
+        clear.TransportCharacteristicIds = [];
+        (await _service.UpdateAsync(created.Id, clear)).TransportCharacteristics.ShouldBeEmpty();
+        var detail = await _service.GetAsync(created.Id);
+        detail.TransportCharacteristics.ShouldBeEmpty();
+        detail.TransportCharacteristicIds.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Detail_characteristics_are_read_live_so_a_renamed_characteristic_shows_its_new_name_and_place()
+    {
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods", null);
+        var tail = await CharacteristicAsync("TAIL", "Tail lift", null);
+        var created = await CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [adr, tail]);
+        created.TransportCharacteristics.Select(c => c.Code).ShouldBe(["ADR", "TAIL"]);
+
+        var adrDto = await _characteristics.GetAsync(adr);
+        await _characteristics.UpdateAsync(adr, new TransportCharacteristicsUpdateDto { Code = "ADR", Name = "Zone ADR", Description = "classes 1-9", ConcurrencyStamp = adrDto.ConcurrencyStamp });
+
+        var detail = await _service.GetAsync(created.Id);
+        detail.TransportCharacteristics.Select(c => c.Code).ShouldBe(["TAIL", "ADR"]);
+        detail.TransportCharacteristics[1].Name.ShouldBe("Zone ADR");
+        detail.TransportCharacteristics[1].Description.ShouldBe("classes 1-9");
+    }
+
+    [Fact]
+    public async Task A_deleted_characteristic_no_longer_appears_in_the_detail_single_or_bulk()
+    {
+        using var _ = InTenantA();
+        var adr = await CharacteristicAsync("ADR", "Dangerous goods", null);
+        var frig = await CharacteristicAsync("FRIG", "Cooled", null);
+        var tail = await CharacteristicAsync("TAIL", "Tail lift", null);
+        var created = await CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [adr, frig, tail]);
+
+        await _characteristics.DeleteAsync(adr);
+        var afterSingle = await _service.GetAsync(created.Id);
+        afterSingle.TransportCharacteristics.Select(c => c.Code).ShouldBe(["FRIG", "TAIL"]);
+        afterSingle.TransportCharacteristicIds.ShouldBe([frig, tail], ignoreOrder: true);
+
+        (await _characteristics.BulkDeleteAsync(new MasterDataBulkDeleteRequestDto { Selection = Explicit(tail) })).DeletedCount.ShouldBe(1);
+        var afterBulk = await _service.GetAsync(created.Id);
+        afterBulk.TransportCharacteristics.ShouldHaveSingleItem().Code.ShouldBe("FRIG");
+        afterBulk.TransportCharacteristicIds.ShouldBe([frig]);
+
+        await _characteristics.DeleteAsync(frig);
+        var afterAll = await _service.GetAsync(created.Id);
+        afterAll.TransportCharacteristics.ShouldBeEmpty();
+        afterAll.TransportCharacteristicIds.ShouldBeEmpty();
+        (await WithUnitOfWorkAsync(() => _characteristicRows.CountAsync(c => c.RelationId == created.Id))).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Fifty_characteristics_through_the_service_are_accepted_and_fifty_one_are_TooManyChildren()
+    {
+        using var _ = InTenantA();
+        var ids = new List<Guid>();
+        for (var i = 0; i <= MasterDataConsts.MaxTransportCharacteristicsPerRelation; i++)
+        {
+            ids.Add(await CharacteristicAsync($"TC{i:D2}", $"Characteristic {i:D2}", null));
+        }
+
+        var tooMany = await ShouldFailAsync(() => CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [.. ids]), MasterDataErrorCodes.TooManyChildren);
+        tooMany.Data["kind"].ShouldBe("transportCharacteristics");
+        (await _service.GetListAsync(Request())).TotalCount.ShouldBe(0);
+
+        var fifty = ids.Take(MasterDataConsts.MaxTransportCharacteristicsPerRelation).ToList();
+        var created = await CreateAsync("ACM01", "ACME", configure: dto => dto.TransportCharacteristicIds = [.. fifty, .. fifty]);
+        created.TransportCharacteristicIds.Count.ShouldBe(50);
+        (await _service.GetAsync(created.Id)).TransportCharacteristics.Select(c => c.Id).ShouldBe(fifty);
+    }
+
+    [Fact]
+    public async Task Detail_never_shows_another_tenants_characteristic_even_through_a_stray_join_row()
+    {
+        Guid adrA;
+        using (InTenantA())
+        {
+            adrA = await CharacteristicAsync("ADR", "Dangerous goods of A", "secret of A");
+        }
+
+        using (InTenantB())
+        {
+            var service = GetRequiredService<IRelationAppService>();
+            var tailB = await CharacteristicAsync("TAIL", "Tail lift of B", null);
+            var relationB = await service.CreateAsync(Make("B1", "Relation of B", RelationRoles.Customer, dto => dto.TransportCharacteristicIds = [tailB]));
+
+            /* Not reachable through the service (ReferenceNotFound, covered above): a join row of tenant B pointing at
+             * tenant A's characteristic, written directly. The detail looks the characteristics up through the
+             * tenant filter, so A's code, name and description must not come back. */
+            await WithUnitOfWorkAsync(() => _characteristicRows.InsertAsync(new RelationTransportCharacteristic(TenantB, relationB.Id, adrA), autoSave: true));
+
+            var detail = await service.GetAsync(relationB.Id);
+            detail.TransportCharacteristics.ShouldHaveSingleItem().Id.ShouldBe(tailB);
+            detail.TransportCharacteristics.ShouldNotContain(c => c.Id == adrA || c.Name.Contains("of A") || c.Description == "secret of A");
+        }
+
+        using (InTenantA())
+        {
+            (await _characteristics.GetAsync(adrA)).Name.ShouldBe("Dangerous goods of A");
+        }
+    }
+
+    [Fact]
+    public async Task The_same_identifier_under_another_source_on_another_relation_is_accepted_and_pairs_are_matched_as_pairs()
+    {
+        using var _ = InTenantA();
+        await CreateAsync("ACM01", "ACME", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712"), External("Exact", "1001")]);
+
+        /* Every identifier of the second relation is also an identifier of the first, under another source: the
+         * one query fetches ACME's rows for both identifiers, and only an exact (source, identifier) pair may clash. */
+        var other = await CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers =
+            [External("Portal", "8712"), External("Webshop", "8712"), External("EDI", "1001"), External("Exact", "8712")]);
+
+        other.ExternalIdentifiers.Count.ShouldBe(4);
+        (await _service.GetAsync(other.Id)).ExternalIdentifiers.Select(e => (e.Source, e.Identifier))
+            .ShouldBe([("EDI", "1001"), ("Exact", "8712"), ("Portal", "8712"), ("Webshop", "8712")]);
+        (await WithUnitOfWorkAsync(() => _externalRows.GetCountAsync())).ShouldBe(6);
+    }
+
+    [Fact]
+    public async Task The_same_pair_on_another_relation_is_DuplicateKey_naming_source_and_identifier_on_create_and_update()
+    {
+        using var _ = InTenantA();
+        await CreateAsync("ACM01", "ACME", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712")]);
+
+        var onCreate = await ShouldFailAsync(
+            () => CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers = [External("Portal", "P-1"), External(" EDI ", " 8712 ")]),
+            MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+        onCreate.Data["value"].ShouldBe("EDI 8712", "the trimmed pair, source first");
+        (await _service.GetListAsync(Request())).TotalCount.ShouldBe(1, "the refused relation is not written");
+
+        /* On update, with the relation's own row changed in place to the taken pair. */
+        var other = await CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers = [External("EDI", "9999")]);
+        var clash = UpdateFrom(other);
+        clash.ExternalIdentifiers = [External("EDI", "8712", other.ExternalIdentifiers.Single().Id)];
+        var onUpdate = await ShouldFailAsync(() => _service.UpdateAsync(other.Id, clash), MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+        onUpdate.Data["value"].ShouldBe("EDI 8712");
+        (await _service.GetAsync(other.Id)).ExternalIdentifiers.ShouldHaveSingleItem().Identifier.ShouldBe("9999");
+        MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.DuplicateKey, "a state conflict, HTTP 409");
+    }
+
+    [Fact]
+    public async Task Resaving_a_relation_with_its_own_unchanged_external_ids_is_accepted()
+    {
+        using var _ = InTenantA();
+        var acme = await CreateAsync("ACM01", "ACME", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712"), External("Exact", "1001"), External("Portal", "P-1")]);
+        await CreateAsync("OTH", "Other", configure: dto => dto.ExternalIdentifiers = [External("Exact", "8712"), External("EDI", "P-1")]);
+
+        var same = UpdateFrom(acme);
+        same.Name = "ACME again";
+        var resaved = await _service.UpdateAsync(acme.Id, same);
+        resaved.ExternalIdentifiers.Select(e => e.Id).ShouldBe(acme.ExternalIdentifiers.Select(e => e.Id), ignoreOrder: true, "rows kept by id");
+
+        var again = await _service.UpdateAsync(acme.Id, UpdateFrom(resaved));
+        again.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "8712"), ("Exact", "1001"), ("Portal", "P-1")]);
+
+        /* The same pairs sent back without their ids (a line removed and retyped): still the relation's own pairs. */
+        var retyped = UpdateFrom(again);
+        retyped.ExternalIdentifiers = again.ExternalIdentifiers.Select(e => External(e.Source, e.Identifier)).Reverse().ToList();
+        var afterRetype = await _service.UpdateAsync(acme.Id, retyped);
+        afterRetype.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "8712"), ("Exact", "1001"), ("Portal", "P-1")]);
+        (await WithUnitOfWorkAsync(() => _externalRows.CountAsync(e => e.RelationId == acme.Id))).ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task The_same_pair_in_another_tenant_is_accepted_and_never_counts_against_this_tenant()
+    {
+        RelationDto acmeA;
+        using (InTenantA())
+        {
+            acmeA = await CreateAsync("ACM01", "ACME", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712")]);
+        }
+
+        using (InTenantB())
+        {
+            var acmeB = await CreateAsync("ACM01", "ACME B", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712")]);
+            acmeB.ExternalIdentifiers.ShouldHaveSingleItem().Identifier.ShouldBe("8712");
+
+            var resaveB = UpdateFrom(acmeB);
+            resaveB.Name = "ACME B again";
+            (await _service.UpdateAsync(acmeB.Id, resaveB)).ExternalIdentifiers.ShouldHaveSingleItem().Source.ShouldBe("EDI");
+
+            /* Within tenant B the pair is now B's: the check works in B's own scope. */
+            var clash = await ShouldFailAsync(() => CreateAsync("OTH", "Other B", configure: dto => dto.ExternalIdentifiers = [External("EDI", "8712")]), MasterDataErrorCodes.DuplicateKey, "externalIdentifiers");
+            clash.Data["value"].ShouldBe("EDI 8712");
+        }
+
+        using (InTenantA())
+        {
+            var resaveA = UpdateFrom(await _service.GetAsync(acmeA.Id));
+            resaveA.Name = "ACME again";
+            resaveA.ExternalIdentifiers = [.. resaveA.ExternalIdentifiers, External("Exact", "8712")];
+            var updated = await _service.UpdateAsync(acmeA.Id, resaveA);
+            updated.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "8712"), ("Exact", "8712")]);
+            (await _service.GetListAsync(Request())).TotalCount.ShouldBe(1);
+        }
     }
 
     // ── Tenant isolation (Critical) ───────────────────────────────────────────

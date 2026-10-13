@@ -21,7 +21,7 @@ ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekij
 
 ## Het record
 
-Het venster heeft vier tabbladen.
+Het venster heeft drie tabbladen.
 
 **Algemeen**
 
@@ -51,14 +51,18 @@ Het venster heeft vier tabbladen.
 
 **Administratie**
 
-KvK-nummer en btw-nummer (beide uniek binnen de tenant; het btw-nummer begint met de landcode,
-bijvoorbeeld `NL123456789B01`, en wordt zonder spaties en punten opgeslagen), de voorkeurstaal
-waarin de relatie documenten en berichten ontvangt, en de organisatie-eenheden.
-
-**Financieel**
-
-De bankrekeningen: IBAN (wordt gecontroleerd), BIC, bank en rekeninghouder. Precies één rekening is
-de standaard; de eerste rekening wordt dat automatisch.
+- *Bedrijf*: debiteurnummer en crediteurnummer (elk uniek binnen de tenant), KvK-nummer en btw-nummer
+  (beide uniek binnen de tenant; het btw-nummer begint met de landcode, bijvoorbeeld `NL123456789B01`,
+  en wordt zonder spaties en punten opgeslagen), vervoerder code, afdeling (organisatie-eenheden),
+  valuta (een nieuwe relatie begint met de standaardvaluta van de tenant) en taal.
+- *Bank*: de bankrekeningen, tot tien per relatie: IBAN (wordt gecontroleerd), BIC, bank en
+  rekeninghouder. Precies één rekening is de standaard; de eerste rekening wordt dat automatisch.
+- *Externe identificatienummers*: het nummer van de relatie in een ander systeem (Id) met de naam van
+  dat systeem (Bron). Een combinatie van bron en id hoort bij één relatie.
+- *Transportkenmerken*: de kenmerken die de relatie vraagt of biedt, met code en omschrijving. Kies een
+  kenmerk in het zoekveld boven de lijst (typ twee tekens om te zoeken op code, naam of omschrijving);
+  bestaat het nog niet, dan maakt *Nieuw transportkenmerk toevoegen…* het meteen aan. Verwijderen gaat
+  met het prullenbakje op de regel.
 
 **Contactpersonen**
 

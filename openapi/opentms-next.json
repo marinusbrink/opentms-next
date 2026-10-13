@@ -611,6 +611,23 @@
         },
         "type": "object"
       },
+      "OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto": {
         "additionalProperties": false,
         "properties": {
@@ -2149,6 +2166,11 @@
           "blockReason": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
           },
+          "carrierCode": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
           "categoryIds": {
             "items": {
               "format": "uuid",
@@ -2174,6 +2196,21 @@
             "nullable": true,
             "type": "array"
           },
+          "creditorNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "currencyId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "debtorNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
             "maxLength": 2500,
             "nullable": true,
@@ -2183,6 +2220,13 @@
             "maxLength": 256,
             "nullable": true,
             "type": "string"
+          },
+          "externalIdentifiers": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationExternalIdentifierDto"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "fullName": {
             "maxLength": 128,
@@ -2234,6 +2278,14 @@
           "roles": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
           },
+          "transportCharacteristicIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
           "vatNumber": {
             "maxLength": 32,
             "nullable": true,
@@ -2271,6 +2323,10 @@
           "blockReason": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
           },
+          "carrierCode": {
+            "nullable": true,
+            "type": "string"
+          },
           "categoryIds": {
             "items": {
               "format": "uuid",
@@ -2307,6 +2363,19 @@
             "nullable": true,
             "type": "string"
           },
+          "creditorNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "currencyId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "debtorNumber": {
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
             "nullable": true,
             "type": "string"
@@ -2314,6 +2383,13 @@
           "email": {
             "nullable": true,
             "type": "string"
+          },
+          "externalIdentifiers": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationExternalIdentifierDto"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "fullName": {
             "nullable": true,
@@ -2374,6 +2450,21 @@
           "roles": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
           },
+          "transportCharacteristicIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "transportCharacteristics": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.TransportCharacteristicsRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
           "vatNumber": {
             "nullable": true,
             "type": "string"
@@ -2383,6 +2474,31 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "OpenTms.MasterData.Relations.RelationExternalIdentifierDto": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "identifier": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "source"
+        ],
         "type": "object"
       },
       "OpenTms.MasterData.Relations.RelationLookupDto": {
@@ -2619,6 +2735,11 @@
           "blockReason": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationBlockReason"
           },
+          "carrierCode": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
           "categoryIds": {
             "items": {
               "format": "uuid",
@@ -2648,6 +2769,21 @@
             "nullable": true,
             "type": "array"
           },
+          "creditorNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
+          "currencyId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "debtorNumber": {
+            "maxLength": 32,
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
             "maxLength": 2500,
             "nullable": true,
@@ -2657,6 +2793,13 @@
             "maxLength": 256,
             "nullable": true,
             "type": "string"
+          },
+          "externalIdentifiers": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationExternalIdentifierDto"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "fullName": {
             "maxLength": 128,
@@ -2707,6 +2850,14 @@
           },
           "roles": {
             "$ref": "#/components/schemas/OpenTms.MasterData.Relations.RelationRoles"
+          },
+          "transportCharacteristicIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "vatNumber": {
             "maxLength": 32,
@@ -29277,6 +29428,182 @@
                     "$ref": "#/components/schemas/OpenTms.MasterData.MasterDataLookupDto"
                   },
                   "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "TransportCharacteristics"
+        ]
+      }
+    },
+    "/api/master-data/transport-characteristics/lookup-page": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "take",
+            "schema": {
+              "default": 25,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.TransportCharacteristicsLookupPageDto"
                 }
               }
             },
