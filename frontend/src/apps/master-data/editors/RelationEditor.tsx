@@ -32,6 +32,12 @@ import {
   type AddressRow,
 } from "@/apps/master-data/components/AddressFields";
 import { AddressMap } from "@/apps/master-data/components/AddressMap";
+import {
+  ADDRESS_LOOKUP_FEATURE,
+  ADDRESS_LOOKUP_PERMISSION,
+  fetchAddressSuggestions,
+  lookupAddress,
+} from "@/domains/integrations/address-lookup";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import {
   CheckboxField,
@@ -75,7 +81,7 @@ import {
 import { masterDataQueryKey } from "@/domains/master-data/shared";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { useIsGranted } from "@/lib/auth/permissions";
+import { useIsFeatureEnabled, useIsGranted } from "@/lib/auth/permissions";
 import { useLanguages } from "@/lib/i18n/languages";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -306,6 +312,10 @@ export function RelationEditor({
   const archive = useArchiveRelation();
   const unarchive = useUnarchiveRelation();
   const canDelete = useIsGranted("MasterData.Relations.Delete");
+  /* Design 44: the postal-code lookup, while the tenant has it on and the user may ask it. */
+  const lookupFeature = useIsFeatureEnabled(ADDRESS_LOOKUP_FEATURE);
+  const lookupGranted = useIsGranted(ADDRESS_LOOKUP_PERMISSION);
+  const lookupOn = lookupFeature && lookupGranted;
 
   const categoryLookup = relationCategories.useLookup(open);
   const regionLookup = geographicalRegions.useLookup(open);
@@ -339,6 +349,49 @@ export function RelationEditor({
         label: c.code ?? "",
       })),
     [countryLookup.data],
+  );
+  const onLookup = useMemo(
+    () =>
+      lookupOn
+        ? async (row: AddressRow) => {
+            const code = countryLookup.data?.find(
+              (c) => c.id === row.countryId,
+            )?.code;
+            if (!code) return null;
+            const found = await lookupAddress(
+              code,
+              row.postalCode,
+              row.houseNumber.trim() || null,
+            );
+            return found
+              ? {
+                  street: found.street,
+                  houseNumber: found.houseNumber,
+                  city: found.city,
+                  latitude: found.latitude,
+                  longitude: found.longitude,
+                }
+              : null;
+          }
+        : undefined,
+    [lookupOn, countryLookup.data],
+  );
+  const onSuggest = useMemo(
+    () =>
+      lookupOn
+        ? async (row: AddressRow, term: string) => {
+            const code = countryLookup.data?.find(
+              (c) => c.id === row.countryId,
+            )?.code;
+            if (!code) return [];
+            return (await fetchAddressSuggestions(code, term)).map((line) => ({
+              ...line,
+              label: line.label ?? line.postalCode ?? "",
+              postalCode: line.postalCode ?? "",
+            }));
+          }
+        : undefined,
+    [lookupOn, countryLookup.data],
   );
   const addressTypeTabs = useMemo(
     () =>
@@ -729,6 +782,8 @@ export function RelationEditor({
                 onCountryPicked={(countryId) =>
                   setZoneSource({ addressKey: DEFAULT_KEY, countryId })
                 }
+                onLookup={onLookup}
+                onSuggest={onSuggest}
               />
             ) : currentTypeId ? (
               <AddressFields
@@ -743,6 +798,8 @@ export function RelationEditor({
                 onCountryPicked={(countryId) =>
                   setZoneSource({ addressKey: currentTypeId, countryId })
                 }
+                onLookup={onLookup}
+                onSuggest={onSuggest}
               />
             ) : (
               <p className="text-sm text-muted-foreground">

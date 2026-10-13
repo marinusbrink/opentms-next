@@ -1,6 +1,7 @@
 using OpenTms.Integrations.Localization;
 using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.Localization;
+using Volo.Abp.MultiTenancy;
 
 namespace OpenTms.Integrations.Permissions;
 
@@ -8,7 +9,8 @@ public class IntegrationsPermissionDefinitionProvider : PermissionDefinitionProv
 {
     public override void Define(IPermissionDefinitionContext context)
     {
-        context.AddGroup(IntegrationsPermissions.GroupName, L("Permission:Integrations"));
+        var group = context.AddGroup(IntegrationsPermissions.GroupName, L("Permission:Integrations"));
+        group.AddPermission(IntegrationsPermissions.AddressLookup, L("Permission:AddressLookup"), MultiTenancySides.Both);
     }
 
     private static LocalizableString L(string name)

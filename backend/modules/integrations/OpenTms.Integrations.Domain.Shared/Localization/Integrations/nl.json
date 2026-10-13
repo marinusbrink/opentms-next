@@ -2,6 +2,10 @@
   "culture": "nl",
   "texts": {
     "Permission:Integrations": "Integraties",
-    "Module:Integrations": "Integraties"
+    "Module:Integrations": "Integraties",
+    "Permission:AddressLookup": "Adres opzoeken",
+    "Feature:Integrations": "Koppelingen",
+    "Feature:AddressLookup": "Adres opzoeken op postcode",
+    "Feature:AddressLookup.Description": "Vult plaats, straat en coördinaten van een adres in op basis van postcode en huisnummer via een externe adresbron (PDOK voor Nederland, OpenStreetMap elders)."
   }
 }

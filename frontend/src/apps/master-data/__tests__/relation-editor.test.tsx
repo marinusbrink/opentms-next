@@ -21,18 +21,23 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * getApiErrorMessage, the loaded record over all tabs, the badges (Blocked with its reason), the
  * confirmed Archive / Unarchive and Delete commands. The domain hooks are real; the generated client
  * is the mock; the Tabs (the address types, Map / Remarks) are the real Base UI component.
- * Risk class: Medium (UI flow) — component tests per the matrix. */
+ * Risk class: Medium (UI flow) — component tests per the matrix. The postal-code lookup of design 44
+ * (its feature and permission gate: Critical / authorization, the UI half of it; the fill: Medium) is
+ * covered at the end of this file, followed by its postal-code suggestions dropdown (PO 2026-10-13;
+ * the same gate, the alpha-2 code and the pick posted). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => (k.endsWith("Question") ? `${k} {0}` : k), culture: "en", isLoading: false }),
 }));
 
 let grants: Record<string, boolean> = {};
+/* The tenant's feature values: the relations feature on; design 44's address lookup only where a test turns it on. */
+let features: Record<string, string> = {};
 vi.mock("@/lib/abp/queries", () => ({
   useApplicationConfiguration: () => ({
     data: {
       auth: { grantedPolicies: grants },
-      features: { values: { "MasterData.Relations": "true" } },
+      features: { values: features },
       localization: {
         languages: [
           { cultureName: "nl", displayName: "Nederlands" },
@@ -68,6 +73,8 @@ vi.mock("@/components/ui/multi-select", async () => {
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api/client";
 import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
@@ -155,8 +162,21 @@ const stored: RelationDto = {
 
 let detail: RelationDto = stored;
 
+/** Design 44: what the Integrations module answers to the postal-code lookup (`found` false = nothing to fill); `lookupFails` makes the GET fail. */
+const LOOKUP_FOUND = { found: true, street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, provider: "PDOK" };
+let lookupResult: Record<string, unknown> = LOOKUP_FOUND;
+let lookupFails = false;
+/** The postal-code dropdown (PO 2026-10-13): the lines GET /api/integrations/address-lookup/suggestions answers. */
+const SUGGESTED_PC = { label: "1012 AB Dam, Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: null, houseNumberSuffix: null, city: "Amsterdam", latitude: 52.3731, longitude: 4.8932 };
+const SUGGESTED_ADDRESS = { label: "Dam 1A, 1012 AB Amsterdam", postalCode: "1012 AB", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", city: "Amsterdam", latitude: 52.373, longitude: 4.893 };
+let suggestions: Record<string, unknown>[] = [SUGGESTED_PC, SUGGESTED_ADDRESS];
+
 beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
+  features = { "MasterData.Relations": "true" };
+  lookupResult = LOOKUP_FOUND;
+  lookupFails = false;
+  suggestions = [SUGGESTED_PC, SUGGESTED_ADDRESS];
   detail = stored;
   addressTypes = ADDRESS_TYPES;
   defaultCountry = null;
@@ -182,6 +202,10 @@ beforeEach(() => {
         );
       case "/api/platform/administration/organization-units/all":
         return ok([{ id: "ou-1", displayName: "Unit 1" }]);
+      case "/api/integrations/address-lookup":
+        return lookupFails ? failed({ error: { code: "Forbidden", message: "no" } }, 403) : ok(lookupResult);
+      case "/api/integrations/address-lookup/suggestions":
+        return ok(suggestions);
       default:
         return ok(undefined);
     }
@@ -1803,5 +1827,398 @@ describe("RelationEditor — default country, warm cache", () => {
     fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
     await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/master-data/country/{id}", { params: { path: { id: "c-2" } } }));
     await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
+  });
+});
+
+describe("RelationEditor — postal-code lookup (design 44)", () => {
+  const LOOKUP_PATH = "/api/integrations/address-lookup";
+  const lookupCalls = () => GET.mock.calls.filter(([path]) => path === LOOKUP_PATH);
+  const lookupQuery = (index = 0) => lookupCalls()[index][1]!.params!.query;
+  const waitForPrefill = (editor: HTMLElement) => waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+  /* Both halves of the gate: the tenant's feature and the user's permission (design 44: "only while the feature is on for the tenant and the user holds the permission"). */
+  const featureOn = () => {
+    features = { ...features, "Integrations.AddressLookup": "true" };
+  };
+  const permissionOn = () => {
+    grants = { ...grants, "Integrations.AddressLookup": true };
+  };
+  const blur = (editor: HTMLElement, label: string) => fireEvent.blur(field(editor, label));
+  const filled = (editor: HTMLElement) => ({
+    street: field(editor, "MasterData:Street").value,
+    houseNumber: field(editor, "MasterData:Nr").value,
+    city: field(editor, "MasterData:City").value,
+    latitude: field(editor, "MasterData:Latitude").value,
+    longitude: field(editor, "MasterData:Longitude").value,
+  });
+  const EMPTY = { street: "", houseNumber: "", city: "", latitude: "", longitude: "" };
+  const FILLED = { street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: "52.3731", longitude: "4.8932" };
+  /* Lets a pending lookup (or its absence) settle inside act before asserting that nothing happened. */
+  const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+  it("feature on and permission held: blurring the postal code of the default address asks GET /api/integrations/address-lookup with the country's alpha-2 code and fills the empty city, street, house number and coordinates; the map shows the place; the fill is posted", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(mapFrame()).toBeNull();
+
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    expect(lookupCalls()).toHaveLength(0);
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    expect(lookupQuery()).toEqual({ countryCode: "NL", postalCode: "1012AB", houseNumber: undefined });
+    expect(Object.values(lookupQuery()!)).not.toContain("null");
+    await waitFor(() => expect(field(editor, "MasterData:City").value).toBe("Amsterdam"));
+    expect(filled(editor)).toEqual(FILLED);
+    expect(field(editor, "MasterData:PostalCode").value).toBe("1012AB");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("");
+    expect(field(editor, "MasterData:Building").value).toBe("");
+    await waitFor(() => expect(mapFrame()).not.toBeNull());
+    expect(screen.queryByText("MasterData:CityRequired")).toBeNull();
+    expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
+
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: null, countryId: "c-1", street: "Dam", houseNumber: "1", houseNumberSuffix: null, addressLine2: null, postalCode: "1012AB", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("a typed house number travels with the request on its own blur; what the user typed (city, house number) stays, the rest is filled", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:City", "Delft");
+    typeInto(editor, "MasterData:PostalCode", " 1012AB ");
+    typeInto(editor, "MasterData:Nr", "7");
+    blur(editor, "MasterData:Nr");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    expect(lookupQuery()).toEqual({ countryCode: "NL", postalCode: " 1012AB ", houseNumber: "7" });
+    await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
+    expect(filled(editor)).toEqual({ street: "Dam", houseNumber: "7", city: "Delft", latitude: "52.3731", longitude: "4.8932" });
+  });
+
+  it("another country sends its own alpha-2 code from the country lookup", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
+    typeInto(editor, "MasterData:PostalCode", "10115");
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    expect(lookupQuery()).toEqual({ countryCode: "DE", postalCode: "10115", houseNumber: undefined });
+  });
+
+  it("feature off: no request and nothing filled, even with the permission", async () => {
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    typeInto(editor, "MasterData:Nr", "1");
+    blur(editor, "MasterData:PostalCode");
+    blur(editor, "MasterData:Nr");
+    await settle();
+    expect(lookupCalls()).toHaveLength(0);
+    expect(filled(editor)).toEqual({ ...EMPTY, houseNumber: "1" });
+    expect(addressBlock()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("permission missing: no request and nothing filled, even with the feature on (UI-PERM-001: hidden, never a refused call)", async () => {
+    featureOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    blur(editor, "MasterData:PostalCode");
+    blur(editor, "MasterData:Nr");
+    await settle();
+    expect(lookupCalls()).toHaveLength(0);
+    expect(filled(editor)).toEqual(EMPTY);
+    expect(addressBlock()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("neither the feature nor the permission: no request", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    blur(editor, "MasterData:PostalCode");
+    await settle();
+    expect(lookupCalls()).toHaveLength(0);
+    expect(filled(editor)).toEqual(EMPTY);
+  });
+
+  it("the address-type tabs ask the same lookup: the Visiting tab's postal code fills its own fields and the fill is posted with the type", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    expect(lookupQuery()).toEqual({ countryCode: "NL", postalCode: "1012AB", houseNumber: undefined });
+    await waitFor(() => expect(field(editor, "MasterData:City").value).toBe("Amsterdam"));
+    expect(filled(editor)).toEqual(FILLED);
+    /* The other tab is untouched. */
+    typeTab("Postal address");
+    expect(filled(editor)).toEqual(EMPTY);
+    typeTab("Visiting address");
+    expect(filled(editor)).toEqual(FILLED);
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: "type-1", countryId: "c-1", street: "Dam", houseNumber: "1", houseNumberSuffix: null, addressLine2: null, postalCode: "1012AB", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("a read-only editor never asks, feature and permission notwithstanding", async () => {
+    featureOn();
+    permissionOn();
+    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForTypeTabs();
+    await waitFor(() => expect(field(editor, "MasterData:PostalCode").value).toBe("2611 AA"));
+    blur(editor, "MasterData:PostalCode");
+    blur(editor, "MasterData:Nr");
+    await settle();
+    expect(lookupCalls()).toHaveLength(0);
+    expect(addressBlock()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("a loaded address only gets what it lacks: the postal address without coordinates receives them, its street and city stay", async () => {
+    featureOn();
+    permissionOn();
+    detail = { ...stored, addresses: [visitingAddress, postalAddress] };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForTypeTabs();
+    typeTab("Postal address");
+    await waitFor(() => expect(field(editor, "MasterData:PostalCode").value).toBe("2600 AA"));
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    expect(lookupQuery()).toEqual({ countryCode: "NL", postalCode: "2600 AA", houseNumber: "99" });
+    await waitFor(() => expect(field(editor, "MasterData:Latitude").value).toBe("52.3731"));
+    expect(filled(editor)).toEqual({ street: "PO Box", houseNumber: "99", city: "Delft", latitude: "52.3731", longitude: "4.8932" });
+    /* The visiting address, complete, is untouched. */
+    typeTab("Visiting address");
+    expect(filled(editor)).toEqual({ street: "Main street", houseNumber: "1", city: "Delft", latitude: "52.01", longitude: "4.36" });
+  });
+
+  it("nothing found: the request is made, nothing is filled, nothing is reported", async () => {
+    featureOn();
+    permissionOn();
+    lookupResult = { found: false, provider: "PDOK" };
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:PostalCode", "9999ZZ");
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    await waitFor(() => expect(addressBlock()).not.toHaveAttribute("aria-busy"));
+    expect(filled(editor)).toEqual(EMPTY);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("a failing request (the server refusing, the provider down) is silent: nothing filled, no toast, no alert, the editor stays usable", async () => {
+    featureOn();
+    permissionOn();
+    lookupFails = true;
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    typeInto(editor, "MasterData:City", "Delft");
+    typeInto(editor, "MasterData:PostalCode", "1012AB");
+    blur(editor, "MasterData:PostalCode");
+    await waitFor(() => expect(lookupCalls()).toHaveLength(1));
+    await waitFor(() => expect(addressBlock()).not.toHaveAttribute("aria-busy"));
+    expect(filled(editor)).toEqual({ ...EMPTY, city: "Delft" });
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    /* Still usable: the rest can be entered and posted. */
+    typeInto(editor, "MasterData:Street", "Dam");
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses[0]).toMatchObject({ postalCode: "1012AB", city: "Delft", street: "Dam", latitude: null, longitude: null });
+  });
+});
+
+describe("RelationEditor — postal-code suggestions (PO 2026-10-13)", () => {
+  const SUGGEST_PATH = "/api/integrations/address-lookup/suggestions";
+  const suggestCalls = () => GET.mock.calls.filter(([path]) => path === SUGGEST_PATH);
+  const suggestQuery = (index = 0) => suggestCalls()[index][1]!.params!.query;
+  const waitForPrefill = (editor: HTMLElement) => waitFor(() => expect(field(editor, "MasterData:Country").value).toBe("c-1"));
+  const featureOn = () => {
+    features = { ...features, "Integrations.AddressLookup": "true" };
+  };
+  const permissionOn = () => {
+    grants = { ...grants, "Integrations.AddressLookup": true };
+  };
+  const postalCode = (editor: HTMLElement) => field(editor, "MasterData:PostalCode");
+  /* Base UI reads `inputType` to tell typing from autofill. */
+  const typePostal = (editor: HTMLElement, value: string) => fireEvent.input(postalCode(editor), { target: { value }, inputType: "insertText" });
+  const suggestionItems = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=combobox-item][role=option]"));
+  const options = () => suggestionItems().map((el) => el.textContent?.trim());
+  /* Longer than the 250 ms debounce, in real time, inside act. */
+  const pastDebounce = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+
+  it("feature on and permission held: typing 1012 in the default address asks the suggestions with the country's alpha-2 code once; picking a line fills postal code, street, number, suffix, city and coordinates, and they are posted", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    expect(postalCode(editor)).toHaveAttribute("role", "combobox");
+
+    typePostal(editor, "1");
+    typePostal(editor, "10");
+    typePostal(editor, "101");
+    typePostal(editor, "1012");
+    expect(postalCode(editor).value).toBe("1012");
+    expect(suggestCalls()).toHaveLength(0);
+    await waitFor(() => expect(options()).toEqual([SUGGESTED_PC.label, SUGGESTED_ADDRESS.label]));
+    expect(suggestCalls()).toHaveLength(1);
+    expect(suggestQuery()).toEqual({ countryCode: "NL", term: "1012" });
+
+    fireEvent.click(suggestionItems().find((el) => el.textContent?.trim() === SUGGESTED_ADDRESS.label)!);
+    await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
+    expect(postalCode(editor).value).toBe("1012 AB");
+    expect(field(editor, "MasterData:Nr").value).toBe("1");
+    expect(field(editor, "MasterData:HouseNumberSuffix").value).toBe("A");
+    expect(field(editor, "MasterData:City").value).toBe("Amsterdam");
+    expect(field(editor, "MasterData:Latitude").value).toBe("52.373");
+    expect(field(editor, "MasterData:Longitude").value).toBe("4.893");
+    expect(field(editor, "MasterData:Country").value).toBe("c-1");
+    expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+    await waitFor(() => expect(options()).toEqual([]));
+    await pastDebounce();
+    expect(suggestCalls()).toHaveLength(1);
+
+    fillRequired();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: null, countryId: "c-1", street: "Dam", houseNumber: "1", houseNumberSuffix: "A", addressLine2: null, postalCode: "1012 AB", city: "Amsterdam", latitude: 52.373, longitude: 4.893, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  it("another country sends its own alpha-2 code; a line without a label shows its postal code", async () => {
+    featureOn();
+    permissionOn();
+    suggestions = [{ ...SUGGESTED_PC, label: null, postalCode: "10115", street: null, city: "Berlin" }];
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fireEvent.change(field(editor, "MasterData:Country"), { target: { value: "c-2" } });
+    await waitFor(() => expect(field(editor, "MasterData:TimeZone").value).toBe("Europe/Berlin"));
+    typePostal(editor, "101");
+    await waitFor(() => expect(suggestCalls()).toHaveLength(1));
+    expect(suggestQuery()).toEqual({ countryCode: "DE", term: "101" });
+    await waitFor(() => expect(options()).toEqual(["10115"]));
+  });
+
+  it("the address-type tabs get the dropdown too: the Visiting tab's pick is posted with its type", async () => {
+    featureOn();
+    permissionOn();
+    defaultCountry = NL_DEFAULT;
+    renderEditor();
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForPrefill(editor);
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:AllAddressesEqual"));
+    await waitForTypeTabs();
+    expect(activeTypeTab()).toBe("Visiting address");
+    await waitForPrefill(editor);
+    expect(postalCode(editor)).toHaveAttribute("role", "combobox");
+    typePostal(editor, "1012");
+    await waitFor(() => expect(options()).toEqual([SUGGESTED_PC.label, SUGGESTED_ADDRESS.label]));
+    expect(suggestQuery()).toEqual({ countryCode: "NL", term: "1012" });
+    fireEvent.click(suggestionItems().find((el) => el.textContent?.trim() === SUGGESTED_PC.label)!);
+    await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
+    typeInto(editor, "MasterData:Nr", "5");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([
+      { id: null, addressTypeId: "type-1", countryId: "c-1", street: "Dam", houseNumber: "5", houseNumberSuffix: null, addressLine2: null, postalCode: "1012 AB", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, timeZoneId: "Europe/Amsterdam" },
+    ]);
+  });
+
+  for (const [name, setup] of [
+    ["feature off, permission held", () => permissionOn()],
+    ["permission missing, feature on (UI-PERM-001: hidden, never a refused call)", () => featureOn()],
+    ["neither the feature nor the permission", () => {}],
+  ] as const) {
+    it(`${name}: the postal code is a plain textbox and typing asks no suggestions`, async () => {
+      setup();
+      defaultCountry = NL_DEFAULT;
+      renderEditor();
+      await waitForLookups();
+      const editor = editorDialog();
+      await waitForPrefill(editor);
+      expect(postalCode(editor)).not.toHaveAttribute("role");
+      expect(within(editor).getByRole("textbox", { name: /^MasterData:PostalCode/ })).toBe(postalCode(editor));
+      typePostal(editor, "1012");
+      expect(postalCode(editor).value).toBe("1012");
+      await pastDebounce();
+      expect(suggestCalls()).toHaveLength(0);
+      expect(options()).toEqual([]);
+    });
+  }
+
+  it("a read-only editor keeps the plain textbox, feature and permission notwithstanding", async () => {
+    featureOn();
+    permissionOn();
+    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    await waitForLookups();
+    const editor = editorDialog();
+    await waitForTypeTabs();
+    await waitFor(() => expect(postalCode(editor).value).toBe("2611 AA"));
+    expect(postalCode(editor)).not.toHaveAttribute("role");
+    expect(postalCode(editor)).toBeDisabled();
+    await pastDebounce();
+    expect(suggestCalls()).toHaveLength(0);
   });
 });

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using OpenTms.Integrations.Features;
 using OpenTms.MasterData.Features;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Features;
@@ -22,6 +23,8 @@ public sealed class TestFeatureValueProvider : FeatureValueProvider, ITransientD
 
     private static readonly AsyncLocal<string?> FirstRunOverride = new();
 
+    private static readonly AsyncLocal<string?> AddressLookupOverride = new();
+
     public TestFeatureValueProvider(IFeatureStore featureStore)
         : base(featureStore)
     {
@@ -37,11 +40,24 @@ public sealed class TestFeatureValueProvider : FeatureValueProvider, ITransientD
         return new Restore(previous);
     }
 
+    /// <summary>Overrides the Integrations address-lookup flag (design 44) for the current async flow; dispose to restore.</summary>
+    public static IDisposable OverrideAddressLookup(string value)
+    {
+        var previous = AddressLookupOverride.Value;
+        AddressLookupOverride.Value = value;
+        return new RestoreAddressLookup(previous);
+    }
+
     public override Task<string?> GetOrNullAsync(FeatureDefinition feature)
     {
         if (feature.Name is MasterDataFeatures.FirstRun or MasterDataFeatures.Relations)
         {
             return Task.FromResult<string?>(FirstRunOverride.Value ?? "true");
+        }
+
+        if (feature.Name == IntegrationsFeatures.AddressLookup)
+        {
+            return Task.FromResult<string?>(AddressLookupOverride.Value ?? "true");
         }
 
         return Task.FromResult<string?>(null);
@@ -57,5 +73,17 @@ public sealed class TestFeatureValueProvider : FeatureValueProvider, ITransientD
         }
 
         public void Dispose() => FirstRunOverride.Value = _previous;
+    }
+
+    private sealed class RestoreAddressLookup : IDisposable
+    {
+        private readonly string? _previous;
+
+        public RestoreAddressLookup(string? previous)
+        {
+            _previous = previous;
+        }
+
+        public void Dispose() => AddressLookupOverride.Value = _previous;
     }
 }
