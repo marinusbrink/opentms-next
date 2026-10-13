@@ -2,6 +2,10 @@
   "culture": "en",
   "texts": {
     "Permission:Integrations": "Integrations",
-    "Module:Integrations": "Integrations"
+    "Module:Integrations": "Integrations",
+    "Permission:AddressLookup": "Address lookup",
+    "Feature:Integrations": "Integrations",
+    "Feature:AddressLookup": "Address lookup by postal code",
+    "Feature:AddressLookup.Description": "Fills the city, the street and the coordinates of an address from its postal code and house number through an external address source (PDOK for the Netherlands, OpenStreetMap elsewhere)."
   }
 }

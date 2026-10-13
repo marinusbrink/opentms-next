@@ -36,6 +36,10 @@ Het venster heeft vier tabbladen.
   gelijk** met het adres (land als tweeletterige code, postcode, plaats, tijdzone; straat, nr.,
   bijvoegsel; gebouw, lengte- en breedtegraad) en daaronder de tabbladen *Kaart* (een kaart van de
   ingevulde coördinaten; zonder coördinaten blijft de kaart leeg) en *Opmerkingen*.
+- Met de functie *Adres opzoeken op postcode* (per tenant in te schakelen; recht *Adres opzoeken*) vult
+  het systeem na de postcode en het huisnummer de plaats, de straat en de coördinaten in voor zover die
+  nog leeg zijn (Nederland via PDOK, andere landen via OpenStreetMap). Wat u zelf had ingevuld blijft
+  staan; vindt de bron niets, dan gebeurt er niets.
 - *Alle adressen gelijk* staat bij een nieuwe relatie aan: het ene adres geldt dan voor elk adrestype
   (bezoek, post, …). Zet het uit als de adressen per type verschillen: naast de schakelaar verschijnt
   dan een tabblad per adrestype met dezelfde velden. Een leeg tabblad is geen adres; zodra u iets

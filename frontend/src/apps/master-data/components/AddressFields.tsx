@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,36 @@ export interface AddressFieldsProps {
   zoneOptions: ReferenceOption[];
   /** The user picked a country: the caller lets the time zone follow it. */
   onCountryPicked: (countryId: string) => void;
+  /** Design 44: asked when the postal code or the house number loses focus; fills only the empty fields. Absent while the feature is off. */
+  onLookup?: (row: AddressRow) => Promise<AddressLookupFill | null>;
+}
+
+/** What a lookup may fill in: the editor keeps what the user typed. */
+export interface AddressLookupFill {
+  street?: string | null;
+  houseNumber?: string | null;
+  city?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+/** The fields the lookup fills when they are still empty (design 44). */
+export function applyLookup(
+  row: AddressRow,
+  fill: AddressLookupFill,
+): AddressRow {
+  const text = (current: string, value: string | null | undefined) =>
+    current.trim() || !value ? current : value;
+  const number = (current: string, value: number | null | undefined) =>
+    current.trim() || value == null ? current : String(value);
+  return {
+    ...row,
+    street: text(row.street, fill.street),
+    houseNumber: text(row.houseNumber, fill.houseNumber),
+    city: text(row.city, fill.city),
+    latitude: number(row.latitude, fill.latitude),
+    longitude: number(row.longitude, fill.longitude),
+  };
 }
 
 type TextKey =
@@ -117,6 +147,7 @@ export function AddressFields({
   countryOptions,
   zoneOptions,
   onCountryPicked,
+  onLookup,
 }: AddressFieldsProps) {
   const { t } = useL();
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -128,6 +159,29 @@ export function AddressFields({
       : undefined;
   const touch = (field: string) =>
     setTouched((s) => (s.has(field) ? s : new Set(s).add(field)));
+  const rowRef = useRef(row);
+  rowRef.current = row;
+  const [lookingUp, setLookingUp] = useState(false);
+  /* The lookup runs on the latest row and fills only what is still empty when it answers; a failure is silent. */
+  const lookup = async () => {
+    const current = rowRef.current;
+    if (
+      !onLookup ||
+      readOnly ||
+      !current.countryId ||
+      !current.postalCode.trim()
+    )
+      return;
+    setLookingUp(true);
+    try {
+      const fill = await onLookup(current);
+      if (fill) onChange(applyLookup(rowRef.current, fill));
+    } catch {
+      /* nothing to fill */
+    } finally {
+      setLookingUp(false);
+    }
+  };
   const id = (field: string) => `${idPrefix}-${field}`;
 
   const text = (
@@ -153,7 +207,10 @@ export function AddressFields({
           field === "latitude" || field === "longitude" ? "decimal" : undefined
         }
         onChange={(e) => onChange({ ...row, [field]: e.target.value })}
-        onBlur={() => touch(field)}
+        onBlur={() => {
+          touch(field);
+          if (field === "postalCode" || field === "houseNumber") void lookup();
+        }}
       />
     </FormField>
   );
@@ -161,6 +218,7 @@ export function AddressFields({
   return (
     <div
       data-slot="address-fields"
+      aria-busy={lookingUp || undefined}
       className="grid grid-cols-12 gap-x-3 gap-y-2"
     >
       <FormField

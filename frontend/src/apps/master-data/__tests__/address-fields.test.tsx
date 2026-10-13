@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 /* The inline address of the relation editor (design 43 as revised by the PO on 2026-10-13 after the
@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from "vitest";
  * only once something was entered, an error per field after its blur or once the editor was
  * submitted, the country pick handed to the caller for the time-zone follow, read-only).
  * Risk class: Medium (UI flow) for the component, Low for the pure helpers — unit and component tests
- * per the matrix. */
+ * per the matrix. Design 44 (the postal-code lookup: applyLookup's fill-only-empty rule and the blur
+ * trigger) is covered at the end of this file. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
@@ -19,7 +20,7 @@ vi.mock("@/components/ui/reference-combobox", async () => {
   return { ReferenceCombobox: mocks.MockReferenceCombobox };
 });
 
-import { AddressFields, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressRow } from "@/apps/master-data/components/AddressFields";
+import { AddressFields, applyLookup, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressLookupFill, type AddressRow } from "@/apps/master-data/components/AddressFields";
 
 const complete = (): AddressRow => ({ ...newAddressRow("type-1"), countryId: "c-1", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: "Building B", postalCode: "2611 AA", city: "Delft", latitude: "52.01", longitude: "4.36", timeZoneId: "Europe/Amsterdam" });
 
@@ -324,5 +325,233 @@ describe("AddressFields — changes", () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ countryId: null, street: "Main street" }));
     expect(onCountryPicked).toHaveBeenCalledTimes(1);
     expect(within(block()).getByText("MasterData:CountryRequired")).toBeInTheDocument();
+  });
+});
+
+/* ── Design 44: the postal-code lookup ───────────────────────────────────────────────────────────
+ * applyLookup (Low: a pure rule) fills only the empty fields among street, house number, city and the
+ * coordinates; the component (Medium: UI flow) asks the lookup when the postal code or the house number
+ * loses focus while a country and a postal code are set, marks the block busy meanwhile, and treats a
+ * null answer or a failure as nothing to fill. Only a fake onLookup: the editor's own gate (feature,
+ * permission, the country's code, the HTTP call) is covered in relation-editor.test.tsx. */
+
+const FILL: AddressLookupFill = { street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932 };
+const FILLED_TEXT = { street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: "52.3731", longitude: "4.8932" };
+
+describe("applyLookup (design 44)", () => {
+  it("fills the empty street, house number, city and coordinates; the numbers become the row's text; everything else stays", () => {
+    const row: AddressRow = { ...newAddressRow("type-1"), key: "row-x", id: "a9", countryId: "c-1", postalCode: "1012AB", houseNumberSuffix: "a", addressLine2: "Unit 3", timeZoneId: "Europe/Amsterdam" };
+    expect(applyLookup(row, FILL)).toEqual({ ...row, ...FILLED_TEXT });
+  });
+
+  it("keeps what the user typed, field by field: a typed city and latitude stay while the street and longitude are filled", () => {
+    const row: AddressRow = { ...newAddressRow(), countryId: "c-1", postalCode: "1012AB", city: "Delft", latitude: "52.01" };
+    expect(applyLookup(row, FILL)).toEqual({ ...row, street: "Dam", houseNumber: "1", city: "Delft", latitude: "52.01", longitude: "4.8932" });
+  });
+
+  it("changes nothing on a complete address", () => {
+    const row = complete();
+    expect(applyLookup(row, FILL)).toEqual(row);
+  });
+
+  it("a whitespace-only field counts as empty (like hasAddressInput) and is filled", () => {
+    const row: AddressRow = { ...newAddressRow(), city: "   ", street: "\t", latitude: " " };
+    expect(applyLookup(row, FILL)).toMatchObject({ city: "Amsterdam", street: "Dam", latitude: "52.3731" });
+  });
+
+  it("an absent, null or empty answer leaves the field as it is; a zero coordinate is an answer", () => {
+    const row = newAddressRow();
+    expect(applyLookup(row, {})).toEqual(row);
+    expect(applyLookup(row, { street: null, houseNumber: "", city: undefined, latitude: null, longitude: undefined })).toEqual(row);
+    expect(applyLookup(row, { latitude: 0, longitude: 0 })).toMatchObject({ latitude: "0", longitude: "0" });
+  });
+
+  it("never fills the postal code, the suffix, the building, the country or the time zone", () => {
+    const row = newAddressRow();
+    const result = applyLookup(row, FILL);
+    expect(result).toMatchObject({ postalCode: "", houseNumberSuffix: "", addressLine2: "", countryId: null, timeZoneId: null, key: row.key, id: null });
+  });
+
+  it("returns a new row and leaves its input untouched", () => {
+    const row = newAddressRow();
+    const result = applyLookup(row, FILL);
+    expect(result).not.toBe(row);
+    expect(row.street).toBe("");
+  });
+});
+
+type Lookup = (row: AddressRow) => Promise<AddressLookupFill | null>;
+
+interface Deferred {
+  promise: Promise<AddressLookupFill | null>;
+  resolve: (value: AddressLookupFill | null) => void;
+  reject: (reason: unknown) => void;
+}
+const deferred = (): Deferred => {
+  let resolve!: Deferred["resolve"];
+  let reject!: Deferred["reject"];
+  const promise = new Promise<AddressLookupFill | null>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
+/** A row the lookup applies to: a country and a postal code, nothing else. */
+const lookupReady = (): AddressRow => ({ ...newAddressRow(), key: "row-l", countryId: "c-1", postalCode: "1012AB", timeZoneId: "Europe/Amsterdam" });
+const values = () => ({
+  street: control("MasterData:Street").value,
+  houseNumber: control("MasterData:Nr").value,
+  city: control("MasterData:City").value,
+  latitude: control("MasterData:Latitude").value,
+  longitude: control("MasterData:Longitude").value,
+});
+const EMPTY_VALUES = { street: "", houseNumber: "", city: "", latitude: "", longitude: "" };
+/* Lets the component's pending promise settle inside act. */
+const settle = () => act(async () => { await Promise.resolve(); });
+
+describe("AddressFields — postal-code lookup (design 44)", () => {
+  it("asks the lookup with the row as it is when the postal code loses focus, marks the block busy meanwhile and fills the empty fields with the awaited answer", async () => {
+    const d = deferred();
+    const onLookup = vi.fn<Lookup>().mockReturnValue(d.promise);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    const initial: AddressRow = { ...lookupReady(), postalCode: "" };
+    render(<Harness initial={initial} onChange={onChange} onLookup={onLookup} />);
+    expect(block()).not.toHaveAttribute("aria-busy");
+
+    fireEvent.change(control("MasterData:PostalCode"), { target: { value: "1012AB" } });
+    expect(onLookup).not.toHaveBeenCalled();
+    fireEvent.blur(control("MasterData:PostalCode"));
+    expect(onLookup).toHaveBeenCalledTimes(1);
+    expect(onLookup).toHaveBeenCalledWith({ ...initial, postalCode: "1012AB" });
+    expect(block()).toHaveAttribute("aria-busy", "true");
+    /* The typed postal code reached the caller; nothing else yet. */
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(values()).toEqual(EMPTY_VALUES);
+
+    await act(async () => {
+      d.resolve(FILL);
+      await d.promise;
+    });
+    expect(block()).not.toHaveAttribute("aria-busy");
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith({ ...initial, postalCode: "1012AB", ...FILLED_TEXT });
+    expect(values()).toEqual(FILLED_TEXT);
+    expect(control("MasterData:PostalCode").value).toBe("1012AB");
+    expect(control("MasterData:Country").value).toBe("c-1");
+    expect(control("MasterData:TimeZone").value).toBe("Europe/Amsterdam");
+  });
+
+  it("the house number's blur asks too; the blur of any other field does not", async () => {
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(null);
+    render(<Harness initial={lookupReady()} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:Nr"));
+    expect(onLookup).toHaveBeenCalledTimes(1);
+    await settle();
+    for (const label of ["MasterData:City", "MasterData:Street", "MasterData:HouseNumberSuffix", "MasterData:Building", "MasterData:Longitude", "MasterData:Latitude"]) {
+      fireEvent.blur(control(label));
+    }
+    await settle();
+    expect(onLookup).toHaveBeenCalledTimes(1);
+    /* Each blur asks again: a second postal-code blur is a second lookup. */
+    fireEvent.blur(control("MasterData:PostalCode"));
+    expect(onLookup).toHaveBeenCalledTimes(2);
+    await settle();
+  });
+
+  it("keeps the typed city and latitude and fills only the rest; the coordinates arrive as text", async () => {
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(FILL);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={{ ...lookupReady(), city: "Delft", latitude: "52.01" }} onChange={onChange} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    await waitFor(() => expect(control("MasterData:Street").value).toBe("Dam"));
+    expect(values()).toEqual({ street: "Dam", houseNumber: "1", city: "Delft", latitude: "52.01", longitude: "4.8932" });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith({ ...lookupReady(), city: "Delft", latitude: "52.01", street: "Dam", houseNumber: "1", longitude: "4.8932" });
+  });
+
+  it("a city typed while the lookup is still running stays: the answer fills what is empty when it arrives, not when it was asked", async () => {
+    const d = deferred();
+    const onLookup = vi.fn<Lookup>().mockReturnValue(d.promise);
+    render(<Harness initial={lookupReady()} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    fireEvent.change(control("MasterData:City"), { target: { value: "Delft" } });
+    expect(block()).toHaveAttribute("aria-busy", "true");
+    await act(async () => {
+      d.resolve(FILL);
+      await d.promise;
+    });
+    expect(values()).toEqual({ ...FILLED_TEXT, city: "Delft" });
+    expect(block()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("does not ask without a country, nor without a postal code (whitespace is none)", async () => {
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(FILL);
+    const first = render(<Harness initial={{ ...lookupReady(), countryId: null }} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    fireEvent.blur(control("MasterData:Nr"));
+    await settle();
+    expect(onLookup).not.toHaveBeenCalled();
+    expect(block()).not.toHaveAttribute("aria-busy");
+    expect(values()).toEqual(EMPTY_VALUES);
+    first.unmount();
+
+    render(<Harness initial={{ ...lookupReady(), postalCode: "   " }} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    fireEvent.blur(control("MasterData:Nr"));
+    await settle();
+    expect(onLookup).not.toHaveBeenCalled();
+    expect(block()).not.toHaveAttribute("aria-busy");
+    expect(values()).toEqual(EMPTY_VALUES);
+  });
+
+  it("read-only never asks", async () => {
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(FILL);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={lookupReady()} onChange={onChange} onLookup={onLookup} readOnly />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    fireEvent.blur(control("MasterData:Nr"));
+    await settle();
+    expect(onLookup).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(block()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("without onLookup (the feature is off) a blur is only a blur: no busy state, no change", async () => {
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={lookupReady()} onChange={onChange} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    await settle();
+    expect(block()).not.toHaveAttribute("aria-busy");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(values()).toEqual(EMPTY_VALUES);
+  });
+
+  it("a rejected lookup leaves the row as it is, reports nothing and clears the busy state", async () => {
+    const d = deferred();
+    const onLookup = vi.fn<Lookup>().mockReturnValue(d.promise);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={{ ...lookupReady(), city: "Delft" }} onChange={onChange} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:PostalCode"));
+    expect(block()).toHaveAttribute("aria-busy", "true");
+    await act(async () => {
+      d.reject(new Error("provider down"));
+      await d.promise.catch(() => undefined);
+    });
+    expect(block()).not.toHaveAttribute("aria-busy");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(values()).toEqual({ ...EMPTY_VALUES, city: "Delft" });
+    expect(errors()).toEqual([]);
+  });
+
+  it("a null answer (nothing found) leaves the row as it is and clears the busy state", async () => {
+    const onLookup = vi.fn<Lookup>().mockResolvedValue(null);
+    const onChange = vi.fn<(row: AddressRow) => void>();
+    render(<Harness initial={{ ...lookupReady(), houseNumber: "7" }} onChange={onChange} onLookup={onLookup} />);
+    fireEvent.blur(control("MasterData:Nr"));
+    expect(onLookup).toHaveBeenCalledWith({ ...lookupReady(), houseNumber: "7" });
+    await waitFor(() => expect(block()).not.toHaveAttribute("aria-busy"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(values()).toEqual({ ...EMPTY_VALUES, houseNumber: "7" });
   });
 });
