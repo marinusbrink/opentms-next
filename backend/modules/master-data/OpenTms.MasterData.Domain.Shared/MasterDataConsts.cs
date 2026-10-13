@@ -46,6 +46,14 @@ public static class MasterDataConsts
     public const int MaxEmailLength = 256;
     public const int MaxWebsiteLength = 256;
     public const int MaxLegalNumberLength = 32;
+
+    /* Relation administration (PO 2026-10-13, the old "Administratie" tab). */
+    public const int MaxAccountNumberLength = 32;
+    public const int MaxCarrierCodeLength = 32;
+    public const int MaxExternalIdentifierLength = 128;
+    public const int MaxExternalSourceLength = 64;
+    public const int MaxExternalIdentifiersPerRelation = 50;
+    public const int MaxTransportCharacteristicsPerRelation = 50;
     public const int MaxCultureLength = 10;
     public const int MaxStreetLength = 128;
     public const int MaxHouseNumberLength = 16;

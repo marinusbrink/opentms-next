@@ -16,8 +16,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * address type). The time zone follows the country per address; the Map / Remarks sub-tabs sit in their
  * own caption-less Map section directly below the Addresses block in the same right column and show the
  * active address' coordinates and the description. Then the contact persons staged
- * through their dialog, the bank accounts inline on Financial with exactly one default, the
- * Administration fields, the full DTO on create and update, server errors through
+ * through their dialog, the Administration tab (PO 2026-10-13, the old Administratie tab; the Financial tab
+ * is gone): the Company block (debtor and creditor numbers, legal numbers, carrier code, Department,
+ * Currency, Language) and the Bank block with the bank accounts inline, exactly one default; the External
+ * identification numbers and Transport characteristics grids; a new relation's default currency; the full DTO on create and update, server errors through
  * getApiErrorMessage, the loaded record over all tabs, the badges (Blocked with its reason), the
  * confirmed Archive / Unarchive and Delete commands. The domain hooks are real; the generated client
  * is the mock; the Tabs (the address types, Map / Remarks) are the real Base UI component.
@@ -162,6 +164,19 @@ const stored: RelationDto = {
 
 let detail: RelationDto = stored;
 
+/** The tenant's currencies (lookup) and the first row of GET /api/master-data/currency sorted isDefault desc; null = no default set. */
+const CURRENCY_LOOKUP = [
+  { id: "cur-eur", code: "EUR", name: "Euro" },
+  { id: "cur-usd", code: "USD", name: "US dollar" },
+];
+const EUR_DEFAULT = { id: "cur-eur", isoCode: "EUR", isDefault: true };
+let defaultCurrencyRow: Record<string, unknown> | null = null;
+/** The tenant's transport characteristics as GET /api/master-data/transport-characteristics/lookup-page answers them (searched on the server by name or code). */
+const CHARACTERISTICS = [
+  { id: "tc-1", code: "ADR", name: "Dangerous goods", description: "ADR load" },
+  { id: "tc-2", code: "FRIG", name: "Refrigerated", description: null },
+];
+
 /** Design 44: what the Integrations module answers to the postal-code lookup (`found` false = nothing to fill); `lookupFails` makes the GET fail. */
 const LOOKUP_FOUND = { found: true, street: "Dam", houseNumber: "1", city: "Amsterdam", latitude: 52.3731, longitude: 4.8932, provider: "PDOK" };
 let lookupResult: Record<string, unknown> = LOOKUP_FOUND;
@@ -180,12 +195,22 @@ beforeEach(() => {
   detail = stored;
   addressTypes = ADDRESS_TYPES;
   defaultCountry = null;
+  defaultCurrencyRow = null;
   GET.mockReset().mockImplementation(async (path, init) => {
     switch (path) {
       case "/api/master-data/relation/{id}":
         return ok(detail);
       case "/api/master-data/country/default":
         return defaultCountry ? ok(defaultCountry) : noContent();
+      case "/api/master-data/currency":
+        return ok({ rows: defaultCurrencyRow ? [defaultCurrencyRow] : [], lastRow: defaultCurrencyRow ? 1 : 0 });
+      case "/api/master-data/currency/lookup":
+        return ok(CURRENCY_LOOKUP);
+      case "/api/master-data/transport-characteristics/lookup-page": {
+        const term = String(init?.params?.query?.term ?? "").toLowerCase();
+        const items = CHARACTERISTICS.filter((c) => !term || c.name.toLowerCase().includes(term) || c.code.toLowerCase().includes(term));
+        return ok({ items, totalCount: items.length });
+      }
       case "/api/master-data/relation-category/lookup":
         return ok([{ id: "cat-1", name: "Cat A" }, { id: "cat-2", name: "Cat B" }]);
       case "/api/master-data/geographical-region/lookup":
@@ -291,6 +316,10 @@ const header = () => editorDialog().querySelector<HTMLElement>("[data-slot=entit
 
 const ADDRESS_LABELS = ["MasterData:Country", "MasterData:PostalCode", "MasterData:City", "MasterData:TimeZone", "MasterData:Street", "MasterData:Nr", "MasterData:HouseNumberSuffix", "MasterData:Building", "MasterData:Longitude", "MasterData:Latitude"];
 
+/* The long multi-tab flows (several address tabs, country detail round trips, lookup popups, a submit) take 1-4.5 s alone on an idle
+ * machine and cross vitest's 5 s default when the machine is busy (measured 2026-10-13); they are slow, not hanging. */
+const LONG_FLOW = 20_000;
+
 const submitEditor = () =>
   act(async () => {
     fireEvent.submit(editorDialog().querySelector("form")!);
@@ -356,6 +385,12 @@ const emptyBody = {
   preferredCulture: null,
   chamberOfCommerceNumber: null,
   vatNumber: null,
+  debtorNumber: null as string | null,
+  creditorNumber: null as string | null,
+  carrierCode: null as string | null,
+  currencyId: null as string | null,
+  externalIdentifiers: [] as { id: string | null; source: string; identifier: string }[],
+  transportCharacteristicIds: [] as string[],
   description: null,
   categoryIds: [],
   geographicalRegionIds: [],
@@ -385,14 +420,15 @@ const putBody = () => PUT.mock.calls[0][1]!.body as PutBody;
 const loadedAddress = (dto: AddressDto): PutAddress => ({ id: dto.id ?? null, addressTypeId: dto.addressTypeId ?? null, countryId: dto.countryId, street: dto.street, houseNumber: dto.houseNumber ?? null, houseNumberSuffix: dto.houseNumberSuffix ?? null, addressLine2: dto.addressLine2 ?? null, postalCode: dto.postalCode, city: dto.city, latitude: dto.latitude ?? null, longitude: dto.longitude ?? null, timeZoneId: dto.timeZoneId ?? null });
 
 describe("RelationEditor — layout", () => {
-  it("has the tabs General, Administration, Financial, Contact persons (no Addresses tab) and the roles as a MultiSelect", async () => {
+  it("has the tabs General, Administration, Contact persons and Record identification (no Financial, no Addresses tab) and the roles as a MultiSelect", async () => {
     renderEditor();
     await waitForEditor();
     const tabs = editorTabs().map((el) => el.textContent?.trim());
-    expect(tabs.slice(0, 4)).toEqual(["General", "MasterData:Administration", "MasterData:Financial", "MasterData:ContactPersons"]);
+    expect(tabs.slice(0, 3)).toEqual(["General", "MasterData:Administration", "MasterData:ContactPersons"]);
     /* The record identification icon tab closes the strip; the address-type and Map / Remarks tabs are not part of it. */
-    expect(tabs).toHaveLength(5);
+    expect(tabs).toHaveLength(4);
     expect(tabs).not.toContain("MasterData:Addresses");
+    expect(tabs).not.toContain("MasterData:Financial");
 
     const editor = editorDialog();
     expect(multiSelect(editor, "MasterData:Roles")).toHaveAttribute("data-slot", "mock-multi-select");
@@ -512,27 +548,67 @@ describe("RelationEditor — layout", () => {
     expect(within(addresses).queryByText(/Netherlands/)).toBeNull();
   });
 
-  it("the Administration tab holds the legal numbers, the preferred language and the organisation units; Financial holds the bank accounts", async () => {
+  it("the Administration tab (PO 2026-10-13): Company and Bank on the left, External identification numbers and Transport characteristics on the right", async () => {
     renderEditor();
     await waitForLookups();
     tab("MasterData:Administration");
-    const legal = region("MasterData:Legal");
-    expect(within(legal).getByLabelText(/^MasterData:ChamberOfCommerceNumber/)).toBeInTheDocument();
-    expect(within(legal).getByLabelText(/^MasterData:VatNumber/)).toBeInTheDocument();
-    const administration = region("MasterData:Administration");
-    expect(within(administration).getByLabelText(/^MasterData:PreferredCulture/)).toBeInTheDocument();
-    expect(multiSelect(administration, "MasterData:OrganizationUnits")).toHaveAttribute("data-slot", "mock-multi-select");
-    expect(within(administration).getByRole("checkbox", { name: "Unit 1" })).toBeInTheDocument();
-    /* Nothing of that on General any more. */
+    const company = region("MasterData:Company");
+    /* The Company block's fields in order; the MultiSelect mock's option labels carry no `for`. */
+    const order = Array.from(company.querySelectorAll<HTMLLabelElement>("label[for]")).map((el) => el.textContent?.replace(/\s*\*\s*$/, "").trim());
+    expect(order).toEqual([
+      "MasterData:DebtorNumber",
+      "MasterData:CreditorNumber",
+      "MasterData:ChamberOfCommerceNumber",
+      "MasterData:VatNumber",
+      "MasterData:CarrierCode",
+      "MasterData:Department",
+      "MasterData:Currency",
+      "MasterData:PreferredCulture",
+    ]);
+    expect(multiSelect(company, "MasterData:Department")).toHaveAttribute("data-slot", "mock-multi-select");
+    expect(within(company).getByRole("checkbox", { name: "Unit 1", hidden: true })).toBeInTheDocument();
+    /* The currency is a ReferenceCombobox over the currency lookup: code and name. */
+    await waitFor(() => expect(Array.from((field(company, "MasterData:Currency") as unknown as HTMLSelectElement).options).map((o) => o.textContent)).toEqual(["—", "EUR Euro", "USD US dollar"]));
+
+    const bank = region("MasterData:Bank");
+    expect(within(bank).getByText("MasterData:AddBankAccount")).toBeInTheDocument();
+    expect(within(bank).getByText("MasterData:Iban")).toBeInTheDocument();
+    const external = region("MasterData:ExternalIdentifiers");
+    expect(Array.from(external.querySelectorAll("[data-column]")).map((el) => el.textContent)).toEqual(["MasterData:ExternalIdentifier", "MasterData:ExternalSource"]);
+    expect(within(external).getByText("MasterData:AddExternalIdentifier")).toBeInTheDocument();
+    const characteristics = region("MasterData:TransportCharacteristics");
+    const columns = Array.from(characteristics.querySelectorAll<HTMLElement>("[data-column]"));
+    expect(columns.map((el) => el.textContent)).toEqual(["MasterData:Name", "MasterData:Code", "MasterData:Description"]);
+    /* Read-only lines: no column is edited, none has a cell editor. */
+    expect(columns.map((el) => el.dataset.editable ?? null)).toEqual([null, null, null]);
+    expect(columns.map((el) => el.dataset.cellEditor ?? null)).toEqual([null, null, null]);
+    /* Lines are added with the EntityLookup in the grid's toolbar, named by an sr-only label and its placeholder. */
+    const characteristicLookup = within(characteristics).getByLabelText("MasterData:AddTransportCharacteristic", { selector: "input" }) as HTMLInputElement;
+    expect(characteristicLookup.placeholder).toBe("MasterData:AddTransportCharacteristic");
+    expect(within(characteristics).getByText("MasterData:AddTransportCharacteristic", { selector: "label" })).toHaveClass("sr-only");
+    const grid = characteristics.querySelector<HTMLElement>("[data-slot=mock-lines-grid]")!;
+    expect(grid.contains(characteristicLookup)).toBe(true);
+    expect(characteristicLookup.compareDocumentPosition(grid.querySelector("[data-slot=mock-lines-grid-columns]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    /* Left column: Company above Bank; right column: External identification numbers above Transport characteristics. */
+    const left = company.parentElement!;
+    const right = external.parentElement!;
+    expect(bank.parentElement).toBe(left);
+    expect(characteristics.parentElement).toBe(right);
+    expect(left.parentElement).toBe(right.parentElement);
+    expect(Array.from(left.parentElement!.children)).toEqual([left, right]);
+    expect(Array.from(left.children)).toEqual([company, bank]);
+    expect(Array.from(right.children)).toEqual([external, characteristics]);
+
+    /* Nothing of that on General; no Legal block, no Financial or Bank accounts tab any more. */
     const general = editorDialog().querySelector<HTMLElement>('[data-slot=entity-dialog-panel][aria-label="General"]')!;
     expect(general).not.toBeNull();
     expect(within(general).queryByLabelText(/^MasterData:VatNumber/)).toBeNull();
     expect(within(general).queryByLabelText(/^MasterData:PreferredCulture/)).toBeNull();
-
-    tab("MasterData:Financial");
-    const bank = region("MasterData:BankAccounts");
-    expect(within(bank).getByText("MasterData:AddBankAccount")).toBeInTheDocument();
-    expect(within(bank).getByText("MasterData:Iban")).toBeInTheDocument();
+    expect(within(general).queryByLabelText(/^MasterData:DebtorNumber/)).toBeNull();
+    expect(queryRegion("MasterData:Legal")).toBeNull();
+    expect(queryRegion("MasterData:BankAccounts")).toBeNull();
+    expect(screen.queryByRole("tab", { name: /MasterData:Financial/ })).toBeNull();
     expect(screen.queryByRole("tab", { name: /MasterData:BankAccounts/ })).toBeNull();
     expect(screen.queryByRole("tab", { name: /^MasterData:Addresses/ })).toBeNull();
   });
@@ -735,18 +811,18 @@ describe("RelationEditor — validation", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(postedBody().addresses).toHaveLength(1);
     expect(postedBody().addresses[0]).toMatchObject({ addressTypeId: "type-1", countryId: "c-1", street: "Main street", postalCode: "2611 AA", city: "Delft" });
-  });
+  }, LONG_FLOW);
 
-  it("refuses a bank account line without an IBAN and marks the Financial tab", async () => {
+  it("refuses a bank account line without an IBAN and marks the Administration tab", async () => {
     renderEditor();
     await waitForEditor();
     fillRequired();
-    tab("MasterData:Financial");
+    tab("MasterData:Administration");
     fireEvent.click(screen.getByText("MasterData:AddBankAccount"));
     await submitEditor();
     expect(POST).not.toHaveBeenCalled();
     expect(screen.getByText("MasterData:IbanRequired")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /MasterData:Financial/ }).className).toContain("text-destructive");
+    expect(screen.getByRole("tab", { name: /MasterData:Administration/ }).className).toContain("text-destructive");
   });
 
   it("prefills the name from a lookup's Add new … term (initialName)", async () => {
@@ -810,7 +886,7 @@ describe("RelationEditor — create", () => {
     });
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: "r-new" })));
     expect(onClose).toHaveBeenCalled();
-  });
+  }, LONG_FLOW);
 
   it("unticking Blocked after a reason was chosen removes the reason select and posts blockReason 0", async () => {
     renderEditor();
@@ -1061,7 +1137,7 @@ describe("RelationEditor — create", () => {
       { id: null, addressTypeId: "type-2", countryId: "c-2", street: "PO Box", houseNumber: "99", houseNumberSuffix: null, addressLine2: "Mail room", postalCode: "10115", city: "Berlin", latitude: null, longitude: null, timeZoneId: "Europe/Berlin" },
       postedVisitingAddress,
     ]);
-  });
+  }, LONG_FLOW);
 
   it("switching 'all addresses equal' back on brings the inline default fields back with what was entered", async () => {
     renderEditor();
@@ -1168,11 +1244,11 @@ describe("RelationEditor — create", () => {
     ]);
   });
 
-  it("bank accounts (Financial tab): the first line becomes the default, marking another moves it, and IBANs are posted normalised", async () => {
+  it("bank accounts (Administration tab, Bank block): the first line becomes the default, marking another moves it, and IBANs are posted normalised", async () => {
     renderEditor();
     await waitForLookups();
     fillRequired();
-    tab("MasterData:Financial");
+    tab("MasterData:Administration");
     fireEvent.click(screen.getByText("MasterData:AddBankAccount"));
     expect(within(lines()[0]).getByRole("checkbox", { name: "MasterData:IsDefault" })).toBeChecked();
 
@@ -1266,7 +1342,7 @@ describe("RelationEditor — edit", () => {
     expect(within(header()).getByText("MasterData:Archived")).toBeInTheDocument();
     expect(within(header()).queryByText(/MasterData:IsBlocked/)).toBeNull();
 
-    /* The line grids in tab order: Financial, Contact persons; the addresses are no grid any more. */
+    /* The line grids in tab order: Administration (bank accounts; no external ids or characteristics on this record), Contact persons; the addresses are no grid any more. */
     const all = lines();
     expect(all).toHaveLength(2);
     expect(within(all[0]).getByLabelText("MasterData:Iban")).toHaveValue("NL91ABNA0417164300");
@@ -1537,8 +1613,14 @@ describe("RelationEditor — edit", () => {
     expect(mapFrame()).not.toBeNull();
     expect(openRemarks(editor)).toBeDisabled();
     expect(screen.queryByText("MasterData:AddBankAccount")).toBeNull();
+    expect(screen.queryByText("MasterData:AddExternalIdentifier")).toBeNull();
+    expect(screen.queryByText("MasterData:AddTransportCharacteristic")).toBeNull();
     expect(screen.queryByText("MasterData:NewContactPerson")).toBeNull();
-    expect(document.querySelectorAll("[data-slot=mock-lines-grid][data-readonly=true]")).toHaveLength(2);
+    /* Bank accounts, external ids, transport characteristics, contact persons. */
+    expect(document.querySelectorAll("[data-slot=mock-lines-grid][data-readonly=true]")).toHaveLength(4);
+    for (const label of ["MasterData:DebtorNumber", "MasterData:CreditorNumber", "MasterData:CarrierCode", "MasterData:Currency", "MasterData:PreferredCulture"]) {
+      expect(field(editor, label), label).toBeDisabled();
+    }
     first.unmount();
 
     /* Typed addresses only: the tabs still switch, their fields stay disabled. */
@@ -1555,6 +1637,523 @@ describe("RelationEditor — edit", () => {
     expect(field(again, "MasterData:Street")).toBeDisabled();
     expect(field(again, "MasterData:Street").value).toBe("PO Box");
     expect(field(again, "MasterData:Building")).toBeDisabled();
+  });
+});
+
+describe("RelationEditor — Administration tab fields (PO 2026-10-13)", () => {
+  const currencyCalls = () => GET.mock.calls.filter(([path]) => path === "/api/master-data/currency");
+  const currency = () => field(editorDialog(), "MasterData:Currency") as unknown as HTMLSelectElement;
+  const shownCurrency = () => currency().selectedOptions[0]?.textContent;
+  const administrationTab = () => screen.getByRole("tab", { name: /MasterData:Administration/ });
+  const externalRegion = () => region("MasterData:ExternalIdentifiers");
+  const externalLines = () => Array.from(externalRegion().querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
+  const addExternal = () => fireEvent.click(within(externalRegion()).getByText("MasterData:AddExternalIdentifier"));
+  type ExternalColumn = "MasterData:ExternalIdentifier" | "MasterData:ExternalSource";
+  const externalInput = (line: HTMLElement, column: ExternalColumn) => within(line).getByLabelText(column) as HTMLInputElement;
+  const setExternal = (line: HTMLElement, column: ExternalColumn, value: string) => fireEvent.change(externalInput(line, column), { target: { value } });
+  const openEdit = async () => {
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    await waitForLookups();
+  };
+
+  describe("currency", () => {
+    it("a new relation starts with the tenant's default currency: the Currency field shows EUR and the POST carries its id", async () => {
+      defaultCurrencyRow = EUR_DEFAULT;
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      /* The default is the first currency row sorted isDefault desc. */
+      expect(currencyCalls()).toHaveLength(1);
+      expect(currencyCalls()[0][1]!.params!.query).toEqual({ StartRow: 0, EndRow: 1, SortBy: "isDefault", SortDir: "desc" });
+      expect(currency().value).toBe("cur-eur");
+      await waitFor(() => expect(shownCurrency()).toBe("EUR Euro"));
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody()).toEqual({ ...emptyBody, currencyId: "cur-eur" });
+    });
+
+    it("without a default currency the Currency field stays empty and currencyId null is posted", async () => {
+      defaultCurrencyRow = null;
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      await waitFor(() => expect(currency().options).toHaveLength(3));
+      expect(currency().value).toBe("");
+      expect(shownCurrency()).toBe("—");
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().currencyId).toBeNull();
+      expect(postedBody()).toEqual(emptyBody);
+    });
+
+    it("a first currency row that is not the default counts as no default; a currency picked by hand is posted", async () => {
+      defaultCurrencyRow = { id: "cur-usd", isoCode: "USD", isDefault: false };
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      await waitFor(() => expect(currency().options).toHaveLength(3));
+      expect(currency().value).toBe("");
+
+      fireEvent.change(currency(), { target: { value: "cur-usd" } });
+      expect(shownCurrency()).toBe("USD US dollar");
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().currencyId).toBe("cur-usd");
+    });
+
+    it("a loaded record keeps its own currency whatever the tenant's default, and sends it with the update", async () => {
+      defaultCurrencyRow = EUR_DEFAULT;
+      detail = { ...stored, currencyId: "cur-usd" };
+      renderEditor({ mode: "edit", id: "r1" });
+      await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+      await waitForLookups();
+      tab("MasterData:Administration");
+      await waitFor(() => expect(shownCurrency()).toBe("USD US dollar"));
+      expect(currency().value).toBe("cur-usd");
+      typeInto(editorDialog(), "MasterData:Name", "Acme Transport");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().currencyId).toBe("cur-usd");
+    });
+
+    it("a loaded record without a currency is not given the tenant's default", async () => {
+      defaultCurrencyRow = EUR_DEFAULT;
+      detail = { ...stored, currencyId: null };
+      await openEdit();
+      tab("MasterData:Administration");
+      await waitFor(() => expect(currency().options).toHaveLength(3));
+      expect(currency().value).toBe("");
+      typeInto(editorDialog(), "MasterData:Name", "Acme Transport");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().currencyId).toBeNull();
+    });
+
+    it("the default currency is fetched once the editor is open, not while closed", async () => {
+      defaultCurrencyRow = EUR_DEFAULT;
+      const { unmount } = renderEditor({ open: false });
+      await Promise.resolve();
+      expect(currencyCalls()).toHaveLength(0);
+      unmount();
+      renderEditor();
+      await waitFor(() => expect(currencyCalls()).toHaveLength(1));
+    });
+  });
+
+  describe("debtor number, creditor number, carrier code", () => {
+    it("debtor and creditor numbers are upper-cased while typing, the carrier code is not; all three are posted trimmed", async () => {
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      const company = region("MasterData:Company");
+      typeInto(company, "MasterData:DebtorNumber", " deb-001 ");
+      typeInto(company, "MasterData:CreditorNumber", " cr-9 ");
+      typeInto(company, "MasterData:CarrierCode", " acme-nl ");
+      expect(field(company, "MasterData:DebtorNumber").value).toBe(" DEB-001 ");
+      expect(field(company, "MasterData:CreditorNumber").value).toBe(" CR-9 ");
+      expect(field(company, "MasterData:CarrierCode").value).toBe(" acme-nl ");
+      expect(field(company, "MasterData:DebtorNumber").maxLength).toBe(32);
+      expect(field(company, "MasterData:CreditorNumber").maxLength).toBe(32);
+      expect(field(company, "MasterData:CarrierCode").maxLength).toBe(32);
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody()).toEqual({ ...emptyBody, debtorNumber: "DEB-001", creditorNumber: "CR-9", carrierCode: "acme-nl" });
+    });
+
+    it("empty or whitespace-only debtor, creditor and carrier code are posted as null; none is required", async () => {
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      const company = region("MasterData:Company");
+      typeInto(company, "MasterData:DebtorNumber", "   ");
+      typeInto(company, "MasterData:CreditorNumber", " ");
+      typeInto(company, "MasterData:CarrierCode", "  ");
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody()).toMatchObject({ debtorNumber: null, creditorNumber: null, carrierCode: null });
+      expect(administrationTab().className).not.toContain("text-destructive");
+    });
+
+    it("a loaded record shows its debtor, creditor and carrier code and sends them, changed or cleared, with the update", async () => {
+      detail = { ...stored, debtorNumber: "D-100", creditorNumber: "C-200", carrierCode: "Carr1" };
+      await openEdit();
+      tab("MasterData:Administration");
+      const company = region("MasterData:Company");
+      expect(field(company, "MasterData:DebtorNumber").value).toBe("D-100");
+      expect(field(company, "MasterData:CreditorNumber").value).toBe("C-200");
+      expect(field(company, "MasterData:CarrierCode").value).toBe("Carr1");
+
+      typeInto(company, "MasterData:DebtorNumber", " d-101 ");
+      typeInto(company, "MasterData:CarrierCode", "");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody()).toMatchObject({ debtorNumber: "D-101", creditorNumber: "C-200", carrierCode: null, concurrencyStamp: "stamp-1" });
+    });
+  });
+
+  describe("external identification numbers", () => {
+    it("adding lines and filling Id and Source posts { id: null, source, identifier } trimmed, in line order; a removed line is not posted", async () => {
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      expect(externalLines()).toHaveLength(0);
+      addExternal();
+      addExternal();
+      addExternal();
+      expect(externalLines()).toHaveLength(3);
+      setExternal(externalLines()[0], "MasterData:ExternalIdentifier", " 8712345000001 ");
+      setExternal(externalLines()[0], "MasterData:ExternalSource", " GLN ");
+      setExternal(externalLines()[1], "MasterData:ExternalIdentifier", "dropped");
+      setExternal(externalLines()[1], "MasterData:ExternalSource", "X");
+      setExternal(externalLines()[2], "MasterData:ExternalIdentifier", "ACME01");
+      setExternal(externalLines()[2], "MasterData:ExternalSource", "EDI");
+      fireEvent.click(within(externalLines()[1]).getByText("Remove"));
+      expect(externalLines()).toHaveLength(2);
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().externalIdentifiers).toEqual([
+        { id: null, source: "GLN", identifier: "8712345000001" },
+        { id: null, source: "EDI", identifier: "ACME01" },
+      ]);
+    });
+
+    it("a line missing its Id or Source (empty or whitespace) is refused with ExternalIdentifierIncomplete and the Administration tab marked; completing it posts", async () => {
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      addExternal();
+
+      /* An empty line: refused, not silently dropped. */
+      await submitEditor();
+      expect(POST).not.toHaveBeenCalled();
+      expect(within(externalRegion()).getByText("MasterData:ExternalIdentifierIncomplete")).toBeInTheDocument();
+      expect(administrationTab().className).toContain("text-destructive");
+      expect(generalTab().className).not.toContain("text-destructive");
+
+      /* Only the Id: still refused. */
+      setExternal(externalLines()[0], "MasterData:ExternalIdentifier", "8712345000001");
+      await submitEditor();
+      expect(POST).not.toHaveBeenCalled();
+      expect(screen.getByText("MasterData:ExternalIdentifierIncomplete")).toBeInTheDocument();
+
+      /* A whitespace-only Source is no Source. */
+      setExternal(externalLines()[0], "MasterData:ExternalSource", "   ");
+      await submitEditor();
+      expect(POST).not.toHaveBeenCalled();
+      expect(screen.getByText("MasterData:ExternalIdentifierIncomplete")).toBeInTheDocument();
+      expect(administrationTab().className).toContain("text-destructive");
+
+      /* Only the Source: refused as well. */
+      setExternal(externalLines()[0], "MasterData:ExternalIdentifier", "");
+      setExternal(externalLines()[0], "MasterData:ExternalSource", "GLN");
+      await submitEditor();
+      expect(POST).not.toHaveBeenCalled();
+      expect(screen.getByText("MasterData:ExternalIdentifierIncomplete")).toBeInTheDocument();
+
+      /* Both filled: the error and the tab mark go, the line is posted. */
+      setExternal(externalLines()[0], "MasterData:ExternalIdentifier", "8712345000001");
+      await waitFor(() => expect(screen.queryByText("MasterData:ExternalIdentifierIncomplete")).toBeNull());
+      expect(administrationTab().className).not.toContain("text-destructive");
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().externalIdentifiers).toEqual([{ id: null, source: "GLN", identifier: "8712345000001" }]);
+    });
+
+    it("a loaded record shows its lines and puts them with their ids; an edited line keeps its id, a removed one is dropped, a new one has none", async () => {
+      detail = {
+        ...stored,
+        externalIdentifiers: [
+          { id: "x1", source: "GLN", identifier: "8712345000001" },
+          { id: "x2", source: "EDI", identifier: "ACME01" },
+        ],
+      };
+      await openEdit();
+      tab("MasterData:Administration");
+      expect(externalLines()).toHaveLength(2);
+      expect(externalInput(externalLines()[0], "MasterData:ExternalIdentifier")).toHaveValue("8712345000001");
+      expect(externalInput(externalLines()[0], "MasterData:ExternalSource")).toHaveValue("GLN");
+      expect(externalInput(externalLines()[1], "MasterData:ExternalIdentifier")).toHaveValue("ACME01");
+      expect(externalInput(externalLines()[1], "MasterData:ExternalSource")).toHaveValue("EDI");
+
+      /* Untouched, they travel with their ids. */
+      typeInto(editorDialog(), "MasterData:Name", "Acme Transport");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().externalIdentifiers).toEqual([
+        { id: "x1", source: "GLN", identifier: "8712345000001" },
+        { id: "x2", source: "EDI", identifier: "ACME01" },
+      ]);
+
+      PUT.mockClear();
+      fireEvent.click(within(externalLines()[0]).getByText("Remove"));
+      setExternal(externalLines()[0], "MasterData:ExternalIdentifier", " ACME02 ");
+      addExternal();
+      setExternal(externalLines()[1], "MasterData:ExternalIdentifier", "4711");
+      setExternal(externalLines()[1], "MasterData:ExternalSource", "Portal");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().externalIdentifiers).toEqual([
+        { id: "x2", source: "EDI", identifier: "ACME02" },
+        { id: null, source: "Portal", identifier: "4711" },
+      ]);
+    });
+  });
+
+  describe("transport characteristics", () => {
+    const LOOKUP_PAGE = "/api/master-data/transport-characteristics/lookup-page";
+    const pageCalls = () => GET.mock.calls.filter(([path]) => path === LOOKUP_PAGE);
+    const pageQueries = () => pageCalls().map(([, init]) => init!.params!.query);
+    const characteristicsRegion = () => region("MasterData:TransportCharacteristics");
+    const lookup = () => within(characteristicsRegion()).getByLabelText("MasterData:AddTransportCharacteristic", { selector: "input" }) as HTMLInputElement;
+    const queryLookup = () => within(characteristicsRegion()).queryByLabelText("MasterData:AddTransportCharacteristic", { selector: "input" });
+    const characteristicLines = () => Array.from(characteristicsRegion().querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
+    /* Each read-only line as [name, code, description]. */
+    const lineTexts = () =>
+      characteristicLines().map((line) => ["name", "code", "description"].map((f) => line.querySelector(`[data-field=${f}]`)?.textContent ?? null));
+    const openPopup = (element: HTMLElement) => {
+      fireEvent.pointerDown(element);
+      fireEvent.mouseDown(element);
+      fireEvent.click(element);
+    };
+    const typeTerm = (element: HTMLElement, value: string) => fireEvent.input(element, { target: { value }, inputType: "insertText" });
+    const option = (name: string) => screen.findByRole("option", { name: new RegExp(`^${escape(name)}`) });
+    /* Opens the lookup, picks the option by its name and waits for the line. */
+    const pick = async (name: string) => {
+      const before = characteristicLines().length;
+      openPopup(lookup());
+      fireEvent.click(await option(name));
+      await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+      return before;
+    };
+    const DANGEROUS = ["Dangerous goods", "ADR", "ADR load"];
+    const REFRIGERATED = ["Refrigerated", "FRIG", ""];
+    const startNew = async () => {
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+    };
+
+    it("opening the lookup asks the first page with no term; picking adds a read-only line with name, code and description; the lookup stays empty; the ids are posted", async () => {
+      await startNew();
+      expect(pageCalls()).toHaveLength(0);
+      openPopup(lookup());
+      await waitFor(() => expect(GET).toHaveBeenCalledWith(LOOKUP_PAGE, { params: { query: { term: undefined, skip: 0, take: 25 } } }));
+      /* The option shows the name with code and description below it. */
+      expect(await option("Dangerous goods")).toHaveTextContent("ADR, ADR load");
+      fireEvent.click(await option("Dangerous goods"));
+      await waitFor(() => expect(lineTexts()).toEqual([DANGEROUS]));
+      expect(lookup().value).toBe("");
+
+      await pick("Refrigerated");
+      await waitFor(() => expect(lineTexts()).toEqual([DANGEROUS, REFRIGERATED]));
+      expect(lookup().value).toBe("");
+      /* The lines are read-only: no control in them, only the Remove row action. */
+      for (const line of characteristicLines()) {
+        expect(line.querySelectorAll("input, select, textarea")).toHaveLength(0);
+        expect(within(line).getByText("Remove")).toBeInTheDocument();
+      }
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody()).toEqual({ ...emptyBody, transportCharacteristicIds: ["tc-1", "tc-2"] });
+      /* The capped rows endpoint of the old picker is never asked. */
+      expect(GET).not.toHaveBeenCalledWith("/api/master-data/transport-characteristics", expect.anything());
+    }, LONG_FLOW);
+
+    it("picking a characteristic that is already a line changes nothing", async () => {
+      await startNew();
+      await pick("Dangerous goods");
+      await waitFor(() => expect(lineTexts()).toEqual([DANGEROUS]));
+      await pick("Dangerous goods");
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(lineTexts()).toEqual([DANGEROUS]);
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().transportCharacteristicIds).toEqual(["tc-1"]);
+    }, LONG_FLOW);
+
+    it("removing a line drops it from the POST", async () => {
+      await startNew();
+      await pick("Dangerous goods");
+      await pick("Refrigerated");
+      await waitFor(() => expect(lineTexts()).toEqual([DANGEROUS, REFRIGERATED]));
+      fireEvent.click(within(characteristicLines()[0]).getByText("Remove"));
+      expect(lineTexts()).toEqual([REFRIGERATED]);
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().transportCharacteristicIds).toEqual(["tc-2"]);
+    }, LONG_FLOW);
+
+    it("the lookup searches the server with the typed term after the 250 ms debounce, from 2 characters, with skip and take", async () => {
+      await startNew();
+      const input = lookup();
+      openPopup(input);
+      await waitFor(() => expect(pageCalls()).toHaveLength(1));
+
+      /* One character: no request for it, the hint to type more. */
+      typeTerm(input, "f");
+      expect(await screen.findByText("TypeToSearch")).toBeInTheDocument();
+      await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+      expect(pageQueries().some((q) => q?.term === "f")).toBe(false);
+
+      /* Two characters: not at once, but after the debounce. */
+      typeTerm(input, "fr");
+      expect(pageQueries().some((q) => q?.term === "fr")).toBe(false);
+      await waitFor(() => expect(GET).toHaveBeenCalledWith(LOOKUP_PAGE, { params: { query: { term: "fr", skip: 0, take: 25 } } }));
+      expect(await option("Refrigerated")).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByRole("option", { name: /^Dangerous goods/ })).toBeNull());
+      fireEvent.click(await option("Refrigerated"));
+      await waitFor(() => expect(lineTexts()).toEqual([REFRIGERATED]));
+      expect(lookup().value).toBe("");
+    }, LONG_FLOW);
+
+    it("a loaded record shows its characteristics from the detail DTO (name, code, description) and puts their ids; a removed one is dropped", async () => {
+      detail = {
+        ...stored,
+        transportCharacteristicIds: ["tc-2", "tc-1"],
+        transportCharacteristics: [
+          { id: "tc-2", code: "FRIG", name: "Refrigerated", description: null },
+          { id: "tc-1", code: "ADR", name: "Dangerous goods", description: "ADR load" },
+        ],
+      };
+      await openEdit();
+      tab("MasterData:Administration");
+      expect(lineTexts()).toEqual([REFRIGERATED, DANGEROUS]);
+      /* Shown from the DTO itself: no lookup request was needed. */
+      expect(pageCalls()).toHaveLength(0);
+
+      typeInto(editorDialog(), "MasterData:Name", "Acme Transport");
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().transportCharacteristicIds).toEqual(["tc-2", "tc-1"]);
+
+      PUT.mockClear();
+      fireEvent.click(within(characteristicLines()[0]).getByText("Remove"));
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().transportCharacteristicIds).toEqual(["tc-1"]);
+    });
+
+    it("hides Add new transport characteristic… without MasterData.TransportCharacteristics.Create", async () => {
+      await startNew();
+      openPopup(lookup());
+      expect(await option("Dangerous goods")).toBeInTheDocument();
+      expect(screen.queryByText("MasterData:AddNewTransportCharacteristics")).toBeNull();
+    }, LONG_FLOW);
+
+    it("with Create, Add new… opens the characteristics editor with the typed term as name; its save appends the new characteristic as a line, which is posted", async () => {
+      grants = { ...grants, "MasterData.TransportCharacteristics.Create": true };
+      POST.mockImplementation(async (path) =>
+        path === "/api/master-data/transport-characteristics" ? ok({ id: "tc-new", code: "COOL", name: "Cooled", description: null }) : ok({ ...stored, id: "r-new" }),
+      );
+      await startNew();
+      const input = lookup();
+      openPopup(input);
+      typeTerm(input, "Cooled");
+      fireEvent.click(await screen.findByText("MasterData:AddNewTransportCharacteristics"));
+
+      await waitFor(() => expect(dialogs()).toHaveLength(2));
+      const nested = childDialog();
+      expect(field(nested, "MasterData:Name").value).toBe("Cooled");
+      typeInto(nested, "MasterData:Code", "cool");
+      await act(async () => {
+        fireEvent.submit(nested.querySelector("form")!);
+        await Promise.resolve();
+      });
+      await waitFor(() =>
+        expect(POST).toHaveBeenCalledWith("/api/master-data/transport-characteristics", { body: { code: "COOL", name: "Cooled", description: null } }),
+      );
+      await waitFor(() => expect(dialogs()).toHaveLength(1));
+      await waitFor(() => expect(lineTexts()).toEqual([["Cooled", "COOL", ""]]));
+
+      await submitEditor();
+      await waitFor(() => expect(POST.mock.calls.filter(([path]) => path === "/api/master-data/relation")).toHaveLength(1));
+      expect(postedBody().transportCharacteristicIds).toEqual(["tc-new"]);
+    }, LONG_FLOW);
+
+    it("read-only: the loaded lines show without the lookup or the Remove action", async () => {
+      detail = {
+        ...stored,
+        transportCharacteristicIds: ["tc-1"],
+        transportCharacteristics: [{ id: "tc-1", code: "ADR", name: "Dangerous goods", description: "ADR load" }],
+      };
+      renderEditor({ mode: "edit", id: "r1", readOnly: true });
+      await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+      await waitForLookups();
+      tab("MasterData:Administration");
+      expect(lineTexts()).toEqual([DANGEROUS]);
+      expect(queryLookup()).toBeNull();
+      expect(within(characteristicsRegion()).queryByText("Remove")).toBeNull();
+      expect(pageCalls()).toHaveLength(0);
+    });
+  });
+
+  describe("department", () => {
+    const withTwoUnits = () => {
+      const base = GET.getMockImplementation()!;
+      GET.mockImplementation(async (path, init) =>
+        path === "/api/platform/administration/organization-units/all" ? ok([{ id: "ou-1", displayName: "Unit 1" }, { id: "ou-2", displayName: "Unit 2" }]) : base(path, init),
+      );
+    };
+
+    it("Department is the organisation-units MultiSelect in the Company block; the ticked units are posted as organizationUnitIds, an unticked one is not", async () => {
+      withTwoUnits();
+      renderEditor();
+      await waitForLookups();
+      fillRequired();
+      tab("MasterData:Administration");
+      const company = region("MasterData:Company");
+      const department = multiSelect(company, "MasterData:Department");
+      expect(department).toHaveAttribute("data-slot", "mock-multi-select");
+      const unit = (name: string) => within(department).getByRole("checkbox", { name });
+      await waitFor(() => expect(unit("Unit 2")).toBeInTheDocument());
+      expect(unit("Unit 1")).not.toBeChecked();
+      fireEvent.click(unit("Unit 2"));
+      fireEvent.click(unit("Unit 1"));
+      fireEvent.click(unit("Unit 2"));
+      fireEvent.click(unit("Unit 2"));
+      expect(unit("Unit 1")).toBeChecked();
+      expect(unit("Unit 2")).toBeChecked();
+
+      await submitEditor();
+      await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+      expect(postedBody().organizationUnitIds).toEqual(["ou-1", "ou-2"]);
+      /* There is no separate organisation-units field any more: Department is the one. */
+      expect(within(editorDialog()).queryByText(/^MasterData:OrganizationUnits/, { selector: "label" })).toBeNull();
+    });
+
+    it("a loaded record shows its units under Department and sends the changed selection with the update", async () => {
+      withTwoUnits();
+      await openEdit();
+      tab("MasterData:Administration");
+      const department = multiSelect(region("MasterData:Company"), "MasterData:Department");
+      const unit = (name: string) => within(department).getByRole("checkbox", { name });
+      await waitFor(() => expect(unit("Unit 2")).toBeInTheDocument());
+      expect(unit("Unit 1")).toBeChecked();
+      expect(unit("Unit 2")).not.toBeChecked();
+      fireEvent.click(unit("Unit 1"));
+      fireEvent.click(unit("Unit 2"));
+      await submitEditor();
+      await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+      expect(putBody().organizationUnitIds).toEqual(["ou-2"]);
+    });
   });
 });
 
@@ -1864,6 +2463,8 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     const editor = editorDialog();
     await waitForPrefill(editor);
     expect(mapFrame()).toBeNull();
+    /* Before the postal code is typed: once its suggestions dropdown (same gate) opens, the rest of the dialog is hidden from role queries. */
+    fillRequired();
 
     typeInto(editor, "MasterData:PostalCode", "1012AB");
     expect(lookupCalls()).toHaveLength(0);
@@ -1882,7 +2483,6 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     expect(screen.queryByText("MasterData:CityRequired")).toBeNull();
     expect(screen.queryByText("MasterData:StreetRequired")).toBeNull();
 
-    fillRequired();
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(postedBody().addresses).toEqual([
@@ -1906,7 +2506,7 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     expect(lookupQuery()).toEqual({ countryCode: "NL", postalCode: " 1012AB ", houseNumber: "7" });
     await waitFor(() => expect(field(editor, "MasterData:Street").value).toBe("Dam"));
     expect(filled(editor)).toEqual({ street: "Dam", houseNumber: "7", city: "Delft", latitude: "52.3731", longitude: "4.8932" });
-  });
+  }, LONG_FLOW);
 
   it("another country sends its own alpha-2 code from the country lookup", async () => {
     featureOn();
@@ -2064,6 +2664,8 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     await waitForLookups();
     const editor = editorDialog();
     await waitForPrefill(editor);
+    /* Before the postal code is typed: once its suggestions dropdown (same gate) opens, the rest of the dialog is hidden from role queries. */
+    fillRequired();
     typeInto(editor, "MasterData:City", "Delft");
     typeInto(editor, "MasterData:PostalCode", "1012AB");
     blur(editor, "MasterData:PostalCode");
@@ -2074,7 +2676,6 @@ describe("RelationEditor — postal-code lookup (design 44)", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     /* Still usable: the rest can be entered and posted. */
     typeInto(editor, "MasterData:Street", "Dam");
-    fillRequired();
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(postedBody().addresses[0]).toMatchObject({ postalCode: "1012AB", city: "Delft", street: "Dam", latitude: null, longitude: null });

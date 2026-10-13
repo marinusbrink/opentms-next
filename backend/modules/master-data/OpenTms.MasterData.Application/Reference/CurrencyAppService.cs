@@ -19,11 +19,13 @@ public class CurrencyAppService
       ICurrencyAppService
 {
     private readonly IRepository<Country, Guid> _countries;
+    private readonly IRepository<Relations.Relation, Guid> _relations;
 
-    public CurrencyAppService(IRepository<Currency, Guid> repository, IRepository<Country, Guid> countries)
+    public CurrencyAppService(IRepository<Currency, Guid> repository, IRepository<Country, Guid> countries, IRepository<Relations.Relation, Guid> relations)
         : base(repository)
     {
         _countries = countries;
+        _relations = relations;
     }
 
     [Authorize(MasterDataPermissions.Currencies.Default)]
@@ -183,6 +185,12 @@ public class CurrencyAppService
         if (await _countries.AnyAsync(c => c.DefaultCurrencyId == currency.Id))
         {
             return L["MasterData:InUseByCountries"];
+        }
+
+        /* A soft delete fires no FK restrict: the relations that use the currency block it explicitly (PO 2026-10-13). */
+        if (await _relations.AnyAsync(r => r.CurrencyId == currency.Id))
+        {
+            return L["MasterData:InUseByRelations"];
         }
 
         return null;

@@ -41,6 +41,8 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
     public DbSet<RelationCategoryMembership> RelationCategoryMemberships { get; set; } = default!;
     public DbSet<RelationGeographicalRegion> RelationGeographicalRegions { get; set; } = default!;
     public DbSet<RelationOrganizationUnit> RelationOrganizationUnits { get; set; } = default!;
+    public DbSet<RelationExternalIdentifier> RelationExternalIdentifiers { get; set; } = default!;
+    public DbSet<RelationTransportCharacteristic> RelationTransportCharacteristics { get; set; } = default!;
     public DbSet<Driver> Drivers { get; set; } = default!;
     public DbSet<DriverQualification> DriverQualifications { get; set; } = default!;
 
@@ -263,6 +265,16 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasIndex(r => new { r.TenantId, r.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(r => new { r.TenantId, r.VatNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"VatNumber\" IS NOT NULL AND " + NotDeleted);
             b.HasIndex(r => new { r.TenantId, r.ChamberOfCommerceNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"ChamberOfCommerceNumber\" IS NOT NULL AND " + NotDeleted);
+            /* Relation administration (PO 2026-10-13). */
+            b.Property(r => r.DebtorNumber).HasMaxLength(MasterDataConsts.MaxAccountNumberLength);
+            b.Property(r => r.CreditorNumber).HasMaxLength(MasterDataConsts.MaxAccountNumberLength);
+            b.Property(r => r.CarrierCode).HasMaxLength(MasterDataConsts.MaxCarrierCodeLength);
+            b.HasOne<Currency>().WithMany().HasForeignKey(r => r.CurrencyId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(r => r.CurrencyId);
+            b.HasIndex(r => new { r.TenantId, r.DebtorNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"DebtorNumber\" IS NOT NULL AND " + NotDeleted);
+            b.HasIndex(r => new { r.TenantId, r.CreditorNumber }).IsUnique().AreNullsDistinct(false).HasFilter("\"CreditorNumber\" IS NOT NULL AND " + NotDeleted);
+            b.HasMany(r => r.ExternalIdentifiers).WithOne().HasForeignKey(e => e.RelationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.TransportCharacteristics).WithOne().HasForeignKey(c => c.RelationId).OnDelete(DeleteBehavior.Cascade);
             /* Exactly one own company per tenant (assessment §3.1). */
             b.HasIndex(r => r.TenantId, "IX_Relations_TenantId_OwnCompany").IsUnique().AreNullsDistinct(false).HasFilter("(\"Roles\" & 16) = 16 AND " + NotDeleted);
             b.HasIndex(r => new { r.TenantId, r.SearchKey });
@@ -336,6 +348,26 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasKey(m => new { m.RelationId, m.GeographicalRegionId });
             b.HasOne<GeographicalRegion>().WithMany().HasForeignKey(m => m.GeographicalRegionId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(m => m.GeographicalRegionId);
+        });
+
+        builder.Entity<RelationExternalIdentifier>(b =>
+        {
+            b.ToTable("RelationExternalIdentifiers", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(e => e.Source).HasMaxLength(MasterDataConsts.MaxExternalSourceLength).IsRequired();
+            b.Property(e => e.Identifier).HasMaxLength(MasterDataConsts.MaxExternalIdentifierLength).IsRequired();
+            b.HasIndex(e => e.RelationId);
+            /* One relation per (source, identifier) in a tenant: the key other systems use to find the relation. */
+            b.HasIndex(e => new { e.TenantId, e.Source, e.Identifier }).IsUnique().AreNullsDistinct(false);
+        });
+
+        builder.Entity<RelationTransportCharacteristic>(b =>
+        {
+            b.ToTable("RelationTransportCharacteristics", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(m => new { m.RelationId, m.TransportCharacteristicsId });
+            b.HasOne<TransportCharacteristics>().WithMany().HasForeignKey(m => m.TransportCharacteristicsId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(m => m.TransportCharacteristicsId);
         });
 
         builder.Entity<RelationOrganizationUnit>(b =>

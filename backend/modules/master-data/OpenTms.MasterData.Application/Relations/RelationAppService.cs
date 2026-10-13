@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using OpenTms.MasterData.Drivers;
 using OpenTms.MasterData.Features;
+using OpenTms.MasterData.Fleet;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
@@ -28,6 +29,9 @@ public class RelationAppService
     private readonly IRepository<Country, Guid> _countries;
     private readonly IRepository<AddressType, Guid> _addressTypes;
     private readonly IRepository<RelationCategory, Guid> _categories;
+    private readonly IRepository<Currency, Guid> _currencies;
+    private readonly IRepository<TransportCharacteristics, Guid> _characteristics;
+    private readonly IRepository<RelationExternalIdentifier, Guid> _externalIds;
     private readonly IRepository<GeographicalRegion, Guid> _regions;
     private readonly IRepository<Driver, Guid> _drivers;
     private readonly IOrganizationUnitRepository _organizationUnits;
@@ -44,6 +48,9 @@ public class RelationAppService
         IRepository<Country, Guid> countries,
         IRepository<AddressType, Guid> addressTypes,
         IRepository<RelationCategory, Guid> categories,
+        IRepository<Currency, Guid> currencies,
+        IRepository<TransportCharacteristics, Guid> characteristics,
+        IRepository<RelationExternalIdentifier, Guid> externalIds,
         IRepository<GeographicalRegion, Guid> regions,
         IRepository<Driver, Guid> drivers,
         IOrganizationUnitRepository organizationUnits,
@@ -56,6 +63,9 @@ public class RelationAppService
         _countries = countries;
         _addressTypes = addressTypes;
         _categories = categories;
+        _currencies = currencies;
+        _characteristics = characteristics;
+        _externalIds = externalIds;
         _regions = regions;
         _drivers = drivers;
         _organizationUnits = organizationUnits;
@@ -238,6 +248,20 @@ public class RelationAppService
         }).ToList();
     }
 
+    /// <summary>The relation's characteristics with code, name and description, in one query, ordered by name.</summary>
+    private async Task<List<TransportCharacteristicsRowDto>> MapTransportCharacteristicsAsync(Relation r)
+    {
+        var ids = r.TransportCharacteristics.Select(c => c.TransportCharacteristicsId).ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var characteristics = await _characteristics.GetListAsync(c => ids.Contains(c.Id));
+        return characteristics.OrderBy(c => c.Name).ThenBy(c => c.Code)
+            .Select(c => new TransportCharacteristicsRowDto { Id = c.Id, Code = c.Code, Name = c.Name, Description = c.Description }).ToList();
+    }
+
     protected override async Task<RelationDto> ToDtoAsync(Relation r)
     {
         var dto = new RelationDto
@@ -256,6 +280,10 @@ public class RelationAppService
             ChamberOfCommerceNumber = r.ChamberOfCommerceNumber,
             VatNumber = r.VatNumber,
             PreferredCulture = r.PreferredCulture,
+            DebtorNumber = r.DebtorNumber,
+            CreditorNumber = r.CreditorNumber,
+            CarrierCode = r.CarrierCode,
+            CurrencyId = r.CurrencyId,
             Addresses = (await MapAddressesAsync(r.Addresses)).ToList(),
             ContactPersons = r.ContactPersons.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).Select(c => new RelationContactPersonDto
             {
@@ -281,7 +309,11 @@ public class RelationAppService
             }).ToList(),
             CategoryIds = r.Categories.Select(c => c.RelationCategoryId).ToList(),
             GeographicalRegionIds = r.GeographicalRegions.Select(g => g.GeographicalRegionId).ToList(),
-            OrganizationUnitIds = r.OrganizationUnits.Select(o => o.OrganizationUnitId).ToList()
+            OrganizationUnitIds = r.OrganizationUnits.Select(o => o.OrganizationUnitId).ToList(),
+            ExternalIdentifiers = r.ExternalIdentifiers.OrderBy(e => e.Source).ThenBy(e => e.Identifier)
+                .Select(e => new RelationExternalIdentifierDto { Id = e.Id, Source = e.Source, Identifier = e.Identifier }).ToList(),
+            TransportCharacteristicIds = r.TransportCharacteristics.Select(c => c.TransportCharacteristicsId).ToList(),
+            TransportCharacteristics = await MapTransportCharacteristicsAsync(r)
         };
         MapAudit(r, dto);
         return dto;
@@ -337,6 +369,27 @@ public class RelationAppService
             await EnsureUniqueAsync(r => r.ChamberOfCommerceNumber == coc && r.Id != relation.Id, "chamberOfCommerceNumber", coc);
         }
 
+        relation.SetAccountNumbers(input.DebtorNumber, input.CreditorNumber);
+        if (relation.DebtorNumber != null)
+        {
+            var debtor = relation.DebtorNumber;
+            await EnsureUniqueAsync(r => r.DebtorNumber == debtor && r.Id != relation.Id, "debtorNumber", debtor);
+        }
+
+        if (relation.CreditorNumber != null)
+        {
+            var creditor = relation.CreditorNumber;
+            await EnsureUniqueAsync(r => r.CreditorNumber == creditor && r.Id != relation.Id, "creditorNumber", creditor);
+        }
+
+        relation.SetCarrierCode(input.CarrierCode);
+        if (input.CurrencyId != null && !await _currencies.AnyAsync(c => c.Id == input.CurrencyId.Value))
+        {
+            throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "currencyId");
+        }
+
+        relation.SetCurrency(input.CurrencyId);
+
         relation.SetName(input.Name, input.FullName);
         relation.SetContact(input.Phone, input.Mobile, input.Email, input.Website);
         relation.SetPreferredCulture(input.PreferredCulture, _cultures);
@@ -383,6 +436,29 @@ public class RelationAppService
             throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "organizationUnitIds");
         }
 
+        var characteristicIds = input.TransportCharacteristicIds.Distinct().ToList();
+        if (characteristicIds.Count > 0 && await _characteristics.CountAsync(c => characteristicIds.Contains(c.Id)) != characteristicIds.Count)
+        {
+            throw new BusinessException(MasterDataErrorCodes.ReferenceNotFound).WithData("field", "transportCharacteristicIds");
+        }
+
+        relation.SetTransportCharacteristics(characteristicIds);
+        relation.SetExternalIdentifiers(input.ExternalIdentifiers.Select(e => new RelationExternalIdentifierInput(e.Id, e.Source, e.Identifier)), () => GuidGenerator.Create());
+
+        /* An external id names one relation per tenant: the same (source, identifier) on another relation is a duplicate.
+         * One query fetches the other relations' rows with any of these identifiers; the pairs are matched in memory. */
+        if (relation.ExternalIdentifiers.Count > 0)
+        {
+            var identifiers = relation.ExternalIdentifiers.Select(e => e.Identifier).Distinct().ToList();
+            var taken = (await _externalIds.GetListAsync(e => e.RelationId != relation.Id && identifiers.Contains(e.Identifier)))
+                .Select(e => (e.Source, e.Identifier)).ToHashSet();
+            var clash = relation.ExternalIdentifiers.FirstOrDefault(e => taken.Contains((e.Source, e.Identifier)));
+            if (clash != null)
+            {
+                throw new BusinessException(MasterDataErrorCodes.DuplicateKey).WithData("field", "externalIdentifiers").WithData("value", clash.Source + " " + clash.Identifier);
+            }
+        }
+
         relation.SetAddresses(
             input.Addresses.Select(a => new RelationAddressInput(a.Id, a.AddressTypeId, a.CountryId, a.Street, a.HouseNumber, a.HouseNumberSuffix, a.AddressLine2, a.PostalCode, a.City, a.Latitude, a.Longitude, a.TimeZoneId)),
             () => GuidGenerator.Create());
@@ -422,6 +498,8 @@ public class RelationAppService
         relation.SetCategories([]);
         relation.SetGeographicalRegions([]);
         relation.SetOrganizationUnits([]);
+        relation.SetExternalIdentifiers([], () => GuidGenerator.Create());
+        relation.SetTransportCharacteristics([]);
         return Task.CompletedTask;
     }
 

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import {
   FORM_SECTION_CAPTION,
@@ -32,6 +33,7 @@ import {
   type AddressRow,
 } from "@/apps/master-data/components/AddressFields";
 import { AddressMap } from "@/apps/master-data/components/AddressMap";
+import { TransportCharacteristicsEditor } from "@/apps/master-data/editors/TransportCharacteristicsEditor";
 import {
   ADDRESS_LOOKUP_FEATURE,
   ADDRESS_LOOKUP_PERMISSION,
@@ -66,6 +68,7 @@ import {
   blockReasonKey,
   contactPersonRoleKey,
   countries,
+  currencies,
   geographicalRegions,
   listToRoles,
   relationCategories,
@@ -74,9 +77,14 @@ import {
   rolesToList,
   useArchiveRelation,
   useDefaultCountry,
+  useDefaultCurrency,
+  toTransportCharacteristicOption,
+  transportCharacteristicLookupPage,
   useUnarchiveRelation,
   type RelationDto,
   type RelationRoles,
+  type TransportCharacteristicOption,
+  type TransportCharacteristicsDto,
 } from "@/domains/master-data/entities";
 import { masterDataQueryKey } from "@/domains/master-data/shared";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
@@ -90,9 +98,9 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * while blocked; categories and regions), then the Name and Contact information blocks stacked next to
  * the Addresses block. The Addresses block is the old one: "All addresses equal" with one inline
  * address (stored without an address type), or, when off, one tab per address type with the same
- * inline fields; below it the Map / Remarks section. Then Administration (legal numbers, preferred
- * language, organisation units), Financial (bank accounts, exactly one default), Contact persons and
- * Record identification. Archive and Unarchive are ribbon commands, confirmed; the roles, Archived
+ * inline fields; below it the Map / Remarks section. Then Administration (the old Administratie tab:
+ * company keys, currency, language, the n bank accounts, external ids, transport characteristics),
+ * Contact persons and Record identification. Archive and Unarchive are ribbon commands, confirmed; the roles, Archived
  * and Blocked show as badges after the title. */
 
 const DEFAULT_KEY = "default";
@@ -115,6 +123,16 @@ interface BankRow {
   isDefault: boolean;
 }
 
+interface ExternalIdRow {
+  key: string;
+  id: string | null;
+  source: string;
+  identifier: string;
+}
+
+/** A characteristic the relation carries; picked with the EntityLookup above the grid, shown read-only. */
+type CharacteristicRow = TransportCharacteristicOption;
+
 interface Values {
   code: string;
   name: string;
@@ -130,6 +148,12 @@ interface Values {
   preferredCulture: string | null;
   chamberOfCommerceNumber: string;
   vatNumber: string;
+  debtorNumber: string;
+  creditorNumber: string;
+  carrierCode: string;
+  currencyId: string | null;
+  externalIdentifiers: ExternalIdRow[];
+  transportCharacteristics: CharacteristicRow[];
   categoryIds: string[];
   geographicalRegionIds: string[];
   organizationUnitIds: string[];
@@ -168,6 +192,7 @@ const initialValuesFor =
   (
     initialName: string | undefined,
     defaultCountry: { id: string; timeZoneId: string | null } | null,
+    defaultCurrencyId: string | null,
   ) =>
   (dto: RelationDto | undefined): Values => {
     const stored = dto?.addresses ?? [];
@@ -187,6 +212,20 @@ const initialValuesFor =
       preferredCulture: dto?.preferredCulture ?? null,
       chamberOfCommerceNumber: dto?.chamberOfCommerceNumber ?? "",
       vatNumber: dto?.vatNumber ?? "",
+      debtorNumber: dto?.debtorNumber ?? "",
+      creditorNumber: dto?.creditorNumber ?? "",
+      carrierCode: dto?.carrierCode ?? "",
+      /* A new relation starts with the tenant's default currency, like the old screen's required "Valuta". */
+      currencyId: dto ? (dto.currencyId ?? null) : defaultCurrencyId,
+      externalIdentifiers: (dto?.externalIdentifiers ?? []).map((e) => ({
+        key: e.id ?? `new-${++rowCounter}`,
+        id: e.id ?? null,
+        source: e.source,
+        identifier: e.identifier,
+      })),
+      transportCharacteristics: (dto?.transportCharacteristics ?? []).map(
+        toTransportCharacteristicOption,
+      ),
       categoryIds: dto?.categoryIds ?? [],
       geographicalRegionIds: dto?.geographicalRegionIds ?? [],
       organizationUnitIds: dto?.organizationUnitIds ?? [],
@@ -249,6 +288,10 @@ const validate = (v: Values): FieldErrors<Values> => {
   }
   if (v.bankAccounts.some((b) => !b.iban.trim()))
     errors.bankAccounts = "MasterData:IbanRequired";
+  if (
+    v.externalIdentifiers.some((e) => !e.source.trim() || !e.identifier.trim())
+  )
+    errors.externalIdentifiers = "MasterData:ExternalIdentifierIncomplete";
   return errors;
 };
 
@@ -273,10 +316,17 @@ const GENERAL_FIELDS: (keyof Values & string)[] = [
 ];
 
 const ADMINISTRATION_FIELDS: (keyof Values & string)[] = [
+  "debtorNumber",
+  "creditorNumber",
   "chamberOfCommerceNumber",
   "vatNumber",
-  "preferredCulture",
+  "carrierCode",
   "organizationUnitIds",
+  "currencyId",
+  "preferredCulture",
+  "bankAccounts",
+  "externalIdentifiers",
+  "transportCharacteristics",
 ];
 
 export function RelationEditor({
@@ -294,6 +344,8 @@ export function RelationEditor({
   const defaultCountry = useDefaultCountry(open);
   const defaultCountryId = defaultCountry.data?.id ?? null;
   const defaultCountryZone = defaultCountry.data?.primaryTimeZoneId ?? null;
+  const defaultCurrency = useDefaultCurrency(open);
+  const defaultCurrencyId = defaultCurrency.data?.id ?? null;
   const initialValues = useMemo(
     () =>
       initialValuesFor(
@@ -301,11 +353,14 @@ export function RelationEditor({
         defaultCountryId
           ? { id: defaultCountryId, timeZoneId: defaultCountryZone }
           : null,
+        defaultCurrencyId,
       ),
-    [initialName, defaultCountryId, defaultCountryZone],
+    [initialName, defaultCountryId, defaultCountryZone, defaultCurrencyId],
   );
   /* A new relation waits for the default country (cached after the first open) so its initial values hold it. */
-  const ready = mode !== "create" || defaultCountry.isFetched;
+  const ready =
+    mode !== "create" ||
+    (defaultCountry.isFetched && defaultCurrency.isFetched);
   const create = relations.useCreate();
   const update = relations.useUpdate();
   const remove = relations.useDelete();
@@ -321,6 +376,18 @@ export function RelationEditor({
   const regionLookup = geographicalRegions.useLookup(open);
   const countryLookup = countries.useLookup(open);
   const typeLookup = addressTypes.useLookup(open);
+  const currencyLookup = currencies.useLookup(open);
+  const currencyOptions = useMemo(
+    () =>
+      (currencyLookup.data ?? []).map((c) => ({
+        value: c.id ?? "",
+        label: `${c.code ?? ""} ${c.name ?? ""}`.trim(),
+      })),
+    [currencyLookup.data],
+  );
+  const canCreateCharacteristic = useIsGranted(
+    "MasterData.TransportCharacteristics.Create",
+  );
   /* DEVIATION(UI-LOOK-001): organisation units are a MultiSelect, not a TreeSelect: a relation belongs to
    * several units and TreeSelect is single-valued, approved in docs/designs/43-master-data-relations-and-drivers.md. */
   const units = useAllOrganizationUnits();
@@ -559,6 +626,16 @@ export function RelationEditor({
         preferredCulture: v.preferredCulture,
         chamberOfCommerceNumber: text(v.chamberOfCommerceNumber),
         vatNumber: text(v.vatNumber),
+        debtorNumber: text(v.debtorNumber),
+        creditorNumber: text(v.creditorNumber),
+        carrierCode: text(v.carrierCode),
+        currencyId: v.currencyId,
+        externalIdentifiers: v.externalIdentifiers.map((e) => ({
+          id: e.id,
+          source: e.source.trim(),
+          identifier: e.identifier.trim(),
+        })),
+        transportCharacteristicIds: v.transportCharacteristics.map((c) => c.id),
         description: text(v.description),
         categoryIds: v.categoryIds,
         geographicalRegionIds: v.geographicalRegionIds,
@@ -679,6 +756,73 @@ export function RelationEditor({
     ],
     [readOnly, t],
   );
+
+  const externalIdColumns = useMemo<ColDef<ExternalIdRow>[]>(
+    () => [
+      {
+        field: "identifier",
+        headerName: t("MasterData:ExternalIdentifier"),
+        flex: 1,
+        minWidth: 140,
+        editable: !readOnly,
+        cellEditor: "agTextCellEditor",
+        cellEditorParams: { maxLength: 128 },
+      },
+      {
+        field: "source",
+        headerName: t("MasterData:ExternalSource"),
+        flex: 1,
+        minWidth: 120,
+        editable: !readOnly,
+        cellEditor: "agTextCellEditor",
+        cellEditorParams: { maxLength: 64 },
+      },
+    ],
+    [readOnly, t],
+  );
+
+  /* Read-only lines: a characteristic is added with the EntityLookup in the toolbar and removed with the row action. */
+  const characteristicColumns = useMemo<ColDef<CharacteristicRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: t("MasterData:Name"),
+        flex: 2,
+        minWidth: 160,
+      },
+      {
+        field: "code",
+        headerName: t("MasterData:Code"),
+        flex: 1,
+        minWidth: 100,
+      },
+      {
+        field: "description",
+        headerName: t("MasterData:Description"),
+        flex: 2,
+        minWidth: 160,
+      },
+    ],
+    [t],
+  );
+  const addCharacteristic = useCallback(
+    (option: TransportCharacteristicOption) =>
+      apply((values) =>
+        values.transportCharacteristics.some((c) => c.id === option.id)
+          ? values
+          : {
+              ...values,
+              transportCharacteristics: [
+                ...values.transportCharacteristics,
+                option,
+              ],
+            },
+      ),
+    [apply],
+  );
+  const [newCharacteristic, setNewCharacteristic] = useState<{
+    term: string;
+  } | null>(null);
 
   /* Exactly one default account: marking one unmarks the others (the server marks the first when none is). */
   const setBankRows = (form: FormContext<Values>, rows: BankRow[]) => {
@@ -1036,101 +1180,227 @@ export function RelationEditor({
       labelKey: "MasterData:Administration",
       fields: ADMINISTRATION_FIELDS,
       render: (form) => (
-        <div className="grid grid-cols-2 gap-4">
-          <FormSection title={t("MasterData:Legal")}>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <TextField
-                form={form}
-                field="chamberOfCommerceNumber"
-                labelKey="MasterData:ChamberOfCommerceNumber"
-                maxLength={32}
-              />
-              <TextField
-                form={form}
-                field="vatNumber"
-                labelKey="MasterData:VatNumber"
-                maxLength={32}
-                upper
-              />
-            </div>
-          </FormSection>
-          <FormSection title={t("MasterData:Administration")}>
-            <div className="grid grid-cols-1 gap-3">
-              <FormField
-                label={t("MasterData:PreferredCulture")}
-                htmlFor={form.id("preferredCulture")}
-                floating="always"
-              >
-                <ReferenceCombobox
-                  id={form.id("preferredCulture")}
-                  value={form.values.preferredCulture}
-                  onChange={(next) => form.set("preferredCulture", next)}
-                  options={languageOptions}
-                  disabled={form.readOnly}
+        /* The tab fills the dialog: the grids take the height that is left, so the tab never scrolls. */
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
+          {/* Left: the company's administrative keys and the bank accounts (the old Administratie tab; n accounts, PO 2026-10-13). */}
+          <div className="flex min-h-0 flex-col gap-3">
+            <FormSection title={t("MasterData:Company")}>
+              <div className="grid grid-cols-1 gap-y-3">
+                <TextField
+                  form={form}
+                  field="debtorNumber"
+                  labelKey="MasterData:DebtorNumber"
+                  maxLength={32}
+                  upper
                 />
-              </FormField>
-              <FormField
-                label={t("MasterData:OrganizationUnits")}
-                htmlFor={form.id("organizationUnitIds")}
-                floating="always"
-              >
-                <MultiSelect
-                  id={form.id("organizationUnitIds")}
-                  value={form.values.organizationUnitIds}
-                  onChange={(next) => form.set("organizationUnitIds", next)}
-                  options={unitOptions}
-                  disabled={form.readOnly}
+                <TextField
+                  form={form}
+                  field="creditorNumber"
+                  labelKey="MasterData:CreditorNumber"
+                  maxLength={32}
+                  upper
                 />
-              </FormField>
-            </div>
-          </FormSection>
-        </div>
-      ),
-    },
-    {
-      value: "financial",
-      labelKey: "MasterData:Financial",
-      fields: ["bankAccounts"],
-      render: (form) => (
-        <FormSection title={t("MasterData:BankAccounts")}>
-          <div className="flex h-72 flex-col gap-2">
-            {form.error("bankAccounts") && (
-              <p className="text-label text-destructive">
-                {form.error("bankAccounts")}
-              </p>
-            )}
-            <LazyLinesGrid<BankRow>
-              rows={form.values.bankAccounts}
-              onRowsChange={(rows) => setBankRows(form, rows)}
-              getRowId={(row) => row.key}
-              columnDefs={bankColumns}
-              readOnly={form.readOnly}
-              toolbar={
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    form.set("bankAccounts", [
-                      ...form.values.bankAccounts,
-                      {
-                        key: `new-${++rowCounter}`,
-                        id: null,
-                        iban: "",
-                        bic: "",
-                        bankName: "",
-                        accountHolder: "",
-                        isDefault: form.values.bankAccounts.length === 0,
-                      },
-                    ])
-                  }
+                <TextField
+                  form={form}
+                  field="chamberOfCommerceNumber"
+                  labelKey="MasterData:ChamberOfCommerceNumber"
+                  maxLength={32}
+                />
+                <TextField
+                  form={form}
+                  field="vatNumber"
+                  labelKey="MasterData:VatNumber"
+                  maxLength={32}
+                  upper
+                />
+                <TextField
+                  form={form}
+                  field="carrierCode"
+                  labelKey="MasterData:CarrierCode"
+                  maxLength={32}
+                />
+                <FormField
+                  label={t("MasterData:Department")}
+                  htmlFor={form.id("organizationUnitIds")}
+                  floating="always"
                 >
-                  <Plus /> {t("MasterData:AddBankAccount")}
-                </Button>
-              }
-            />
+                  <MultiSelect
+                    id={form.id("organizationUnitIds")}
+                    value={form.values.organizationUnitIds}
+                    onChange={(next) => form.set("organizationUnitIds", next)}
+                    options={unitOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+                <FormField
+                  label={t("MasterData:Currency")}
+                  htmlFor={form.id("currencyId")}
+                  floating="always"
+                >
+                  <ReferenceCombobox
+                    id={form.id("currencyId")}
+                    value={form.values.currencyId}
+                    onChange={(next) => form.set("currencyId", next)}
+                    options={currencyOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+                <FormField
+                  label={t("MasterData:PreferredCulture")}
+                  htmlFor={form.id("preferredCulture")}
+                  floating="always"
+                >
+                  <ReferenceCombobox
+                    id={form.id("preferredCulture")}
+                    value={form.values.preferredCulture}
+                    onChange={(next) => form.set("preferredCulture", next)}
+                    options={languageOptions}
+                    disabled={form.readOnly}
+                  />
+                </FormField>
+              </div>
+            </FormSection>
+            <FormSection
+              title={t("MasterData:Bank")}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="flex min-h-32 flex-1 flex-col gap-2">
+                {form.error("bankAccounts") && (
+                  <p className="text-label text-destructive">
+                    {form.error("bankAccounts")}
+                  </p>
+                )}
+                <LazyLinesGrid<BankRow>
+                  rows={form.values.bankAccounts}
+                  onRowsChange={(rows) => setBankRows(form, rows)}
+                  getRowId={(row) => row.key}
+                  columnDefs={bankColumns}
+                  readOnly={form.readOnly}
+                  toolbar={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        form.set("bankAccounts", [
+                          ...form.values.bankAccounts,
+                          {
+                            key: `new-${++rowCounter}`,
+                            id: null,
+                            iban: "",
+                            bic: "",
+                            bankName: "",
+                            accountHolder: "",
+                            isDefault: form.values.bankAccounts.length === 0,
+                          },
+                        ])
+                      }
+                    >
+                      <Plus /> {t("MasterData:AddBankAccount")}
+                    </Button>
+                  }
+                />
+              </div>
+            </FormSection>
           </div>
-        </FormSection>
+          {/* Right: the relation's ids in other systems and its transport characteristics. */}
+          <div className="flex min-h-0 flex-col gap-3">
+            <FormSection
+              title={t("MasterData:ExternalIdentifiers")}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="flex min-h-32 flex-1 flex-col gap-2">
+                {form.error("externalIdentifiers") && (
+                  <p className="text-label text-destructive">
+                    {form.error("externalIdentifiers")}
+                  </p>
+                )}
+                <LazyLinesGrid<ExternalIdRow>
+                  rows={form.values.externalIdentifiers}
+                  onRowsChange={(rows) => form.set("externalIdentifiers", rows)}
+                  getRowId={(row) => row.key}
+                  columnDefs={externalIdColumns}
+                  readOnly={form.readOnly}
+                  toolbar={
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        form.set("externalIdentifiers", [
+                          ...form.values.externalIdentifiers,
+                          {
+                            key: `new-${++rowCounter}`,
+                            id: null,
+                            source: "",
+                            identifier: "",
+                          },
+                        ])
+                      }
+                    >
+                      <Plus /> {t("MasterData:AddExternalIdentifier")}
+                    </Button>
+                  }
+                />
+              </div>
+            </FormSection>
+            <FormSection
+              title={t("MasterData:TransportCharacteristics")}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="flex min-h-32 flex-1 flex-col gap-2">
+                <LazyLinesGrid<CharacteristicRow>
+                  rows={form.values.transportCharacteristics}
+                  onRowsChange={(rows) =>
+                    form.set("transportCharacteristics", rows)
+                  }
+                  getRowId={(row) => row.id}
+                  columnDefs={characteristicColumns}
+                  readOnly={form.readOnly}
+                  toolbar={
+                    <>
+                      <label
+                        htmlFor={form.id("transportCharacteristics")}
+                        className="sr-only"
+                      >
+                        {t("MasterData:AddTransportCharacteristic")}
+                      </label>
+                      <EntityLookup<TransportCharacteristicOption>
+                        id={form.id("transportCharacteristics")}
+                        value={null}
+                        onChange={(next) => {
+                          if (next) addCharacteristic(next);
+                        }}
+                        fetchPage={transportCharacteristicLookupPage}
+                        getLabel={(c) => c.name}
+                        renderOption={(c) => (
+                          <>
+                            <div className="font-medium">{c.name}</div>
+                            <div className="text-label text-muted-foreground">
+                              {[c.code, c.description]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </div>
+                          </>
+                        )}
+                        onCreateNew={
+                          canCreateCharacteristic
+                            ? (term) => setNewCharacteristic({ term })
+                            : undefined
+                        }
+                        createLabel={t(
+                          "MasterData:AddNewTransportCharacteristics",
+                        )}
+                        placeholder={t("MasterData:AddTransportCharacteristic")}
+                        className="w-72"
+                      />
+                    </>
+                  }
+                />
+              </div>
+            </FormSection>
+          </div>
+        </div>
       ),
     },
     {
@@ -1232,6 +1502,25 @@ export function RelationEditor({
         badges={badges}
         applyValues={applyValues}
       />
+      {newCharacteristic && (
+        <TransportCharacteristicsEditor
+          mode="create"
+          initialName={newCharacteristic.term}
+          readOnly={false}
+          open
+          onClose={() => setNewCharacteristic(null)}
+          onSaved={(saved) => {
+            const created = saved as TransportCharacteristicsDto | undefined;
+            if (!created?.id) return;
+            addCharacteristic({
+              id: created.id,
+              code: created.code ?? "",
+              name: created.name ?? "",
+              description: created.description ?? null,
+            });
+          }}
+        />
+      )}
       {contactDialog && (
         <ContactPersonDialog
           open

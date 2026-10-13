@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -26,6 +27,7 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
     private readonly IRepository<Relation, Guid> _relations;
     private readonly IRepository<RelationAddress, Guid> _addresses;
     private readonly IRepository<RelationBankAccount, Guid> _bankAccounts;
+    private readonly IRepository<RelationExternalIdentifier, Guid> _externalIds;
     private readonly IRepository<Driver, Guid> _drivers;
     private readonly IRepository<Country, Guid> _countries;
     private readonly IRepository<AddressType, Guid> _addressTypes;
@@ -37,6 +39,7 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
         _relations = GetRequiredService<IRepository<Relation, Guid>>();
         _addresses = GetRequiredService<IRepository<RelationAddress, Guid>>();
         _bankAccounts = GetRequiredService<IRepository<RelationBankAccount, Guid>>();
+        _externalIds = GetRequiredService<IRepository<RelationExternalIdentifier, Guid>>();
         _drivers = GetRequiredService<IRepository<Driver, Guid>>();
         _countries = GetRequiredService<IRepository<Country, Guid>>();
         _addressTypes = GetRequiredService<IRepository<AddressType, Guid>>();
@@ -331,6 +334,199 @@ public class RelationUniqueIndexTests : MasterDataPostgreSqlTestBase
             await _bankAccounts.InsertAsync(NewBankAccount(one.Id, "NL91ABNA0417164300", isDefault: true), autoSave: true);
             await _bankAccounts.InsertAsync(NewBankAccount(two.Id, "NL91ABNA0417164300", isDefault: true), autoSave: true);
             await ShouldViolateUniqueIndexAsync(() => _bankAccounts.InsertAsync(NewBankAccount(one.Id, "NL91ABNA0417164300", isDefault: false), autoSave: true), "IX_RelationBankAccounts_RelationId_Iban");
+        });
+    }
+
+    // ── Administration keys (PO 2026-10-13) ──────────────────────────────────
+    // Critical: the index is the one enforced place for the debtor / creditor numbers and the external ids.
+
+    private Relation NewAccountRelation(Guid? tenant, string code, string? debtor = null, string? creditor = null)
+    {
+        var relation = NewRelation(tenant, code, code);
+        relation.SetAccountNumbers(debtor, creditor);
+        return relation;
+    }
+
+    private RelationExternalIdentifier NewExternal(Guid? tenant, Guid relationId, string source, string identifier)
+        => new(_guids.Create(), tenant, relationId, source, identifier);
+
+    [Fact]
+    public async Task A_duplicate_debtor_number_is_refused_by_the_index_but_relations_without_one_are_fine()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            await _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-1", debtor: "QQDEB01"), autoSave: true);
+            await _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-2"), autoSave: true);
+            await _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-3"), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-4", debtor: " qqdeb01 "), autoSave: true), "IX_Relations_TenantId_DebtorNumber");
+        });
+    }
+
+    [Fact]
+    public async Task A_duplicate_creditor_number_is_refused_by_the_index_and_the_columns_are_separate_key_spaces()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            await _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-1", debtor: "QQ-X", creditor: "QQ-Y"), autoSave: true);
+            /* One relation's debtor number may be another's creditor number. */
+            await _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-2", debtor: "QQ-Y", creditor: "QQ-X"), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _relations.InsertAsync(NewAccountRelation(TenantA, "QQ-3", creditor: "QQ-Y"), autoSave: true), "IX_Relations_TenantId_CreditorNumber");
+        });
+    }
+
+    [Fact]
+    public async Task A_soft_deleted_relation_frees_its_debtor_and_creditor_numbers_for_the_index()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var first = NewAccountRelation(TenantA, "QQ-1", "QQDEB", "QQCRE");
+            await _relations.InsertAsync(first, autoSave: true);
+            await _relations.DeleteAsync(first, autoSave: true);
+
+            var second = NewAccountRelation(TenantA, "QQ-2", "QQDEB", "QQCRE");
+            await _relations.InsertAsync(second, autoSave: true);
+            (await _relations.GetAsync(r => r.DebtorNumber == "QQDEB")).Id.ShouldBe(second.Id);
+        });
+    }
+
+    [Fact]
+    public async Task Two_tenants_of_the_same_database_may_share_debtor_creditor_and_external_ids_and_the_host_is_unique_too()
+    {
+        /* The shared-tier tenant and the host share the host database; every administration index is per tenant. */
+        await InRolledBackTransactionAsync(SharedTenant, async () =>
+        {
+            var shared = NewAccountRelation(SharedTenant, "QQ-S", "QQDEB", "QQCRE");
+            await _relations.InsertAsync(shared, autoSave: true);
+            await _externalIds.InsertAsync(NewExternal(SharedTenant, shared.Id, "EDI", "QQ-871"), autoSave: true);
+
+            using (CurrentTenant.Change(null))
+            {
+                var host = NewAccountRelation(null, "QQ-H", "QQDEB", "QQCRE");
+                await _relations.InsertAsync(host, autoSave: true);
+                await _externalIds.InsertAsync(NewExternal(null, host.Id, "EDI", "QQ-871"), autoSave: true);
+                (await _relations.CountAsync(r => r.DebtorNumber == "QQDEB")).ShouldBe(1);
+                (await _externalIds.CountAsync(e => e.Identifier == "QQ-871")).ShouldBe(1);
+
+                /* NULLS NOT DISTINCT: the host's (TenantId null) keys are unique as well; the violation comes last. */
+                var second = NewAccountRelation(null, "QQ-H2");
+                await _relations.InsertAsync(second, autoSave: true);
+                await ShouldViolateUniqueIndexAsync(() => _externalIds.InsertAsync(NewExternal(null, second.Id, "EDI", "QQ-871"), autoSave: true), "IX_RelationExternalIdentifiers_TenantId_Source_Identifier");
+            }
+        });
+
+        await InRolledBackTransactionAsync(null, async () =>
+        {
+            await _relations.InsertAsync(NewAccountRelation(null, "QQ-H1", debtor: "QQDEB"), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _relations.InsertAsync(NewAccountRelation(null, "QQ-H2", debtor: "QQDEB"), autoSave: true), "IX_Relations_TenantId_DebtorNumber");
+        });
+    }
+
+    [Fact]
+    public async Task The_same_source_and_identifier_on_two_relations_of_a_tenant_is_refused_by_the_index()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var one = NewRelation(TenantA, "QQ-1", "One");
+            var two = NewRelation(TenantA, "QQ-2", "Two");
+            await _relations.InsertAsync(one, autoSave: true);
+            await _relations.InsertAsync(two, autoSave: true);
+
+            await _externalIds.InsertAsync(NewExternal(TenantA, one.Id, "EDI", "8712345000001"), autoSave: true);
+            /* Another source or another identifier is a different key. */
+            await _externalIds.InsertAsync(NewExternal(TenantA, two.Id, "Exact", "8712345000001"), autoSave: true);
+            await _externalIds.InsertAsync(NewExternal(TenantA, two.Id, "EDI", "8712345000002"), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _externalIds.InsertAsync(NewExternal(TenantA, two.Id, "EDI", "8712345000001"), autoSave: true), "IX_RelationExternalIdentifiers_TenantId_Source_Identifier");
+        });
+    }
+
+    [Fact]
+    public async Task Replacing_an_external_id_in_one_save_deletes_before_it_writes_so_the_index_holds()
+    {
+        /* Through the aggregate: drop the row holding EDI/1 and rename another to EDI/1 in the same save. */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var relation = NewRelation(TenantA, "QQ-1", "One");
+            relation.SetExternalIdentifiers([new RelationExternalIdentifierInput(null, "EDI", "1"), new RelationExternalIdentifierInput(null, "EDI", "2")], _guids.Create);
+            await _relations.InsertAsync(relation, autoSave: true);
+            var keep = relation.ExternalIdentifiers.Single(e => e.Identifier == "2").Id;
+
+            var loaded = await _relations.GetAsync(relation.Id);
+            loaded.SetExternalIdentifiers([new RelationExternalIdentifierInput(keep, "EDI", "1")], _guids.Create);
+            await _relations.UpdateAsync(loaded, autoSave: true);
+
+            var context = await _contextProvider.GetDbContextAsync();
+            context.ChangeTracker.Clear();
+            var stored = await context.Set<RelationExternalIdentifier>().Where(e => e.RelationId == relation.Id).ToListAsync();
+            stored.ShouldHaveSingleItem().Id.ShouldBe(keep);
+            stored[0].Identifier.ShouldBe("1");
+        });
+    }
+
+    [Fact]
+    public async Task A_relation_needs_an_existing_currency_and_characteristic_and_a_hard_delete_cascades_its_children()
+    {
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var relation = NewRelation(TenantA, "QQ-1", "One");
+            relation.SetCurrency(Guid.NewGuid());
+            await ShouldViolateAsync(() => _relations.InsertAsync(relation, autoSave: true), "FK_Relations_Currencies_CurrencyId", PostgresErrorCodes.ForeignKeyViolation);
+        });
+
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var relation = NewRelation(TenantA, "QQ-1", "One");
+            relation.SetTransportCharacteristics([Guid.NewGuid()]);
+            var ex = await Should.ThrowAsync<DbUpdateException>(() => _relations.InsertAsync(relation, autoSave: true));
+            var postgres = ex.InnerException.ShouldBeOfType<PostgresException>();
+            postgres.SqlState.ShouldBe(PostgresErrorCodes.ForeignKeyViolation);
+            postgres.ConstraintName!.ShouldStartWith("FK_RelationTransportCharacteristics_TransportCharacteristics_");
+        });
+
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var context = await _contextProvider.GetDbContextAsync();
+            /* A currency of its own: the seeded EUR is held by the countries' FK too. */
+            var currency = new Currency(_guids.Create(), TenantA, "QQX", OpenTms.Platform.Localization.LocalizedName.Create("en", "Test currency"), true);
+            var eur = currency.Id;
+            context.Add(currency);
+            var characteristic = new OpenTms.MasterData.Fleet.TransportCharacteristics(_guids.Create(), TenantA, "QQ-ADR", "Dangerous goods");
+            context.Add(characteristic);
+            await context.SaveChangesAsync();
+
+            var relation = NewRelation(TenantA, "QQ-1", "One");
+            relation.SetCurrency(eur);
+            relation.SetExternalIdentifiers([new RelationExternalIdentifierInput(null, "EDI", "1")], _guids.Create);
+            relation.SetTransportCharacteristics([characteristic.Id]);
+            await _relations.InsertAsync(relation, autoSave: true);
+
+            /* Restrict: the currency in use cannot be removed from under the relation. */
+            var restrict = await Should.ThrowAsync<PostgresException>(() => context.Database.ExecuteSqlAsync($"DELETE FROM masterdata.\"Currencies\" WHERE \"Id\" = {eur}"));
+            restrict.SqlState.ShouldBe(PostgresErrorCodes.ForeignKeyViolation);
+            restrict.ConstraintName.ShouldBe("FK_Relations_Currencies_CurrencyId");
+        });
+
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var context = await _contextProvider.GetDbContextAsync();
+            var characteristic = new OpenTms.MasterData.Fleet.TransportCharacteristics(_guids.Create(), TenantA, "QQ-ADR", "Dangerous goods");
+            context.Add(characteristic);
+            await context.SaveChangesAsync();
+            var relation = NewRelation(TenantA, "QQ-1", "One");
+            relation.SetExternalIdentifiers([new RelationExternalIdentifierInput(null, "EDI", "1")], _guids.Create);
+            relation.SetTransportCharacteristics([characteristic.Id]);
+            await _relations.InsertAsync(relation, autoSave: true);
+            var other = NewRelation(TenantA, "QQ-2", "Two");
+            other.SetTransportCharacteristics([characteristic.Id]);
+            await _relations.InsertAsync(other, autoSave: true);
+
+            /* Cascade: a hard delete of the relation takes its external ids and characteristics along; deleting the characteristic its joins. */
+            await context.Database.ExecuteSqlAsync($"DELETE FROM masterdata.\"Relations\" WHERE \"Id\" = {relation.Id}");
+            context.ChangeTracker.Clear();
+            (await context.Set<RelationExternalIdentifier>().CountAsync(e => e.RelationId == relation.Id)).ShouldBe(0);
+            (await context.Set<RelationTransportCharacteristic>().CountAsync(c => c.RelationId == relation.Id)).ShouldBe(0);
+
+            await context.Database.ExecuteSqlAsync($"DELETE FROM masterdata.\"TransportCharacteristics\" WHERE \"Id\" = {characteristic.Id}");
+            (await context.Set<RelationTransportCharacteristic>().CountAsync(c => c.RelationId == other.Id)).ShouldBe(0);
         });
     }
 

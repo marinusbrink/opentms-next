@@ -35,7 +35,9 @@ Per tenant, steady state (the test engineer multiplies by five):
 | Relation | up to 20,000 | a forwarder's customer and address book; most have one role |
 | RelationAddress | 1.5 per relation (30,000) | visiting and postal; depots have one |
 | RelationContactPerson | 2 per relation (40,000) | |
-| RelationBankAccount | up to 1 per relation | carriers and creditors only |
+| RelationBankAccount | up to 1 per relation, at most 10 | carriers and creditors mostly; n per relation since the PO's Administration decision (2026-10-13) |
+| RelationExternalIdentifier | up to 2 per relation, at most 50 | ids of the relation in partner and EDI systems |
+| RelationTransportCharacteristic | up to 3 per relation, at most 50 | join to run 1's transport characteristics |
 | Driver | up to 500 | own drivers plus the carriers' regular drivers |
 | DriverQualification | 3 per driver | licence, code 95, ADR |
 
@@ -192,6 +194,28 @@ either uses a match or hands the party to the intake flow as a *proposal* (desig
 (the index serves `LIKE '%…%'`; no similarity operator is used, so no extra EF package is needed). The migration runs `CREATE EXTENSION IF NOT EXISTS pg_trgm` in every database
 (Cloud SQL supports it); see Assumptions.
 
+### Relation administration (PO 2026-10-13)
+
+Additive migration `MasterDataRelationAdministration` on the shipped run-2 schema: `Relation.DebtorNumber`
+and `CreditorNumber` (string 32, upper-cased like codes, unique per tenant when set, partial indexes),
+`CarrierCode` (string 32), `CurrencyId` (FK → Currencies, restrict; a new relation starts with the tenant's
+default currency), child `RelationExternalIdentifier` (`Source` 64, `Identifier` 128; unique
+`(TenantId, Source, Identifier)`: an external id names one relation per tenant) and join
+`RelationTransportCharacteristic` (→ TransportCharacteristics, cascade). This moves `CurrencyId` and the
+carrier code back onto the relation, which §2 had placed in Financial and Integrations: a PO decision of
+2026-10-13 ("copy the old Administratie tab"); the Financial run's relation settings build on it.
+
+Bounds: at most 50 external ids and 50 transport characteristics per relation (`TooManyChildren`). The
+uniqueness of an external id across relations is checked with one query per save (the other relations'
+rows with any of the saved identifiers, matched on source and identifier in memory), and the unique index
+backs it. The relation detail returns the characteristics with code, name and description, so the
+Administration grid needs no list of all characteristics. The picker above that grid is an `EntityLookup`
+(UI-LOOK-001/002) over `TransportCharacteristicsAppService.GetLookupPageAsync`
+(`GET /api/master-data/transport-characteristics/lookup-page`, `TransportCharacteristics` permission, pages
+of 25, searched on code, name and description), with "Add new transport characteristic…" (UI-LOOK-004)
+for users who may create one. The relation's eight child collections load as split queries, one per
+collection, instead of one cartesian join.
+
 ### Default country (PO 2026-10-13)
 
 Run 1's `Country` gains `IsDefault`: exactly one default per tenant (unique partial index
@@ -217,10 +241,10 @@ that holds only those two is still "no address". The column lands in this run's 
 | Relation | `SearchName` | one indexed `SearchKey` over name, full name and code (§3.1); `FullName` is back on the PO's request (2026-10-12), optional, 128 characters |
 | Relation | `IsMe`, categories with system flags | `Roles` flags with the own-company partial index (§3.1) |
 | Relation | `IsBlocked` | kept as a flag with a `BlockReason` enum on the PO's request (2026-10-12, the old "Is geblokkeerd"); what a block stops is decided by the Financial and Orders runs (§3.1) |
-| Relation | `CurrencyId`, `VatId`, GL accounts, invoicing options, 48 charge-by and price-list columns, self-billing, purchase orders, incoming invoices | `RelationFinancialSettings` in Financial (§2, §3.1) |
+| Relation | `VatId`, GL accounts, invoicing options, 48 charge-by and price-list columns, self-billing, purchase orders, incoming invoices | `RelationFinancialSettings` in Financial (§2, §3.1); `CurrencyId` stays on the relation, see "Relation administration" |
 | Relation | portal users, auto-accept, ETA notifications, forwarding, questionnaires, time slots, default waypoints, access codes, door keys, vehicle types able to access | Orders and Planning settings per RelationId (§2) |
 | Relation | `SurchargesAndDiscounts`, `AvailableProducts`, `AvailableVehicleTypes` and the other delimited lists | join tables where the owning module needs them (§3.3) |
-| Relation | `TransportCompanyId`, `RelationGroupId`, `CarrierCode` | the serving carrier is a planning setting; RelationGroup is dropped by the PO (§2.1); a partner's carrier code is Integrations mapping |
+| Relation | `TransportCompanyId`, `RelationGroupId` | the serving carrier is a planning setting; RelationGroup is dropped by the PO (§2.1); `CarrierCode` stays on the relation, see "Relation administration" |
 | Relation | `Iban`, `BankName`, `Bic` columns | `RelationBankAccount` child with IBAN validation (§3.1) |
 | Relation | `FaxNumber`, `EmergencyNumber`, `InstantMessagerAddress`, `SkypeAddress` | not used; an emergency number is a depot contact person with a role |
 | RelationAddress | `Number` int, `AddressLine1` | `HouseNumber` string as typed plus `HouseNumberSuffix` (PO 2026-10-13, the old "Nr." and "Bijvoegsel"), `Street`; `AddressLine2` shown as *Building*; `TimeZoneId` as IANA (§3.1) |
@@ -262,8 +286,9 @@ Request and DTO shapes:
   countryCode, roles }` for the richer option rows of UI-LOOK-003.
 
 Errors (mapped to 409 and 400 in `OpenTms.HttpApi` as in run 1): `DuplicateKey` (code, VAT, CoC, IBAN,
-address type, user), `InUse`, `OwnCompanyAlreadyExists`, `RolesRequired`, `EmployerRoleRequired`,
-`InvalidIban`, `InvalidVatNumber`, `InvalidTimeZone`, `UserNotFound`, `AnonymisedRecordIsReadOnly`.
+address type, user, debtor number, creditor number, external id), `InUse`, `OwnCompanyAlreadyExists`,
+`RolesRequired`, `EmployerRoleRequired`, `InvalidIban`, `InvalidVatNumber`, `InvalidTimeZone`, `UserNotFound`,
+`AnonymisedRecordIsReadOnly`, `BlockReasonRequired`, `ExternalIdentifierIncomplete`, `TooManyChildren`.
 
 ## Migration strategy
 
@@ -307,11 +332,15 @@ Unarchive, Delete. Command bar: New relation, Delete selected.
    block with the *Map* / *Remarks* sub-tab strip (brand underline, like the editor's strip): the map
    is an OpenStreetMap embed of the active address' coordinates (no geocoder until Planning; the
    provider is a reversible choice, one URL and no package), Remarks is the Description.
-2. **Administration**: *Legal* (VAT number, Chamber of commerce), Preferred language, Organisation
+2. **Administration** (PO 2026-10-13, the old *Administratie* tab): left the *Company* block (Debtor
+   number, Creditor number, Chamber of commerce, VAT number, Carrier code, Department = organisation
    units `MultiSelect` (DEVIATION(UI-LOOK-001): a relation belongs to several units and `TreeSelect` is
-   single-valued; a multi-valued tree picker is a library gap for the component map).
-3. **Financial**: the bank accounts `LinesGrid` (IBAN, BIC, bank, holder, default; exactly one default);
-   the Financial run adds its relation settings on this tab.
+   single-valued), Currency, Language) and the *Bank* block with the bank accounts `LinesGrid` (n accounts,
+   exactly one default); right the *External identification numbers* grid (Id, Source) and the
+   *Transport characteristics* grid (Name, Code, Description). The old "Relatiesoort" (relation group)
+   stays dropped (§2.1); the roles on General are the type.
+3. ~~Financial~~: no tab in this run (its bank accounts moved to Administration); the Financial run adds
+   the tab with its relation settings.
 4. ~~Addresses tab~~ (dropped by the PO on 2026-10-13: the per-type addresses are the tabs inside the
    General tab's Addresses block; `AddressDialog` no longer exists). One address per type still holds:
    a tab is that type's one address.
@@ -417,7 +446,8 @@ relations and drivers from OpenTMS need a mapping, not a copy.
   attributed (enforced by the run-1 architecture test); feature flag as second gate.
 - **Input validation:** lengths and shapes (IBAN mod 97, VAT prefix shape, e-mail, IANA zone, culture
   from the configured languages), referenced ids checked in the tenant, child collections bounded
-  (50 addresses, 100 contact persons, 10 bank accounts, 20 qualifications per record), lookup pages
+  (50 addresses, 100 contact persons, 10 bank accounts, 50 external ids, 50 transport characteristics,
+  20 qualifications per record), lookup pages
   bounded at 25, matcher candidates at 10.
 - **Attack surface:** two conventional controllers behind authentication, permissions and the feature;
   the matcher is a read; no anonymous endpoint, no upload, no raw SQL (the contains query is a plain LINQ

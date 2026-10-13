@@ -841,6 +841,253 @@ public class RelationEntityRuleTests
         relation.OrganizationUnits.First().GetKeys().ShouldBe([relation.Id, relation.OrganizationUnits.First().OrganizationUnitId]);
     }
 
+    // ── Administration (PO 2026-10-13) ───────────────────────────────────────
+    // Risk class: High — the debtor and creditor numbers are the relation's keys in the accounting
+    // package (unique per tenant through the index the normalisation must feed consistently) and the
+    // external identifiers are the key other systems find the relation by.
+
+    private static RelationExternalIdentifierInput External(string source, string identifier, Guid? id = null) => new(id, source, identifier);
+
+    [Fact]
+    public void A_new_relation_has_no_administration_values()
+    {
+        var relation = NewRelation();
+
+        relation.DebtorNumber.ShouldBeNull();
+        relation.CreditorNumber.ShouldBeNull();
+        relation.CarrierCode.ShouldBeNull();
+        relation.CurrencyId.ShouldBeNull();
+        relation.ExternalIdentifiers.ShouldBeEmpty();
+        relation.TransportCharacteristics.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void SetAccountNumbers_trims_and_upper_cases_both_numbers_like_codes()
+    {
+        var relation = NewRelation();
+
+        relation.SetAccountNumbers("  deb-01 ", " cr 7a ");
+
+        relation.DebtorNumber.ShouldBe("DEB-01");
+        relation.CreditorNumber.ShouldBe("CR 7A", "inner spaces stay; only the ends are trimmed");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void An_empty_account_number_is_stored_as_null_and_clears_a_previous_one(string? empty)
+    {
+        var relation = NewRelation();
+        relation.SetAccountNumbers("D1", "C1");
+
+        relation.SetAccountNumbers(empty, "C1");
+        relation.DebtorNumber.ShouldBeNull();
+        relation.CreditorNumber.ShouldBe("C1");
+
+        relation.SetAccountNumbers("D1", empty);
+        relation.DebtorNumber.ShouldBe("D1");
+        relation.CreditorNumber.ShouldBeNull();
+    }
+
+    [Fact]
+    public void An_account_number_longer_than_32_is_InvalidCode_naming_the_field_and_changes_nothing()
+    {
+        var relation = NewRelation();
+        relation.SetAccountNumbers("D1", "C1");
+        var tooLong = new string('x', MasterDataConsts.MaxAccountNumberLength + 1);
+
+        var debtor = Should.Throw<BusinessException>(() => relation.SetAccountNumbers(tooLong, "C2"));
+        debtor.Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
+        debtor.Data["field"].ShouldBe("debtorNumber");
+
+        var creditor = Should.Throw<BusinessException>(() => relation.SetAccountNumbers("D2", tooLong));
+        creditor.Code.ShouldBe(MasterDataErrorCodes.InvalidCode);
+        creditor.Data["field"].ShouldBe("creditorNumber");
+
+        relation.DebtorNumber.ShouldBe("D1", "a refused call leaves both numbers as they were");
+        relation.CreditorNumber.ShouldBe("C1");
+    }
+
+    [Fact]
+    public void An_account_number_of_exactly_32_after_trimming_is_accepted()
+    {
+        var relation = NewRelation();
+        var max = new string('a', MasterDataConsts.MaxAccountNumberLength);
+
+        relation.SetAccountNumbers($"  {max}  ", max);
+
+        relation.DebtorNumber.ShouldBe(max.ToUpperInvariant());
+        relation.CreditorNumber.ShouldBe(max.ToUpperInvariant());
+    }
+
+    [Fact]
+    public void SetCarrierCode_trims_keeps_the_case_clears_on_empty_and_is_bounded_at_32()
+    {
+        var relation = NewRelation();
+
+        relation.SetCarrierCode("  dhl-Nl ");
+        relation.CarrierCode.ShouldBe("dhl-Nl", "free text: trimmed, not upper-cased");
+
+        relation.SetCarrierCode("   ");
+        relation.CarrierCode.ShouldBeNull();
+
+        relation.SetCarrierCode(new string('c', MasterDataConsts.MaxCarrierCodeLength));
+        relation.CarrierCode!.Length.ShouldBe(MasterDataConsts.MaxCarrierCodeLength);
+        Should.Throw<ArgumentException>(() => relation.SetCarrierCode(new string('c', MasterDataConsts.MaxCarrierCodeLength + 1)));
+        relation.CarrierCode!.Length.ShouldBe(MasterDataConsts.MaxCarrierCodeLength);
+    }
+
+    [Fact]
+    public void SetCurrency_sets_and_clears_the_currency()
+    {
+        var relation = NewRelation();
+        var eur = Guid.NewGuid();
+
+        relation.SetCurrency(eur);
+        relation.CurrencyId.ShouldBe(eur);
+
+        relation.SetCurrency(null);
+        relation.CurrencyId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void SetExternalIdentifiers_adds_trimmed_rows_of_the_relations_tenant()
+    {
+        var relation = NewRelation();
+
+        relation.SetExternalIdentifiers([External("  EDI ", " 8712345000001 "), External("Exact", "1001")], Guid.NewGuid);
+
+        relation.ExternalIdentifiers.Count.ShouldBe(2);
+        relation.ExternalIdentifiers.ShouldAllBe(e => e.RelationId == relation.Id && e.TenantId == Tenant && e.Id != Guid.Empty);
+        relation.ExternalIdentifiers.Select(e => (e.Source, e.Identifier)).ShouldBe([("EDI", "8712345000001"), ("Exact", "1001")], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void SetExternalIdentifiers_replaces_in_place_by_id_adds_new_rows_and_removes_the_missing_ones()
+    {
+        var relation = NewRelation();
+        relation.SetExternalIdentifiers([External("EDI", "1"), External("Portal", "P-1"), External("Exact", "1001")], Guid.NewGuid);
+        var edi = relation.ExternalIdentifiers.Single(e => e.Source == "EDI");
+        var exact = relation.ExternalIdentifiers.Single(e => e.Source == "Exact");
+
+        relation.SetExternalIdentifiers([External("EDI", "2", edi.Id), External("Exact", "1001", exact.Id), External("Webshop", "W-9")], Guid.NewGuid);
+
+        relation.ExternalIdentifiers.Count.ShouldBe(3);
+        relation.ExternalIdentifiers.ShouldContain(edi, "a row with a known id is updated, not recreated");
+        edi.Identifier.ShouldBe("2");
+        relation.ExternalIdentifiers.ShouldContain(exact);
+        relation.ExternalIdentifiers.ShouldNotContain(e => e.Source == "Portal");
+        relation.ExternalIdentifiers.ShouldContain(e => e.Source == "Webshop" && e.Identifier == "W-9");
+
+        relation.SetExternalIdentifiers([], Guid.NewGuid);
+        relation.ExternalIdentifiers.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void An_unknown_id_creates_a_new_row_and_never_adopts_the_given_id()
+    {
+        var relation = NewRelation();
+        var foreign = Guid.NewGuid();
+        var generated = Guid.NewGuid();
+
+        relation.SetExternalIdentifiers([External("EDI", "1", foreign)], () => generated);
+
+        relation.ExternalIdentifiers.ShouldHaveSingleItem().Id.ShouldBe(generated, "an id of another relation's row cannot be smuggled in");
+    }
+
+    [Theory]
+    [InlineData("", "123")]
+    [InlineData("   ", "123")]
+    [InlineData("EDI", "")]
+    [InlineData("EDI", "   ")]
+    public void A_line_without_source_or_identifier_is_ExternalIdentifierIncomplete_and_changes_nothing(string source, string identifier)
+    {
+        var relation = NewRelation();
+        relation.SetExternalIdentifiers([External("Exact", "1001")], Guid.NewGuid);
+
+        Should.Throw<BusinessException>(() => relation.SetExternalIdentifiers([External("Exact", "1001"), External(source, identifier)], Guid.NewGuid))
+            .Code.ShouldBe(MasterDataErrorCodes.ExternalIdentifierIncomplete);
+
+        relation.ExternalIdentifiers.ShouldHaveSingleItem().Identifier.ShouldBe("1001");
+        MasterDataErrorCodes.BadRequestCodes.ShouldContain(MasterDataErrorCodes.ExternalIdentifierIncomplete, "a client error, HTTP 400");
+    }
+
+    [Theory]
+    [InlineData("EDI", "123")]
+    [InlineData("edi", "123")]
+    [InlineData(" Edi ", " 123 ")]
+    public void The_same_source_case_insensitive_and_identifier_twice_is_DuplicateKey_and_changes_nothing(string source, string identifier)
+    {
+        var relation = NewRelation();
+
+        var ex = Should.Throw<BusinessException>(() => relation.SetExternalIdentifiers([External("EDI", "123"), External(source, identifier)], Guid.NewGuid));
+
+        ex.Code.ShouldBe(MasterDataErrorCodes.DuplicateKey);
+        ex.Data["field"].ShouldBe("externalIdentifiers");
+        relation.ExternalIdentifiers.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void The_same_identifier_under_another_source_or_in_another_case_is_no_duplicate()
+    {
+        var relation = NewRelation();
+
+        relation.SetExternalIdentifiers([External("EDI", "abc"), External("Exact", "abc"), External("EDI", "ABC")], Guid.NewGuid);
+
+        relation.ExternalIdentifiers.Count.ShouldBe(3);
+    }
+
+    [Fact]
+    public void More_than_fifty_external_identifiers_are_refused_with_TooManyChildren()
+    {
+        var relation = NewRelation();
+        var lines = Enumerable.Range(0, MasterDataConsts.MaxExternalIdentifiersPerRelation + 1).Select(i => External("EDI", $"ID-{i}")).ToList();
+
+        Should.Throw<BusinessException>(() => relation.SetExternalIdentifiers(lines, Guid.NewGuid)).Code.ShouldBe(MasterDataErrorCodes.TooManyChildren);
+        relation.ExternalIdentifiers.ShouldBeEmpty();
+
+        relation.SetExternalIdentifiers(lines.Take(MasterDataConsts.MaxExternalIdentifiersPerRelation), Guid.NewGuid);
+        relation.ExternalIdentifiers.Count.ShouldBe(MasterDataConsts.MaxExternalIdentifiersPerRelation);
+    }
+
+    [Fact]
+    public void Source_and_identifier_are_bounded_at_64_and_128()
+    {
+        var relation = NewRelation();
+        var source = new string('s', MasterDataConsts.MaxExternalSourceLength);
+        var identifier = new string('i', MasterDataConsts.MaxExternalIdentifierLength);
+
+        relation.SetExternalIdentifiers([External(source, identifier)], Guid.NewGuid);
+        relation.ExternalIdentifiers.ShouldHaveSingleItem().Source.ShouldBe(source);
+
+        Should.Throw<ArgumentException>(() => relation.SetExternalIdentifiers([External(source + "s", "1")], Guid.NewGuid));
+        Should.Throw<ArgumentException>(() => relation.SetExternalIdentifiers([External("EDI", identifier + "i")], Guid.NewGuid));
+        relation.ExternalIdentifiers.ShouldHaveSingleItem().Identifier.ShouldBe(identifier);
+    }
+
+    [Fact]
+    public void Transport_characteristics_are_synced_as_a_set_keyed_by_relation_and_characteristic()
+    {
+        var relation = NewRelation();
+        var adr = Guid.NewGuid();
+        var reefer = Guid.NewGuid();
+        var tail = Guid.NewGuid();
+
+        relation.SetTransportCharacteristics([adr, reefer, adr]);
+        relation.TransportCharacteristics.Select(c => c.TransportCharacteristicsId).ShouldBe([adr, reefer], ignoreOrder: true);
+        relation.TransportCharacteristics.ShouldAllBe(c => c.RelationId == relation.Id && c.TenantId == Tenant);
+        var kept = relation.TransportCharacteristics.Single(c => c.TransportCharacteristicsId == reefer);
+        kept.GetKeys().ShouldBe([relation.Id, reefer]);
+
+        relation.SetTransportCharacteristics([reefer, tail]);
+        relation.TransportCharacteristics.Select(c => c.TransportCharacteristicsId).ShouldBe([reefer, tail], ignoreOrder: true);
+        relation.TransportCharacteristics.ShouldContain(kept, "an unchanged row is kept, not recreated");
+
+        relation.SetTransportCharacteristics([]);
+        relation.TransportCharacteristics.ShouldBeEmpty();
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     /// <summary>A Dutch IBAN with the correct check digits for a given 14-character BBAN.</summary>
