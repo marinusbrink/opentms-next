@@ -119,14 +119,15 @@ guarantees:
 - **The mechanism stays per-tenant configurable** (ABP default): a tenant *without* a
   connection string lives in the host database — a shared-database tier needs no
   rearchitecting. Do not build anything that assumes all tenants have their own database.
-- Tenant provisioning (create database, run migrations, seed) is a Platform application
-  service (`ITenantProvisioningAppService`) with a Hangfire job — currently a **stub**;
-  full wiring arrives at department onboarding. Until then, provision manually:
-  insert the tenant + `Default` connection string, then run the DbMigrator (it creates
-  the database).
+- Tenant provisioning (create database and login role, run migrations, seed, invite the
+  administrator) is the Platform Hangfire job `TenantProvisioningJob`, started from the host-only
+  **Tenants** app (PO decision 2026-10-14, [docs/designs/tenants-and-editions.md](docs/designs/tenants-and-editions.md)).
+  Every tenant created there gets its own database `t_<name>_<id>` with its own role; pool settings
+  come from `Tenancy:ConnectionPool`. Deleting a tenant there drops its database.
 - `OpenTms.DbMigrator` migrates the host database plus **every** tenant database,
   continues past a failing tenant, reports per-tenant results, and exits non-zero on any
-  failure. Migrations and seeding live **only** there.
+  failure. Migrations and seeding live **only** there — with one exception: the provisioning job
+  migrates and seeds a *new* tenant's database once; every later migration is the DbMigrator's.
 - Tenant isolation is constitution rule 1. Every query/job/export/log line is
   tenant-scoped through the ABP data filter; `IgnoreMultiTenancy` /
   `IDataFilter.Disable<IMultiTenant>()` only with the documented escape hatch.
@@ -148,12 +149,18 @@ or the mapping are PO decisions** — agents never create a module per app.
 | Master data | `/master-data` | Master Data |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
+| Tenants (host only; views Tenants and Editions) | `/tenants` | Platform |
 
 **Decided by the PO on 2026-10-10:** the **logistics operating system (LOS)** is a separate app
 in this list: it runs the planning department through AI agents and workflows (decision agents,
 policies, the autonomy ladder, the exception inbox; `docs/architecture/06-agents-and-ai.md`).
 Its tile and route arrive with its first approved design; which domain owns its records is still
 open (AO-02). "LOS" no longer refers to a reporting overview.
+
+**Every app and every node of an app's navigation tree is an ABP feature** (PO decision 2026-10-14,
+[docs/designs/tenants-and-editions.md](docs/designs/tenants-and-editions.md), "App features"): `AppFeatures` in
+Platform, named after the tree path, mirrored by the `feature` of each entry in `apps.config.ts`. Adding an app or
+a nav node adds its feature in the same change. The host-only Tenants app has none.
 
 Frontend structure: `src/domains/<domain>/` mirrors the backend modules (query hooks,
 domain components); `src/apps/<app>/` holds the views composing them. All server access
@@ -253,6 +260,5 @@ dotnet ef migrations add <Name> -p backend/modules/<module>/OpenTms.<Module>.Ent
 
 - Deploy workflows / Cloud Run config — arrive at department onboarding.
 - Real domain entities — every entity arrives via an approved design (gate 1).
-- The full tenant-provisioning implementation (the Hangfire job is a stub).
 - ABP UI packages beyond the auth server's login pages (LeptonX-lite serves only
   `/Account/*`; the product UI is exclusively the React SPA).

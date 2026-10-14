@@ -85,7 +85,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   grants = {};
-  features = { "MasterData.FirstRun": "true" };
+  features = {};
 });
 
 import { CurrenciesView } from "@/apps/master-data/views/CurrenciesView";
@@ -100,12 +100,14 @@ import { TransportUnitsView } from "@/apps/master-data/views/TransportUnitsView"
 import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
 
 describe("Master data list views", () => {
-  it("shows the permission-denied panel while the per-tenant feature is off (constitution rule 4)", () => {
-    features = {};
+  it("does not read its feature: the shell keeps a list whose node is off off screen (PO 2026-10-14)", async () => {
+    /* Was: PermissionDenied while MasterData.FirstRun was off. The node feature (Apps.MasterData.Reference.Currencies)
+     * is now checked by AppShell, which renders FeatureUnavailable (AppShell.features.test.tsx). */
+    features = { "Apps.MasterData.Reference.Currencies": "false" };
     grants = { "MasterData.Currencies": true };
     render(<CurrenciesView />);
-    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
-    expect(screen.queryByTestId("mock-grid")).toBeNull();
+    expect(screen.queryByText("PermissionDenied")).toBeNull();
+    expect(await screen.findByTestId("mock-grid")).toBeInTheDocument();
   });
 
   it("shows the permission-denied panel without the view permission (UI-PAGE-005)", () => {

@@ -4,7 +4,7 @@ De lijst **Relaties** in de app [Stamgegevens](stamgegevens.md) bevat alle parti
 zaken doet: klanten, vervoerders, crediteuren, depots en uw eigen bedrijf. Eén record kan meerdere
 rollen hebben; een klant die ook voor u rijdt is dus één relatie met de rollen *Klant* en
 *Vervoerder*. De lijst staat in de groep *Relaties* van het navigatiepaneel en is per tenant
-ingeschakeld met de functie *Relaties en chauffeurs*. De rechten *Relaties bekijken*, *aanmaken*,
+ingeschakeld met de functie *Relaties* (via de editie van de tenant). De rechten *Relaties bekijken*, *aanmaken*,
 *wijzigen* en *verwijderen* bepalen wat een gebruiker mag.
 
 ## De lijst

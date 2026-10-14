@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Transport;
 using OpenTms.Platform.Grid;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Fleet;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class VehicleTypeAppService
     : MasterDataCrudAppServiceBase<VehicleType, VehicleTypeRowDto, VehicleTypeDto, VehicleTypeCreateDto, VehicleTypeUpdateDto, MasterDataListRequestDto>,
       IVehicleTypeAppService
@@ -31,24 +32,30 @@ public class VehicleTypeAppService
         _loadFactors = loadFactors;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<GridResponse<VehicleTypeRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<VehicleTypeDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Create)]
     public Task<VehicleTypeDto> CreateAsync(VehicleTypeCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Update)]
     public Task<VehicleTypeDto> UpdateAsync(Guid id, VehicleTypeUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);

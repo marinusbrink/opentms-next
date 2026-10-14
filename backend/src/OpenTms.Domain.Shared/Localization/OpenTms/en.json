@@ -28,6 +28,7 @@
     "Shell:WelcomeText": "Sign in to open your workspace.",
     "Shell:EmptyAppTitle": "Nothing here yet",
     "Shell:EmptyAppText": "This app is a stub — features arrive through the department pipeline.",
-    "Shell:ReadsFrom": "Reads from domains"
+    "Shell:ReadsFrom": "Reads from domains",
+    "App:Tenants": "Tenants"
   }
 }

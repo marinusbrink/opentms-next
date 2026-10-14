@@ -31,6 +31,16 @@ function LazyAdministrationApp(): ReactElement {
   );
 }
 
+// Lazy-loaded: the host-only Tenants app (docs/designs/tenants-and-editions.md) stays out of the main chunk.
+const _LazyTenants = lazy(() => import("@/apps/tenants").then((m) => ({ default: m.TenantsApp })));
+function LazyTenantsApp(): ReactElement {
+  return (
+    <Suspense fallback={null}>
+      <_LazyTenants />
+    </Suspense>
+  );
+}
+
 /* Maps every app id from apps.config.ts to its view component (folder under
  * src/apps/). apps.config.ts stays pure data; this is the only place components
  * are attached. */
@@ -43,6 +53,7 @@ const components: Record<string, () => ReactElement> = {
   integrations: IntegrationsApp,
   reports: ReportsApp,
   admin: LazyAdministrationApp,
+  tenants: LazyTenantsApp,
 };
 
 export function componentForApp(app: AppDefinition): () => ReactElement {

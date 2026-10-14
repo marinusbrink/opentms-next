@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
 using Volo.Abp.Data;
@@ -29,6 +30,12 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// (the table exists in every database because the schema is shared; tenant databases keep it empty).
     /// </summary>
     public DbSet<ApplicationInstance> ApplicationInstances { get; set; } = default!;
+
+    /// <summary>
+    /// Editions: platform."Editions", host-owned and written in the host database only (tenant databases keep
+    /// the table empty). Feature values per edition are FeatureManagement's (docs/designs/tenants-and-editions.md).
+    /// </summary>
+    public DbSet<Edition> Editions { get; set; } = default!;
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -73,6 +80,15 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             /* The list reads newest heartbeat first; housekeeping deletes by it. */
             b.HasIndex(i => i.LastHeartbeatAt);
             b.HasIndex(i => i.Role);
+        });
+
+        builder.Entity<Edition>(b =>
+        {
+            b.ToTable("Editions", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(e => e.DisplayName).IsRequired().HasMaxLength(EditionConsts.MaxDisplayNameLength);
+            /* Unique among editions that are not deleted: a soft-deleted name may be reused. */
+            b.HasIndex(e => e.DisplayName).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
     }
 }

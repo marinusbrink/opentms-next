@@ -23,8 +23,9 @@ en van waar je bent aangemeld:
 | **Achtergrondtaken** | ja | nee | De achtergrondtaken (Hangfire): aantallen per status, servers, wachtrijen en de taken zelf. |
 
 Een tabblad waarvoor je geen rechten hebt, zie je niet. Voor tenants staat de hele
-weergave achter de instelling (feature) **Onderhoudsweergave**, die de host per tenant
-aanzet.
+weergave achter de functie (feature) **Onderhoud** van de app Beheer, die aan staat via de
+editie van de tenant (zie [Tenants en edities](beheer-tenants-en-edities.md)). De host heeft de
+weergave altijd.
 
 ---
 

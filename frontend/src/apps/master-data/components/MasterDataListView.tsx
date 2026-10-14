@@ -9,9 +9,8 @@ import type { GridRequest, GridResponse, GridRowAction, GridSelectionDto, OpenTm
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BulkDeleteResult } from "@/domains/master-data/shared";
-import { MASTER_DATA_FEATURE } from "@/domains/master-data/shared";
 import { getApiErrorMessage } from "@/lib/api/errors";
-import { useIsFeatureEnabled, useIsGranted } from "@/lib/auth/permissions";
+import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 const _OpenTmsGrid = lazy(() => import("@/components/ui/opentms-grid").then((m) => ({ default: m.OpenTmsGrid })));
@@ -34,8 +33,6 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   entityKey: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
-  /** The per-tenant feature the view sits behind (constitution rule 4); defaults to the first-run flag. */
-  feature?: string;
   gridId: string;
   columnDefs: ColDef<TRow>[];
   fetchRows: (request: GridRequest) => Promise<GridResponse<TRow>>;
@@ -51,12 +48,11 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
 }
 
 /* Every list page of the Master data app (UI-PAGE-001): command bar, full-height server-side grid,
- * the page's dialogs. The four states are the grid's own plus the shared PermissionDenied panel,
- * which also shows while the per-tenant feature is off (design 41, UI design). */
+ * the page's dialogs. The four states are the grid's own plus the shared PermissionDenied panel. Whether
+ * the list's feature is on is decided by the shell ("App features", tenants-and-editions.md). */
 export function MasterDataListView<TRow extends { id?: string }>({
   entityKey,
   permission,
-  feature,
   gridId,
   columnDefs,
   fetchRows,
@@ -68,7 +64,6 @@ export function MasterDataListView<TRow extends { id?: string }>({
   renderEditor,
 }: MasterDataListViewProps<TRow>) {
   const { t } = useL();
-  const featureEnabled = useIsFeatureEnabled(feature ?? MASTER_DATA_FEATURE);
   const canView = useIsGranted(permission);
   const canCreate = useIsGranted(`${permission}.Create`);
   const canUpdate = useIsGranted(`${permission}.Update`);
@@ -207,7 +202,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
     }
   };
 
-  if (!featureEnabled || !canView) {
+  if (!canView) {
     return <PermissionDenied />;
   }
 

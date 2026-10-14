@@ -3,9 +3,6 @@
   "texts": {
     "Permission:MasterData": "Master data",
     "Module:MasterData": "Master data",
-    "Feature:MasterData": "Master data",
-    "Feature:FirstRun": "Master data app (first run)",
-    "Feature:FirstRun.Description": "Shows the ten reference lists of the Master data app for this tenant: currencies, countries, address types, relation categories, transport characteristics, temperatures, products, transport units, vehicle types and geographical regions.",
     "Permission:Currencies": "Currencies",
     "Permission:Currencies.Create": "Create currencies",
     "Permission:Currencies.Update": "Update currencies",
@@ -246,8 +243,6 @@
     "MasterData:MaxLoadKg": "Max load (kg)",
     "MasterData:IsStackable": "Stackable",
     "MasterData:MaxStackCount": "Max stack count",
-    "Feature:Relations": "Relations and drivers",
-    "Feature:Relations.Description": "Shows relations (customers, carriers, creditors, depots, own company) and drivers in the Master data app for this tenant.",
     "Permission:Relations": "Relations",
     "Permission:Relations.Create": "Create relations",
     "Permission:Relations.Update": "Update relations",

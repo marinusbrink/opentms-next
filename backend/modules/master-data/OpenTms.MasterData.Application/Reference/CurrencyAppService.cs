@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Localization;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Reference;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class CurrencyAppService
     : MasterDataCrudAppServiceBase<Currency, CurrencyRowDto, CurrencyDto, CurrencyCreateDto, CurrencyUpdateDto, CurrencyListRequestDto>,
       ICurrencyAppService
@@ -28,29 +29,36 @@ public class CurrencyAppService
         _relations = relations;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<GridResponse<CurrencyRowDto>> GetListAsync(CurrencyListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<CurrencyDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Create)]
     public Task<CurrencyDto> CreateAsync(CurrencyCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Update)]
     public Task<CurrencyDto> UpdateAsync(Guid id, CurrencyUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(CurrencyBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyActiveFilter(q, input.IsActive));
 
     /// <summary>The one place that changes the tenant default (assessment §3.8): clears the old, marks the new, one transaction.</summary>
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Update)]
     public async Task SetDefaultAsync(Guid id)
     {

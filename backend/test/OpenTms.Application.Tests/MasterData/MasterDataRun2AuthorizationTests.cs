@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.MasterData.Drivers;
-using OpenTms.MasterData.Features;
+using OpenTms.Platform.Features;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Relations;
 using Shouldly;
@@ -83,14 +83,24 @@ public class MasterDataRun2AuthorizationTests
     [Theory]
     [InlineData(typeof(RelationAppService))]
     [InlineData(typeof(DriverAppService))]
-    public void Both_services_sit_behind_the_Relations_feature(Type service)
+    public void Both_services_sit_behind_the_Master_data_app_feature(Type service)
     {
         var feature = service.GetCustomAttribute<RequiresFeatureAttribute>();
 
         feature.ShouldNotBeNull();
-        feature.Features.ShouldBe([MasterDataFeatures.Relations]);
-        MasterDataFeatures.Relations.ShouldBe("MasterData.Relations");
-        MasterDataFeatures.Relations.ShouldNotBe(MasterDataFeatures.FirstRun, "the second run has its own switch so run 1 can be live first");
+        feature.Features.ShouldBe([AppFeatures.MasterData.Default]);
+    }
+
+    [Fact]
+    public void Relations_and_Drivers_have_their_own_nodes_so_each_list_can_be_switched_separately()
+    {
+        /* Was one switch (MasterData.Relations) so run 1 could be live first; PO 2026-10-14 gave every list its node. */
+        MethodFeatures(typeof(RelationAppService), nameof(RelationAppService.GetListAsync))
+            .ShouldBe([AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList]);
+        MethodFeatures(typeof(DriverAppService), nameof(DriverAppService.GetListAsync))
+            .ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers]);
+        AppFeatures.MasterData.Relations.RelationsList.ShouldBe("Apps.MasterData.Relations.Relations");
+        AppFeatures.MasterData.Fleet.Drivers.ShouldBe("Apps.MasterData.Fleet.Drivers");
     }
 
     [Fact]
@@ -130,7 +140,7 @@ public class MasterDataRun2AuthorizationTests
     }
 
     [Fact]
-    public void SetDefault_is_not_reachable_through_the_read_or_create_permission_and_sits_behind_the_FirstRun_feature()
+    public void SetDefault_is_not_reachable_through_the_read_or_create_permission_and_sits_behind_the_Countries_node()
     {
         var policy = PolicyOf(typeof(CountryAppService), nameof(CountryAppService.SetDefaultAsync));
         policy.ShouldBe("MasterData.Countries.Update");
@@ -140,7 +150,11 @@ public class MasterDataRun2AuthorizationTests
 
         var feature = typeof(CountryAppService).GetCustomAttribute<RequiresFeatureAttribute>();
         feature.ShouldNotBeNull();
-        feature.Features.ShouldBe([MasterDataFeatures.FirstRun]);
+        feature.Features.ShouldBe([AppFeatures.MasterData.Default]);
+        MethodFeatures(typeof(CountryAppService), nameof(CountryAppService.SetDefaultAsync))
+            .ShouldBe([AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries]);
+        /* GetDefault is a picker (PO 2026-10-14): the app feature only. */
+        typeof(CountryAppService).GetMethod(nameof(CountryAppService.GetDefaultAsync))!.GetCustomAttribute<RequiresFeatureAttribute>().ShouldBeNull();
 
         typeof(CountryAppService)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -148,6 +162,15 @@ public class MasterDataRun2AuthorizationTests
             .Where(m => m.GetCustomAttribute<AuthorizeAttribute>()?.Policy == null)
             .Select(m => m.Name)
             .ShouldBeEmpty("every public method of CountryAppService needs [Authorize(<permission>)]");
+    }
+
+    private static string[] MethodFeatures(Type service, string method)
+    {
+        var attribute = service.GetMethod(method, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)!
+            .GetCustomAttribute<RequiresFeatureAttribute>();
+        attribute.ShouldNotBeNull($"{service.Name}.{method} needs its node feature");
+        attribute.RequiresAll.ShouldBeTrue();
+        return attribute.Features;
     }
 
     private static string? PolicyOf(Type service, string method)

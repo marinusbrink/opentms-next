@@ -60,7 +60,9 @@ public class MasterDataLocalizationParityTests
             MasterDataErrorCodes.InvalidCode, MasterDataErrorCodes.ReferenceNotFound, MasterDataErrorCodes.DuplicateLoadFactor,
             MasterDataErrorCodes.UnknownSortColumn, MasterDataErrorCodes.NameRequired, MasterDataErrorCodes.TooManyRows,
             "MasterData:InUseByCountries", "MasterData:InUseByGeographicalRegions", "MasterData:InUseByTransportUnits",
-            "Permission:MasterData", "Feature:MasterData", "Feature:FirstRun", "Feature:FirstRun.Description"
+            /* The feature texts moved to the Platform resource with the app features (PO 2026-10-14); see
+             * AppFeatureLocalizationTests. */
+            "Permission:MasterData"
         };
         foreach (var (entity, _, _, _, _) in Permissions.MasterDataPermissions.All)
         {

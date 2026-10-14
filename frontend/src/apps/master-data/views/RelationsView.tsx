@@ -27,7 +27,6 @@ import {
   type RelationListExtra,
   type RelationRow,
 } from "@/domains/master-data/entities";
-import { RELATIONS_FEATURE } from "@/domains/master-data/shared";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -227,7 +226,6 @@ export function RelationsView() {
       <MasterDataListView<RelationRow>
         entityKey="Relation"
         permission="MasterData.Relations"
-        feature={RELATIONS_FEATURE}
         gridId="masterData.relations"
         columnDefs={columnDefs}
         fetchRows={fetchRows}

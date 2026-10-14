@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
+import { APPS } from "@/app/apps.config";
+import { useAppFeatures } from "@/app/app-features";
+
 import { AddressTypesView } from "@/apps/master-data/views/AddressTypesView";
 import { CountriesView } from "@/apps/master-data/views/CountriesView";
 import { CurrenciesView } from "@/apps/master-data/views/CurrenciesView";
@@ -14,21 +17,20 @@ import { TransportCharacteristicsView } from "@/apps/master-data/views/Transport
 import { TransportUnitsView } from "@/apps/master-data/views/TransportUnitsView";
 import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
 
-/* The Master data app (design 41): routes by pathname like the Administration app. A group path
- * (the nav category) redirects to its first list; the bare app path to the first group's first list.
- * The Relations group path is the Relations list itself (design 43). */
-const GROUP_REDIRECTS: Record<string, string> = {
-  "/master-data": "/master-data/address-types",
-  "/master-data/transport": "/master-data/products",
-  "/master-data/fleet": "/master-data/vehicle-types",
-  "/master-data/reference": "/master-data/countries",
-};
+/* The Master data app (design 41): routes by pathname like the Administration app. The bare app path and a group
+ * path (the nav category) redirect to the first list that is on for this tenant ("App features",
+ * tenants-and-editions.md). The Relations group path is the Relations list itself (design 43). */
+const GROUP_PATHS = new Set(["/master-data", "/master-data/transport", "/master-data/fleet", "/master-data/reference"]);
+const masterDataApp = APPS.find((app) => app.id === "master-data")!;
 
 export function MasterDataApp() {
   const location = useLocation();
   const navigate = useNavigate();
+  const features = useAppFeatures();
   const pathname = location.pathname.replace(/\/+$/, "") || "/master-data";
-  const redirect = GROUP_REDIRECTS[pathname];
+  const redirect = GROUP_PATHS.has(pathname)
+    ? features.firstEnabledPath(masterDataApp, pathname === "/master-data" ? undefined : pathname)
+    : undefined;
 
   useEffect(() => {
     if (redirect) {

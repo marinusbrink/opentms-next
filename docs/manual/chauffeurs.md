@@ -2,7 +2,7 @@
 
 De lijst **Chauffeurs** in de app [Stamgegevens](stamgegevens.md) bevat de chauffeurs die ritten
 rijden: eigen chauffeurs en chauffeurs van charters. De lijst staat in de groep *Wagenpark* van het
-navigatiepaneel en is per tenant ingeschakeld met de functie *Relaties en chauffeurs*. De rechten
+navigatiepaneel en is per tenant ingeschakeld met de functie *Chauffeurs* (via de editie van de tenant). De rechten
 *Chauffeurs bekijken*, *aanmaken*, *wijzigen*, *verwijderen* en *anonimiseren* bepalen wat een
 gebruiker mag.
 

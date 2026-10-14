@@ -188,7 +188,7 @@ let suggestions: Record<string, unknown>[] = [SUGGESTED_PC, SUGGESTED_ADDRESS];
 
 beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
-  features = { "MasterData.Relations": "true" };
+  features = { "Apps.MasterData.Relations.Relations": "true" };
   lookupResult = LOOKUP_FOUND;
   lookupFails = false;
   suggestions = [SUGGESTED_PC, SUGGESTED_ADDRESS];

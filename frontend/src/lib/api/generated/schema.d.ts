@@ -18189,6 +18189,174 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/editions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Editions.EditionRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Editions.EditionRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Editions.EditionRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/editions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionCreateUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionDeleteCheckDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionDeleteCheckDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Editions.EditionDeleteCheckDto"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/grid-settings": {
         parameters: {
             query?: never;
@@ -18610,6 +18778,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/impersonation/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/tenant-provisioning/request-provisioning": {
         parameters: {
             query?: never;
@@ -18713,6 +18918,394 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Tenants.TenantRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Tenants.TenantRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Tenants.TenantRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Tenants.TenantCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/connection-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    name?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantConnectionPreviewDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantConnectionPreviewDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Tenants.TenantConnectionPreviewDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/edition-lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Editions.EditionLookupDto"][];
+                        "text/json": components["schemas"]["OpenTms.Platform.Editions.EditionLookupDto"][];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Editions.EditionLookupDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Tenants.TenantUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Tenants.TenantDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/impersonate/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    userId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Impersonation.ImpersonationRedirectDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/resend-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/retry-provisioning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Impersonation.TenantUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Impersonation.TenantUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Impersonation.TenantUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -21060,6 +21653,28 @@ export interface components {
             reason?: string | null;
             userName?: string | null;
         };
+        "OpenTms.Platform.Editions.EditionCreateUpdateDto": {
+            displayName: string;
+        };
+        "OpenTms.Platform.Editions.EditionDeleteCheckDto": {
+            displayName?: string | null;
+            /** Format: int32 */
+            tenantCount?: number;
+        };
+        "OpenTms.Platform.Editions.EditionLookupDto": {
+            displayName?: string | null;
+            /** Format: uuid */
+            id?: string;
+        };
+        "OpenTms.Platform.Editions.EditionRowDto": {
+            /** Format: date-time */
+            creationTime?: string;
+            displayName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            /** Format: int32 */
+            tenantCount?: number;
+        };
         "OpenTms.Platform.Grid.ColumnFilterModel": {
             filter?: string | null;
             filterTo?: string | null;
@@ -21241,6 +21856,27 @@ export interface components {
             /** Format: int64 */
             totalCount?: number;
         };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Editions.EditionRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Editions.EditionRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Impersonation.TenantUserRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Impersonation.TenantUserRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Tenants.TenantRowDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Tenants.TenantRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
         "OpenTms.Platform.Grid.GridSelectionDto": {
             excludedIds?: string[] | null;
             explicitIds?: string[] | null;
@@ -21255,8 +21891,47 @@ export interface components {
             colId?: string | null;
             sort?: string | null;
         };
-        "OpenTms.Platform.Tenants.TenantProvisioningRequestDto": {
+        "OpenTms.Platform.Impersonation.ImpersonationRedirectDto": {
+            url?: string | null;
+        };
+        "OpenTms.Platform.Impersonation.TenantUserRowDto": {
+            /** Format: uuid */
+            id?: string;
+            isActive?: boolean;
+            name?: string | null;
+            surname?: string | null;
+            userName?: string | null;
+        };
+        "OpenTms.Platform.Tenants.TenantConnectionPreviewDto": {
+            connectionString?: string | null;
             databaseName?: string | null;
+            serverName?: string | null;
+        };
+        "OpenTms.Platform.Tenants.TenantCreateDto": {
+            /** Format: email */
+            adminEmailAddress: string;
+            /** Format: uuid */
+            editionId?: string | null;
+            name: string;
+        };
+        "OpenTms.Platform.Tenants.TenantDto": {
+            connectionString?: string | null;
+            /** Format: date-time */
+            creationTime?: string;
+            databaseName?: string | null;
+            /** Format: uuid */
+            editionId?: string | null;
+            editionName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            invitationSentAt?: string | null;
+            name?: string | null;
+            provisioningError?: string | null;
+            provisioningState?: string | null;
+            serverName?: string | null;
+        };
+        "OpenTms.Platform.Tenants.TenantProvisioningRequestDto": {
             /** Format: uuid */
             tenantId?: string;
         };
@@ -21265,6 +21940,24 @@ export interface components {
             status?: string | null;
             /** Format: uuid */
             tenantId?: string;
+        };
+        "OpenTms.Platform.Tenants.TenantRowDto": {
+            /** Format: date-time */
+            creationTime?: string;
+            databaseName?: string | null;
+            /** Format: uuid */
+            editionId?: string | null;
+            editionName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+            provisioningState?: string | null;
+            serverName?: string | null;
+        };
+        "OpenTms.Platform.Tenants.TenantUpdateDto": {
+            /** Format: uuid */
+            editionId?: string | null;
+            name: string;
         };
         "Volo.Abp.Account.ChangePasswordInput": {
             currentPassword?: string | null;

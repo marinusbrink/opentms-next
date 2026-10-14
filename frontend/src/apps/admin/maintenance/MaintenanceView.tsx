@@ -7,23 +7,21 @@ import { CachesTab } from "@/apps/admin/maintenance/CachesTab";
 import { DatabasesTab } from "@/apps/admin/maintenance/DatabasesTab";
 import { HealthTab } from "@/apps/admin/maintenance/HealthTab";
 import { OutboxTab } from "@/apps/admin/maintenance/OutboxTab";
-import { useIsFeatureEnabled, useIsGranted, useIsHostSide } from "@/lib/auth/permissions";
+import { useIsGranted, useIsHostSide } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-export const MAINTENANCE_FEATURE = "Platform.Maintenance";
 
 export type MaintenanceTabId = "caches" | "databases" | "outbox" | "health" | "background-jobs";
 
 /* The Maintenance view of the Administration app (docs/designs/maintenance-view.md): five tabs,
  * each a page of its own with a command bar (UI-PAGE-006 for tabbed settings pages). A tab the
  * user may not see is not rendered (UI-PERM-002); the host-only tabs are never granted to a
- * tenant. On the tenant side the whole view sits behind the Platform.Maintenance feature
- * (constitution rule 4); the host has no tenant to carry a feature value and is gated by its
- * host-side permissions instead. */
+ * tenant. On the tenant side the whole view sits behind the Apps.Administration.Maintenance feature
+ * (constitution rule 4), which the shell checks; the host has no tenant to carry a feature value and
+ * is gated by its host-side permissions instead. */
 export function MaintenanceView() {
   const { t } = useL();
   const isHost = useIsHostSide();
-  const featureEnabled = useIsFeatureEnabled(MAINTENANCE_FEATURE);
   const canView = useIsGranted("Platform.Administration.Maintenance");
   const canCaches = useIsGranted("Platform.Administration.Maintenance.Caches");
   const canDatabases = useIsGranted("Platform.Administration.Maintenance.Databases");
@@ -46,7 +44,8 @@ export function MaintenanceView() {
   const [chosen, setChosen] = useState<MaintenanceTabId | undefined>();
   const active = tabs.some((tab) => tab.id === chosen) ? chosen! : tabs[0]?.id;
 
-  if (!canView || (!isHost && !featureEnabled) || tabs.length === 0) {
+  /* Its feature (Apps.Administration.Maintenance, tenant side only) is checked by the shell. */
+  if (!canView || tabs.length === 0) {
     return <PermissionDenied />;
   }
 

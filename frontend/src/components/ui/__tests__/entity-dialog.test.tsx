@@ -13,7 +13,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 
 // The command bar reads the toolbar feature flag; render the Office-365 strip.
 vi.mock("@/lib/abp/queries", () => ({
-  useApplicationConfiguration: () => ({ data: { features: { values: { "UI.CommonToolbar": "true" } } } }),
+  useApplicationConfiguration: () => ({ data: { features: { values: { "Apps.MasterData": "true" } } } }),
 }));
 
 class MockResizeObserver {

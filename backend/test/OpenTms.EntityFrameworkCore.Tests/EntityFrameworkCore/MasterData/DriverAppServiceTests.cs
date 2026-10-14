@@ -1,3 +1,4 @@
+using OpenTms.Platform.Features;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -620,7 +621,7 @@ public class DriverAppServiceTests : MasterDataAppServiceTestBase
         using var _ = InTenantA();
         var driver = await CreateAsync("D1", "Jan", "Jansen");
 
-        using (TestFeatureValueProvider.Override("false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetListAsync(Request()));
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetAsync(driver.Id));

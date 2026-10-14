@@ -1923,6 +1923,9 @@ namespace OpenTms.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("DeletionTime");
 
+                    b.Property<Guid?>("EditionId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("EntityVersion")
                         .HasColumnType("integer");
 
@@ -1956,6 +1959,8 @@ namespace OpenTms.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EditionId");
 
                     b.HasIndex("Name");
 

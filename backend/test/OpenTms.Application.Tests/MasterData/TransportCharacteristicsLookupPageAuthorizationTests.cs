@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
+using OpenTms.Platform.Features;
 using OpenTms.MasterData.Fleet;
 using Shouldly;
 using Volo.Abp.Features;
@@ -39,15 +39,15 @@ public class TransportCharacteristicsLookupPageAuthorizationTests
     }
 
     [Fact]
-    public void The_service_sits_behind_the_FirstRun_feature_and_the_lookup_page_adds_no_gate_of_its_own()
+    public void The_service_sits_behind_the_Master_data_app_feature_and_the_lookup_page_adds_no_gate_of_its_own()
     {
         var feature = typeof(TransportCharacteristicsAppService).GetCustomAttribute<RequiresFeatureAttribute>();
 
         feature.ShouldNotBeNull();
-        feature.Features.ShouldBe([MasterDataFeatures.FirstRun]);
-        MasterDataFeatures.FirstRun.ShouldBe("MasterData.FirstRun");
+        feature.Features.ShouldBe([AppFeatures.MasterData.Default]);
+        AppFeatures.MasterData.Default.ShouldBe("Apps.MasterData");
         Method(nameof(TransportCharacteristicsAppService.GetLookupPageAsync)).GetCustomAttribute<RequiresFeatureAttribute>()
-            .ShouldBeNull("the class-level feature gate applies; a method-level one would be a second, divergent gate");
+            .ShouldBeNull("a picker (PO 2026-10-14): only the class-level app feature applies, not the TransportCharacteristics node");
     }
 
     [Fact]

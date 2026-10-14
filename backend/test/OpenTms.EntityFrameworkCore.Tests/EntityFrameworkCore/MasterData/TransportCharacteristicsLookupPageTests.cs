@@ -1,3 +1,4 @@
+using OpenTms.Platform.Features;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -186,15 +187,22 @@ public class TransportCharacteristicsLookupPageTests : MasterDataAppServiceTestB
     // ── Feature flag (Critical) ───────────────────────────────────────────────
 
     [Fact]
-    public async Task With_the_FirstRun_flag_off_the_lookup_page_is_refused()
+    public async Task With_the_MasterData_app_off_the_lookup_page_is_refused_but_not_with_only_its_node_off()
     {
         using var _ = InTenantA();
         await CreateAsync("COOL", "Cooled");
 
-        using (TestFeatureValueProvider.Override("false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetLookupPageAsync());
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetLookupPageAsync("cool", 0, 1));
+        }
+
+        /* PO 2026-10-14: the lookup page is a picker (the relation editor), gated by the app feature only. */
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.TransportCharacteristics, "false"))
+        {
+            (await _service.GetLookupPageAsync()).TotalCount.ShouldBe(1);
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetListAsync(new MasterDataListRequestDto { StartRow = 0, EndRow = 100 }));
         }
 
         (await _service.GetLookupPageAsync()).TotalCount.ShouldBe(1);

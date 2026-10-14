@@ -13,6 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using OpenIddict.Validation.AspNetCore;
+using OpenTms.Impersonation;
+using Microsoft.AspNetCore.Identity;
 using OpenIddict.Server.AspNetCore;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -108,6 +110,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
         var configuration = context.Services.GetConfiguration();
         var hostingEnvironment = context.Services.GetHostingEnvironment();
 
+        ConfigureImpersonation(context);
+
         if (!configuration.GetValue<bool>("App:DisablePII"))
         {
             Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
@@ -153,6 +157,38 @@ public class OpenTmsHttpApiHostModule : AbpModule
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
+    }
+
+    /* "Log in as" (docs/designs/tenants-and-editions.md): ABP's impersonator claims must survive both token
+     * issuing (the claims handler) and Identity's periodic refresh of the auth cookie, which rebuilds the principal
+     * from the user and would otherwise drop them. */
+    private void ConfigureImpersonation(ServiceConfigurationContext context)
+    {
+        Configure<AbpOpenIddictClaimsPrincipalOptions>(options =>
+        {
+            options.ClaimsPrincipalHandlers.Add<ImpersonationClaimsPrincipalHandler>();
+        });
+
+        context.Services.Configure<SecurityStampValidatorOptions>(options =>
+        {
+            var previous = options.OnRefreshingPrincipal;
+            options.OnRefreshingPrincipal = async refreshing =>
+            {
+                if (previous != null)
+                {
+                    await previous(refreshing);
+                }
+
+                var identity = refreshing.NewPrincipal?.Identities.FirstOrDefault();
+                if (identity != null)
+                {
+                    foreach (var claim in ImpersonationClaims.From(refreshing.CurrentPrincipal))
+                    {
+                        identity.AddClaim(new System.Security.Claims.Claim(claim.Type, claim.Value));
+                    }
+                }
+            };
+        });
     }
 
     private void ConfigureHangfire(ServiceConfigurationContext context, IConfiguration configuration)

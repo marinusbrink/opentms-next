@@ -5,15 +5,20 @@ using OpenTms.Platform.Auditing;
 using OpenTms.Platform.Events.Outbox;
 using OpenTms.Platform.Maintenance.Caching;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.Platform.Tenants;
 using Volo.Abp;
 using Volo.Abp.Auditing;
 using Volo.Abp.Domain;
+using Volo.Abp.Features;
 using Volo.Abp.Modularity;
+using Volo.Abp.TenantManagement;
 
 namespace OpenTms.Platform;
 
 [DependsOn(
     typeof(AbpDddDomainModule),
+    typeof(AbpFeaturesModule),
+    typeof(AbpTenantManagementDomainModule),
     typeof(PlatformDomainSharedModule)
 )]
 public class PlatformDomainModule : AbpModule
@@ -41,5 +46,23 @@ public class PlatformDomainModule : AbpModule
          * count and clear (docs/designs/maintenance-view.md). A distributed cache (proposal AP-13)
          * registers its own IDistributedCache after this module and wins. */
         context.Services.Replace(ServiceDescriptor.Singleton<IDistributedCache, OpenTmsMemoryDistributedCache>());
+
+        /* Tenants and editions (docs/designs/tenants-and-editions.md). */
+        Configure<TenantDatabaseOptions>(configuration.GetSection(TenantDatabaseOptions.SectionName));
+
+        /* The edition of a tenant is resolved from the tenant, not from a login claim, so features
+         * evaluate the same in requests, jobs and event handlers. Same name and position as ABP's. */
+        Configure<AbpFeatureOptions>(options =>
+        {
+            var index = options.ValueProviders.IndexOf(typeof(EditionFeatureValueProvider));
+            if (index >= 0)
+            {
+                options.ValueProviders[index] = typeof(TenantEditionFeatureValueProvider);
+            }
+            else
+            {
+                options.ValueProviders.Add<TenantEditionFeatureValueProvider>();
+            }
+        });
     }
 }

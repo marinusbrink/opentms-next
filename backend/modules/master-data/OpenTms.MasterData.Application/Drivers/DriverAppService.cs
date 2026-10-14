@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Relations;
 using OpenTms.Platform.Grid;
@@ -14,10 +13,12 @@ using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
 using Volo.Abp.Identity;
 using Volo.Abp.Localization;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Drivers;
 
-[RequiresFeature(MasterDataFeatures.Relations)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class DriverAppService
     : MasterDataCrudAppServiceBase<Driver, DriverRowDto, DriverDto, DriverCreateDto, DriverUpdateDto, DriverListRequestDto>,
       IDriverAppService
@@ -43,9 +44,11 @@ public class DriverAppService
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Default)]
     public Task<GridResponse<DriverRowDto>> GetListAsync(DriverListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Default)]
     public Task<DriverDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -57,6 +60,7 @@ public class DriverAppService
     /// (design 43, cross-module references): the caller also needs its <c>AbpIdentity.UserLookup</c> permission.
     /// Behind the Update permission because it is only used to link one.
     /// </summary>
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Update)]
     public async Task<DriverUserLookupPageDto> GetUserLookupPageAsync(string? term = null, int skip = 0, int take = MasterDataConsts.LookupPageSize)
     {
@@ -76,19 +80,24 @@ public class DriverAppService
         };
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Create)]
     public Task<DriverDto> CreateAsync(DriverCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Update)]
     public Task<DriverDto> UpdateAsync(Guid id, DriverUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(DriverBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.IncludeArchived, input.EmployerRelationId));
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Update)]
     public async Task ArchiveAsync(Guid id)
     {
@@ -97,6 +106,7 @@ public class DriverAppService
         await Repository.UpdateAsync(driver, autoSave: true);
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Update)]
     public async Task UnarchiveAsync(Guid id)
     {
@@ -105,6 +115,7 @@ public class DriverAppService
         await Repository.UpdateAsync(driver, autoSave: true);
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Drivers.Anonymise)]
     public async Task AnonymiseAsync(Guid id)
     {

@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
+using OpenTms.Platform.Tenants;
 using Volo.Abp.Identity;
 using Volo.Abp.ObjectExtending;
+using Volo.Abp.TenantManagement;
 using Volo.Abp.Threading;
 
 namespace OpenTms.EntityFrameworkCore;
@@ -16,6 +19,14 @@ public static class OpenTmsEfCoreEntityExtensionMappings
 
         OneTimeRunner.Run(() =>
         {
+            /* The edition a tenant is on (docs/designs/tenants-and-editions.md): a real column, as ABP's Saas
+             * module has it, so editions can count their tenants in one query. Platform reads and writes it as
+             * the tenant's "EditionId" extra property. */
+            ObjectExtensionManager.Instance
+                .MapEfCoreProperty<Tenant, Guid?>(
+                    TenantProperties.EditionId,
+                    (entityBuilder, _) => entityBuilder.HasIndex(TenantProperties.EditionId));
+
                 /* You can configure extra properties for the
                  * entities defined in the modules used by your application.
                  *

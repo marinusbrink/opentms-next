@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.Platform.Grid;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Fleet;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class TransportCharacteristicsAppService
     : MasterDataCrudAppServiceBase<TransportCharacteristics, TransportCharacteristicsRowDto, TransportCharacteristicsDto, TransportCharacteristicsCreateDto, TransportCharacteristicsUpdateDto, MasterDataListRequestDto>,
       ITransportCharacteristicsAppService
@@ -26,9 +27,11 @@ public class TransportCharacteristicsAppService
         _relationJoins = relationJoins;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
     public Task<GridResponse<TransportCharacteristicsRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
     public Task<TransportCharacteristicsDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -52,15 +55,19 @@ public class TransportCharacteristicsAppService
         return new TransportCharacteristicsLookupPageDto { Items = await ToRowsAsync(page), TotalCount = totalCount };
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Create)]
     public Task<TransportCharacteristicsDto> CreateAsync(TransportCharacteristicsCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Update)]
     public Task<TransportCharacteristicsDto> UpdateAsync(Guid id, TransportCharacteristicsUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);

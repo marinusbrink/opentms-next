@@ -6,11 +6,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration;
 using OpenTms.Platform.Grid;
+using OpenTms.Features;
+using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
 
 namespace OpenTms.Controllers.Platform;
 
 [ApiController]
+[RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Users)]
 [Route("api/platform/administration/users")]
 public class UserAdministrationController : OpenTmsController
 {

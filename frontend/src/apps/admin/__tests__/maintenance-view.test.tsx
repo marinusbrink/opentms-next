@@ -246,13 +246,15 @@ describe("MaintenanceView – who sees which tabs (critical)", () => {
     expect(screen.queryByRole("tab", { name: "Maintenance:Caches" })).not.toBeInTheDocument();
   });
 
-  it("on the tenant side shows only the outbox tab, and only with the feature enabled (constitution rule 4)", () => {
+  it("on the tenant side shows only the outbox tab; the feature (Apps.Administration.Maintenance) is the shell's check", () => {
+    /* PO 2026-10-14: the view no longer reads its feature; AppShell renders FeatureUnavailable for /admin/maintenance
+     * while Apps.Administration.Maintenance is off (AppShell.features.test.tsx). */
     setConfig({ host: false, policies: ALL_POLICIES });
     const { unmount } = render(<MaintenanceView />);
-    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Maintenance:Outbox"]);
     unmount();
 
-    setConfig({ host: false, policies: ALL_POLICIES, features: { "Platform.Maintenance": "true" } });
+    setConfig({ host: false, policies: ALL_POLICIES, features: { "Apps.Administration": "true", "Apps.Administration.Maintenance": "true" } });
     render(<MaintenanceView />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Maintenance:Outbox"]);
   });

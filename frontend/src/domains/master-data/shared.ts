@@ -16,9 +16,6 @@ export type LookupItem = Schemas["OpenTms.MasterData.MasterDataLookupDto"];
 export type BulkDeleteResult = Schemas["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
 export type LocalizedNameMap = Record<string, string | null | undefined>;
 
-export const MASTER_DATA_FEATURE = "MasterData.FirstRun";
-/** Run 2 (design 43): the Relations and Drivers lists sit behind their own per-tenant feature. */
-export const RELATIONS_FEATURE = "MasterData.Relations";
 export const LOOKUP_TAKE = 500;
 
 /** The flat list query the services bind (startRow, endRow, wildcardSearch, sortBy, sortDir + entity filters). */

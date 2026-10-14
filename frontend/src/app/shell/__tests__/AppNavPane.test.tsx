@@ -18,6 +18,12 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
 }));
 
+/* useAppFeatures reads the application configuration; these fixtures carry no features, so every node shows
+ * (the feature filtering itself is covered in AppNavPane.features.test.tsx). */
+vi.mock("@/lib/abp/queries", () => ({
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, features: { values: {} } } }),
+}));
+
 vi.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,

@@ -25,6 +25,8 @@ export interface ConfirmDialogProps {
   busyLabel?: string;
   destructive?: boolean;
   onConfirm: () => Promise<void> | void;
+  /** Keeps the confirm button disabled, e.g. until a typed confirmation matches (irreversible actions). */
+  confirmDisabled?: boolean;
   children?: ReactNode;
 }
 
@@ -37,6 +39,7 @@ export function ConfirmDialog({
   busyLabel,
   destructive,
   onConfirm,
+  confirmDisabled = false,
   children,
 }: ConfirmDialogProps) {
   const { t } = useL();
@@ -98,7 +101,7 @@ export function ConfirmDialog({
             ref={confirmRef}
             variant={destructive ? "destructive" : "default"}
             onClick={() => void handleConfirm()}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
           >
             {busy ? (busyLabel ?? confirmLabel) : confirmLabel}
           </Button>

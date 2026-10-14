@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Fleet;
 using OpenTms.MasterData.Incompatibilities;
 using OpenTms.MasterData.Permissions;
@@ -11,10 +10,12 @@ using OpenTms.Platform.Grid;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Transport;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class TransportUnitAppService
     : MasterDataCrudAppServiceBase<TransportUnit, TransportUnitRowDto, TransportUnitDto, TransportUnitCreateDto, TransportUnitUpdateDto, ArchivableListRequestDto>,
       ITransportUnitAppService
@@ -32,24 +33,30 @@ public class TransportUnitAppService
         _vehicleTypes = vehicleTypes;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<GridResponse<TransportUnitRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<TransportUnitDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Create)]
     public Task<TransportUnitDto> CreateAsync(TransportUnitCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Update)]
     public Task<TransportUnitDto> UpdateAsync(Guid id, TransportUnitUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => input.IncludeArchived ? q : q.Where(u => !u.IsArchived));
