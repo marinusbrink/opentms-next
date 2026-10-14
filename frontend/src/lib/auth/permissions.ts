@@ -10,6 +10,13 @@ export function useIsGranted(policy: string): boolean {
   return granted?.[policy] === true;
 }
 
+/** For lists that check a permission per item (the app launcher): one subscription, a checker per policy. */
+export function useIsGrantedChecker(): (policy: string) => boolean {
+  const { data } = useApplicationConfiguration();
+  const granted = data?.auth?.grantedPolicies as Record<string, boolean> | undefined;
+  return (policy: string) => granted?.[policy] === true;
+}
+
 export function useIsFeatureEnabled(name: string): boolean {
   const { data } = useApplicationConfiguration();
   const values = data?.features?.values as Record<string, string | null> | undefined;

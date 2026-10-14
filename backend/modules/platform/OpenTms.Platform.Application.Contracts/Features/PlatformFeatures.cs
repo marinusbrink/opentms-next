@@ -1,13 +1,10 @@
 namespace OpenTms.Platform.Features;
 
+/// <summary>
+/// The Platform feature group. Its app and navigation features are <see cref="AppFeatures"/>; the former
+/// <c>Platform.Maintenance</c> is now <see cref="AppFeatures.Administration.Maintenance"/>.
+/// </summary>
 public static class PlatformFeatures
 {
     public const string GroupName = "Platform";
-
-    /// <summary>
-    /// Per-tenant switch for the Maintenance view (constitution rule 4; default off). It governs the
-    /// tenant-side part only (the Outbox tab): the host-only tabs are gated by host-side
-    /// permissions, because a host has no tenant to carry a feature value.
-    /// </summary>
-    public const string Maintenance = GroupName + ".Maintenance";
 }

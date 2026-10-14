@@ -20,7 +20,7 @@ vi.mock("@/lib/abp/queries", () => ({
   useApplicationConfiguration: () => ({
     data: {
       auth: { grantedPolicies: grants },
-      features: { values: { "MasterData.Relations": "true" } },
+      features: { values: { "Apps.MasterData.Fleet.Drivers": "true" } },
       localization: { languages: [{ cultureName: "nl", displayName: "Nederlands" }] },
     },
   }),

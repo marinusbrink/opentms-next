@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration;
 using OpenTms.Platform.Grid;
+using OpenTms.Features;
+using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
 
 namespace OpenTms.Controllers.Platform;
@@ -19,6 +21,7 @@ public class UserRoleAdministrationController : OpenTmsController
         _userRoleAppService = userRoleAppService;
     }
 
+    /* Also the picker of the user editor's Roles tab: permission only, no app feature. */
     [HttpGet("")]
     [Authorize(PlatformPermissions.Administration.Roles.Default)]
     [ProducesResponseType(typeof(GridResponse<AdministrationRoleRowDto>), 200)]
@@ -45,6 +48,7 @@ public class UserRoleAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Roles)]
     [HttpPost("")]
     [Authorize(PlatformPermissions.Administration.Roles.Create)]
     [ProducesResponseType(typeof(AdministrationRoleRowDto), 200)]
@@ -54,6 +58,7 @@ public class UserRoleAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Roles)]
     [HttpPut("{id:guid}")]
     [Authorize(PlatformPermissions.Administration.Roles.Update)]
     [ProducesResponseType(typeof(AdministrationRoleRowDto), 200)]
@@ -63,6 +68,7 @@ public class UserRoleAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Roles)]
     [HttpDelete("{id:guid}")]
     [Authorize(PlatformPermissions.Administration.Roles.Delete)]
     [ProducesResponseType(204)]
@@ -81,6 +87,7 @@ public class UserRoleAdministrationController : OpenTmsController
         }
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Roles)]
     [HttpPost("bulk-delete")]
     [Authorize(PlatformPermissions.Administration.Roles.BulkDelete)]
     [ProducesResponseType(typeof(BulkDeleteRolesResponseDto), 200)]

@@ -62,6 +62,7 @@
     <Folder Name="/test/">
         <Project Path="test/OpenTms.Application.Tests/OpenTms.Application.Tests.csproj" />
         <Project Path="test/OpenTms.EntityFrameworkCore.Tests/OpenTms.EntityFrameworkCore.Tests.csproj" />
+        <Project Path="test/OpenTms.HttpApi.Host.Tests/OpenTms.HttpApi.Host.Tests.csproj" />
         <Project Path="test/OpenTms.TestBase/OpenTms.TestBase.csproj" />
         <Project Path="test/OpenTms.ArchitectureTests/OpenTms.ArchitectureTests.csproj" />
         <Project Path="test/OpenTms.Domain.Tests/OpenTms.Domain.Tests.csproj" />

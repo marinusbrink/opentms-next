@@ -26,6 +26,9 @@ vi.mock("@/app/shell/WaffleLauncher", () => ({
   WaffleLauncher: () => <div data-testid="waffle-launcher" />,
 }));
 
+/* The "Log in as" banner has its own tests (ImpersonationBanner.test.tsx, AppShell.impersonation.test.tsx). */
+vi.mock("@/app/shell/ImpersonationBanner", () => ({ ImpersonationBanner: () => null }));
+
 vi.mock("@/app/shell/UserTenantMenu", () => ({
   UserTenantMenu: () => <div data-testid="user-tenant-menu" />,
 }));
@@ -48,6 +51,12 @@ vi.mock("@/app/shell/AppNavPane", () => ({
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
+}));
+
+/* useAppFeatures reads the application configuration; these fixtures carry no features, so every node shows
+ * (the feature filtering itself is covered in AppNavPane.features.test.tsx). */
+vi.mock("@/lib/abp/queries", () => ({
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, features: { values: {} } } }),
 }));
 
 // ── Imports after mocks ────────────────────────────────────────────────────────

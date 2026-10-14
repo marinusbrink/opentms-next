@@ -10,6 +10,12 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
 }));
 
+/* The host side: Administration is hostAlwaysEnabled, so every view is on whatever the feature values (the
+ * tenant-side redirects are covered in AdministrationApp.features.test.tsx). */
+vi.mock("@/lib/abp/queries", () => ({
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: null }, features: { values: {} } } }),
+}));
+
 vi.mock("@/apps/admin/users/UsersView", () => ({
   UsersView: () => <div data-testid="users-view">UsersView</div>,
 }));

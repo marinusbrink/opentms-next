@@ -88,10 +88,20 @@ const masterDataSubRoutes = Array.from(
     }),
   );
 
+/* Sub-routes of the Tenants app (host only): its two views resolve to the app component, which reads the pathname. */
+const tenantsApp = APPS.find((app) => app.id === "tenants")!;
+const tenantsSubRoutes = (tenantsApp.views ?? []).map((view) =>
+  createRoute({
+    getParentRoute: () => shellRoute,
+    path: view.path,
+    component: componentForApp(tenantsApp),
+  }),
+);
+
 const routeTree = rootRoute.addChildren([
   landingRoute,
   authCallbackRoute,
-  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes]),
+  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes, ...tenantsSubRoutes]),
 ]);
 
 /* No `Register` module augmentation on purpose: app routes are derived from

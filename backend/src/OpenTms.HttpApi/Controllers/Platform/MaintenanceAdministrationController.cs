@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration.Maintenance;
 using OpenTms.Platform.Grid;
+using OpenTms.Features;
+using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
 
 namespace OpenTms.Controllers.Platform;
@@ -15,6 +17,7 @@ namespace OpenTms.Controllers.Platform;
 /// definitions enforce the side, the application services guard it again.
 /// </summary>
 [ApiController]
+[RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.Maintenance)]
 [Route("api/platform/administration/maintenance")]
 public class MaintenanceAdministrationController : OpenTmsController
 {

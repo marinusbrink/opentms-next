@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration.Logbook;
 using OpenTms.Platform.Grid;
+using OpenTms.Features;
+using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
 
 namespace OpenTms.Controllers.Platform;
@@ -24,6 +26,7 @@ public class LogbookAdministrationController : OpenTmsController
         _logbookAppService = logbookAppService;
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.AuditLogs.Default, AppFeatures.Administration.AuditLogs.TechnicalLogbook)]
     /// <summary>A page of the technical logbook; newest first unless <paramref name="sortBy"/> is given.</summary>
     [HttpGet("technical")]
     [Authorize(PlatformPermissions.Administration.Logbook.Technical)]
@@ -59,6 +62,7 @@ public class LogbookAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.AuditLogs.Default, AppFeatures.Administration.AuditLogs.TechnicalLogbook)]
     [HttpGet("technical/{id:guid}")]
     [Authorize(PlatformPermissions.Administration.Logbook.Technical)]
     [ProducesResponseType(typeof(TechnicalLogbookDetailDto), 200)]
@@ -69,6 +73,7 @@ public class LogbookAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.AuditLogs.Default, AppFeatures.Administration.AuditLogs.FunctionalLogbook)]
     /// <summary>A page of the functional logbook; newest first unless <paramref name="sortBy"/> is given.</summary>
     [HttpGet("functional")]
     [Authorize(PlatformPermissions.Administration.Logbook.Functional)]
@@ -100,6 +105,7 @@ public class LogbookAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.AuditLogs.Default, AppFeatures.Administration.AuditLogs.FunctionalLogbook)]
     [HttpGet("functional/{id:guid}")]
     [Authorize(PlatformPermissions.Administration.Logbook.Functional)]
     [ProducesResponseType(typeof(FunctionalLogbookDetailDto), 200)]

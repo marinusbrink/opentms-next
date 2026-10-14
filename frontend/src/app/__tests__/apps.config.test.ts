@@ -48,8 +48,20 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("every other app except Master data has no views declared", () => {
-    APPS.filter((a) => a.id !== "admin" && a.id !== "master-data").forEach((app) => {
+  it("the Tenants app holds the Tenants and Editions views, each behind its own permission (PO 2026-10-14)", () => {
+    const tenants = APPS.find((a) => a.id === "tenants")!;
+    expect(tenants.path).toBe("/tenants");
+    expect(tenants.nameKey).toBe("App:Tenants");
+    expect(tenants.requiredPermission).toEqual(["Platform.Tenants", "Platform.Editions"]);
+    expect(tenants.views!.map((v) => [v.path, v.nameKey, v.requiredPermission])).toEqual([
+      ["/tenants/list", "Tenants:Nav.Tenants", "Platform.Tenants"],
+      ["/tenants/editions", "Tenants:Nav.Editions", "Platform.Editions"],
+    ]);
+    expect(APPS.find((a) => a.id === "editions")).toBeUndefined();
+  });
+
+  it("every other app except Master data and Tenants has no views declared", () => {
+    APPS.filter((a) => a.id !== "admin" && a.id !== "master-data" && a.id !== "tenants").forEach((app) => {
       expect(app.views).toBeUndefined();
     });
   });

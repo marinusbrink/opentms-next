@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Incompatibilities;
 using OpenTms.MasterData.Permissions;
 using OpenTms.Platform.Grid;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Transport;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class TemperatureAppService
     : MasterDataCrudAppServiceBase<Temperature, TemperatureRowDto, TemperatureDto, TemperatureCreateDto, TemperatureUpdateDto, ArchivableListRequestDto>,
       ITemperatureAppService
@@ -25,24 +26,30 @@ public class TemperatureAppService
         _pairs = pairs;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Default)]
     public Task<GridResponse<TemperatureRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Default)]
     public Task<TemperatureDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Temperatures.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Create)]
     public Task<TemperatureDto> CreateAsync(TemperatureCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Update)]
     public Task<TemperatureDto> UpdateAsync(Guid id, TemperatureUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Temperatures.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => input.IncludeArchived ? q : q.Where(t => !t.IsArchived));

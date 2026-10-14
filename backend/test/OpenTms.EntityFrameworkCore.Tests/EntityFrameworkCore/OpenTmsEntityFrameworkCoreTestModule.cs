@@ -47,8 +47,8 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         });
         context.Services.AddAlwaysDisableUnitOfWorkTransaction();
 
-        /* Test-side feature values: the Master Data services carry [RequiresFeature(MasterData.FirstRun)]
-         * (default off); the provider answers "true" unless a test overrides it (TestFeatureValueProvider). */
+        /* Test-side feature values: the Master Data services carry the Apps.MasterData tree features (the lists
+         * default off); the provider answers "true" unless a test overrides it (TestFeatureValueProvider). */
         Configure<AbpFeatureOptions>(options =>
         {
             options.ValueProviders.Add<TestFeatureValueProvider>();

@@ -25,12 +25,12 @@ describe("useIsGranted / useIsFeatureEnabled (UI-PERM-001/006)", () => {
   it("is false while the configuration has not loaded", () => {
     withConfig(undefined);
     expect(renderHook(() => useIsGranted("Platform.Administration.Users")).result.current).toBe(false);
-    expect(renderHook(() => useIsFeatureEnabled("UI.CommonToolbar")).result.current).toBe(false);
+    expect(renderHook(() => useIsFeatureEnabled("Apps.Dashboard")).result.current).toBe(false);
   });
 
   it("reads feature flags as the string \"true\"", () => {
-    withConfig({ features: { values: { "UI.CommonToolbar": "true", "Other": "false" } } });
-    expect(renderHook(() => useIsFeatureEnabled("UI.CommonToolbar")).result.current).toBe(true);
+    withConfig({ features: { values: { "Apps.Dashboard": "true", "Other": "false" } } });
+    expect(renderHook(() => useIsFeatureEnabled("Apps.Dashboard")).result.current).toBe(true);
     expect(renderHook(() => useIsFeatureEnabled("Other")).result.current).toBe(false);
   });
 });

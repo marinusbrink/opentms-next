@@ -2,9 +2,14 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "@tanstack/react-router";
 import { useAuth } from "react-oidc-context";
 import { findAppByPath } from "@/app/apps.config";
+import { useAppFeatures } from "@/app/app-features";
+import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { WaffleLauncher } from "@/app/shell/WaffleLauncher";
 import { UserTenantMenu } from "@/app/shell/UserTenantMenu";
 import { AppNavPane } from "@/app/shell/AppNavPane";
+import { ImpersonationBanner } from "@/app/shell/ImpersonationBanner";
+import { takeRefusedSwitch } from "@/auth/session-switch";
+import { toast } from "sonner";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { FullScreenSpinner } from "@/app/shell/FullScreenSpinner";
 import { Toaster } from "@/components/ui/sonner";
@@ -17,7 +22,17 @@ export function AppShell() {
   const { t } = useL();
   const location = useLocation();
   const activeApp = findAppByPath(location.pathname);
+  const features = useAppFeatures();
+  /* A route whose app or node feature is off shows why, instead of the screen (direct links, old bookmarks). */
+  const unavailable = activeApp != null && features.isLoaded && !features.isPathEnabled(activeApp, location.pathname);
+  const content = unavailable ? <FeatureUnavailable /> : <Outlet />;
   const [navCollapsed, setNavCollapsed] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    if (auth.isAuthenticated && takeRefusedSwitch()) {
+      toast.error(t("Impersonation:Refused"));
+    }
+  }, [auth.isAuthenticated, t]);
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated && !auth.activeNavigator) {
@@ -29,7 +44,7 @@ export function AppShell() {
     return <FullScreenSpinner />;
   }
 
-  const hasNav = activeApp?.views != null && activeApp.views.length > 0;
+  const hasNav = activeApp?.views != null && activeApp.views.length > 0 && features.visibleViews(activeApp).length > 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-page">
@@ -50,6 +65,7 @@ export function AppShell() {
           <UserTenantMenu />
         </div>
       </header>
+      <ImpersonationBanner />
       {hasNav ? (
         <div className="flex flex-1">
           <AppNavPane
@@ -58,13 +74,17 @@ export function AppShell() {
             onToggleCollapsed={() => setNavCollapsed((v) => !v)}
           />
           <main className="min-w-0 flex-1">
-            <Outlet />
+            {content}
           </main>
         </div>
       ) : (
-        <main className="flex-1">
-          <Outlet />
-        </main>
+        /* Same row wrapper as above: a stretched flex item has a definite height, so a full-width
+         * view's h-full (a grid filling the page) resolves. */
+        <div className="flex flex-1">
+          <main className="min-w-0 flex-1">
+            {content}
+          </main>
+        </div>
       )}
       <Toaster />
     </div>

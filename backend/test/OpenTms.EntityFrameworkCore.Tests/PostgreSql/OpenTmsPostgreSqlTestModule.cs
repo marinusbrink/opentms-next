@@ -40,7 +40,7 @@ public class OpenTmsPostgreSqlTestModule : AbpModule
         });
 
         /* Test-side feature values (see TestFeatureValueProvider): the Master Data services are gated
-         * by MasterData.FirstRun, default off. */
+         * by the Apps.MasterData tree (lists default off). */
         Configure<AbpFeatureOptions>(options =>
         {
             options.ValueProviders.Add<TestFeatureValueProvider>();

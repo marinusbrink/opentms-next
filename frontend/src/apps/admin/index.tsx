@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+import { APPS } from "@/app/apps.config";
+import { useAppFeatures } from "@/app/app-features";
 import { UsersView } from "@/apps/admin/users/UsersView";
 import { RolesView } from "@/apps/admin/roles/RolesView";
 import { OrganizationUnitsView } from "@/apps/admin/organization-units/OrganizationUnitsView";
@@ -7,18 +9,26 @@ import { FunctionalLogbookView } from "@/apps/admin/logbook/FunctionalLogbookVie
 import { TechnicalLogbookView } from "@/apps/admin/logbook/TechnicalLogbookView";
 import { MaintenanceView } from "@/apps/admin/maintenance/MaintenanceView";
 
+const adminApp = APPS.find((app) => app.id === "admin")!;
+
 export function AdministrationApp() {
   const location = useLocation();
   const navigate = useNavigate();
+  const features = useAppFeatures();
 
-  // Redirect bare /admin → /admin/users, and bare /admin/logbook → the functional logbook
+  // Bare /admin and bare /admin/logbook go to the first view that is on ("App features", tenants-and-editions.md)
+  const pathname = location.pathname.replace(/\/+$/, "");
+  const redirect =
+    pathname === "/admin"
+      ? features.firstEnabledPath(adminApp)
+      : pathname === "/admin/logbook"
+        ? features.firstEnabledPath(adminApp, "/admin/logbook")
+        : undefined;
   useEffect(() => {
-    if (location.pathname === "/admin" || location.pathname === "/admin/") {
-      void navigate({ to: "/admin/users", replace: true });
-    } else if (location.pathname === "/admin/logbook" || location.pathname === "/admin/logbook/") {
-      void navigate({ to: "/admin/logbook/functional", replace: true });
+    if (redirect) {
+      void navigate({ to: redirect, replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [redirect, navigate]);
 
   if (location.pathname.startsWith("/admin/roles")) {
     return <RolesView />;

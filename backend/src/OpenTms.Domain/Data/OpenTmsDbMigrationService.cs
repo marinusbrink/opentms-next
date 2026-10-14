@@ -11,6 +11,7 @@ using Volo.Abp.Identity;
 using Volo.Abp.MultiTenancy;
 using OpenTms.MultiTenancy;
 using Volo.Abp.TenantManagement;
+using OpenTms.Platform.Tenants;
 
 namespace OpenTms.Data;
 
@@ -81,6 +82,20 @@ public class OpenTmsDbMigrationService : ITransientDependency
             var migratedDatabaseSchemas = new HashSet<string>();
             foreach (var tenant in tenants)
             {
+                /* A tenant the Tenants app is still provisioning (queued, running or failed) belongs to its
+                 * provisioning job: migrating or seeding it here would seed the default admin password into a
+                 * database the job has not finished (docs/designs/tenants-and-editions.md). No state = a tenant
+                 * from before the app, migrated as always. */
+                var provisioningState = tenant.GetProperty<string?>(TenantProperties.ProvisioningState);
+                if (provisioningState != null && provisioningState != TenantProvisioningState.Succeeded)
+                {
+                    results.Add(new MigrationResult(tenant.Name, true, null));
+                    Logger.LogInformation(
+                        "Tenant {TenantId} skipped: provisioning is {ProvisioningState}; its job migrates and seeds it.",
+                        tenant.Id, provisioningState);
+                    continue;
+                }
+
                 try
                 {
                     using (_currentTenant.Change(tenant.Id))

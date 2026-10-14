@@ -1,3 +1,4 @@
+using OpenTms.Platform.Features;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -1724,7 +1725,7 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         using var _ = InTenantA();
         var acme = await CreateAsync("ACM01", "ACME");
 
-        using (TestFeatureValueProvider.Override("false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetListAsync(Request()));
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetAsync(acme.Id));

@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Localization;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Reference;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class AddressTypeAppService
     : MasterDataCrudAppServiceBase<AddressType, AddressTypeRowDto, AddressTypeDto, AddressTypeCreateDto, AddressTypeUpdateDto, MasterDataListRequestDto>,
       IAddressTypeAppService
@@ -22,24 +23,30 @@ public class AddressTypeAppService
     {
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Default)]
     public Task<GridResponse<AddressTypeRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Default)]
     public Task<AddressTypeDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.AddressTypes.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Create)]
     public Task<AddressTypeDto> CreateAsync(AddressTypeCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Update)]
     public Task<AddressTypeDto> UpdateAsync(Guid id, AddressTypeUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.AddressTypes.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);

@@ -28,6 +28,7 @@
     "Shell:WelcomeText": "Log in om je werkruimte te openen.",
     "Shell:EmptyAppTitle": "Nog niets te zien",
     "Shell:EmptyAppText": "Deze app is een stub — functionaliteit komt via de pipeline van het department.",
-    "Shell:ReadsFrom": "Leest uit domeinen"
+    "Shell:ReadsFrom": "Leest uit domeinen",
+    "App:Tenants": "Tenants"
   }
 }

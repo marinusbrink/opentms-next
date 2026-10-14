@@ -128,7 +128,9 @@ Nothing should be built that assumes all tenant databases sit on one server.
   is needed (**PROPOSED**, AP-10).
 - **No query spans tenants.** Cross-tenant reporting, metering and support views need their
   own store or their own job. Disabling the tenant filter is not the way (constitution rule 1).
-- **Provisioning a tenant** (create database, migrate, seed) is a stub today.
+- **Provisioning a tenant** (create database and role, migrate, seed) is a background job, started from
+  the host-only Tenants app (`docs/designs/tenants-and-editions.md`). It holds one connection per
+  step and never runs in a request.
 
 ### The host database
 

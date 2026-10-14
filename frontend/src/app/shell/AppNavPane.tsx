@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type AppDefinition, type AppView } from "@/app/apps.config";
+import { useAppFeatures } from "@/app/app-features";
+import { useIsGrantedChecker } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -143,7 +145,13 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
 
 export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProps) {
   const { t } = useL();
+  const features = useAppFeatures();
+  const isGranted = useIsGrantedChecker();
   const effectiveCollapsed = collapsed;
+  /* Nodes whose feature is off, or whose permission is missing, are not shown (docs/designs/tenants-and-editions.md). */
+  const views = features
+    .visibleViews(app)
+    .filter((view) => !view.requiredPermission || isGranted(view.requiredPermission));
 
   const appName = t(app.nameKey);
 
@@ -166,7 +174,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
       </div>
 
       <ul className="flex flex-col gap-0.5 px-1">
-        {app.views?.map((view) => (
+        {views.map((view) => (
           <li key={view.path}>
             <NavEntry
               view={view}

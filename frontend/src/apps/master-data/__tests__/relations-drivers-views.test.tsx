@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { Mock } from "vitest";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The Relations and Drivers lists (design 43, UI design): the per-tenant feature MasterData.Relations
- * and the view permission, the command bar per permission, the grid columns, the filters as list
+/* The Relations and Drivers lists (design 43, UI design): the view permission (their features,
+ * Apps.MasterData.Relations.Relations and Apps.MasterData.Fleet.Drivers, are the shell's check since PO 2026-10-14), the command bar per permission, the grid columns, the filters as list
  * request parameters, the confirmed Archive / Unarchive row actions that refresh the grid, delete
  * and bulk delete. The domain hooks are real; the generated client is the mock, so the assertions
  * are on the requests the server receives. Risk class: Medium (UI flows). */
@@ -97,7 +97,7 @@ const driverRows = [
 
 beforeEach(() => {
   grants = {};
-  features = { "MasterData.Relations": "true" };
+  features = {};
   gridRows.current = [];
   vi.mocked(toast.success).mockReset();
   vi.mocked(toast.error).mockReset();
@@ -122,13 +122,14 @@ const columns = () => Array.from(document.querySelectorAll("[data-slot=mock-grid
 const alertDialog = () => screen.getByRole("alertdialog");
 
 describe("RelationsView", () => {
-  it("shows the permission-denied panel while MasterData.Relations is off and fetches nothing (constitution rule 4)", () => {
-    features = {};
+  it("does not read its feature: the shell keeps the list off screen while its node is off (PO 2026-10-14)", async () => {
+    /* Was: PermissionDenied while MasterData.Relations was off; now AppShell renders FeatureUnavailable for
+     * /master-data/relations while Apps.MasterData.Relations.Relations is off (AppShell.features.test.tsx). */
+    features = { "Apps.MasterData.Relations.Relations": "false" };
     grants = { "MasterData.Relations": true };
     renderView(<RelationsView />);
-    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
-    expect(screen.queryByTestId("mock-grid")).toBeNull();
-    expect(listCalls("/api/master-data/relation")).toHaveLength(0);
+    expect(screen.queryByText("PermissionDenied")).toBeNull();
+    expect(await screen.findByTestId("mock-grid")).toBeInTheDocument();
   });
 
   it("shows the permission-denied panel without MasterData.Relations and fetches nothing (UI-PAGE-005)", () => {
@@ -312,14 +313,17 @@ describe("RelationsView", () => {
 });
 
 describe("DriversView", () => {
-  it("sits behind MasterData.Relations and MasterData.Drivers and fetches nothing without them", () => {
-    features = {};
+  it("sits behind MasterData.Drivers and fetches nothing without it; its feature is the shell's check", async () => {
+    /* Was: also behind the MasterData.Relations feature; now AppShell checks Apps.MasterData.Fleet.Drivers. */
+    features = { "Apps.MasterData.Fleet.Drivers": "false" };
     grants = { "MasterData.Drivers": true };
     const { unmount } = renderView(<DriversView />);
-    expect(screen.getByText("PermissionDenied")).toBeInTheDocument();
+    expect(screen.queryByText("PermissionDenied")).toBeNull();
+    expect(await screen.findByTestId("mock-grid")).toBeInTheDocument();
     unmount();
+    GET.mockClear();
 
-    features = { "MasterData.Relations": "true" };
+    features = {};
     grants = {};
     renderView(<DriversView />);
     expect(screen.getByText("PermissionDenied")).toBeInTheDocument();

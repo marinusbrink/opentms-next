@@ -3,9 +3,6 @@
   "texts": {
     "Permission:MasterData": "Stamgegevens",
     "Module:MasterData": "Stamgegevens",
-    "Feature:MasterData": "Stamgegevens",
-    "Feature:FirstRun": "Stamgegevens-app (eerste run)",
-    "Feature:FirstRun.Description": "Toont de tien referentielijsten van de Stamgegevens-app voor deze tenant: valuta's, landen, adrestypen, relatiecategorieën, transportkenmerken, temperaturen, producten, transporteenheden, voertuigtypen en geografische regio's.",
     "Permission:Currencies": "Valuta's",
     "Permission:Currencies.Create": "Valuta's aanmaken",
     "Permission:Currencies.Update": "Valuta's wijzigen",
@@ -246,8 +243,6 @@
     "MasterData:MaxLoadKg": "Max. belading (kg)",
     "MasterData:IsStackable": "Stapelbaar",
     "MasterData:MaxStackCount": "Max. stapelhoogte (aantal)",
-    "Feature:Relations": "Relaties en chauffeurs",
-    "Feature:Relations.Description": "Toont relaties (klanten, vervoerders, crediteuren, depots, eigen bedrijf) en chauffeurs in de app Stamgegevens voor deze tenant.",
     "Permission:Relations": "Relaties",
     "Permission:Relations.Create": "Relaties aanmaken",
     "Permission:Relations.Update": "Relaties wijzigen",

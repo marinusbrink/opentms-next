@@ -1,9 +1,9 @@
+using OpenTms.Platform.Features;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenTms.Features;
 using OpenTms.MasterData;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
 using Shouldly;
@@ -399,11 +399,19 @@ public class CountryAppServiceTests : MasterDataAppServiceTestBase
         using var _ = InTenantA();
         var nl = await CreateAsync("NL", "NLD", "Netherlands");
 
-        using (TestFeatureValueProvider.Override("false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
         {
-            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeFalse();
+            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Default)).ShouldBeFalse();
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.SetDefaultAsync(nl.Id));
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetDefaultAsync());
+        }
+
+        /* PO 2026-10-14: GetDefault is a picker (an editor elsewhere preselects the default country) and needs only
+         * the app feature; SetDefault is a command of the Countries list and needs the node. */
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
+        {
+            await Should.ThrowAsync<AbpAuthorizationException>(() => _service.SetDefaultAsync(nl.Id));
+            (await _service.GetDefaultAsync()).ShouldBeNull();
         }
 
         (await _service.GetAsync(nl.Id)).IsDefault.ShouldBeFalse("the refused call wrote nothing");

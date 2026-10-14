@@ -16,6 +16,21 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
             L("Permission:TenantProvisioning.Manage"),
             MultiTenancySides.Host);
 
+        /* Tenants and editions are host data: a tenant can never be granted these
+         * (docs/designs/tenants-and-editions.md). */
+        var host = MultiTenancySides.Host;
+        var tenants = group.AddPermission(PlatformPermissions.Tenants.Default, L("Permission:Tenants"), host);
+        tenants.AddChild(PlatformPermissions.Tenants.Create, L("Permission:Tenants.Create"), host);
+        tenants.AddChild(PlatformPermissions.Tenants.Update, L("Permission:Tenants.Update"), host);
+        tenants.AddChild(PlatformPermissions.Tenants.Delete, L("Permission:Tenants.Delete"), host);
+        tenants.AddChild(PlatformPermissions.Tenants.Impersonation, L("Permission:Tenants.Impersonation"), host);
+
+        var editions = group.AddPermission(PlatformPermissions.Editions.Default, L("Permission:Editions"), host);
+        editions.AddChild(PlatformPermissions.Editions.Create, L("Permission:Editions.Create"), host);
+        editions.AddChild(PlatformPermissions.Editions.Update, L("Permission:Editions.Update"), host);
+        editions.AddChild(PlatformPermissions.Editions.Delete, L("Permission:Editions.Delete"), host);
+        editions.AddChild(PlatformPermissions.Editions.ManageFeatures, L("Permission:Editions.ManageFeatures"), host);
+
         var bothSides = MultiTenancySides.Host | MultiTenancySides.Tenant;
 
         var users = group.AddPermission(

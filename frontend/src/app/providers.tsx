@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { AuthProvider, useAuth, type AuthProviderProps } from "react-oidc-context";
 import { WebStorageStateStore } from "oidc-client-ts";
 import { API_BASE_URL, setAccessTokenProvider, setTenantProvider } from "@/lib/api/client";
+import { settleSessionSwitch } from "@/auth/session-switch";
 import { getStoredTenant } from "@/auth/tenant";
 import { LocalizationProvider } from "@/lib/i18n/LocalizationProvider";
 import { useApplicationConfiguration } from "@/lib/abp/queries";
@@ -20,6 +21,8 @@ const queryClient = new QueryClient({
 /* OIDC against the ABP host's OpenIddict server: authorization code + PKCE,
  * public client (seeded as OpenTms_App by the DbMigrator). The selected tenant
  * travels as the __tenant query parameter so login happens in tenant context. */
+/* A refused "Log in as" comes back here: restore the previous tenant before it is read below. */
+settleSessionSwitch();
 const storedTenant = getStoredTenant();
 
 const oidcConfig: AuthProviderProps = {

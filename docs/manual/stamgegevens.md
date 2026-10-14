@@ -11,9 +11,11 @@ navigatiepaneel:
 | Wagenpark | [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
 | Regio's en lijsten | Landen, Valuta's, Geografische regio's |
 
-De app is per tenant ingeschakeld (functie *Stamgegevens-app (eerste run)*; de lijsten Relaties en
-Chauffeurs hebben de eigen functie *Relaties en chauffeurs*). Zolang de functie
-uit staat, tonen de pagina's de melding dat u geen toegang heeft. Elke lijst heeft eigen rechten
+De app, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
+(zie [Tenants en edities](beheer-tenants-en-edities.md)). Een lijst waarvan de functie uit staat,
+ziet u niet in het navigatiepaneel; opent u hem toch via een link, dan meldt het scherm dat het
+niet bij uw pakket hoort. Keuzelijsten in een scherm (bijvoorbeeld het land in een relatie) werken
+zolang de app aan staat, ook als de lijst zelf uit staat. Elke lijst heeft eigen rechten
 voor bekijken, aanmaken, wijzigen en verwijderen; zonder het recht om te wijzigen opent een
 record alleen-lezen.
 

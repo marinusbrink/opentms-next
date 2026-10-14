@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Administration;
 using OpenTms.Platform.Grid;
+using OpenTms.Features;
+using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
 
 namespace OpenTms.Controllers.Platform;
@@ -21,6 +23,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
     }
 
     /// <summary>One level of the tree (<paramref name="parentId"/> null = the roots), or a flat search over the whole tree.</summary>
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpGet("")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Default)]
     [ProducesResponseType(typeof(GridResponse<AdministrationOrganizationUnitRowDto>), 200)]
@@ -37,6 +40,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    /* The picker other screens use (user editor, relation editor): permission only, no app feature. */
     /// <summary>The whole tree as a flat list in tree order (the parent picker).</summary>
     [HttpGet("all")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Default)]
@@ -47,6 +51,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpPost("")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Create)]
     [ProducesResponseType(typeof(AdministrationOrganizationUnitRowDto), 200)]
@@ -56,6 +61,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpPut("{id:guid}")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Update)]
     [ProducesResponseType(typeof(AdministrationOrganizationUnitRowDto), 200)]
@@ -65,6 +71,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpDelete("{id:guid}")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Delete)]
     [ProducesResponseType(204)]
@@ -88,6 +95,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         }
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpGet("{id:guid}/members")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.Default)]
     [ProducesResponseType(typeof(GridResponse<AdministrationUserRowDto>), 200)]
@@ -104,6 +112,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     /// <summary>The users that are not yet members: the picker list for "Add members".</summary>
     [HttpGet("{id:guid}/unadded-users")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.ManageMembers)]
@@ -121,6 +130,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpPost("{id:guid}/members")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.ManageMembers)]
     [ProducesResponseType(typeof(OrganizationUnitMembersResponseDto), 200)]
@@ -130,6 +140,7 @@ public class OrganizationUnitAdministrationController : OpenTmsController
         return Ok(result);
     }
 
+    [RequiresTenantAppFeature(AppFeatures.Administration.Default, AppFeatures.Administration.OrganizationUnits)]
     [HttpPost("{id:guid}/members/remove")]
     [Authorize(PlatformPermissions.Administration.OrganizationUnits.ManageMembers)]
     [ProducesResponseType(typeof(OrganizationUnitMembersResponseDto), 200)]

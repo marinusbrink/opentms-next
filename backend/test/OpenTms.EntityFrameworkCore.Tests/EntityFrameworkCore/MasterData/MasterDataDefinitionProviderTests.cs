@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using OpenTms.Features;
 using OpenTms.MasterData;
-using OpenTms.MasterData.Features;
+using OpenTms.Platform.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Transport;
@@ -62,40 +62,56 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
     }
 
     [Fact]
-    public async Task The_feature_definition_is_a_toggle_that_defaults_to_off()
+    public async Task The_master_data_features_are_app_tree_toggles_with_the_lists_off_by_default()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
 
-        var feature = await manager.GetAsync(MasterDataFeatures.FirstRun);
+        /* PO 2026-10-14: the run-1 and run-2 flags became the Master data app tree; the app and its groups are on,
+         * the twelve lists (which were behind a flag) stay off until an edition or tenant switches them on. */
+        foreach (var name in new[]
+                 {
+                     AppFeatures.MasterData.Default, AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Transport.Default,
+                     AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Reference.Default,
+                 })
+        {
+            var feature = await manager.GetAsync(name);
+            feature.DefaultValue.ShouldBe("true", name);
+            feature.ValueType.ShouldBeOfType<ToggleStringValueType>();
+            feature.IsVisibleToClients.ShouldBeTrue();
+            feature.IsAvailableToHost.ShouldBeTrue();
+        }
 
-        feature.Name.ShouldBe("MasterData.FirstRun");
-        feature.DefaultValue.ShouldBe("false");
-        feature.ValueType.ShouldBeOfType<ToggleStringValueType>();
-        feature.IsVisibleToClients.ShouldBeTrue();
-        feature.IsAvailableToHost.ShouldBeTrue();
+        foreach (var name in new[]
+                 {
+                     AppFeatures.MasterData.Relations.RelationsList, AppFeatures.MasterData.Relations.AddressTypes, AppFeatures.MasterData.Relations.RelationCategories,
+                     AppFeatures.MasterData.Transport.Products, AppFeatures.MasterData.Transport.TransportUnits, AppFeatures.MasterData.Transport.Temperatures,
+                     AppFeatures.MasterData.Fleet.Drivers, AppFeatures.MasterData.Fleet.VehicleTypes, AppFeatures.MasterData.Fleet.TransportCharacteristics,
+                     AppFeatures.MasterData.Reference.Countries, AppFeatures.MasterData.Reference.Currencies, AppFeatures.MasterData.Reference.GeographicalRegions,
+                 })
+        {
+            var feature = await manager.GetAsync(name);
+            feature.DefaultValue.ShouldBe("false", name);
+            feature.ValueType.ShouldBeOfType<ToggleStringValueType>();
+            feature.IsVisibleToClients.ShouldBeTrue();
+            feature.IsAvailableToHost.ShouldBeTrue();
+        }
 
-        /* Run 2 (design 43) adds a second toggle with the same defaults. */
-        var relations = await manager.GetAsync(MasterDataFeatures.Relations);
-        relations.Name.ShouldBe("MasterData.Relations");
-        relations.DefaultValue.ShouldBe("false");
-        relations.ValueType.ShouldBeOfType<ToggleStringValueType>();
-        relations.IsVisibleToClients.ShouldBeTrue();
-        relations.IsAvailableToHost.ShouldBeTrue();
-
-        var groups = await manager.GetGroupsAsync();
-        groups.Single(g => g.Name == MasterDataFeatures.GroupName).Features.Select(f => f.Name).ShouldBe(["MasterData.FirstRun", "MasterData.Relations"]);
+        /* The old flags and their group are gone. */
+        (await manager.GetOrNullAsync("MasterData.FirstRun")).ShouldBeNull();
+        (await manager.GetOrNullAsync("MasterData.Relations")).ShouldBeNull();
+        (await manager.GetGroupsAsync()).ShouldNotContain(g => g.Name == "MasterData");
     }
 
     [Fact]
-    public async Task With_the_flag_off_every_service_method_is_refused_before_touching_data()
+    public async Task With_the_app_feature_off_every_service_method_is_refused_before_touching_data()
     {
         var currencies = GetRequiredService<ICurrencyAppService>();
         var products = GetRequiredService<IProductAppService>();
         using var _ = InTenantA();
 
-        using (TestFeatureValueProvider.Override("false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
         {
-            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeFalse();
+            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Default)).ShouldBeFalse();
 
             await Should.ThrowAsync<AbpAuthorizationException>(() => currencies.GetListAsync(List<CurrencyListRequestDto>()));
             await Should.ThrowAsync<AbpAuthorizationException>(() => currencies.GetAsync(Guid.NewGuid()));
@@ -118,12 +134,12 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
     {
         var checker = GetRequiredService<IFeatureChecker>();
 
-        (await checker.IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeTrue();
-        using (TestFeatureValueProvider.Override("false"))
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
         {
-            (await checker.IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeFalse();
+            (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeFalse();
         }
 
-        (await checker.IsEnabledAsync(MasterDataFeatures.FirstRun)).ShouldBeTrue();
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
     }
 }

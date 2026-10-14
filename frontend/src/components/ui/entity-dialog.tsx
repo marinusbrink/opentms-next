@@ -61,6 +61,13 @@ export interface EntityDialogProps {
   footer?: ReactNode;
   isDirty?: boolean;
   isBusy?: boolean;
+  /**
+   * Editor with a tab whose content can be longer than the screen (a feature list): the dialog takes its full
+   * height and never scrolls itself; every tab panel gets the body's height and scrolls its own content, so a
+   * panel can keep part of itself fixed and scroll only a region (an `h-full` flex column with a
+   * `min-h-0 overflow-y-auto` region). UI-DLG-015 holds: the dialog has one height for every tab.
+   */
+  panelScroll?: boolean;
   /** The body when there are no tabs. */
   children?: ReactNode;
 }
@@ -91,6 +98,7 @@ export function EntityDialog({
   footer,
   isDirty = false,
   isBusy = false,
+  panelScroll = false,
   children,
 }: EntityDialogProps) {
   const { t } = useL();
@@ -196,9 +204,11 @@ export function EntityDialog({
         ref={bodyRef}
         data-slot="entity-dialog-body"
         className={cn(
-          "min-h-0 flex-1 overflow-auto p-4",
+          "min-h-0 flex-1 p-4",
+          panelScroll && hasTabs ? "overflow-hidden" : "overflow-auto",
           variant === "editor" && "bg-surface-page px-6 py-5",
-          hasTabs && "grid content-start",
+          /* grid-rows-[minmax(0,1fr)]: a layout function, not a size; Tailwind has no utility for a shrinkable single row. */
+          hasTabs && (panelScroll ? "grid grid-rows-[minmax(0,1fr)]" : "grid content-start"),
         )}
       >
         {hasTabs
@@ -219,7 +229,11 @@ export function EntityDialog({
                   data-slot="entity-dialog-panel"
                   data-state={active ? "active" : "inactive"}
                   style={active ? undefined : { visibility: "hidden", opacity: 0 }}
-                  className={cn("col-start-1 row-start-1 outline-none", !active && "pointer-events-none")}
+                  className={cn(
+                    "col-start-1 row-start-1 outline-none",
+                    panelScroll && "min-h-0 overflow-y-auto",
+                    !active && "pointer-events-none",
+                  )}
                 >
                   {tab.content}
                 </div>
@@ -246,6 +260,9 @@ export function EntityDialog({
           data-size={size}
           className={cn(
             "flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-lg p-0 shadow-xl",
+            /* h-[92vh]: the same viewport ceiling as max-h-[92vh] above, now as the height; no token exists for dialog
+             * heights (tokens.md defines widths only), so it stays next to its twin. */
+            panelScroll && hasTabs && "h-[92vh]",
             SIZE_CLASSES[size],
           )}
         >

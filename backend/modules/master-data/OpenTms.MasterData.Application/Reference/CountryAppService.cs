@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Regions;
 using OpenTms.Platform.Grid;
@@ -11,10 +10,12 @@ using OpenTms.Platform.Localization;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Reference;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class CountryAppService
     : MasterDataCrudAppServiceBase<Country, CountryRowDto, CountryDto, CountryCreateDto, CountryUpdateDto, MasterDataListRequestDto>,
       ICountryAppService
@@ -32,29 +33,36 @@ public class CountryAppService
         _ranges = ranges;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<GridResponse<CountryRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<CountryDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Create)]
     public Task<CountryDto> CreateAsync(CountryCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Update)]
     public Task<CountryDto> UpdateAsync(Guid id, CountryUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);
 
     /// <summary>The one place that changes the tenant default: clears the old, marks the new, one transaction (the currency pattern).</summary>
+    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Update)]
     public async Task SetDefaultAsync(Guid id)
     {

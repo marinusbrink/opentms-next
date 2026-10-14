@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using OpenTms.MasterData.Features;
 using OpenTms.MasterData.Incompatibilities;
 using OpenTms.MasterData.Permissions;
 using OpenTms.Platform.Grid;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using OpenTms.Platform.Features;
 
 namespace OpenTms.MasterData.Transport;
 
-[RequiresFeature(MasterDataFeatures.FirstRun)]
+/* Pickers need only the app feature; the list's own screen needs its node (PO 2026-10-14). */
+[RequiresFeature(AppFeatures.MasterData.Default)]
 public class ProductAppService
     : MasterDataCrudAppServiceBase<Product, ProductRowDto, ProductDto, ProductCreateDto, ProductUpdateDto, ArchivableListRequestDto>,
       IProductAppService
@@ -25,24 +26,30 @@ public class ProductAppService
         _pairs = pairs;
     }
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<GridResponse<ProductRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<ProductDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Create)]
     public Task<ProductDto> CreateAsync(ProductCreateDto input) => CreateInternalAsync(input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Update)]
     public Task<ProductDto> UpdateAsync(Guid id, ProductUpdateDto input) => UpdateInternalAsync(id, input);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
+    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => input.IncludeArchived ? q : q.Where(p => !p.IsArchived));

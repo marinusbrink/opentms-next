@@ -9,6 +9,28 @@ public static class PlatformPermissions
         public const string Manage = GroupName + ".TenantProvisioning.Manage";
     }
 
+    /// <summary>The Tenants app (host only): docs/designs/tenants-and-editions.md.</summary>
+    public static class Tenants
+    {
+        public const string Default = GroupName + ".Tenants";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+
+        /// <summary>"Log in as" a user of a tenant (docs/designs/tenants-and-editions.md).</summary>
+        public const string Impersonation = Default + ".Impersonation";
+    }
+
+    /// <summary>The Editions app (host only): docs/designs/tenants-and-editions.md.</summary>
+    public static class Editions
+    {
+        public const string Default = GroupName + ".Editions";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+        public const string ManageFeatures = Default + ".ManageFeatures";
+    }
+
     public static class Administration
     {
         public static class Users
