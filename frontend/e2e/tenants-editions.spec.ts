@@ -19,10 +19,9 @@
  */
 import { execFileSync } from "node:child_process";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { accessToken, signInAsHost } from "./support/auth";
 
 const API = process.env["PLAYWRIGHT_API_URL"] ?? "http://localhost:44301";
-const ADMIN_USER = process.env["PLAYWRIGHT_USER"] ?? "admin";
-const ADMIN_PASS = process.env["PLAYWRIGHT_PASS"] ?? "1q2w3E*";
 const PROTECTED_TENANTS = ["demo", "test", "test2"];
 const PROTECTED_EDITIONS = ["Standaard"];
 
@@ -34,37 +33,6 @@ test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
 /* ── helpers ─────────────────────────────────────────────────────────────────────────────── */
-
-async function signInAsHost(page: Page) {
-  await page.goto("/");
-  const signIn = page.getByRole("button", { name: /^sign in$|^inloggen$/i });
-  /* The SPA's start page offers "Sign in"; an expired session may go to the login page directly. */
-  const onStartPage = await signIn
-    .waitFor({ state: "visible", timeout: 15_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (onStartPage) {
-    await signIn.click();
-  }
-  await page.waitForURL(/\/Account\/Login/i, { timeout: 20_000 });
-  /* The development login page pre-fills the user name after load; fill once it has settled. */
-  await page.waitForLoadState("networkidle");
-  const user = page.locator("#LoginInput_UserNameOrEmailAddress");
-  await user.fill(ADMIN_USER);
-  await expect(user).toHaveValue(ADMIN_USER);
-  await page.locator("#LoginInput_Password").fill(ADMIN_PASS);
-  await page.getByRole("button", { name: /^login$|^inloggen$/i }).click();
-  await page.waitForURL(/^http:\/\/localhost:5173\/(?!auth\/callback)/, { timeout: 30_000 });
-}
-
-/** The SPA's own access token (oidc-client-ts stores the user in localStorage). */
-async function accessToken(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((k) => k.startsWith("oidc.user:"));
-    if (!key) throw new Error("not signed in");
-    return (JSON.parse(window.localStorage.getItem(key)!) as { access_token: string }).access_token;
-  });
-}
 
 async function api(request: APIRequestContext, token: string, method: "GET" | "DELETE" | "PUT" | "POST", path: string, data?: unknown, tenantId?: string) {
   const response = await request.fetch(`${API}${path}`, {
@@ -114,6 +82,8 @@ async function rowAction(page: Page, rowText: string, action: RegExp) {
 /* ── shared state across the serial tests ────────────────────────────────────────────────── */
 
 let hostToken = "";
+/* The protected tenants this machine has (a fresh environment may have none); each must still be there at the end. */
+let presentProtectedTenants: string[] = [];
 let tenantId = "";
 let databaseName = "";
 let editionId = "";
@@ -126,6 +96,9 @@ test.describe("Tenants app – end to end (critical)", () => {
     page = await browser.newPage();
     await signInAsHost(page);
     hostToken = await accessToken(page);
+    for (const name of PROTECTED_TENANTS) {
+      if (await findTenant(page.request, hostToken, name)) presentProtectedTenants.push(name);
+    }
   });
 
   test.afterAll(async ({ request }) => {
@@ -304,7 +277,7 @@ test.describe("Tenants app – end to end (critical)", () => {
     await expect.poll(async () => (await findEdition(page.request, hostToken, EDITION_NAME))?.id ?? "gone", { timeout: 15_000 }).toBe("gone");
 
     /* The protected fixtures are still there. */
-    for (const name of PROTECTED_TENANTS) {
+    for (const name of presentProtectedTenants) {
       expect(await findTenant(page.request, hostToken, name)).toBeDefined();
     }
   });

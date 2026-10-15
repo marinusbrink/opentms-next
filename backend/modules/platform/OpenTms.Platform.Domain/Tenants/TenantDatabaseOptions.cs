@@ -47,8 +47,16 @@ public class TenantConnectionPoolOptions
 public class TenantProvisioningConnectionOptions
 {
     /// <summary>
-    /// The login that creates and drops tenant databases and roles (needs CREATEDB and CREATEROLE).
-    /// Empty: the host database's connection string is used.
+    /// The login that creates and drops tenant databases and roles (needs CREATEDB and CREATEROLE). It becomes a member
+    /// of every tenant role it creates, which PostgreSQL 16+ requires to create a database owned by that role.
+    /// Empty: the host database's login, which only <see cref="AllowHostLogin"/> permits.
     /// </summary>
     public string? ConnectionString { get; set; }
+
+    /// <summary>
+    /// Lets the host database's login provision tenants: when <see cref="ConnectionString"/> is empty, or names that
+    /// same login. Local development only (appsettings.Development.json); everywhere else provisioning refuses, so the
+    /// login every request uses never needs CREATEDB or CREATEROLE (constitution rule 7).
+    /// </summary>
+    public bool AllowHostLogin { get; set; }
 }

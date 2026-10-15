@@ -3,6 +3,7 @@ using System.Net;
 using OpenTms.Localization;
 using OpenTms.MasterData;
 using Volo.Abp.AspNetCore.ExceptionHandling;
+using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Account;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.FeatureManagement;
@@ -29,6 +30,23 @@ public class OpenTmsHttpApiModule : AbpModule
     {
         ConfigureLocalization();
         ConfigureExceptionStatusCodes();
+        RemoveBypassedAbpControllers();
+    }
+
+    /* ABP's own users, roles, user-lookup and tenant endpoints stay out of the API (docs/designs/tenants-and-editions.md,
+     * "ABP endpoints that are not served"). Administration and Tenants replace them, and only those check the app
+     * features, refuse what the product does not allow and run tenant provisioning; ABP's tenant endpoints would also
+     * create a tenant without its database and hand out its connection string, password included. The application
+     * services behind them stay registered: our own controllers use them. */
+    private void RemoveBypassedAbpControllers()
+    {
+        Configure<AbpAspNetCoreMvcOptions>(options =>
+        {
+            options.ControllersToRemove.Add(typeof(IdentityUserController));
+            options.ControllersToRemove.Add(typeof(IdentityRoleController));
+            options.ControllersToRemove.Add(typeof(IdentityUserLookupController));
+            options.ControllersToRemove.Add(typeof(TenantController));
+        });
     }
 
     /* ABP answers a BusinessException with 403 by default, which the UI would read as a permission

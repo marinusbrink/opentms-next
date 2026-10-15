@@ -128,9 +128,17 @@ lowercased, non-`[a-z0-9]` replaced by `_`, cut so the whole name stays within 6
 by the id part, stable across retries, readable in `psql`.
 
 **Provisioning login (constitution rule 7).** `Tenancy:Provisioning:ConnectionString` names the login that
-creates and drops databases and roles (CREATEDB, CREATEROLE). When it is empty the host database's login is used
-and a warning is logged once: acceptable for local development only. Production configures a separate login, so
-the login every request uses carries no such rights; that configuration belongs to the deployment work.
+creates and drops databases and roles (CREATEDB, CREATEROLE), so the login every request uses carries no such rights.
+Provisioning and the drop job **refuse** to run with the host database's login, whether the setting is empty or names
+that same login, unless `Tenancy:Provisioning:AllowHostLogin` is on. Only `appsettings.Development.json` turns it on
+(local development has one superuser); there the host login is used and a warning is logged once. The refusal is an
+`InvalidOperationException` naming the setting, recorded on the tenant as a failed provisioning (follow-up of
+2026-10-15). The login itself, a secret, is configured by the deployment work.
+
+The provisioning login is not a superuser (Cloud SQL has none either). PostgreSQL 16+ lets such a login create a
+database owned by a role, and drop it, only as a member of that role, so after creating or updating the tenant role
+the provisioner runs `GRANT <role> TO CURRENT_USER` (repeating it is a no-op). The provisioning login therefore can act
+as every tenant role it created, which it could already do by setting their passwords.
 
 **Invitation.** A tenant is Ready once seeded; an invitation that cannot be sent does not undo that. It is noted on
 the tenant (`InvitationNotSent: <exception type>`) and "Resend invitation" tries again. Only the exception type is
@@ -229,8 +237,11 @@ roots redirect to the first node that is on. Views no longer check features them
 **Migration.** `MoveFeatureValuesToAppTree` (application context, raw SQL on ABP's `AbpFeatureValues`) copies every
 stored tenant and edition value of an old feature to each node it covered, unless that node already has a value.
 **Expand only** (constitution rule 2): the old values stay, so a previous release running during a rolling deploy
-still finds them; their definitions are gone from the code, so they are inert. Deleting the old values and their
-`AbpFeatures` rows is the contract step of a later release. `MasterData.FirstRun` → the ten lists that
+still finds them; their definitions are gone from the code, so they are inert. **Contract step:**
+`RemoveOldFeatureNames` (follow-up PR of 2026-10-15, after the expand step merged; no release with the old names was
+ever deployed) deletes the old values, their `AbpFeatures` rows, and the groups `MasterData`, `Platform` and `UI` when
+no feature is left in them. Its `Down` restores nothing: the values were copied to the app tree, and no code reads
+the old names. `MasterData.FirstRun` → the ten lists that
 are not Relations or Drivers; `MasterData.Relations` → Relations and Drivers; `Platform.Maintenance` → Maintenance.
 
 ## Log in as a tenant user (D14)
@@ -262,9 +273,32 @@ authorization-code flow instead of a custom grant, so the SPA never handles a to
    target is the impersonator; the page checks the cookie's impersonator claims name it, and signs back in without
    them.
 
-Logs carry user and tenant ids only. **Deployment note:** tickets and the auth cookie both need data-protection
-keys shared by every instance; the code does not configure a key store (locally the default file store is used).
-That belongs to the deployment work that is deliberately absent today.
+Logs carry user and tenant ids only.
+
+### Shared data-protection keys (follow-up of 2026-10-15)
+
+Tickets and the auth cookie are protected with ASP.NET Core data protection, so every instance needs the same keys.
+The key ring lives in the host database, `platform."DataProtectionKeys"` (entity `DataProtectionKeyRecord`, a Platform
+migration; tenant databases have the table and keep it empty). `HostDataProtectionKeyStore` (Platform.Domain) reads
+and adds keys under `ICurrentTenant.Change(null)` in a unit of work of its own, because the key manager may load its
+key ring inside a tenant's request; `HostDatabaseXmlRepository` (API host) is the `IXmlRepository` on it, and the
+application name is fixed to `OpenTms` instead of the content root path. Rows are only added (ASP.NET Core revokes by
+adding an element); there is one key per 90 days. The keys are stored as ASP.NET Core writes them, not encrypted at
+rest: the host database already holds every tenant's connection string, so whoever reads it has more than these keys.
+Encrypting them with a key-management service is a deployment choice that `ProtectKeysWith…` adds without a schema
+change. Cost: one row per 90 days, read about once a day per instance (constitution rule 6: negligible).
+
+### ABP endpoints that are not served (follow-up of 2026-10-15)
+
+ABP's own `IdentityUserController` (`/api/identity/users…`, including `lookup`), `IdentityRoleController`
+(`/api/identity/roles…`) and the TenantManagement `TenantController` (`/api/multi-tenancy/tenants…`) are removed
+from the API (`AbpAspNetCoreMvcOptions.ControllersToRemove` in `OpenTmsHttpApiModule`). Administration and Tenants
+replace them, and only those check the app features (D8–D12) and the product's rules; ABP's tenant endpoints would
+also create a tenant without provisioning and return its connection string, password included, which must never leave
+the backend unmasked. The application services behind them stay registered: our own controllers use them. No client
+used these endpoints (the SPA calls Administration and Tenants only, and nothing is deployed), so removing them breaks
+no consumer (constitution rule 2). `/api/abp/multi-tenancy/tenants/by-name` (tenant switch), feature management and
+permission management stay.
 
 ## UI
 

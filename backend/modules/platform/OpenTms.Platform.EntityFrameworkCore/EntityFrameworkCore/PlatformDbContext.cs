@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Platform.DataProtection;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
@@ -36,6 +37,13 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// the table empty). Feature values per edition are FeatureManagement's (docs/designs/tenants-and-editions.md).
     /// </summary>
     public DbSet<Edition> Editions { get; set; } = default!;
+
+    /// <summary>
+    /// ASP.NET Core data-protection keys: platform."DataProtectionKeys", written and read in the host database only
+    /// (tenant databases keep the table empty), so every instance protects cookies and tickets with the same keys
+    /// (docs/designs/tenants-and-editions.md, "Shared data-protection keys").
+    /// </summary>
+    public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -89,6 +97,14 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.Property(e => e.DisplayName).IsRequired().HasMaxLength(EditionConsts.MaxDisplayNameLength);
             /* Unique among editions that are not deleted: a soft-deleted name may be reused. */
             b.HasIndex(e => e.DisplayName).IsUnique().HasFilter("\"IsDeleted\" = false");
+        });
+
+        builder.Entity<DataProtectionKeyRecord>(b =>
+        {
+            b.ToTable("DataProtectionKeys", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(k => k.FriendlyName).HasMaxLength(DataProtectionKeyRecord.MaxFriendlyNameLength);
+            b.Property(k => k.Xml).IsRequired();
         });
     }
 }

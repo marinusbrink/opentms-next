@@ -354,20 +354,81 @@ public class TenantReviewFixesPostgreSqlTests : OpenTmsTestBase<TenantReviewPost
     }
 
     [Fact]
-    public async Task With_a_provisioning_login_the_provisioner_does_not_warn()
+    public async Task A_provisioning_login_of_its_own_that_is_no_superuser_creates_and_drops_a_tenant_database_without_a_warning()
     {
+        /* Production's shape (constitution rule 7): a login with CREATEDB and CREATEROLE only, as Cloud SQL's logins are.
+         * PostgreSQL 16+ lets it own-assign a database to the tenant role, and drop it, only as a member of that role. */
         ResetWarnedOnce();
-        var logger = new ListLogger();
+        var login = "ttestrev_prov_" + Guid.NewGuid().ToString("N")[..8];
+        var server = PostgreSqlTestDatabases.ConnectionStringFor("postgres") + ";Pooling=false";
+        await using (var admin = new NpgsqlConnection(server))
+        {
+            await admin.OpenAsync();
+            await ExecuteAsync(admin, $"CREATE ROLE \"{login}\" LOGIN NOSUPERUSER CREATEDB CREATEROLE PASSWORD 'prov-pw'");
+        }
+
+        try
+        {
+            var logger = new ListLogger();
+            var options = new TenantDatabaseOptions();
+            options.Provisioning.ConnectionString = new NpgsqlConnectionStringBuilder(PostgreSqlTestDatabases.ConnectionStringFor("postgres"))
+            {
+                Username = login,
+                Password = "prov-pw"
+            }.ConnectionString;
+            var provisioner = FakeTenantDatabaseProvisioner.Create(PostgreSqlTestDatabases.HostConnectionString, options);
+            provisioner.Logger = logger;
+            var name = TenantDatabaseNaming.For("ttestrevlogin", Guid.NewGuid());
+            _createdDatabases.Add(name);
+            var connectionString = provisioner.BuildConnectionString(name, "pw-3");
+
+            await provisioner.EnsureDatabaseAsync(connectionString);
+            await provisioner.EnsureDatabaseAsync(connectionString);
+
+            (await DatabaseCountAsync(name)).ShouldBe(1);
+            (await ScalarAsync(connectionString, "SELECT count(*) FROM pg_database WHERE datname = current_database() AND pg_get_userbyid(datdba) = current_user"))
+                .ShouldBe(1, "the tenant's own role owns its database");
+
+            await provisioner.DropDatabaseAsync(provisioner.Parse(connectionString)!);
+
+            (await DatabaseCountAsync(name)).ShouldBe(0);
+            (await ScalarAsync(server, "SELECT count(*) FROM pg_roles WHERE rolname = @name", name)).ShouldBe(0);
+            logger.Lines.ShouldNotContain(l => l.Level == LogLevel.Warning);
+        }
+        finally
+        {
+            await using var admin = new NpgsqlConnection(server);
+            await admin.OpenAsync();
+            await ExecuteAsync(admin, $"DROP ROLE IF EXISTS \"{login}\"");
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Without_a_provisioning_login_of_its_own_provisioning_is_refused_unless_the_host_login_is_allowed(bool namedExplicitly)
+    {
+        /* Outside development AllowHostLogin is off: neither an empty setting nor one naming the host database's own
+         * login may create a database, so the login every request uses never needs CREATEDB or CREATEROLE. */
         var options = new TenantDatabaseOptions();
-        options.Provisioning.ConnectionString = PostgreSqlTestDatabases.ConnectionStringFor("postgres");
+        if (namedExplicitly)
+        {
+            options.Provisioning.ConnectionString = PostgreSqlTestDatabases.ConnectionStringFor("postgres");
+        }
+
         var provisioner = FakeTenantDatabaseProvisioner.Create(PostgreSqlTestDatabases.HostConnectionString, options);
-        provisioner.Logger = logger;
-        var name = TenantDatabaseNaming.For("ttestrevlogin", Guid.NewGuid());
+        var name = TenantDatabaseNaming.For("ttestrevrefused", Guid.NewGuid());
         _createdDatabases.Add(name);
+        var connectionString = provisioner.BuildConnectionString(name, "pw-4");
 
-        await provisioner.EnsureDatabaseAsync(provisioner.BuildConnectionString(name, "pw-3"));
+        var refused = await Should.ThrowAsync<InvalidOperationException>(() => provisioner.EnsureDatabaseAsync(connectionString));
+        refused.Message.ShouldContain("Tenancy:Provisioning:ConnectionString");
+        refused.Message.ShouldNotContain("postgres", Case.Insensitive, "no login name or password in the stored failure");
+        await Should.ThrowAsync<InvalidOperationException>(() => provisioner.DropDatabaseAsync(provisioner.Parse(connectionString)!));
+        (await DatabaseCountAsync(name)).ShouldBe(0);
 
-        logger.Lines.ShouldNotContain(l => l.Level == LogLevel.Warning);
+        options.Provisioning.AllowHostLogin = true;
+        await provisioner.EnsureDatabaseAsync(connectionString);
         (await DatabaseCountAsync(name)).ShouldBe(1);
     }
 }

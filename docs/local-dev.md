@@ -29,3 +29,27 @@ works-on-my-machine antidote: facts, not preferences.
   default `localhost:5432`, `postgres`/`postgres`. A deleted worktree leaves its pair behind:
   list them with `SELECT datname FROM pg_database WHERE datname LIKE 'OpenTms\_Tests\_%'`
   and drop with `DROP DATABASE "<name>" WITH (FORCE)`.
+- **Tenants app: the host login provisions locally.** `appsettings.Development.json` sets
+  `Tenancy:Provisioning:AllowHostLogin`, so the Tenants app creates and drops tenant databases
+  with `postgres`. Any other environment refuses that and needs a provisioning login of its own in
+  `Tenancy:Provisioning:ConnectionString` (docs/designs/tenants-and-editions.md, "Provisioning login").
+- **Data-protection keys live in the host database** (`platform."DataProtectionKeys"`), not in
+  `~/.aspnet/DataProtection-Keys`. After the first start with them you sign in once more; the old
+  key files can be deleted.
+- **Dev tenants from before the whole-id database names (`test`, `test2`).** Their databases still
+  carry the old short name `t_<name>_<8 hex>`, which the drop job no longer accepts (an eight-digit
+  prefix can be shared by two tenants, so it cannot prove a database is this tenant's). Deleting such
+  a tenant in the Tenants app removes the tenant and logs "has no generated database of its own;
+  nothing is dropped"; drop the database and its role yourself afterwards. First check that the
+  tenant is gone and which database it used:
+
+  ```sql
+  -- in OpenTms: the tenant (soft-deleted: IsDeleted = true) and its connection string with the database name
+  SELECT t."Name", t."IsDeleted", c."Value" FROM "AbpTenants" t JOIN "AbpTenantConnectionStrings" c ON c."TenantId" = t."Id"
+  WHERE t."Name" IN ('test', 'test2');
+  -- databases with the old short name
+  SELECT datname FROM pg_database WHERE datname ~ '^t_[a-z0-9_]*_[0-9a-f]{8}$';
+  ```
+
+  then, for each name that belongs to a deleted tenant only:
+  `DROP DATABASE "<name>" WITH (FORCE); DROP ROLE "<name>";`
