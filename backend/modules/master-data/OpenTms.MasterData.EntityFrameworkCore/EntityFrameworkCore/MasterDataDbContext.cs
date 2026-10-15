@@ -46,6 +46,16 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
     public DbSet<Driver> Drivers { get; set; } = default!;
     public DbSet<DriverQualification> DriverQualifications { get; set; } = default!;
 
+    // Run 3 (design 48)
+    public DbSet<Vehicle> Vehicles { get; set; } = default!;
+    public DbSet<VehicleTransportCharacteristic> VehicleTransportCharacteristics { get; set; } = default!;
+    public DbSet<VehicleDefaultDriver> VehicleDefaultDrivers { get; set; } = default!;
+    public DbSet<VehicleOrganizationUnit> VehicleOrganizationUnits { get; set; } = default!;
+    public DbSet<VehicleExternalIdentifier> VehicleExternalIdentifiers { get; set; } = default!;
+    public DbSet<VehicleCombination> VehicleCombinations { get; set; } = default!;
+    public DbSet<VehicleCombinationMember> VehicleCombinationMembers { get; set; } = default!;
+    public DbSet<ProductRelationCode> ProductRelationCodes { get; set; } = default!;
+
     public MasterDataDbContext(DbContextOptions<MasterDataDbContext> options)
         : base(options)
     {
@@ -231,6 +241,123 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
         });
 
         ConfigureRelationsAndDrivers(builder);
+        ConfigureVehicles(builder);
+    }
+
+    /* Run 3 (design 48): Vehicle with its children, VehicleCombination with its members, ProductRelationCode. */
+    private static void ConfigureVehicles(ModelBuilder builder)
+    {
+        builder.Entity<Vehicle>(b =>
+        {
+            b.ToTable("Vehicles", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(v => v.Name).HasMaxLength(MasterDataConsts.MaxVehicleNameLength).IsRequired();
+            b.Property(v => v.LicencePlate).HasMaxLength(MasterDataConsts.MaxLicencePlateLength);
+            b.Property(v => v.Vin).HasMaxLength(MasterDataConsts.VinLength);
+            b.Property(v => v.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.HasOne<VehicleType>().WithMany().HasForeignKey(v => v.VehicleTypeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Country>().WithMany().HasForeignKey(v => v.RegistrationCountryId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Relation>().WithMany().HasForeignKey(v => v.OwnerRelationId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Relation>().WithMany().HasForeignKey(v => v.HomeDepotRelationId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(v => v.TransportCharacteristics).WithOne().HasForeignKey(c => c.VehicleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(v => v.DefaultDrivers).WithOne().HasForeignKey(d => d.VehicleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(v => v.OrganizationUnits).WithOne().HasForeignKey(o => o.VehicleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(v => v.ExternalIdentifiers).WithOne().HasForeignKey(e => e.VehicleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(v => v.TenantId);
+            b.HasIndex(v => new { v.TenantId, v.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* A plate is unique per registration country (assessment §5, licence plate as a value object). */
+            b.HasIndex(v => new { v.TenantId, v.RegistrationCountryId, v.LicencePlate }).IsUnique().AreNullsDistinct(false).HasFilter("\"LicencePlate\" IS NOT NULL AND " + NotDeleted);
+            b.HasIndex(v => new { v.TenantId, v.Vin }).IsUnique().AreNullsDistinct(false).HasFilter("\"Vin\" IS NOT NULL AND " + NotDeleted);
+            /* The in-use checks of the vehicle type, relation (owner, home depot) and country deletes. */
+            b.HasIndex(v => v.VehicleTypeId);
+            b.HasIndex(v => v.OwnerRelationId);
+            b.HasIndex(v => v.HomeDepotRelationId);
+            b.HasIndex(v => v.RegistrationCountryId);
+        });
+
+        builder.Entity<VehicleTransportCharacteristic>(b =>
+        {
+            b.ToTable("VehicleTransportCharacteristics", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(c => new { c.VehicleId, c.TransportCharacteristicsId });
+            b.HasOne<TransportCharacteristics>().WithMany().HasForeignKey(c => c.TransportCharacteristicsId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(c => c.TransportCharacteristicsId);
+        });
+
+        builder.Entity<VehicleDefaultDriver>(b =>
+        {
+            b.ToTable("VehicleDefaultDrivers", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(d => new { d.VehicleId, d.DriverId });
+            b.HasOne<Driver>().WithMany().HasForeignKey(d => d.DriverId).OnDelete(DeleteBehavior.Restrict);
+            /* The in-use check of the driver delete. */
+            b.HasIndex(d => d.DriverId);
+        });
+
+        builder.Entity<VehicleOrganizationUnit>(b =>
+        {
+            b.ToTable("VehicleOrganizationUnits", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(o => new { o.VehicleId, o.OrganizationUnitId });
+            b.HasIndex(o => o.OrganizationUnitId);
+        });
+
+        builder.Entity<VehicleExternalIdentifier>(b =>
+        {
+            b.ToTable("VehicleExternalIdentifiers", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(e => e.Source).HasMaxLength(MasterDataConsts.MaxExternalSourceLength).IsRequired();
+            b.Property(e => e.Identifier).HasMaxLength(MasterDataConsts.MaxExternalIdentifierLength).IsRequired();
+            b.HasIndex(e => e.VehicleId);
+            /* One vehicle per (source, identifier) in a tenant: the key an FMS or partner uses to find the vehicle. */
+            b.HasIndex(e => new { e.TenantId, e.Source, e.Identifier }).IsUnique().AreNullsDistinct(false);
+        });
+
+        builder.Entity<VehicleCombination>(b =>
+        {
+            b.ToTable("VehicleCombinations", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.Name).HasMaxLength(MasterDataConsts.MaxVehicleCombinationNameLength).IsRequired();
+            b.Property(c => c.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.HasMany(c => c.Members).WithOne().HasForeignKey(m => m.VehicleCombinationId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(c => c.TenantId);
+            b.HasIndex(c => new { c.TenantId, c.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+        });
+
+        builder.Entity<VehicleCombinationMember>(b =>
+        {
+            b.ToTable("VehicleCombinationMembers", MasterDataDbProperties.DbSchema, t => t.HasCheckConstraint("CK_VehicleCombinationMembers_Position", "\"Position\" >= 1 AND \"Position\" <= 4"));
+            b.ConfigureByConvention();
+            b.HasKey(m => new { m.VehicleCombinationId, m.VehicleId });
+            b.HasOne<Vehicle>().WithMany().HasForeignKey(m => m.VehicleId).OnDelete(DeleteBehavior.Restrict);
+            /* The in-use check of the vehicle delete. */
+            b.HasIndex(m => m.VehicleId);
+            /* A vehicle is in at most one active (non-archived, non-deleted) combination: IsActive is denormalised
+             * from the combination, because a partial index cannot look at the parent row. */
+            b.HasIndex(m => new { m.TenantId, m.VehicleId }, "IX_VehicleCombinationMembers_TenantId_VehicleId_Active")
+                .IsUnique().AreNullsDistinct(false).HasFilter("\"IsActive\" = true");
+        });
+
+        builder.Entity<ProductRelationCode>(b =>
+        {
+            b.ToTable("ProductRelationCodes", MasterDataDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.Code).HasMaxLength(MasterDataConsts.MaxProductRelationCodeLength).IsRequired();
+            b.Property(c => c.NormalizedCode).HasMaxLength(MasterDataConsts.MaxProductRelationCodeLength).IsRequired();
+            b.Property(c => c.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.HasOne<Relation>().WithMany().HasForeignKey(c => c.RelationId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Product>().WithMany().HasForeignKey(c => c.ProductId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<TransportUnit>().WithMany().HasForeignKey(c => c.TransportUnitId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(c => c.TenantId);
+            /* The resolver's one IN over this index (design 48, 50,000 codes per tenant). */
+            b.HasIndex(c => new { c.TenantId, c.NormalizedCode }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The in-use checks of the relation, product and transport unit deletes. */
+            b.HasIndex(c => c.RelationId);
+            b.HasIndex(c => c.ProductId);
+            b.HasIndex(c => c.TransportUnitId);
+            /* "Contains" search over the code (pg_trgm since design 43). */
+            b.HasIndex(c => c.NormalizedCode, "IX_ProductRelationCodes_NormalizedCode_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
+        });
     }
 
     /* Run 2 (design 43): Relation with its children and memberships, Driver with qualifications. */

@@ -131,8 +131,11 @@ Beheer altijd; de app Tenants is geen functie.
 | Groep Transport | `Apps.MasterData.Transport` | App Stamgegevens | aan |
 | Producten | `Apps.MasterData.Transport.Products` | Groep Transport | uit |
 | Transporteenheden | `Apps.MasterData.Transport.TransportUnits` | Groep Transport | uit |
+| Productrelatiecodes | `Apps.MasterData.Transport.ProductRelationCodes` | Groep Transport | uit |
 | Temperaturen | `Apps.MasterData.Transport.Temperatures` | Groep Transport | uit |
 | Groep Wagenpark | `Apps.MasterData.Fleet` | App Stamgegevens | aan |
+| Voertuigen | `Apps.MasterData.Fleet.Vehicles` | Groep Wagenpark | uit |
+| Voertuigcombinaties | `Apps.MasterData.Fleet.VehicleCombinations` | Groep Wagenpark | uit |
 | Chauffeurs | `Apps.MasterData.Fleet.Drivers` | Groep Wagenpark | uit |
 | Voertuigtypen | `Apps.MasterData.Fleet.VehicleTypes` | Groep Wagenpark | uit |
 | Transportkenmerken | `Apps.MasterData.Fleet.TransportCharacteristics` | Groep Wagenpark | uit |

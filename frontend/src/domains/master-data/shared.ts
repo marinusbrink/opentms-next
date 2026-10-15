@@ -50,7 +50,10 @@ export type MasterDataPath =
   | "/api/master-data/vehicle-type"
   | "/api/master-data/geographical-region"
   | "/api/master-data/relation"
-  | "/api/master-data/driver";
+  | "/api/master-data/driver"
+  | "/api/master-data/vehicle"
+  | "/api/master-data/vehicle-combination"
+  | "/api/master-data/product-relation-code";
 
 export function masterDataQueryKey(entity: string, ...rest: unknown[]) {
   return ["masterData", entity, ...rest] as const;

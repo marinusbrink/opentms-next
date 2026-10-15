@@ -28,8 +28,11 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         var transport = On(masterData, AppFeatures.MasterData.Transport.Default);
         Off(transport, AppFeatures.MasterData.Transport.Products);
         Off(transport, AppFeatures.MasterData.Transport.TransportUnits);
+        Off(transport, AppFeatures.MasterData.Transport.ProductRelationCodes);
         Off(transport, AppFeatures.MasterData.Transport.Temperatures);
         var fleet = On(masterData, AppFeatures.MasterData.Fleet.Default);
+        Off(fleet, AppFeatures.MasterData.Fleet.Vehicles);
+        Off(fleet, AppFeatures.MasterData.Fleet.VehicleCombinations);
         Off(fleet, AppFeatures.MasterData.Fleet.Drivers);
         Off(fleet, AppFeatures.MasterData.Fleet.VehicleTypes);
         Off(fleet, AppFeatures.MasterData.Fleet.TransportCharacteristics);

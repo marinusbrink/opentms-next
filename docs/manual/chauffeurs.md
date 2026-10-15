@@ -13,6 +13,8 @@ gebruiker mag.
 - Een chauffeur wordt **gearchiveerd** in plaats van verwijderd zodra er ritten naar verwijzen.
   Gearchiveerde chauffeurs verdwijnen uit de keuzelijsten; met *Toon gearchiveerd* blijven ze in de
   lijst zichtbaar. Rechtsklikken op een regel geeft **Archiveren** of **Dearchiveren**.
+- Een chauffeur die standaardchauffeur van een [voertuig](voertuigen.md) is, kan niet worden
+  verwijderd.
 
 ## Het record
 

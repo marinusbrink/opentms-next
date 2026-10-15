@@ -67,10 +67,17 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 31 features as the backend's AppFeatures", () => {
+  it("names the same 34 features as the backend's AppFeatures", () => {
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(31);
-    expect(new Set(names).size).toBe(31);
+    expect(names).toHaveLength(34);
+    expect(new Set(names).size).toBe(34);
+  });
+
+  it("carries design 48's three nodes under their groups", () => {
+    const names = Object.keys(allOn(masterData));
+    expect(names).toContain("Apps.MasterData.Fleet.Vehicles");
+    expect(names).toContain("Apps.MasterData.Fleet.VehicleCombinations");
+    expect(names).toContain("Apps.MasterData.Transport.ProductRelationCodes");
   });
 });
 
@@ -93,6 +100,8 @@ describe("createAppFeatureChecker – tenant side", () => {
   it("a group with all its children off is hidden, even though the group feature is on", () => {
     const values = {
       ...allOn(masterData),
+      "Apps.MasterData.Fleet.Vehicles": "false",
+      "Apps.MasterData.Fleet.VehicleCombinations": "false",
       "Apps.MasterData.Fleet.Drivers": "false",
       "Apps.MasterData.Fleet.VehicleTypes": "false",
       "Apps.MasterData.Fleet.TransportCharacteristics": "false",
@@ -184,7 +193,11 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
      * of those groups do not live under the group's path, so the lookup has to follow the tree, not the URL. */
     const checker = tenant(allOn(masterData));
     expect(checker.firstEnabledPath(masterData, "/master-data/transport")).toBe("/master-data/products");
-    expect(checker.firstEnabledPath(masterData, "/master-data/fleet")).toBe("/master-data/drivers");
+    /* Design 48: Vehicles is the first list of Fleet. */
+    expect(checker.firstEnabledPath(masterData, "/master-data/fleet")).toBe("/master-data/vehicles");
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.Fleet.Vehicles": "false" }).firstEnabledPath(masterData, "/master-data/fleet")).toBe(
+      "/master-data/vehicle-combinations",
+    );
     expect(checker.firstEnabledPath(masterData, "/master-data/reference")).toBe("/master-data/countries");
   });
 
@@ -232,6 +245,9 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
     ["/master-data/address-types", "Apps.MasterData.Relations.AddressTypes"],
     ["/master-data/products", "Apps.MasterData.Transport.Products"],
     ["/master-data/drivers", "Apps.MasterData.Fleet.Drivers"],
+    ["/master-data/vehicles", "Apps.MasterData.Fleet.Vehicles"],
+    ["/master-data/vehicle-combinations", "Apps.MasterData.Fleet.VehicleCombinations"],
+    ["/master-data/product-relation-codes", "Apps.MasterData.Transport.ProductRelationCodes"],
     ["/master-data/countries", "Apps.MasterData.Reference.Countries"],
     ["/master-data/geographical-regions", "Apps.MasterData.Reference.GeographicalRegions"],
   ])("a Master data list outside its group's path (%s) is off when its node is off", (path, node) => {
@@ -239,6 +255,20 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
      * /master-data/reference), so a direct link must still be refused when the node is off. */
     expect(tenant(allOn(masterData)).isPathEnabled(masterData, path)).toBe(true);
     expect(tenant({ ...allOn(masterData), [node]: "false" }).isPathEnabled(masterData, path)).toBe(false);
+  });
+
+  it("the three design-48 lists are independent of their neighbours with similar paths", () => {
+    /* /master-data/vehicles vs /master-data/vehicle-combinations and /vehicle-types, /master-data/products vs
+     * /master-data/product-relation-codes: switching one off must not switch off the other. */
+    const vehiclesOff = tenant({ ...allOn(masterData), "Apps.MasterData.Fleet.Vehicles": "false" });
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicles")).toBe(false);
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicle-combinations")).toBe(true);
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicle-types")).toBe(true);
+    const productsOff = tenant({ ...allOn(masterData), "Apps.MasterData.Transport.Products": "false" });
+    expect(productsOff.isPathEnabled(masterData, "/master-data/products")).toBe(false);
+    expect(productsOff.isPathEnabled(masterData, "/master-data/product-relation-codes")).toBe(true);
+    const codesOff = tenant({ ...allOn(masterData), "Apps.MasterData.Transport.ProductRelationCodes": "false" });
+    expect(codesOff.isPathEnabled(masterData, "/master-data/products")).toBe(true);
   });
 
   it("a Master data list is off when its group is off, even with the node on", () => {

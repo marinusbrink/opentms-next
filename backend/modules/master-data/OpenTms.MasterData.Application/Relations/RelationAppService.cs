@@ -35,6 +35,8 @@ public class RelationAppService
     private readonly IRepository<RelationExternalIdentifier, Guid> _externalIds;
     private readonly IRepository<GeographicalRegion, Guid> _regions;
     private readonly IRepository<Driver, Guid> _drivers;
+    private readonly IRepository<Vehicle, Guid> _vehicles;
+    private readonly IRepository<Transport.ProductRelationCode, Guid> _productRelationCodes;
     private readonly IOrganizationUnitRepository _organizationUnits;
     private readonly IRelationMatcher _matcher;
     private readonly IReadOnlyCollection<string> _cultures;
@@ -54,6 +56,8 @@ public class RelationAppService
         IRepository<RelationExternalIdentifier, Guid> externalIds,
         IRepository<GeographicalRegion, Guid> regions,
         IRepository<Driver, Guid> drivers,
+        IRepository<Vehicle, Guid> vehicles,
+        IRepository<Transport.ProductRelationCode, Guid> productRelationCodes,
         IOrganizationUnitRepository organizationUnits,
         IRelationMatcher matcher,
         IOptions<AbpLocalizationOptions> localization)
@@ -69,6 +73,8 @@ public class RelationAppService
         _externalIds = externalIds;
         _regions = regions;
         _drivers = drivers;
+        _vehicles = vehicles;
+        _productRelationCodes = productRelationCodes;
         _organizationUnits = organizationUnits;
         _matcher = matcher;
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
@@ -494,6 +500,17 @@ public class RelationAppService
         if (await _drivers.AnyAsync(d => d.EmployerRelationId == relation.Id))
         {
             return L["MasterData:InUseByDrivers"];
+        }
+
+        /* Design 48: the owner or home depot of a vehicle, the destination of a product relation code. */
+        if (await _vehicles.AnyAsync(v => v.OwnerRelationId == relation.Id || v.HomeDepotRelationId == relation.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
+        }
+
+        if (await _productRelationCodes.AnyAsync(c => c.RelationId == relation.Id))
+        {
+            return L["MasterData:InUseByProductRelationCodes"];
         }
 
         return null;

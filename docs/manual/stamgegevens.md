@@ -1,14 +1,13 @@
 # Stamgegevens
 
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
-verwijzen. Deze eerste versie bevat tien lijsten, verdeeld over vier groepen in het
-navigatiepaneel:
+verwijzen. De lijsten zijn verdeeld over vier groepen in het navigatiepaneel:
 
 | Groep | Lijsten |
 |---|---|
 | Relaties | [Relaties](relaties.md), Adrestypen, Relatiecategorieën |
-| Transport | Producten, Transporteenheden, Temperaturen |
-| Wagenpark | [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
+| Transport | Producten, Transporteenheden, [Productrelatiecodes](#productrelatiecodes), Temperaturen |
+| Wagenpark | [Voertuigen en Voertuigcombinaties](voertuigen.md), [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
 | Regio's en lijsten | Landen, Valuta's, Geografische regio's |
 
 De app, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
@@ -26,8 +25,9 @@ record alleen-lezen.
 - **Nieuw** staat vooraan in de actiebalk. **Selectie verwijderen** verwijdert de aangevinkte
   regels; regels die nog in gebruik zijn worden overgeslagen en de melding noemt ze.
 - Een record dat in gebruik is kan niet worden verwijderd. Dat geldt voor een valuta die de
-  standaard is of als standaardvaluta van een land dient, een land dat in een postcodebereik
-  voorkomt en een voertuigtype dat in een beladingsfactor voorkomt.
+  standaard is of als standaardvaluta van een land dient, een land dat in een postcodebereik of als registratieland van een voertuig
+  voorkomt, een voertuigtype dat in een beladingsfactor of bij een voertuig voorkomt, en een
+  product, transporteenheid of relatie waar een productrelatiecode naar verwijst.
 - Producten, transporteenheden en temperaturen kunnen worden **gearchiveerd** in plaats van
   verwijderd. Gearchiveerde records verdwijnen uit de keuzelijsten; met *Gearchiveerde tonen*
   blijven ze in de lijst zichtbaar.
@@ -77,11 +77,34 @@ wilt.
 - Alle drie hebben het tabblad **Niet combineren met**: de records die niet samen in één rit
   mogen. De koppeling geldt in beide richtingen.
 
+## Productrelatiecodes
+
+Een **productrelatiecode** is de artikelcode die een klant voor zijn goederen gebruikt, gekoppeld
+aan uw eigen gegevens: een **bestemming** (een relatie), een **product** en een
+**transporteenheid**. Imports en orderregels die de code van de klant noemen, vinden zo het juiste
+product, de verpakking en het afleveradres.
+
+- De **code** wordt opgeslagen zoals u hem typt (zonder spaties aan begin en eind) en is uniek
+  binnen de tenant, ongeacht hoofdletters: `abc-1` en `ABC-1` zijn dezelfde code.
+- Minstens één van bestemming, product en transporteenheid is verplicht; een code die nergens naar
+  verwijst heeft geen zin. De bestemming kiest u door in het veld te typen; met **Nieuwe relatie
+  toevoegen…** maakt u de relatie meteen aan.
+- De lijst toont code, bestemming (naam en plaats), product en transporteenheid. Zoeken werkt op
+  code, naam van de bestemming en naam van het product; de lijst wordt per pagina van de server
+  gehaald, ook bij tienduizenden codes.
+- Een code die u niet meer gebruikt, **archiveert** u met het vinkje *Gearchiveerd* in de editor. Imports
+  herkennen een gearchiveerde code niet meer; met *Toon gearchiveerd* blijft hij in de lijst
+  zichtbaar.
+- Een import die een onbekende code noemt, maakt die code **niet** zelf aan: de code moet eerst
+  hier bestaan.
+
 ## Voertuigtypen en transportkenmerken
 
 Een voertuigtype heeft een soort (trekker, oplegger, bakwagen, bestelwagen), maximale EPQ en
 laadmeters, standaardafmetingen en brutogewicht, en een set transportkenmerken. Een
-transportkenmerk heeft een unieke code.
+transportkenmerk heeft een unieke code. Een nieuw [voertuig](voertuigen.md) neemt de afmetingen van
+zijn type één keer over; de transportkenmerken van het type gelden altijd voor elk voertuig van dat
+type.
 
 ## Geografische regio's
 

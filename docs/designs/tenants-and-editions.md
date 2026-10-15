@@ -179,7 +179,7 @@ each node a child of the one above it, so the edition's Features tab shows the a
 because apps are views, not modules, and Platform is the one place every module may reference. The tree
 mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feature in the same change.
 
-**All features after this change (34):**
+**All features after this change (37):**
 
 | # | Feature | Parent | Default | Checked by |
 |---|---|---|---|---|
@@ -192,37 +192,40 @@ mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feat
 | 7 | Apps.MasterData.Relations.Relations | Apps.MasterData.Relations | false | shell; `RelationAppService` (not its pickers) |
 | 8 | Apps.MasterData.Relations.AddressTypes | Apps.MasterData.Relations | false | shell; `AddressTypeAppService` |
 | 9 | Apps.MasterData.Relations.RelationCategories | Apps.MasterData.Relations | false | shell; `RelationCategoryAppService` |
-| 10 | Apps.MasterData.Transport | Apps.MasterData | true | shell; chain of 11–13 |
+| 10 | Apps.MasterData.Transport | Apps.MasterData | true | shell; chain of 11–14 |
 | 11 | Apps.MasterData.Transport.Products | Apps.MasterData.Transport | false | shell; `ProductAppService` |
 | 12 | Apps.MasterData.Transport.TransportUnits | Apps.MasterData.Transport | false | shell; `TransportUnitAppService` |
-| 13 | Apps.MasterData.Transport.Temperatures | Apps.MasterData.Transport | false | shell; `TemperatureAppService` |
-| 14 | Apps.MasterData.Fleet | Apps.MasterData | true | shell; chain of 15–17 |
-| 15 | Apps.MasterData.Fleet.Drivers | Apps.MasterData.Fleet | false | shell; `DriverAppService` |
-| 16 | Apps.MasterData.Fleet.VehicleTypes | Apps.MasterData.Fleet | false | shell; `VehicleTypeAppService` |
-| 17 | Apps.MasterData.Fleet.TransportCharacteristics | Apps.MasterData.Fleet | false | shell; `TransportCharacteristicsAppService` (not its picker) |
-| 18 | Apps.MasterData.Reference | Apps.MasterData | true | shell; chain of 19–21 |
-| 19 | Apps.MasterData.Reference.Countries | Apps.MasterData.Reference | false | shell; `CountryAppService` (not its pickers) |
-| 20 | Apps.MasterData.Reference.Currencies | Apps.MasterData.Reference | false | shell; `CurrencyAppService` |
-| 21 | Apps.MasterData.Reference.GeographicalRegions | Apps.MasterData.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
-| 22 | Apps.Integrations | | false | shell |
-| 23 | Apps.Reports | | false | shell |
-| 24 | Apps.Administration | | true | shell (host always on); chain of 25–31 |
-| 25 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
-| 26 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
-| 27 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
-| 28 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 29–30 |
-| 29 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
-| 30 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
-| 31 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
-| 32 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
-| 33 | SettingManagement.Enable | | true | ABP (unchanged) |
-| 34 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
+| 13 | Apps.MasterData.Transport.ProductRelationCodes | Apps.MasterData.Transport | false | shell; `ProductRelationCodeAppService` (not its picker, not `IProductRelationCodeResolver`; design 48) |
+| 14 | Apps.MasterData.Transport.Temperatures | Apps.MasterData.Transport | false | shell; `TemperatureAppService` |
+| 15 | Apps.MasterData.Fleet | Apps.MasterData | true | shell; chain of 16–20 |
+| 16 | Apps.MasterData.Fleet.Vehicles | Apps.MasterData.Fleet | false | shell; `VehicleAppService` (not its pickers; design 48) |
+| 17 | Apps.MasterData.Fleet.VehicleCombinations | Apps.MasterData.Fleet | false | shell; `VehicleCombinationAppService` (design 48) |
+| 18 | Apps.MasterData.Fleet.Drivers | Apps.MasterData.Fleet | false | shell; `DriverAppService` |
+| 19 | Apps.MasterData.Fleet.VehicleTypes | Apps.MasterData.Fleet | false | shell; `VehicleTypeAppService` |
+| 20 | Apps.MasterData.Fleet.TransportCharacteristics | Apps.MasterData.Fleet | false | shell; `TransportCharacteristicsAppService` (not its picker) |
+| 21 | Apps.MasterData.Reference | Apps.MasterData | true | shell; chain of 22–24 |
+| 22 | Apps.MasterData.Reference.Countries | Apps.MasterData.Reference | false | shell; `CountryAppService` (not its pickers) |
+| 23 | Apps.MasterData.Reference.Currencies | Apps.MasterData.Reference | false | shell; `CurrencyAppService` |
+| 24 | Apps.MasterData.Reference.GeographicalRegions | Apps.MasterData.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
+| 25 | Apps.Integrations | | false | shell |
+| 26 | Apps.Reports | | false | shell |
+| 27 | Apps.Administration | | true | shell (host always on); chain of 28–34 |
+| 28 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
+| 29 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
+| 30 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
+| 31 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 32–33 |
+| 32 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
+| 33 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
+| 34 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
+| 35 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
+| 36 | SettingManagement.Enable | | true | ABP (unchanged) |
+| 37 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
 
 Removed: `MasterData.FirstRun`, `MasterData.Relations`, `Platform.Maintenance`, `UI.CommonToolbar`.
 
 **Pickers (D12)** need only the app feature: every `GetLookupAsync`, `Relation.GetLookupPageAsync` (Drivers),
 `Relation.GetAddressesAsync`, `GeographicalRegion.GetMatchesAsync` and `Country.GetDefaultAsync` (Relations),
-`TransportCharacteristics.GetLookupPageAsync` (Vehicle types). Administration's role list and `organization-units/all`
+`TransportCharacteristics.GetLookupPageAsync` (Vehicle types), and from design 48 `Vehicle.GetLookupPageAsync` (combinations); `IProductRelationCodeResolver` (Orders import) likewise needs only the app feature. Administration's role list and `organization-units/all`
 are pickers too (the user editor; the relation editor picks organization units), so they keep their permission only.
 
 **Host side.** Administration is marked `hostAlwaysEnabled` in the frontend and its controllers use

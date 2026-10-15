@@ -160,7 +160,7 @@ function MockCell<TRow>({ col, row, readOnly, onChange }: { col: ColDef<TRow>; r
   return <input type="text" aria-label={label} value={raw == null ? "" : String(raw)} onChange={(e) => update(custom ? e.target.value || null : e.target.value)} />;
 }
 
-export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, toolbar, readOnly = false, onOpen }: LinesGridProps<TRow>) {
+export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, toolbar, readOnly = false, onOpen, canRemoveRow }: LinesGridProps<TRow>) {
   return (
     <div data-slot="mock-lines-grid" data-readonly={readOnly ? "true" : undefined}>
       {!readOnly && toolbar}
@@ -189,7 +189,8 @@ export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, 
                 Edit
               </button>
             )}
-            {!readOnly && (
+            {/* As the real grid (design 48): a row canRemoveRow refuses gets no Remove. */}
+            {!readOnly && (!canRemoveRow || canRemoveRow(row)) && (
               <button type="button" onClick={() => onRowsChange(rows.filter((r) => r !== row))}>
                 Remove
               </button>

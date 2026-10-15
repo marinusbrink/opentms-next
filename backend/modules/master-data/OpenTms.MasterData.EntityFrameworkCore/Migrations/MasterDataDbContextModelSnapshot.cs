@@ -276,6 +276,356 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.ToTable("TransportCharacteristics", "masterdata");
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.Vehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<double?>("EmptyWeightKg")
+                        .HasColumnType("double precision");
+
+                    b.Property<int?>("EuroClass")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<int?>("FuelType")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("GrossVehicleWeightKg")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("HeightCm")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid?>("HomeDepotRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<double?>("LengthCm")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("LicencePlate")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<double?>("MaxEpq")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("MaxLoadingMeters")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("MaxPayloadKg")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("OwnerRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RegistrationCountryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid>("VehicleTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Vin")
+                        .HasMaxLength(17)
+                        .HasColumnType("character varying(17)");
+
+                    b.Property<double?>("WidthCm")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HomeDepotRelationId");
+
+                    b.HasIndex("OwnerRelationId");
+
+                    b.HasIndex("RegistrationCountryId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VehicleTypeId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Name"), false);
+
+                    b.HasIndex("TenantId", "Vin")
+                        .IsUnique()
+                        .HasFilter("\"Vin\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Vin"), false);
+
+                    b.HasIndex("TenantId", "RegistrationCountryId", "LicencePlate")
+                        .IsUnique()
+                        .HasFilter("\"LicencePlate\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "RegistrationCountryId", "LicencePlate"), false);
+
+                    b.ToTable("Vehicles", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleCombination", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Name"), false);
+
+                    b.ToTable("VehicleCombinations", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleCombinationMember", b =>
+                {
+                    b.Property<Guid>("VehicleCombinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("VehicleCombinationId", "VehicleId");
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex(new[] { "TenantId", "VehicleId" }, "IX_VehicleCombinationMembers_TenantId_VehicleId_Active")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = true");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "TenantId", "VehicleId" }, "IX_VehicleCombinationMembers_TenantId_VehicleId_Active"), false);
+
+                    b.ToTable("VehicleCombinationMembers", "masterdata", t =>
+                        {
+                            t.HasCheckConstraint("CK_VehicleCombinationMembers_Position", "\"Position\" >= 1 AND \"Position\" <= 4");
+                        });
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleDefaultDriver", b =>
+                {
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DriverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("VehicleId", "DriverId");
+
+                    b.HasIndex("DriverId");
+
+                    b.ToTable("VehicleDefaultDrivers", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleExternalIdentifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Identifier")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VehicleId");
+
+                    b.HasIndex("TenantId", "Source", "Identifier")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Source", "Identifier"), false);
+
+                    b.ToTable("VehicleExternalIdentifiers", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleOrganizationUnit", b =>
+                {
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("VehicleId", "OrganizationUnitId");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.ToTable("VehicleOrganizationUnits", "masterdata");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleTransportCharacteristic", b =>
+                {
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TransportCharacteristicsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("VehicleId", "TransportCharacteristicsId");
+
+                    b.HasIndex("TransportCharacteristicsId");
+
+                    b.ToTable("VehicleTransportCharacteristics", "masterdata");
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1559,6 +1909,107 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.ToTable("Products", "masterdata");
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Transport.ProductRelationCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("TransportUnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("RelationId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TransportUnitId");
+
+                    b.HasIndex("TenantId", "NormalizedCode")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "NormalizedCode"), false);
+
+                    b.HasIndex(new[] { "NormalizedCode" }, "IX_ProductRelationCodes_NormalizedCode_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "NormalizedCode" }, "IX_ProductRelationCodes_NormalizedCode_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "NormalizedCode" }, "IX_ProductRelationCodes_NormalizedCode_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.ToTable("ProductRelationCodes", "masterdata");
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Transport.Temperature", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1798,6 +2249,94 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.Vehicle", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany()
+                        .HasForeignKey("HomeDepotRelationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerRelationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Reference.Country", null)
+                        .WithMany()
+                        .HasForeignKey("RegistrationCountryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpenTms.MasterData.Fleet.VehicleType", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleCombinationMember", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Fleet.VehicleCombination", null)
+                        .WithMany("Members")
+                        .HasForeignKey("VehicleCombinationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Fleet.Vehicle", null)
+                        .WithMany()
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleDefaultDriver", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Drivers.Driver", null)
+                        .WithMany()
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Fleet.Vehicle", null)
+                        .WithMany("DefaultDrivers")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleExternalIdentifier", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Fleet.Vehicle", null)
+                        .WithMany("ExternalIdentifiers")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleOrganizationUnit", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Fleet.Vehicle", null)
+                        .WithMany("OrganizationUnits")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleTransportCharacteristic", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Fleet.TransportCharacteristics", null)
+                        .WithMany()
+                        .HasForeignKey("TransportCharacteristicsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.MasterData.Fleet.Vehicle", null)
+                        .WithMany("TransportCharacteristics")
+                        .HasForeignKey("VehicleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleTypeTransportCharacteristics", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Fleet.TransportCharacteristics", null)
@@ -1990,6 +2529,24 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.MasterData.Transport.ProductRelationCode", b =>
+                {
+                    b.HasOne("OpenTms.MasterData.Transport.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpenTms.MasterData.Relations.Relation", null)
+                        .WithMany()
+                        .HasForeignKey("RelationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpenTms.MasterData.Transport.TransportUnit", null)
+                        .WithMany()
+                        .HasForeignKey("TransportUnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("OpenTms.MasterData.Transport.TransportUnitLoadFactor", b =>
                 {
                     b.HasOne("OpenTms.MasterData.Transport.TransportUnit", null)
@@ -2008,6 +2565,22 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
             modelBuilder.Entity("OpenTms.MasterData.Drivers.Driver", b =>
                 {
                     b.Navigation("Qualifications");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.Vehicle", b =>
+                {
+                    b.Navigation("DefaultDrivers");
+
+                    b.Navigation("ExternalIdentifiers");
+
+                    b.Navigation("OrganizationUnits");
+
+                    b.Navigation("TransportCharacteristics");
+                });
+
+            modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleCombination", b =>
+                {
+                    b.Navigation("Members");
                 });
 
             modelBuilder.Entity("OpenTms.MasterData.Fleet.VehicleType", b =>

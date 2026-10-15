@@ -6837,6 +6837,933 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/master-data/product-relation-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    IncludeArchived?: boolean;
+                    StartRow?: number;
+                    EndRow?: number;
+                    WildcardSearch?: string;
+                    SortBy?: string;
+                    SortDir?: string;
+                    Descending?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Transport.ProductRelationCodeRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Transport.ProductRelationCodeRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Transport.ProductRelationCodeRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/product-relation-code/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/product-relation-code/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    term?: string;
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/product-relation-code/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/product-relation-code/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/product-relation-code/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/master-data/product/bulk-delete": {
         parameters: {
             query?: never;
@@ -11545,6 +12472,1140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/master-data/vehicle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    IncludeArchived?: boolean;
+                    Kinds?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"][];
+                    VehicleTypeId?: string;
+                    OwnerRelationId?: string;
+                    StartRow?: number;
+                    EndRow?: number;
+                    WildcardSearch?: string;
+                    SortBy?: string;
+                    SortDir?: string;
+                    Descending?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    IncludeArchived?: boolean;
+                    StartRow?: number;
+                    EndRow?: number;
+                    WildcardSearch?: string;
+                    SortBy?: string;
+                    SortDir?: string;
+                    Descending?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleCombinationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleCombinationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleCombinationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationCreateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationCreateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationCreateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Transport.ArchivableBulkDeleteRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    term?: string;
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle-combination/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/master-data/vehicle-type": {
         parameters: {
             query?: never;
@@ -12250,6 +14311,943 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleBulkDeleteRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleBulkDeleteRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleBulkDeleteRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataBulkDeleteResultDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    term?: string;
+                    take?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/json": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.MasterDataLookupDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/lookup-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    term?: string;
+                    skip?: number;
+                    take?: number;
+                    kinds?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"][];
+                    ownerRelationId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleLookupPageDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleLookupPageDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleLookupPageDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/type-defaults/{vehicleTypeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    vehicleTypeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleUpdateDto"];
+                    "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleUpdateDto"];
+                    "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleUpdateDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/json": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                        "text/plain": components["schemas"]["OpenTms.MasterData.Fleet.VehicleDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/master-data/vehicle/{id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -17154,6 +20152,16 @@ export interface components {
             /** Format: int64 */
             totalCount?: number;
         };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.MasterData.Fleet.EuroClass": 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.MasterData.Fleet.FuelType": 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
         "OpenTms.MasterData.Fleet.TransportCharacteristicsCreateDto": {
             code: string;
             description?: string | null;
@@ -17193,6 +20201,217 @@ export interface components {
             description?: string | null;
             name: string;
         };
+        "OpenTms.MasterData.Fleet.VehicleBulkDeleteRequestDto": {
+            includeArchived?: boolean;
+            kinds?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"][] | null;
+            /** Format: uuid */
+            ownerRelationId?: string | null;
+            selection: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
+            /** Format: uuid */
+            vehicleTypeId?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCharacteristicDto": {
+            code?: string | null;
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+            origin?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCharacteristicOrigin"];
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.MasterData.Fleet.VehicleCharacteristicOrigin": 1 | 2;
+        "OpenTms.MasterData.Fleet.VehicleCombinationCreateDto": {
+            description?: string | null;
+            isArchived?: boolean;
+            members?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationMemberInputDto"][] | null;
+            name?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCombinationDto": {
+            concurrencyStamp?: string | null;
+            /** Format: date-time */
+            creationTime?: string;
+            /** Format: uuid */
+            creatorId?: string | null;
+            description?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            /** Format: date-time */
+            lastModificationTime?: string | null;
+            /** Format: uuid */
+            lastModifierId?: string | null;
+            members?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationMemberDto"][] | null;
+            name?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCombinationMemberDto": {
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            licencePlate?: string | null;
+            name?: string | null;
+            /** Format: int32 */
+            position?: number;
+            /** Format: uuid */
+            vehicleId?: string;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCombinationMemberInputDto": {
+            /** Format: int32 */
+            position?: number;
+            /** Format: uuid */
+            vehicleId: string;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCombinationRowDto": {
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            members?: string | null;
+            motorisedVehicleName?: string | null;
+            name?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCombinationUpdateDto": {
+            concurrencyStamp: string;
+            description?: string | null;
+            isArchived?: boolean;
+            members?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationMemberInputDto"][] | null;
+            name?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleCreateDto": {
+            defaultDrivers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"][] | null;
+            description?: string | null;
+            /** Format: double */
+            emptyWeightKg?: number | null;
+            euroClass?: components["schemas"]["OpenTms.MasterData.Fleet.EuroClass"];
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleExternalIdentifierDto"][] | null;
+            fuelType?: components["schemas"]["OpenTms.MasterData.Fleet.FuelType"];
+            /** Format: double */
+            grossVehicleWeightKg?: number | null;
+            /** Format: double */
+            heightCm?: number | null;
+            /** Format: uuid */
+            homeDepotRelationId?: string | null;
+            isArchived?: boolean;
+            /** Format: double */
+            lengthCm?: number | null;
+            licencePlate?: string | null;
+            /** Format: double */
+            maxEpq?: number | null;
+            /** Format: double */
+            maxLoadingMeters?: number | null;
+            /** Format: double */
+            maxPayloadKg?: number | null;
+            name: string;
+            organizationUnitIds?: string[] | null;
+            /** Format: uuid */
+            ownerRelationId: string;
+            /** Format: uuid */
+            registrationCountryId?: string | null;
+            transportCharacteristicIds?: string[] | null;
+            /** Format: uuid */
+            vehicleTypeId: string;
+            vin?: string | null;
+            /** Format: double */
+            widthCm?: number | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleDefaultDriverDto": {
+            /** Format: uuid */
+            driverId: string;
+            name?: string | null;
+            /** Format: int32 */
+            sortOrder?: number;
+        };
+        "OpenTms.MasterData.Fleet.VehicleDto": {
+            characteristics?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCharacteristicDto"][] | null;
+            combinationName?: string | null;
+            concurrencyStamp?: string | null;
+            /** Format: date-time */
+            creationTime?: string;
+            /** Format: uuid */
+            creatorId?: string | null;
+            defaultDrivers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"][] | null;
+            description?: string | null;
+            /** Format: double */
+            emptyWeightKg?: number | null;
+            euroClass?: components["schemas"]["OpenTms.MasterData.Fleet.EuroClass"];
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleExternalIdentifierDto"][] | null;
+            fuelType?: components["schemas"]["OpenTms.MasterData.Fleet.FuelType"];
+            /** Format: double */
+            grossVehicleWeightKg?: number | null;
+            /** Format: double */
+            heightCm?: number | null;
+            homeDepotName?: string | null;
+            /** Format: uuid */
+            homeDepotRelationId?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            /** Format: date-time */
+            lastModificationTime?: string | null;
+            /** Format: uuid */
+            lastModifierId?: string | null;
+            /** Format: double */
+            lengthCm?: number | null;
+            licencePlate?: string | null;
+            /** Format: double */
+            maxEpq?: number | null;
+            /** Format: double */
+            maxLoadingMeters?: number | null;
+            /** Format: double */
+            maxPayloadKg?: number | null;
+            name?: string | null;
+            organizationUnitIds?: string[] | null;
+            ownerName?: string | null;
+            /** Format: uuid */
+            ownerRelationId?: string;
+            registrationCountryCode?: string | null;
+            /** Format: uuid */
+            registrationCountryId?: string | null;
+            /** Format: uuid */
+            vehicleTypeId?: string;
+            vehicleTypeName?: string | null;
+            vin?: string | null;
+            /** Format: double */
+            widthCm?: number | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleExternalIdentifierDto": {
+            /** Format: uuid */
+            id?: string | null;
+            identifier: string;
+            source: string;
+        };
+        "OpenTms.MasterData.Fleet.VehicleLookupDto": {
+            /** Format: uuid */
+            id?: string;
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            licencePlate?: string | null;
+            name?: string | null;
+            vehicleTypeName?: string | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleLookupPageDto": {
+            items?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleLookupDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.MasterData.Fleet.VehicleRowDto": {
+            combinationName?: string | null;
+            euroClass?: components["schemas"]["OpenTms.MasterData.Fleet.EuroClass"];
+            fuelType?: components["schemas"]["OpenTms.MasterData.Fleet.FuelType"];
+            homeDepotName?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            licencePlate?: string | null;
+            name?: string | null;
+            ownerName?: string | null;
+            /** Format: uuid */
+            ownerRelationId?: string;
+            registrationCountryCode?: string | null;
+            /** Format: uuid */
+            vehicleTypeId?: string;
+            vehicleTypeName?: string | null;
+            vin?: string | null;
+        };
         "OpenTms.MasterData.Fleet.VehicleTypeCreateDto": {
             /** Format: double */
             defaultGrossVehicleWeightKg?: number | null;
@@ -17210,6 +20429,24 @@ export interface components {
             maxLoadingMeters?: number | null;
             name: string;
             transportCharacteristicsIds?: string[] | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto": {
+            characteristics?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCharacteristicDto"][] | null;
+            /** Format: double */
+            grossVehicleWeightKg?: number | null;
+            /** Format: double */
+            heightCm?: number | null;
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            /** Format: double */
+            lengthCm?: number | null;
+            /** Format: double */
+            maxEpq?: number | null;
+            /** Format: double */
+            maxLoadingMeters?: number | null;
+            /** Format: uuid */
+            vehicleTypeId?: string;
+            /** Format: double */
+            widthCm?: number | null;
         };
         "OpenTms.MasterData.Fleet.VehicleTypeDto": {
             concurrencyStamp?: string | null;
@@ -17282,6 +20519,44 @@ export interface components {
             maxLoadingMeters?: number | null;
             name: string;
             transportCharacteristicsIds?: string[] | null;
+        };
+        "OpenTms.MasterData.Fleet.VehicleUpdateDto": {
+            concurrencyStamp: string;
+            defaultDrivers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"][] | null;
+            description?: string | null;
+            /** Format: double */
+            emptyWeightKg?: number | null;
+            euroClass?: components["schemas"]["OpenTms.MasterData.Fleet.EuroClass"];
+            externalIdentifiers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleExternalIdentifierDto"][] | null;
+            fuelType?: components["schemas"]["OpenTms.MasterData.Fleet.FuelType"];
+            /** Format: double */
+            grossVehicleWeightKg?: number | null;
+            /** Format: double */
+            heightCm?: number | null;
+            /** Format: uuid */
+            homeDepotRelationId?: string | null;
+            isArchived?: boolean;
+            /** Format: double */
+            lengthCm?: number | null;
+            licencePlate?: string | null;
+            /** Format: double */
+            maxEpq?: number | null;
+            /** Format: double */
+            maxLoadingMeters?: number | null;
+            /** Format: double */
+            maxPayloadKg?: number | null;
+            name: string;
+            organizationUnitIds?: string[] | null;
+            /** Format: uuid */
+            ownerRelationId: string;
+            /** Format: uuid */
+            registrationCountryId?: string | null;
+            transportCharacteristicIds?: string[] | null;
+            /** Format: uuid */
+            vehicleTypeId: string;
+            vin?: string | null;
+            /** Format: double */
+            widthCm?: number | null;
         };
         "OpenTms.MasterData.MasterDataBulkDeleteRequestDto": {
             selection: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
@@ -17905,6 +21180,68 @@ export interface components {
             /** Format: uuid */
             lastModifierId?: string | null;
             name?: string | null;
+        };
+        "OpenTms.MasterData.Transport.ProductRelationCodeCreateDto": {
+            code: string;
+            description?: string | null;
+            isArchived?: boolean;
+            /** Format: uuid */
+            productId?: string | null;
+            /** Format: uuid */
+            relationId?: string | null;
+            /** Format: uuid */
+            transportUnitId?: string | null;
+        };
+        "OpenTms.MasterData.Transport.ProductRelationCodeDto": {
+            code?: string | null;
+            concurrencyStamp?: string | null;
+            /** Format: date-time */
+            creationTime?: string;
+            /** Format: uuid */
+            creatorId?: string | null;
+            description?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            /** Format: date-time */
+            lastModificationTime?: string | null;
+            /** Format: uuid */
+            lastModifierId?: string | null;
+            /** Format: uuid */
+            productId?: string | null;
+            productName?: string | null;
+            relationCity?: string | null;
+            relationCode?: string | null;
+            /** Format: uuid */
+            relationId?: string | null;
+            relationName?: string | null;
+            /** Format: uuid */
+            transportUnitId?: string | null;
+            transportUnitName?: string | null;
+        };
+        "OpenTms.MasterData.Transport.ProductRelationCodeRowDto": {
+            code?: string | null;
+            /** Format: uuid */
+            id?: string;
+            isArchived?: boolean;
+            productName?: string | null;
+            relationCity?: string | null;
+            /** Format: uuid */
+            relationId?: string | null;
+            relationName?: string | null;
+            transportUnitName?: string | null;
+        };
+        "OpenTms.MasterData.Transport.ProductRelationCodeUpdateDto": {
+            code: string;
+            concurrencyStamp: string;
+            description?: string | null;
+            isArchived?: boolean;
+            /** Format: uuid */
+            productId?: string | null;
+            /** Format: uuid */
+            relationId?: string | null;
+            /** Format: uuid */
+            transportUnitId?: string | null;
         };
         "OpenTms.MasterData.Transport.ProductRowDto": {
             adrClass?: string | null;
@@ -18790,6 +22127,20 @@ export interface components {
             /** Format: int64 */
             totalCount?: number;
         };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleCombinationRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCombinationRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
         "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Fleet.VehicleTypeRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
             /** Format: int64 */
             filteredCount?: number;
@@ -18836,6 +22187,13 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.MasterData.Relations.RelationRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.MasterData.Transport.ProductRelationCodeRowDto, OpenTms.MasterData.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.MasterData.Transport.ProductRelationCodeRowDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

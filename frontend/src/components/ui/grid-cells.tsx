@@ -1,7 +1,7 @@
 import type { ICellRendererParams } from "ag-grid-community";
 import { Check } from "lucide-react";
 
-import { useFormat } from "@/lib/format";
+import { formatLicencePlate, useFormat } from "@/lib/format";
 
 /* One cell renderer per data type (UI-GRID-004). Features pick the renderer by the
  * DTO field's type and add `type: "rightAligned"` for numbers and amounts; the
@@ -55,4 +55,9 @@ export function BoolCell({ value }: CellParams<boolean | null | undefined>) {
       <Check className="size-4" aria-hidden="true" />
     </span>
   );
+}
+
+/** A licence plate column (design 48): formatted per the row's registration country (`registrationCountryCode`). */
+export function LicencePlateCell({ value, data }: Pick<ICellRendererParams<{ registrationCountryCode?: string | null } | undefined, string | null | undefined>, "value" | "data">) {
+  return <span>{formatLicencePlate(value, data?.registrationCountryCode)}</span>;
 }

@@ -35,12 +35,15 @@ public static class AppFeatures
             public const string Default = MasterData.Default + ".Transport";
             public const string Products = Default + ".Products";
             public const string TransportUnits = Default + ".TransportUnits";
+            public const string ProductRelationCodes = Default + ".ProductRelationCodes";
             public const string Temperatures = Default + ".Temperatures";
         }
 
         public static class Fleet
         {
             public const string Default = MasterData.Default + ".Fleet";
+            public const string Vehicles = Default + ".Vehicles";
+            public const string VehicleCombinations = Default + ".VehicleCombinations";
             public const string Drivers = Default + ".Drivers";
             public const string VehicleTypes = Default + ".VehicleTypes";
             public const string TransportCharacteristics = Default + ".TransportCharacteristics";

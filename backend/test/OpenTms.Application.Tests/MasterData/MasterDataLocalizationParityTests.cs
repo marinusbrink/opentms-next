@@ -92,4 +92,31 @@ public class MasterDataLocalizationParityTests
 
         expected.Where(key => !en.ContainsKey(key)).ShouldBeEmpty();
     }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
+    public void Every_run_3_error_code_in_use_reason_and_enum_value_has_a_text(string culture)
+    {
+        /* Design 48 (test risk analysis, Low): the nl/en key parity above covers the new keys; this pins that the
+         * keys the server and the editors use exist at all, in both languages. */
+        var texts = Read(culture);
+
+        var expected = new List<string>
+        {
+            MasterDataErrorCodes.OwnerRoleRequired, MasterDataErrorCodes.HomeDepotRoleRequired, MasterDataErrorCodes.InvalidLicencePlate,
+            MasterDataErrorCodes.InvalidVin, MasterDataErrorCodes.RegistrationCountryRequired, MasterDataErrorCodes.CombinationMotorisedFirst,
+            MasterDataErrorCodes.CombinationMemberCount, MasterDataErrorCodes.VehicleAlreadyInCombination, MasterDataErrorCodes.ProductRelationCodeTargetRequired,
+            "MasterData:InUseByVehicles", "MasterData:InUseByVehicleCombinations", "MasterData:InUseByProductRelationCodes",
+            "MasterData:Vehicles", "MasterData:VehicleCombinations", "MasterData:ProductRelationCodes",
+            "Permission:Vehicles", "Permission:VehicleCombinations", "Permission:ProductRelationCodes"
+        };
+        expected.AddRange(Enum.GetValues<OpenTms.MasterData.Fleet.FuelType>().Select(f => $"MasterData:FuelType.{f}"));
+        expected.AddRange(Enum.GetValues<OpenTms.MasterData.Fleet.EuroClass>().Select(e => $"MasterData:EuroClass.{e}"));
+
+        expected.Where(key => !texts.ContainsKey(key)).ShouldBeEmpty($"{culture}.json");
+        texts[MasterDataErrorCodes.CombinationMemberCount].ShouldContain("{min}");
+        texts[MasterDataErrorCodes.CombinationMemberCount].ShouldContain("{max}");
+        texts[MasterDataErrorCodes.VehicleAlreadyInCombination].ShouldContain("{name}");
+    }
 }

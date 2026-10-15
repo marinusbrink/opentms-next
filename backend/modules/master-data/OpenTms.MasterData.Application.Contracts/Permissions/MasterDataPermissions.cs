@@ -107,6 +107,32 @@ public static class MasterDataPermissions
         public const string Anonymise = Default + ".Anonymise";
     }
 
+    // Run 3 (design 48)
+    public static class Vehicles
+    {
+        public const string Default = GroupName + ".Vehicles";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+    }
+
+    public static class VehicleCombinations
+    {
+        public const string Default = GroupName + ".VehicleCombinations";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+    }
+
+    /// <summary>The view permission also guards <c>IProductRelationCodeResolver</c>.</summary>
+    public static class ProductRelationCodes
+    {
+        public const string Default = GroupName + ".ProductRelationCodes";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+    }
+
     /// <summary>Every (view, create, update, delete) quadruple, for the definition provider and the tests.</summary>
     public static readonly (string Entity, string Default, string Create, string Update, string Delete)[] All =
     [
@@ -122,5 +148,8 @@ public static class MasterDataPermissions
         ("GeographicalRegions", GeographicalRegions.Default, GeographicalRegions.Create, GeographicalRegions.Update, GeographicalRegions.Delete),
         ("Relations", Relations.Default, Relations.Create, Relations.Update, Relations.Delete),
         ("Drivers", Drivers.Default, Drivers.Create, Drivers.Update, Drivers.Delete),
+        ("Vehicles", Vehicles.Default, Vehicles.Create, Vehicles.Update, Vehicles.Delete),
+        ("VehicleCombinations", VehicleCombinations.Default, VehicleCombinations.Create, VehicleCombinations.Update, VehicleCombinations.Delete),
+        ("ProductRelationCodes", ProductRelationCodes.Default, ProductRelationCodes.Create, ProductRelationCodes.Update, ProductRelationCodes.Delete),
     ];
 }

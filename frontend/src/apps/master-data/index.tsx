@@ -9,13 +9,16 @@ import { CountriesView } from "@/apps/master-data/views/CountriesView";
 import { CurrenciesView } from "@/apps/master-data/views/CurrenciesView";
 import { DriversView } from "@/apps/master-data/views/DriversView";
 import { GeographicalRegionsView } from "@/apps/master-data/views/GeographicalRegionsView";
+import { ProductRelationCodesView } from "@/apps/master-data/views/ProductRelationCodesView";
 import { ProductsView } from "@/apps/master-data/views/ProductsView";
 import { RelationCategoriesView } from "@/apps/master-data/views/RelationCategoriesView";
 import { RelationsView } from "@/apps/master-data/views/RelationsView";
 import { TemperaturesView } from "@/apps/master-data/views/TemperaturesView";
 import { TransportCharacteristicsView } from "@/apps/master-data/views/TransportCharacteristicsView";
 import { TransportUnitsView } from "@/apps/master-data/views/TransportUnitsView";
+import { VehicleCombinationsView } from "@/apps/master-data/views/VehicleCombinationsView";
 import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
+import { VehiclesView } from "@/apps/master-data/views/VehiclesView";
 
 /* The Master data app (design 41): routes by pathname like the Administration app. The bare app path and a group
  * path (the nav category) redirect to the first list that is on for this tenant ("App features",
@@ -41,6 +44,9 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/relation-categories")) return <RelationCategoriesView />;
   if (pathname.startsWith("/master-data/relations")) return <RelationsView />;
   if (pathname.startsWith("/master-data/drivers")) return <DriversView />;
+  if (pathname.startsWith("/master-data/vehicle-combinations")) return <VehicleCombinationsView />;
+  if (pathname.startsWith("/master-data/vehicles")) return <VehiclesView />;
+  if (pathname.startsWith("/master-data/product-relation-codes")) return <ProductRelationCodesView />;
   if (pathname.startsWith("/master-data/products")) return <ProductsView />;
   if (pathname.startsWith("/master-data/transport-units")) return <TransportUnitsView />;
   if (pathname.startsWith("/master-data/temperatures")) return <TemperaturesView />;

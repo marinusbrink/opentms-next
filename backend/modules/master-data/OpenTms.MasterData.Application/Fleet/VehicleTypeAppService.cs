@@ -21,15 +21,18 @@ public class VehicleTypeAppService
 {
     private readonly IRepository<TransportCharacteristics, Guid> _characteristics;
     private readonly IRepository<TransportUnitLoadFactor, Guid> _loadFactors;
+    private readonly IRepository<Vehicle, Guid> _vehicles;
 
     public VehicleTypeAppService(
         IRepository<VehicleType, Guid> repository,
         IRepository<TransportCharacteristics, Guid> characteristics,
-        IRepository<TransportUnitLoadFactor, Guid> loadFactors)
+        IRepository<TransportUnitLoadFactor, Guid> loadFactors,
+        IRepository<Vehicle, Guid> vehicles)
         : base(repository)
     {
         _characteristics = characteristics;
         _loadFactors = loadFactors;
+        _vehicles = vehicles;
     }
 
     [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
@@ -166,6 +169,12 @@ public class VehicleTypeAppService
         if (await _loadFactors.AnyAsync(f => f.VehicleTypeId == vehicleType.Id))
         {
             return L["MasterData:InUseByTransportUnits"];
+        }
+
+        /* Design 48: a vehicle's type. */
+        if (await _vehicles.AnyAsync(v => v.VehicleTypeId == vehicleType.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
         }
 
         return null;

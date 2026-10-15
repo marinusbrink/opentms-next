@@ -77,4 +77,18 @@ public static class MasterDataConsts
     public const int MaxMatchCandidates = 10;
     public const string AnonymisedText = "Anonymised";
     public const int MaxLookupTermLength = 100;
+
+    // Run 3: Vehicle, vehicle combination and product relation code (design 48)
+    public const int MaxVehicleNameLength = 64;
+    public const int MaxLicencePlateLength = 16;
+    public const int VinLength = 17;
+    public const int MaxDefaultDriversPerVehicle = 5;
+    public const int MaxExternalIdentifiersPerVehicle = 50;
+    public const int MaxTransportCharacteristicsPerVehicle = 50;
+    public const int MaxVehicleCombinationNameLength = 64;
+    public const int MinVehicleCombinationMembers = 2;
+    public const int MaxVehicleCombinationMembers = 4;
+    public const int MaxProductRelationCodeLength = 64;
+    /// <summary>The resolver takes at most this many codes per call (design 48, security quickscan).</summary>
+    public const int MaxResolverCodes = 500;
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using OpenTms.MasterData.Fleet;
 using OpenTms.MasterData.Permissions;
 using OpenTms.MasterData.Regions;
 using OpenTms.Platform.Grid;
@@ -22,15 +23,18 @@ public class CountryAppService
 {
     private readonly IRepository<Currency, Guid> _currencies;
     private readonly IRepository<GeographicalRegionPostalCodeRange, Guid> _ranges;
+    private readonly IRepository<Vehicle, Guid> _vehicles;
 
     public CountryAppService(
         IRepository<Country, Guid> repository,
         IRepository<Currency, Guid> currencies,
-        IRepository<GeographicalRegionPostalCodeRange, Guid> ranges)
+        IRepository<GeographicalRegionPostalCodeRange, Guid> ranges,
+        IRepository<Vehicle, Guid> vehicles)
         : base(repository)
     {
         _currencies = currencies;
         _ranges = ranges;
+        _vehicles = vehicles;
     }
 
     [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
@@ -226,6 +230,12 @@ public class CountryAppService
         if (await _ranges.AnyAsync(r => r.CountryId == country.Id))
         {
             return L["MasterData:InUseByGeographicalRegions"];
+        }
+
+        // Design 48: the registration country of a vehicle is a restrict reference.
+        if (await _vehicles.AnyAsync(v => v.RegistrationCountryId == country.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
         }
 
         return null;

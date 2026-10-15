@@ -38,6 +38,10 @@ public class MasterDataAppFeatureAttributeTests
         [typeof(CountryAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries],
         [typeof(CurrencyAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies],
         [typeof(GeographicalRegionAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions],
+        /* Design 48. */
+        [typeof(VehicleAppService), AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles],
+        [typeof(VehicleCombinationAppService), AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations],
+        [typeof(ProductRelationCodeAppService), AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes],
     ];
 
     /// <summary>The pickers per PO decision 2026-10-14; Driver.GetUserLookupPageAsync is deliberately not one.</summary>
@@ -49,6 +53,8 @@ public class MasterDataAppFeatureAttributeTests
         nameof(GeographicalRegionAppService) + "." + nameof(GeographicalRegionAppService.GetMatchesAsync),
         nameof(CountryAppService) + "." + nameof(CountryAppService.GetDefaultAsync),
         nameof(TransportCharacteristicsAppService) + "." + nameof(TransportCharacteristicsAppService.GetLookupPageAsync),
+        /* Design 48: the vehicle picker needs only the app (D12); type-defaults belongs to the Vehicles screen. */
+        nameof(VehicleAppService) + "." + nameof(VehicleAppService.GetLookupPageAsync),
     ];
 
     private static bool IsPicker(Type service, MethodInfo method) =>

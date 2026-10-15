@@ -1,4 +1,5 @@
 import {
+  Barcode,
   BarChart3,
   Boxes,
   BookOpen,
@@ -12,6 +13,7 @@ import {
   Landmark,
   Layers,
   LayoutDashboard,
+  Link2,
   ListTree,
   MapPin,
   MapPinned,
@@ -138,9 +140,9 @@ export const APPS: readonly AppDefinition[] = [
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
     /* The ten reference lists of the first run (docs/designs/41-master-data-first-run.md), grouped
-     * as the old menu was, plus Relations and Drivers of the second run (design 43; both behind the
-     * MasterData.Relations feature, which the views check). Views, not modules: every one reads the
-     * MasterData domain. The Relations list owns the group's own path. */
+     * as the old menu was, plus Relations and Drivers of the second run (design 43) and Vehicles,
+     * Vehicle combinations and Product relation codes of the third (design 48). Views, not modules:
+     * every one reads the MasterData domain. The Relations list owns the group's own path. */
     views: [
       {
         nameKey: "MasterData:Nav.Relations",
@@ -161,6 +163,7 @@ export const APPS: readonly AppDefinition[] = [
         children: [
           { nameKey: "MasterData:Products", path: "/master-data/products", icon: Package, feature: "Apps.MasterData.Transport.Products" },
           { nameKey: "MasterData:TransportUnits", path: "/master-data/transport-units", icon: Boxes, feature: "Apps.MasterData.Transport.TransportUnits" },
+          { nameKey: "MasterData:ProductRelationCodes", path: "/master-data/product-relation-codes", icon: Barcode, feature: "Apps.MasterData.Transport.ProductRelationCodes" },
           { nameKey: "MasterData:Temperatures", path: "/master-data/temperatures", icon: Thermometer, feature: "Apps.MasterData.Transport.Temperatures" },
         ],
       },
@@ -170,6 +173,8 @@ export const APPS: readonly AppDefinition[] = [
         feature: "Apps.MasterData.Fleet",
         icon: Truck,
         children: [
+          { nameKey: "MasterData:Vehicles", path: "/master-data/vehicles", icon: Truck, feature: "Apps.MasterData.Fleet.Vehicles" },
+          { nameKey: "MasterData:VehicleCombinations", path: "/master-data/vehicle-combinations", icon: Link2, feature: "Apps.MasterData.Fleet.VehicleCombinations" },
           { nameKey: "MasterData:Drivers", path: "/master-data/drivers", icon: IdCard, feature: "Apps.MasterData.Fleet.Drivers" },
           { nameKey: "MasterData:VehicleTypes", path: "/master-data/vehicle-types", icon: Truck, feature: "Apps.MasterData.Fleet.VehicleTypes" },
           { nameKey: "MasterData:TransportCharacteristics", path: "/master-data/transport-characteristics", icon: ListTree, feature: "Apps.MasterData.Fleet.TransportCharacteristics" },

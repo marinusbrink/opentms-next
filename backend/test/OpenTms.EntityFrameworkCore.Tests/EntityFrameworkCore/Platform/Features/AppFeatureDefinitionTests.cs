@@ -12,7 +12,7 @@ namespace OpenTms.EntityFrameworkCore.Platform.Features;
 
 /// <summary>
 /// The app and navigation feature definitions through the real definition manager (PO decision 2026-10-14,
-/// docs/designs/tenants-and-editions.md, "App features"): 31 toggles in the "Apps" group, each a child of the node
+/// docs/designs/tenants-and-editions.md, "App features"; design 48): 34 toggles in the "Apps" group, each a child of the node
 /// above it so an edition's Features tab shows the tree, with the PO's defaults; the old ad-hoc features are gone.
 /// Risk class: High — a wrong default switches a screen on or off for every tenant without a stored value.
 /// </summary>
@@ -37,8 +37,11 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.MasterData.Transport"] = ("Apps.MasterData", "true"),
         ["Apps.MasterData.Transport.Products"] = ("Apps.MasterData.Transport", "false"),
         ["Apps.MasterData.Transport.TransportUnits"] = ("Apps.MasterData.Transport", "false"),
+        ["Apps.MasterData.Transport.ProductRelationCodes"] = ("Apps.MasterData.Transport", "false"),
         ["Apps.MasterData.Transport.Temperatures"] = ("Apps.MasterData.Transport", "false"),
         ["Apps.MasterData.Fleet"] = ("Apps.MasterData", "true"),
+        ["Apps.MasterData.Fleet.Vehicles"] = ("Apps.MasterData.Fleet", "false"),
+        ["Apps.MasterData.Fleet.VehicleCombinations"] = ("Apps.MasterData.Fleet", "false"),
         ["Apps.MasterData.Fleet.Drivers"] = ("Apps.MasterData.Fleet", "false"),
         ["Apps.MasterData.Fleet.VehicleTypes"] = ("Apps.MasterData.Fleet", "false"),
         ["Apps.MasterData.Fleet.TransportCharacteristics"] = ("Apps.MasterData.Fleet", "false"),
@@ -58,12 +61,12 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     };
 
     [Fact]
-    public async Task The_Apps_group_holds_exactly_the_31_tree_features()
+    public async Task The_Apps_group_holds_exactly_the_34_tree_features()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var group = (await manager.GetGroupsAsync()).Single(g => g.Name == AppFeatures.GroupName);
 
-        Expected.Count.ShouldBe(31);
+        Expected.Count.ShouldBe(34);
         group.GetFeaturesWithChildren().Select(f => f.Name).ShouldBe(Expected.Keys, ignoreOrder: true);
         group.Features.Select(f => f.Name).ShouldBe(Expected.Where(e => e.Value.Parent == null).Select(e => e.Key), ignoreOrder: true);
     }

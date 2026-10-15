@@ -257,6 +257,12 @@ position: motorised kinds for row 1, trailers after), validated on submit.
 Archived (hidden); wildcard search. **Editor** (`md`): Code, Archived, Destination `EntityLookup`
 (relations), Product and Transport unit `ReferenceCombobox`, Description.
 
+**Deviation UI-LOOK-001:** the vehicle type (at most 50 per tenant), the product and the transport unit are
+picked with a `ReferenceCombobox` over their run-1 lookups, not an `EntityLookup`: these lists have no
+lookup-page endpoint and stay within the lookup's cap of 500 per tenant. The code marks each as
+`DEVIATION(UI-LOOK-001)`. The organisation units are a `MultiSelect` under the same rule, as in the relation
+editor.
+
 **Library:** nothing new; `EntityLookup`, `LinesGrid`, `MultiSelect`, `ReferenceCombobox` exist. A
 `LicencePlateCell`/formatter in `lib/format` (UI-FMT) formats NL plates by sidecode.
 

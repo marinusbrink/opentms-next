@@ -27,6 +27,7 @@ public class DriverAppService
 
     private readonly IRepository<Relation, Guid> _relations;
     private readonly IRepository<DriverQualification, Guid> _qualifications;
+    private readonly IRepository<Fleet.VehicleDefaultDriver> _vehicleDrivers;
     private readonly IIdentityUserLookupAppService _users;
     private readonly IReadOnlyCollection<string> _cultures;
 
@@ -34,12 +35,14 @@ public class DriverAppService
         IRepository<Driver, Guid> repository,
         IRepository<Relation, Guid> relations,
         IRepository<DriverQualification, Guid> qualifications,
+        IRepository<Fleet.VehicleDefaultDriver> vehicleDrivers,
         IIdentityUserLookupAppService users,
         IOptions<AbpLocalizationOptions> localization)
         : base(repository)
     {
         _relations = relations;
         _qualifications = qualifications;
+        _vehicleDrivers = vehicleDrivers;
         _users = users;
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
     }
@@ -303,6 +306,17 @@ public class DriverAppService
         driver.SetQualifications(
             input.Qualifications.Select(q => new DriverQualificationInput(q.Id, q.Kind, q.Number, q.ValidFrom, q.ValidUntil, q.Description)),
             () => GuidGenerator.Create());
+    }
+
+    /// <summary>Design 48: a default driver of a vehicle is in use.</summary>
+    protected override async Task<string?> GetDeleteBlockerAsync(Driver driver)
+    {
+        if (await _vehicleDrivers.AnyAsync(d => d.DriverId == driver.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
+        }
+
+        return null;
     }
 
     protected override Task BeforeDeleteAsync(Driver driver)

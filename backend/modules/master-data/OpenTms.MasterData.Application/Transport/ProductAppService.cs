@@ -19,11 +19,13 @@ public class ProductAppService
       IProductAppService
 {
     private readonly IRepository<ProductIncompatibility> _pairs;
+    private readonly IRepository<ProductRelationCode, Guid> _productRelationCodes;
 
-    public ProductAppService(IRepository<Product, Guid> repository, IRepository<ProductIncompatibility> pairs)
+    public ProductAppService(IRepository<Product, Guid> repository, IRepository<ProductIncompatibility> pairs, IRepository<ProductRelationCode, Guid> productRelationCodes)
         : base(repository)
     {
         _pairs = pairs;
+        _productRelationCodes = productRelationCodes;
     }
 
     [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
@@ -212,6 +214,17 @@ public class ProductAppService
 
     protected override Task AfterWriteAsync(Product product, ProductCreateDto input)
         => SyncIncompatibilitiesAsync(_pairs, product.Id, input.IncompatibleProductIds, (tenantId, a, b) => new ProductIncompatibility(tenantId, a, b));
+
+    /// <summary>Design 48: the product of a product relation code is in use.</summary>
+    protected override async Task<string?> GetDeleteBlockerAsync(Product product)
+    {
+        if (await _productRelationCodes.AnyAsync(c => c.ProductId == product.Id))
+        {
+            return L["MasterData:InUseByProductRelationCodes"];
+        }
+
+        return null;
+    }
 
     protected override Task BeforeDeleteAsync(Product product) => RemoveIncompatibilitiesAsync(_pairs, product.Id);
 }

@@ -17,7 +17,9 @@ ingeschakeld met de functie *Relaties* (via de editie van de tenant). De rechten
   naar verwijzen. Gearchiveerde relaties verdwijnen uit de keuzelijsten en uit het automatisch
   koppelen; met *Toon gearchiveerd* blijven ze in de lijst zichtbaar. Rechtsklikken op een regel
   geeft **Archiveren** of **Dearchiveren**.
-- Een relatie die als werkgever van een chauffeur is vastgelegd kan niet worden verwijderd.
+- Een relatie die als werkgever van een chauffeur, als eigenaar of standplaats van een
+  [voertuig](voertuigen.md) of als bestemming van een productrelatiecode is vastgelegd, kan niet
+  worden verwijderd.
 
 ## Het record
 

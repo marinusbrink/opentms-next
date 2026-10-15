@@ -43,6 +43,10 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
         yield return Row("Countries", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries);
         yield return Row("Currencies", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies);
         yield return Row("GeographicalRegions", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions);
+        /* Design 48. */
+        yield return Row("Vehicles", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles);
+        yield return Row("VehicleCombinations", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations);
+        yield return Row("ProductRelationCodes", AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes);
     }
 
     private static object[] Row(string service, string group, string node) => [service, group, node];
@@ -61,6 +65,9 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
         "Countries" => GetRequiredService<ICountryAppService>().GetListAsync(List()),
         "Currencies" => GetRequiredService<ICurrencyAppService>().GetListAsync(List<CurrencyListRequestDto>()),
         "GeographicalRegions" => GetRequiredService<IGeographicalRegionAppService>().GetListAsync(List<GeographicalRegionListRequestDto>()),
+        "Vehicles" => GetRequiredService<IVehicleAppService>().GetListAsync(List<VehicleListRequestDto>()),
+        "VehicleCombinations" => GetRequiredService<IVehicleCombinationAppService>().GetListAsync(List<ArchivableListRequestDto>()),
+        "ProductRelationCodes" => GetRequiredService<IProductRelationCodeAppService>().GetListAsync(List<ArchivableListRequestDto>()),
         _ => throw new ArgumentOutOfRangeException(nameof(service)),
     };
 
@@ -78,6 +85,9 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
         "Countries" => GetRequiredService<ICountryAppService>().GetLookupAsync(),
         "Currencies" => GetRequiredService<ICurrencyAppService>().GetLookupAsync(),
         "GeographicalRegions" => GetRequiredService<IGeographicalRegionAppService>().GetLookupAsync(),
+        "Vehicles" => GetRequiredService<IVehicleAppService>().GetLookupAsync(),
+        "VehicleCombinations" => GetRequiredService<IVehicleCombinationAppService>().GetLookupAsync(),
+        "ProductRelationCodes" => GetRequiredService<IProductRelationCodeAppService>().GetLookupAsync(),
         _ => throw new ArgumentOutOfRangeException(nameof(service)),
     };
 

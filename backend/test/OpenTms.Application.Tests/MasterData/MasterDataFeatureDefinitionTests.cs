@@ -26,9 +26,12 @@ public class MasterDataFeatureDefinitionTests
         AppFeatures.MasterData.Transport.Default.ShouldBe("Apps.MasterData.Transport");
         AppFeatures.MasterData.Transport.Products.ShouldBe("Apps.MasterData.Transport.Products");
         AppFeatures.MasterData.Transport.TransportUnits.ShouldBe("Apps.MasterData.Transport.TransportUnits");
+        AppFeatures.MasterData.Transport.ProductRelationCodes.ShouldBe("Apps.MasterData.Transport.ProductRelationCodes");
         AppFeatures.MasterData.Transport.Temperatures.ShouldBe("Apps.MasterData.Transport.Temperatures");
 
         AppFeatures.MasterData.Fleet.Default.ShouldBe("Apps.MasterData.Fleet");
+        AppFeatures.MasterData.Fleet.Vehicles.ShouldBe("Apps.MasterData.Fleet.Vehicles");
+        AppFeatures.MasterData.Fleet.VehicleCombinations.ShouldBe("Apps.MasterData.Fleet.VehicleCombinations");
         AppFeatures.MasterData.Fleet.Drivers.ShouldBe("Apps.MasterData.Fleet.Drivers");
         AppFeatures.MasterData.Fleet.VehicleTypes.ShouldBe("Apps.MasterData.Fleet.VehicleTypes");
         AppFeatures.MasterData.Fleet.TransportCharacteristics.ShouldBe("Apps.MasterData.Fleet.TransportCharacteristics");
