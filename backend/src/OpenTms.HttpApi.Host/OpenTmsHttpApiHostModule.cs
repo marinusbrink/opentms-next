@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using OpenIddict.Validation.AspNetCore;
+using OpenTms.DataProtection;
 using OpenTms.Impersonation;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Server.AspNetCore;
@@ -150,6 +151,7 @@ public class OpenTmsHttpApiHostModule : AbpModule
         ConfigureStudio(hostingEnvironment);
         ConfigureHangfire(context, configuration);
         ConfigureAuthentication(context);
+        ConfigureDataProtection(context);
         ConfigureUrls(configuration);
         ConfigureBundles(hostingEnvironment);
         ConfigureConventionalControllers();
@@ -275,6 +277,13 @@ public class OpenTmsHttpApiHostModule : AbpModule
                 options.FileSets.ReplaceEmbeddedByPhysical<OpenTmsApplicationModule>(Path.Combine(hostingEnvironment.ContentRootPath, $"..{Path.DirectorySeparatorChar}OpenTms.Application"));
             });
         }
+    }
+
+    /* One key ring for every instance, in the host database (docs/designs/tenants-and-editions.md, "Shared
+     * data-protection keys"): a cookie or "Log in as" ticket protected by one instance must be readable by the next. */
+    private static void ConfigureDataProtection(ServiceConfigurationContext context)
+    {
+        HostDatabaseXmlRepository.AddTo(context.Services);
     }
 
     private void ConfigureConventionalControllers()

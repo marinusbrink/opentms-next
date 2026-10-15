@@ -25,6 +25,27 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OpenTms.Platform.DataProtection.DataProtectionKeyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("FriendlyName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys", "platform");
+                });
+
             modelBuilder.Entity("OpenTms.Platform.Editions.Edition", b =>
                 {
                     b.Property<Guid>("Id")

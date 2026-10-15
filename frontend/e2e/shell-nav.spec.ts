@@ -11,34 +11,16 @@
  * Prerequisite: run `npx playwright install chromium` once before first run.
  * In CI: start the dev server and backend before `npx playwright test`.
  *
- * When PLAYWRIGHT_BYPASS_AUTH=1 is set the tests skip OIDC login and assume
- * an already-authenticated session cookie is present (for local dev iteration).
+ * Sign-in: ./support/auth.ts (PLAYWRIGHT_BYPASS_AUTH=1 skips it for a session
+ * that is already signed in).
  */
 import { test, expect } from "@playwright/test";
+import { signInAsHost } from "./support/auth";
 
-const BYPASS_AUTH = process.env["PLAYWRIGHT_BYPASS_AUTH"] === "1";
-const ADMIN_USER = process.env["PLAYWRIGHT_USER"] ?? "admin";
-const ADMIN_PASS = process.env["PLAYWRIGHT_PASS"] ?? "1q2w3E*";
-
-/**
- * Log in through the OpenIddict login page.
- * Skipped when PLAYWRIGHT_BYPASS_AUTH=1 (pre-authenticated session).
- */
-async function loginIfNeeded(page: import("@playwright/test").Page) {
-  if (BYPASS_AUTH) return;
-  await page.goto("/");
-  // The OIDC redirect lands on the OpenIddict login page at /Account/Login.
-  await page.waitForURL(/\/Account\/Login/i, { timeout: 10_000 });
-  await page.getByLabel(/username|gebruikersnaam/i).fill(ADMIN_USER);
-  await page.getByLabel(/password|wachtwoord/i).fill(ADMIN_PASS);
-  await page.getByRole("button", { name: /sign in|inloggen/i }).click();
-  // After login the OIDC callback redirects back to the SPA.
-  await page.waitForURL(/^(?!.*\/Account\/Login)/, { timeout: 15_000 });
-}
 
 test.describe("AppShell + AppNavPane — shell navigation (critical risk)", () => {
   test.beforeEach(async ({ page }) => {
-    await loginIfNeeded(page);
+    await signInAsHost(page);
   });
 
   test("login → /admin/users → click Roles nav entry → /admin/roles renders", async ({
@@ -86,11 +68,17 @@ test.describe("AppShell + AppNavPane — shell navigation (critical risk)", () =
   });
 
   test("apps without views render full-width layout (no left nav pane)", async ({ page }) => {
+    /* Dashboard has no views. Its app feature is off by default (docs/designs/tenants-and-editions.md, "App
+     * features") and the host has no edition to switch it on, so the shell renders FeatureUnavailable full-width:
+     * assert that screen, so the test cannot pass on a page that never rendered. */
     await page.goto("/dashboard");
     await page.waitForURL("/dashboard", { timeout: 10_000 });
 
+    await expect(
+      page.getByRole("status").filter({ hasText: /not part of your package|hoort niet bij uw pakket/i }),
+    ).toBeVisible();
+
     // No AppNavPane for dashboard (no views configured).
-    const nav = page.getByRole("navigation", { name: /dashboard navigation/i });
-    await expect(nav).not.toBeVisible();
+    await expect(page.getByRole("navigation", { name: /dashboard navigation/i })).toHaveCount(0);
   });
 });

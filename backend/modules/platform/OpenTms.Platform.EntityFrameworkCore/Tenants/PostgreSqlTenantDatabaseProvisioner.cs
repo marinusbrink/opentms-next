@@ -116,6 +116,10 @@ public class PostgreSqlTenantDatabaseProvisioner : ITenantDatabaseProvisioner, I
                 : "SELECT format('CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD %L', @name, @password)",
             name, target.Password, cancellationToken);
 
+        /* PostgreSQL 16+: a login that is not a superuser (the provisioning login; Cloud SQL's postgres too) may create a
+         * database owned by a role, and drop it later, only as a member of that role. Repeating the grant is a no-op. */
+        await ExecuteFormattedAsync(connection, "SELECT format('GRANT %I TO CURRENT_USER', @name)", name, null, cancellationToken);
+
         if (!await ExistsAsync(connection, "SELECT 1 FROM pg_database WHERE datname = @name", name, cancellationToken))
         {
             await ExecuteFormattedAsync(connection, "SELECT format('CREATE DATABASE %I OWNER %I', @name, @name)", name, null, cancellationToken);
@@ -157,15 +161,28 @@ public class PostgreSqlTenantDatabaseProvisioner : ITenantDatabaseProvisioner, I
     private async Task<NpgsqlConnection> OpenServerConnectionAsync(string host, int port, CancellationToken cancellationToken)
     {
         var useHostLogin = string.IsNullOrWhiteSpace(_options.Provisioning.ConnectionString);
-        if (useHostLogin && Interlocked.Exchange(ref _hostLoginWarned, 1) == 0)
+        var login = new NpgsqlConnectionStringBuilder(useHostLogin ? HostConnectionString : _options.Provisioning.ConnectionString);
+        var isHostLogin = useHostLogin
+            || string.Equals(login.Username, new NpgsqlConnectionStringBuilder(HostConnectionString).Username, StringComparison.Ordinal);
+
+        if (isHostLogin)
         {
-            /* Least privilege (constitution rule 7): the host login then needs CREATEDB and CREATEROLE, which every
-             * request would carry. Fine for local development; production sets a provisioning login of its own. */
-            Logger.LogWarning(
-                "Tenancy:Provisioning:ConnectionString is not set: tenant databases are created with the host database's login.");
+            /* Least privilege (constitution rule 7): the host login would then need CREATEDB and CREATEROLE, which every
+             * request carries. Only local development allows that (Tenancy:Provisioning:AllowHostLogin). */
+            if (!_options.Provisioning.AllowHostLogin)
+            {
+                throw new InvalidOperationException(
+                    "Tenant provisioning needs a login of its own: set Tenancy:Provisioning:ConnectionString to a login other than the host database's.");
+            }
+
+            if (Interlocked.Exchange(ref _hostLoginWarned, 1) == 0)
+            {
+                Logger.LogWarning(
+                    "Tenancy:Provisioning:ConnectionString is not set to a login of its own: tenant databases are created with the host database's login.");
+            }
         }
 
-        var admin = new NpgsqlConnectionStringBuilder(useHostLogin ? HostConnectionString : _options.Provisioning.ConnectionString)
+        var admin = new NpgsqlConnectionStringBuilder(login.ConnectionString)
         {
             Host = host,
             Port = port,

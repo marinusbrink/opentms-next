@@ -10,6 +10,7 @@ using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.Threading;
 using OpenTms.EntityFrameworkCore;
+using OpenTms.Platform.Tenants;
 using OpenTms.Platform.Administration;
 
 namespace OpenTms.PostgreSql;
@@ -49,6 +50,13 @@ public class OpenTmsPostgreSqlTestModule : AbpModule
         Configure<AbpDbConnectionOptions>(options =>
         {
             options.ConnectionStrings.Default = PostgreSqlTestDatabases.HostConnectionString;
+        });
+
+        /* The test server has one login (postgres), as local development does; TenantReviewFixesPostgreSqlTests covers a
+         * provisioning login of its own and the refusal without one. */
+        Configure<TenantDatabaseOptions>(options =>
+        {
+            options.Provisioning.AllowHostLogin = true;
         });
 
         context.Services.AddLogging(logging => logging.AddProvider(new CapturingLoggerProvider()));

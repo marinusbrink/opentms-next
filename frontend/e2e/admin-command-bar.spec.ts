@@ -10,35 +10,29 @@
  * Prerequisites: run `npx playwright install chromium` once.
  * In CI: start the dev server and backend before `npx playwright test`.
  */
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { accessToken, signInAsHost } from "./support/auth";
 
-const BYPASS_AUTH = process.env["PLAYWRIGHT_BYPASS_AUTH"] === "1";
-const ADMIN_USER = process.env["PLAYWRIGHT_USER"] ?? "admin";
-const ADMIN_PASS = process.env["PLAYWRIGHT_PASS"] ?? "1q2w3E*";
 const API_BASE = process.env["PLAYWRIGHT_API_BASE"] ?? "http://localhost:44301";
 
-async function loginIfNeeded(page: import("@playwright/test").Page) {
-  if (BYPASS_AUTH) return;
-  await page.goto("/");
-  await page.waitForURL(/\/Account\/Login/i, { timeout: 10_000 });
-  await page.getByLabel(/username|gebruikersnaam/i).fill(ADMIN_USER);
-  await page.getByLabel(/password|wachtwoord/i).fill(ADMIN_PASS);
-  await page.getByRole("button", { name: /sign in|inloggen/i }).click();
-  await page.waitForURL(/^(?!.*\/Account\/Login)/, { timeout: 15_000 });
+/** The bulk-delete command; its label follows the selection: "Delete role", "Delete 1 role", "Delete 3 roles". */
+function deleteCommand(page: Page) {
+  return page.getByRole("button", { name: /^delete( \d+)? roles?$|^(\d+ )?(rol|rollen) verwijderen$/i });
 }
 
-async function getAccessToken(request: APIRequestContext): Promise<string> {
-  const resp = await request.post(`${API_BASE}/connect/token`, {
-    form: {
-      grant_type: "password",
-      username: ADMIN_USER,
-      password: ADMIN_PASS,
-      client_id: "OpenTms_App",
-      scope: "openid profile email OpenTms",
-    },
-  });
-  const body = await resp.json() as { access_token: string };
-  return body["access_token"];
+/** The grid row of the role with this exact name (the centre container holds the cells, the pinned one the checkbox). */
+async function rowIdOfRole(page: Page, name: string): Promise<string> {
+  const row = page
+    .locator(".ag-center-cols-container .ag-row")
+    .filter({ has: page.getByRole("gridcell", { name, exact: true }) })
+    .first();
+  const id = await row.getAttribute("row-id");
+  if (!id) throw new Error(`no row for role ${name}`);
+  return id;
+}
+
+function rowCheckbox(page: Page, rowId: string) {
+  return page.locator(`.ag-row[row-id="${rowId}"]`).locator('[data-testid="row-checkbox"], input[type="checkbox"]').first();
 }
 
 async function createRole(
@@ -66,14 +60,14 @@ async function deleteRoleById(
 
 test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => {
   test.beforeEach(async ({ page }) => {
-    await loginIfNeeded(page);
+    await signInAsHost(page);
   });
 
   test("journey 1: select two non-static roles → Delete enabled → confirm → result dialog → grid refreshed", async ({
     page,
     request,
   }) => {
-    const token = await getAccessToken(request);
+    const token = await accessToken(page);
     const roleAId = await createRole(request, token, `e2e-bulk-a-${Date.now()}`);
     const roleBId = await createRole(request, token, `e2e-bulk-b-${Date.now()}`);
 
@@ -85,14 +79,12 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
       await page.waitForSelector(".ag-row", { timeout: 15_000 });
 
       // The Delete button must be disabled before any selection.
-      const deleteBtn = page.getByRole("button", { name: /bulk.?delete|verwijder/i }).last();
+      const deleteBtn = deleteCommand(page);
       await expect(deleteBtn).toBeDisabled();
 
       // Select both test rows by clicking their checkboxes.
       for (const roleId of [roleAId, roleBId]) {
-        const row = page.locator(`.ag-row[row-id="${roleId}"]`);
-        const checkbox = row.locator('[data-testid="row-checkbox"], input[type="checkbox"]').first();
-        await checkbox.click();
+        await rowCheckbox(page, roleId).click();
       }
 
       // Delete button must now be enabled.
@@ -106,7 +98,7 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
 
       // Result step must show ≥ 1 deleted.
       await expect(dialog.getByText(/deleted|verwijderd/i)).toBeVisible({ timeout: 10_000 });
-      await dialog.getByRole("button", { name: /close|sluiten/i }).click();
+      await dialog.getByRole("button", { name: /^(close|sluiten)$/i }).getByText(/^(close|sluiten)$/i).click();
       await expect(dialog).not.toBeVisible();
 
       // Grid must have refreshed (rows no longer present).
@@ -121,26 +113,16 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
 
   test("journey 2: select static role only → confirm → 0 deleted, 1 skipped", async ({
     page,
-    request,
   }) => {
-    const token = await getAccessToken(request);
-
     await page.goto("/admin/roles");
     await page.waitForURL("/admin/roles", { timeout: 10_000 });
     await page.waitForSelector(".ag-row", { timeout: 15_000 });
 
-    // Find the static admin row (marked with "static" badge).
-    const staticRow = page
-      .locator(".ag-row")
-      .filter({ has: page.locator('[class*="static" i], [aria-label*="static" i]').or(page.getByText(/admin/i)) })
-      .first();
+    // The seeded admin role is a system role (static): bulk delete skips it.
+    const adminRowId = await rowIdOfRole(page, "admin");
+    await rowCheckbox(page, adminRowId).click();
 
-    const checkbox = staticRow
-      .locator('[data-testid="row-checkbox"], input[type="checkbox"]')
-      .first();
-    await checkbox.click();
-
-    const deleteBtn = page.getByRole("button", { name: /bulk.?delete|verwijder/i }).last();
+    const deleteBtn = deleteCommand(page);
     await expect(deleteBtn).toBeEnabled();
     await deleteBtn.click();
 
@@ -153,11 +135,11 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
     await expect(dialog.getByText(/skipped|overgeslagen/i)).toBeVisible();
 
     // Close the dialog.
-    await dialog.getByRole("button", { name: /close|sluiten/i }).click();
+    await dialog.getByRole("button", { name: /^(close|sluiten)$/i }).getByText(/^(close|sluiten)$/i).click();
     await expect(dialog).not.toBeVisible();
 
-    // Verify the static role still exists.
-    const _ = token; // token used above
+    // The static role is still there.
+    await expect(page.locator(`.ag-row[row-id="${adminRowId}"]`).first()).toBeVisible();
   });
 
   test("journey 3: /admin/users → New User command → dialog opens", async ({ page }) => {
@@ -183,13 +165,12 @@ test.describe("AppCommandBar + role bulk-delete — E2E (critical risk)", () => 
     await page.goto("/admin/roles");
     await page.waitForURL("/admin/roles", { timeout: 10_000 });
 
-    // Wait for the command bar to render (boxed h-12 bar or the Office-365 h-10 strip,
-    // depending on the UI.CommonToolbar flag; PR #32 retires the flag).
-    const commandBar = page.locator(".flex.h-12, .flex.h-10").first();
+    // Wait for the command bar to render (the Office-365 h-10 strip; design 30 retired the boxed h-12 bar).
+    const commandBar = page.locator(".flex.h-10").first();
     await expect(commandBar).toBeVisible({ timeout: 10_000 });
 
     // Delete button must be disabled when selectionCount === 0.
-    const deleteBtn = page.getByRole("button", { name: /bulk.?delete|verwijder/i }).last();
+    const deleteBtn = deleteCommand(page);
     await expect(deleteBtn).toBeDisabled();
   });
 });

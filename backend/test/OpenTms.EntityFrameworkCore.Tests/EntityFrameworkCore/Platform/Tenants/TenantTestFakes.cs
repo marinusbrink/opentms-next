@@ -70,11 +70,13 @@ public sealed class FakeTenantDatabaseProvisioner : ITenantDatabaseProvisioner
 
     public Exception? EnsureFailure { get; set; }
 
+    /// <summary>The real provisioner. Without <paramref name="options"/> it may use the host login, as local development does.</summary>
     public static PostgreSqlTenantDatabaseProvisioner Create(string hostConnectionString, TenantDatabaseOptions? options = null)
     {
+        options ??= new TenantDatabaseOptions { Provisioning = { AllowHostLogin = true } };
         var connectionOptions = new AbpDbConnectionOptions();
         connectionOptions.ConnectionStrings.Default = hostConnectionString;
-        return new PostgreSqlTenantDatabaseProvisioner(Options.Create(options ?? new TenantDatabaseOptions()), Options.Create(connectionOptions));
+        return new PostgreSqlTenantDatabaseProvisioner(Options.Create(options), Options.Create(connectionOptions));
     }
 
     public string BuildConnectionString(string databaseAndRoleName, string password) => _real.BuildConnectionString(databaseAndRoleName, password);

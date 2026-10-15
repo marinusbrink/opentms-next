@@ -211,7 +211,8 @@ public class MoveFeatureValuesToAppTreeMigrationTests
             await MigrateToAsync(PreviousMigration);
             await SeedOldValuesAsync();
 
-            await MigrateToAsync(null);
+            /* This migration, not the latest: RemoveOldFeatureNames (the contract step) follows it. */
+            await MigrateToAsync(ThisMigration);
 
             var values = await ValuesAsync();
 
