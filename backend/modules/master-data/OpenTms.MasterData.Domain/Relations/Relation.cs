@@ -107,7 +107,10 @@ public class Relation : MasterDataAggregateRoot
         SearchKey = MasterDataValues.SearchKey(Name, FullName, Code);
     }
 
-    /// <summary>At least one role; OwnCompany uniqueness per tenant is the partial index plus the service check.</summary>
+    /// <summary>
+    /// At least one role; OwnCompany uniqueness per tenant is the partial index plus the service check. An archived
+    /// relation cannot take the OwnCompany role (PO 2026-10-16: the own company is never archived); unarchive first.
+    /// </summary>
     public void SetRoles(RelationRoles roles)
     {
         if (roles == RelationRoles.None || !Enum.IsDefined(roles & ~(RelationRoles.Customer | RelationRoles.Carrier | RelationRoles.Creditor | RelationRoles.Depot | RelationRoles.OwnCompany)) || (int)roles < 0 || (int)roles > 31)
@@ -115,10 +118,24 @@ public class Relation : MasterDataAggregateRoot
             throw new BusinessException(MasterDataErrorCodes.RolesRequired);
         }
 
+        if (IsArchived && (roles & RelationRoles.OwnCompany) == RelationRoles.OwnCompany)
+        {
+            throw new BusinessException(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        }
+
         Roles = roles;
     }
 
-    public void Archive() => IsArchived = true;
+    /// <summary>The own company (the relation with the OwnCompany role) is never archived (PO 2026-10-16).</summary>
+    public void Archive()
+    {
+        if (HasRole(RelationRoles.OwnCompany))
+        {
+            throw new BusinessException(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        }
+
+        IsArchived = true;
+    }
 
     public void Unarchive() => IsArchived = false;
 

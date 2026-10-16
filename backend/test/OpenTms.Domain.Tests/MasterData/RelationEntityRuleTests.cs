@@ -228,6 +228,52 @@ public class RelationEntityRuleTests
         relation.IsArchived.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData(RelationRoles.OwnCompany)]
+    [InlineData(RelationRoles.OwnCompany | RelationRoles.Carrier)]
+    [InlineData(RelationRoles.Customer | RelationRoles.Carrier | RelationRoles.Creditor | RelationRoles.Depot | RelationRoles.OwnCompany)]
+    public void The_own_company_cannot_be_archived(RelationRoles roles)
+    {
+        /* PO 2026-10-16: the relation with the OwnCompany role is never archived. */
+        var relation = NewRelation(roles);
+
+        Should.Throw<BusinessException>(() => relation.Archive()).Code.ShouldBe(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        relation.IsArchived.ShouldBeFalse();
+        relation.Unarchive();
+        relation.IsArchived.ShouldBeFalse("unarchiving stays possible and harmless");
+    }
+
+    [Fact]
+    public void An_archived_relation_cannot_take_the_own_company_role_until_it_is_unarchived()
+    {
+        var relation = NewRelation(RelationRoles.Carrier);
+        relation.Archive();
+
+        Should.Throw<BusinessException>(() => relation.SetRoles(RelationRoles.Carrier | RelationRoles.OwnCompany)).Code.ShouldBe(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        relation.Roles.ShouldBe(RelationRoles.Carrier, "a refused change leaves the roles untouched");
+        relation.IsArchived.ShouldBeTrue();
+
+        /* Other roles change freely while archived. */
+        relation.SetRoles(RelationRoles.Customer | RelationRoles.Depot);
+        relation.Roles.ShouldBe(RelationRoles.Customer | RelationRoles.Depot);
+
+        relation.Unarchive();
+        relation.SetRoles(RelationRoles.OwnCompany);
+        relation.Roles.ShouldBe(RelationRoles.OwnCompany);
+        Should.Throw<BusinessException>(() => relation.Archive()).Code.ShouldBe(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+    }
+
+    [Fact]
+    public void Without_the_own_company_role_the_relation_archives_again()
+    {
+        var relation = NewRelation(RelationRoles.OwnCompany | RelationRoles.Carrier);
+
+        relation.SetRoles(RelationRoles.Carrier);
+        relation.Archive();
+
+        relation.IsArchived.ShouldBeTrue();
+    }
+
     // ── Blocked flag and reason (PO 2026-10-12) ──────────────────────────────
 
     [Fact]

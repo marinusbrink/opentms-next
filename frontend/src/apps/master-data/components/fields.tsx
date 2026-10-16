@@ -71,7 +71,14 @@ export function TextAreaField<TValues extends object>({ form, field, labelKey, m
   );
 }
 
-export function CheckboxField<TValues extends object>({ form, field, labelKey, className }: TextProps<TValues>) {
+interface CheckboxProps<TValues extends object> extends TextProps<TValues> {
+  /** A business-state block on top of read-only (UI-PERM-005); the reason is the text `describedBy` points at. */
+  disabled?: boolean;
+  /** Id of the element that explains the state (a hint next to or below the switch). */
+  describedBy?: string;
+}
+
+export function CheckboxField<TValues extends object>({ form, field, labelKey, className, disabled, describedBy }: CheckboxProps<TValues>) {
   const { t } = useL();
   const checked = Boolean(form.values[field]);
   return (
@@ -79,7 +86,8 @@ export function CheckboxField<TValues extends object>({ form, field, labelKey, c
       <Checkbox
         id={form.id(field)}
         checked={checked}
-        disabled={form.readOnly}
+        disabled={form.readOnly || disabled}
+        aria-describedby={describedBy}
         onCheckedChange={(next) => form.set(field, (next === true) as TValues[typeof field])}
       />
       {t(labelKey)}

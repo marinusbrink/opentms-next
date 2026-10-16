@@ -75,6 +75,7 @@ import {
   countries,
   currencies,
   geographicalRegions,
+  hasOwnCompanyRole,
   listToRoles,
   relationCategories,
   relationRoleKeys,
@@ -109,6 +110,9 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * and Blocked show as badges after the title. */
 
 const DEFAULT_KEY = "default";
+
+/** The roles MultiSelect holds the flags as strings; the own company is never archived (PO 2026-10-16). */
+const isOwnCompany = (roles: string[]) => hasOwnCompanyRole(listToRoles(roles));
 
 /* The in-block tab strips (address types, Map / Remarks) wear the editor strip's look: uppercase, brand
  * underline, compact (UI-TOK-001: the brand token, no raw colour). */
@@ -1063,10 +1067,20 @@ export function RelationEditor({
                   />
                 </FormField>
                 <div className="flex shrink-0 items-end gap-4">
+                  {/* The own company is never archived (PO 2026-10-16): the switch is off limits while the role is
+                   * picked; a switch that is already on stays enabled so it can be cleared before saving. */}
                   <CheckboxField
                     form={form}
                     field="isArchived"
                     labelKey="MasterData:IsArchived"
+                    disabled={
+                      isOwnCompany(form.values.roles) && !form.values.isArchived
+                    }
+                    describedBy={
+                      isOwnCompany(form.values.roles)
+                        ? form.id("isArchived") + "-hint"
+                        : undefined
+                    }
                   />
                   <CheckboxField
                     form={form}
@@ -1118,6 +1132,14 @@ export function RelationEditor({
                   )}
                 </div>
               </div>
+              {isOwnCompany(form.values.roles) && (
+                <p
+                  id={form.id("isArchived") + "-hint"}
+                  className="text-label text-muted-foreground"
+                >
+                  {t("MasterData:OwnCompanyCannotBeArchivedHint")}
+                </p>
+              )}
               {/* Row 2: classification. */}
               <div className="grid grid-cols-2 gap-x-4">
                 <FormField

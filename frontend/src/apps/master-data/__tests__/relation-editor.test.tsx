@@ -843,11 +843,12 @@ describe("RelationEditor — create", () => {
     const { onSaved, onClose } = renderEditor();
     await waitForLookups();
     fillRequired();
-    fireEvent.click(roleBox("OwnCompany"));
+    /* Depot, not Own company: this relation is saved archived, which the own company never is (PO 2026-10-16). */
+    fireEvent.click(roleBox("Depot"));
     fireEvent.click(roleBox("Carrier"));
     fireEvent.click(roleBox("Carrier"));
     expect(roleBox("Customer")).toBeChecked();
-    expect(roleBox("OwnCompany")).toBeChecked();
+    expect(roleBox("Depot")).toBeChecked();
     expect(roleBox("Carrier")).not.toBeChecked();
 
     const editor = editorDialog();
@@ -874,7 +875,7 @@ describe("RelationEditor — create", () => {
     expect(POST.mock.calls[0][0]).toBe("/api/master-data/relation");
     expect(postedBody()).toEqual({
       ...emptyBody,
-      roles: 17,
+      roles: 9,
       isArchived: true,
       isBlocked: true,
       blockReason: 3,
@@ -2836,5 +2837,87 @@ describe("RelationEditor — postal-code suggestions (PO 2026-10-13)", () => {
     expect(postalCode(editor)).toBeDisabled();
     await pastDebounce();
     expect(suggestCalls()).toHaveLength(0);
+  });
+});
+
+/* PO 2026-10-16: the own company (the relation with the Own company role) is never archived. The Archived switch is
+ * disabled with a short hint while the role is picked; a switch that is already on stays enabled so it can be
+ * cleared. The server refuses an archived own company anyway (OwnCompanyCannotBeArchived). */
+describe("RelationEditor — the own company is never archived", () => {
+  const HINT = "MasterData:OwnCompanyCannotBeArchivedHint";
+  /* The Archived switch is the real Base UI checkbox (a span): disabled shows as aria-disabled. */
+  const archivedSwitch = () => checkbox("MasterData:IsArchived");
+
+  it("picking Own company disables the Archived switch with the hint; dropping the role enables it again", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    expect(archivedSwitch()).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText(HINT)).toBeNull();
+
+    fireEvent.click(roleBox("OwnCompany"));
+    const archived = checkbox("MasterData:IsArchived");
+    expect(archived).toHaveAttribute("aria-disabled", "true");
+    expect(archived).not.toBeChecked();
+    const hint = within(region("MasterData:Relation")).getByText(HINT);
+    expect(archived).toHaveAttribute("aria-describedby", hint.id);
+    fireEvent.click(archived);
+    expect(checkbox("MasterData:IsArchived")).not.toBeChecked();
+
+    fireEvent.click(roleBox("OwnCompany"));
+    expect(archivedSwitch()).not.toHaveAttribute("aria-disabled", "true");
+    expect(checkbox("MasterData:IsArchived")).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  it("a new own company is posted not archived", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    fireEvent.click(roleBox("OwnCompany"));
+    fireEvent.click(checkbox("MasterData:IsArchived"));
+
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody()).toMatchObject({ roles: 17, isArchived: false });
+  });
+
+  it("an archived relation that gets the role keeps the switch enabled so it can be cleared, with the hint", async () => {
+    renderEditor();
+    await waitForLookups();
+    fillRequired();
+    fireEvent.click(checkbox("MasterData:IsArchived"));
+    fireEvent.click(roleBox("OwnCompany"));
+
+    expect(checkbox("MasterData:IsArchived")).toBeChecked();
+    expect(archivedSwitch()).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+
+    fireEvent.click(checkbox("MasterData:IsArchived"));
+    expect(checkbox("MasterData:IsArchived")).not.toBeChecked();
+    expect(archivedSwitch()).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("the stored own company opens with the switch disabled and the hint; another relation's switch is untouched", async () => {
+    /* stored: Customer | Own company, not archived. */
+    const first = renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    expect(archivedSwitch()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText(HINT)).toBeInTheDocument();
+    first.unmount();
+
+    detail = { ...stored, roles: 3 as RelationRoles };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    expect(archivedSwitch()).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  it("read-only keeps the switch disabled without depending on the role", async () => {
+    detail = { ...stored, roles: 3 as RelationRoles };
+    renderEditor({ mode: "edit", id: "r1", readOnly: true });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    expect(archivedSwitch()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText(HINT)).toBeNull();
   });
 });
