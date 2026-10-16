@@ -54,11 +54,12 @@ public class AppFeatureLocalizationTests
     }
 
     [Fact]
-    public void The_constants_name_exactly_35_distinct_features()
+    public void The_constants_name_every_tree_feature_exactly_once()
     {
+        /* 35 nodes up to design 48, plus the Platform domain group and its four lists (design 49). */
         var all = AllAppFeatures();
-        all.Count.ShouldBe(35);
-        all.Distinct().Count().ShouldBe(35);
+        all.Count.ShouldBe(40);
+        all.Distinct().Count().ShouldBe(40);
         all.ShouldAllBe(name => name.StartsWith("Apps."));
     }
 
