@@ -102,8 +102,8 @@ public class PlatformLocalizationParityTests
         texts[PlatformErrorCodes.DuplicateKey].ShouldContain("{field}");
         texts[PlatformErrorCodes.DuplicateKey].ShouldContain("{value}");
         texts[PlatformErrorCodes.InUse].ShouldContain("{reason}");
-        texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{field}");
-        texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{language}");
+        /* The readable field and language ("HTML body (English)"); field and language stay in the data for clients. */
+        texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{fieldLabel}");
         texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{line}");
         texts[PlatformErrorCodes.UnsupportedCulture].ShouldContain("{culture}");
         texts[PlatformErrorCodes.InvalidRegex].ShouldContain("{kind}");

@@ -586,7 +586,7 @@
     "Tenants:DeleteWhileProvisioning": "Deze tenant wordt ingericht. Verwijder hem zodra de inrichting klaar of mislukt is.",
     "OpenTms.Platform:DuplicateKey": "Er bestaat al een record met {field} '{value}'.",
     "OpenTms.Platform:InUse": "Het record is in gebruik en kan niet worden verwijderd: {reason}",
-    "OpenTms.Platform:TemplateSyntaxError": "Het sjabloon in {field} (taal: {language}) bevat een syntaxisfout op regel {line}.",
+    "OpenTms.Platform:TemplateSyntaxError": "Het sjabloon in {fieldLabel} bevat een syntaxisfout op regel {line}.",
     "OpenTms.Platform:DefaultLanguageContentRequired": "Inhoud in de standaardtaal ({culture}) is verplicht.",
     "OpenTms.Platform:UnsupportedCulture": "'{culture}' is geen ingestelde taal.",
     "OpenTms.Platform:InvalidRegex": "Het argument van {kind} is geen geldige reguliere expressie.",

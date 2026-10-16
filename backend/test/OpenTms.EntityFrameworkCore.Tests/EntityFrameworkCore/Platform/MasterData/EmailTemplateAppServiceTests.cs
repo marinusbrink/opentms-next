@@ -237,6 +237,7 @@ public class EmailTemplateAppServiceTests : PlatformMasterDataAppServiceTestBase
         ex.Data["field"].ShouldBe("htmlBody");
         ex.Data["language"].ShouldBe("en");
         ex.Data["line"].ShouldBe(4, "1-based, as an editor shows lines");
+        ex.Data["fieldLabel"].ShouldBe("HTML body (English)", "the message names the field as the screen labels it");
     }
 
     [Theory]

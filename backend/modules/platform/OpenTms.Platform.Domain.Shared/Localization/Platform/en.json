@@ -586,7 +586,7 @@
     "Tenants:DeleteWhileProvisioning": "This tenant is being provisioned. Delete it once provisioning has finished or failed.",
     "OpenTms.Platform:DuplicateKey": "A record with {field} '{value}' already exists.",
     "OpenTms.Platform:InUse": "The record is in use and cannot be deleted: {reason}",
-    "OpenTms.Platform:TemplateSyntaxError": "The template in {field} (language: {language}) has a syntax error on line {line}.",
+    "OpenTms.Platform:TemplateSyntaxError": "The template in {fieldLabel} has a syntax error on line {line}.",
     "OpenTms.Platform:DefaultLanguageContentRequired": "Content in the default language ({culture}) is required.",
     "OpenTms.Platform:UnsupportedCulture": "'{culture}' is not a configured language.",
     "OpenTms.Platform:InvalidRegex": "The argument of {kind} is not a valid regular expression.",

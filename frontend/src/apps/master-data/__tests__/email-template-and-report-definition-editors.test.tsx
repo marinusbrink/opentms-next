@@ -358,6 +358,27 @@ describe("EmailTemplateEditor — the request body", () => {
   });
 });
 
+describe("EmailTemplateEditor — a server refusal", () => {
+  it("shows the server's message on the tab the user saved from, not on the hidden first tab", async () => {
+    POST.mockResolvedValue({
+      data: undefined,
+      error: { error: { code: "OpenTms.Platform:TemplateSyntaxError", message: "The template in HTML body (English) has a syntax error on line 1." } },
+      response: new Response(null, { status: 400 }),
+    });
+    renderTemplate();
+    typeIn(GENERAL, "Platform:Name", "Invoice mail");
+    fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "3" } });
+    tab(EN);
+    typeIn(EN, "Platform:Subject", "Invoice");
+    typeIn(EN, "Platform:HtmlBody", "{{ if overdue }}<p>Overdue</p>");
+
+    await submitEditor();
+    const message = "The template in HTML body (English) has a syntax error on line 1.";
+    await waitFor(() => expect(within(panel(EN)).getByText(message)).toBeInTheDocument());
+    expect(within(panel(GENERAL)).queryByText(message)).toBeNull();
+  });
+});
+
 describe("EmailTemplateEditor — preview", () => {
   it("shows each language's body in its own sandboxed preview and follows the edits", async () => {
     renderTemplate({ mode: "edit", id: "et1" });

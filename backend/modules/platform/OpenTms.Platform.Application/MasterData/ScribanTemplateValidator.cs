@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Localization;
 using System.Linq;
 using Scriban;
 using Scriban.Parsing;
@@ -15,7 +16,9 @@ public static class ScribanTemplateValidator
     /// <summary>The language value for a field that is not per language.</summary>
     public const string AllLanguages = "-";
 
-    public static void EnsureValid(string? text, string field, string? culture = null)
+    /// <param name="localizer">Builds the readable "fieldLabel" of the message ("HTML body (English)"); <c>field</c> and
+    /// <c>language</c> stay in the data for clients that act on them.</param>
+    public static void EnsureValid(string? text, string field, IStringLocalizer localizer, string? culture = null)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -29,8 +32,12 @@ public static class ScribanTemplateValidator
         }
 
         var error = template.Messages.FirstOrDefault(m => m.Type == ParserMessageType.Error) ?? template.Messages.First();
+        var label = localizer["Platform:" + char.ToUpperInvariant(field[0]) + field[1..]].Value;
+        var languageName = string.IsNullOrEmpty(culture) ? null : localizer["Platform:Language." + culture];
+        var fieldLabel = languageName == null ? label : $"{label} ({(languageName.ResourceNotFound ? culture : languageName.Value)})";
         throw new BusinessException(PlatformErrorCodes.TemplateSyntaxError)
             .WithData("field", field)
+            .WithData("fieldLabel", fieldLabel)
             .WithData("language", string.IsNullOrEmpty(culture) ? AllLanguages : culture)
             .WithData("line", error.Span.Start.Line + 1);
     }

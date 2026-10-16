@@ -144,7 +144,7 @@ public class ReportDefinitionAppService
 
     protected override async Task<ReportDefinition> CreateEntityAsync(ReportDefinitionCreateDto input)
     {
-        ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern");
+        ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern", L);
         var normalized = ReportDefinition.NormalizedNameOf(input.Name);
         await EnsureUniqueAsync(d => d.NormalizedName == normalized, "name", input.Name.Trim());
 
@@ -157,7 +157,7 @@ public class ReportDefinitionAppService
 
     protected override async Task ApplyUpdateAsync(ReportDefinition definition, ReportDefinitionUpdateDto input)
     {
-        ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern");
+        ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern", L);
         var normalized = ReportDefinition.NormalizedNameOf(input.Name);
         if (normalized != definition.NormalizedName)
         {

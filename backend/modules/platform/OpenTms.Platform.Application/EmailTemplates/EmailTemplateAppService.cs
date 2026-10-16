@@ -196,19 +196,19 @@ public class EmailTemplateAppService
     }
 
     /// <summary>Every Scriban field parses (design 49); the error names the field, the language and the line.</summary>
-    private static void Validate(EmailTemplateCreateDto input)
+    private void Validate(EmailTemplateCreateDto input)
     {
-        ScribanTemplateValidator.EnsureValid(input.SenderAddress, "senderAddress");
-        ScribanTemplateValidator.EnsureValid(input.SenderName, "senderName");
-        ScribanTemplateValidator.EnsureValid(input.ReplyTo, "replyTo");
-        ScribanTemplateValidator.EnsureValid(input.To, "to");
-        ScribanTemplateValidator.EnsureValid(input.Cc, "cc");
-        ScribanTemplateValidator.EnsureValid(input.Bcc, "bcc");
+        ScribanTemplateValidator.EnsureValid(input.SenderAddress, "senderAddress", L);
+        ScribanTemplateValidator.EnsureValid(input.SenderName, "senderName", L);
+        ScribanTemplateValidator.EnsureValid(input.ReplyTo, "replyTo", L);
+        ScribanTemplateValidator.EnsureValid(input.To, "to", L);
+        ScribanTemplateValidator.EnsureValid(input.Cc, "cc", L);
+        ScribanTemplateValidator.EnsureValid(input.Bcc, "bcc", L);
         foreach (var content in input.Contents)
         {
             var culture = content.Culture?.Trim().ToLowerInvariant();
-            ScribanTemplateValidator.EnsureValid(content.Subject, "subject", culture);
-            ScribanTemplateValidator.EnsureValid(content.HtmlBody, "htmlBody", culture);
+            ScribanTemplateValidator.EnsureValid(content.Subject, "subject", L, culture);
+            ScribanTemplateValidator.EnsureValid(content.HtmlBody, "htmlBody", L, culture);
         }
     }
 }

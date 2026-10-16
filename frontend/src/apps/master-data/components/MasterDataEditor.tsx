@@ -217,7 +217,11 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
           : []),
       ];
 
-  const body = (render: (form: FormContext<TValues>) => ReactNode, first: boolean) =>
+  /* A server error shows on the tab the user is on (a save from the third tab must not hide it on the first); on the
+   * record-identification tab, which has no form, it shows on the first tab. */
+  const errorTab = tabs.some((tab) => tab.value === activeTab) ? activeTab : tabs[0]?.value;
+
+  const body = (render: (form: FormContext<TValues>) => ReactNode, first: boolean, showsServerError: boolean) =>
     !loaded ? (
       <div className="grid grid-cols-1 gap-3">
         <Skeleton className="h-10 w-full" />
@@ -226,7 +230,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       </div>
     ) : (
       <div className="flex flex-col gap-4">
-        {first && serverError && (
+        {showsServerError && serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
@@ -249,11 +253,11 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       content:
         index === 0 ? (
           <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} noValidate>
-            {body(tab.render, true)}
+            {body(tab.render, true, tab.value === errorTab)}
             <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
           </form>
         ) : (
-          body(tab.render, false)
+          body(tab.render, false, tab.value === errorTab)
         ),
     })),
     recordIdentificationTab(t, {
