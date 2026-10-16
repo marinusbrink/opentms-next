@@ -295,6 +295,17 @@ No new infrastructure. Generation: one indexed upsert, p95 < 20 ms; list reads p
 5. **Names unique regardless of case** for templates, report definitions and sequences, as for vehicles (PO
    2026-10-16).
 6. **Document-type mailboxes move to Integrations** with the inbound mailboxes.
+7. **An archived report definition may stay the default** for its purpose and language, and a default e-mail
+   template or report definition may be deleted (then that purpose has no default until one is chosen). The design
+   set no rule here; consumers fall back to "no default" explicitly.
+8. **The generator is tested on PostgreSQL only:** the SQLite test module disables transactions, so
+   `INumberGenerator` refuses to run there; SQLite tests call the counter repository directly.
+
+**Build notes.** Child tables use their natural key as primary key ((template, culture), (type, kind), (sequence,
+year, month)); enums start at 1 so a missing value fails validation; `ExampleNumber` is the first number of today's
+period; the five affixes all freeze once in use, also those the scheme does not show; the document-type seed lives in
+`Platform.Domain` (the DbMigrator does not load `Platform.Application`) and skips the host; the Platform error codes
+map to 409 (`DuplicateKey`, `InUse`, `NumberSequenceInUse`) and 400 (the rest) in `OpenTmsHttpApiModule`.
 
 ## Security quickscan
 

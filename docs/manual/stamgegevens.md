@@ -3,9 +3,10 @@
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
 verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
 app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
-eerst een groep per domein, daaronder de groepen met de lijsten. Nu is er één domeingroep,
-**Algemeen** (de stamgegevens van het domein Stamgegevens zelf); de groepen van andere domeinen,
-zoals Orders of Financieel, verschijnen zodra hun eerste lijst er is.
+eerst een groep per domein, daaronder de groepen met de lijsten. Nu zijn er twee domeingroepen:
+**Algemeen** (de stamgegevens van het domein Stamgegevens zelf) en **Platform** (sjablonen,
+documentsoorten en nummerreeksen, zie [Platform](#platform)); de groepen van andere domeinen, zoals
+Orders of Financieel, verschijnen zodra hun eerste lijst er is.
 
 Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 
@@ -147,3 +148,74 @@ Een regio bestaat uit postcodebereiken per land. Een bereik is óf numeriek (*va
   `SW` matcht `SW1A 1AA`.
 
 Met het landfilter boven de lijst ziet u alleen regio's met een bereik in dat land.
+
+## Platform
+
+De domeingroep **Platform** bevat vier lijsten die het systeem zelf gebruikt bij het versturen van
+e-mail, het maken van documenten, het archiveren van bestanden en het nummeren van orders, ritten,
+facturen en inkooporders. Elke lijst is een eigen functie en staat standaard uit.
+
+### E-mailsjablonen
+
+Een e-mailsjabloon bepaalt hoe een bericht eruitziet dat het systeem verstuurt, bijvoorbeeld een
+orderbevestiging of een factuur.
+
+- **Doel** zegt waarvoor het sjabloon is (transportopdracht, rit, factuur, betalingsherinnering,
+  inkooporder, ETA-melding, chauffeursinstructies, digitaal archief, proforma-overzicht). Per doel
+  is één sjabloon de **standaard**; maakt u een ander sjabloon standaard, dan vervalt de vorige.
+- Het tabblad **Adressen** bevat afzender, afzendernaam, antwoordadres, aan, cc en bcc. Laat u
+  **Aan** leeg, dan gaat het bericht naar de ontvanger die bij het record hoort (bijvoorbeeld de
+  klant van de factuur).
+- Per taal is er een tabblad met **Onderwerp** en **Inhoud (HTML)**. Engels is verplicht; Nederlands
+  is optioneel. Het systeem kiest de taal van de ontvanger en valt terug op Engels.
+- Teksten tussen `{{` en `}}` zijn velden die bij het versturen worden ingevuld, bijvoorbeeld
+  `{{ company.name }}`. Welke velden er zijn, hangt af van het doel; die lijst verschijnt zodra de
+  functie die de mail verstuurt beschikbaar is. Een fout in deze schrijfwijze (bijvoorbeeld een
+  ontbrekende `}}`) wordt bij opslaan gemeld, met het veld, de taal en de regel.
+- De inhoud bewerkt u als HTML. **Voorbeeld** toont hoe de HTML eruitziet, nog zonder ingevulde
+  velden.
+
+### Rapportdefinities
+
+Een rapportdefinitie verwijst naar de opmaak waarmee een document (orderbevestiging, ritlijst,
+factuur, inkooporder, emballageoverzicht) als PDF wordt gemaakt.
+
+- **Doel** en **Taal** bepalen waarvoor de definitie dient. Per doel en taal is één definitie de
+  **standaard**.
+- **Leverancier** en **Sjabloon-id** wijzen de opmaak bij de documentdienst aan.
+- **Bestandsnaam** bepaalt de naam van het PDF-bestand, bijvoorbeeld `factuur-{{ number }}.pdf`.
+- **Beschikbaar in klantportaal** laat klanten het document in het portaal downloaden.
+- Een **gearchiveerde** definitie verschijnt niet meer in keuzelijsten en wordt niet automatisch
+  gekozen.
+
+### Documentsoorten
+
+Een documentsoort deelt bestanden in het digitale archief in, bijvoorbeeld vrachtbrieven of
+algemene documenten. Elke tenant begint met **FREIGHT** (Vrachtdocument) en **GENERAL** (Algemeen
+document); deze mag u aanpassen.
+
+- **Code** is uniek en wordt in hoofdletters opgeslagen. **Naam** vult u per taal in.
+- **Vrachtdocument**: het bestand is zichtbaar in de portalen en gaat mee in OTM-berichten.
+- **Meesturen met factuur**: het bestand gaat als bijlage mee met de factuurmail.
+- **Tonen in lijstindicator**: het bestand telt mee in het bijlagen-symbool in lijsten.
+- Op het tabblad **Bewerkingen** legt u vast wat er met een binnenkomend bestand gebeurt, in
+  volgorde: afbeelding omzetten naar PDF, koppelen op bestandsnaam, hernoemen naar een eigenschap van
+  het gekoppelde record, of een PDF splitsen op een referentiepatroon. Elke bewerking komt hooguit
+  één keer voor. Hernoemen en splitsen hebben een argument nodig; voor splitsen is dat een reguliere
+  expressie.
+
+### Nummerreeksen
+
+Een nummerreeks bepaalt hoe nummers van orders, ritten, facturen en inkooporders worden opgebouwd.
+Ordersoorten, ritsoorten, factuursoorten en inkoopordersoorten kiezen straks elk een nummerreeks;
+zolang die soorten er nog niet zijn, legt u hier alleen de reeksen vast.
+
+- **Schema** kiest de opbouw: viercijferig of tweecijferig jaar, jaar en maand, of alleen een
+  volgnummer. Bij een jaar begint de teller elk jaar opnieuw bij 1, bij jaar en maand elke maand.
+- **Voorvoegsel**, **voor/na jaar** en **voor/na maand** zijn vaste teksten in het nummer.
+  **Minimaal aantal cijfers** vult het volgnummer aan met nullen.
+- Het scherm toont meteen hoe het volgende nummer eruitziet, bijvoorbeeld `O-26-0001`.
+- Zodra er een nummer uit de reeks is uitgegeven, liggen de opbouwvelden vast en kan de reeks niet
+  meer worden verwijderd; naam en omschrijving kunt u nog wijzigen. Zo ontstaan nooit dubbele
+  nummers.
+- Elk nummer wordt maar één keer uitgegeven, ook als twee gebruikers tegelijk een order aanmaken.
