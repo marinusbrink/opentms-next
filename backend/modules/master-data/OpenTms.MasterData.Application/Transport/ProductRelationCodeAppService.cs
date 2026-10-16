@@ -31,6 +31,11 @@ public class ProductRelationCodeAppService
     private IQueryable<Product>? _productQuery;
     private IQueryable<TransportUnit>? _transportUnitQuery;
 
+    /* The relations and products matching the current search term, resolved before the list query (see ApplySearch). */
+    private string? _preparedTerm;
+    private List<Guid> _termRelationIds = [];
+    private List<Guid> _termProductIds = [];
+
     public ProductRelationCodeAppService(
         IRepository<ProductRelationCode, Guid> repository,
         IRepository<Relation, Guid> relations,
@@ -51,7 +56,7 @@ public class ProductRelationCodeAppService
     [Authorize(MasterDataPermissions.ProductRelationCodes.Default)]
     public async Task<GridResponse<ProductRelationCodeRowDto>> GetListAsync(ArchivableListRequestDto input)
     {
-        await PrepareQueriesAsync();
+        await PrepareQueriesAsync(input.WildcardSearch);
         return await GetListInternalAsync(input);
     }
 
@@ -62,7 +67,7 @@ public class ProductRelationCodeAppService
     [Authorize(MasterDataPermissions.ProductRelationCodes.Default)]
     public async Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake)
     {
-        await PrepareQueriesAsync();
+        await PrepareQueriesAsync(term);
         return await GetLookupInternalAsync(term, take);
     }
 
@@ -82,7 +87,7 @@ public class ProductRelationCodeAppService
     [Authorize(MasterDataPermissions.ProductRelationCodes.Delete)]
     public async Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
     {
-        await PrepareQueriesAsync();
+        await PrepareQueriesAsync(input.Selection.FilterRequest?.WildcardSearch);
         return await BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.IncludeArchived));
     }
 
@@ -106,11 +111,30 @@ public class ProductRelationCodeAppService
 
     // ── list hooks ────────────────────────────────────────────────────────────
 
-    private async Task PrepareQueriesAsync()
+    private async Task PrepareQueriesAsync(string? rawTerm)
     {
         _relationQuery = await _relations.GetQueryableAsync();
         _productQuery = await _products.GetQueryableAsync();
         _transportUnitQuery = await _transportUnits.GetQueryableAsync();
+
+        /* The relations and products whose name matches, each one indexed query (trigram on the relation's search key;
+         * products are a short list), so the code search below is an OR of three indexable conditions. */
+        _preparedTerm = NormalizeTerm(rawTerm);
+        _termRelationIds = [];
+        _termProductIds = [];
+        if (_preparedTerm == null)
+        {
+            return;
+        }
+
+        var key = MasterDataValues.SearchKey(_preparedTerm);
+        var term = _preparedTerm;
+        if (key.Length > 0)
+        {
+            _termRelationIds = await AsyncExecuter.ToListAsync(_relationQuery.Where(r => r.SearchKey.Contains(key)).Select(r => r.Id));
+        }
+
+        _termProductIds = await AsyncExecuter.ToListAsync(_productQuery.Where(p => p.Name.ToLower().Contains(term)).Select(p => p.Id));
     }
 
     protected override IQueryable<ProductRelationCode> ApplyFilters(IQueryable<ProductRelationCode> query, ArchivableListRequestDto request)
@@ -123,6 +147,20 @@ public class ProductRelationCodeAppService
     protected override IQueryable<ProductRelationCode> ApplySearch(IQueryable<ProductRelationCode> query, string term)
     {
         var code = term.ToUpperInvariant();
+        if (term == _preparedTerm)
+        {
+            /* "NormalizedCode LIKE … OR RelationId = ANY(…) OR ProductId = ANY(…)": each arm has its own index (trigram,
+             * RelationId, ProductId), so PostgreSQL combines three bitmap scans. The EXISTS form below scanned every
+             * code: 474 ms for 250,000 codes on the CI runner (design 48 volume test, budget 300 ms). */
+            var relationIds = _termRelationIds;
+            var productIds = _termProductIds;
+            return query.Where(c =>
+                c.NormalizedCode.Contains(code) ||
+                (c.RelationId != null && relationIds.Contains(c.RelationId.Value)) ||
+                (c.ProductId != null && productIds.Contains(c.ProductId.Value)));
+        }
+
+        /* A term that was not prepared (no caller does this today) keeps the correct, slower form. */
         var key = MasterDataValues.SearchKey(term);
         var hasKey = key.Length > 0;
         var relations = _relationQuery!;
