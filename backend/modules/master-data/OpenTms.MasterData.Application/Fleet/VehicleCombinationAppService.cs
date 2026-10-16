@@ -172,7 +172,8 @@ public class VehicleCombinationAppService
     {
         var (ordered, vehicles) = await ResolveMembersAsync(input);
         var name = NameOf(input, ordered, vehicles);
-        await EnsureUniqueAsync(c => c.Name == name, "name", name);
+        var normalized = VehicleCombination.NormalizedNameOf(name);
+        await EnsureUniqueAsync(c => c.NormalizedName == normalized, "name", name);
 
         var combination = new VehicleCombination(GuidGenerator.Create(), CurrentTenant.Id, name);
         await ApplyAsync(combination, input, ordered);
@@ -185,7 +186,9 @@ public class VehicleCombinationAppService
         var name = NameOf(input, ordered, vehicles);
         if (name != combination.Name)
         {
-            await EnsureUniqueAsync(c => c.Name == name && c.Id != combination.Id, "name", name);
+            /* Unique regardless of case (PO 2026-10-16); changing only the case of its own name is allowed. */
+            var normalized = VehicleCombination.NormalizedNameOf(name);
+            await EnsureUniqueAsync(c => c.NormalizedName == normalized && c.Id != combination.Id, "name", name);
             combination.SetName(name);
         }
 

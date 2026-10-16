@@ -87,6 +87,8 @@ de planning vast bij de rit zelf.
   haar voertuigen vrij voor een andere; dearchiveren lukt alleen als geen van de voertuigen
   inmiddels in een andere actieve combinatie zit.
 - Laat u de **naam** leeg, dan wordt het de namen van de voertuigen met " + " ertussen
-  (bijvoorbeeld `12 + 34`). De naam is uniek binnen de tenant.
+  (bijvoorbeeld `12 + 34`). De naam is uniek binnen de tenant; hoofdletters en kleine letters
+  tellen niet als verschil, dus "Nachtdienst" en "NACHTDIENST" zijn dezelfde naam. Alleen de
+  schrijfwijze van de eigen naam veranderen mag wel.
 - De lijst toont naam, de voertuigen en het gemotoriseerde voertuig; *Gearchiveerd* kunt u erbij
   kiezen.

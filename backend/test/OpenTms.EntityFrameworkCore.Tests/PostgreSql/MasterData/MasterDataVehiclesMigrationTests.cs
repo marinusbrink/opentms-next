@@ -27,6 +27,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
     private const string Migration = "20261015111108_MasterDataVehicles";
     private const string PreviousMigration = "20261013153113_MasterDataRelationAdministration";
     private const string NormalizedNameMigration = "20261016071559_MasterDataVehicleNormalizedName";
+    private const string CombinationNormalizedNameMigration = "20261016211522_MasterDataVehicleCombinationNormalizedName";
 
     private static readonly string[] Tables =
     [
@@ -53,8 +54,9 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBeGreaterThan(applied.IndexOf(PreviousMigration));
-            applied.Last().ShouldBe(NormalizedNameMigration, "the newest Master Data migration");
+            applied.Last().ShouldBe(CombinationNormalizedNameMigration, "the newest Master Data migration");
             applied.IndexOf(NormalizedNameMigration).ShouldBeGreaterThan(applied.IndexOf(Migration));
+            applied.IndexOf(CombinationNormalizedNameMigration).ShouldBe(applied.IndexOf(NormalizedNameMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);
@@ -122,6 +124,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
 
         var indexes = await QueryAsync(connection, "SELECT indexname || ' :: ' || indexdef FROM pg_indexes WHERE schemaname = 'masterdata'");
         One(indexes, "IX_Vehicles_TenantId_Name :: ").ShouldNotContain("UNIQUE", Case.Sensitive, "the name index only serves the sort; the key is NormalizedName");
+        One(indexes, "IX_VehicleCombinations_TenantId_Name :: ").ShouldNotContain("UNIQUE", Case.Sensitive, "the name index only serves the sort; the key is NormalizedName (PO 2026-10-16)");
 
         /* Per-tenant unique keys: NULLS NOT DISTINCT (host rows unique too), freed by a soft delete. */
         foreach (var (name, keyColumns, where) in new[]
@@ -129,7 +132,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
                      ("IX_Vehicles_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", (string?)null),
                      ("IX_Vehicles_TenantId_RegistrationCountryId_LicencePlate", "(\"TenantId\", \"RegistrationCountryId\", \"LicencePlate\")", "\"LicencePlate\" IS NOT NULL"),
                      ("IX_Vehicles_TenantId_Vin", "(\"TenantId\", \"Vin\")", "\"Vin\" IS NOT NULL"),
-                     ("IX_VehicleCombinations_TenantId_Name", "(\"TenantId\", \"Name\")", null),
+                     ("IX_VehicleCombinations_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", null),
                      ("IX_ProductRelationCodes_TenantId_NormalizedCode", "(\"TenantId\", \"NormalizedCode\")", null),
                  })
         {
@@ -229,6 +232,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
         columns.ShouldNotContain(c => c.StartsWith("Vehicles.Kind ", StringComparison.Ordinal), "the kind is the type's (design 48, assumption 3)");
         columns.ShouldNotContain(c => c.StartsWith("Vehicles.LastSeen", StringComparison.Ordinal), "no telematics state (AO-12)");
         columns.ShouldContain("VehicleCombinations.Name :: character varying(64) :: NO");
+        columns.ShouldContain("VehicleCombinations.NormalizedName :: character varying(64) :: NO");
         columns.ShouldContain("VehicleCombinationMembers.IsActive :: boolean(-) :: NO");
         columns.ShouldContain("VehicleCombinationMembers.Position :: integer(-) :: NO");
         columns.ShouldContain("ProductRelationCodes.Code :: character varying(64) :: NO");

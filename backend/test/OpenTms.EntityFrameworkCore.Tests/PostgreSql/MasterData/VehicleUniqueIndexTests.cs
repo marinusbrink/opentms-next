@@ -206,7 +206,60 @@ public class VehicleUniqueIndexTests : MasterDataPostgreSqlTestBase
             await _vehicles.InsertManyAsync(vehicles, autoSave: true);
 
             await _combinations.InsertAsync(NewCombination(TenantA, "QQ combination", vehicles[0].Id, vehicles[1].Id), autoSave: true);
-            await ShouldViolateUniqueIndexAsync(() => _combinations.InsertAsync(NewCombination(TenantA, "QQ combination", vehicles[2].Id, vehicles[3].Id), autoSave: true), "IX_VehicleCombinations_TenantId_Name");
+            await ShouldViolateUniqueIndexAsync(() => _combinations.InsertAsync(NewCombination(TenantA, "QQ combination", vehicles[2].Id, vehicles[3].Id), autoSave: true), "IX_VehicleCombinations_TenantId_NormalizedName");
+        });
+
+        /* The key ignores case (PO 2026-10-16): "qq COMBINATION" is the same name. */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var refs = await RefsAsync(TenantA);
+            var vehicles = Enumerable.Range(0, 4).Select(i => NewVehicle(TenantA, refs, $"QQ {i}", trailer: i % 2 == 1)).ToList();
+            await _vehicles.InsertManyAsync(vehicles, autoSave: true);
+
+            await _combinations.InsertAsync(NewCombination(TenantA, "QQ combination", vehicles[0].Id, vehicles[1].Id), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _combinations.InsertAsync(NewCombination(TenantA, " qq COMBINATION ", vehicles[2].Id, vehicles[3].Id), autoSave: true), "IX_VehicleCombinations_TenantId_NormalizedName");
+        });
+
+        /* A soft delete frees the name, in any case. */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var refs = await RefsAsync(TenantA);
+            var vehicles = Enumerable.Range(0, 4).Select(i => NewVehicle(TenantA, refs, $"QQ {i}", trailer: i % 2 == 1)).ToList();
+            await _vehicles.InsertManyAsync(vehicles, autoSave: true);
+
+            var first = NewCombination(TenantA, "QQ combination", vehicles[0].Id, vehicles[1].Id);
+            await _combinations.InsertAsync(first, autoSave: true);
+            first.ClearMembers();
+            await _combinations.DeleteAsync(first, autoSave: true);
+            var second = NewCombination(TenantA, "QQ COMBINATION", vehicles[2].Id, vehicles[3].Id);
+            await _combinations.InsertAsync(second, autoSave: true);
+            (await _combinations.GetAsync(c => c.NormalizedName == "QQ COMBINATION")).Id.ShouldBe(second.Id);
+        });
+    }
+
+    [Fact]
+    public async Task Two_tenants_of_one_database_each_have_their_own_combination_names_and_host_rows_are_unique_too()
+    {
+        await InRolledBackTransactionAsync(SharedTenant, async () =>
+        {
+            var refs = await RefsAsync(SharedTenant);
+            var vehicles = Enumerable.Range(0, 2).Select(i => NewVehicle(SharedTenant, refs, $"QQ {i}", trailer: i == 1)).ToList();
+            await _vehicles.InsertManyAsync(vehicles, autoSave: true);
+            await _combinations.InsertAsync(NewCombination(SharedTenant, "QQ combination", vehicles[0].Id, vehicles[1].Id), autoSave: true);
+
+            using (CurrentTenant.Change(null))
+            {
+                var hostRefs = await RefsAsync(null);
+                var host = Enumerable.Range(0, 4).Select(i => NewVehicle(null, hostRefs, $"QQ {i}", trailer: i % 2 == 1)).ToList();
+                await _vehicles.InsertManyAsync(host, autoSave: true);
+
+                /* The shared tenant's name in another case is free for the host. */
+                await _combinations.InsertAsync(NewCombination(null, "QQ COMBINATION", host[0].Id, host[1].Id), autoSave: true);
+                (await _combinations.CountAsync(c => c.NormalizedName == "QQ COMBINATION")).ShouldBe(1);
+
+                /* NULLS NOT DISTINCT: a second host row with the same key is refused. */
+                await ShouldViolateUniqueIndexAsync(() => _combinations.InsertAsync(NewCombination(null, "qq combination", host[2].Id, host[3].Id), autoSave: true), "IX_VehicleCombinations_TenantId_NormalizedName");
+            }
         });
     }
 

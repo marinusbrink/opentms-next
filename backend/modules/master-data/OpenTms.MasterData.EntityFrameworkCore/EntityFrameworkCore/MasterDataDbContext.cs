@@ -321,10 +321,13 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ToTable("VehicleCombinations", MasterDataDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.Property(c => c.Name).HasMaxLength(MasterDataConsts.MaxVehicleCombinationNameLength).IsRequired();
+            b.Property(c => c.NormalizedName).HasMaxLength(MasterDataConsts.MaxVehicleCombinationNameLength).IsRequired();
             b.Property(c => c.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
             b.HasMany(c => c.Members).WithOne().HasForeignKey(m => m.VehicleCombinationId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(c => c.TenantId);
-            b.HasIndex(c => new { c.TenantId, c.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The name is unique regardless of case (PO 2026-10-16); the index on Name serves the default sort. */
+            b.HasIndex(c => new { c.TenantId, c.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            b.HasIndex(c => new { c.TenantId, c.Name }).HasFilter(NotDeleted);
         });
 
         builder.Entity<VehicleCombinationMember>(b =>
