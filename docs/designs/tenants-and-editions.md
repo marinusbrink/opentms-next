@@ -180,7 +180,7 @@ each node a child of the one above it, so the edition's Features tab shows the a
 because apps are views, not modules, and Platform is the one place every module may reference. The tree
 mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feature in the same change.
 
-**All features after this change (38):**
+**All features after this change (43; rows 26–30 from design 49):**
 
 | # | Feature | Parent | Default | Checked by |
 |---|---|---|---|---|
@@ -209,19 +209,24 @@ mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feat
 | 23 | Apps.MasterData.General.Reference.Countries | Apps.MasterData.General.Reference | false | shell; `CountryAppService` (not its pickers) |
 | 24 | Apps.MasterData.General.Reference.Currencies | Apps.MasterData.General.Reference | false | shell; `CurrencyAppService` |
 | 25 | Apps.MasterData.General.Reference.GeographicalRegions | Apps.MasterData.General.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
-| 26 | Apps.Integrations | | false | shell |
-| 27 | Apps.Reports | | false | shell |
-| 28 | Apps.Administration | | true | shell (host always on); chain of 29–35 |
-| 29 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
-| 30 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
-| 31 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
-| 32 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 33–34 |
-| 33 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
-| 34 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
-| 35 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
-| 36 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
-| 37 | SettingManagement.Enable | | true | ABP (unchanged) |
-| 38 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
+| 26 | Apps.MasterData.Platform | Apps.MasterData | true | shell; chain of 27–30 (the Platform domain group; design 49) |
+| 27 | Apps.MasterData.Platform.EmailTemplates | Apps.MasterData.Platform | false | shell; `EmailTemplateAppService` (not its picker; design 49) |
+| 28 | Apps.MasterData.Platform.ReportDefinitions | Apps.MasterData.Platform | false | shell; `ReportDefinitionAppService` (not its picker) |
+| 29 | Apps.MasterData.Platform.DocumentTypes | Apps.MasterData.Platform | false | shell; `DocumentTypeAppService` (not its picker) |
+| 30 | Apps.MasterData.Platform.NumberSequences | Apps.MasterData.Platform | false | shell; `NumberSequenceAppService` (not its picker, not `INumberGenerator`) |
+| 31 | Apps.Integrations | | false | shell |
+| 32 | Apps.Reports | | false | shell |
+| 33 | Apps.Administration | | true | shell (host always on); chain of 34–40 |
+| 34 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
+| 35 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
+| 36 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
+| 37 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 38–39 |
+| 38 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
+| 39 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
+| 40 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
+| 41 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
+| 42 | SettingManagement.Enable | | true | ABP (unchanged) |
+| 43 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
 
 Removed: `MasterData.FirstRun`, `MasterData.Relations`, `Platform.Maintenance`, `UI.CommonToolbar`.
 

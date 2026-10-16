@@ -1,3 +1,4 @@
+using Volo.Abp.MultiTenancy;
 using System;
 using System.Threading.Tasks;
 using Volo.Abp.DependencyInjection;
@@ -16,12 +17,15 @@ public class NumberGenerator : INumberGenerator, ITransientDependency
     private readonly IRepository<NumberSequence, Guid> _sequences;
     private readonly INumberSequenceCounterRepository _counters;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
+    private readonly ICurrentTenant _currentTenant;
 
     public NumberGenerator(
         IRepository<NumberSequence, Guid> sequences,
         INumberSequenceCounterRepository counters,
-        IUnitOfWorkManager unitOfWorkManager)
+        IUnitOfWorkManager unitOfWorkManager,
+        ICurrentTenant currentTenant)
     {
+        _currentTenant = currentTenant;
         _sequences = sequences;
         _counters = counters;
         _unitOfWorkManager = unitOfWorkManager;
@@ -36,6 +40,9 @@ public class NumberGenerator : INumberGenerator, ITransientDependency
             throw new NumberGenerationRequiresTransactionException();
         }
 
+        /* Shared lock first, then the read: an edit of the format waits for this draw to commit, and this draw never uses a
+         * format an edit is changing (design 49, "Guards"). */
+        await _counters.LockSequencesAsync(_currentTenant.Id, [numberSequenceId], exclusive: false);
         var sequence = await _sequences.GetAsync(numberSequenceId);
         var format = sequence.Format;
         var (periodYear, periodMonth) = NumberSequenceFormatter.PeriodOf(format.Scheme, date);

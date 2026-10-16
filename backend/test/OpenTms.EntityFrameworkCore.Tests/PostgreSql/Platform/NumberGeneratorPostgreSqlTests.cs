@@ -8,6 +8,7 @@ using OpenTms.Platform;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.NumberSequences;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.MultiTenancy;
@@ -389,6 +390,74 @@ public class NumberGeneratorPostgreSqlTests : PlatformMasterDataPostgreSqlTestBa
                 (renamed.Name, renamed.Description).ShouldBe((dto.Name + " renamed", "kept"));
             }
 
+            (await DrawInOwnTransactionAsync(TenantA, sequence, Date)).ShouldBe("O-26-0002");
+        }
+        finally
+        {
+            await DeleteSequenceAsync(TenantA, sequence);
+        }
+    }
+
+    /* Review finding (design 49, "Guards"): an edit or delete that races the very first draw must see that draw. Without the
+     * lock both commit, and the next draw in the new format repeats a number already issued. */
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_edit_or_delete_racing_the_first_draw_waits_for_it_and_is_then_refused(bool delete)
+    {
+        var sequence = await CommitSequenceAsync(TenantA);
+        try
+        {
+            NumberSequenceDto dto;
+            using (CurrentTenant.Change(TenantA))
+            {
+                dto = await SequenceService.GetAsync(sequence);
+                dto.IsInUse.ShouldBeFalse();
+            }
+
+            using var scope = ServiceProvider.CreateScope();
+            var unitOfWorkManager = scope.ServiceProvider.GetRequiredService<IUnitOfWorkManager>();
+            var generator = scope.ServiceProvider.GetRequiredService<INumberGenerator>();
+            Task racing;
+            using (CurrentTenant.Change(TenantA))
+            using (var draw = unitOfWorkManager.Begin(Transactional, requiresNew: true))
+            {
+                (await generator.GetNextAsync(sequence, Date)).ShouldBe("O-26-0001");
+
+                racing = Task.Run(async () =>
+                {
+                    using var editScope = ServiceProvider.CreateScope();
+                    var service = editScope.ServiceProvider.GetRequiredService<INumberSequenceAppService>();
+                    /* Its own transaction, as a second request has: the task would otherwise join the draw's ambient one. */
+                    using (CurrentTenant.Change(TenantA))
+                    using (var edit = editScope.ServiceProvider.GetRequiredService<IUnitOfWorkManager>().Begin(Transactional, requiresNew: true))
+                    {
+                        if (delete)
+                        {
+                            await service.DeleteAsync(sequence);
+                        }
+                        else
+                        {
+                            await service.UpdateAsync(sequence, new NumberSequenceUpdateDto
+                            {
+                                Name = dto.Name, Scheme = NumberSequenceScheme.CounterOnly, Prefix = "O-26-", MinimumDigits = 4,
+                                ConcurrencyStamp = dto.ConcurrencyStamp
+                            });
+                        }
+
+                        await edit.CompleteAsync();
+                    }
+                });
+                await Task.Delay(750);
+                racing.IsCompleted.ShouldBeFalse("the edit waits for the running draw to commit");
+
+                await draw.CompleteAsync();
+            }
+
+            var refusal = await Should.ThrowAsync<BusinessException>(() => racing);
+            refusal.Code.ShouldBe(delete ? PlatformErrorCodes.InUse : PlatformErrorCodes.NumberSequenceInUse);
+
+            /* The format is untouched, so the next number continues the series instead of repeating O-26-0001. */
             (await DrawInOwnTransactionAsync(TenantA, sequence, Date)).ShouldBe("O-26-0002");
         }
         finally

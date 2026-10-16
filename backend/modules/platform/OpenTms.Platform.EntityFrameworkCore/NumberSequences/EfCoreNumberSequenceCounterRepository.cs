@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Collections.Generic;
 using System;
 using System.Data.Common;
 using System.Globalization;
@@ -52,6 +54,49 @@ public class EfCoreNumberSequenceCounterRepository
 
             var result = await command.ExecuteScalarAsync(cancellationToken);
             return Convert.ToInt64(result, CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            await database.CloseConnectionAsync();
+        }
+    }
+
+    public virtual async Task LockSequencesAsync(Guid? tenantId, IReadOnlyCollection<Guid> numberSequenceIds, bool exclusive, CancellationToken cancellationToken = default)
+    {
+        var dbContext = await GetDbContextAsync();
+        var database = dbContext.Database;
+        if (numberSequenceIds.Count == 0 || database.ProviderName != "Npgsql.EntityFrameworkCore.PostgreSQL")
+        {
+            return;
+        }
+
+        var entityType = dbContext.Model.FindEntityType(typeof(NumberSequence))
+                         ?? throw new InvalidOperationException("NumberSequence is not mapped by the Platform context.");
+        var table = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
+        var sqlHelper = dbContext.GetService<ISqlGenerationHelper>();
+        string Column(string property) => sqlHelper.DelimitIdentifier(entityType.FindProperty(property)!.GetColumnName(table)!);
+
+        /* The tenant condition keeps a foreign id from locking another tenant's row in a shared database; ids in a fixed
+         * order so two bulk edits never deadlock. */
+        var sql = $"SELECT 1 FROM {sqlHelper.DelimitIdentifier(table.Name, table.Schema)} " +
+                  $"WHERE {Column(nameof(NumberSequence.Id))} = ANY(@ids) " +
+                  $"AND {Column(nameof(NumberSequence.TenantId))} IS NOT DISTINCT FROM @tenantId " +
+                  $"ORDER BY {Column(nameof(NumberSequence.Id))} " +
+                  (exclusive ? "FOR UPDATE" : "FOR SHARE");
+
+        var typeMappings = dbContext.GetService<IRelationalTypeMappingSource>();
+        await database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var command = database.GetDbConnection().CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = database.CurrentTransaction?.GetDbTransaction();
+            command.Parameters.Add(Parameter(typeMappings, command, "@ids", typeof(Guid[]), numberSequenceIds.OrderBy(id => id).ToArray()));
+            command.Parameters.Add(Parameter(typeMappings, command, "@tenantId", typeof(Guid), tenantId));
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+            }
         }
         finally
         {

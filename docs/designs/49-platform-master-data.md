@@ -23,8 +23,8 @@ the Master data app holds every domain's master data, one group per domain).
 
 **Out of scope (PO decision 2026-10-16):** `ConsignmentNoteFixedDescription` (vaste CMR-teksten), the CMR print
 profile (`ConsignmentNoteProfile`, "Vrachtbriefprofiel") and `TransportProfile` (transportprofielen, assessment §4)
-belong to the **transport domain** and are built with its first run, not here; the assessment, CLAUDE.md and the
-architecture docs record this. Also out: sending mail, rendering documents, storing attachments (GAP-05), executing
+belong to the **transport domain** and are built with its first run, not here; assessment §2.3 and CLAUDE.md
+record this. Also out: sending mail, rendering documents, storing attachments (GAP-05), executing
 transformations, inbound mailboxes (Integrations, assessment §2 row 6), and the type entities that will reference a
 number sequence (Orders, Planning, Financial runs).
 
@@ -170,7 +170,11 @@ from the clock. Repository `INumberSequenceCounterRepository` in `Domain`, EF im
 
 **Guards:** once any counter row exists ("in use"), `Scheme`, the five affixes and `MinimumDigits` cannot change
 (OpenTMS `OutboundInvoiceTypeAppService.cs:118-133`) and the sequence cannot be deleted; name and description stay
-editable. The DTO carries `IsInUse` and `ExampleNumber` (for today).
+editable. The DTO carries `IsInUse` and `ExampleNumber` (for today). The guard is atomic on PostgreSQL (review
+finding 2026-10-17): an edit or delete locks the sequence row `FOR UPDATE` before the in-use check, and a draw locks it
+`FOR SHARE` before reading the format, so an edit racing the very first draw waits for it and is refused, and a draw
+never uses a format whose in-use check missed it. Consumers should draw numbers late in their transaction: the counter
+row stays locked until commit.
 
 ### Feature flags and permissions
 

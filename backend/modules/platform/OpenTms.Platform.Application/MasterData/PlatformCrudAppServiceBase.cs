@@ -64,6 +64,9 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
 
     protected abstract Task ApplyUpdateAsync(TEntity entity, TUpdateDto input);
 
+    /// <summary>Runs once before a bulk delete checks its rows: locks and batch reads that GetDeleteBlockerAsync then uses.</summary>
+    protected virtual Task PrepareBulkDeleteAsync(List<TEntity> targets) => Task.CompletedTask;
+
     /// <summary>A localized reason when the row may not be deleted (in use), else null.</summary>
     protected virtual Task<string?> GetDeleteBlockerAsync(TEntity entity) => Task.FromResult<string?>(null);
 
@@ -155,7 +158,8 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
         List<TEntity> targets;
         if (string.Equals(selection.Mode, "FilterBased", StringComparison.OrdinalIgnoreCase))
         {
-            var all = await Repository.WithDetailsAsync();
+            /* No details: a soft delete touches the parent only, and an e-mail template's contents hold up to 200 KB each. */
+            var all = await Repository.GetQueryableAsync();
             var query = applyFilters(all);
             var term = NormalizeTerm(selection.FilterRequest?.WildcardSearch);
             if (term != null)
@@ -179,13 +183,15 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
                 throw new BusinessException(PlatformErrorCodes.TooManyRows).WithData("max", MaxBulkDeleteRows);
             }
 
-            targets = ids.Count == 0 ? [] : await Repository.GetListAsync(e => ids.Contains(e.Id), includeDetails: true);
+            targets = ids.Count == 0 ? [] : await Repository.GetListAsync(e => ids.Contains(e.Id), includeDetails: false);
         }
 
         if (targets.Count > MaxBulkDeleteRows)
         {
             throw new BusinessException(PlatformErrorCodes.TooManyRows).WithData("max", MaxBulkDeleteRows);
         }
+
+        await PrepareBulkDeleteAsync(targets);
 
         var result = new PlatformMasterDataBulkDeleteResultDto();
         foreach (var entity in targets)

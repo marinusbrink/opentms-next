@@ -168,7 +168,8 @@ orderbevestiging of een factuur.
   **Aan** leeg, dan gaat het bericht naar de ontvanger die bij het record hoort (bijvoorbeeld de
   klant van de factuur).
 - Per taal is er een tabblad met **Onderwerp** en **HTML-inhoud**. Engels is verplicht; Nederlands
-  is optioneel. Het systeem kiest de taal van de ontvanger en valt terug op Engels.
+  is optioneel. Zodra het systeem deze mails verstuurt, kiest het de taal van de ontvanger en valt
+  het terug op Engels.
 - Teksten tussen `{{` en `}}` zijn velden die bij het versturen worden ingevuld, bijvoorbeeld
   `{{ company.name }}`. Welke velden er zijn, hangt af van het doel; die lijst verschijnt zodra de
   functie die de mail verstuurt beschikbaar is. Een fout in deze schrijfwijze (bijvoorbeeld een
@@ -209,6 +210,8 @@ document); deze mag u aanpassen.
   het gekoppelde record, of een PDF splitsen op een referentiepatroon. Elke bewerking komt hooguit
   één keer voor. Hernoemen en splitsen hebben een argument nodig; voor splitsen is dat een reguliere
   expressie.
+- Een **gearchiveerde** documentsoort verschijnt niet meer in keuzelijsten; met *Toon gearchiveerd*
+  blijft hij in de lijst zichtbaar en kunt u hem weer activeren.
 
 ### Nummerreeksen
 

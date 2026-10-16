@@ -18,9 +18,9 @@ public class NumberSequenceAppService
     : PlatformCrudAppServiceBase<NumberSequence, NumberSequenceRowDto, NumberSequenceDto, NumberSequenceCreateDto, NumberSequenceUpdateDto, PlatformMasterDataListRequestDto>,
       INumberSequenceAppService
 {
-    private readonly IRepository<NumberSequenceCounter> _counters;
+    private readonly INumberSequenceCounterRepository _counters;
 
-    public NumberSequenceAppService(IRepository<NumberSequence, Guid> repository, IRepository<NumberSequenceCounter> counters)
+    public NumberSequenceAppService(IRepository<NumberSequence, Guid> repository, INumberSequenceCounterRepository counters)
         : base(repository)
     {
         _counters = counters;
@@ -125,12 +125,39 @@ public class NumberSequenceAppService
         }
 
         sequence.SetName(input.Name);
+        /* Exclusive lock before the in-use check: a first draw running now commits its counter row before the check reads
+         * (design 49, "Guards"); otherwise both commit and the next draw repeats a number in the new format. */
+        await _counters.LockSequencesAsync(CurrentTenant.Id, [sequence.Id], exclusive: true);
         sequence.ChangeFormat(FormatOf(input), await IsInUseAsync(sequence.Id));
         sequence.SetDescription(input.Description);
     }
 
+    /// <summary>The in-use set of the bulk delete under way, read once under lock (PrepareBulkDeleteAsync).</summary>
+    private HashSet<Guid>? _bulkInUse;
+
+    protected override async Task PrepareBulkDeleteAsync(List<NumberSequence> targets)
+    {
+        var ids = targets.Select(t => t.Id).ToList();
+        await _counters.LockSequencesAsync(CurrentTenant.Id, ids, exclusive: true);
+        _bulkInUse = await InUseAsync(ids);
+    }
+
     protected override async Task<string?> GetDeleteBlockerAsync(NumberSequence sequence)
-        => await IsInUseAsync(sequence.Id) ? L["Platform:InUseByNumbers"].Value : null;
+    {
+        bool inUse;
+        if (_bulkInUse != null)
+        {
+            inUse = _bulkInUse.Contains(sequence.Id);
+        }
+        else
+        {
+            /* A single delete: the same lock-then-check as an edit. */
+            await _counters.LockSequencesAsync(CurrentTenant.Id, [sequence.Id], exclusive: true);
+            inUse = await IsInUseAsync(sequence.Id);
+        }
+
+        return inUse ? L["Platform:InUseByNumbers"].Value : null;
+    }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
