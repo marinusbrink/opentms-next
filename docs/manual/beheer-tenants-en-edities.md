@@ -121,6 +121,10 @@ dan verdwijnen ook alle lijsten daaronder. Keuzelijsten in een scherm (bijvoorbe
 een relatie) werken zolang de app aan staat, ook als de lijst zelf uit staat. De host heeft de app
 Beheer altijd; de app Tenants is geen functie.
 
+De app Stamgegevens heeft per domein een eigen groep. Nu is dat alleen **Groep Algemeen** (de
+stamgegevens van het domein Stamgegevens zelf); de groepen van andere domeinen, zoals Orders of
+Financieel, verschijnen hier zodra hun eerste lijst er is.
+
 | Functie | Technische naam | Valt onder | Standaard |
 |---|---|---|---|
 | App Dashboard | `Apps.Dashboard` | | uit |
@@ -128,25 +132,26 @@ Beheer altijd; de app Tenants is geen functie.
 | App Transport | `Apps.Transport` | | uit |
 | App Financieel | `Apps.Finance` | | uit |
 | App Stamgegevens | `Apps.MasterData` | | aan |
-| Groep Relaties | `Apps.MasterData.Relations` | App Stamgegevens | aan |
-| Relaties | `Apps.MasterData.Relations.Relations` | Groep Relaties | uit |
-| Adrestypen | `Apps.MasterData.Relations.AddressTypes` | Groep Relaties | uit |
-| Relatiecategorieën | `Apps.MasterData.Relations.RelationCategories` | Groep Relaties | uit |
-| Groep Transport | `Apps.MasterData.Transport` | App Stamgegevens | aan |
-| Producten | `Apps.MasterData.Transport.Products` | Groep Transport | uit |
-| Transporteenheden | `Apps.MasterData.Transport.TransportUnits` | Groep Transport | uit |
-| Productrelatiecodes | `Apps.MasterData.Transport.ProductRelationCodes` | Groep Transport | uit |
-| Temperaturen | `Apps.MasterData.Transport.Temperatures` | Groep Transport | uit |
-| Groep Wagenpark | `Apps.MasterData.Fleet` | App Stamgegevens | aan |
-| Voertuigen | `Apps.MasterData.Fleet.Vehicles` | Groep Wagenpark | uit |
-| Voertuigcombinaties | `Apps.MasterData.Fleet.VehicleCombinations` | Groep Wagenpark | uit |
-| Chauffeurs | `Apps.MasterData.Fleet.Drivers` | Groep Wagenpark | uit |
-| Voertuigtypen | `Apps.MasterData.Fleet.VehicleTypes` | Groep Wagenpark | uit |
-| Transportkenmerken | `Apps.MasterData.Fleet.TransportCharacteristics` | Groep Wagenpark | uit |
-| Groep Regio's en lijsten | `Apps.MasterData.Reference` | App Stamgegevens | aan |
-| Landen | `Apps.MasterData.Reference.Countries` | Groep Regio's en lijsten | uit |
-| Valuta's | `Apps.MasterData.Reference.Currencies` | Groep Regio's en lijsten | uit |
-| Geografische regio's | `Apps.MasterData.Reference.GeographicalRegions` | Groep Regio's en lijsten | uit |
+| Groep Algemeen | `Apps.MasterData.General` | App Stamgegevens | aan |
+| Groep Relaties | `Apps.MasterData.General.Relations` | Groep Algemeen | aan |
+| Relaties | `Apps.MasterData.General.Relations.Relations` | Groep Relaties | uit |
+| Adrestypen | `Apps.MasterData.General.Relations.AddressTypes` | Groep Relaties | uit |
+| Relatiecategorieën | `Apps.MasterData.General.Relations.RelationCategories` | Groep Relaties | uit |
+| Groep Transport | `Apps.MasterData.General.Transport` | Groep Algemeen | aan |
+| Producten | `Apps.MasterData.General.Transport.Products` | Groep Transport | uit |
+| Transporteenheden | `Apps.MasterData.General.Transport.TransportUnits` | Groep Transport | uit |
+| Productrelatiecodes | `Apps.MasterData.General.Transport.ProductRelationCodes` | Groep Transport | uit |
+| Temperaturen | `Apps.MasterData.General.Transport.Temperatures` | Groep Transport | uit |
+| Groep Wagenpark | `Apps.MasterData.General.Fleet` | Groep Algemeen | aan |
+| Voertuigen | `Apps.MasterData.General.Fleet.Vehicles` | Groep Wagenpark | uit |
+| Voertuigcombinaties | `Apps.MasterData.General.Fleet.VehicleCombinations` | Groep Wagenpark | uit |
+| Chauffeurs | `Apps.MasterData.General.Fleet.Drivers` | Groep Wagenpark | uit |
+| Voertuigtypen | `Apps.MasterData.General.Fleet.VehicleTypes` | Groep Wagenpark | uit |
+| Transportkenmerken | `Apps.MasterData.General.Fleet.TransportCharacteristics` | Groep Wagenpark | uit |
+| Groep Regio's en lijsten | `Apps.MasterData.General.Reference` | Groep Algemeen | aan |
+| Landen | `Apps.MasterData.General.Reference.Countries` | Groep Regio's en lijsten | uit |
+| Valuta's | `Apps.MasterData.General.Reference.Currencies` | Groep Regio's en lijsten | uit |
+| Geografische regio's | `Apps.MasterData.General.Reference.GeographicalRegions` | Groep Regio's en lijsten | uit |
 | App Integraties | `Apps.Integrations` | | uit |
 | App Rapporten | `Apps.Reports` | | uit |
 | App Beheer | `Apps.Administration` | | aan |

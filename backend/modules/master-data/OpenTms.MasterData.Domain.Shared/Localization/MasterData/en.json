@@ -61,6 +61,7 @@
     "MasterData:InUseByCountries": "used as default currency by a country",
     "MasterData:InUseByGeographicalRegions": "used by a postal-code range of a geographical region",
     "MasterData:InUseByTransportUnits": "used by a load factor of a transport unit",
+    "MasterData:Nav.General": "General",
     "MasterData:Nav.Relations": "Relations",
     "MasterData:Nav.Transport": "Transport",
     "MasterData:Nav.Fleet": "Fleet",

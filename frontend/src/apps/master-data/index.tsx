@@ -20,10 +20,17 @@ import { VehicleCombinationsView } from "@/apps/master-data/views/VehicleCombina
 import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
 import { VehiclesView } from "@/apps/master-data/views/VehiclesView";
 
-/* The Master data app (design 41): routes by pathname like the Administration app. The bare app path and a group
- * path (the nav category) redirect to the first list that is on for this tenant ("App features",
- * tenants-and-editions.md). The Relations group path is the Relations list itself (design 43). */
-const GROUP_PATHS = new Set(["/master-data", "/master-data/transport", "/master-data/fleet", "/master-data/reference"]);
+/* The Master data app (design 41): routes by pathname like the Administration app. The bare app path, a domain
+ * group path and a group path (the nav categories; PO 2026-10-16) redirect to the first list under it that is on for
+ * this tenant ("App features", tenants-and-editions.md). The Relations group path is the Relations list itself
+ * (design 43). */
+const GROUP_PATHS = new Set([
+  "/master-data",
+  "/master-data/general",
+  "/master-data/transport",
+  "/master-data/fleet",
+  "/master-data/reference",
+]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
 
 export function MasterDataApp() {

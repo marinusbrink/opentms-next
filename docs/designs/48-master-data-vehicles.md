@@ -25,8 +25,9 @@ relation codes view in the Transport group of the Master data app. Builds on des
 ## Tenant dimension
 
 Configurable per tenant; every row belongs to one tenant. Three new app-tree features (tenants-and-editions
-D8), default off: `Apps.MasterData.Fleet.Vehicles`, `Apps.MasterData.Fleet.VehicleCombinations`,
-`Apps.MasterData.Transport.ProductRelationCodes`. `TenantId` nullable (assessment §4, parked).
+D8), default off: `Apps.MasterData.General.Fleet.Vehicles`, `Apps.MasterData.General.Fleet.VehicleCombinations`,
+`Apps.MasterData.General.Transport.ProductRelationCodes` (under the General domain group since PO 2026-10-16,
+tenants-and-editions D15). `TenantId` nullable (assessment §4, parked).
 
 ## Expected volumes
 
@@ -156,9 +157,9 @@ order lines reference codes (Orders run).
 ### Feature flags and permissions
 
 - Features (Platform `AppFeatures`, mirrored in `apps.config.ts`, default off, chain-checked as every
-  node): `Apps.MasterData.Fleet.Vehicles` (`VehicleAppService`, not its picker),
-  `Apps.MasterData.Fleet.VehicleCombinations` (`VehicleCombinationAppService`),
-  `Apps.MasterData.Transport.ProductRelationCodes` (`ProductRelationCodeAppService`, not the resolver).
+  node): `Apps.MasterData.General.Fleet.Vehicles` (`VehicleAppService`, not its picker),
+  `Apps.MasterData.General.Fleet.VehicleCombinations` (`VehicleCombinationAppService`),
+  `Apps.MasterData.General.Transport.ProductRelationCodes` (`ProductRelationCodeAppService`, not the resolver).
   Pickers (`GetLookupPageAsync` of vehicles) need only `Apps.MasterData` (D12).
 - Permissions, both sides, in `MasterDataPermissions`:
   `MasterData.Vehicles`, `MasterData.Vehicles.Create`, `MasterData.Vehicles.Update`, `MasterData.Vehicles.Delete`,

@@ -8,7 +8,9 @@ namespace OpenTms.Platform.Features;
 /* The app and navigation features (docs/designs/tenants-and-editions.md, "App features"). Defaults (PO 2026-10-14):
  * screens that were live without a flag are on (Administration and its nodes; the Master data app and its groups),
  * screens that were behind a flag stay off (the Master data lists, Maintenance), placeholder apps are off. Every
- * node is a toggle and a child of the node above it, so an edition's Features tab shows the app tree. */
+ * node is a toggle and a child of the node above it, so an edition's Features tab shows the app tree. The Master data
+ * app holds one group per domain (PO 2026-10-16), each domain group defaulting on like the groups below it; only the
+ * Master Data domain's own group (General) exists so far. */
 public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
 {
     public override void Define(IFeatureDefinitionContext context)
@@ -21,25 +23,26 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         Off(apps, AppFeatures.Finance);
 
         var masterData = On(apps, AppFeatures.MasterData.Default);
-        var relations = On(masterData, AppFeatures.MasterData.Relations.Default);
-        Off(relations, AppFeatures.MasterData.Relations.RelationsList);
-        Off(relations, AppFeatures.MasterData.Relations.AddressTypes);
-        Off(relations, AppFeatures.MasterData.Relations.RelationCategories);
-        var transport = On(masterData, AppFeatures.MasterData.Transport.Default);
-        Off(transport, AppFeatures.MasterData.Transport.Products);
-        Off(transport, AppFeatures.MasterData.Transport.TransportUnits);
-        Off(transport, AppFeatures.MasterData.Transport.ProductRelationCodes);
-        Off(transport, AppFeatures.MasterData.Transport.Temperatures);
-        var fleet = On(masterData, AppFeatures.MasterData.Fleet.Default);
-        Off(fleet, AppFeatures.MasterData.Fleet.Vehicles);
-        Off(fleet, AppFeatures.MasterData.Fleet.VehicleCombinations);
-        Off(fleet, AppFeatures.MasterData.Fleet.Drivers);
-        Off(fleet, AppFeatures.MasterData.Fleet.VehicleTypes);
-        Off(fleet, AppFeatures.MasterData.Fleet.TransportCharacteristics);
-        var reference = On(masterData, AppFeatures.MasterData.Reference.Default);
-        Off(reference, AppFeatures.MasterData.Reference.Countries);
-        Off(reference, AppFeatures.MasterData.Reference.Currencies);
-        Off(reference, AppFeatures.MasterData.Reference.GeographicalRegions);
+        var general = On(masterData, AppFeatures.MasterData.General.Default);
+        var relations = On(general, AppFeatures.MasterData.General.Relations.Default);
+        Off(relations, AppFeatures.MasterData.General.Relations.RelationsList);
+        Off(relations, AppFeatures.MasterData.General.Relations.AddressTypes);
+        Off(relations, AppFeatures.MasterData.General.Relations.RelationCategories);
+        var transport = On(general, AppFeatures.MasterData.General.Transport.Default);
+        Off(transport, AppFeatures.MasterData.General.Transport.Products);
+        Off(transport, AppFeatures.MasterData.General.Transport.TransportUnits);
+        Off(transport, AppFeatures.MasterData.General.Transport.ProductRelationCodes);
+        Off(transport, AppFeatures.MasterData.General.Transport.Temperatures);
+        var fleet = On(general, AppFeatures.MasterData.General.Fleet.Default);
+        Off(fleet, AppFeatures.MasterData.General.Fleet.Vehicles);
+        Off(fleet, AppFeatures.MasterData.General.Fleet.VehicleCombinations);
+        Off(fleet, AppFeatures.MasterData.General.Fleet.Drivers);
+        Off(fleet, AppFeatures.MasterData.General.Fleet.VehicleTypes);
+        Off(fleet, AppFeatures.MasterData.General.Fleet.TransportCharacteristics);
+        var reference = On(general, AppFeatures.MasterData.General.Reference.Default);
+        Off(reference, AppFeatures.MasterData.General.Reference.Countries);
+        Off(reference, AppFeatures.MasterData.General.Reference.Currencies);
+        Off(reference, AppFeatures.MasterData.General.Reference.GeographicalRegions);
 
         Off(apps, AppFeatures.Integrations);
         Off(apps, AppFeatures.Reports);

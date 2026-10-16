@@ -28,30 +28,30 @@ public class ProductAppService
         _productRelationCodes = productRelationCodes;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<GridResponse<ProductRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<ProductDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Products.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Create)]
     public Task<ProductDto> CreateAsync(ProductCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Update)]
     public Task<ProductDto> UpdateAsync(Guid id, ProductUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Products.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => input.IncludeArchived ? q : q.Where(p => !p.IsArchived));

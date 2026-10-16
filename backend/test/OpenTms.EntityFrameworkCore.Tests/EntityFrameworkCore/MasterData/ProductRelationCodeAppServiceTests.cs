@@ -393,7 +393,7 @@ public class ProductRelationCodeAppServiceTests : MasterDataAppServiceTestBase
         await SeedAsync();
         var code = await Service.CreateAsync(Dto("C1"));
 
-        foreach (var feature in new[] { AppFeatures.MasterData.Transport.ProductRelationCodes, AppFeatures.MasterData.Transport.Default })
+        foreach (var feature in new[] { AppFeatures.MasterData.General.Transport.ProductRelationCodes, AppFeatures.MasterData.General.Transport.Default })
         {
             using (TestFeatureValueProvider.Override(feature, "false"))
             {

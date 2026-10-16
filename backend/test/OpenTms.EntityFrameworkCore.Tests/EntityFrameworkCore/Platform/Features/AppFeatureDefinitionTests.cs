@@ -12,7 +12,7 @@ namespace OpenTms.EntityFrameworkCore.Platform.Features;
 
 /// <summary>
 /// The app and navigation feature definitions through the real definition manager (PO decision 2026-10-14,
-/// docs/designs/tenants-and-editions.md, "App features"; design 48): 34 toggles in the "Apps" group, each a child of the node
+/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain): 35 toggles in the "Apps" group, each a child of the node
 /// above it so an edition's Features tab shows the tree, with the PO's defaults; the old ad-hoc features are gone.
 /// Risk class: High — a wrong default switches a screen on or off for every tenant without a stored value.
 /// </summary>
@@ -30,25 +30,26 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.Reports"] = (null, "false"),
 
         ["Apps.MasterData"] = (null, "true"),
-        ["Apps.MasterData.Relations"] = ("Apps.MasterData", "true"),
-        ["Apps.MasterData.Relations.Relations"] = ("Apps.MasterData.Relations", "false"),
-        ["Apps.MasterData.Relations.AddressTypes"] = ("Apps.MasterData.Relations", "false"),
-        ["Apps.MasterData.Relations.RelationCategories"] = ("Apps.MasterData.Relations", "false"),
-        ["Apps.MasterData.Transport"] = ("Apps.MasterData", "true"),
-        ["Apps.MasterData.Transport.Products"] = ("Apps.MasterData.Transport", "false"),
-        ["Apps.MasterData.Transport.TransportUnits"] = ("Apps.MasterData.Transport", "false"),
-        ["Apps.MasterData.Transport.ProductRelationCodes"] = ("Apps.MasterData.Transport", "false"),
-        ["Apps.MasterData.Transport.Temperatures"] = ("Apps.MasterData.Transport", "false"),
-        ["Apps.MasterData.Fleet"] = ("Apps.MasterData", "true"),
-        ["Apps.MasterData.Fleet.Vehicles"] = ("Apps.MasterData.Fleet", "false"),
-        ["Apps.MasterData.Fleet.VehicleCombinations"] = ("Apps.MasterData.Fleet", "false"),
-        ["Apps.MasterData.Fleet.Drivers"] = ("Apps.MasterData.Fleet", "false"),
-        ["Apps.MasterData.Fleet.VehicleTypes"] = ("Apps.MasterData.Fleet", "false"),
-        ["Apps.MasterData.Fleet.TransportCharacteristics"] = ("Apps.MasterData.Fleet", "false"),
-        ["Apps.MasterData.Reference"] = ("Apps.MasterData", "true"),
-        ["Apps.MasterData.Reference.Countries"] = ("Apps.MasterData.Reference", "false"),
-        ["Apps.MasterData.Reference.Currencies"] = ("Apps.MasterData.Reference", "false"),
-        ["Apps.MasterData.Reference.GeographicalRegions"] = ("Apps.MasterData.Reference", "false"),
+        ["Apps.MasterData.General"] = ("Apps.MasterData", "true"),
+        ["Apps.MasterData.General.Relations"] = ("Apps.MasterData.General", "true"),
+        ["Apps.MasterData.General.Relations.Relations"] = ("Apps.MasterData.General.Relations", "false"),
+        ["Apps.MasterData.General.Relations.AddressTypes"] = ("Apps.MasterData.General.Relations", "false"),
+        ["Apps.MasterData.General.Relations.RelationCategories"] = ("Apps.MasterData.General.Relations", "false"),
+        ["Apps.MasterData.General.Transport"] = ("Apps.MasterData.General", "true"),
+        ["Apps.MasterData.General.Transport.Products"] = ("Apps.MasterData.General.Transport", "false"),
+        ["Apps.MasterData.General.Transport.TransportUnits"] = ("Apps.MasterData.General.Transport", "false"),
+        ["Apps.MasterData.General.Transport.ProductRelationCodes"] = ("Apps.MasterData.General.Transport", "false"),
+        ["Apps.MasterData.General.Transport.Temperatures"] = ("Apps.MasterData.General.Transport", "false"),
+        ["Apps.MasterData.General.Fleet"] = ("Apps.MasterData.General", "true"),
+        ["Apps.MasterData.General.Fleet.Vehicles"] = ("Apps.MasterData.General.Fleet", "false"),
+        ["Apps.MasterData.General.Fleet.VehicleCombinations"] = ("Apps.MasterData.General.Fleet", "false"),
+        ["Apps.MasterData.General.Fleet.Drivers"] = ("Apps.MasterData.General.Fleet", "false"),
+        ["Apps.MasterData.General.Fleet.VehicleTypes"] = ("Apps.MasterData.General.Fleet", "false"),
+        ["Apps.MasterData.General.Fleet.TransportCharacteristics"] = ("Apps.MasterData.General.Fleet", "false"),
+        ["Apps.MasterData.General.Reference"] = ("Apps.MasterData.General", "true"),
+        ["Apps.MasterData.General.Reference.Countries"] = ("Apps.MasterData.General.Reference", "false"),
+        ["Apps.MasterData.General.Reference.Currencies"] = ("Apps.MasterData.General.Reference", "false"),
+        ["Apps.MasterData.General.Reference.GeographicalRegions"] = ("Apps.MasterData.General.Reference", "false"),
 
         ["Apps.Administration"] = (null, "true"),
         ["Apps.Administration.Users"] = ("Apps.Administration", "true"),
@@ -61,12 +62,12 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     };
 
     [Fact]
-    public async Task The_Apps_group_holds_exactly_the_34_tree_features()
+    public async Task The_Apps_group_holds_exactly_the_35_tree_features()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var group = (await manager.GetGroupsAsync()).Single(g => g.Name == AppFeatures.GroupName);
 
-        Expected.Count.ShouldBe(34);
+        Expected.Count.ShouldBe(35);
         group.GetFeaturesWithChildren().Select(f => f.Name).ShouldBe(Expected.Keys, ignoreOrder: true);
         group.Features.Select(f => f.Name).ShouldBe(Expected.Where(e => e.Value.Parent == null).Select(e => e.Key), ignoreOrder: true);
     }

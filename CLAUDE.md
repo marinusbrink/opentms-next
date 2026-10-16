@@ -146,10 +146,13 @@ or the mapping are PO decisions** — agents never create a module per app.
 | Planboard | `/planboard` | Planning & Execution |
 | Transport | `/transport` | Orders, Planning & Execution |
 | Finance | `/finance` | Financial |
-| Master data | `/master-data` | Master Data; creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004) |
+| Master data | `/master-data` | All domains (their master-data lists, one nav group per domain; PO 2026-10-16); creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004) |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
 | Tenants (host only; views Tenants and Editions) | `/tenants` | Platform |
+
+**The master-data lists of every domain live in the Master data app** (PO decision 2026-10-16), one parent group per
+domain in its nav tree (the Master Data domain's own group is General), never in the domain's operational app.
 
 **Decided by the PO on 2026-10-10:** the **logistics operating system (LOS)** is a separate app
 in this list: it runs the planning department through AI agents and workflows (decision agents,

@@ -411,7 +411,7 @@ public class VehicleCombinationAppServiceTests : MasterDataAppServiceTestBase
         await SeedAsync();
         var combination = await _service.CreateAsync(Dto("C1", await VehicleAsync("T1", VehicleTypeKind.Tractor), await VehicleAsync("TR1", VehicleTypeKind.Trailer)));
 
-        foreach (var feature in new[] { AppFeatures.MasterData.Fleet.VehicleCombinations, AppFeatures.MasterData.Fleet.Default })
+        foreach (var feature in new[] { AppFeatures.MasterData.General.Fleet.VehicleCombinations, AppFeatures.MasterData.General.Fleet.Default })
         {
             using (TestFeatureValueProvider.Override(feature, "false"))
             {

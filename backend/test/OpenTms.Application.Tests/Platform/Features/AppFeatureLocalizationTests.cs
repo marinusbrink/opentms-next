@@ -54,11 +54,11 @@ public class AppFeatureLocalizationTests
     }
 
     [Fact]
-    public void The_constants_name_exactly_34_distinct_features()
+    public void The_constants_name_exactly_35_distinct_features()
     {
         var all = AllAppFeatures();
-        all.Count.ShouldBe(34);
-        all.Distinct().Count().ShouldBe(34);
+        all.Count.ShouldBe(35);
+        all.Distinct().Count().ShouldBe(35);
         all.ShouldAllBe(name => name.StartsWith("Apps."));
     }
 

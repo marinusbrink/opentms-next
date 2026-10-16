@@ -238,7 +238,7 @@ describe("useCreateInPlace — offer", () => {
 
   it("follows a feature change on the next render", () => {
     grants = { "MasterData.Currencies.Create": true };
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Reference": "false" };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Reference": "false" };
     const { rerender } = setup("Currency");
     expect(addNew()).toBeNull();
     features = { ...ALL_CREATE_FEATURES };

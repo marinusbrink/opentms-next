@@ -17,29 +17,30 @@ public class MasterDataFeatureDefinitionTests
     {
         AppFeatures.GroupName.ShouldBe("Apps");
         AppFeatures.MasterData.Default.ShouldBe("Apps.MasterData");
+        AppFeatures.MasterData.General.Default.ShouldBe("Apps.MasterData.General");
 
-        AppFeatures.MasterData.Relations.Default.ShouldBe("Apps.MasterData.Relations");
-        AppFeatures.MasterData.Relations.RelationsList.ShouldBe("Apps.MasterData.Relations.Relations");
-        AppFeatures.MasterData.Relations.AddressTypes.ShouldBe("Apps.MasterData.Relations.AddressTypes");
-        AppFeatures.MasterData.Relations.RelationCategories.ShouldBe("Apps.MasterData.Relations.RelationCategories");
+        AppFeatures.MasterData.General.Relations.Default.ShouldBe("Apps.MasterData.General.Relations");
+        AppFeatures.MasterData.General.Relations.RelationsList.ShouldBe("Apps.MasterData.General.Relations.Relations");
+        AppFeatures.MasterData.General.Relations.AddressTypes.ShouldBe("Apps.MasterData.General.Relations.AddressTypes");
+        AppFeatures.MasterData.General.Relations.RelationCategories.ShouldBe("Apps.MasterData.General.Relations.RelationCategories");
 
-        AppFeatures.MasterData.Transport.Default.ShouldBe("Apps.MasterData.Transport");
-        AppFeatures.MasterData.Transport.Products.ShouldBe("Apps.MasterData.Transport.Products");
-        AppFeatures.MasterData.Transport.TransportUnits.ShouldBe("Apps.MasterData.Transport.TransportUnits");
-        AppFeatures.MasterData.Transport.ProductRelationCodes.ShouldBe("Apps.MasterData.Transport.ProductRelationCodes");
-        AppFeatures.MasterData.Transport.Temperatures.ShouldBe("Apps.MasterData.Transport.Temperatures");
+        AppFeatures.MasterData.General.Transport.Default.ShouldBe("Apps.MasterData.General.Transport");
+        AppFeatures.MasterData.General.Transport.Products.ShouldBe("Apps.MasterData.General.Transport.Products");
+        AppFeatures.MasterData.General.Transport.TransportUnits.ShouldBe("Apps.MasterData.General.Transport.TransportUnits");
+        AppFeatures.MasterData.General.Transport.ProductRelationCodes.ShouldBe("Apps.MasterData.General.Transport.ProductRelationCodes");
+        AppFeatures.MasterData.General.Transport.Temperatures.ShouldBe("Apps.MasterData.General.Transport.Temperatures");
 
-        AppFeatures.MasterData.Fleet.Default.ShouldBe("Apps.MasterData.Fleet");
-        AppFeatures.MasterData.Fleet.Vehicles.ShouldBe("Apps.MasterData.Fleet.Vehicles");
-        AppFeatures.MasterData.Fleet.VehicleCombinations.ShouldBe("Apps.MasterData.Fleet.VehicleCombinations");
-        AppFeatures.MasterData.Fleet.Drivers.ShouldBe("Apps.MasterData.Fleet.Drivers");
-        AppFeatures.MasterData.Fleet.VehicleTypes.ShouldBe("Apps.MasterData.Fleet.VehicleTypes");
-        AppFeatures.MasterData.Fleet.TransportCharacteristics.ShouldBe("Apps.MasterData.Fleet.TransportCharacteristics");
+        AppFeatures.MasterData.General.Fleet.Default.ShouldBe("Apps.MasterData.General.Fleet");
+        AppFeatures.MasterData.General.Fleet.Vehicles.ShouldBe("Apps.MasterData.General.Fleet.Vehicles");
+        AppFeatures.MasterData.General.Fleet.VehicleCombinations.ShouldBe("Apps.MasterData.General.Fleet.VehicleCombinations");
+        AppFeatures.MasterData.General.Fleet.Drivers.ShouldBe("Apps.MasterData.General.Fleet.Drivers");
+        AppFeatures.MasterData.General.Fleet.VehicleTypes.ShouldBe("Apps.MasterData.General.Fleet.VehicleTypes");
+        AppFeatures.MasterData.General.Fleet.TransportCharacteristics.ShouldBe("Apps.MasterData.General.Fleet.TransportCharacteristics");
 
-        AppFeatures.MasterData.Reference.Default.ShouldBe("Apps.MasterData.Reference");
-        AppFeatures.MasterData.Reference.Countries.ShouldBe("Apps.MasterData.Reference.Countries");
-        AppFeatures.MasterData.Reference.Currencies.ShouldBe("Apps.MasterData.Reference.Currencies");
-        AppFeatures.MasterData.Reference.GeographicalRegions.ShouldBe("Apps.MasterData.Reference.GeographicalRegions");
+        AppFeatures.MasterData.General.Reference.Default.ShouldBe("Apps.MasterData.General.Reference");
+        AppFeatures.MasterData.General.Reference.Countries.ShouldBe("Apps.MasterData.General.Reference.Countries");
+        AppFeatures.MasterData.General.Reference.Currencies.ShouldBe("Apps.MasterData.General.Reference.Currencies");
+        AppFeatures.MasterData.General.Reference.GeographicalRegions.ShouldBe("Apps.MasterData.General.Reference.GeographicalRegions");
     }
 
     [Fact]

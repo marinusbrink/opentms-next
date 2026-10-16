@@ -60,7 +60,7 @@ public class VehicleAppService
         _organizationUnits = organizationUnits;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Default)]
     public async Task<GridResponse<VehicleRowDto>> GetListAsync(VehicleListRequestDto input)
     {
@@ -68,7 +68,7 @@ public class VehicleAppService
         return await GetListInternalAsync(input);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Default)]
     public Task<VehicleDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -109,7 +109,7 @@ public class VehicleAppService
     }
 
     /// <summary>The values a new vehicle of the type takes: dimensions, kind and the type's characteristics.</summary>
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Default)]
     public async Task<VehicleTypeDefaultsDto> GetTypeDefaultsAsync(Guid vehicleTypeId)
     {
@@ -128,19 +128,19 @@ public class VehicleAppService
         };
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Create)]
     public Task<VehicleDto> CreateAsync(VehicleCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Update)]
     public Task<VehicleDto> UpdateAsync(Guid id, VehicleUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Delete)]
     public async Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(VehicleBulkDeleteRequestDto input)
     {
@@ -148,7 +148,7 @@ public class VehicleAppService
         return await BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.IncludeArchived, input.Kinds, input.VehicleTypeId, input.OwnerRelationId));
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Update)]
     public async Task ArchiveAsync(Guid id)
     {
@@ -157,7 +157,7 @@ public class VehicleAppService
         await Repository.UpdateAsync(vehicle, autoSave: true);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Vehicles.Update)]
     public async Task UnarchiveAsync(Guid id)
     {

@@ -16,10 +16,10 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 let grants: Record<string, boolean> = {};
 /* With the characteristics node's chain: "Add new transport characteristic…" needs it besides the permission (UI-PERM-006). */
 const DEFAULT_FEATURES = {
-  "Apps.MasterData.Fleet.Vehicles": "true",
-  "Apps.MasterData": "true",
-  "Apps.MasterData.Fleet": "true",
-  "Apps.MasterData.Fleet.TransportCharacteristics": "true",
+  "Apps.MasterData.General.Fleet.Vehicles": "true",
+  "Apps.MasterData": "true", "Apps.MasterData.General": "true",
+  "Apps.MasterData.General.Fleet": "true",
+  "Apps.MasterData.General.Fleet.TransportCharacteristics": "true",
 };
 let features: Record<string, string> = { ...DEFAULT_FEATURES };
 vi.mock("@/lib/abp/queries", () => ({
@@ -344,7 +344,7 @@ describe("VehicleEditor — Add new transport characteristic… (own dialog, UI-
     expect(screen.getByText("MasterData:AddNewTransportCharacteristics")).toBeInTheDocument();
   });
 
-  it.each(["Apps.MasterData.Fleet.TransportCharacteristics", "Apps.MasterData.Fleet"])("no row with the permission when %s is off", async (off) => {
+  it.each(["Apps.MasterData.General.Fleet.TransportCharacteristics", "Apps.MasterData.General.Fleet"])("no row with the permission when %s is off", async (off) => {
     grants = { "MasterData.TransportCharacteristics.Create": true };
     features = { ...DEFAULT_FEATURES, [off]: "false" };
     await openCharacteristicLookup();

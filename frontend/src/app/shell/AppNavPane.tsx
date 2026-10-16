@@ -20,13 +20,31 @@ interface NavEntryProps {
   onToggleCollapsed: () => void;
 }
 
+function matchesPath(path: string, pathname: string): boolean {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+/** Whether the current page is this node or lies anywhere below it. A list's path need not sit under its group's
+ * path (Master data: /master-data/countries under the group /master-data/reference), so the tree decides. */
+function containsPath(view: AppView, pathname: string): boolean {
+  return matchesPath(view.path, pathname) || (view.children ?? []).some((child) => containsPath(child, pathname));
+}
+
+/* One node of the tree, at any depth (Master data has three levels: domain group, group, list; PO 2026-10-16). A
+ * node's children are indented one step further than the node itself. */
 function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   const { t } = useL();
   const location = useLocation();
 
-  const isActive = location.pathname === view.path || location.pathname.startsWith(`${view.path}/`);
-  /* A category whose child is the current page starts open, so the active entry is visible. */
+  const isActive = containsPath(view, location.pathname);
+  /* A category that holds the current page starts open, and opens when navigation moves into it, so the active
+   * entry is always visible; the user may still close it. (State adjusted during render, not in an effect.) */
   const [childrenOpen, setChildrenOpen] = useState(isActive);
+  const [wasActive, setWasActive] = useState(isActive);
+  if (isActive !== wasActive) {
+    setWasActive(isActive);
+    if (isActive) setChildrenOpen(true);
+  }
   const hasChildren = view.children != null && view.children.length > 0;
   const label = t(view.nameKey);
   const Icon = view.icon;
@@ -34,6 +52,8 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   function handleClick() {
     if (hasChildren) {
       if (collapsed) {
+        /* The icon rail shows only the top level: expand the pane with this category open. */
+        setChildrenOpen(true);
         onToggleCollapsed();
       } else {
         setChildrenOpen((v) => !v);
@@ -125,7 +145,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
         </TooltipProvider>
       )}
       {hasChildren && childrenOpen && (
-        <ul className="mt-0.5 space-y-0.5 pl-8">
+        <ul className="mt-0.5 space-y-0.5 pl-6">
           {view.children!.map((child) => (
             <li key={child.path}>
               <NavEntry

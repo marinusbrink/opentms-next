@@ -70,8 +70,8 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
          * the lists (the twelve that were behind a flag and design 48's three new nodes) stay off until an edition or tenant switches them on. */
         foreach (var name in new[]
                  {
-                     AppFeatures.MasterData.Default, AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Transport.Default,
-                     AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Reference.Default,
+                     AppFeatures.MasterData.Default, AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Transport.Default,
+                     AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Reference.Default,
                  })
         {
             var feature = await manager.GetAsync(name);
@@ -83,12 +83,12 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
 
         foreach (var name in new[]
                  {
-                     AppFeatures.MasterData.Relations.RelationsList, AppFeatures.MasterData.Relations.AddressTypes, AppFeatures.MasterData.Relations.RelationCategories,
-                     AppFeatures.MasterData.Transport.Products, AppFeatures.MasterData.Transport.TransportUnits, AppFeatures.MasterData.Transport.Temperatures,
-                     AppFeatures.MasterData.Fleet.Drivers, AppFeatures.MasterData.Fleet.VehicleTypes, AppFeatures.MasterData.Fleet.TransportCharacteristics,
-                     AppFeatures.MasterData.Reference.Countries, AppFeatures.MasterData.Reference.Currencies, AppFeatures.MasterData.Reference.GeographicalRegions,
+                     AppFeatures.MasterData.General.Relations.RelationsList, AppFeatures.MasterData.General.Relations.AddressTypes, AppFeatures.MasterData.General.Relations.RelationCategories,
+                     AppFeatures.MasterData.General.Transport.Products, AppFeatures.MasterData.General.Transport.TransportUnits, AppFeatures.MasterData.General.Transport.Temperatures,
+                     AppFeatures.MasterData.General.Fleet.Drivers, AppFeatures.MasterData.General.Fleet.VehicleTypes, AppFeatures.MasterData.General.Fleet.TransportCharacteristics,
+                     AppFeatures.MasterData.General.Reference.Countries, AppFeatures.MasterData.General.Reference.Currencies, AppFeatures.MasterData.General.Reference.GeographicalRegions,
                      /* Design 48. */
-                     AppFeatures.MasterData.Fleet.Vehicles, AppFeatures.MasterData.Fleet.VehicleCombinations, AppFeatures.MasterData.Transport.ProductRelationCodes,
+                     AppFeatures.MasterData.General.Fleet.Vehicles, AppFeatures.MasterData.General.Fleet.VehicleCombinations, AppFeatures.MasterData.General.Transport.ProductRelationCodes,
                  })
         {
             var feature = await manager.GetAsync(name);
@@ -136,12 +136,12 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
     {
         var checker = GetRequiredService<IFeatureChecker>();
 
-        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeTrue();
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Countries, "false"))
         {
-            (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeFalse();
+            (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeFalse();
         }
 
-        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeTrue();
     }
 }

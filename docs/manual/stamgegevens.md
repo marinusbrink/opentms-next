@@ -1,7 +1,13 @@
 # Stamgegevens
 
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
-verwijzen. De lijsten zijn verdeeld over vier groepen in het navigatiepaneel:
+verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
+app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
+eerst een groep per domein, daaronder de groepen met de lijsten. Nu is er één domeingroep,
+**Algemeen** (de stamgegevens van het domein Stamgegevens zelf); de groepen van andere domeinen,
+zoals Orders of Financieel, verschijnen zodra hun eerste lijst er is.
+
+Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 
 | Groep | Lijsten |
 |---|---|
@@ -10,7 +16,7 @@ verwijzen. De lijsten zijn verdeeld over vier groepen in het navigatiepaneel:
 | Wagenpark | [Voertuigen en Voertuigcombinaties](voertuigen.md), [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
 | Regio's en lijsten | Landen, Valuta's, Geografische regio's |
 
-De app, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
+De app, elke domeingroep, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
 (zie [Tenants en edities](beheer-tenants-en-edities.md)). Een lijst waarvan de functie uit staat,
 ziet u niet in het navigatiepaneel; opent u hem toch via een link, dan meldt het scherm dat het
 niet bij uw pakket hoort. Keuzelijsten in een scherm (bijvoorbeeld het land in een relatie) werken

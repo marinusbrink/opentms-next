@@ -303,7 +303,7 @@ describe("VehicleEditor", () => {
   });
 
   it("each picker follows its own target's node: vehicle types off hides only the vehicle-type row", async () => {
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Fleet.VehicleTypes": "false" };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Fleet.VehicleTypes": "false" };
     renderWith(<VehicleEditor mode="edit" id="v1" readOnly={false} {...common} />);
     await waitFor(() => expect(selectFor("vehicleTypeId")).toHaveValue("vt-1"));
     expect(createFor("vehicleTypeId")).toBeNull();
@@ -311,7 +311,7 @@ describe("VehicleEditor", () => {
     expect(createFor("organizationUnitIds")).not.toBeNull();
   });
 
-  it.each(["Apps.MasterData.Relations.Relations", "Apps.MasterData.Relations", "Apps.MasterData"])(
+  it.each(["Apps.MasterData.General.Relations.Relations", "Apps.MasterData.General.Relations", "Apps.MasterData"])(
     "owner and home depot (own relation dialog): rows with Relations.Create and the chain on, none with %s off",
     async (off) => {
       renderWith(<VehicleEditor mode="edit" id="v1" readOnly={false} {...common} />);
@@ -331,7 +331,7 @@ describe("VehicleEditor", () => {
 /* ── VehicleTypeEditor (the real one; the module is a stub elsewhere in this file) ────────────────────────── */
 
 describe("VehicleTypeEditor — characteristics (own dialog)", () => {
-  it.each(["Apps.MasterData.Fleet.TransportCharacteristics", "Apps.MasterData.Fleet"])("the row with the chain on, none with %s off", async (off) => {
+  it.each(["Apps.MasterData.General.Fleet.TransportCharacteristics", "Apps.MasterData.General.Fleet"])("the row with the chain on, none with %s off", async (off) => {
     const { VehicleTypeEditor } = await vi.importActual<typeof import("@/apps/master-data/editors/VehicleTypeEditor")>("@/apps/master-data/editors/VehicleTypeEditor");
     renderWith(<VehicleTypeEditor mode="create" readOnly={false} {...common} />);
     await waitFor(() => expect(createFor("transportCharacteristicsIds")).not.toBeNull());
@@ -353,7 +353,7 @@ describe("ProductRelationCodeEditor — relation (own dialog)", () => {
     await waitFor(() => expect(createFor("relation")).not.toBeNull());
     cleanup();
 
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Relations.Relations": "false" };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Relations.Relations": "false" };
     renderWith(<ProductRelationCodeEditor mode="create" readOnly={false} {...common} />);
     await waitFor(() => expect(createFor("productId")).not.toBeNull());
     expect(createFor("transportUnitId")).not.toBeNull();
@@ -393,8 +393,8 @@ describe("RelationEditor", () => {
     expect(allCreateRows()).toHaveLength(0);
   });
 
-  it("no category row with Relations.RelationCategories off, no currency row with Apps.MasterData.Reference off", async () => {
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Relations.RelationCategories": "false", "Apps.MasterData.Reference": "false" };
+  it("no category row with Relations.RelationCategories off, no currency row with Apps.MasterData.General.Reference off", async () => {
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Relations.RelationCategories": "false", "Apps.MasterData.General.Reference": "false" };
     renderWith(<RelationEditor mode="create" readOnly={false} {...common} />);
     await waitFor(() => expect(document.querySelector('[data-option="cat-1"]')).not.toBeNull());
     expect(createFor("categoryIds")).toBeNull();
@@ -451,7 +451,7 @@ describe("DriverEditor", () => {
     expect(createFor("user")).not.toBeNull();
     cleanup();
 
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Relations": "false", "Apps.Administration.Users": "false" };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Relations": "false", "Apps.Administration.Users": "false" };
     renderWith(<DriverEditor mode="create" readOnly={false} {...common} />);
     await waitFor(() => expect(valueFor("user")).not.toBeNull());
     expect(createFor("employer")).toBeNull();
@@ -508,7 +508,7 @@ describe("TransportUnitEditor — load-factor vehicle type cell", () => {
   });
 
   it("no row in the cell with Fleet.VehicleTypes off, even with VehicleTypes.Create", async () => {
-    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.Fleet.VehicleTypes": "false" };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Fleet.VehicleTypes": "false" };
     renderWith(<TransportUnitEditor mode="edit" id="tu1" readOnly={false} {...common} />);
     await waitFor(() => expect(cell()).not.toBeNull());
     expect(cellCreate()).toBeNull();

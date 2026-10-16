@@ -61,6 +61,7 @@
     "MasterData:InUseByCountries": "in gebruik als standaardvaluta van een land",
     "MasterData:InUseByGeographicalRegions": "in gebruik door een postcodebereik van een geografische regio",
     "MasterData:InUseByTransportUnits": "in gebruik door een beladingsfactor van een transporteenheid",
+    "MasterData:Nav.General": "Algemeen",
     "MasterData:Nav.Relations": "Relaties",
     "MasterData:Nav.Transport": "Transport",
     "MasterData:Nav.Fleet": "Wagenpark",

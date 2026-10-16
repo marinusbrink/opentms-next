@@ -31,7 +31,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * it is put into the cached lookup before the picker selects it (the refetch the save started replaces it), and
  * the paged EntityLookup lists are refetched. No row in a read-only form, and none unless the user holds the
  * entity's Create permission AND the feature chain of the entity's navigation node is on (UI-PERM-006): the server
- * requires both on the create endpoint (e.g. CountryAppService: Apps.MasterData.Reference + …Reference.Countries;
+ * requires both on the create endpoint (e.g. CountryAppService: Apps.MasterData.General + …General.Reference + …Reference.Countries;
  * the Administration controllers: RequiresTenantAppFeature). On the host side an app marked hostAlwaysEnabled
  * (Administration) counts as on, as in the shell. A picker that keeps its own create dialog (one it also opens for
  * editing) asks the same gate through `canCreate(entity, readOnly)`.
@@ -113,7 +113,7 @@ const localized = (code: (dto: Saved) => string | null | undefined) => (dto: Sav
 const ENTITIES = {
   Country: {
     permission: "MasterData.Countries.Create",
-    feature: "Apps.MasterData.Reference.Countries",
+    feature: "Apps.MasterData.General.Reference.Countries",
     labelKey: "MasterData:AddNewCountry",
     render: masterDataEditor(() => CountryEditor),
     toRecord: localized((d) => d.isoAlpha2),
@@ -121,7 +121,7 @@ const ENTITIES = {
   },
   Currency: {
     permission: "MasterData.Currencies.Create",
-    feature: "Apps.MasterData.Reference.Currencies",
+    feature: "Apps.MasterData.General.Reference.Currencies",
     labelKey: "MasterData:AddNewCurrency",
     render: masterDataEditor(() => CurrencyEditor),
     toRecord: localized((d) => d.isoCode),
@@ -129,7 +129,7 @@ const ENTITIES = {
   },
   Driver: {
     permission: "MasterData.Drivers.Create",
-    feature: "Apps.MasterData.Fleet.Drivers",
+    feature: "Apps.MasterData.General.Fleet.Drivers",
     labelKey: "MasterData:AddNewDriver",
     render: masterDataEditor(() => DriverEditor),
     toRecord: (d) => ({ code: d.code ?? null, name: d.fullName || [d.firstName, d.lastName].filter(Boolean).join(" ") }),
@@ -137,7 +137,7 @@ const ENTITIES = {
   },
   GeographicalRegion: {
     permission: "MasterData.GeographicalRegions.Create",
-    feature: "Apps.MasterData.Reference.GeographicalRegions",
+    feature: "Apps.MasterData.General.Reference.GeographicalRegions",
     labelKey: "MasterData:AddNewGeographicalRegion",
     render: masterDataEditor(() => GeographicalRegionEditor),
     toRecord: named,
@@ -145,7 +145,7 @@ const ENTITIES = {
   },
   Product: {
     permission: "MasterData.Products.Create",
-    feature: "Apps.MasterData.Transport.Products",
+    feature: "Apps.MasterData.General.Transport.Products",
     labelKey: "MasterData:AddNewProduct",
     render: masterDataEditor(() => ProductEditor),
     toRecord: named,
@@ -153,7 +153,7 @@ const ENTITIES = {
   },
   Relation: {
     permission: "MasterData.Relations.Create",
-    feature: "Apps.MasterData.Relations.Relations",
+    feature: "Apps.MasterData.General.Relations.Relations",
     labelKey: "MasterData:AddNewRelation",
     render: masterDataEditor(() => RelationEditor),
     toRecord: named,
@@ -161,7 +161,7 @@ const ENTITIES = {
   },
   RelationCategory: {
     permission: "MasterData.RelationCategories.Create",
-    feature: "Apps.MasterData.Relations.RelationCategories",
+    feature: "Apps.MasterData.General.Relations.RelationCategories",
     labelKey: "MasterData:AddNewRelationCategory",
     render: masterDataEditor(() => RelationCategoryEditor),
     toRecord: named,
@@ -169,7 +169,7 @@ const ENTITIES = {
   },
   Temperature: {
     permission: "MasterData.Temperatures.Create",
-    feature: "Apps.MasterData.Transport.Temperatures",
+    feature: "Apps.MasterData.General.Transport.Temperatures",
     labelKey: "MasterData:AddNewTemperature",
     render: masterDataEditor(() => TemperatureEditor),
     toRecord: named,
@@ -177,7 +177,7 @@ const ENTITIES = {
   },
   TransportCharacteristics: {
     permission: "MasterData.TransportCharacteristics.Create",
-    feature: "Apps.MasterData.Fleet.TransportCharacteristics",
+    feature: "Apps.MasterData.General.Fleet.TransportCharacteristics",
     labelKey: "MasterData:AddNewTransportCharacteristics",
     render: masterDataEditor(() => TransportCharacteristicsEditor),
     toRecord: named,
@@ -185,7 +185,7 @@ const ENTITIES = {
   },
   TransportUnit: {
     permission: "MasterData.TransportUnits.Create",
-    feature: "Apps.MasterData.Transport.TransportUnits",
+    feature: "Apps.MasterData.General.Transport.TransportUnits",
     labelKey: "MasterData:AddNewTransportUnit",
     render: masterDataEditor(() => TransportUnitEditor),
     toRecord: named,
@@ -193,7 +193,7 @@ const ENTITIES = {
   },
   Vehicle: {
     permission: "MasterData.Vehicles.Create",
-    feature: "Apps.MasterData.Fleet.Vehicles",
+    feature: "Apps.MasterData.General.Fleet.Vehicles",
     labelKey: "MasterData:AddNewVehicle",
     render: masterDataEditor(() => VehicleEditor),
     toRecord: named,
@@ -201,7 +201,7 @@ const ENTITIES = {
   },
   VehicleType: {
     permission: "MasterData.VehicleTypes.Create",
-    feature: "Apps.MasterData.Fleet.VehicleTypes",
+    feature: "Apps.MasterData.General.Fleet.VehicleTypes",
     labelKey: "MasterData:AddNewVehicleType",
     render: masterDataEditor(() => VehicleTypeEditor),
     toRecord: named,

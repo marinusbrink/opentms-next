@@ -47,7 +47,7 @@ public class ProductRelationCodeAppService
         _transportUnits = transportUnits;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Default)]
     public async Task<GridResponse<ProductRelationCodeRowDto>> GetListAsync(ArchivableListRequestDto input)
     {
@@ -55,7 +55,7 @@ public class ProductRelationCodeAppService
         return await GetListInternalAsync(input);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Default)]
     public Task<ProductRelationCodeDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -66,19 +66,19 @@ public class ProductRelationCodeAppService
         return await GetLookupInternalAsync(term, take);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Create)]
     public Task<ProductRelationCodeDto> CreateAsync(ProductRelationCodeCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Update)]
     public Task<ProductRelationCodeDto> UpdateAsync(Guid id, ProductRelationCodeUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Delete)]
     public async Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
     {
@@ -86,7 +86,7 @@ public class ProductRelationCodeAppService
         return await BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.IncludeArchived));
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Update)]
     public async Task ArchiveAsync(Guid id)
     {
@@ -95,7 +95,7 @@ public class ProductRelationCodeAppService
         await Repository.UpdateAsync(code, autoSave: true);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.ProductRelationCodes.Update)]
     public async Task UnarchiveAsync(Guid id)
     {

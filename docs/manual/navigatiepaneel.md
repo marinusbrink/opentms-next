@@ -29,6 +29,13 @@ kleurt de rij lichtgrijs.
 bovenliggende item vetgedrukt wanneer een sub-item actief is, maar zonder
 blauwe achtergrond. Alleen het actieve sub-item krijgt de blauwe achtergrond.
 
+**Meerdere niveaus:** een submenu kan zelf weer groepen bevatten. In de app
+Stamgegevens zijn dat drie niveaus: een groep per domein (bijvoorbeeld
+**Algemeen**), daaronder groepen als **Relaties** of **Wagenpark**, en daaronder
+de lijsten. Elk niveau springt een stap verder in. Klik op een groep om hem open
+of dicht te klappen. De groepen waarin de geopende lijst staat, klappen vanzelf
+open, zodat je altijd ziet waar je bent.
+
 <!-- SCREENSHOT: uitgevouwen paneel — actief blad-item met blauwe achtergrond,
      bovenliggend item vet maar zonder vulling -->
 
@@ -43,6 +50,11 @@ wordt smal (56 px) en toont alleen iconen.
 met wit icoon — zichtbaar ook in ingeklapte stand.
 
 **Tooltips:** beweeg de muis over een icoon om de naam als tooltip te zien.
+
+**Groepen in de iconenrail:** de rail toont alleen het bovenste niveau. In de app
+Stamgegevens is dat het icoon van de domeingroep; het licht op als een lijst
+daaronder open staat. Klik je op een groepsicoon, dan vouwt het paneel uit met die
+groep opengeklapt.
 
 <!-- SCREENSHOT: ingeklapt paneel — actief icoon met blauwe ronde achtergrond,
      tooltip zichtbaar -->

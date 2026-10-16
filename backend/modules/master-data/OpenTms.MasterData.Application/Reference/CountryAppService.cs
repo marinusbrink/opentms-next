@@ -37,36 +37,36 @@ public class CountryAppService
         _vehicles = vehicles;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<GridResponse<CountryRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<CountryDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Countries.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Create)]
     public Task<CountryDto> CreateAsync(CountryCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Update)]
     public Task<CountryDto> UpdateAsync(Guid id, CountryUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);
 
     /// <summary>The one place that changes the tenant default: clears the old, marks the new, one transaction (the currency pattern).</summary>
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Countries.Update)]
     public async Task SetDefaultAsync(Guid id)
     {

@@ -190,10 +190,10 @@ beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
   /* With the characteristics node's chain: "Add new transport characteristic…" needs it besides the permission (UI-PERM-006). */
   features = {
-    "Apps.MasterData.Relations.Relations": "true",
-    "Apps.MasterData": "true",
-    "Apps.MasterData.Fleet": "true",
-    "Apps.MasterData.Fleet.TransportCharacteristics": "true",
+    "Apps.MasterData.General.Relations.Relations": "true",
+    "Apps.MasterData": "true", "Apps.MasterData.General": "true",
+    "Apps.MasterData.General.Fleet": "true",
+    "Apps.MasterData.General.Fleet.TransportCharacteristics": "true",
   };
   lookupResult = LOOKUP_FOUND;
   lookupFails = false;
@@ -2064,7 +2064,7 @@ describe("RelationEditor — Administration tab fields (PO 2026-10-13)", () => {
       expect(screen.queryByText("MasterData:AddNewTransportCharacteristics")).toBeNull();
     }, LONG_FLOW);
 
-    it.each(["Apps.MasterData.Fleet.TransportCharacteristics", "Apps.MasterData.Fleet"])("hides Add new transport characteristic… with Create when %s is off", async (off) => {
+    it.each(["Apps.MasterData.General.Fleet.TransportCharacteristics", "Apps.MasterData.General.Fleet"])("hides Add new transport characteristic… with Create when %s is off", async (off) => {
       grants = { ...grants, "MasterData.TransportCharacteristics.Create": true };
       features = { ...features, [off]: "false" };
       await startNew();

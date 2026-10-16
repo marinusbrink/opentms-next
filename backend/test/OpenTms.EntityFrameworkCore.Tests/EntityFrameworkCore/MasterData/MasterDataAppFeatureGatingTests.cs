@@ -31,22 +31,22 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
     /// <summary>One row per service: its group, its node, a list call and its lookup call.</summary>
     public static IEnumerable<object[]> Services()
     {
-        yield return Row("AddressTypes", AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes);
-        yield return Row("RelationCategories", AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories);
-        yield return Row("Relations", AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList);
-        yield return Row("Products", AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products);
-        yield return Row("TransportUnits", AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits);
-        yield return Row("Temperatures", AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures);
-        yield return Row("Drivers", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers);
-        yield return Row("VehicleTypes", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes);
-        yield return Row("TransportCharacteristics", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics);
-        yield return Row("Countries", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries);
-        yield return Row("Currencies", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies);
-        yield return Row("GeographicalRegions", AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions);
+        yield return Row("AddressTypes", AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.AddressTypes);
+        yield return Row("RelationCategories", AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories);
+        yield return Row("Relations", AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList);
+        yield return Row("Products", AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products);
+        yield return Row("TransportUnits", AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits);
+        yield return Row("Temperatures", AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Temperatures);
+        yield return Row("Drivers", AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Drivers);
+        yield return Row("VehicleTypes", AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes);
+        yield return Row("TransportCharacteristics", AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics);
+        yield return Row("Countries", AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries);
+        yield return Row("Currencies", AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies);
+        yield return Row("GeographicalRegions", AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions);
         /* Design 48. */
-        yield return Row("Vehicles", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles);
-        yield return Row("VehicleCombinations", AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations);
-        yield return Row("ProductRelationCodes", AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes);
+        yield return Row("Vehicles", AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles);
+        yield return Row("VehicleCombinations", AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations);
+        yield return Row("ProductRelationCodes", AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes);
     }
 
     private static object[] Row(string service, string group, string node) => [service, group, node];
@@ -176,13 +176,13 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
         var countries = GetRequiredService<ICountryAppService>();
         var characteristics = GetRequiredService<ITransportCharacteristicsAppService>();
 
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Relations.Default, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Relations.RelationsList, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Default, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.GeographicalRegions, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.Default, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.TransportCharacteristics, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Relations.Default, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Relations.RelationsList, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Default, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Countries, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.GeographicalRegions, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Fleet.Default, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Fleet.TransportCharacteristics, "false"))
         {
             (await relations.GetLookupPageAsync()).TotalCount.ShouldBe(0);
             await ShouldPassTheFeatureGateAsync(() => relations.GetAddressesAsync(Guid.NewGuid()));
@@ -210,13 +210,13 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
         using var _ = InTenantA();
         var drivers = GetRequiredService<IDriverAppService>();
 
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.Drivers, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Fleet.Drivers, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => drivers.GetUserLookupPageAsync());
             (await drivers.GetLookupAsync()).ShouldBeEmpty();
         }
 
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.Default, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Fleet.Default, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => drivers.GetUserLookupPageAsync());
         }
@@ -231,21 +231,21 @@ public class MasterDataAppFeatureGatingTests : MasterDataAppServiceTestBase
     {
         /* The test provider steps aside for the node, so the stored tenant value ("T") and the default ("false")
          * decide — the production path. */
-        using var _ = TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, null);
+        using var _ = TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Countries, null);
         await WithUnitOfWorkAsync(() => GetRequiredService<IFeatureManagementStore>()
-            .SetAsync(AppFeatures.MasterData.Reference.Countries, "true", TenantFeatureValueProvider.ProviderName, TenantA.ToString()));
+            .SetAsync(AppFeatures.MasterData.General.Reference.Countries, "true", TenantFeatureValueProvider.ProviderName, TenantA.ToString()));
 
         var countries = GetRequiredService<ICountryAppService>();
 
         using (InTenantA())
         {
-            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
+            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeTrue();
             (await countries.GetListAsync(List())).TotalCount.ShouldBe(0);
         }
 
         using (InTenantB())
         {
-            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeFalse();
+            (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeFalse();
             await Should.ThrowAsync<AbpAuthorizationException>(() => countries.GetListAsync(List()));
             (await countries.GetLookupAsync()).ShouldBeEmpty();
         }

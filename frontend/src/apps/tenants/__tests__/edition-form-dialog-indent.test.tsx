@@ -31,8 +31,8 @@ vi.mock("@/domains/platform/editions", () => {
       displayName: "Apps and screens",
       features: [
         toggle("Apps.MasterData", 0),
-        toggle("Apps.MasterData.Reference", 1),
-        toggle("Apps.MasterData.Reference.Countries", 2),
+        toggle("Apps.MasterData.General.Reference", 1),
+        toggle("Apps.MasterData.General.Reference.Countries", 2),
         toggle("Deep.Three", 3),
         toggle("Deep.Four", 4),
         toggle("Deep.Nine", 9),
@@ -72,8 +72,8 @@ const indentOf = (el: HTMLElement) => el.className.split(/\s+/).filter((c) => IN
 describe("EditionFormDialog – feature indent by depth", () => {
   it.each([
     ["Apps.MasterData", []],
-    ["Apps.MasterData.Reference", ["ps-6"]],
-    ["Apps.MasterData.Reference.Countries", ["ps-12"]],
+    ["Apps.MasterData.General.Reference", ["ps-6"]],
+    ["Apps.MasterData.General.Reference.Countries", ["ps-12"]],
     ["Deep.Three", ["ps-18"]],
     ["Deep.Four", ["ps-18"]],
     ["Deep.Nine", ["ps-18"]],

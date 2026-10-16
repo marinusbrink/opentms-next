@@ -101,9 +101,9 @@ import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
 
 describe("Master data list views", () => {
   it("does not read its feature: the shell keeps a list whose node is off off screen (PO 2026-10-14)", async () => {
-    /* Was: PermissionDenied while MasterData.FirstRun was off. The node feature (Apps.MasterData.Reference.Currencies)
+    /* Was: PermissionDenied while MasterData.FirstRun was off. The node feature (Apps.MasterData.General.Reference.Currencies)
      * is now checked by AppShell, which renders FeatureUnavailable (AppShell.features.test.tsx). */
-    features = { "Apps.MasterData.Reference.Currencies": "false" };
+    features = { "Apps.MasterData.General.Reference.Currencies": "false" };
     grants = { "MasterData.Currencies": true };
     render(<CurrenciesView />);
     expect(screen.queryByText("PermissionDenied")).toBeNull();

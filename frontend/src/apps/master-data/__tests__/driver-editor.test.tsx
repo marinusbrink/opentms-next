@@ -17,7 +17,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 
 let grants: Record<string, boolean> = {};
 /* The relations node's chain is on: "Add new relation…" needs it besides Relations.Create (UI-PERM-006). */
-const DEFAULT_FEATURES = { "Apps.MasterData.Fleet.Drivers": "true", "Apps.MasterData": "true", "Apps.MasterData.Relations": "true", "Apps.MasterData.Relations.Relations": "true" };
+const DEFAULT_FEATURES = { "Apps.MasterData.General.Fleet.Drivers": "true", "Apps.MasterData": "true", "Apps.MasterData.General": "true", "Apps.MasterData.General.Relations": "true", "Apps.MasterData.General.Relations.Relations": "true" };
 let features: Record<string, string> = { ...DEFAULT_FEATURES };
 vi.mock("@/lib/abp/queries", () => ({
   useApplicationConfiguration: () => ({
@@ -309,7 +309,7 @@ describe("DriverEditor — create", () => {
     expect(screen.queryByText("MasterData:AddNewRelation")).toBeNull();
   });
 
-  it.each(["Apps.MasterData.Relations.Relations", "Apps.MasterData.Relations"])("hides Add new relation… with Relations.Create when %s is off", async (off) => {
+  it.each(["Apps.MasterData.General.Relations.Relations", "Apps.MasterData.General.Relations"])("hides Add new relation… with Relations.Create when %s is off", async (off) => {
     grants = { "MasterData.Relations.Create": true };
     features = { ...DEFAULT_FEATURES, [off]: "false" };
     renderEditor();

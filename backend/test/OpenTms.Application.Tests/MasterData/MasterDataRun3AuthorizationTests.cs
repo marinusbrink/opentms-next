@@ -101,10 +101,10 @@ public class MasterDataRun3AuthorizationTests
     [Fact]
     public void The_screen_methods_need_their_group_and_node_and_the_pickers_only_the_app()
     {
-        MethodFeatures(typeof(VehicleAppService), nameof(VehicleAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles]);
-        MethodFeatures(typeof(VehicleAppService), nameof(VehicleAppService.GetTypeDefaultsAsync)).ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Vehicles]);
-        MethodFeatures(typeof(VehicleCombinationAppService), nameof(VehicleCombinationAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations]);
-        MethodFeatures(typeof(ProductRelationCodeAppService), nameof(ProductRelationCodeAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.ProductRelationCodes]);
+        MethodFeatures(typeof(VehicleAppService), nameof(VehicleAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles]);
+        MethodFeatures(typeof(VehicleAppService), nameof(VehicleAppService.GetTypeDefaultsAsync)).ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles]);
+        MethodFeatures(typeof(VehicleCombinationAppService), nameof(VehicleCombinationAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations]);
+        MethodFeatures(typeof(ProductRelationCodeAppService), nameof(ProductRelationCodeAppService.GetListAsync)).ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes]);
 
         foreach (var (service, method) in new[]
                  {

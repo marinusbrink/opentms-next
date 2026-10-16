@@ -22,39 +22,48 @@ public static class AppFeatures
     {
         public const string Default = GroupName + ".MasterData";
 
-        public static class Relations
+        /// <summary>
+        /// The Master Data domain's own group. The Master data app holds the master data of every domain, one group
+        /// per domain (PO decision 2026-10-16); a domain's group arrives with its first list.
+        /// </summary>
+        public static class General
         {
-            public const string Default = MasterData.Default + ".Relations";
-            public const string RelationsList = Default + ".Relations";
-            public const string AddressTypes = Default + ".AddressTypes";
-            public const string RelationCategories = Default + ".RelationCategories";
-        }
+            public const string Default = MasterData.Default + ".General";
 
-        public static class Transport
-        {
-            public const string Default = MasterData.Default + ".Transport";
-            public const string Products = Default + ".Products";
-            public const string TransportUnits = Default + ".TransportUnits";
-            public const string ProductRelationCodes = Default + ".ProductRelationCodes";
-            public const string Temperatures = Default + ".Temperatures";
-        }
+            public static class Relations
+            {
+                public const string Default = General.Default + ".Relations";
+                public const string RelationsList = Default + ".Relations";
+                public const string AddressTypes = Default + ".AddressTypes";
+                public const string RelationCategories = Default + ".RelationCategories";
+            }
 
-        public static class Fleet
-        {
-            public const string Default = MasterData.Default + ".Fleet";
-            public const string Vehicles = Default + ".Vehicles";
-            public const string VehicleCombinations = Default + ".VehicleCombinations";
-            public const string Drivers = Default + ".Drivers";
-            public const string VehicleTypes = Default + ".VehicleTypes";
-            public const string TransportCharacteristics = Default + ".TransportCharacteristics";
-        }
+            public static class Transport
+            {
+                public const string Default = General.Default + ".Transport";
+                public const string Products = Default + ".Products";
+                public const string TransportUnits = Default + ".TransportUnits";
+                public const string ProductRelationCodes = Default + ".ProductRelationCodes";
+                public const string Temperatures = Default + ".Temperatures";
+            }
 
-        public static class Reference
-        {
-            public const string Default = MasterData.Default + ".Reference";
-            public const string Countries = Default + ".Countries";
-            public const string Currencies = Default + ".Currencies";
-            public const string GeographicalRegions = Default + ".GeographicalRegions";
+            public static class Fleet
+            {
+                public const string Default = General.Default + ".Fleet";
+                public const string Vehicles = Default + ".Vehicles";
+                public const string VehicleCombinations = Default + ".VehicleCombinations";
+                public const string Drivers = Default + ".Drivers";
+                public const string VehicleTypes = Default + ".VehicleTypes";
+                public const string TransportCharacteristics = Default + ".TransportCharacteristics";
+            }
+
+            public static class Reference
+            {
+                public const string Default = General.Default + ".Reference";
+                public const string Countries = Default + ".Countries";
+                public const string Currencies = Default + ".Currencies";
+                public const string GeographicalRegions = Default + ".GeographicalRegions";
+            }
         }
     }
 

@@ -408,7 +408,7 @@ public class CountryAppServiceTests : MasterDataAppServiceTestBase
 
         /* PO 2026-10-14: GetDefault is a picker (an editor elsewhere preselects the default country) and needs only
          * the app feature; SetDefault is a command of the Countries list and needs the node. */
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Countries, "false"))
         {
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.SetDefaultAsync(nl.Id));
             (await _service.GetDefaultAsync()).ShouldBeNull();

@@ -41,36 +41,36 @@ public class VehicleCombinationAppService
         _countries = countries;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Default)]
     public Task<GridResponse<VehicleCombinationRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Default)]
     public Task<VehicleCombinationDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.VehicleCombinations.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Create)]
     public Task<VehicleCombinationDto> CreateAsync(VehicleCombinationCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Update)]
     public Task<VehicleCombinationDto> UpdateAsync(Guid id, VehicleCombinationUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.IncludeArchived));
 
     /// <summary>Archiving frees the members for another combination; twice is one effect.</summary>
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Update)]
     public async Task ArchiveAsync(Guid id)
     {
@@ -80,7 +80,7 @@ public class VehicleCombinationAppService
     }
 
     /// <summary>Refused while a member is in another active combination.</summary>
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleCombinations, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleCombinations.Update)]
     public async Task UnarchiveAsync(Guid id)
     {

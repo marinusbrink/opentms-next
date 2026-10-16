@@ -4,8 +4,10 @@ import { useApplicationConfiguration } from "@/lib/abp/queries";
 
 /* App and navigation features (docs/designs/tenants-and-editions.md, "App features"; PO 2026-10-14): every app and
  * every node of its navigation tree is an ABP feature, named after its place in the tree. A node is on only when it
- * and every ancestor are on; the ancestors are the dot-prefixes of its name ("Apps.MasterData.Reference.Countries"
- * needs "Apps.MasterData" and "Apps.MasterData.Reference"). An app marked hostAlwaysEnabled ignores its features on
+ * and every ancestor are on; the ancestors are the dot-prefixes of its name
+ * ("Apps.MasterData.General.Reference.Countries" needs "Apps.MasterData", "Apps.MasterData.General" and
+ * "Apps.MasterData.General.Reference"). The tree may be any depth (Master data: app → domain group → group → list,
+ * PO 2026-10-16). An app marked hostAlwaysEnabled ignores its features on
  * the host side, which has no tenant or edition to carry them. Permission checks stay where they were. */
 
 const ROOT = "Apps";
@@ -31,7 +33,7 @@ export interface AppFeatureChecker {
   /** Whether the route at this pathname is on (the deepest matching node decides). */
   isPathEnabled: (app: AppDefinition, pathname: string) => boolean;
   /**
-   * Whether a node feature ("Apps.MasterData.Reference.Countries") and every ancestor are on, as the server's
+   * Whether a node feature ("Apps.MasterData.General.Reference.Countries") and every ancestor are on, as the server's
    * feature chain on that node's endpoints requires (UI-PERM-006). On the host side the owning app's
    * hostAlwaysEnabled applies, as in the shell. False until the configuration has loaded.
    */
@@ -59,10 +61,13 @@ export function createAppFeatureChecker(
 
   const isViewEnabled = (app: AppDefinition, view: AppView) => on(app.feature, app) && leafPaths(app, view).length > 0;
 
-  const visibleViews = (app: AppDefinition): AppView[] =>
-    (app.views ?? [])
+  /** The enabled nodes at every depth (the Master data tree has three levels: domain group, group, list). */
+  const enabledNodes = (app: AppDefinition, views: readonly AppView[]): AppView[] =>
+    views
       .filter((view) => isViewEnabled(app, view))
-      .map((view) => (view.children ? { ...view, children: view.children.filter((child) => isViewEnabled(app, child)) } : view));
+      .map((view) => (view.children ? { ...view, children: enabledNodes(app, view.children) } : view));
+
+  const visibleViews = (app: AppDefinition): AppView[] => enabledNodes(app, app.views ?? []);
 
   const isAppEnabled = (app: AppDefinition) =>
     on(app.feature, app) && (app.views == null || app.views.length === 0 || visibleViews(app).length > 0);

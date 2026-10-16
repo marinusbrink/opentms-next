@@ -28,11 +28,11 @@ const { MasterDataApp } = await import("@/apps/master-data/index");
 
 const ALL_ON = Object.fromEntries(
   [
-    "Apps.MasterData",
-    "Apps.MasterData.Relations", "Apps.MasterData.Relations.Relations", "Apps.MasterData.Relations.AddressTypes", "Apps.MasterData.Relations.RelationCategories",
-    "Apps.MasterData.Transport", "Apps.MasterData.Transport.Products", "Apps.MasterData.Transport.TransportUnits", "Apps.MasterData.Transport.Temperatures",
-    "Apps.MasterData.Fleet", "Apps.MasterData.Fleet.Drivers", "Apps.MasterData.Fleet.VehicleTypes", "Apps.MasterData.Fleet.TransportCharacteristics",
-    "Apps.MasterData.Reference", "Apps.MasterData.Reference.Countries", "Apps.MasterData.Reference.Currencies", "Apps.MasterData.Reference.GeographicalRegions",
+    "Apps.MasterData", "Apps.MasterData.General",
+    "Apps.MasterData.General.Relations", "Apps.MasterData.General.Relations.Relations", "Apps.MasterData.General.Relations.AddressTypes", "Apps.MasterData.General.Relations.RelationCategories",
+    "Apps.MasterData.General.Transport", "Apps.MasterData.General.Transport.Products", "Apps.MasterData.General.Transport.TransportUnits", "Apps.MasterData.General.Transport.Temperatures",
+    "Apps.MasterData.General.Fleet", "Apps.MasterData.General.Fleet.Drivers", "Apps.MasterData.General.Fleet.VehicleTypes", "Apps.MasterData.General.Fleet.TransportCharacteristics",
+    "Apps.MasterData.General.Reference", "Apps.MasterData.General.Reference.Countries", "Apps.MasterData.General.Reference.Currencies", "Apps.MasterData.General.Reference.GeographicalRegions",
   ].map((f) => [f, "true"]),
 );
 
@@ -53,7 +53,7 @@ describe("MasterDataApp – redirects follow the features", () => {
   });
 
   it("the bare app path skips lists that are off", () => {
-    values = { ...ALL_ON, "Apps.MasterData.Relations": "false" };
+    values = { ...ALL_ON, "Apps.MasterData.General.Relations": "false" };
     go("/master-data/");
     expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/products", replace: true });
   });
@@ -68,7 +68,7 @@ describe("MasterDataApp – redirects follow the features", () => {
   });
 
   it("a group path skips its lists that are off", () => {
-    values = { ...ALL_ON, "Apps.MasterData.Fleet.Drivers": "false" };
+    values = { ...ALL_ON, "Apps.MasterData.General.Fleet.Drivers": "false" };
     go("/master-data/fleet");
     expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/vehicle-types", replace: true });
   });

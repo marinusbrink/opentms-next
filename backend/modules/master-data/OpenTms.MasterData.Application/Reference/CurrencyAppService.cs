@@ -29,36 +29,36 @@ public class CurrencyAppService
         _relations = relations;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<GridResponse<CurrencyRowDto>> GetListAsync(CurrencyListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<CurrencyDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.Currencies.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Create)]
     public Task<CurrencyDto> CreateAsync(CurrencyCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Update)]
     public Task<CurrencyDto> UpdateAsync(Guid id, CurrencyUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(CurrencyBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyActiveFilter(q, input.IsActive));
 
     /// <summary>The one place that changes the tenant default (assessment §3.8): clears the old, marks the new, one transaction.</summary>
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Currencies.Update)]
     public async Task SetDefaultAsync(Guid id)
     {

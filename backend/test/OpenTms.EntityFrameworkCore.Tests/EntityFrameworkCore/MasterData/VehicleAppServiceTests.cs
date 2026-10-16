@@ -840,7 +840,7 @@ public class VehicleAppServiceTests : MasterDataAppServiceTestBase
         await SeedAsync();
         var vehicle = await CreateAsync("V1");
 
-        foreach (var feature in new[] { AppFeatures.MasterData.Fleet.Vehicles, AppFeatures.MasterData.Fleet.Default })
+        foreach (var feature in new[] { AppFeatures.MasterData.General.Fleet.Vehicles, AppFeatures.MasterData.General.Fleet.Default })
         {
             using (TestFeatureValueProvider.Override(feature, "false"))
             {
