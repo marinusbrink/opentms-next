@@ -1541,6 +1541,8 @@ describe("RelationEditor — edit", () => {
   });
 
   it("Archive confirms, calls the archive endpoint and closes; an archived record offers Unarchive", async () => {
+    /* Customer | Carrier: the stored default is the own company, which is never archived (PO 2026-10-16). */
+    detail = { ...stored, roles: 3 as RelationRoles };
     const { onSaved, onClose } = renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     expect(within(editorDialog()).queryByRole("button", { name: "MasterData:Unarchive" })).toBeNull();
@@ -1567,6 +1569,7 @@ describe("RelationEditor — edit", () => {
 
   it("a failing archive shows the server message in the editor and stays open", async () => {
     POST.mockResolvedValue(failed({ error: { message: "Relation has open orders" } }, 409));
+    detail = { ...stored, roles: 3 as RelationRoles };
     const { onClose } = renderEditor({ mode: "edit", id: "r1" });
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     fireEvent.click(ribbon("MasterData:Archive"));
@@ -2911,6 +2914,25 @@ describe("RelationEditor — the own company is never archived", () => {
     await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
     expect(archivedSwitch()).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  it("the ribbon's Archive is disabled with the hint for the stored own company; an archived one still offers Unarchive", async () => {
+    const first = renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    const archive = ribbon("MasterData:Archive");
+    /* Ribbon buttons stay focusable when disabled (aria-disabled), so the reason shows as their tooltip. */
+    expect(archive).toHaveAttribute("aria-disabled", "true");
+    expect(archive).toHaveAttribute("title", HINT);
+    fireEvent.click(archive);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(POST).not.toHaveBeenCalled();
+    first.unmount();
+
+    /* Data from before the rule: an archived own company can be unarchived. */
+    detail = { ...stored, isArchived: true };
+    renderEditor({ mode: "edit", id: "r1" });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Code").value).toBe("ACME"));
+    expect(ribbon("MasterData:Unarchive")).not.toHaveAttribute("aria-disabled", "true");
   });
 
   it("read-only keeps the switch disabled without depending on the role", async () => {

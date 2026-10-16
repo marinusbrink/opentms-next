@@ -573,6 +573,8 @@ export function RelationEditor({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const archived = detail.data?.isArchived === true;
+  /* The own company is never archived (PO 2026-10-16); an already archived one may still be unarchived. */
+  const ownCompanyLocked = !archived && hasOwnCompanyRole(detail.data?.roles);
 
   const toggleArchive = async () => {
     if (!id) return;
@@ -1577,7 +1579,8 @@ export function RelationEditor({
                     : "MasterData:Archive",
                   icon: archived ? ArchiveRestore : Archive,
                   groupKey: "MasterData:Relation",
-                  disabled: !detail.data,
+                  disabled: !detail.data || ownCompanyLocked,
+                  disabledReasonKey: ownCompanyLocked ? "MasterData:OwnCompanyCannotBeArchivedHint" : undefined,
                   onClick: () => setConfirmArchive(true),
                 },
               ]
