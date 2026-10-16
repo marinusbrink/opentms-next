@@ -252,6 +252,7 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ToTable("Vehicles", MasterDataDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.Property(v => v.Name).HasMaxLength(MasterDataConsts.MaxVehicleNameLength).IsRequired();
+            b.Property(v => v.NormalizedName).HasMaxLength(MasterDataConsts.MaxVehicleNameLength).IsRequired();
             b.Property(v => v.LicencePlate).HasMaxLength(MasterDataConsts.MaxLicencePlateLength);
             b.Property(v => v.Vin).HasMaxLength(MasterDataConsts.VinLength);
             b.Property(v => v.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
@@ -264,7 +265,9 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasMany(v => v.OrganizationUnits).WithOne().HasForeignKey(o => o.VehicleId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(v => v.ExternalIdentifiers).WithOne().HasForeignKey(e => e.VehicleId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(v => v.TenantId);
-            b.HasIndex(v => new { v.TenantId, v.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The name is unique regardless of case (PO 2026-10-16); the index on Name serves the default sort. */
+            b.HasIndex(v => new { v.TenantId, v.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            b.HasIndex(v => new { v.TenantId, v.Name }).HasFilter(NotDeleted);
             /* A plate is unique per registration country (assessment §5, licence plate as a value object). */
             b.HasIndex(v => new { v.TenantId, v.RegistrationCountryId, v.LicencePlate }).IsUnique().AreNullsDistinct(false).HasFilter("\"LicencePlate\" IS NOT NULL AND " + NotDeleted);
             b.HasIndex(v => new { v.TenantId, v.Vin }).IsUnique().AreNullsDistinct(false).HasFilter("\"Vin\" IS NOT NULL AND " + NotDeleted);

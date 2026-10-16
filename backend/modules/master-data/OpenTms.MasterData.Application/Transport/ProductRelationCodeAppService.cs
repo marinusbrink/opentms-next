@@ -141,17 +141,17 @@ public class ProductRelationCodeAppService
             case "relationname":
             {
                 var relations = _relationQuery ?? throw UnknownSortColumn(sortBy!);
-                return Order(query, c => relations.Where(r => r.Id == c.RelationId).Select(r => r.Name).FirstOrDefault(), descending);
+                return OrderByJoined(query, relations, c => c.RelationId, r => (Guid?)r.Id, j => j.Other!.Name, descending);
             }
             case "productname":
             {
                 var products = _productQuery ?? throw UnknownSortColumn(sortBy!);
-                return Order(query, c => products.Where(p => p.Id == c.ProductId).Select(p => p.Name).FirstOrDefault(), descending);
+                return OrderByJoined(query, products, c => c.ProductId, p => (Guid?)p.Id, j => j.Other!.Name, descending);
             }
             case "transportunitname":
             {
                 var units = _transportUnitQuery ?? throw UnknownSortColumn(sortBy!);
-                return Order(query, c => units.Where(u => u.Id == c.TransportUnitId).Select(u => u.Name).FirstOrDefault(), descending);
+                return OrderByJoined(query, units, c => c.TransportUnitId, u => (Guid?)u.Id, j => j.Other!.Name, descending);
             }
             case null or "" or "code":
                 return Order(query, c => c.NormalizedCode, descending);

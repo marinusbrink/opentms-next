@@ -27,10 +27,9 @@ namespace OpenTms.PostgreSql.MasterData;
 /// 5,000 vehicles (3 own characteristics, 1 default driver and 1 external id each), 2,500 combinations and 250,000
 /// product relation codes in tenant A, then the vehicle list, lookup page and lookup, the combination list, the code
 /// list (paged, deep page, contains search, name sort), the code lookup and the resolver of 100 and 500 codes are timed
-/// cold (first run, EF Core compiles the query shape) and warm. The design's three budget reads (the first list page
-/// of vehicles and of codes, the vehicle lookup page by term and the 100-code resolve) and the busiest screen's code
-/// search are asserted against the 300 ms budget warm; everything else against the run-1 tripwire (1,500 ms), with
-/// every number reported. Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
+/// cold (first run, EF Core compiles the query shape) and warm, after ANALYZE gave the planner production-like
+/// statistics. Every warm read is asserted against the 300 ms budget (PO 2026-10-16: the non-default sorts and the deep
+/// page too), with every number reported. Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
@@ -158,7 +157,8 @@ public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
             var overBudget = warm.Where(m => m.Elapsed > Budget).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList();
             _output.WriteLine(overBudget.Count == 0 ? "every warm read within the 300 ms budget" : "warm reads over the 300 ms budget: " + string.Join("; ", overBudget));
 
-            foreach (var (name, elapsed) in warm.Where(m => m.Name.EndsWith("(budget)", StringComparison.Ordinal)))
+            /* Every read is a list, lookup or resolve of design 48, so every one is held to the budget (PO 2026-10-16). */
+            foreach (var (name, elapsed) in warm)
             {
                 elapsed.ShouldBeLessThanOrEqualTo(Budget, $"{name} warm: {elapsed.TotalMilliseconds:F0} ms over the {Budget.TotalMilliseconds} ms interactive-read budget");
             }
@@ -292,7 +292,25 @@ public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
         }
 
         _output.WriteLine($"inserted {Vehicles} vehicles with {Vehicles * 6} child rows, {Combinations} combinations and {Codes} product relation codes in {insert.Elapsed.TotalSeconds:F1} s");
+        await AnalyzeAsync();
         return carriers.Select(c => c.Id).ToList();
+    }
+
+    /// <summary>
+    /// Gives the planner the statistics autovacuum keeps for committed tables in production. Without them it estimates
+    /// 49 rows for 250,000 codes and sorts the whole table on disk instead of walking the unique index (the deep page
+    /// measured 664 ms that way). ANALYZE may run inside the transaction; the statistics it writes roll back with it.
+    /// </summary>
+    private async Task AnalyzeAsync()
+    {
+        var context = await _contextProvider.GetDbContextAsync();
+        var connection = (NpgsqlConnection)context.Database.GetDbConnection();
+        var transaction = (NpgsqlTransaction?)context.Database.CurrentTransaction?.GetDbTransaction();
+        foreach (var table in new[] { "Relations", "RelationAddresses", "Products", "TransportUnits", "VehicleTypes", "Drivers", "Vehicles", "VehicleTransportCharacteristics", "VehicleDefaultDrivers", "VehicleExternalIdentifiers", "VehicleCombinations", "VehicleCombinationMembers", "ProductRelationCodes" })
+        {
+            await using var command = new NpgsqlCommand($"ANALYZE masterdata.\"{table}\"", connection, transaction);
+            await command.ExecuteNonQueryAsync();
+        }
     }
 
     /// <summary>Reports (never asserts) the planner's choice; under a savepoint so the probe cannot abort the transaction.</summary>
@@ -314,7 +332,7 @@ public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
                 }
             }
 
-            _output.WriteLine($"planner for the {name} (no statistics inside the rolled-back transaction):\n" + string.Join("\n", plan));
+            _output.WriteLine($"planner for the {name} (statistics from ANALYZE inside the rolled-back transaction):\n" + string.Join("\n", plan));
             await transaction.ReleaseAsync("explain_probe");
         }
         catch (Exception ex)

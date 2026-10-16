@@ -26,6 +26,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
 {
     private const string Migration = "20261015111108_MasterDataVehicles";
     private const string PreviousMigration = "20261013153113_MasterDataRelationAdministration";
+    private const string NormalizedNameMigration = "20261016071559_MasterDataVehicleNormalizedName";
 
     private static readonly string[] Tables =
     [
@@ -52,7 +53,8 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBeGreaterThan(applied.IndexOf(PreviousMigration));
-            applied.Last().ShouldBe(Migration, "the newest Master Data migration");
+            applied.Last().ShouldBe(NormalizedNameMigration, "the newest Master Data migration");
+            applied.IndexOf(NormalizedNameMigration).ShouldBeGreaterThan(applied.IndexOf(Migration));
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);
@@ -77,6 +79,32 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
         down.OfType<DropTableOperation>().Select(t => t.Name).ShouldBe(Tables, ignoreOrder: true);
     }
 
+    [Fact]
+    public void The_normalized_name_migration_backfills_before_it_moves_the_unique_key_and_Down_restores_it()
+    {
+        /* PO 2026-10-16: vehicle names are unique regardless of case. The column is added, existing rows are filled
+         * from the name before the unique index on it is created, and the index on Name stays for the default sort,
+         * no longer unique. No release shipped vehicles before this migration, so no rolling deploy writes rows
+         * without the column. */
+        var migration = new MasterDataVehicleNormalizedName();
+
+        var up = migration.UpOperations;
+        up.ShouldAllBe(o => o.GetType() == typeof(DropIndexOperation) || o.GetType() == typeof(AddColumnOperation) || o.GetType() == typeof(SqlOperation) || o.GetType() == typeof(CreateIndexOperation));
+        var add = up.OfType<AddColumnOperation>().ShouldHaveSingleItem();
+        (add.Table, add.Name).ShouldBe(("Vehicles", "NormalizedName"));
+        var backfill = up.OfType<SqlOperation>().ShouldHaveSingleItem();
+        backfill.Sql.ShouldContain("SET \"NormalizedName\" = upper(\"Name\")");
+        up.ToList().IndexOf(backfill).ShouldBeGreaterThan(up.ToList().IndexOf(add));
+        var unique = up.OfType<CreateIndexOperation>().Single(i => i.IsUnique);
+        unique.Columns.ShouldBe(["TenantId", "NormalizedName"]);
+        up.ToList().IndexOf(unique).ShouldBeGreaterThan(up.ToList().IndexOf(backfill), "the unique index is built on filled rows");
+        up.OfType<CreateIndexOperation>().Single(i => !i.IsUnique).Columns.ShouldBe(["TenantId", "Name"]);
+
+        var down = migration.DownOperations;
+        down.OfType<DropColumnOperation>().ShouldHaveSingleItem().Name.ShouldBe("NormalizedName");
+        down.OfType<CreateIndexOperation>().ShouldHaveSingleItem().IsUnique.ShouldBeTrue("Down restores the case-sensitive unique name");
+    }
+
     [Theory]
     [InlineData("host")]
     [InlineData("tenant-a")]
@@ -93,11 +121,12 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
         }
 
         var indexes = await QueryAsync(connection, "SELECT indexname || ' :: ' || indexdef FROM pg_indexes WHERE schemaname = 'masterdata'");
+        One(indexes, "IX_Vehicles_TenantId_Name :: ").ShouldNotContain("UNIQUE", Case.Sensitive, "the name index only serves the sort; the key is NormalizedName");
 
         /* Per-tenant unique keys: NULLS NOT DISTINCT (host rows unique too), freed by a soft delete. */
         foreach (var (name, keyColumns, where) in new[]
                  {
-                     ("IX_Vehicles_TenantId_Name", "(\"TenantId\", \"Name\")", (string?)null),
+                     ("IX_Vehicles_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", (string?)null),
                      ("IX_Vehicles_TenantId_RegistrationCountryId_LicencePlate", "(\"TenantId\", \"RegistrationCountryId\", \"LicencePlate\")", "\"LicencePlate\" IS NOT NULL"),
                      ("IX_Vehicles_TenantId_Vin", "(\"TenantId\", \"Vin\")", "\"Vin\" IS NOT NULL"),
                      ("IX_VehicleCombinations_TenantId_Name", "(\"TenantId\", \"Name\")", null),

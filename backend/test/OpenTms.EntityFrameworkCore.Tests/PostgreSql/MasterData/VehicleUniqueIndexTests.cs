@@ -116,7 +116,15 @@ public class VehicleUniqueIndexTests : MasterDataPostgreSqlTestBase
         {
             var refs = await RefsAsync(TenantA);
             await _vehicles.InsertAsync(NewVehicle(TenantA, refs, "QQ truck"), autoSave: true);
-            await ShouldViolateUniqueIndexAsync(() => _vehicles.InsertAsync(NewVehicle(TenantA, refs, "QQ truck"), autoSave: true), "IX_Vehicles_TenantId_Name");
+            await ShouldViolateUniqueIndexAsync(() => _vehicles.InsertAsync(NewVehicle(TenantA, refs, "QQ truck"), autoSave: true), "IX_Vehicles_TenantId_NormalizedName");
+        });
+
+        /* The key ignores case (PO 2026-10-16): "qq TRUCK" is the same name. */
+        await InRolledBackTransactionAsync(TenantA, async () =>
+        {
+            var refs = await RefsAsync(TenantA);
+            await _vehicles.InsertAsync(NewVehicle(TenantA, refs, "QQ truck"), autoSave: true);
+            await ShouldViolateUniqueIndexAsync(() => _vehicles.InsertAsync(NewVehicle(TenantA, refs, "qq TRUCK"), autoSave: true), "IX_Vehicles_TenantId_NormalizedName");
         });
 
         await InRolledBackTransactionAsync(TenantA, async () =>
@@ -310,7 +318,7 @@ public class VehicleUniqueIndexTests : MasterDataPostgreSqlTestBase
                 (await _vehicles.CountAsync(v => v.Name == "QQ truck")).ShouldBe(1);
 
                 /* NULLS NOT DISTINCT: a second host row with the same key is refused, the external id last. */
-                await ShouldViolateUniqueIndexAsync(() => _vehicles.InsertAsync(NewVehicle(null, hostRefs, "QQ truck"), autoSave: true), "IX_Vehicles_TenantId_Name");
+                await ShouldViolateUniqueIndexAsync(() => _vehicles.InsertAsync(NewVehicle(null, hostRefs, "QQ truck"), autoSave: true), "IX_Vehicles_TenantId_NormalizedName");
             }
         });
 

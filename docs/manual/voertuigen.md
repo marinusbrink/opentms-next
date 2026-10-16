@@ -28,7 +28,7 @@ Het venster heeft vijf tabbladen.
 
 **Algemeen**
 
-- *Voertuig*: de **naam** (vlootnummer of korte naam, uniek binnen de tenant), het
+- *Voertuig*: de **naam** (vlootnummer of korte naam, uniek binnen de tenant; hoofdletters en kleine letters tellen niet als verschil, dus "Truck 01" en "truck 01" zijn dezelfde naam), het
   **voertuigtype** en *Gearchiveerd*. De **soort** van het voertuig is die van zijn type; u ziet
   hem als label naast de titel. Kiest u bij een nieuw voertuig een type, dan vult het venster de
   lege velden op het tabblad *Afmetingen en capaciteit* met de standaardwaarden van dat type. Ook

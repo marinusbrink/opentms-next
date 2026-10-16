@@ -17,6 +17,9 @@ public class Vehicle : MasterDataAggregateRoot
 {
     public string Name { get; private set; } = default!;
 
+    /// <summary>The name in upper case: the unique key, so "Truck 01" and "truck 01" are one name (PO 2026-10-16).</summary>
+    public string NormalizedName { get; private set; } = default!;
+
     public Guid VehicleTypeId { get; private set; }
 
     /// <summary>Normalised: upper case, letters and digits only. Unique per tenant and registration country when set.</summary>
@@ -79,7 +82,14 @@ public class Vehicle : MasterDataAggregateRoot
     public static string NormalizeVehicleName(string name)
         => Check.NotNullOrWhiteSpace(name, nameof(name), MasterDataConsts.MaxVehicleNameLength).Trim();
 
-    public void SetName(string name) => Name = NormalizeVehicleName(name);
+    /// <summary>The unique key of a name: trimmed and upper case.</summary>
+    public static string NormalizedNameOf(string name) => NormalizeVehicleName(name).ToUpperInvariant();
+
+    public void SetName(string name)
+    {
+        Name = NormalizeVehicleName(name);
+        NormalizedName = Name.ToUpperInvariant();
+    }
 
     public void SetVehicleType(Guid vehicleTypeId) => VehicleTypeId = vehicleTypeId;
 

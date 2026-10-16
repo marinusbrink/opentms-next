@@ -225,9 +225,9 @@ public class VehicleAppService
             var relations = _relationQuery ?? throw UnknownSortColumn(sortBy!);
             return key switch
             {
-                "vehicletypename" => Order(query, v => types.Where(t => t.Id == v.VehicleTypeId).Select(t => t.Name).FirstOrDefault(), descending),
-                "kind" => Order(query, v => types.Where(t => t.Id == v.VehicleTypeId).Select(t => t.Kind).FirstOrDefault(), descending),
-                _ => Order(query, v => relations.Where(r => r.Id == v.OwnerRelationId).Select(r => r.Name).FirstOrDefault(), descending)
+                "vehicletypename" => OrderByJoined(query, types, v => (Guid?)v.VehicleTypeId, t => (Guid?)t.Id, j => j.Other!.Name, descending),
+                "kind" => OrderByJoined(query, types, v => (Guid?)v.VehicleTypeId, t => (Guid?)t.Id, j => j.Other!.Kind, descending),
+                _ => OrderByJoined(query, relations, v => (Guid?)v.OwnerRelationId, r => (Guid?)r.Id, j => j.Other!.Name, descending)
             };
         }
 
@@ -326,7 +326,8 @@ public class VehicleAppService
     protected override async Task<Vehicle> CreateEntityAsync(VehicleCreateDto input)
     {
         var name = Vehicle.NormalizeVehicleName(input.Name);
-        await EnsureUniqueAsync(v => v.Name == name, "name", name);
+        var normalized = Vehicle.NormalizedNameOf(name);
+        await EnsureUniqueAsync(v => v.NormalizedName == normalized, "name", name);
         var type = await FindTypeAsync(input.VehicleTypeId);
 
         var vehicle = new Vehicle(GuidGenerator.Create(), CurrentTenant.Id, name, type.Id, input.OwnerRelationId);
@@ -351,7 +352,8 @@ public class VehicleAppService
         var name = Vehicle.NormalizeVehicleName(input.Name);
         if (name != vehicle.Name)
         {
-            await EnsureUniqueAsync(v => v.Name == name && v.Id != vehicle.Id, "name", name);
+            var normalized = Vehicle.NormalizedNameOf(name);
+            await EnsureUniqueAsync(v => v.NormalizedName == normalized && v.Id != vehicle.Id, "name", name);
             vehicle.SetName(name);
         }
 

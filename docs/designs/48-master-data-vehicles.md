@@ -94,7 +94,7 @@ reference is in-module and a real foreign key (§3.2).
 
 | Field | Type | Rule |
 |---|---|---|
-| `Name` | string(64), required | the fleet number or short name the planboard shows; **unique per tenant** |
+| `Name` | string(64), required | the fleet number or short name the planboard shows; **unique per tenant regardless of case** (PO 2026-10-16): stored as typed, with `NormalizedName` (upper case) as the unique key, as the product relation code |
 | `VehicleTypeId` | Guid FK → VehicleTypes (restrict), required | the vehicle's **kind is its type's kind** (`VehicleTypeKind`: Tractor, Trailer, Rigid, Van); not stored twice |
 | `LicencePlate` | string(16)? | stored normalised: upper case, letters and digits only ("12-ABC-3" → "12ABC3"); shown as typed by a formatter per country (NL sidecodes; other countries as stored); **unique per tenant and registration country when set** (§5: "licence plate as a value object") |
 | `RegistrationCountryId` | Guid? FK → Countries (restrict) | required when a plate is set; new vehicles start with the tenant's default country |
@@ -214,7 +214,7 @@ the typed client regenerated.
 
 ## Migration strategy
 
-One additive migration `MasterDataVehicles` after `MasterDataRelationAdministration`: tables `Vehicles`,
+Two additive migrations. `MasterDataVehicleNormalizedName` (PO 2026-10-16) adds `Vehicles.NormalizedName`, fills it from `Name`, moves the unique key onto `(TenantId, NormalizedName)` and keeps `(TenantId, Name)` as a plain index for the default sort; no release shipped vehicles before it. The first, `MasterDataVehicles` after `MasterDataRelationAdministration`: tables `Vehicles`,
 `VehicleTransportCharacteristics`, `VehicleDefaultDrivers`, `VehicleOrganizationUnits`,
 `VehicleExternalIdentifiers`, `VehicleCombinations`, `VehicleCombinationMembers`, `ProductRelationCodes`.
 Indexes: per-tenant unique (`NULLS NOT DISTINCT`, soft-delete filter) on vehicle name, `(TenantId,
@@ -295,7 +295,7 @@ slots to combinations, codes deduplicated by normalised code) is the separate br
 
 - Cloud SQL: eight tables; at 50,000 codes about 15 MB per large tenant with the trigram index, vehicles
   negligible. No jobs, no external calls, no egress. Per-tenant margin unaffected.
-- Budgets: list, lookup and resolver p95 < 300 ms (index probes; the resolver is one `IN` over the unique
+- Budgets (PO 2026-10-16: every list read, the non-default sorts and the deep page included, at five times the volume): list, lookup and resolver p95 < 300 ms; sorts on a joined name (owner, type, destination, product, transport unit) use a LEFT JOIN, never a per-row subquery (index probes; the resolver is one `IN` over the unique
   index); mutations p95 < 500 ms.
 
 ## Assumptions

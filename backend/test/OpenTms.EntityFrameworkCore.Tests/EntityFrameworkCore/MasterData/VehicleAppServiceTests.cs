@@ -518,6 +518,22 @@ public class VehicleAppServiceTests : MasterDataAppServiceTestBase
     }
 
     [Fact]
+    public async Task A_name_differing_only_in_case_is_a_duplicate_but_a_vehicle_may_change_the_case_of_its_own_name()
+    {
+        using var _ = InTenantA();
+        await SeedAsync();
+        var first = await CreateAsync("Truck 01");
+
+        await ShouldFailAsync(() => CreateAsync("TRUCK 01"), MasterDataErrorCodes.DuplicateKey, "name");
+        await ShouldFailAsync(() => CreateAsync(" truck 01 "), MasterDataErrorCodes.DuplicateKey, "name");
+        var second = await CreateAsync("Truck 02");
+        await ShouldFailAsync(() => Service.UpdateAsync(second.Id, UpdateFrom(second, u => u.Name = "truck 01")), MasterDataErrorCodes.DuplicateKey, "name");
+
+        var renamed = await Service.UpdateAsync(first.Id, UpdateFrom(await Service.GetAsync(first.Id), u => u.Name = "TRUCK 01"));
+        renamed.Name.ShouldBe("TRUCK 01", "the name keeps the case as typed; only the key ignores it");
+    }
+
+    [Fact]
     public async Task Default_drivers_are_ordered_at_most_five_each_once_and_replaced_on_update()
     {
         using var _ = InTenantA();
