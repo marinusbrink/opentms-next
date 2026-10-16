@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createAppFeatureChecker, featureChain } from "@/app/app-features";
-import { APPS, type AppDefinition } from "@/app/apps.config";
+import { APPS, type AppDefinition, type AppView } from "@/app/apps.config";
 
 /* The app and navigation features (PO decision 2026-10-14, docs/designs/tenants-and-editions.md, "App features"):
  * a node is on only when it and every dot-prefix ancestor are on; groups without an enabled child and apps without an
@@ -15,13 +15,15 @@ const tenants = APPS.find((a) => a.id === "tenants")!;
 
 const on = (...features: string[]) => Object.fromEntries(features.map((f) => [f, "true"]));
 
+/** Every node of a tree, at any depth (Master data: domain group → group → list, PO 2026-10-16). */
+const nodes = (views: readonly AppView[] | undefined): AppView[] => (views ?? []).flatMap((v) => [v, ...nodes(v.children)]);
+
 /** Every feature of an app's tree, switched on. */
 function allOn(app: AppDefinition): Record<string, string> {
   const values: Record<string, string> = {};
   if (app.feature) values[app.feature] = "true";
-  for (const view of app.views ?? []) {
+  for (const view of nodes(app.views)) {
     if (view.feature) values[view.feature] = "true";
-    view.children?.forEach((child) => child.feature && (values[child.feature] = "true"));
   }
   return values;
 }
@@ -29,15 +31,17 @@ function allOn(app: AppDefinition): Record<string, string> {
 const tenant = (values: Record<string, string>) => createAppFeatureChecker(values, false);
 const host = (values: Record<string, string>) => createAppFeatureChecker(values, true);
 
-const paths = (views: { path: string; children?: readonly { path: string }[] }[]) =>
-  views.map((v) => (v.children ? `${v.path}[${v.children.map((c) => c.path).join(",")}]` : v.path));
+type PathNode = { path: string; children?: readonly PathNode[] };
+const paths = (views: readonly PathNode[]): string[] =>
+  views.map((v) => (v.children ? `${v.path}[${paths(v.children).join(",")}]` : v.path));
 
 describe("featureChain", () => {
   it("lists the app, every group and the node itself, root to leaf", () => {
-    expect(featureChain("Apps.MasterData.Reference.Countries")).toEqual([
+    expect(featureChain("Apps.MasterData.General.Reference.Countries")).toEqual([
       "Apps.MasterData",
-      "Apps.MasterData.Reference",
-      "Apps.MasterData.Reference.Countries",
+      "Apps.MasterData.General",
+      "Apps.MasterData.General.Reference",
+      "Apps.MasterData.General.Reference.Countries",
     ]);
   });
 
@@ -56,6 +60,8 @@ describe("apps.config – every app and node has its tree feature", () => {
     for (const app of APPS.filter((a) => a.feature)) {
       for (const view of app.views ?? []) {
         expect(view.feature?.startsWith(`${app.feature}.`), view.path).toBe(true);
+      }
+      for (const view of nodes(app.views)) {
         view.children?.forEach((child) => expect(child.feature?.startsWith(`${view.feature}.`), child.path).toBe(true));
       }
     }
@@ -67,10 +73,17 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 31 features as the backend's AppFeatures", () => {
+  it("names the same 35 features as the backend's AppFeatures", () => {
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(31);
-    expect(new Set(names).size).toBe(31);
+    expect(names).toHaveLength(35);
+    expect(new Set(names).size).toBe(35);
+  });
+
+  it("carries design 48's three nodes under their groups", () => {
+    const names = Object.keys(allOn(masterData));
+    expect(names).toContain("Apps.MasterData.General.Fleet.Vehicles");
+    expect(names).toContain("Apps.MasterData.General.Fleet.VehicleCombinations");
+    expect(names).toContain("Apps.MasterData.General.Transport.ProductRelationCodes");
   });
 });
 
@@ -83,33 +96,36 @@ describe("createAppFeatureChecker – tenant side", () => {
   });
 
   it("an ancestor that is off hides the node even when the node itself is on", () => {
-    const values = { ...allOn(masterData), "Apps.MasterData.Reference": "false" };
+    const values = { ...allOn(masterData), "Apps.MasterData.General.Reference": "false" };
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    expect(visible).toHaveLength(3);
+    expect(visible).toHaveLength(1);
+    expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
   });
 
   it("a group with all its children off is hidden, even though the group feature is on", () => {
     const values = {
       ...allOn(masterData),
-      "Apps.MasterData.Fleet.Drivers": "false",
-      "Apps.MasterData.Fleet.VehicleTypes": "false",
-      "Apps.MasterData.Fleet.TransportCharacteristics": "false",
+      "Apps.MasterData.General.Fleet.Vehicles": "false",
+      "Apps.MasterData.General.Fleet.VehicleCombinations": "false",
+      "Apps.MasterData.General.Fleet.Drivers": "false",
+      "Apps.MasterData.General.Fleet.VehicleTypes": "false",
+      "Apps.MasterData.General.Fleet.TransportCharacteristics": "false",
     };
     const checker = tenant(values);
-    const fleet = masterData.views!.find((v) => v.path === "/master-data/fleet")!;
+    const fleet = nodes(masterData.views).find((v) => v.path === "/master-data/fleet")!;
     expect(checker.isViewEnabled(masterData, fleet)).toBe(false);
-    expect(checker.visibleViews(masterData).map((v) => v.path)).not.toContain("/master-data/fleet");
+    expect(nodes(checker.visibleViews(masterData)).map((v) => v.path)).not.toContain("/master-data/fleet");
   });
 
   it("a group keeps only its enabled children", () => {
-    const checker = tenant(on("Apps.MasterData", "Apps.MasterData.Reference", "Apps.MasterData.Reference.Currencies"));
-    expect(paths(checker.visibleViews(masterData))).toEqual(["/master-data/reference[/master-data/currencies]"]);
+    const checker = tenant(on("Apps.MasterData", "Apps.MasterData.General", "Apps.MasterData.General.Reference", "Apps.MasterData.General.Reference.Currencies"));
+    expect(paths(checker.visibleViews(masterData))).toEqual(["/master-data/general[/master-data/reference[/master-data/currencies]]"]);
   });
 
   it("an app that is on but has all its views off is hidden", () => {
-    const checker = tenant(on("Apps.MasterData", "Apps.MasterData.Relations", "Apps.MasterData.Transport", "Apps.MasterData.Fleet", "Apps.MasterData.Reference"));
+    const checker = tenant(on("Apps.MasterData", "Apps.MasterData.General", "Apps.MasterData.General.Relations", "Apps.MasterData.General.Transport", "Apps.MasterData.General.Fleet", "Apps.MasterData.General.Reference"));
     expect(checker.visibleViews(masterData)).toEqual([]);
     expect(checker.isAppEnabled(masterData)).toBe(false);
   });
@@ -166,7 +182,7 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
   });
 
   it("skips disabled leaves and disabled groups", () => {
-    const values = { ...allOn(masterData), "Apps.MasterData.Relations": "false", "Apps.MasterData.Transport.Products": "false" };
+    const values = { ...allOn(masterData), "Apps.MasterData.General.Relations": "false", "Apps.MasterData.General.Transport.Products": "false" };
     expect(tenant(values).firstEnabledPath(masterData)).toBe("/master-data/transport-units");
   });
 
@@ -184,7 +200,11 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
      * of those groups do not live under the group's path, so the lookup has to follow the tree, not the URL. */
     const checker = tenant(allOn(masterData));
     expect(checker.firstEnabledPath(masterData, "/master-data/transport")).toBe("/master-data/products");
-    expect(checker.firstEnabledPath(masterData, "/master-data/fleet")).toBe("/master-data/drivers");
+    /* Design 48: Vehicles is the first list of Fleet. */
+    expect(checker.firstEnabledPath(masterData, "/master-data/fleet")).toBe("/master-data/vehicles");
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General.Fleet.Vehicles": "false" }).firstEnabledPath(masterData, "/master-data/fleet")).toBe(
+      "/master-data/vehicle-combinations",
+    );
     expect(checker.firstEnabledPath(masterData, "/master-data/reference")).toBe("/master-data/countries");
   });
 
@@ -224,16 +244,19 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
 
   it("the Relations list, which owns its group's path, follows both the group and the node", () => {
     expect(tenant(allOn(masterData)).isPathEnabled(masterData, "/master-data/relations")).toBe(true);
-    expect(tenant({ ...allOn(masterData), "Apps.MasterData.Relations.Relations": "false" }).isPathEnabled(masterData, "/master-data/relations")).toBe(false);
-    expect(tenant({ ...allOn(masterData), "Apps.MasterData.Relations": "false" }).isPathEnabled(masterData, "/master-data/relations")).toBe(false);
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General.Relations.Relations": "false" }).isPathEnabled(masterData, "/master-data/relations")).toBe(false);
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General.Relations": "false" }).isPathEnabled(masterData, "/master-data/relations")).toBe(false);
   });
 
   it.each([
-    ["/master-data/address-types", "Apps.MasterData.Relations.AddressTypes"],
-    ["/master-data/products", "Apps.MasterData.Transport.Products"],
-    ["/master-data/drivers", "Apps.MasterData.Fleet.Drivers"],
-    ["/master-data/countries", "Apps.MasterData.Reference.Countries"],
-    ["/master-data/geographical-regions", "Apps.MasterData.Reference.GeographicalRegions"],
+    ["/master-data/address-types", "Apps.MasterData.General.Relations.AddressTypes"],
+    ["/master-data/products", "Apps.MasterData.General.Transport.Products"],
+    ["/master-data/drivers", "Apps.MasterData.General.Fleet.Drivers"],
+    ["/master-data/vehicles", "Apps.MasterData.General.Fleet.Vehicles"],
+    ["/master-data/vehicle-combinations", "Apps.MasterData.General.Fleet.VehicleCombinations"],
+    ["/master-data/product-relation-codes", "Apps.MasterData.General.Transport.ProductRelationCodes"],
+    ["/master-data/countries", "Apps.MasterData.General.Reference.Countries"],
+    ["/master-data/geographical-regions", "Apps.MasterData.General.Reference.GeographicalRegions"],
   ])("a Master data list outside its group's path (%s) is off when its node is off", (path, node) => {
     /* The lists of a group do not live under the group's path (/master-data/countries is in the group
      * /master-data/reference), so a direct link must still be refused when the node is off. */
@@ -241,8 +264,22 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
     expect(tenant({ ...allOn(masterData), [node]: "false" }).isPathEnabled(masterData, path)).toBe(false);
   });
 
+  it("the three design-48 lists are independent of their neighbours with similar paths", () => {
+    /* /master-data/vehicles vs /master-data/vehicle-combinations and /vehicle-types, /master-data/products vs
+     * /master-data/product-relation-codes: switching one off must not switch off the other. */
+    const vehiclesOff = tenant({ ...allOn(masterData), "Apps.MasterData.General.Fleet.Vehicles": "false" });
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicles")).toBe(false);
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicle-combinations")).toBe(true);
+    expect(vehiclesOff.isPathEnabled(masterData, "/master-data/vehicle-types")).toBe(true);
+    const productsOff = tenant({ ...allOn(masterData), "Apps.MasterData.General.Transport.Products": "false" });
+    expect(productsOff.isPathEnabled(masterData, "/master-data/products")).toBe(false);
+    expect(productsOff.isPathEnabled(masterData, "/master-data/product-relation-codes")).toBe(true);
+    const codesOff = tenant({ ...allOn(masterData), "Apps.MasterData.General.Transport.ProductRelationCodes": "false" });
+    expect(codesOff.isPathEnabled(masterData, "/master-data/products")).toBe(true);
+  });
+
   it("a Master data list is off when its group is off, even with the node on", () => {
-    expect(tenant({ ...allOn(masterData), "Apps.MasterData.Reference": "false" }).isPathEnabled(masterData, "/master-data/countries")).toBe(false);
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General.Reference": "false" }).isPathEnabled(masterData, "/master-data/countries")).toBe(false);
   });
 
   it("on the host, Administration paths are on whatever the values", () => {

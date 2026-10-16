@@ -161,8 +161,8 @@ test.describe("Tenants app – end to end (critical)", () => {
     expect(features.ok()).toBeTruthy();
     const groups = (await features.json()) as { groups: { features: { name: string; value: string }[] }[] };
     const values = Object.fromEntries(groups.groups.flatMap((g) => g.features).map((f) => [f.name, f.value]));
-    expect(values["Apps.MasterData.Reference.Countries"]).toBe("true");
-    expect(values["Apps.MasterData.Reference.Currencies"]).toBe("false");
+    expect(values["Apps.MasterData.General.Reference.Countries"]).toBe("true");
+    expect(values["Apps.MasterData.General.Reference.Currencies"]).toBe("false");
   });
 
   test("a tenant created on that edition is provisioned (Ready) and has its own database", async () => {
@@ -218,8 +218,8 @@ test.describe("Tenants app – end to end (critical)", () => {
     expect(config.currentTenant.id).toBe(tenantId);
     expect(config.currentUser.userName).toBe("admin");
     expect(config.currentUser.impersonatorUserId).toBeTruthy();
-    expect(config.features.values["Apps.MasterData.Reference.Countries"]).toBe("true");
-    expect(config.features.values["Apps.MasterData.Reference.Currencies"]).toBe("false");
+    expect(config.features.values["Apps.MasterData.General.Reference.Countries"]).toBe("true");
+    expect(config.features.values["Apps.MasterData.General.Reference.Currencies"]).toBe("false");
 
     /* The shell agrees: the Countries list is a screen, the Currencies list is not part of the package. */
     await page.goto("/master-data/countries");

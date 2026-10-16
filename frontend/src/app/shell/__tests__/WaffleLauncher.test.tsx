@@ -31,7 +31,7 @@ vi.mock("@/lib/abp/queries", () => ({
   }),
 }));
 
-import { APPS } from "@/app/apps.config";
+import { APPS, type AppView } from "@/app/apps.config";
 import { WaffleLauncher } from "@/app/shell/WaffleLauncher";
 
 /** Every app and node feature named in apps.config, switched on. */
@@ -42,10 +42,13 @@ function allFeaturesOn(): Record<string, string> {
   };
   for (const app of APPS) {
     add(app.feature);
-    for (const view of app.views ?? []) {
-      add(view.feature);
-      view.children?.forEach((child) => add(child.feature));
-    }
+    /* Every depth: Master data is app → domain group → group → list (PO 2026-10-16). */
+    const walk = (views: readonly AppView[] | undefined) =>
+      views?.forEach((view) => {
+        add(view.feature);
+        walk(view.children);
+      });
+    walk(app.views);
   }
   return values;
 }
@@ -134,8 +137,8 @@ describe("WaffleLauncher – app features", () => {
 
   it("on a tenant hides an app that is on but whose navigation nodes are all off", () => {
     tenantId = "t-1";
-    const masterDataLists = Object.keys(allFeaturesOn()).filter((f) => f.split(".").length === 4 && f.startsWith("Apps.MasterData."));
-    expect(masterDataLists).toHaveLength(12);
+    const masterDataLists = Object.keys(allFeaturesOn()).filter((f) => f.split(".").length === 5 && f.startsWith("Apps.MasterData."));
+    expect(masterDataLists).toHaveLength(15);
     features = { ...allFeaturesOn(), ...Object.fromEntries(masterDataLists.map((f) => [f, "false"])) };
     render(<WaffleLauncher />);
     openLauncher();
@@ -146,7 +149,7 @@ describe("WaffleLauncher – app features", () => {
 
   it("on a tenant keeps an app with a single node on", () => {
     tenantId = "t-1";
-    features = { "Apps.MasterData": "true", "Apps.MasterData.Reference": "true", "Apps.MasterData.Reference.Countries": "true" };
+    features = { "Apps.MasterData": "true", "Apps.MasterData.General": "true", "Apps.MasterData.General.Reference": "true", "Apps.MasterData.General.Reference.Countries": "true" };
     render(<WaffleLauncher />);
     openLauncher();
 

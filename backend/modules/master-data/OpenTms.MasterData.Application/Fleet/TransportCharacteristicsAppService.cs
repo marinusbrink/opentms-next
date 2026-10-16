@@ -19,19 +19,21 @@ public class TransportCharacteristicsAppService
 {
     private readonly IRepository<VehicleTypeTransportCharacteristics> _joins;
     private readonly IRepository<Relations.RelationTransportCharacteristic> _relationJoins;
+    private readonly IRepository<VehicleTransportCharacteristic> _vehicleJoins;
 
-    public TransportCharacteristicsAppService(IRepository<TransportCharacteristics, Guid> repository, IRepository<VehicleTypeTransportCharacteristics> joins, IRepository<Relations.RelationTransportCharacteristic> relationJoins)
+    public TransportCharacteristicsAppService(IRepository<TransportCharacteristics, Guid> repository, IRepository<VehicleTypeTransportCharacteristics> joins, IRepository<Relations.RelationTransportCharacteristic> relationJoins, IRepository<VehicleTransportCharacteristic> vehicleJoins)
         : base(repository)
     {
         _joins = joins;
         _relationJoins = relationJoins;
+        _vehicleJoins = vehicleJoins;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
     public Task<GridResponse<TransportCharacteristicsRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Default)]
     public Task<TransportCharacteristicsDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -55,19 +57,19 @@ public class TransportCharacteristicsAppService
         return new TransportCharacteristicsLookupPageDto { Items = await ToRowsAsync(page), TotalCount = totalCount };
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Create)]
     public Task<TransportCharacteristicsDto> CreateAsync(TransportCharacteristicsCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Update)]
     public Task<TransportCharacteristicsDto> UpdateAsync(Guid id, TransportCharacteristicsUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportCharacteristics.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);
@@ -126,5 +128,7 @@ public class TransportCharacteristicsAppService
     {
         await _joins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
         await _relationJoins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
+        /* Design 48: the vehicles' own characteristics, as the types' (the FK cascades only on a hard delete). */
+        await _vehicleJoins.DeleteAsync(j => j.TransportCharacteristicsId == entity.Id);
     }
 }

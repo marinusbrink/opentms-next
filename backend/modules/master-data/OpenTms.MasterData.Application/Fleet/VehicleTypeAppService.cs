@@ -21,41 +21,44 @@ public class VehicleTypeAppService
 {
     private readonly IRepository<TransportCharacteristics, Guid> _characteristics;
     private readonly IRepository<TransportUnitLoadFactor, Guid> _loadFactors;
+    private readonly IRepository<Vehicle, Guid> _vehicles;
 
     public VehicleTypeAppService(
         IRepository<VehicleType, Guid> repository,
         IRepository<TransportCharacteristics, Guid> characteristics,
-        IRepository<TransportUnitLoadFactor, Guid> loadFactors)
+        IRepository<TransportUnitLoadFactor, Guid> loadFactors,
+        IRepository<Vehicle, Guid> vehicles)
         : base(repository)
     {
         _characteristics = characteristics;
         _loadFactors = loadFactors;
+        _vehicles = vehicles;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<GridResponse<VehicleTypeRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<VehicleTypeDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.VehicleTypes.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Create)]
     public Task<VehicleTypeDto> CreateAsync(VehicleTypeCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Update)]
     public Task<VehicleTypeDto> UpdateAsync(Guid id, VehicleTypeUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes, RequiresAll = true)]
     [Authorize(MasterDataPermissions.VehicleTypes.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);
@@ -166,6 +169,12 @@ public class VehicleTypeAppService
         if (await _loadFactors.AnyAsync(f => f.VehicleTypeId == vehicleType.Id))
         {
             return L["MasterData:InUseByTransportUnits"];
+        }
+
+        /* Design 48: a vehicle's type. */
+        if (await _vehicles.AnyAsync(v => v.VehicleTypeId == vehicleType.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
         }
 
         return null;

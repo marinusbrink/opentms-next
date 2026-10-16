@@ -70,7 +70,7 @@ beforeEach(() => {
   grants = { "Platform.Administration.OrganizationUnits": true };
 });
 
-import { UserFormDialog } from "@/apps/admin/components/UserFormDialog";
+import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 
 const user = {
   id: "u1",

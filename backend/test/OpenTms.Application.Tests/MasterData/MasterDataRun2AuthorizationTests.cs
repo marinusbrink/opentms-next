@@ -96,11 +96,11 @@ public class MasterDataRun2AuthorizationTests
     {
         /* Was one switch (MasterData.Relations) so run 1 could be live first; PO 2026-10-14 gave every list its node. */
         MethodFeatures(typeof(RelationAppService), nameof(RelationAppService.GetListAsync))
-            .ShouldBe([AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList]);
+            .ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList]);
         MethodFeatures(typeof(DriverAppService), nameof(DriverAppService.GetListAsync))
-            .ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers]);
-        AppFeatures.MasterData.Relations.RelationsList.ShouldBe("Apps.MasterData.Relations.Relations");
-        AppFeatures.MasterData.Fleet.Drivers.ShouldBe("Apps.MasterData.Fleet.Drivers");
+            .ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Drivers]);
+        AppFeatures.MasterData.General.Relations.RelationsList.ShouldBe("Apps.MasterData.General.Relations.Relations");
+        AppFeatures.MasterData.General.Fleet.Drivers.ShouldBe("Apps.MasterData.General.Fleet.Drivers");
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public class MasterDataRun2AuthorizationTests
         feature.ShouldNotBeNull();
         feature.Features.ShouldBe([AppFeatures.MasterData.Default]);
         MethodFeatures(typeof(CountryAppService), nameof(CountryAppService.SetDefaultAsync))
-            .ShouldBe([AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries]);
+            .ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries]);
         /* GetDefault is a picker (PO 2026-10-14): the app feature only. */
         typeof(CountryAppService).GetMethod(nameof(CountryAppService.GetDefaultAsync))!.GetCustomAttribute<RequiresFeatureAttribute>().ShouldBeNull();
 

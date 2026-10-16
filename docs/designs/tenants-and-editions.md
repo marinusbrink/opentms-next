@@ -37,6 +37,7 @@ review against it.
 | D13 | One app | Tenants and Editions are one app, Tenants, with a left pane: Tenants and Editions. Tenants comes before Administration in the launcher. |
 | D14 | Log in as | In this PR. The host admin picks a user of the tenant (not only its admin), needs a new host permission, and sees a banner with the way back while impersonating. No time limit and no restriction to ready tenants. |
 | D12 | Pickers | A picker (lookup) that another screen uses needs only its app's feature (plus its permission, as before), so lists can be packaged independently. |
+| D15 | One Master data group per domain (PO 2026-10-16) | The Master data app holds the master data of **every** domain, with one parent group per domain in its nav tree, the Master Data domain included: app → domain group → group → list. The Master Data domain's group is `General` ("Algemeen"); its four groups and their lists moved under it unchanged, and their features gained the `.General` segment. The other domains' groups (Orders, Financial, PlanningExecution, Platform, Integrations) arrive, with their features, with the run that builds their first list; a group without children is hidden. List routes did not change. |
 
 ## Domain impact
 
@@ -171,15 +172,15 @@ A tenant on the shared tier is soft-deleted only.
 
 ## App features (D8–D12)
 
-**Names follow the tree.** A node's ancestors are its dot-prefixes, so `Apps.MasterData.Reference.Countries`
-is on only when `Apps.MasterData` and `Apps.MasterData.Reference` are on too. ABP's feature checker does not
+**Names follow the tree.** A node's ancestors are its dot-prefixes, so `Apps.MasterData.General.Reference.Countries`
+is on only when `Apps.MasterData`, `Apps.MasterData.General` and `Apps.MasterData.General.Reference` are on too. ABP's feature checker does not
 combine parent and child, so every check passes the whole chain. Constants: `AppFeatures`
 (`Platform.Application.Contracts/Features`); definitions: `PlatformFeatureDefinitionProvider`, group `Apps`,
 each node a child of the one above it, so the edition's Features tab shows the app tree. Platform defines them
 because apps are views, not modules, and Platform is the one place every module may reference. The tree
 mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feature in the same change.
 
-**All features after this change (34):**
+**All features after this change (38):**
 
 | # | Feature | Parent | Default | Checked by |
 |---|---|---|---|---|
@@ -188,41 +189,45 @@ mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feat
 | 3 | Apps.Transport | | false | shell |
 | 4 | Apps.Finance | | false | shell |
 | 5 | Apps.MasterData | | true | shell; class attribute of every master-data service (pickers need only this) |
-| 6 | Apps.MasterData.Relations | Apps.MasterData | true | shell; chain of 7–9 |
-| 7 | Apps.MasterData.Relations.Relations | Apps.MasterData.Relations | false | shell; `RelationAppService` (not its pickers) |
-| 8 | Apps.MasterData.Relations.AddressTypes | Apps.MasterData.Relations | false | shell; `AddressTypeAppService` |
-| 9 | Apps.MasterData.Relations.RelationCategories | Apps.MasterData.Relations | false | shell; `RelationCategoryAppService` |
-| 10 | Apps.MasterData.Transport | Apps.MasterData | true | shell; chain of 11–13 |
-| 11 | Apps.MasterData.Transport.Products | Apps.MasterData.Transport | false | shell; `ProductAppService` |
-| 12 | Apps.MasterData.Transport.TransportUnits | Apps.MasterData.Transport | false | shell; `TransportUnitAppService` |
-| 13 | Apps.MasterData.Transport.Temperatures | Apps.MasterData.Transport | false | shell; `TemperatureAppService` |
-| 14 | Apps.MasterData.Fleet | Apps.MasterData | true | shell; chain of 15–17 |
-| 15 | Apps.MasterData.Fleet.Drivers | Apps.MasterData.Fleet | false | shell; `DriverAppService` |
-| 16 | Apps.MasterData.Fleet.VehicleTypes | Apps.MasterData.Fleet | false | shell; `VehicleTypeAppService` |
-| 17 | Apps.MasterData.Fleet.TransportCharacteristics | Apps.MasterData.Fleet | false | shell; `TransportCharacteristicsAppService` (not its picker) |
-| 18 | Apps.MasterData.Reference | Apps.MasterData | true | shell; chain of 19–21 |
-| 19 | Apps.MasterData.Reference.Countries | Apps.MasterData.Reference | false | shell; `CountryAppService` (not its pickers) |
-| 20 | Apps.MasterData.Reference.Currencies | Apps.MasterData.Reference | false | shell; `CurrencyAppService` |
-| 21 | Apps.MasterData.Reference.GeographicalRegions | Apps.MasterData.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
-| 22 | Apps.Integrations | | false | shell |
-| 23 | Apps.Reports | | false | shell |
-| 24 | Apps.Administration | | true | shell (host always on); chain of 25–31 |
-| 25 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
-| 26 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
-| 27 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
-| 28 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 29–30 |
-| 29 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
-| 30 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
-| 31 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
-| 32 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
-| 33 | SettingManagement.Enable | | true | ABP (unchanged) |
-| 34 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
+| 6 | Apps.MasterData.General | Apps.MasterData | true | shell; chain of 7–25 (the Master Data domain's own group; PO 2026-10-16) |
+| 7 | Apps.MasterData.General.Relations | Apps.MasterData.General | true | shell; chain of 8–10 |
+| 8 | Apps.MasterData.General.Relations.Relations | Apps.MasterData.General.Relations | false | shell; `RelationAppService` (not its pickers) |
+| 9 | Apps.MasterData.General.Relations.AddressTypes | Apps.MasterData.General.Relations | false | shell; `AddressTypeAppService` |
+| 10 | Apps.MasterData.General.Relations.RelationCategories | Apps.MasterData.General.Relations | false | shell; `RelationCategoryAppService` |
+| 11 | Apps.MasterData.General.Transport | Apps.MasterData.General | true | shell; chain of 12–15 |
+| 12 | Apps.MasterData.General.Transport.Products | Apps.MasterData.General.Transport | false | shell; `ProductAppService` |
+| 13 | Apps.MasterData.General.Transport.TransportUnits | Apps.MasterData.General.Transport | false | shell; `TransportUnitAppService` |
+| 14 | Apps.MasterData.General.Transport.ProductRelationCodes | Apps.MasterData.General.Transport | false | shell; `ProductRelationCodeAppService` (not its picker, not `IProductRelationCodeResolver`; design 48) |
+| 15 | Apps.MasterData.General.Transport.Temperatures | Apps.MasterData.General.Transport | false | shell; `TemperatureAppService` |
+| 16 | Apps.MasterData.General.Fleet | Apps.MasterData.General | true | shell; chain of 17–21 |
+| 17 | Apps.MasterData.General.Fleet.Vehicles | Apps.MasterData.General.Fleet | false | shell; `VehicleAppService` (not its pickers; design 48) |
+| 18 | Apps.MasterData.General.Fleet.VehicleCombinations | Apps.MasterData.General.Fleet | false | shell; `VehicleCombinationAppService` (design 48) |
+| 19 | Apps.MasterData.General.Fleet.Drivers | Apps.MasterData.General.Fleet | false | shell; `DriverAppService` |
+| 20 | Apps.MasterData.General.Fleet.VehicleTypes | Apps.MasterData.General.Fleet | false | shell; `VehicleTypeAppService` |
+| 21 | Apps.MasterData.General.Fleet.TransportCharacteristics | Apps.MasterData.General.Fleet | false | shell; `TransportCharacteristicsAppService` (not its picker) |
+| 22 | Apps.MasterData.General.Reference | Apps.MasterData.General | true | shell; chain of 23–25 |
+| 23 | Apps.MasterData.General.Reference.Countries | Apps.MasterData.General.Reference | false | shell; `CountryAppService` (not its pickers) |
+| 24 | Apps.MasterData.General.Reference.Currencies | Apps.MasterData.General.Reference | false | shell; `CurrencyAppService` |
+| 25 | Apps.MasterData.General.Reference.GeographicalRegions | Apps.MasterData.General.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
+| 26 | Apps.Integrations | | false | shell |
+| 27 | Apps.Reports | | false | shell |
+| 28 | Apps.Administration | | true | shell (host always on); chain of 29–35 |
+| 29 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
+| 30 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
+| 31 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
+| 32 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 33–34 |
+| 33 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
+| 34 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
+| 35 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
+| 36 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
+| 37 | SettingManagement.Enable | | true | ABP (unchanged) |
+| 38 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
 
 Removed: `MasterData.FirstRun`, `MasterData.Relations`, `Platform.Maintenance`, `UI.CommonToolbar`.
 
 **Pickers (D12)** need only the app feature: every `GetLookupAsync`, `Relation.GetLookupPageAsync` (Drivers),
 `Relation.GetAddressesAsync`, `GeographicalRegion.GetMatchesAsync` and `Country.GetDefaultAsync` (Relations),
-`TransportCharacteristics.GetLookupPageAsync` (Vehicle types). Administration's role list and `organization-units/all`
+`TransportCharacteristics.GetLookupPageAsync` (Vehicle types), and from design 48 `Vehicle.GetLookupPageAsync` (combinations); `IProductRelationCodeResolver` (Orders import) likewise needs only the app feature. Administration's role list and `organization-units/all`
 are pickers too (the user editor; the relation editor picks organization units), so they keep their permission only.
 
 **Host side.** Administration is marked `hostAlwaysEnabled` in the frontend and its controllers use
@@ -232,7 +237,9 @@ a value. Master data keeps ABP's `[RequiresFeature]`, which on the host evaluate
 **Frontend.** `app-features.ts` evaluates the chain from the application configuration. The launcher hides an app
 that is off or whose nodes are all off; the nav pane hides nodes that are off; the shell renders
 `FeatureUnavailable` for a route that is off (once the configuration has loaded); the Master data and Administration
-roots redirect to the first node that is on. Views no longer check features themselves.
+roots redirect to the first node that is on, and so do the group paths (`/master-data/general`, `/transport`,
+`/fleet`, `/reference`). The nav pane renders the tree at any depth (one indentation step per level; a group that
+holds the current page starts open). Views no longer check features themselves.
 
 **Migration.** `MoveFeatureValuesToAppTree` (application context, raw SQL on ABP's `AbpFeatureValues`) copies every
 stored tenant and edition value of an old feature to each node it covered, unless that node already has a value.
@@ -243,6 +250,15 @@ ever deployed) deletes the old values, their `AbpFeatures` rows, and the groups 
 no feature is left in them. Its `Down` restores nothing: the values were copied to the app tree, and no code reads
 the old names. `MasterData.FirstRun` → the ten lists that
 are not Relations or Drivers; `MasterData.Relations` → Relations and Drivers; `Platform.Maintenance` → Maintenance.
+
+**Migration for D15.** `MoveMasterDataFeaturesUnderGeneral` (application context, raw SQL on `AbpFeatureValues`, the
+same pattern) copies every stored tenant (`T`) and edition (`E`) value of the 19 old master-data names
+(`Apps.MasterData.Relations…`, `.Transport…`, `.Fleet…`, `.Reference…`) to its `Apps.MasterData.General…` name,
+unless the new name already has a value for that provider and key; a copy's id is derived from its source row, so
+`Down` removes exactly the copies. `Apps.MasterData.General` itself gets no stored value: its default is on.
+**Expand only:** the old values stay, inert (no definition reads them). **Contract step (planned, later release):**
+a follow-up migration deletes the old names' values and their `AbpFeatures` rows, as `RemoveOldFeatureNames` did for
+the first rename.
 
 ## Log in as a tenant user (D14)
 

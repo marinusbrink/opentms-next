@@ -22,30 +22,30 @@ public class RelationCategoryAppService
     {
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Default)]
     public Task<GridResponse<RelationCategoryRowDto>> GetListAsync(MasterDataListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Default)]
     public Task<RelationCategoryDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.RelationCategories.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Create)]
     public Task<RelationCategoryDto> CreateAsync(RelationCategoryCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Update)]
     public Task<RelationCategoryDto> UpdateAsync(Guid id, RelationCategoryUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories, RequiresAll = true)]
     [Authorize(MasterDataPermissions.RelationCategories.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(MasterDataBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => q);

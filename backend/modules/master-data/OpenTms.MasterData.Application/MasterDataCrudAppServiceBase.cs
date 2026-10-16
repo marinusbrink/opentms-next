@@ -238,6 +238,38 @@ public abstract class MasterDataCrudAppServiceBase<TEntity, TRowDto, TDto, TCrea
     protected static IOrderedQueryable<TEntity> Order<TKey>(IQueryable<TEntity> query, Expression<Func<TEntity, TKey>> key, bool descending)
         => descending ? query.OrderByDescending(key) : query.OrderBy(key);
 
+    /// <summary>
+    /// Orders by a column of another row through a LEFT JOIN. A correlated subquery in ORDER BY
+    /// (<c>Order(q, e =&gt; others.Where(…).Select(…).FirstOrDefault())</c>) runs once per row before the page is cut:
+    /// 1,017 ms for 250,000 product relation codes sorted by product name (design 48, volume test); the join is one
+    /// hash join and a top-N sort.
+    /// </summary>
+    protected static IOrderedQueryable<TEntity> OrderByJoined<TOther, TKey>(
+        IQueryable<TEntity> query,
+        IQueryable<TOther> others,
+        Expression<Func<TEntity, Guid?>> foreignKey,
+        Expression<Func<TOther, Guid?>> otherKey,
+        Expression<Func<JoinedRow<TOther>, TKey>> key,
+        bool descending)
+        where TOther : class
+    {
+        var joined = query
+            .GroupJoin(others, foreignKey, otherKey, (entity, matches) => new { entity, matches })
+            .SelectMany(x => x.matches.DefaultIfEmpty(), (x, other) => new JoinedRow<TOther> { Entity = x.entity, Other = other });
+        var ordered = descending ? joined.OrderByDescending(key) : joined.OrderBy(key);
+
+        /* EF Core's queryables are IOrderedQueryable, and the ORDER BY survives the projection. */
+        return (IOrderedQueryable<TEntity>)ordered.Select(row => row.Entity);
+    }
+
+    /// <summary>A row of <see cref="OrderByJoined{TOther,TKey}"/>: the entity and its joined row, null when none.</summary>
+    protected sealed class JoinedRow<TOther>
+    {
+        public TEntity Entity { get; init; } = default!;
+
+        public TOther? Other { get; init; }
+    }
+
     protected static BusinessException UnknownSortColumn(string sortBy)
         => new BusinessException(MasterDataErrorCodes.UnknownSortColumn).WithData("sortBy", sortBy);
 

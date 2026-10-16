@@ -199,7 +199,7 @@ public class TransportCharacteristicsLookupPageTests : MasterDataAppServiceTestB
         }
 
         /* PO 2026-10-14: the lookup page is a picker (the relation editor), gated by the app feature only. */
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Fleet.TransportCharacteristics, "false"))
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Fleet.TransportCharacteristics, "false"))
         {
             (await _service.GetLookupPageAsync()).TotalCount.ShouldBe(1);
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetListAsync(new MasterDataListRequestDto { StartRow = 0, EndRow = 100 }));

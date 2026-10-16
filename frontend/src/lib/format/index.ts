@@ -238,3 +238,49 @@ export function formatDateInput(isoDate: string | null | undefined, locale: stri
 export function toIsoDate(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
+
+/* Licence plates (design 48, UI-FMT): the server stores a plate normalised (upper case, letters and digits only)
+ * and the UI shows it per registration country. Dutch plates get the dashes of their sidecode (1–14); every other
+ * country, and a Dutch plate that matches no sidecode, shows as stored. */
+
+const PLATE_SEPARATORS = /[\s\-.·_]/g;
+
+/** Letter (L) / digit (D) pattern → the positions of the two dashes. */
+const NL_SIDECODES: Record<string, [number, number]> = {
+  LLDDDD: [2, 4],
+  DDDDLL: [2, 4],
+  DDLLDD: [2, 4],
+  LLDDLL: [2, 4],
+  LLLLDD: [2, 4],
+  DDLLLL: [2, 4],
+  DDLLLD: [2, 5],
+  DLLLDD: [1, 4],
+  LLDDDL: [2, 5],
+  LDDDLL: [1, 4],
+  LLLDDL: [3, 5],
+  LDDLLL: [1, 3],
+  DLLDDD: [1, 3],
+  DDDLLD: [3, 5],
+};
+
+/** The stored form of a typed plate: separators dropped, upper case. The server validates the rest. */
+export function normalizeLicencePlate(plate: string | null | undefined): string {
+  return (plate ?? "").replace(PLATE_SEPARATORS, "").toUpperCase();
+}
+
+/** True when a typed plate holds only letters, digits and separators and is at most 16 characters once normalised. */
+export function isLicencePlateShape(plate: string | null | undefined): boolean {
+  const normalized = normalizeLicencePlate(plate);
+  return normalized.length <= 16 && /^[A-Z0-9]*$/.test(normalized);
+}
+
+/** A plate as shown: Dutch plates by sidecode ("12ABC3" → "12-ABC-3"), other countries as stored. */
+export function formatLicencePlate(plate: string | null | undefined, countryCode: string | null | undefined): string {
+  const normalized = normalizeLicencePlate(plate);
+  if (!normalized) return "";
+  if ((countryCode ?? "").toUpperCase() !== "NL" || normalized.length !== 6) return normalized;
+  const pattern = normalized.replace(/[0-9A-Z]/g, (c) => (c >= "0" && c <= "9" ? "D" : "L"));
+  const dashes = NL_SIDECODES[pattern];
+  if (!dashes) return normalized;
+  return `${normalized.slice(0, dashes[0])}-${normalized.slice(dashes[0], dashes[1])}-${normalized.slice(dashes[1])}`;
+}

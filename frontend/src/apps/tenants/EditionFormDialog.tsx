@@ -31,7 +31,10 @@ interface EditionFormDialogProps {
   canManageFeatures: boolean;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** After a save; a create passes the edition the API returned (a picker's "Add new …" selects it, UI-LOOK-004). */
+  onSuccess: (saved?: EditionRow) => void;
+  /** Create mode only: the name a picker's "Add new …" row was typed with (UI-LOOK-004). */
+  initialName?: string;
 }
 
 /** Indent per feature depth; deeper levels than the tree has today use the last step. */
@@ -52,6 +55,7 @@ export function EditionFormDialog({
   open,
   onClose,
   onSuccess,
+  initialName: typedName,
 }: EditionFormDialogProps) {
   const { t } = useL();
   const createEdition = useCreateEdition();
@@ -61,7 +65,8 @@ export function EditionFormDialog({
   const formRef = useRef<HTMLFormElement>(null);
 
   const initialName = mode === "edit" ? (edition?.displayName ?? "") : "";
-  const [name, setName] = useState(initialName);
+  /* A typed name from "Add new …" is a change the user made: it counts as dirty. */
+  const [name, setName] = useState(mode === "create" ? (typedName ?? "") : initialName);
   const [nameTouched, setNameTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -100,8 +105,9 @@ export function EditionFormDialog({
     }
 
     try {
+      let created: EditionRow | undefined;
       if (mode === "create") {
-        await createEdition.mutateAsync({ displayName: name.trim() });
+        created = await createEdition.mutateAsync({ displayName: name.trim() });
         toast.success(t("Editions:EditionCreated"));
       } else {
         if (!readOnly && nameChanged) {
@@ -112,7 +118,7 @@ export function EditionFormDialog({
         }
         toast.success(t("Editions:EditionSaved"));
       }
-      onSuccess();
+      onSuccess(created);
       onClose();
     } catch (err) {
       setServerError(getApiErrorMessage(err, t));

@@ -4,6 +4,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCreateInPlace, withId } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger, parseNumber } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -75,8 +76,8 @@ const ADR_TEXT_FIELDS = [
   "adrSpecialProvisions",
 ] as const;
 
-const initialValues = (dto: ProductDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: ProductDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   description: dto?.description ?? "",
   isArchived: dto?.isArchived ?? false,
   isAdr: dto?.isAdr ?? false,
@@ -123,8 +124,10 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const inPlace = useCreateInPlace();
   const detail = products.useDetail(mode === "edit" ? id : undefined);
   const create = products.useCreate();
   const update = products.useUpdate();
@@ -169,11 +172,9 @@ export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved }: En
         defaultHeightCm: parseNumber(v.defaultHeightCm),
         incompatibleProductIds: v.incompatibleProductIds,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );
@@ -287,6 +288,7 @@ export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved }: En
               onChange={(next) => form.set("incompatibleProductIds", next)}
               options={options}
               disabled={form.readOnly}
+              {...inPlace.offer("Product", form.readOnly, (r) => form.update((v) => ({ ...v, incompatibleProductIds: withId(v.incompatibleProductIds, r.id) })))}
             />
           </FormField>
         </FormSection>
@@ -295,6 +297,7 @@ export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved }: En
   ];
 
   return (
+    <>
     <MasterDataEditor<Values, ProductDto>
       entityKey="Product"
       queryEntity={products.entity}
@@ -313,5 +316,7 @@ export function ProductEditor({ mode, id, readOnly, open, onClose, onSaved }: En
       tabs={tabs}
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
     />
+    {inPlace.dialog}
+    </>
   );
 }

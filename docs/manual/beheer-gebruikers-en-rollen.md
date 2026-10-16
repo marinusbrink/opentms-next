@@ -381,7 +381,11 @@ snelmenu met **Bewerken**, **Nieuwe sub-eenheid** en **Verwijderen**.
    dezelfde bovenliggende eenheid kunnen niet dezelfde naam hebben.
 3. Kies de **Bovenliggende eenheid** in de keuzelijst: een boom waarin je
    eenheden uit- en inklapt met het pijltje. Kies **Geen bovenliggende eenheid
-   (hoogste niveau)** voor een eenheid op het hoogste niveau.
+   (hoogste niveau)** voor een eenheid op het hoogste niveau. Bestaat de
+   bovenliggende eenheid nog niet, dan opent **Nieuwe organisatie-eenheid
+   toevoegen…** onderaan de keuzelijst het venster voor een nieuwe eenheid
+   bovenop dit venster; na **Opslaan** is de nieuwe eenheid de bovenliggende
+   eenheid. Je hebt daarvoor het recht nodig om organisatie-eenheden aan te maken.
 4. Klik op **Opslaan** (of druk op **Enter**).
 
 Het venster sluit, rechtsonder verschijnt kort de melding "Organisatie-eenheid

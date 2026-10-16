@@ -40,7 +40,10 @@ interface UserFormDialogProps {
   readOnly?: boolean;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** After a save; a create passes the user the API returned (a lookup's "Add new …" selects it, UI-LOOK-004). */
+  onSuccess: (saved?: UserRow) => void;
+  /** Create mode only: the user name a lookup's "Add new …" row was typed with (UI-LOOK-004). */
+  initialName?: string;
 }
 
 interface UserFormValues {
@@ -84,7 +87,7 @@ function initialsOf(name: string, surname: string, userName: string): string {
  * checkbox tree of the tenant's units (PO decision 2026-10-10), then Record identification.
  * Save is the primary command; the dialog adds Close. Validation on blur and on submit,
  * messages under the field (UI-FORM-006); a failed save shows inside the dialog. */
-export function UserFormDialog({ mode, user, readOnly = false, open, onClose, onSuccess }: UserFormDialogProps) {
+export function UserFormDialog({ mode, user, readOnly = false, open, onClose, onSuccess, initialName }: UserFormDialogProps) {
   const { t } = useL();
   const queryClient = useQueryClient();
   const createUser = useCreateUser();
@@ -101,7 +104,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
 
   const initial = useMemo<UserFormValues>(
     () => ({
-      userName: mode === "edit" ? (user?.userName ?? "") : "",
+      userName: mode === "edit" ? (user?.userName ?? "") : (initialName ?? ""),
       email: mode === "edit" ? (user?.email ?? "") : "",
       name: mode === "edit" ? (user?.name ?? "") : "",
       surname: mode === "edit" ? (user?.surname ?? "") : "",
@@ -112,7 +115,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
       roleNames: mode === "edit" ? (user?.roleNames ?? []) : [],
       organizationUnitIds: mode === "edit" ? (user?.organizationUnitIds ?? []) : [],
     }),
-    [mode, user],
+    [mode, user, initialName],
   );
 
   const [values, setValues] = useState<UserFormValues>(initial);
@@ -166,6 +169,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
 
     try {
       let userId: string;
+      let createdUser: UserRow | undefined;
       if (mode === "create") {
         const dto: UserCreateDto = {
           userName: values.userName.trim(),
@@ -181,6 +185,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
           organizationUnitIds: values.organizationUnitIds,
         };
         const created = await createUser.mutateAsync(dto);
+        createdUser = (created ?? undefined) as UserRow | undefined;
         userId = created?.id ?? "";
       } else {
         const dto: UserUpdateDto = {
@@ -207,7 +212,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
       if (pendingPicture !== undefined && userId) {
         void queryClient.invalidateQueries({ queryKey: profilePictureQueryKey(userId) });
       }
-      onSuccess();
+      onSuccess(createdUser);
       onClose();
       toast.success(t("Administration:UserSaved"));
     } catch (err) {

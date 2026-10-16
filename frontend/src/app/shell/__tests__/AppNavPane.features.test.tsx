@@ -59,18 +59,19 @@ beforeEach(() => {
 describe("AppNavPane – app features", () => {
   it("shows only the groups and lists that are on (an open group shows only its enabled children)", () => {
     config = tenantConfig({
-      "Apps.MasterData": "true",
-      "Apps.MasterData.Reference": "true",
-      "Apps.MasterData.Reference.Countries": "true",
-      "Apps.MasterData.Reference.Currencies": "false",
-      "Apps.MasterData.Fleet": "true",
-      "Apps.MasterData.Fleet.Drivers": "false",
+      "Apps.MasterData": "true", "Apps.MasterData.General": "true",
+      "Apps.MasterData.General.Reference": "true",
+      "Apps.MasterData.General.Reference.Countries": "true",
+      "Apps.MasterData.General.Reference.Currencies": "false",
+      "Apps.MasterData.General.Fleet": "true",
+      "Apps.MasterData.General.Fleet.Drivers": "false",
     });
     renderPane();
 
-    expect(topLevelLabels()).toEqual(["MasterData:Nav.Reference"]);
-    /* The group's path is not the list's, so the group starts closed; open it. */
-    fireEvent.click(screen.getByRole("button", { name: /MasterData:Nav.Reference/ }));
+    /* One domain group (General, PO 2026-10-16) holding the one enabled group. The current page (/master-data/countries)
+     * lies below both, so they start open although neither group's path is the list's. */
+    expect(topLevelLabels()).toEqual(["MasterData:Nav.General"]);
+    expect(screen.getByRole("button", { name: /MasterData:Nav.Reference/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /MasterData:Countries/ })).toHaveAttribute("href", "/master-data/countries");
     expect(screen.queryByText("MasterData:Currencies")).toBeNull();
     expect(screen.queryByText("MasterData:GeographicalRegions")).toBeNull();
@@ -79,15 +80,18 @@ describe("AppNavPane – app features", () => {
 
   it("hides a list whose group is off even when the list itself is on", () => {
     config = tenantConfig({
-      "Apps.MasterData": "true",
-      "Apps.MasterData.Reference": "false",
-      "Apps.MasterData.Reference.Countries": "true",
-      "Apps.MasterData.Transport": "true",
-      "Apps.MasterData.Transport.Products": "true",
+      "Apps.MasterData": "true", "Apps.MasterData.General": "true",
+      "Apps.MasterData.General.Reference": "false",
+      "Apps.MasterData.General.Reference.Countries": "true",
+      "Apps.MasterData.General.Transport": "true",
+      "Apps.MasterData.General.Transport.Products": "true",
     });
     renderPane();
 
-    expect(topLevelLabels()).toEqual(["MasterData:Nav.Transport"]);
+    expect(topLevelLabels()).toEqual(["MasterData:Nav.General"]);
+    fireEvent.click(screen.getByRole("button", { name: /MasterData:Nav.General/ }));
+    expect(screen.getByRole("button", { name: /MasterData:Nav.Transport/ })).toBeInTheDocument();
+    expect(screen.queryByText("MasterData:Nav.Reference")).toBeNull();
   });
 
   it("hides the Administration nodes that are off on a tenant", () => {

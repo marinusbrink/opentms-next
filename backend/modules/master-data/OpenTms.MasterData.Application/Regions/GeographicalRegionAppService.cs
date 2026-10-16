@@ -32,30 +32,30 @@ public class GeographicalRegionAppService
         _ranges = ranges;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Default)]
     public Task<GridResponse<GeographicalRegionRowDto>> GetListAsync(GeographicalRegionListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Default)]
     public Task<GeographicalRegionDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.GeographicalRegions.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Create)]
     public Task<GeographicalRegionDto> CreateAsync(GeographicalRegionCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Update)]
     public Task<GeographicalRegionDto> UpdateAsync(Guid id, GeographicalRegionUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions, RequiresAll = true)]
     [Authorize(MasterDataPermissions.GeographicalRegions.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(GeographicalRegionBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyCountryFilter(q, input.CountryId));

@@ -32,6 +32,9 @@ export interface LinesGridProps<TRow> {
   /** Lines edited in their own dialog instead of inline (design 43: addresses, contact persons): double click,
    *  Enter and the Edit item of the context menu open the line (UI-GRID-007); a ghost pencil at the row end too. */
   onOpen?: (row: TRow) => void;
+  /** Rows that may not be removed (design 48: a vehicle's characteristics inherited from its type) get no trash
+   *  icon and are skipped by the context menu's Remove; absent → every row is removable. */
+  canRemoveRow?: (row: TRow) => boolean;
   /** Localized text for the no-rows overlay. */
   emptyText?: string;
   className?: string;
@@ -48,6 +51,7 @@ export function LinesGrid<TRow>({
   toolbar,
   readOnly = false,
   onOpen,
+  canRemoveRow,
   emptyText,
   className,
 }: LinesGridProps<TRow>) {
@@ -70,10 +74,11 @@ export function LinesGrid<TRow>({
 
   const removeRows = useCallback(
     (targets: TRow[]) => {
-      const ids = new Set(targets.map(getRowId));
+      const ids = new Set(targets.filter((row) => !canRemoveRow || canRemoveRow(row)).map(getRowId));
+      if (ids.size === 0) return;
       onRowsChange(rows.filter((row) => !ids.has(getRowId(row))));
     },
-    [getRowId, onRowsChange, rows],
+    [canRemoveRow, getRowId, onRowsChange, rows],
   );
 
   const removeLabel = t("Remove");
@@ -113,7 +118,7 @@ export function LinesGrid<TRow>({
       resizable: false,
       suppressMovable: true,
       cellRenderer: (params: ICellRendererParams<TRow>) =>
-        params.data == null ? null : (
+        params.data == null || (canRemoveRow && !canRemoveRow(params.data)) ? null : (
           <Button
             type="button"
             variant="ghost"
@@ -127,7 +132,7 @@ export function LinesGrid<TRow>({
         ),
     };
     return [...columnDefs, ...(openColumn ? [openColumn] : []), removeColumn];
-  }, [columnDefs, editLabel, onOpen, readOnly, removeLabel, removeRows]);
+  }, [canRemoveRow, columnDefs, editLabel, onOpen, readOnly, removeLabel, removeRows]);
 
   const getContextMenuItems = useCallback(
     (params: GetContextMenuItemsParams<TRow>) => {
@@ -135,12 +140,13 @@ export function LinesGrid<TRow>({
       const clicked = params.node?.data as TRow | undefined;
       const targets = resolveTargetRows(clicked, params.api.getSelectedRows(), getRowId);
       if (targets.length === 0) return [];
+      const removable = canRemoveRow ? targets.filter(canRemoveRow) : targets;
       return [
         ...(onOpen && clicked && targets.length === 1 ? [{ name: editLabel, action: () => onOpen(clicked) }] : []),
-        { name: removeLabel, action: () => removeRows(targets), cssClasses: ["text-destructive"] },
+        ...(removable.length > 0 ? [{ name: removeLabel, action: () => removeRows(removable), cssClasses: ["text-destructive"] }] : []),
       ];
     },
-    [editLabel, getRowId, onOpen, readOnly, removeLabel, removeRows],
+    [canRemoveRow, editLabel, getRowId, onOpen, readOnly, removeLabel, removeRows],
   );
 
   const openRow = useCallback(

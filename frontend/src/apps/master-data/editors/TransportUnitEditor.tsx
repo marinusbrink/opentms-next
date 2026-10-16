@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { Plus } from "lucide-react";
 
@@ -7,6 +7,8 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor";
+import { useCreateInPlace, withId } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger, parseNumber } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -44,8 +46,8 @@ const NUMBER_FIELDS = ["lengthCm", "widthCm", "heightCm", "tareWeightKg", "maxLo
 
 let rowCounter = 0;
 
-const initialValues = (dto: TransportUnitDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: TransportUnitDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   description: dto?.description ?? "",
   isArchived: dto?.isArchived ?? false,
   lengthCm: numberToText(dto?.lengthCm),
@@ -82,8 +84,12 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const inPlace = useCreateInPlace();
+  /* The load-factor grid's columns live outside the tabs: a vehicle type created from a cell reaches its row through applyValues. */
+  const [applyValues, setApplyValues] = useState<{ key: number; update: (values: Values) => Values } | undefined>();
   const detail = transportUnits.useDetail(mode === "edit" ? id : undefined);
   const create = transportUnits.useCreate();
   const update = transportUnits.useUpdate();
@@ -96,7 +102,20 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
     [unitLookup.data, id],
   );
   const vehicleTypeNames = useMemo(() => new Map((vehicleTypeLookup.data ?? []).map((v) => [v.id ?? "", v.name ?? ""])), [vehicleTypeLookup.data]);
-  const vehicleTypeIds = useMemo(() => (vehicleTypeLookup.data ?? []).map((v) => v.id ?? ""), [vehicleTypeLookup.data]);
+  const vehicleTypeOptions = useMemo(() => (vehicleTypeLookup.data ?? []).map((v) => ({ value: v.id ?? "", label: v.name ?? "" })), [vehicleTypeLookup.data]);
+  const { offer } = inPlace;
+  /* "Add new vehicle type…" in a load factor's type cell (UI-LOOK-004): the saved type goes into that row. */
+  const createVehicleTypeFor = useCallback(
+    (term: string, row: LoadFactorRow) =>
+      offer("VehicleType", readOnly, (r) =>
+        setApplyValues((previous) => ({
+          key: (previous?.key ?? 0) + 1,
+          update: (values) => ({ ...values, loadFactors: values.loadFactors.map((f) => (f.key === row.key ? { ...f, vehicleTypeId: r.id } : f)) }),
+        })),
+      ).onCreateNew?.(term),
+    [offer, readOnly],
+  );
+  const canCreateVehicleType = offer("VehicleType", readOnly, () => undefined).onCreateNew != null;
 
   const loadFactorColumns = useMemo<ColDef<LoadFactorRow>[]>(
     () => [
@@ -106,14 +125,17 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
         flex: 2,
         minWidth: 180,
         editable: !readOnly,
-        cellEditor: "agRichSelectCellEditor",
-        cellEditorParams: { values: vehicleTypeIds, formatValue: (value: string) => vehicleTypeNames.get(value) ?? "", allowTyping: true, filterList: true, searchType: "matchAny" },
+        ...referenceCellEditorColDef<LoadFactorRow>({
+          options: vehicleTypeOptions,
+          onCreateNew: canCreateVehicleType ? createVehicleTypeFor : undefined,
+          createLabel: t("MasterData:AddNewVehicleType"),
+        }),
         valueFormatter: (p) => (p.value ? (vehicleTypeNames.get(p.value as string) ?? "") : ""),
       },
       { field: "loadingCapacityFactor", headerName: t("MasterData:LoadingCapacityFactor"), flex: 1, minWidth: 140, editable: !readOnly, cellEditor: "agNumberCellEditor", type: "rightAligned" },
       { field: "maxCapacity", headerName: t("MasterData:MaxCapacity"), flex: 1, minWidth: 120, editable: !readOnly, cellEditor: "agNumberCellEditor", type: "rightAligned" },
     ],
-    [readOnly, t, vehicleTypeIds, vehicleTypeNames],
+    [readOnly, t, vehicleTypeOptions, vehicleTypeNames, canCreateVehicleType, createVehicleTypeFor],
   );
 
   const save = useCallback(
@@ -140,11 +162,9 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
         })),
         incompatibleTransportUnitIds: v.incompatibleTransportUnitIds,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );
@@ -226,6 +246,9 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
               onChange={(next) => form.set("incompatibleTransportUnitIds", next)}
               options={unitOptions}
               disabled={form.readOnly}
+              {...inPlace.offer("TransportUnit", form.readOnly, (r) =>
+                form.update((v) => ({ ...v, incompatibleTransportUnitIds: withId(v.incompatibleTransportUnitIds, r.id) })),
+              )}
             />
           </FormField>
         </FormSection>
@@ -234,6 +257,7 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
   ];
 
   return (
+    <>
     <MasterDataEditor<Values, TransportUnitDto>
       entityKey="TransportUnit"
       queryEntity={transportUnits.entity}
@@ -251,6 +275,9 @@ export function TransportUnitEditor({ mode, id, readOnly, open, onClose, onSaved
       isSaving={create.isPending || update.isPending}
       tabs={tabs}
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
+      applyValues={applyValues}
     />
+    {inPlace.dialog}
+    </>
   );
 }

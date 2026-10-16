@@ -182,7 +182,13 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
       </ComboboxList>
       {onCreateNew && (
         <div className="border-t border-border p-1">
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => onCreateNew(trimmed)}>
+          <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => {
+              /* The editor opens on top: the list closes first. */
+              const typed = trimmed;
+              setOpen(false);
+              setTerm("");
+              onCreateNew(typed);
+            }}>
             <Plus aria-hidden="true" /> {createLabel ?? t("AddNew")}
           </Button>
         </div>

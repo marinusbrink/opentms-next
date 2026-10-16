@@ -23,7 +23,7 @@ vi.mock("@/domains/platform/editions", () => {
       displayName: "Apps and screens",
       features: [
         { name: "Apps.MasterData", displayName: "Master data app", description: null, depth: 0, parentName: null, value: "true", valueType: { name: "ToggleStringValueType" } },
-        { name: "Apps.MasterData.Reference", displayName: "Reference", description: null, depth: 1, parentName: "Apps.MasterData", value: "true", valueType: { name: "ToggleStringValueType" } },
+        { name: "Apps.MasterData.General.Reference", displayName: "Reference", description: null, depth: 1, parentName: "Apps.MasterData", value: "true", valueType: { name: "ToggleStringValueType" } },
       ],
     },
   ];

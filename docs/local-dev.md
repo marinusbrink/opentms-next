@@ -53,3 +53,38 @@ works-on-my-machine antidote: facts, not preferences.
 
   then, for each name that belongs to a deleted tenant only:
   `DROP DATABASE "<name>" WITH (FORCE); DROP ROLE "<name>";`
+
+## Demo master data
+
+`scripts/seed-demo-masterdata.sh <tenant-name>` fills one **empty** local tenant with a large,
+realistic set of Master Data, so lists, lookups and performance can be judged at volume. Dev only.
+
+- **What it writes** (schema `masterdata`, one transaction): 20,000 relations (1 own company, 20
+  depots, 300 carriers, 150 creditors, the rest customers; ~3 % archived, ~1 % blocked) with
+  ~24,600 addresses, ~40,000 contact persons, ~2,800 IBANs, category and region memberships and
+  external ids; 800 products (40 ADR), 25 transport units, 19 vehicle types, 26 transport
+  characteristics, 6 temperatures, 48 geographical regions (NL, BE, DE); 500 drivers with ~1,800
+  qualifications (some expiring within 90 days or expired); 1,000 vehicles and 305 combinations; 50,000
+  product relation codes. Afterwards it runs `ANALYZE` on the masterdata tables, checks the data
+  against the domain rules (`scripts/seed-demo-masterdata/verify.sql`, every check must be 0) and
+  switches all `Apps.MasterData.*` features on for the tenant in the host database (`features.sql`).
+- **The data is fictional.** Names, addresses, VAT/CoC numbers, IBANs, plates and VINs are generated
+  (check digits valid); every e-mail address and website is on a `.example` domain.
+- **Deterministic.** `gen_masterdata.py` (Python 3 standard library only) produces the same SQL for the
+  same ids, seed (default 20261016) and reference date; the script passes today's date, so qualification
+  validity and creation times are relative to the day you run it. A tenant in the shared host database
+  gets a seed derived from its id, because row ids are global primary keys there.
+
+Run it after the DbMigrator has created and seeded the tenant:
+
+```bash
+scripts/seed-demo-masterdata.sh demo             # or: --dry-run demo (lookups and generation only)
+```
+
+Guards: it refuses any `PGHOST` other than `localhost`, `127.0.0.1` or `::1` (defaults `PGHOST=localhost`,
+`PGPORT=5432`, `PGUSER=postgres`, `PGPASSWORD=postgres`); it looks the tenant up by name in `OpenTms`
+(not deleted) and finds its database in `AbpTenantConnectionStrings` (no connection string: the tenant
+lives in the host database); it stops with a message when the admin user, the NL/BE/DE countries, the
+Visiting/Postal address types or EUR are missing (DbMigrator seed not run), and when the tenant already
+has any relation: it fills an empty tenant only. On any error during the load nothing stays. The backend
+caches feature values: restart the API host to see the Master Data app.

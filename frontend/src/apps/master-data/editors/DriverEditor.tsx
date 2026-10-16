@@ -15,6 +15,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { DateCell } from "@/components/ui/grid-cells";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { useCanCreateInPlace, useCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, TextAreaField, TextField, emailError } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -34,6 +35,7 @@ import {
   type UserOption,
 } from "@/domains/master-data/entities";
 import { masterDataQueryKey } from "@/domains/master-data/shared";
+import type { UserRow } from "@/domains/platform/administration-users";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useLanguages } from "@/lib/i18n/languages";
@@ -75,11 +77,17 @@ interface Values {
 
 let rowCounter = 0;
 
-const initialValues = (dto: DriverDto | undefined): Values => ({
+/** A name typed in a driver lookup's "Add new …" (UI-LOOK-004): one word is the last name; with more, the first word is the first name. */
+function splitTypedName(typed: string | undefined): { firstName: string; lastName: string } {
+  const words = (typed ?? "").trim().split(/\s+/).filter(Boolean);
+  return words.length > 1 ? { firstName: words[0], lastName: words.slice(1).join(" ") } : { firstName: "", lastName: words[0] ?? "" };
+}
+
+const initialValuesFor = (initialName: string | undefined) => (dto: DriverDto | undefined): Values => ({
   code: dto?.code ?? "",
-  firstName: dto?.firstName ?? "",
+  firstName: dto ? (dto.firstName ?? "") : splitTypedName(initialName).firstName,
   middleName: dto?.middleName ?? "",
-  lastName: dto?.lastName ?? "",
+  lastName: dto ? (dto.lastName ?? "") : splitTypedName(initialName).lastName,
   initials: dto?.initials ?? "",
   phone: dto?.phone ?? "",
   mobile: dto?.mobile ?? "",
@@ -116,8 +124,10 @@ function driverTitle(dto: DriverDto): string {
   return dto.fullName ?? [dto.firstName, dto.middleName, dto.lastName].filter(Boolean).join(" ");
 }
 
-export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, onSaved }: EntityEditorProps) {
+export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const inPlace = useCreateInPlace();
   const queryClient = useQueryClient();
   const detail = drivers.useDetail(mode === "edit" ? id : undefined);
   const create = drivers.useCreate();
@@ -126,7 +136,8 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
   const anonymise = useAnonymiseDriver();
   const canDelete = useIsGranted("MasterData.Drivers.Delete");
   const canAnonymise = useIsGranted("MasterData.Drivers.Anonymise");
-  const canCreateRelation = useIsGranted("MasterData.Relations.Create");
+  /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
+  const canCreate = useCanCreateInPlace();
   const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
   const anonymised = detail.data?.isAnonymised === true;
   /* An anonymised record is read-only (design 43): every field disabled, no Save, the notice above the form. */
@@ -265,7 +276,7 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
                       <div className="text-label text-muted-foreground">{[r.code, [r.city, r.countryCode].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>
                     </>
                   )}
-                  onCreateNew={canCreateRelation && !form.readOnly ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
+                  onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
                   createLabel={t("MasterData:AddNewRelation")}
                   onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
                   disabled={form.readOnly}
@@ -277,6 +288,9 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
                   value={form.values.user}
                   onChange={(next) => form.set("user", next)}
                   fetchPage={userLookupPage}
+                  {...inPlace.offer<UserRow>("User", form.readOnly, (r) =>
+                    form.set("user", { id: r.id, name: [r.dto.name, r.dto.surname].filter(Boolean).join(" "), userName: r.dto.userName ?? "", email: r.dto.email ?? null }),
+                  )}
                   getLabel={(u) => u.name || u.userName}
                   renderOption={(u) => (
                     <>
@@ -415,6 +429,7 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
         destructive
         onConfirm={handleAnonymise}
       />
+      {inPlace.dialog}
     </>
   );
 }

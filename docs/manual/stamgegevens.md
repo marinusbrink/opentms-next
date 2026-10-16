@@ -1,17 +1,22 @@
 # Stamgegevens
 
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
-verwijzen. Deze eerste versie bevat tien lijsten, verdeeld over vier groepen in het
-navigatiepaneel:
+verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
+app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
+eerst een groep per domein, daaronder de groepen met de lijsten. Nu is er één domeingroep,
+**Algemeen** (de stamgegevens van het domein Stamgegevens zelf); de groepen van andere domeinen,
+zoals Orders of Financieel, verschijnen zodra hun eerste lijst er is.
+
+Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 
 | Groep | Lijsten |
 |---|---|
 | Relaties | [Relaties](relaties.md), Adrestypen, Relatiecategorieën |
-| Transport | Producten, Transporteenheden, Temperaturen |
-| Wagenpark | [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
+| Transport | Producten, Transporteenheden, [Productrelatiecodes](#productrelatiecodes), Temperaturen |
+| Wagenpark | [Voertuigen en Voertuigcombinaties](voertuigen.md), [Chauffeurs](chauffeurs.md), Voertuigtypen, Transportkenmerken |
 | Regio's en lijsten | Landen, Valuta's, Geografische regio's |
 
-De app, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
+De app, elke domeingroep, elke groep en elke lijst is een eigen functie, die per tenant aan staat via de editie
 (zie [Tenants en edities](beheer-tenants-en-edities.md)). Een lijst waarvan de functie uit staat,
 ziet u niet in het navigatiepaneel; opent u hem toch via een link, dan meldt het scherm dat het
 niet bij uw pakket hoort. Keuzelijsten in een scherm (bijvoorbeeld het land in een relatie) werken
@@ -26,11 +31,35 @@ record alleen-lezen.
 - **Nieuw** staat vooraan in de actiebalk. **Selectie verwijderen** verwijdert de aangevinkte
   regels; regels die nog in gebruik zijn worden overgeslagen en de melding noemt ze.
 - Een record dat in gebruik is kan niet worden verwijderd. Dat geldt voor een valuta die de
-  standaard is of als standaardvaluta van een land dient, een land dat in een postcodebereik
-  voorkomt en een voertuigtype dat in een beladingsfactor voorkomt.
+  standaard is of als standaardvaluta van een land dient, een land dat in een postcodebereik of als registratieland van een voertuig
+  voorkomt, een voertuigtype dat in een beladingsfactor of bij een voertuig voorkomt, en een
+  product, transporteenheid of relatie waar een productrelatiecode naar verwijst.
 - Producten, transporteenheden en temperaturen kunnen worden **gearchiveerd** in plaats van
   verwijderd. Gearchiveerde records verdwijnen uit de keuzelijsten; met *Gearchiveerde tonen*
   blijven ze in de lijst zichtbaar.
+
+## Nieuw record vanuit een keuzelijst
+
+Elke keuzelijst in een scherm die een record kiest (een land, valuta, voertuigtype, product,
+relatie, chauffeur, organisatie-eenheid en zo verder) eindigt met de regel **Nieuw … toevoegen…**,
+bijvoorbeeld *Nieuw land toevoegen…* of *Nieuwe relatiecategorie toevoegen…*. Zo hoeft u het scherm
+niet te verlaten (en uw wijzigingen niet kwijt te raken) als het record dat u zoekt nog niet bestaat:
+
+- De regel opent het scherm voor een nieuw record bovenop het scherm waarin u werkt. Wat u in de
+  keuzelijst had getypt, staat al in het veld *Naam* (bij een chauffeur: één woord is de achternaam,
+  bij meer woorden is het eerste woord de voornaam).
+- Na **Opslaan** sluit dat scherm en is het nieuwe record gekozen; in een keuzelijst met meerdere
+  waarden (bijvoorbeeld de categorieën van een relatie) wordt het aan de keuze toegevoegd. **Sluiten**
+  zonder opslaan laat de keuzelijst zoals hij was.
+- Dat geldt ook voor de keuzelijsten in een tabel in het scherm, zoals het land van een
+  postcodebereik of het voertuigtype van een beladingsfactor: het nieuwe record komt in die regel.
+- De regel staat er alleen als u het recht hebt om zo'n record aan te maken én het onderdeel van
+  dat record voor uw organisatie aanstaat (bijvoorbeeld *Stamgegevens › Referentie › Landen* voor
+  een land), en niet in een scherm dat alleen-lezen is geopend.
+- In een keuzelijst in een tabel kiest **Tab** de gemarkeerde waarde en gaat naar de volgende cel.
+  Met **pijl omlaag** voorbij de laatste waarde komt u op de regel **Nieuw … toevoegen…**; **Enter**
+  opent dan het scherm voor het nieuwe record. Keuzelijsten met vaste waarden (een soort, een blokkeerreden,
+  een brandstof) en de filters boven een lijst hebben de regel niet.
 
 ## Meertalige namen
 
@@ -77,11 +106,34 @@ wilt.
 - Alle drie hebben het tabblad **Niet combineren met**: de records die niet samen in één rit
   mogen. De koppeling geldt in beide richtingen.
 
+## Productrelatiecodes
+
+Een **productrelatiecode** is de artikelcode die een klant voor zijn goederen gebruikt, gekoppeld
+aan uw eigen gegevens: een **bestemming** (een relatie), een **product** en een
+**transporteenheid**. Imports en orderregels die de code van de klant noemen, vinden zo het juiste
+product, de verpakking en het afleveradres.
+
+- De **code** wordt opgeslagen zoals u hem typt (zonder spaties aan begin en eind) en is uniek
+  binnen de tenant, ongeacht hoofdletters: `abc-1` en `ABC-1` zijn dezelfde code.
+- Minstens één van bestemming, product en transporteenheid is verplicht; een code die nergens naar
+  verwijst heeft geen zin. De bestemming kiest u door in het veld te typen; met **Nieuwe relatie
+  toevoegen…** maakt u de relatie meteen aan.
+- De lijst toont code, bestemming (naam en plaats), product en transporteenheid. Zoeken werkt op
+  code, naam van de bestemming en naam van het product; de lijst wordt per pagina van de server
+  gehaald, ook bij tienduizenden codes.
+- Een code die u niet meer gebruikt, **archiveert** u met het vinkje *Gearchiveerd* in de editor. Imports
+  herkennen een gearchiveerde code niet meer; met *Toon gearchiveerd* blijft hij in de lijst
+  zichtbaar.
+- Een import die een onbekende code noemt, maakt die code **niet** zelf aan: de code moet eerst
+  hier bestaan.
+
 ## Voertuigtypen en transportkenmerken
 
 Een voertuigtype heeft een soort (trekker, oplegger, bakwagen, bestelwagen), maximale EPQ en
 laadmeters, standaardafmetingen en brutogewicht, en een set transportkenmerken. Een
-transportkenmerk heeft een unieke code.
+transportkenmerk heeft een unieke code. Een nieuw [voertuig](voertuigen.md) neemt de afmetingen van
+zijn type één keer over; de transportkenmerken van het type gelden altijd voor elk voertuig van dat
+type.
 
 ## Geografische regio's
 

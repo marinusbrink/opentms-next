@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   TenantProvisioningStates,
+  type EditionLookup,
   useCreateTenant,
   useEditionLookup,
   useTenant,
@@ -21,6 +23,7 @@ import {
   useUpdateTenant,
   type TenantRow,
 } from "@/domains/platform/tenants";
+import { EditionFormDialog } from "@/apps/tenants/EditionFormDialog";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -31,6 +34,9 @@ interface TenantFormDialogProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /** Platform.Editions.Create (the view checks it, as for the edition editor's canManageFeatures): the edition
+   *  picker offers "Add new edition…" (UI-LOOK-004). */
+  canCreateEdition?: boolean;
 }
 
 interface TenantFormValues {
@@ -47,13 +53,15 @@ const PREVIEW_DEBOUNCE_MS = 300;
  * (D1, D2, D6): no "use host database" (every tenant gets its own), no password (the administrator is invited),
  * no change-password / activation / active switches (always so). The connection string is generated: shown
  * read-only with the password masked. */
-export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose, onSuccess }: TenantFormDialogProps) {
+export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose, onSuccess, canCreateEdition = false }: TenantFormDialogProps) {
   const { t } = useL();
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
   const editions = useEditionLookup();
   const detail = useTenant(mode === "edit" ? tenant?.id : undefined);
   const formRef = useRef<HTMLFormElement>(null);
+  /* "Add new …" in the edition picker (UI-LOOK-004): the edition editor on top; the saved edition is selected. */
+  const [newEdition, setNewEdition] = useState<{ term: string } | null>(null);
 
   const initial = useMemo<TenantFormValues>(
     () => ({
@@ -189,6 +197,8 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
                 onChange={(next) => setValues((v) => ({ ...v, editionId: next }))}
                 options={editionOptions}
                 disabled={readOnly}
+                onCreateNew={canCreateEdition && !readOnly ? (term) => setNewEdition({ term }) : undefined}
+                createLabel={t("Editions:AddNewEdition")}
               />
             </FormField>
           </div>
@@ -247,6 +257,7 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
   ];
 
   return (
+    <>
     <EntityDialog
       open={open}
       onOpenChange={(next) => {
@@ -264,6 +275,38 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
       onActiveTabChange={setActiveTab}
       isDirty={isDirty}
       isBusy={isPending}
+    />
+    {newEdition && (
+      <NewEditionDialog
+        term={newEdition.term}
+        onClose={() => setNewEdition(null)}
+        onCreated={(editionId) => setValues((v) => ({ ...v, editionId }))}
+      />
+    )}
+    </>
+  );
+}
+
+/** The edition editor in create mode on top of the tenant editor; the saved edition joins the picker's list at once. */
+function NewEditionDialog({ term, onClose, onCreated }: { term: string; onClose: () => void; onCreated: (editionId: string) => void }) {
+  const queryClient = useQueryClient();
+  return (
+    <EditionFormDialog
+      mode="create"
+      initialName={term}
+      canManageFeatures={false}
+      open
+      onClose={onClose}
+      onSuccess={(saved) => {
+        const id = saved?.id;
+        if (!id) return;
+        /* Shown at once; the refetch brings the server's list. */
+        queryClient.setQueryData<EditionLookup[]>(["platform", "tenants", "edition-lookup"], (rows) =>
+          rows && !rows.some((r) => r.id === id) ? [...rows, { id, displayName: saved.displayName ?? "" }] : rows,
+        );
+        void queryClient.invalidateQueries({ queryKey: ["platform", "tenants", "edition-lookup"] });
+        onCreated(id);
+      }}
     />
   );
 }

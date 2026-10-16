@@ -51,7 +51,7 @@ vi.mock("@/domains/platform/administration-organization-units", () => ({
   fetchAllPages: async (fetchPage: (s: number, e: number) => Promise<{ rows: unknown[] }>) => (await fetchPage(0, 200)).rows,
 }));
 
-vi.mock("@/apps/admin/components/OrganizationUnitMembersPanel", () => ({
+vi.mock("@/domains/platform/components/OrganizationUnitMembersPanel", () => ({
   OrganizationUnitMembersPanel: (props: typeof panelProps) => {
     panelProps = props;
     return <div data-testid="members-panel" />;
@@ -95,8 +95,8 @@ beforeEach(() => {
   panelProps = {};
 });
 
-import { OrganizationUnitFormDialog } from "@/apps/admin/components/OrganizationUnitFormDialog";
-import { AddOrganizationUnitMembersDialog } from "@/apps/admin/components/AddOrganizationUnitMembersDialog";
+import { OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
+import { AddOrganizationUnitMembersDialog } from "@/domains/platform/components/AddOrganizationUnitMembersDialog";
 
 const unit = {
   id: "u1",

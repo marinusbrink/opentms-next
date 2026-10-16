@@ -18,7 +18,7 @@ namespace OpenTms.MasterData.Permissions;
 /// <summary>
 /// The app and navigation feature attributes of every Master Data service, read by reflection (PO 2026-10-14,
 /// docs/designs/tenants-and-editions.md, "App features"): the class needs the app; every public method needs its
-/// group and node (RequiresAll), except the pickers, which need only the app. Risk class: High (feature gating of
+/// domain group (General, PO 2026-10-16), group and node (RequiresAll), except the pickers, which need only the app. Risk class: High (feature gating of
 /// every screen) on a Critical boundary (authorization). The SQLite tests prove the gate works for one method per
 /// service; this proves every method carries the right one.
 /// </summary>
@@ -26,18 +26,22 @@ public class MasterDataAppFeatureAttributeTests
 {
     public static IEnumerable<object[]> Services() =>
     [
-        [typeof(AddressTypeAppService), AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.AddressTypes],
-        [typeof(RelationCategoryAppService), AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationCategories],
-        [typeof(RelationAppService), AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList],
-        [typeof(ProductAppService), AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Products],
-        [typeof(TransportUnitAppService), AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits],
-        [typeof(TemperatureAppService), AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.Temperatures],
-        [typeof(DriverAppService), AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers],
-        [typeof(VehicleTypeAppService), AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.VehicleTypes],
-        [typeof(TransportCharacteristicsAppService), AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.TransportCharacteristics],
-        [typeof(CountryAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Countries],
-        [typeof(CurrencyAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.Currencies],
-        [typeof(GeographicalRegionAppService), AppFeatures.MasterData.Reference.Default, AppFeatures.MasterData.Reference.GeographicalRegions],
+        [typeof(AddressTypeAppService), AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.AddressTypes],
+        [typeof(RelationCategoryAppService), AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationCategories],
+        [typeof(RelationAppService), AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList],
+        [typeof(ProductAppService), AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Products],
+        [typeof(TransportUnitAppService), AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits],
+        [typeof(TemperatureAppService), AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.Temperatures],
+        [typeof(DriverAppService), AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Drivers],
+        [typeof(VehicleTypeAppService), AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleTypes],
+        [typeof(TransportCharacteristicsAppService), AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.TransportCharacteristics],
+        [typeof(CountryAppService), AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Countries],
+        [typeof(CurrencyAppService), AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.Currencies],
+        [typeof(GeographicalRegionAppService), AppFeatures.MasterData.General.Reference.Default, AppFeatures.MasterData.General.Reference.GeographicalRegions],
+        /* Design 48. */
+        [typeof(VehicleAppService), AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Vehicles],
+        [typeof(VehicleCombinationAppService), AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.VehicleCombinations],
+        [typeof(ProductRelationCodeAppService), AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.ProductRelationCodes],
     ];
 
     /// <summary>The pickers per PO decision 2026-10-14; Driver.GetUserLookupPageAsync is deliberately not one.</summary>
@@ -49,6 +53,8 @@ public class MasterDataAppFeatureAttributeTests
         nameof(GeographicalRegionAppService) + "." + nameof(GeographicalRegionAppService.GetMatchesAsync),
         nameof(CountryAppService) + "." + nameof(CountryAppService.GetDefaultAsync),
         nameof(TransportCharacteristicsAppService) + "." + nameof(TransportCharacteristicsAppService.GetLookupPageAsync),
+        /* Design 48: the vehicle picker needs only the app (D12); type-defaults belongs to the Vehicles screen. */
+        nameof(VehicleAppService) + "." + nameof(VehicleAppService.GetLookupPageAsync),
     ];
 
     private static bool IsPicker(Type service, MethodInfo method) =>
@@ -84,8 +90,8 @@ public class MasterDataAppFeatureAttributeTests
             else
             {
                 var attribute = attributes.ShouldHaveSingleItem($"{service.Name}.{method.Name} needs its node feature");
-                attribute.Features.ShouldBe([group, node], $"{service.Name}.{method.Name}");
-                attribute.RequiresAll.ShouldBeTrue($"{service.Name}.{method.Name}: the group AND the node");
+                attribute.Features.ShouldBe([AppFeatures.MasterData.General.Default, group, node], $"{service.Name}.{method.Name}");
+                attribute.RequiresAll.ShouldBeTrue($"{service.Name}.{method.Name}: the domain group, the group AND the node");
             }
         }
     }
@@ -96,7 +102,7 @@ public class MasterDataAppFeatureAttributeTests
         var attribute = typeof(DriverAppService).GetMethod(nameof(DriverAppService.GetUserLookupPageAsync))!
             .GetCustomAttribute<RequiresFeatureAttribute>();
         attribute.ShouldNotBeNull();
-        attribute.Features.ShouldBe([AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Fleet.Drivers]);
+        attribute.Features.ShouldBe([AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Fleet.Drivers]);
         attribute.RequiresAll.ShouldBeTrue();
     }
 

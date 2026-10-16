@@ -35,6 +35,8 @@ public class RelationAppService
     private readonly IRepository<RelationExternalIdentifier, Guid> _externalIds;
     private readonly IRepository<GeographicalRegion, Guid> _regions;
     private readonly IRepository<Driver, Guid> _drivers;
+    private readonly IRepository<Vehicle, Guid> _vehicles;
+    private readonly IRepository<Transport.ProductRelationCode, Guid> _productRelationCodes;
     private readonly IOrganizationUnitRepository _organizationUnits;
     private readonly IRelationMatcher _matcher;
     private readonly IReadOnlyCollection<string> _cultures;
@@ -54,6 +56,8 @@ public class RelationAppService
         IRepository<RelationExternalIdentifier, Guid> externalIds,
         IRepository<GeographicalRegion, Guid> regions,
         IRepository<Driver, Guid> drivers,
+        IRepository<Vehicle, Guid> vehicles,
+        IRepository<Transport.ProductRelationCode, Guid> productRelationCodes,
         IOrganizationUnitRepository organizationUnits,
         IRelationMatcher matcher,
         IOptions<AbpLocalizationOptions> localization)
@@ -69,12 +73,14 @@ public class RelationAppService
         _externalIds = externalIds;
         _regions = regions;
         _drivers = drivers;
+        _vehicles = vehicles;
+        _productRelationCodes = productRelationCodes;
         _organizationUnits = organizationUnits;
         _matcher = matcher;
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Default)]
     public async Task<GridResponse<RelationRowDto>> GetListAsync(RelationListRequestDto input)
     {
@@ -82,7 +88,7 @@ public class RelationAppService
         return await GetListInternalAsync(input);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Default)]
     public Task<RelationDto> GetAsync(Guid id) => GetInternalAsync(id);
 
@@ -131,24 +137,24 @@ public class RelationAppService
         return (await MapAddressesAsync(relation.Addresses)).ToList();
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Create)]
     public Task<RelationDto> CreateAsync(RelationCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Update)]
     public Task<RelationDto> UpdateAsync(Guid id, RelationUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(RelationBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.Roles, input.IncludeArchived, input.CategoryId, input.OrganizationUnitId));
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Update)]
     public async Task ArchiveAsync(Guid id)
     {
@@ -157,7 +163,7 @@ public class RelationAppService
         await Repository.UpdateAsync(relation, autoSave: true);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Update)]
     public async Task UnarchiveAsync(Guid id)
     {
@@ -166,7 +172,7 @@ public class RelationAppService
         await Repository.UpdateAsync(relation, autoSave: true);
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Relations.RelationsList, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Relations.RelationsList, RequiresAll = true)]
     [Authorize(MasterDataPermissions.Relations.Default)]
     public Task<RelationMatchResultDto> MatchAsync(RelationMatchRequestDto input) => _matcher.MatchAsync(input);
 
@@ -494,6 +500,17 @@ public class RelationAppService
         if (await _drivers.AnyAsync(d => d.EmployerRelationId == relation.Id))
         {
             return L["MasterData:InUseByDrivers"];
+        }
+
+        /* Design 48: the owner or home depot of a vehicle, the destination of a product relation code. */
+        if (await _vehicles.AnyAsync(v => v.OwnerRelationId == relation.Id || v.HomeDepotRelationId == relation.Id))
+        {
+            return L["MasterData:InUseByVehicles"];
+        }
+
+        if (await _productRelationCodes.AnyAsync(c => c.RelationId == relation.Id))
+        {
+            return L["MasterData:InUseByProductRelationCodes"];
         }
 
         return null;

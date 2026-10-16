@@ -20,23 +20,23 @@ namespace OpenTms.EntityFrameworkCore.MasterData;
 /// <summary>
 /// The Master Data permission and feature definitions through the real definition managers, and the
 /// feature gate on the services (design 41, "Feature flag and permissions").
-/// Risk class: Critical — authorization: 49 permissions (design 41 plus design 43) on both sides, the flag default off, and the
+/// Risk class: Critical — authorization: 61 permissions (designs 41, 43 and 48) on both sides, the flag default off, and the
 /// flag blocking every service when off.
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
 {
     [Fact]
-    public async Task The_permission_provider_defines_forty_nine_permissions_on_both_sides_in_one_group()
+    public async Task The_permission_provider_defines_sixty_one_permissions_on_both_sides_in_one_group()
     {
         var manager = GetRequiredService<IPermissionDefinitionManager>();
 
         var groups = await manager.GetGroupsAsync();
         var group = groups.Single(g => g.Name == MasterDataPermissions.GroupName);
 
-        group.Permissions.Count.ShouldBe(12);
+        group.Permissions.Count.ShouldBe(15);
         var all = group.GetPermissionsWithChildren();
-        all.Count.ShouldBe(49);
+        all.Count.ShouldBe(61);
         all.Select(p => p.Name).ShouldBe(
             MasterDataPermissions.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete })
                 .Append(MasterDataPermissions.Drivers.Anonymise),
@@ -67,11 +67,11 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
         var manager = GetRequiredService<IFeatureDefinitionManager>();
 
         /* PO 2026-10-14: the run-1 and run-2 flags became the Master data app tree; the app and its groups are on,
-         * the twelve lists (which were behind a flag) stay off until an edition or tenant switches them on. */
+         * the lists (the twelve that were behind a flag and design 48's three new nodes) stay off until an edition or tenant switches them on. */
         foreach (var name in new[]
                  {
-                     AppFeatures.MasterData.Default, AppFeatures.MasterData.Relations.Default, AppFeatures.MasterData.Transport.Default,
-                     AppFeatures.MasterData.Fleet.Default, AppFeatures.MasterData.Reference.Default,
+                     AppFeatures.MasterData.Default, AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Relations.Default, AppFeatures.MasterData.General.Transport.Default,
+                     AppFeatures.MasterData.General.Fleet.Default, AppFeatures.MasterData.General.Reference.Default,
                  })
         {
             var feature = await manager.GetAsync(name);
@@ -83,10 +83,12 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
 
         foreach (var name in new[]
                  {
-                     AppFeatures.MasterData.Relations.RelationsList, AppFeatures.MasterData.Relations.AddressTypes, AppFeatures.MasterData.Relations.RelationCategories,
-                     AppFeatures.MasterData.Transport.Products, AppFeatures.MasterData.Transport.TransportUnits, AppFeatures.MasterData.Transport.Temperatures,
-                     AppFeatures.MasterData.Fleet.Drivers, AppFeatures.MasterData.Fleet.VehicleTypes, AppFeatures.MasterData.Fleet.TransportCharacteristics,
-                     AppFeatures.MasterData.Reference.Countries, AppFeatures.MasterData.Reference.Currencies, AppFeatures.MasterData.Reference.GeographicalRegions,
+                     AppFeatures.MasterData.General.Relations.RelationsList, AppFeatures.MasterData.General.Relations.AddressTypes, AppFeatures.MasterData.General.Relations.RelationCategories,
+                     AppFeatures.MasterData.General.Transport.Products, AppFeatures.MasterData.General.Transport.TransportUnits, AppFeatures.MasterData.General.Transport.Temperatures,
+                     AppFeatures.MasterData.General.Fleet.Drivers, AppFeatures.MasterData.General.Fleet.VehicleTypes, AppFeatures.MasterData.General.Fleet.TransportCharacteristics,
+                     AppFeatures.MasterData.General.Reference.Countries, AppFeatures.MasterData.General.Reference.Currencies, AppFeatures.MasterData.General.Reference.GeographicalRegions,
+                     /* Design 48. */
+                     AppFeatures.MasterData.General.Fleet.Vehicles, AppFeatures.MasterData.General.Fleet.VehicleCombinations, AppFeatures.MasterData.General.Transport.ProductRelationCodes,
                  })
         {
             var feature = await manager.GetAsync(name);
@@ -134,12 +136,12 @@ public class MasterDataDefinitionProviderTests : MasterDataAppServiceTestBase
     {
         var checker = GetRequiredService<IFeatureChecker>();
 
-        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Reference.Countries, "false"))
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeTrue();
+        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.General.Reference.Countries, "false"))
         {
-            (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeFalse();
+            (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeFalse();
         }
 
-        (await checker.IsEnabledAsync(AppFeatures.MasterData.Reference.Countries)).ShouldBeTrue();
+        (await checker.IsEnabledAsync(AppFeatures.MasterData.General.Reference.Countries)).ShouldBeTrue();
     }
 }

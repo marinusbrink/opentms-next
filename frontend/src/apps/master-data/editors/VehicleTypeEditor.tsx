@@ -4,6 +4,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCanCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { TransportCharacteristicsEditor } from "@/apps/master-data/editors/TransportCharacteristicsEditor";
 import { NumberField, TextAreaField, TextField, numberError, numberToText, parseNumber } from "@/apps/master-data/components/fields";
@@ -34,8 +35,8 @@ interface Values {
 
 const NUMBER_FIELDS = ["maxEpq", "maxLoadingMeters", "defaultLengthCm", "defaultWidthCm", "defaultHeightCm", "defaultGrossVehicleWeightKg"] as const;
 
-const initialValues = (dto: VehicleTypeDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: VehicleTypeDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   kind: dto?.kind ?? 1,
   description: dto?.description ?? "",
   maxEpq: numberToText(dto?.maxEpq),
@@ -57,14 +58,16 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
   const detail = vehicleTypes.useDetail(mode === "edit" ? id : undefined);
   const create = vehicleTypes.useCreate();
   const update = vehicleTypes.useUpdate();
   const remove = vehicleTypes.useDelete();
   const canDelete = useIsGranted("MasterData.VehicleTypes.Delete");
-  const canCreateCharacteristic = useIsGranted("MasterData.TransportCharacteristics.Create");
+  /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
+  const canCreate = useCanCreateInPlace();
   /* "Add new …" in the characteristics picker (UI-LOOK-004): the characteristics editor opens on top,
    * and the saved record is selected. */
   const [newCharacteristic, setNewCharacteristic] = useState<{ term: string } | null>(null);
@@ -90,11 +93,9 @@ export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
         defaultGrossVehicleWeightKg: parseNumber(v.defaultGrossVehicleWeightKg),
         transportCharacteristicsIds: v.transportCharacteristicsIds,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );
@@ -153,7 +154,7 @@ export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
               onChange={(next) => form.set("transportCharacteristicsIds", next)}
               options={options}
               disabled={form.readOnly}
-              onCreateNew={canCreateCharacteristic && !form.readOnly ? (term) => setNewCharacteristic({ term }) : undefined}
+              onCreateNew={canCreate("TransportCharacteristics", form.readOnly) ? (term) => setNewCharacteristic({ term }) : undefined}
               createLabel={t("MasterData:AddNewTransportCharacteristics")}
             />
           </FormField>

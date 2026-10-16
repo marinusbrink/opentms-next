@@ -34,6 +34,7 @@ export function useFormState<TValues extends object>(
   const form: FormContext<TValues> = {
     values,
     set: (field, value) => setValues((v) => ({ ...v, [field]: value })),
+    update: (change) => setValues(change),
     error: (field) => (touched.has(field) || submitted ? (errors[field] ? t(errors[field]!) : undefined) : undefined),
     blur: (field) => setTouched((s) => (s.has(field) ? s : new Set(s).add(field))),
     readOnly,

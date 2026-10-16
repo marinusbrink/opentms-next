@@ -31,7 +31,7 @@ vi.mock("@/domains/platform/administration-organization-units", () => ({
   useDeleteOrganizationUnit: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@/apps/admin/components/OrganizationUnitFormDialog", () => ({
+vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", () => ({
   OrganizationUnitFormDialog: () => null,
 }));
 
@@ -39,7 +39,7 @@ vi.mock("@/components/ui/opentms-grid-lazy", () => ({
   LazyOpenTmsGrid: () => <div data-testid="mock-grid" />,
 }));
 
-vi.mock("@/apps/admin/components/UserFormDialog", () => ({
+vi.mock("@/domains/platform/components/UserFormDialog", () => ({
   UserFormDialog: () => null,
 }));
 

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { FormSection } from "@/components/ui/form-section";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
@@ -13,12 +13,16 @@ interface Values {
   description: string;
 }
 
-const initialValues = (dto: RelationCategoryDto | undefined): Values => ({ name: dto?.name ?? "", description: dto?.description ?? "" });
+const initialValuesFor = (initialName: string | undefined) => (dto: RelationCategoryDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
+  description: dto?.description ?? "",
+});
 
 const validate = (v: Values): FieldErrors<Values> => (v.name.trim() ? {} : { name: "MasterData:Required" });
 
-export function RelationCategoryEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function RelationCategoryEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
   const detail = relationCategories.useDetail(mode === "edit" ? id : undefined);
   const create = relationCategories.useCreate();
   const update = relationCategories.useUpdate();
@@ -28,11 +32,9 @@ export function RelationCategoryEditor({ mode, id, readOnly, open, onClose, onSa
   const save = useCallback(
     async (v: Values, dto: RelationCategoryDto | undefined) => {
       const body = { name: v.name.trim(), description: v.description.trim() || null };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );

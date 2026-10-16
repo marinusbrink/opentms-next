@@ -48,7 +48,7 @@ const ADMIN_ON = {
   "Apps.Administration.AuditLogs.TechnicalLogbook": "true",
 };
 
-const COUNTRIES_ON = { "Apps.MasterData": "true", "Apps.MasterData.Reference": "true", "Apps.MasterData.Reference.Countries": "true" };
+const COUNTRIES_ON = { "Apps.MasterData": "true", "Apps.MasterData.General": "true", "Apps.MasterData.General.Reference": "true", "Apps.MasterData.General.Reference.Countries": "true" };
 
 beforeEach(() => {
   pathname = "/admin/users";
@@ -134,7 +134,7 @@ describe("AppShell – app features", () => {
 
   it("renders FeatureUnavailable for the Relations list while its node is off (formerly MasterData.Relations)", () => {
     pathname = "/master-data/relations";
-    config = tenantConfig({ ...COUNTRIES_ON, "Apps.MasterData.Relations": "true", "Apps.MasterData.Relations.Relations": "false" });
+    config = tenantConfig({ ...COUNTRIES_ON, "Apps.MasterData.General.Relations": "true", "Apps.MasterData.General.Relations.Relations": "false" });
     render(<AppShell />);
     expect(unavailable()).toBeInTheDocument();
   });

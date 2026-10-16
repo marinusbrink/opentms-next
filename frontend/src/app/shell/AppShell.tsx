@@ -47,7 +47,9 @@ export function AppShell() {
   const hasNav = activeApp?.views != null && activeApp.views.length > 0 && features.visibleViews(activeApp).length > 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-page">
+    /* Pinned to the viewport: the nav pane and the view scroll on their own, never the page (a long nav tree used to
+     * put the page's scrollbar at the window edge). */
+    <div className="flex h-dvh flex-col overflow-hidden bg-surface-page">
       <header className="flex h-12 items-center bg-brand text-brand-foreground shadow-sm">
         <WaffleLauncher />
         <div className="flex items-baseline gap-3 pl-1">
@@ -67,21 +69,21 @@ export function AppShell() {
       </header>
       <ImpersonationBanner />
       {hasNav ? (
-        <div className="flex flex-1">
+        <div className="flex min-h-0 flex-1">
           <AppNavPane
             app={activeApp}
             collapsed={navCollapsed}
             onToggleCollapsed={() => setNavCollapsed((v) => !v)}
           />
-          <main className="min-w-0 flex-1">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             {content}
           </main>
         </div>
       ) : (
         /* Same row wrapper as above: a stretched flex item has a definite height, so a full-width
          * view's h-full (a grid filling the page) resolves. */
-        <div className="flex flex-1">
-          <main className="min-w-0 flex-1">
+        <div className="flex min-h-0 flex-1">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             {content}
           </main>
         </div>

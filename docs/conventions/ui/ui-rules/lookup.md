@@ -14,7 +14,7 @@ interface EntityLookupProps<T extends { id: string }> {
   fetchPage: (q: { term: string; skip: number; take: number }) => Promise<{ items: T[]; totalCount: number }>;
   getLabel: (item: T) => string;                          // shown when selected: the name
   renderOption?: (item: T) => ReactNode;                  // optional richer row in the list
-  onCreateNew?: (term: string) => void;                   // shows "Add new …"; omit when the user may not create
+  onCreateNew?: (term: string) => void;                   // shows "Add new …" (UI-LOOK-004); omit only when the user may not create
   onEdit?: (item: T) => void;                             // shows the edit pencil; omit when the user may not edit
   createLabel?: string;                                   // t("AddNewRelation")
   multiple?: boolean;
@@ -57,10 +57,18 @@ An empty term loads the first page. Below the minimum the list shows `t("TypeToS
 - **Check:** `getLabel` returns the name; `renderOption` has at most 3 lines.
 - **Evidence:** inventory §9.2 (relation options: search name - name / street / postcode city; selected = name only); D-31.
 
-### UI-LOOK-004 · MUST · "Add new …" creates in place
-When the user may create the entity, the list ends with a row `createLabel` (`Plus` icon). It opens that entity's editor (`mode="create"`, the name prefilled with the typed term) on top of the current dialog. After saving, the new record is selected. When the user may not create, there is no row.
-- **Check:** lookups for creatable entities pass `onCreateNew` guarded by the create permission.
-- **Evidence:** inventory §9.2 (`addTag` "AddNew<Entity>" prefilled with the typed text, in the base wrappers and vehicle-select).
+### UI-LOOK-004 · MUST · Every record picker in a form can create in place
+Every control in a form that picks a record — `EntityLookup`, `ReferenceCombobox`, `MultiSelect`, `TreeSelect`, or a
+`Select` over records — offers "Add new …" when the user may create that entity (PO decision 2026-10-16: the user
+never has to leave the screen and abandon changes to add a missing record). The list ends with a row `createLabel`
+(`Plus` icon). It opens that entity's editor (`mode="create"`, the name prefilled with the typed term) on top of the
+current dialog. After saving, the new record is selected; in a multi-value control it is added to the selection.
+When the user may not create, there is no row.
+- **Not covered:** a `Select` over a fixed enum (nothing to create) and the filters in a list toolbar.
+- **Check:** every record picker in a form passes `onCreateNew` guarded by the create permission; one without it
+  carries `DEVIATION(UI-LOOK-004): <reason>, approved in <design doc>`.
+- **Evidence:** inventory §9.2 (`addTag` "AddNew<Entity>" prefilled with the typed text, in the base wrappers and
+  vehicle-select); PO decision 2026-10-16.
 
 ### UI-LOOK-005 · SHOULD · An edit pencil opens the selected record
 When a value is selected and the user may edit that entity, a ghost `icon-sm` `Pencil` button with the tooltip `t("Edit")` sits inside the control's right edge, before the clear button. It opens the entity editor on top.

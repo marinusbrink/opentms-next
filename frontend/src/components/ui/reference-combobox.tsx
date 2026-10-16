@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { Plus } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   Combobox,
   ComboboxContent,
@@ -12,7 +15,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 /* A single-value picker over a static list loaded once (UI-LOOK-001: countries, currencies,
  * time zones; more than 15 options, so a searchable Combobox instead of a Select). The value is
  * the option id; the input shows the label and filters client-side. Optional pickers are
- * clearable, required ones are not (UI-LOOK-006). */
+ * clearable, required ones are not (UI-LOOK-006). Over records, `onCreateNew` adds the "Add new …"
+ * row of UI-LOOK-004 with the typed text, the same row as EntityLookup's. */
 export interface ReferenceOption {
   value: string;
   label: string;
@@ -30,6 +34,10 @@ export interface ReferenceComboboxProps {
   "aria-required"?: boolean;
   placeholder?: string;
   className?: string;
+  /** UI-LOOK-004: shows "Add new …" at the end of the list with the typed text; omit when the user may not create (or over a fixed list). */
+  onCreateNew?: (term: string) => void;
+  /** The label of that row, already translated, e.g. t("MasterData:AddNewCountry"). */
+  createLabel?: string;
 }
 
 export function ReferenceCombobox({
@@ -41,10 +49,15 @@ export function ReferenceCombobox({
   disabled = false,
   placeholder,
   className,
+  onCreateNew,
+  createLabel,
   ...aria
 }: ReferenceComboboxProps) {
   const { t } = useL();
   const selected = options.find((o) => o.value === value) ?? null;
+  const [open, setOpen] = useState(false);
+  /* What the user typed since the list opened: the shown label of the selection is no search term. */
+  const [term, setTerm] = useState("");
 
   return (
     <Combobox
@@ -53,6 +66,14 @@ export function ReferenceCombobox({
       onValueChange={(next: ReferenceOption | null) => onChange(next?.value ?? null)}
       isItemEqualToValue={(a: ReferenceOption, b: ReferenceOption) => a.value === b.value}
       disabled={disabled}
+      open={open}
+      onOpenChange={(next: boolean) => {
+        setOpen(next);
+        if (!next) setTerm("");
+      }}
+      onInputValueChange={(next: string, details: { reason: string }) => {
+        if (details.reason === "input-change" || details.reason === "input-paste" || details.reason === "input-clear") setTerm(next);
+      }}
     >
       <ComboboxInput
         id={id}
@@ -73,6 +94,24 @@ export function ReferenceCombobox({
             </ComboboxItem>
           )}
         </ComboboxList>
+        {onCreateNew && (
+          <div className="border-t border-border p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                const typed = term.trim();
+                setOpen(false);
+                setTerm("");
+                onCreateNew(typed);
+              }}
+            >
+              <Plus aria-hidden="true" /> {createLabel ?? t("AddNew")}
+            </Button>
+          </div>
+        )}
       </ComboboxContent>
     </Combobox>
   );

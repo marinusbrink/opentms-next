@@ -22,41 +22,44 @@ public class TransportUnitAppService
 {
     private readonly IRepository<TransportUnitIncompatibility> _pairs;
     private readonly IRepository<VehicleType, Guid> _vehicleTypes;
+    private readonly IRepository<ProductRelationCode, Guid> _productRelationCodes;
 
     public TransportUnitAppService(
         IRepository<TransportUnit, Guid> repository,
         IRepository<TransportUnitIncompatibility> pairs,
-        IRepository<VehicleType, Guid> vehicleTypes)
+        IRepository<VehicleType, Guid> vehicleTypes,
+        IRepository<ProductRelationCode, Guid> productRelationCodes)
         : base(repository)
     {
         _pairs = pairs;
         _vehicleTypes = vehicleTypes;
+        _productRelationCodes = productRelationCodes;
     }
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<GridResponse<TransportUnitRowDto>> GetListAsync(ArchivableListRequestDto input) => GetListInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<TransportUnitDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(MasterDataPermissions.TransportUnits.Default)]
     public Task<List<MasterDataLookupDto>> GetLookupAsync(string? term = null, int take = MasterDataConsts.MaxLookupTake) => GetLookupInternalAsync(term, take);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Create)]
     public Task<TransportUnitDto> CreateAsync(TransportUnitCreateDto input) => CreateInternalAsync(input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Update)]
     public Task<TransportUnitDto> UpdateAsync(Guid id, TransportUnitUpdateDto input) => UpdateInternalAsync(id, input);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Delete)]
     public Task DeleteAsync(Guid id) => DeleteInternalAsync(id);
 
-    [RequiresFeature(AppFeatures.MasterData.Transport.Default, AppFeatures.MasterData.Transport.TransportUnits, RequiresAll = true)]
+    [RequiresFeature(AppFeatures.MasterData.General.Default, AppFeatures.MasterData.General.Transport.Default, AppFeatures.MasterData.General.Transport.TransportUnits, RequiresAll = true)]
     [Authorize(MasterDataPermissions.TransportUnits.Delete)]
     public Task<MasterDataBulkDeleteResultDto> BulkDeleteAsync(ArchivableBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => input.IncludeArchived ? q : q.Where(u => !u.IsArchived));
@@ -198,6 +201,17 @@ public class TransportUnitAppService
 
     protected override Task AfterWriteAsync(TransportUnit unit, TransportUnitCreateDto input)
         => SyncIncompatibilitiesAsync(_pairs, unit.Id, input.IncompatibleTransportUnitIds, (tenantId, a, b) => new TransportUnitIncompatibility(tenantId, a, b));
+
+    /// <summary>Design 48: the transport unit of a product relation code is in use.</summary>
+    protected override async Task<string?> GetDeleteBlockerAsync(TransportUnit unit)
+    {
+        if (await _productRelationCodes.AnyAsync(c => c.TransportUnitId == unit.Id))
+        {
+            return L["MasterData:InUseByProductRelationCodes"];
+        }
+
+        return null;
+    }
 
     /// <summary>Children stay behind on a soft delete, and would block deleting their vehicle type; clear them.</summary>
     protected override async Task BeforeDeleteAsync(TransportUnit unit)

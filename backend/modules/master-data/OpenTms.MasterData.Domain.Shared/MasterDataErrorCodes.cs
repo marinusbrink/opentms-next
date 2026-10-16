@@ -38,17 +38,31 @@ public static class MasterDataErrorCodes
     public const string BlockReasonRequired = Namespace + ":BlockReasonRequired";
     public const string ExternalIdentifierIncomplete = Namespace + ":ExternalIdentifierIncomplete";
 
+    // Run 3: Vehicle, vehicle combination and product relation code (design 48)
+    public const string OwnerRoleRequired = Namespace + ":OwnerRoleRequired";
+    public const string HomeDepotRoleRequired = Namespace + ":HomeDepotRoleRequired";
+    public const string InvalidLicencePlate = Namespace + ":InvalidLicencePlate";
+    public const string InvalidVin = Namespace + ":InvalidVin";
+    public const string RegistrationCountryRequired = Namespace + ":RegistrationCountryRequired";
+    public const string CombinationMotorisedFirst = Namespace + ":CombinationMotorisedFirst";
+    public const string CombinationMemberCount = Namespace + ":CombinationMemberCount";
+    public const string VehicleAlreadyInCombination = Namespace + ":VehicleAlreadyInCombination";
+    public const string ProductRelationCodeTargetRequired = Namespace + ":ProductRelationCodeTargetRequired";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         DuplicateKey, InUse, DefaultCannotBeDeleted, DefaultMustBeActive, SelfIncompatibility, DuplicateLoadFactor,
-        OwnCompanyAlreadyExists, AnonymisedRecordIsReadOnly
+        OwnCompanyAlreadyExists, AnonymisedRecordIsReadOnly,
+        VehicleAlreadyInCombination
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
     public static readonly string[] BadRequestCodes =
     [
         InvalidTimeZone, AdrFieldsRequired, InvalidPostalCodeRange, InvalidTemperatureRange, InvalidCode, ReferenceNotFound, UnknownSortColumn, NameRequired, TooManyRows,
-        RolesRequired, EmployerRoleRequired, InvalidIban, InvalidVatNumber, InvalidEmail, InvalidCulture, UserNotFound, TooManyChildren, BlockReasonRequired, ExternalIdentifierIncomplete
+        RolesRequired, EmployerRoleRequired, InvalidIban, InvalidVatNumber, InvalidEmail, InvalidCulture, UserNotFound, TooManyChildren, BlockReasonRequired, ExternalIdentifierIncomplete,
+        OwnerRoleRequired, HomeDepotRoleRequired, InvalidLicencePlate, InvalidVin, RegistrationCountryRequired, CombinationMotorisedFirst, CombinationMemberCount,
+        ProductRelationCodeTargetRequired
     ];
 }

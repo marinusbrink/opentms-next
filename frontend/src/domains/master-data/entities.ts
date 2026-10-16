@@ -6,6 +6,7 @@ import type {
 } from "@/components/ui/entity-lookup";
 import { apiClient } from "@/lib/api/client";
 import {
+  LOOKUP_TAKE,
   createMasterDataHooks,
   masterDataQueryKey,
   type LookupItem,
@@ -632,6 +633,282 @@ export function useAnonymiseDriver() {
     mutationFn: async (id: string): Promise<void> => {
       const { error } = await apiClient.POST(
         "/api/master-data/driver/{id}/anonymise",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+/* ── Run 3 (design 48): Vehicle, vehicle combination, product relation code ─────────────────────── */
+
+export type FuelType = Schemas["OpenTms.MasterData.Fleet.FuelType"];
+export type EuroClass = Schemas["OpenTms.MasterData.Fleet.EuroClass"];
+export type VehicleCharacteristicOrigin =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCharacteristicOrigin"];
+export type VehicleRow = Schemas["OpenTms.MasterData.Fleet.VehicleRowDto"];
+export type VehicleDto = Schemas["OpenTms.MasterData.Fleet.VehicleDto"];
+export type VehicleCreateDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCreateDto"];
+export type VehicleUpdateDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleUpdateDto"];
+export type VehicleCharacteristicDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCharacteristicDto"];
+export type VehicleTypeDefaultsDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto"];
+export type VehicleLookupDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleLookupDto"];
+/** The vehicle list filters (design 48 API contract); `kinds` repeats in the query string. */
+export type VehicleListExtra = {
+  includeArchived?: boolean;
+  kinds?: number;
+  ownerRelationId?: string;
+};
+
+export const vehicles = createMasterDataHooks<
+  VehicleRow,
+  VehicleDto,
+  VehicleCreateDto,
+  VehicleUpdateDto,
+  VehicleListExtra
+>("vehicles", "/api/master-data/vehicle");
+
+/** The kinds that may lead a combination (design 48): tractor, rigid, van. */
+export const MOTORISED_KINDS: VehicleTypeKind[] = [1, 3, 4];
+export const TRAILER_KINDS: VehicleTypeKind[] = [2];
+
+export const FUEL_TYPES: { value: FuelType; key: string }[] = [
+  { value: 1, key: "MasterData:FuelType.Diesel" },
+  { value: 2, key: "MasterData:FuelType.Petrol" },
+  { value: 3, key: "MasterData:FuelType.Lng" },
+  { value: 4, key: "MasterData:FuelType.Cng" },
+  { value: 5, key: "MasterData:FuelType.Lpg" },
+  { value: 6, key: "MasterData:FuelType.Hvo" },
+  { value: 7, key: "MasterData:FuelType.Electric" },
+  { value: 8, key: "MasterData:FuelType.Hydrogen" },
+  { value: 9, key: "MasterData:FuelType.DieselElectricHybrid" },
+  { value: 10, key: "MasterData:FuelType.PetrolElectricHybrid" },
+  { value: 11, key: "MasterData:FuelType.Other" },
+  { value: 12, key: "MasterData:FuelType.NotApplicable" },
+];
+export function fuelTypeKey(value: FuelType | null | undefined): string | undefined {
+  return FUEL_TYPES.find((f) => f.value === value)?.key;
+}
+
+export const EURO_CLASSES: { value: EuroClass; key: string }[] = [
+  { value: 1, key: "MasterData:EuroClass.Euro0" },
+  { value: 2, key: "MasterData:EuroClass.Euro1" },
+  { value: 3, key: "MasterData:EuroClass.Euro2" },
+  { value: 4, key: "MasterData:EuroClass.Euro3" },
+  { value: 5, key: "MasterData:EuroClass.Euro4" },
+  { value: 6, key: "MasterData:EuroClass.Euro5" },
+  { value: 7, key: "MasterData:EuroClass.Euro6" },
+  { value: 8, key: "MasterData:EuroClass.Eev" },
+  { value: 9, key: "MasterData:EuroClass.ZeroEmission" },
+];
+export function euroClassKey(value: EuroClass | null | undefined): string | undefined {
+  return EURO_CLASSES.find((e) => e.value === value)?.key;
+}
+
+/** The option an EntityLookup over vehicles holds (UI-LOOK-003: the name closed; plate and type in the list). */
+export interface VehicleOption {
+  id: string;
+  name: string;
+  licencePlate: string | null;
+  kind: VehicleTypeKind;
+  vehicleTypeName: string | null;
+}
+export function toVehicleOption(dto: VehicleLookupDto): VehicleOption {
+  return {
+    id: dto.id ?? "",
+    name: dto.name ?? "",
+    licencePlate: dto.licencePlate ?? null,
+    kind: dto.kind ?? 1,
+    vehicleTypeName: dto.vehicleTypeName ?? null,
+  };
+}
+/** Server-searched pages of non-archived vehicles (UI-LOOK-002), optionally narrowed to kinds or an owner. */
+export function vehicleLookupPage(
+  kinds?: VehicleTypeKind[],
+  ownerRelationId?: string,
+): (q: EntityLookupQuery) => Promise<EntityLookupPage<VehicleOption>> {
+  return async ({ term, skip, take }) => {
+    const { data, error } = await apiClient.GET(
+      "/api/master-data/vehicle/lookup-page",
+      {
+        params: {
+          query: { term: term || undefined, skip, take, kinds, ownerRelationId },
+        },
+      },
+    );
+    if (error) throw error;
+    return {
+      items: (data?.items ?? []).map(toVehicleOption),
+      totalCount: data?.totalCount ?? 0,
+    };
+  };
+}
+
+export function masterDataVehicleTypeDefaultsKey(vehicleTypeId: string | null | undefined) {
+  return masterDataQueryKey("vehicles", "typeDefaults", vehicleTypeId);
+}
+
+/** What a new vehicle of the type takes (design 48): dimensions, kind and the type's characteristics. */
+export async function fetchVehicleTypeDefaults(vehicleTypeId: string): Promise<VehicleTypeDefaultsDto> {
+  const { data, error } = await apiClient.GET(
+    "/api/master-data/vehicle/type-defaults/{vehicleTypeId}",
+    { params: { path: { vehicleTypeId } } },
+  );
+  if (error) throw error;
+  return data as VehicleTypeDefaultsDto;
+}
+
+export function useVehicleTypeDefaults(vehicleTypeId: string | null | undefined) {
+  return useQuery({
+    queryKey: masterDataVehicleTypeDefaultsKey(vehicleTypeId),
+    enabled: vehicleTypeId != null,
+    queryFn: () => fetchVehicleTypeDefaults(vehicleTypeId!),
+  });
+}
+
+/** The tenant's own company (the one relation with the OwnCompany role): a new vehicle's owner (design 48). */
+export function useOwnCompany(enabled = true) {
+  return useQuery({
+    queryKey: masterDataQueryKey("relations", "ownCompany"),
+    enabled,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<RelationOption | null> => {
+      const page = await relationLookupPage(16)({ term: "", skip: 0, take: 1 });
+      return page.items[0] ?? null;
+    },
+  });
+}
+
+export function useArchiveVehicle() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/vehicle/{id}/archive",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+export function useUnarchiveVehicle() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/vehicle/{id}/unarchive",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+/** The option a default-driver lookup holds. */
+export interface DriverOption {
+  id: string;
+  name: string;
+  code: string;
+}
+/**
+ * Pages for the default-driver EntityLookup over the bounded driver lookup (design 43 has no driver lookup page):
+ * asks the server for skip + take rows of the searched list and returns the requested slice.
+ */
+export async function driverLookupPage({
+  term,
+  skip,
+  take,
+}: EntityLookupQuery): Promise<EntityLookupPage<DriverOption>> {
+  const wanted = Math.min(LOOKUP_TAKE, skip + take + 1);
+  const { data, error } = await apiClient.GET("/api/master-data/driver/lookup", {
+    params: { query: { term: term || undefined, take: wanted } },
+  });
+  if (error) throw error;
+  const all = (data ?? []).map((d) => ({ id: d.id ?? "", name: d.name ?? "", code: d.code ?? "" }));
+  const more = all.length >= wanted && wanted < LOOKUP_TAKE;
+  return {
+    items: all.slice(skip, skip + take),
+    totalCount: more ? skip + take + 1 : all.length,
+  };
+}
+
+export type VehicleCombinationRow =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCombinationRowDto"];
+export type VehicleCombinationDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCombinationDto"];
+export type VehicleCombinationCreateDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCombinationCreateDto"];
+export type VehicleCombinationUpdateDto =
+  Schemas["OpenTms.MasterData.Fleet.VehicleCombinationUpdateDto"];
+export const vehicleCombinations = createMasterDataHooks<
+  VehicleCombinationRow,
+  VehicleCombinationDto,
+  VehicleCombinationCreateDto,
+  VehicleCombinationUpdateDto,
+  ArchivableExtra
+>("vehicleCombinations", "/api/master-data/vehicle-combination");
+
+export function useArchiveVehicleCombination() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/vehicle-combination/{id}/archive",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+export function useUnarchiveVehicleCombination() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/vehicle-combination/{id}/unarchive",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+export type ProductRelationCodeRow =
+  Schemas["OpenTms.MasterData.Transport.ProductRelationCodeRowDto"];
+export type ProductRelationCodeDto =
+  Schemas["OpenTms.MasterData.Transport.ProductRelationCodeDto"];
+export type ProductRelationCodeCreateDto =
+  Schemas["OpenTms.MasterData.Transport.ProductRelationCodeCreateDto"];
+export type ProductRelationCodeUpdateDto =
+  Schemas["OpenTms.MasterData.Transport.ProductRelationCodeUpdateDto"];
+export const productRelationCodes = createMasterDataHooks<
+  ProductRelationCodeRow,
+  ProductRelationCodeDto,
+  ProductRelationCodeCreateDto,
+  ProductRelationCodeUpdateDto,
+  ArchivableExtra
+>("productRelationCodes", "/api/master-data/product-relation-code");
+
+export function useArchiveProductRelationCode() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/product-relation-code/{id}/archive",
+        { params: { path: { id } } },
+      );
+      if (error) throw error;
+    },
+  });
+}
+
+export function useUnarchiveProductRelationCode() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const { error } = await apiClient.POST(
+        "/api/master-data/product-relation-code/{id}/unarchive",
         { params: { path: { id } } },
       );
       if (error) throw error;

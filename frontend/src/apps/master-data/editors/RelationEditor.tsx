@@ -40,6 +40,11 @@ import {
   fetchAddressSuggestions,
   lookupAddress,
 } from "@/domains/integrations/address-lookup";
+import {
+  useCanCreateInPlace,
+  useCreateInPlace,
+  withId,
+} from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import {
   CheckboxField,
@@ -385,9 +390,9 @@ export function RelationEditor({
       })),
     [currencyLookup.data],
   );
-  const canCreateCharacteristic = useIsGranted(
-    "MasterData.TransportCharacteristics.Create",
-  );
+  /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
+  const canCreate = useCanCreateInPlace();
+  const inPlace = useCreateInPlace();
   /* DEVIATION(UI-LOOK-001): organisation units are a MultiSelect, not a TreeSelect: a relation belongs to
    * several units and TreeSelect is single-valued, approved in docs/designs/43-master-data-relations-and-drivers.md. */
   const units = useAllOrganizationUnits();
@@ -856,6 +861,39 @@ export function RelationEditor({
     );
   };
 
+  /* "Add new country…" in an address' country picker (UI-LOOK-004): the saved country goes on that address
+   * (the default one or an address type's) and its time zone follows, as when a country is picked. */
+  const countryCreate = (form: FormContext<Values>, addressKey: string) => {
+    const { onCreateNew, createLabel } = inPlace.offer(
+      "Country",
+      form.readOnly,
+      (r) => {
+        if (addressKey === DEFAULT_KEY) {
+          form.update((v) => ({
+            ...v,
+            defaultAddress: { ...v.defaultAddress, countryId: r.id },
+          }));
+        } else {
+          form.update((v) => ({
+            ...v,
+            addresses: v.addresses.some((a) => a.addressTypeId === addressKey)
+              ? v.addresses.map((a) =>
+                  a.addressTypeId === addressKey
+                    ? { ...a, countryId: r.id }
+                    : a,
+                )
+              : [
+                  ...v.addresses,
+                  { ...prefilled(newAddressRow(addressKey)), countryId: r.id },
+                ],
+          }));
+        }
+        setZoneSource({ addressKey, countryId: r.id });
+      },
+    );
+    return { onCreateCountry: onCreateNew, createCountryLabel: createLabel };
+  };
+
   const renderAddressesBlock = (form: FormContext<Values>) => {
     const allEqual = form.values.allAddressesEqual;
     const currentTypeId =
@@ -926,6 +964,7 @@ export function RelationEditor({
                 onCountryPicked={(countryId) =>
                   setZoneSource({ addressKey: DEFAULT_KEY, countryId })
                 }
+                {...countryCreate(form, DEFAULT_KEY)}
                 onLookup={onLookup}
                 onSuggest={onSuggest}
               />
@@ -942,6 +981,7 @@ export function RelationEditor({
                 onCountryPicked={(countryId) =>
                   setZoneSource({ addressKey: currentTypeId, countryId })
                 }
+                {...countryCreate(form, currentTypeId)}
                 onLookup={onLookup}
                 onSuggest={onSuggest}
               />
@@ -1092,6 +1132,12 @@ export function RelationEditor({
                     onChange={(next) => form.set("categoryIds", next)}
                     options={categoryOptions}
                     disabled={form.readOnly}
+                    {...inPlace.offer("RelationCategory", form.readOnly, (r) =>
+                      form.update((v) => ({
+                        ...v,
+                        categoryIds: withId(v.categoryIds, r.id),
+                      })),
+                    )}
                   />
                 </FormField>
                 <FormField
@@ -1106,6 +1152,18 @@ export function RelationEditor({
                     onChange={(next) => form.set("geographicalRegionIds", next)}
                     options={regionOptions}
                     disabled={form.readOnly}
+                    {...inPlace.offer(
+                      "GeographicalRegion",
+                      form.readOnly,
+                      (r) =>
+                        form.update((v) => ({
+                          ...v,
+                          geographicalRegionIds: withId(
+                            v.geographicalRegionIds,
+                            r.id,
+                          ),
+                        })),
+                    )}
                   />
                 </FormField>
               </div>
@@ -1230,6 +1288,15 @@ export function RelationEditor({
                     onChange={(next) => form.set("organizationUnitIds", next)}
                     options={unitOptions}
                     disabled={form.readOnly}
+                    {...inPlace.offer("OrganizationUnit", form.readOnly, (r) =>
+                      form.update((v) => ({
+                        ...v,
+                        organizationUnitIds: withId(
+                          v.organizationUnitIds,
+                          r.id,
+                        ),
+                      })),
+                    )}
                   />
                 </FormField>
                 <FormField
@@ -1243,6 +1310,9 @@ export function RelationEditor({
                     onChange={(next) => form.set("currencyId", next)}
                     options={currencyOptions}
                     disabled={form.readOnly}
+                    {...inPlace.offer("Currency", form.readOnly, (r) =>
+                      form.set("currencyId", r.id),
+                    )}
                   />
                 </FormField>
                 <FormField
@@ -1384,7 +1454,7 @@ export function RelationEditor({
                           </>
                         )}
                         onCreateNew={
-                          canCreateCharacteristic
+                          canCreate("TransportCharacteristics", form.readOnly)
                             ? (term) => setNewCharacteristic({ term })
                             : undefined
                         }
@@ -1561,6 +1631,7 @@ export function RelationEditor({
         )}
         onConfirm={toggleArchive}
       />
+      {inPlace.dialog}
     </>
   );
 }

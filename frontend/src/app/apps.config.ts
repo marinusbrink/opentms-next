@@ -1,4 +1,5 @@
 import {
+  Barcode,
   BarChart3,
   Boxes,
   BookOpen,
@@ -7,11 +8,13 @@ import {
   Coins,
   Database,
   Flag,
+  FolderTree,
   History,
   IdCard,
   Landmark,
   Layers,
   LayoutDashboard,
+  Link2,
   ListTree,
   MapPin,
   MapPinned,
@@ -137,53 +140,67 @@ export const APPS: readonly AppDefinition[] = [
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
-    /* The ten reference lists of the first run (docs/designs/41-master-data-first-run.md), grouped
-     * as the old menu was, plus Relations and Drivers of the second run (design 43; both behind the
-     * MasterData.Relations feature, which the views check). Views, not modules: every one reads the
-     * MasterData domain. The Relations list owns the group's own path. */
+    /* PO 2026-10-16: the Master data app holds the master data of EVERY domain, one group per domain in its nav
+     * tree (app → domain group → group → list). A domain's group, with its feature and its entry in `domains`,
+     * arrives with that domain's first list; a group without children is hidden. So far only the Master Data
+     * domain's own group (General) exists: the ten reference lists of the first run
+     * (docs/designs/41-master-data-first-run.md), grouped as the old menu was, plus Relations and Drivers of the
+     * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48).
+     * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
-        nameKey: "MasterData:Nav.Relations",
-        path: "/master-data/relations",
-        feature: "Apps.MasterData.Relations",
-        icon: Users,
+        nameKey: "MasterData:Nav.General",
+        path: "/master-data/general",
+        feature: "Apps.MasterData.General",
+        icon: FolderTree,
         children: [
-          { nameKey: "MasterData:Relations", path: "/master-data/relations", icon: Building2, feature: "Apps.MasterData.Relations.Relations" },
-          { nameKey: "MasterData:AddressTypes", path: "/master-data/address-types", icon: MapPin, feature: "Apps.MasterData.Relations.AddressTypes" },
-          { nameKey: "MasterData:RelationCategories", path: "/master-data/relation-categories", icon: Tags, feature: "Apps.MasterData.Relations.RelationCategories" },
-        ],
-      },
-      {
-        nameKey: "MasterData:Nav.Transport",
-        path: "/master-data/transport",
-        feature: "Apps.MasterData.Transport",
-        icon: Package,
-        children: [
-          { nameKey: "MasterData:Products", path: "/master-data/products", icon: Package, feature: "Apps.MasterData.Transport.Products" },
-          { nameKey: "MasterData:TransportUnits", path: "/master-data/transport-units", icon: Boxes, feature: "Apps.MasterData.Transport.TransportUnits" },
-          { nameKey: "MasterData:Temperatures", path: "/master-data/temperatures", icon: Thermometer, feature: "Apps.MasterData.Transport.Temperatures" },
-        ],
-      },
-      {
-        nameKey: "MasterData:Nav.Fleet",
-        path: "/master-data/fleet",
-        feature: "Apps.MasterData.Fleet",
-        icon: Truck,
-        children: [
-          { nameKey: "MasterData:Drivers", path: "/master-data/drivers", icon: IdCard, feature: "Apps.MasterData.Fleet.Drivers" },
-          { nameKey: "MasterData:VehicleTypes", path: "/master-data/vehicle-types", icon: Truck, feature: "Apps.MasterData.Fleet.VehicleTypes" },
-          { nameKey: "MasterData:TransportCharacteristics", path: "/master-data/transport-characteristics", icon: ListTree, feature: "Apps.MasterData.Fleet.TransportCharacteristics" },
-        ],
-      },
-      {
-        nameKey: "MasterData:Nav.Reference",
-        path: "/master-data/reference",
-        feature: "Apps.MasterData.Reference",
-        icon: MapPinned,
-        children: [
-          { nameKey: "MasterData:Countries", path: "/master-data/countries", icon: Flag, feature: "Apps.MasterData.Reference.Countries" },
-          { nameKey: "MasterData:Currencies", path: "/master-data/currencies", icon: Coins, feature: "Apps.MasterData.Reference.Currencies" },
-          { nameKey: "MasterData:GeographicalRegions", path: "/master-data/geographical-regions", icon: MapPinned, feature: "Apps.MasterData.Reference.GeographicalRegions" },
+          {
+            nameKey: "MasterData:Nav.Relations",
+            path: "/master-data/relations",
+            feature: "Apps.MasterData.General.Relations",
+            icon: Users,
+            children: [
+              { nameKey: "MasterData:Relations", path: "/master-data/relations", icon: Building2, feature: "Apps.MasterData.General.Relations.Relations" },
+              { nameKey: "MasterData:AddressTypes", path: "/master-data/address-types", icon: MapPin, feature: "Apps.MasterData.General.Relations.AddressTypes" },
+              { nameKey: "MasterData:RelationCategories", path: "/master-data/relation-categories", icon: Tags, feature: "Apps.MasterData.General.Relations.RelationCategories" },
+            ],
+          },
+          {
+            nameKey: "MasterData:Nav.Transport",
+            path: "/master-data/transport",
+            feature: "Apps.MasterData.General.Transport",
+            icon: Package,
+            children: [
+              { nameKey: "MasterData:Products", path: "/master-data/products", icon: Package, feature: "Apps.MasterData.General.Transport.Products" },
+              { nameKey: "MasterData:TransportUnits", path: "/master-data/transport-units", icon: Boxes, feature: "Apps.MasterData.General.Transport.TransportUnits" },
+              { nameKey: "MasterData:ProductRelationCodes", path: "/master-data/product-relation-codes", icon: Barcode, feature: "Apps.MasterData.General.Transport.ProductRelationCodes" },
+              { nameKey: "MasterData:Temperatures", path: "/master-data/temperatures", icon: Thermometer, feature: "Apps.MasterData.General.Transport.Temperatures" },
+            ],
+          },
+          {
+            nameKey: "MasterData:Nav.Fleet",
+            path: "/master-data/fleet",
+            feature: "Apps.MasterData.General.Fleet",
+            icon: Truck,
+            children: [
+              { nameKey: "MasterData:Vehicles", path: "/master-data/vehicles", icon: Truck, feature: "Apps.MasterData.General.Fleet.Vehicles" },
+              { nameKey: "MasterData:VehicleCombinations", path: "/master-data/vehicle-combinations", icon: Link2, feature: "Apps.MasterData.General.Fleet.VehicleCombinations" },
+              { nameKey: "MasterData:Drivers", path: "/master-data/drivers", icon: IdCard, feature: "Apps.MasterData.General.Fleet.Drivers" },
+              { nameKey: "MasterData:VehicleTypes", path: "/master-data/vehicle-types", icon: Truck, feature: "Apps.MasterData.General.Fleet.VehicleTypes" },
+              { nameKey: "MasterData:TransportCharacteristics", path: "/master-data/transport-characteristics", icon: ListTree, feature: "Apps.MasterData.General.Fleet.TransportCharacteristics" },
+            ],
+          },
+          {
+            nameKey: "MasterData:Nav.Reference",
+            path: "/master-data/reference",
+            feature: "Apps.MasterData.General.Reference",
+            icon: MapPinned,
+            children: [
+              { nameKey: "MasterData:Countries", path: "/master-data/countries", icon: Flag, feature: "Apps.MasterData.General.Reference.Countries" },
+              { nameKey: "MasterData:Currencies", path: "/master-data/currencies", icon: Coins, feature: "Apps.MasterData.General.Reference.Currencies" },
+              { nameKey: "MasterData:GeographicalRegions", path: "/master-data/geographical-regions", icon: MapPinned, feature: "Apps.MasterData.General.Reference.GeographicalRegions" },
+            ],
+          },
         ],
       },
     ],

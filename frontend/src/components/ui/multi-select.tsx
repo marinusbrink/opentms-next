@@ -54,6 +54,7 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const { t } = useL();
   const [term, setTerm] = useState("");
+  const [open, setOpen] = useState(false);
   const selected = options.filter((o) => value.includes(o.id));
   const visible = selected.slice(0, maxVisible).map((o) => o.label);
   const rest = selected.length - visible.length;
@@ -74,6 +75,8 @@ export function MultiSelect({
       disabled={disabled}
       inputValue={term}
       onInputValueChange={(next: string) => setTerm(next)}
+      open={open}
+      onOpenChange={(next: boolean) => setOpen(next)}
     >
       <ComboboxTrigger
         id={id}
@@ -113,7 +116,13 @@ export function MultiSelect({
               variant="ghost"
               size="sm"
               className="w-full justify-start"
-              onClick={() => onCreateNew(term.trim())}
+              onClick={() => {
+                /* The editor opens on top: the list closes first (UI-LOOK-004). */
+                const typed = term.trim();
+                setOpen(false);
+                setTerm("");
+                onCreateNew(typed);
+              }}
             >
               <Plus aria-hidden="true" /> {createLabel ?? t("MasterData:AddNew")}
             </Button>

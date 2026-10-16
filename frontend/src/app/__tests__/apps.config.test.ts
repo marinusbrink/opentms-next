@@ -66,18 +66,26 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("the Master data app lists its twelve lists in four groups (designs 41 and 43)", () => {
+  it("the Master data app lists its fifteen lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views).toHaveLength(4);
-    const paths = masterData.views!.flatMap((group) => group.children!.map((child) => child.path));
+    expect(masterData.views).toHaveLength(1);
+    const general = masterData.views![0];
+    expect(general.nameKey).toBe("MasterData:Nav.General");
+    expect(general.icon).toBeTruthy();
+    expect(general.children).toHaveLength(4);
+    const paths = general.children!.flatMap((group) => group.children!.map((child) => child.path));
     expect(paths).toEqual([
-      /* Design 43: Relations first in its group (it owns the group's path), Drivers first in Fleet. */
+      /* Design 43: Relations first in its group (it owns the group's path). Design 48: Product relation codes after
+       * Transport units; Vehicles first in Fleet, then Vehicle combinations, then Drivers. */
       "/master-data/relations",
       "/master-data/address-types",
       "/master-data/relation-categories",
       "/master-data/products",
       "/master-data/transport-units",
+      "/master-data/product-relation-codes",
       "/master-data/temperatures",
+      "/master-data/vehicles",
+      "/master-data/vehicle-combinations",
       "/master-data/drivers",
       "/master-data/vehicle-types",
       "/master-data/transport-characteristics",
@@ -85,7 +93,7 @@ describe("apps.config – AppView extension (low risk)", () => {
       "/master-data/currencies",
       "/master-data/geographical-regions",
     ]);
-    masterData.views!.forEach((group) => {
+    general.children!.forEach((group) => {
       expect(group.icon).toBeTruthy();
       group.children!.forEach((child) => expect(child.icon).toBeTruthy());
     });

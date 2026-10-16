@@ -41,6 +41,14 @@ public class MasterDataEntityFrameworkCoreModule : AbpModule
                 .Include(r => r.ExternalIdentifiers)
                 .Include(r => r.TransportCharacteristics));
             options.Entity<Driver>(e => e.DefaultWithDetailsFunc = q => q.Include(d => d.Qualifications));
+            /* Four child collections: split queries, as the relation. */
+            options.Entity<Vehicle>(e => e.DefaultWithDetailsFunc = q => q
+                .AsSplitQuery()
+                .Include(v => v.TransportCharacteristics)
+                .Include(v => v.DefaultDrivers)
+                .Include(v => v.OrganizationUnits)
+                .Include(v => v.ExternalIdentifiers));
+            options.Entity<VehicleCombination>(e => e.DefaultWithDetailsFunc = q => q.Include(c => c.Members));
         });
 
         Configure<AbpDbContextOptions>(options =>

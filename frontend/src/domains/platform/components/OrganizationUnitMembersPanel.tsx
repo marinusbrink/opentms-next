@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BoolCell } from "@/components/ui/grid-cells";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
-import { AddOrganizationUnitMembersDialog } from "@/apps/admin/components/AddOrganizationUnitMembersDialog";
+import { AddOrganizationUnitMembersDialog } from "@/domains/platform/components/AddOrganizationUnitMembersDialog";
 import type { UserRow } from "@/domains/platform/administration-users";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
