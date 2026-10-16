@@ -47,6 +47,8 @@ is_local_host() {
 is_local_host "$PGHOST" ||
   die "PGHOST is '$PGHOST'; this script writes thousands of rows and only runs against localhost, 127.0.0.1 or ::1."
 export PGPASSWORD="${PGPASSWORD:-postgres}"
+# psql must never wait in a pager: the verify output is long and the script runs unattended.
+export PSQL_PAGER=cat PAGER=cat
 
 command -v psql >/dev/null || die "psql not found on PATH."
 command -v python3 >/dev/null || die "python3 not found on PATH."
