@@ -17,18 +17,22 @@ interface TextProps<TValues extends object> {
   className?: string;
   /** Upper-cases while typing (codes). */
   upper?: boolean;
+  /** A business-state block on top of read-only (UI-PERM-005), e.g. a number sequence in use (design 49). */
+  disabled?: boolean;
+  /** Localization key of a muted help text under the control. */
+  hintKey?: string;
 }
 
-export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper }: TextProps<TValues>) {
+export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hintKey }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
-    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} className={className}>
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hintKey ? t(hintKey) : undefined} className={className}>
       <Input
         id={form.id(field)}
         value={value}
         maxLength={maxLength}
-        disabled={form.readOnly}
+        disabled={form.readOnly || disabled}
         onChange={(e) => form.set(field, (upper ? e.target.value.toUpperCase() : e.target.value) as TValues[typeof field])}
         onBlur={() => form.blur(field)}
       />
@@ -36,16 +40,16 @@ export function TextField<TValues extends object>({ form, field, labelKey, requi
   );
 }
 
-export function NumberField<TValues extends object>({ form, field, labelKey, required, className }: TextProps<TValues>) {
+export function NumberField<TValues extends object>({ form, field, labelKey, required, className, disabled, hintKey }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
-    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} className={className}>
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hintKey ? t(hintKey) : undefined} className={className}>
       <Input
         id={form.id(field)}
         inputMode="decimal"
         value={value}
-        disabled={form.readOnly}
+        disabled={form.readOnly || disabled}
         onChange={(e) => form.set(field, e.target.value as TValues[typeof field])}
         onBlur={() => form.blur(field)}
       />

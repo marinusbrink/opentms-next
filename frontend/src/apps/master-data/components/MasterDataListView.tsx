@@ -31,6 +31,8 @@ export interface EditorState {
 export interface MasterDataListViewProps<TRow extends { id?: string }> {
   /** The localization stem: "Currency" → MasterData:NewCurrency, MasterData:DeleteCurrencyQuestion, … */
   entityKey: string;
+  /** The resource prefix of the entity's keys: "MasterData" (default), "Platform" for Platform's lists (design 49). */
+  resource?: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
   gridId: string;
@@ -41,6 +43,9 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   bulkDelete: { mutateAsync: (selection: GridSelectionDto) => Promise<BulkDeleteResult> };
   /** The toolbar filters (UI-GRID-005). */
   filters?: ReactNode;
+  /** A business state that blocks deleting one row (UI-PERM-005): the reason's localization key, shown as the
+   *  Delete item's tooltip; undefined when the row may be deleted. Several rows go to the server-checked bulk delete. */
+  deleteDisabledReasonKey?: (row: TRow) => string | undefined;
   /** Extra row actions between Edit and Delete (UI-GRID-008 order); `refresh` reloads the grid after the action. */
   extraRowActions?: (row: TRow, refresh: () => void) => GridRowAction[];
   /** Renders the entity's editor for the open state; `onSaved` refreshes the grid. */
@@ -52,6 +57,7 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
  * the list's feature is on is decided by the shell ("App features", tenants-and-editions.md). */
 export function MasterDataListView<TRow extends { id?: string }>({
   entityKey,
+  resource = "MasterData",
   permission,
   gridId,
   columnDefs,
@@ -61,6 +67,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
   bulkDelete,
   filters,
   extraRowActions,
+  deleteDisabledReasonKey,
   renderEditor,
 }: MasterDataListViewProps<TRow>) {
   const { t } = useL();
@@ -103,7 +110,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
         ? [
             {
               id: "new",
-              labelKey: `MasterData:New${entityKey}`,
+              labelKey: `${resource}:New${entityKey}`,
               icon: Plus,
               isPrimary: true,
               onClick: () => setEditor({ mode: "create", readOnly: false }),
@@ -129,12 +136,13 @@ export function MasterDataListView<TRow extends { id?: string }>({
           ]
         : []),
     ],
-    [canCreate, canDelete, entityKey, bulkTarget, selection, selectionCount],
+    [canCreate, canDelete, entityKey, resource, bulkTarget, selection, selectionCount],
   );
 
   const rowActions = useCallback(
     (rows: TRow[]): GridRowAction[] => {
       const single = rows.length === 1 ? rows[0] : undefined;
+      const deleteBlockedKey = single && deleteDisabledReasonKey ? deleteDisabledReasonKey(single) : undefined;
       return [
         ...(canUpdate && single ? [{ id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => openRecord(single) }] : []),
         ...(single && extraRowActions ? extraRowActions(single, invalidateGrid) : []),
@@ -146,6 +154,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
                 icon: Trash2,
                 destructive: true,
                 multi: true,
+                disabled: deleteBlockedKey != null,
+                disabledReasonKey: deleteBlockedKey,
                 onClick: () => {
                   if (rows.length === 1) {
                     setRowToDelete(rows[0]);
@@ -161,7 +171,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
           : []),
       ];
     },
-    [canDelete, canUpdate, extraRowActions, invalidateGrid, openRecord],
+    [canDelete, canUpdate, deleteDisabledReasonKey, extraRowActions, invalidateGrid, openRecord],
   );
 
   const deleteSingle = async () => {
@@ -170,7 +180,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
     try {
       await deleteOne.mutateAsync(rowToDelete.id);
       setRowToDelete(null);
-      toast.success(t(`MasterData:${entityKey}Deleted`));
+      toast.success(t(`${resource}:${entityKey}Deleted`));
       invalidateGrid();
     } catch (err) {
       toast.error(getApiErrorMessage(err, t));
@@ -231,8 +241,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
         onOpenChange={(open) => {
           if (!open && !busy) setRowToDelete(null);
         }}
-        title={t(`MasterData:Delete${entityKey}`)}
-        description={`${t(`MasterData:Delete${entityKey}Question`).replace("{0}", rowToDelete ? rowName(rowToDelete) : "")} ${t("ThisCannotBeUndone")}`}
+        title={t(`${resource}:Delete${entityKey}`)}
+        description={`${t(`${resource}:Delete${entityKey}Question`).replace("{0}", rowToDelete ? rowName(rowToDelete) : "")} ${t("ThisCannotBeUndone")}`}
         confirmLabel={t("Delete")}
         busyLabel={t("Deleting")}
         destructive

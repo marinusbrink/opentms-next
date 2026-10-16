@@ -7,10 +7,14 @@ import { useAppFeatures } from "@/app/app-features";
 import { AddressTypesView } from "@/apps/master-data/views/AddressTypesView";
 import { CountriesView } from "@/apps/master-data/views/CountriesView";
 import { CurrenciesView } from "@/apps/master-data/views/CurrenciesView";
+import { DocumentTypesView } from "@/apps/master-data/views/DocumentTypesView";
 import { DriversView } from "@/apps/master-data/views/DriversView";
+import { EmailTemplatesView } from "@/apps/master-data/views/EmailTemplatesView";
 import { GeographicalRegionsView } from "@/apps/master-data/views/GeographicalRegionsView";
+import { NumberSequencesView } from "@/apps/master-data/views/NumberSequencesView";
 import { ProductRelationCodesView } from "@/apps/master-data/views/ProductRelationCodesView";
 import { ProductsView } from "@/apps/master-data/views/ProductsView";
+import { ReportDefinitionsView } from "@/apps/master-data/views/ReportDefinitionsView";
 import { RelationCategoriesView } from "@/apps/master-data/views/RelationCategoriesView";
 import { RelationsView } from "@/apps/master-data/views/RelationsView";
 import { TemperaturesView } from "@/apps/master-data/views/TemperaturesView";
@@ -30,6 +34,7 @@ const GROUP_PATHS = new Set([
   "/master-data/transport",
   "/master-data/fleet",
   "/master-data/reference",
+  "/master-data/platform",
 ]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
 
@@ -62,5 +67,10 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/countries")) return <CountriesView />;
   if (pathname.startsWith("/master-data/currencies")) return <CurrenciesView />;
   if (pathname.startsWith("/master-data/geographical-regions")) return <GeographicalRegionsView />;
+  /* The Platform domain's lists (design 49). */
+  if (pathname.startsWith("/master-data/email-templates")) return <EmailTemplatesView />;
+  if (pathname.startsWith("/master-data/report-definitions")) return <ReportDefinitionsView />;
+  if (pathname.startsWith("/master-data/document-types")) return <DocumentTypesView />;
+  if (pathname.startsWith("/master-data/number-sequences")) return <NumberSequencesView />;
   return <AddressTypesView />;
 }

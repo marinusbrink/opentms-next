@@ -739,6 +739,13 @@
     "Platform:NumberSequenceScheme.TwoDigitYear": "Jaar (jj)",
     "Platform:NumberSequenceScheme.FourDigitYearMonth": "Jaar en maand (jjjj MM)",
     "Platform:NumberSequenceScheme.TwoDigitYearMonth": "Jaar en maand (jj MM)",
-    "Platform:NumberSequenceScheme.CounterOnly": "Alleen teller"
+    "Platform:NumberSequenceScheme.CounterOnly": "Alleen teller",
+    "Platform:Required": "Dit veld is verplicht.",
+    "Platform:MinimumDigitsRange": "Voer een geheel getal van 1 tot en met 12 in.",
+    "Platform:TransformationArgumentMissing": "Hernoemen naar eigenschap van bovenliggend record en PDF splitsen op referentiepatroon hebben een argument nodig.",
+    "Platform:TransformationKindTwice": "Elke soort mag maar één keer voorkomen.",
+    "Platform:NoTransformations": "Geen transformaties",
+    "Platform:AllPurposes": "Alle doelen",
+    "Platform:NumberSequenceInUseCannotDelete": "Er zijn al nummers uit deze reeks uitgegeven; de reeks kan daarom niet worden verwijderd."
   }
 }

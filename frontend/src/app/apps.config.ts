@@ -6,8 +6,12 @@ import {
   Building2,
   CalendarRange,
   Coins,
+  Cog,
   Database,
+  FileText,
+  Files,
   Flag,
+  Hash,
   FolderTree,
   History,
   IdCard,
@@ -15,6 +19,7 @@ import {
   Layers,
   LayoutDashboard,
   Link2,
+  Mail,
   ListTree,
   MapPin,
   MapPinned,
@@ -136,16 +141,17 @@ export const APPS: readonly AppDefinition[] = [
     id: "master-data",
     nameKey: "App:MasterData",
     path: "/master-data",
-    domains: ["MasterData"],
+    domains: ["MasterData", "Platform"],
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
     /* PO 2026-10-16: the Master data app holds the master data of EVERY domain, one group per domain in its nav
      * tree (app → domain group → group → list). A domain's group, with its feature and its entry in `domains`,
-     * arrives with that domain's first list; a group without children is hidden. So far only the Master Data
-     * domain's own group (General) exists: the ten reference lists of the first run
+     * arrives with that domain's first list; a group without children is hidden. Two domain groups exist so far:
+     * the Master Data domain's own group (General) with the ten reference lists of the first run
      * (docs/designs/41-master-data-first-run.md), grouped as the old menu was, plus Relations and Drivers of the
-     * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48).
+     * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48);
+     * and the Platform domain's group (design 49) with its four lists directly under it, no sub-groups.
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -201,6 +207,18 @@ export const APPS: readonly AppDefinition[] = [
               { nameKey: "MasterData:GeographicalRegions", path: "/master-data/geographical-regions", icon: MapPinned, feature: "Apps.MasterData.General.Reference.GeographicalRegions" },
             ],
           },
+        ],
+      },
+      {
+        nameKey: "Platform:Nav.Platform",
+        path: "/master-data/platform",
+        feature: "Apps.MasterData.Platform",
+        icon: Cog,
+        children: [
+          { nameKey: "Platform:EmailTemplates", path: "/master-data/email-templates", icon: Mail, feature: "Apps.MasterData.Platform.EmailTemplates" },
+          { nameKey: "Platform:ReportDefinitions", path: "/master-data/report-definitions", icon: FileText, feature: "Apps.MasterData.Platform.ReportDefinitions" },
+          { nameKey: "Platform:DocumentTypes", path: "/master-data/document-types", icon: Files, feature: "Apps.MasterData.Platform.DocumentTypes" },
+          { nameKey: "Platform:NumberSequences", path: "/master-data/number-sequences", icon: Hash, feature: "Apps.MasterData.Platform.NumberSequences" },
         ],
       },
     ],

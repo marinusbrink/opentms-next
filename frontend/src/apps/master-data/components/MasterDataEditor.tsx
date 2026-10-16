@@ -42,6 +42,8 @@ export interface EditorTab<TValues extends object> {
 
 export interface MasterDataEditorProps<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }> {
   entityKey: string;
+  /** The resource prefix of the entity's keys: "MasterData" (default), "Platform" for Platform's lists (design 49). */
+  resource?: string;
   /** The query-key entity of the hooks (detail and lookup caches are invalidated after a save). */
   queryEntity: string;
   size: EntityDialogSize;
@@ -65,6 +67,8 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   extraCommands?: RibbonCommand[];
   /** Delete from the ribbon (UI-ACT-002), confirmed, in edit mode; absent when the user may not delete. */
   deleteRecord?: { mutateAsync: (id: string) => Promise<unknown>; isPending: boolean };
+  /** A business state that blocks Delete (UI-PERM-005): the reason's localization key, shown as the ribbon tooltip. */
+  deleteDisabledReasonKey?: string;
   /** An extra body element above the tabs' content (warnings, UI-FB-008). */
   notice?: ReactNode;
   /** State badges after the title (UI-DLG-012). */
@@ -87,6 +91,7 @@ let instanceCounter = 0;
 
 export function MasterDataEditor<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }>({
   entityKey,
+  resource = "MasterData",
   queryEntity,
   size,
   mode,
@@ -103,6 +108,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   tabs,
   extraCommands,
   deleteRecord,
+  deleteDisabledReasonKey,
   notice,
   badges,
   applyValues,
@@ -171,7 +177,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       void queryClient.invalidateQueries({ queryKey: masterDataQueryKey(queryEntity) });
       onSaved(saved);
       onClose();
-      toast.success(t(`MasterData:${entityKey}Saved`));
+      toast.success(t(`${resource}:${entityKey}Saved`));
     } catch (err) {
       setServerError(getApiErrorMessage(err, t));
     }
@@ -185,14 +191,14 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       setConfirmDelete(false);
       onSaved();
       onClose();
-      toast.success(t(`MasterData:${entityKey}Deleted`));
+      toast.success(t(`${resource}:${entityKey}Deleted`));
     } catch (err) {
       setConfirmDelete(false);
       setServerError(getApiErrorMessage(err, t));
     }
   };
 
-  const title = mode === "create" ? t(`MasterData:New${entityKey}`) : `${t(`MasterData:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
+  const title = mode === "create" ? t(`${resource}:New${entityKey}`) : `${t(`${resource}:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
 
   const commands: RibbonCommand[] = readOnly
     ? []
@@ -207,7 +213,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
         },
         ...(extraCommands ?? []),
         ...(mode === "edit" && deleteRecord
-          ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, groupKey: "Delete", disabled: !loaded, onClick: () => setConfirmDelete(true) }]
+          ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, groupKey: "Delete", disabled: !loaded || deleteDisabledReasonKey != null, disabledReasonKey: deleteDisabledReasonKey, onClick: () => setConfirmDelete(true) }]
           : []),
       ];
 
@@ -281,8 +287,8 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
           onOpenChange={(next) => {
             if (!next) setConfirmDelete(false);
           }}
-          title={t(`MasterData:Delete${entityKey}`)}
-          description={`${t(`MasterData:Delete${entityKey}Question`).replace("{0}", detail.data ? titleOf(detail.data) : "")} ${t("ThisCannotBeUndone")}`}
+          title={t(`${resource}:Delete${entityKey}`)}
+          description={`${t(`${resource}:Delete${entityKey}Question`).replace("{0}", detail.data ? titleOf(detail.data) : "")} ${t("ThisCannotBeUndone")}`}
           confirmLabel={t("Delete")}
           busyLabel={t("Deleting")}
           destructive

@@ -739,6 +739,13 @@
     "Platform:NumberSequenceScheme.TwoDigitYear": "Year (yy)",
     "Platform:NumberSequenceScheme.FourDigitYearMonth": "Year and month (yyyy MM)",
     "Platform:NumberSequenceScheme.TwoDigitYearMonth": "Year and month (yy MM)",
-    "Platform:NumberSequenceScheme.CounterOnly": "Counter only"
+    "Platform:NumberSequenceScheme.CounterOnly": "Counter only",
+    "Platform:Required": "This field is required.",
+    "Platform:MinimumDigitsRange": "Enter a whole number from 1 to 12.",
+    "Platform:TransformationArgumentMissing": "Rename by parent property and Split PDF by reference pattern need an argument.",
+    "Platform:TransformationKindTwice": "Each kind may occur once.",
+    "Platform:NoTransformations": "No transformations",
+    "Platform:AllPurposes": "All purposes",
+    "Platform:NumberSequenceInUseCannotDelete": "Numbers have been drawn from this sequence, so it cannot be deleted."
   }
 }
