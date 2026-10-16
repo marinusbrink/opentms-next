@@ -26,7 +26,8 @@ opentms-next's PO-owned domain map defines Master Data as *relations, addresses,
 | 2 | **Financial** | Vat, DiscountAndSurcharge, AdditionalService, InvoiceType, IncomingInvoiceType, PurchaseOrderType, InvoiceReminderProfile, CurrencyDayRate, TransportUnit balances/transactions, **RelationFinancialSettings** (per RelationId) | Ledger accounts, numbering, pricing rules, dunning; consumed only by invoicing, pricing and payables |
 | 3 | **Orders** | TransportOrderType, WaypointType, TimeSlot, **RelationOrderSettings** | Numbering, intake mailbox, default stops, required fields, stop-activity semantics, delivery-window templates |
 | 4 | **Planning & Execution** | TransportFileType, Questionnaire, default via-waypoints per region, **RelationPlanningSettings** (dock, time slots) | Route optimisation, stop creation, FMS sync, planboard grouping, driver-app forms |
-| 5 | **Platform** | OutboundEMailMessageTemplate, ReportDefinition, BinaryObjectType, ConsignmentNoteFixedDescription, number-sequence service, TransportProfile | Mail, document generation, document categories, cross-module services |
+| 5 | **Platform** | OutboundEMailMessageTemplate, ReportDefinition, BinaryObjectType (document type), number sequences (list + number-sequence service) | Mail, document generation, document categories, cross-module services. Built in design 49 (`docs/designs/49-platform-master-data.md`) |
+| 5a | **Transport domain** (PO decision 2026-10-16; the module, Orders or Planning & Execution, is chosen in that run's design) | ConsignmentNoteFixedDescription (vaste CMR-teksten), ConsignmentNoteProfile (CMR print profile, "Vrachtbriefprofiel"), TransportProfile (transportprofielen, section 4) | CMR printing and transport set-up are transport concerns, not Platform. **Not built with Platform; every transport-domain design must take these in** (see section 2.3) |
 | 6 | **Integrations** | CredentialStore, ExchangeGateway, FleetManagementSystemDevice (vendor binding), inbound mailboxes | External systems and secrets |
 
 ### 2.1 First run (PO decision 2026-10-11): leaf entities, grouped by owning module
@@ -38,7 +39,7 @@ PO names are used from here on: Capability becomes **TransportCharacteristics**,
 | **Master Data** | Currency, AddressType, RelationCategory, TransportCharacteristics, Temperature, Product, TransportUnit, VehicleType, GeographicalRegion, **Country** (added, see note 1) | VehicleType → TransportCharacteristics; TransportUnit → VehicleType (load factors); GeographicalRegion → Country; Country → Currency and VatPercentage (ids only, the latter cross-module); Product and Temperature and TransportUnit → themselves ("do not combine with") |
 | **Financial** | AdditionalService, VatPercentage, InboundInvoiceType, OutboundInvoiceType, DiscountOrSurcharge, OutboundInvoiceReminderProfile | DiscountOrSurcharge → GeographicalRegion (cross-module, id only); OutboundInvoiceReminderProfile scheme → OutboundEmailTemplate (cross-module, id only); InboundInvoiceType → Relation (see note 2) |
 | **Orders** | TransportOrderType, TimeSlot, **WaypointType** (added) | TransportOrderType → WaypointType via `DefaultWaypoints` (child table, both in this run); WaypointType → itself (`SuccessiveWaypointTypeId`), RelationCategory (`WaypointTypeCategory`, cross-module id), FMS codes (child table); its `StationingRelationId` and the two questionnaire ids wait for the Relation and Planning runs (note 3); organisation unit (Platform id) |
-| **Platform** | ConsignmentNoteFixedDescription, OutboundEmailTemplate | none |
+| **Platform** | OutboundEmailTemplate (ConsignmentNoteFixedDescription moved to the transport domain, PO 2026-10-16, section 2.3) | none |
 
 Notes:
 
@@ -80,6 +81,28 @@ Rules every task inherits:
 - Relation-specific settings live in the module that uses them, keyed by RelationId. This keeps "Relation is everything" (PO decision) while Financial, Orders and Planning keep real foreign keys to their own entities and the Relation table stays narrow.
 - The host-level requirement in section 4 is parked (PO decision 2026-10-11); design the tenant column as nullable so it can be added later without a contract migration.
 - Every task follows gate 1: PBI (`dev-department/templates/pbi.md`), design doc with all nine sections citing AD-06, AD-07, AD-08, AD-16 and listing AO-12 under assumptions where vehicles or devices are touched, then "build exactly the approved design".
+
+### 2.3 Transport-domain items moved out of Platform (PO decision 2026-10-16)
+
+When the Platform master data was built (design 49), the PO decided that **fixed CMR texts
+(`ConsignmentNoteFixedDescription`, "vaste CMR-teksten") and transport profiles (`TransportProfile`,
+"transportprofielen", section 4) belong to the transport domain**, not to Platform. The CMR print profile
+(`ConsignmentNoteProfile`, "Vrachtbriefprofiel") goes with them: it selects the fixed texts per CMR field. They were
+deliberately left out of design 49.
+
+Rules for the run that builds the transport domain (the first Orders or Planning & Execution design that touches CMR
+printing or transport set-up):
+
+- Its PBI lists these three entities in *Affected area* and either builds them or names them under *Out of scope*
+  with the PO's agreement; they may not silently disappear again.
+- Their lists go into the Master data app under that domain's nav group (PO 2026-10-16, one group per domain).
+- OpenTMS facts to carry over (research of 2026-10-16): `ConsignmentNoteFixedDescription` is `Name` (255, required)
+  plus `Description` (2500), no seed, read only by `ConsignmentNote/ConsignmentNoteAppService.cs` (lines 522, 1353,
+  1470) as selectable options for the CMR text fields. `ConsignmentNoteProfile` holds `Name`, `IsDefault`,
+  `NrOfCopies`, `ShowBorders`, `ShowQrCode`, `GroupByLeg` and per-CMR-field option ids, three of them as
+  `;`-joined GUID strings (`Field6Option`, `Field13Option`, `Field18Option`: a join table per section 3.3); the
+  option ids are hard-coded GUIDs in `ConsignmentNoteAppService.cs:42-52` (an enum in the rebuild, section 3.10).
+  `TransportProfile` does not exist in OpenTMS; it is the parked onboarding concept of section 4.
 
 ## 3. Findings and PO decisions
 
@@ -201,7 +224,7 @@ Not built now. Recorded here so the Master Data design does not block it: entiti
 Design that fits the architecture:
 
 - Entities implement `IMultiTenant` with nullable `TenantId`. Host rows have `TenantId = null` and live in the host database's module schemas (which already exist for shared-tier tenants). The ABP data filter handles visibility; no filter bypass needed.
-- Platform owns a host-level `TransportProfile` aggregate (name, description, active). Every master data entity in every module gets a nullable `TransportProfileId`, filled only on host rows. Rows with a null profile id on host level are the base set shared by all profiles.
+- The transport domain (PO decision 2026-10-16, section 2.3; earlier drafts said Platform) owns a host-level `TransportProfile` aggregate (name, description, active). Every master data entity in every module gets a nullable `TransportProfileId`, filled only on host rows. Rows with a null profile id on host level are the base set shared by all profiles.
 - Onboarding (the Platform tenant-provisioning service, today a stub) copies base rows plus the chosen profile's rows into the new tenant database inside `ICurrentTenant.Change(newTenantId)`, keeping the source ids (or recording `SourceId`) so later profile changes can be diffed.
 - Unique indexes: PostgreSQL treats NULLs as distinct, so `(TenantId, Code)` would allow duplicate host rows. Use `NULLS NOT DISTINCT` (PostgreSQL 15+) or an index on `COALESCE(TenantId, <empty guid>)`.
 - Permissions use `multiTenancySides: Both`; the Master data app is visible for host users.

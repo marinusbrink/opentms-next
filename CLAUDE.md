@@ -35,6 +35,12 @@ submodules (Tariffs, Invoicing, Purchasing, TransportUnits) are folders/namespac
 inside the Financial module — **not** separate ABP modules (see
 `backend/modules/financial/README.md`).
 
+**Waiting for the transport domain (PO decision 2026-10-16):** fixed CMR texts
+(`ConsignmentNoteFixedDescription`), the CMR print profile (`ConsignmentNoteProfile`) and transport profiles
+(`TransportProfile`) belong to the transport domain (Orders or Planning & Execution, chosen in that run's design),
+not to Platform. The first design that touches CMR printing or transport set-up takes them in or names them under
+*Out of scope* with the PO's agreement. Facts and rules: `docs/input/masterdata-rebuild-assessment.md` §2.3.
+
 ## Target architecture (PO-owned)
 
 [docs/architecture/](docs/architecture/README.md) describes where the system is heading: the
