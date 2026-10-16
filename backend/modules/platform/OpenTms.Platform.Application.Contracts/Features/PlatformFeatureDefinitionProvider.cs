@@ -9,8 +9,8 @@ namespace OpenTms.Platform.Features;
  * screens that were live without a flag are on (Administration and its nodes; the Master data app and its groups),
  * screens that were behind a flag stay off (the Master data lists, Maintenance), placeholder apps are off. Every
  * node is a toggle and a child of the node above it, so an edition's Features tab shows the app tree. The Master data
- * app holds one group per domain (PO 2026-10-16), each domain group defaulting on like the groups below it; only the
- * Master Data domain's own group (General) exists so far. */
+ * app holds one group per domain (PO 2026-10-16), each domain group defaulting on like the groups below it: the Master
+ * Data domain's own group (General) and the Platform group (design 49). */
 public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
 {
     public override void Define(IFeatureDefinitionContext context)
@@ -43,6 +43,11 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         Off(reference, AppFeatures.MasterData.General.Reference.Countries);
         Off(reference, AppFeatures.MasterData.General.Reference.Currencies);
         Off(reference, AppFeatures.MasterData.General.Reference.GeographicalRegions);
+        var platform = On(masterData, AppFeatures.MasterData.Platform.Default);
+        Off(platform, AppFeatures.MasterData.Platform.EmailTemplates);
+        Off(platform, AppFeatures.MasterData.Platform.ReportDefinitions);
+        Off(platform, AppFeatures.MasterData.Platform.DocumentTypes);
+        Off(platform, AppFeatures.MasterData.Platform.NumberSequences);
 
         Off(apps, AppFeatures.Integrations);
         Off(apps, AppFeatures.Reports);

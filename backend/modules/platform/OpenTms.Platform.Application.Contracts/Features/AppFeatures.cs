@@ -65,6 +65,16 @@ public static class AppFeatures
                 public const string GeographicalRegions = Default + ".GeographicalRegions";
             }
         }
+
+        /// <summary>The Platform domain's group (design 49): its four lists sit directly under it.</summary>
+        public static class Platform
+        {
+            public const string Default = MasterData.Default + ".Platform";
+            public const string EmailTemplates = Default + ".EmailTemplates";
+            public const string ReportDefinitions = Default + ".ReportDefinitions";
+            public const string DocumentTypes = Default + ".DocumentTypes";
+            public const string NumberSequences = Default + ".NumberSequences";
+        }
     }
 
     public static class Administration

@@ -2,6 +2,7 @@
 using System.Net;
 using OpenTms.Localization;
 using OpenTms.MasterData;
+using OpenTms.Platform;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Account;
@@ -62,6 +63,17 @@ public class OpenTmsHttpApiModule : AbpModule
             }
 
             foreach (var code in MasterDataErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* The Platform master-data lists follow the same split (docs/designs/49-platform-master-data.md). */
+            foreach (var code in PlatformErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in PlatformErrorCodes.BadRequestCodes)
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }

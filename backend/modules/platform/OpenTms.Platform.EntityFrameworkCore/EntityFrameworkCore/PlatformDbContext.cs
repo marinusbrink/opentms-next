@@ -1,8 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using OpenTms.Platform.DataProtection;
+using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.Editions;
+using OpenTms.Platform.EmailTemplates;
+using OpenTms.Platform.EntityFrameworkCore.Localization;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.Platform.NumberSequences;
+using OpenTms.Platform.ReportDefinitions;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -45,9 +50,31 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// </summary>
     public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
 
+    // Platform master data (docs/designs/49-platform-master-data.md)
+    public DbSet<EmailTemplate> EmailTemplates { get; set; } = default!;
+    public DbSet<EmailTemplateContent> EmailTemplateContents { get; set; } = default!;
+    public DbSet<ReportDefinition> ReportDefinitions { get; set; } = default!;
+    public DbSet<DocumentType> DocumentTypes { get; set; } = default!;
+    public DbSet<DocumentTypeTransformation> DocumentTypeTransformations { get; set; } = default!;
+    public DbSet<NumberSequence> NumberSequences { get; set; } = default!;
+    public DbSet<NumberSequenceCounter> NumberSequenceCounters { get; set; } = default!;
+
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
     {
+    }
+
+    /* Every unique key of the master-data lists is per tenant with NULLS NOT DISTINCT and ignores soft-deleted rows, so
+     * a deleted row frees its key (as Master Data). The filter is PostgreSQL syntax; SQLite (unit tests) accepts it. */
+    private const string NotDeleted = "\"IsDeleted\" = false";
+
+    /* The document types' names are LocalizedName jsonb columns that the lists sort and search through
+     * LocalizedNameQuery. Enabled here rather than per provider configuration, so every configuration of this context
+     * (runtime, DbMigrator, the SQLite and PostgreSQL test modules) translates it; the call is idempotent. */
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        optionsBuilder.UseLocalizedNameTranslation();
     }
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -105,6 +132,110 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.ConfigureByConvention();
             b.Property(k => k.FriendlyName).HasMaxLength(DataProtectionKeyRecord.MaxFriendlyNameLength);
             b.Property(k => k.Xml).IsRequired();
+        });
+
+        ConfigureMasterData(builder);
+    }
+
+    /* Platform master data (docs/designs/49-platform-master-data.md, "Migration strategy"). */
+    private static void ConfigureMasterData(ModelBuilder builder)
+    {
+        builder.Entity<EmailTemplate>(b =>
+        {
+            b.ToTable("EmailTemplates", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(t => t.Name).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(t => t.NormalizedName).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(t => t.SenderAddress).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.SenderName).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.ReplyTo).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.To).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.Cc).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.Bcc).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
+            b.HasMany(t => t.Contents).WithOne().HasForeignKey(c => c.EmailTemplateId).OnDelete(DeleteBehavior.Cascade);
+            /* Names are unique regardless of case (PO 2026-10-16). */
+            b.HasIndex(t => new { t.TenantId, t.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* At most one default per purpose (assessment §3.8). */
+            b.HasIndex(t => new { t.TenantId, t.Purpose }, "IX_EmailTemplates_TenantId_Purpose_Default")
+                .IsUnique().AreNullsDistinct(false).HasFilter("\"IsDefault\" = true AND " + NotDeleted);
+        });
+
+        builder.Entity<EmailTemplateContent>(b =>
+        {
+            b.ToTable("EmailTemplateContents", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            /* One row per (template, culture). */
+            b.HasKey(c => new { c.EmailTemplateId, c.Culture });
+            b.Property(c => c.Culture).HasMaxLength(PlatformMasterDataConsts.MaxCultureLength).IsRequired();
+            b.Property(c => c.Subject).HasMaxLength(PlatformMasterDataConsts.MaxSubjectLength).IsRequired();
+            b.Property(c => c.HtmlBody).IsRequired(); // text; bounded to 200,000 characters by the DTO and the aggregate
+        });
+
+        builder.Entity<ReportDefinition>(b =>
+        {
+            b.ToTable("ReportDefinitions", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(d => d.Name).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(d => d.NormalizedName).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(d => d.Culture).HasMaxLength(PlatformMasterDataConsts.MaxCultureLength).IsRequired();
+            b.Property(d => d.ProviderTemplateId).HasMaxLength(PlatformMasterDataConsts.MaxProviderTemplateIdLength).IsRequired();
+            b.Property(d => d.FileNamePattern).HasMaxLength(PlatformMasterDataConsts.MaxFileNamePatternLength).IsRequired();
+            b.Property(d => d.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
+            b.HasIndex(d => new { d.TenantId, d.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* At most one default per purpose and language. */
+            b.HasIndex(d => new { d.TenantId, d.Purpose, d.Culture }, "IX_ReportDefinitions_TenantId_Purpose_Culture_Default")
+                .IsUnique().AreNullsDistinct(false).HasFilter("\"IsDefault\" = true AND " + NotDeleted);
+        });
+
+        builder.Entity<DocumentType>(b =>
+        {
+            b.ToTable("DocumentTypes", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(t => t.Code).HasMaxLength(PlatformMasterDataConsts.MaxCodeLength).IsRequired();
+            b.Property(t => t.Name).HasLocalizedNameColumn();
+            b.Property(t => t.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
+            b.HasMany(t => t.Transformations).WithOne().HasForeignKey(x => x.DocumentTypeId).OnDelete(DeleteBehavior.Cascade);
+            /* The natural key the seed upserts on. */
+            b.HasIndex(t => new { t.TenantId, t.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+        });
+
+        builder.Entity<DocumentTypeTransformation>(b =>
+        {
+            b.ToTable("DocumentTypeTransformations", PlatformDbProperties.DbSchema, t => t.HasCheckConstraint(
+                "CK_DocumentTypeTransformations_Position",
+                "\"Position\" >= 1 AND \"Position\" <= " + PlatformMasterDataConsts.MaxDocumentTypeTransformations));
+            b.ConfigureByConvention();
+            /* Each kind at most once per document type. */
+            b.HasKey(x => new { x.DocumentTypeId, x.Kind });
+            b.Property(x => x.Argument).HasMaxLength(PlatformMasterDataConsts.MaxTransformationArgumentLength);
+        });
+
+        builder.Entity<NumberSequence>(b =>
+        {
+            b.ToTable("NumberSequences", PlatformDbProperties.DbSchema, t => t.HasCheckConstraint(
+                "CK_NumberSequences_MinimumDigits",
+                "\"MinimumDigits\" >= " + PlatformMasterDataConsts.MinMinimumDigits + " AND \"MinimumDigits\" <= " + PlatformMasterDataConsts.MaxMinimumDigits));
+            b.ConfigureByConvention();
+            b.Property(s => s.Name).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(s => s.NormalizedName).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(s => s.Prefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
+            b.Property(s => s.YearPrefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
+            b.Property(s => s.YearSuffix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
+            b.Property(s => s.MonthPrefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
+            b.Property(s => s.MonthSuffix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
+            b.Property(s => s.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
+            b.HasIndex(s => new { s.TenantId, s.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+        });
+
+        builder.Entity<NumberSequenceCounter>(b =>
+        {
+            b.ToTable("NumberSequenceCounters", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            /* The upsert's conflict target (EfCoreNumberSequenceCounterRepository): one row per sequence and period,
+             * 0 for "no year" or "no month". */
+            b.HasKey(c => new { c.NumberSequenceId, c.PeriodYear, c.PeriodMonth });
+            b.HasOne<NumberSequence>().WithMany().HasForeignKey(c => c.NumberSequenceId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
