@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.Features;
 /// value that already exists), then migrated to this migration. Asserts the copy per provider and key (never across
 /// tenants or editions), the skip of an existing new-name value, that other providers are ignored, that the old rows
 /// stay (expand only, constitution rule 2), that a second run of Up changes nothing, that Down removes exactly the
-/// copies, and that the migration is the newest of the application context with nothing pending. The scratch database
+/// copies, and that only its contract step (RemoveOldMasterDataFeatureNames) follows it, with nothing pending. The scratch database
 /// carries this checkout's test suffix and is dropped afterwards. Risk class: Critical (Platform change; a value
 /// copied to the wrong provider key switches screens on for the wrong tenant, a lost value switches them off).
 /// </summary>
@@ -30,6 +30,7 @@ public class MoveMasterDataFeaturesUnderGeneralMigrationTests
 {
     private const string PreviousMigration = "20261015080000_RemoveOldFeatureNames";
     private const string ThisMigration = "20261016141627_MoveMasterDataFeaturesUnderGeneral";
+    private const string ContractMigration = "20261016211220_RemoveOldMasterDataFeatureNames";
 
     /// <summary>The 19 renames of D15: old name → new name.</summary>
     private static readonly (string Old, string New)[] Renames =
@@ -498,7 +499,8 @@ public class MoveMasterDataFeaturesUnderGeneralMigrationTests
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(ThisMigration);
             applied.IndexOf(ThisMigration).ShouldBe(applied.IndexOf(PreviousMigration) + 1, "directly after the previous application migration");
-            applied.Last().ShouldBe(ThisMigration, "the newest application migration");
+            /* Its contract step (RemoveOldMasterDataFeatureNames, PO 2026-10-16) is the only application migration after it. */
+            applied.Skip(applied.IndexOf(ThisMigration) + 1).ShouldBe([ContractMigration], "only the contract step follows the expand step");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
         }

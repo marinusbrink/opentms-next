@@ -256,9 +256,13 @@ same pattern) copies every stored tenant (`T`) and edition (`E`) value of the 19
 (`Apps.MasterData.Relations…`, `.Transport…`, `.Fleet…`, `.Reference…`) to its `Apps.MasterData.General…` name,
 unless the new name already has a value for that provider and key; a copy's id is derived from its source row, so
 `Down` removes exactly the copies. `Apps.MasterData.General` itself gets no stored value: its default is on.
-**Expand only:** the old values stay, inert (no definition reads them). **Contract step (planned, later release):**
-a follow-up migration deletes the old names' values and their `AbpFeatures` rows, as `RemoveOldFeatureNames` did for
-the first rename.
+**Expand only:** the old values stay, inert (no definition reads them). **Contract step (PO 2026-10-16):** the
+migration `RemoveOldMasterDataFeatureNames` (application context, raw SQL, the same pattern as `RemoveOldFeatureNames`
+for the first rename) deletes the 19 old names' rows from `AbpFeatureValues` and `AbpFeatures`, for every provider. The
+list is exactly the old side of the expand step's mapping. No feature group goes: the old names sat in `Apps`, which
+still holds every app feature. `Down` restores nothing (the values were copied to the General names by the expand
+step). It ships right after the expand step because no release carrying the old names was ever deployed. After this
+step the old names are free again: a later domain group may be named, for example, `Apps.MasterData.Transport`.
 
 ## Log in as a tenant user (D14)
 
