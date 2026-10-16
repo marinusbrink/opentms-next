@@ -109,7 +109,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
                   )}
                 >
                   <Icon size={24} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">{label}</span>
                   <ChevronRight
                     size={16}
                     className={cn("shrink-0 transition-transform", childrenOpen && "rotate-90")}
@@ -136,7 +136,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
                   )}
                 >
                   <Icon size={24} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">{label}</span>
                 </Link>
               }
             />
