@@ -55,6 +55,7 @@ const SELECT_ALLOWED: { file: string; items: string; reason: string }[] = [
 /** agRichSelectCellEditor columns over fixed lists (it has no "Add new …" row), keyed by file and the `values:` expression. */
 const RICH_SELECT_ALLOWED: { file: string; values: string; reason: string }[] = [
   { file: "apps/master-data/editors/DriverEditor.tsx", values: "kindValues", reason: "the DriverQualificationKind enum (QUALIFICATION_KINDS): fixed values" },
+  { file: "apps/master-data/editors/DocumentTypeEditor.tsx", values: "kindValues", reason: "the DocumentTransformationKind enum (DOCUMENT_TRANSFORMATION_KINDS): fixed values" },
 ];
 
 interface Usage {

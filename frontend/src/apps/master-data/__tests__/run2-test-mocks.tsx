@@ -235,7 +235,14 @@ export function MockOpenTmsGrid<TRow>({ gridId, columnDefs, fetchRows, rowAction
       {rows.map((row, index) => (
         <div key={index} data-slot="mock-grid-row">
           {rowActions?.([row]).map((action) => (
-            <button key={action.id} type="button" onClick={action.onClick}>
+            /* As the real grid: a disabled action (UI-PERM-005) does not run and carries its reason as the tooltip. */
+            <button
+              key={action.id}
+              type="button"
+              disabled={action.disabled === true}
+              title={action.disabled === true ? action.disabledReasonKey : undefined}
+              onClick={action.onClick}
+            >
               {action.labelKey}
             </button>
           ))}

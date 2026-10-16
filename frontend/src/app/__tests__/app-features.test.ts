@@ -1,3 +1,7 @@
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { createAppFeatureChecker, featureChain } from "@/app/app-features";
@@ -30,6 +34,43 @@ function allOn(app: AppDefinition): Record<string, string> {
 
 const tenant = (values: Record<string, string>) => createAppFeatureChecker(values, false);
 const host = (values: Record<string, string>) => createAppFeatureChecker(values, true);
+
+/** The feature names the backend defines: every `const string` of AppFeatures.cs except the group name, resolved as
+ *  C# resolves a simple or qualified name (innermost enclosing class first). Read from the source, so a node added on
+ *  one side only fails here. */
+function backendAppFeatures(): string[] {
+  const repoRoot = resolve((import.meta as unknown as { dirname: string }).dirname, "../../../..");
+  const src = readFileSync(resolve(repoRoot, "backend/modules/platform/OpenTms.Platform.Application.Contracts/Features/AppFeatures.cs"), "utf-8");
+  const values = new Map<string, string>();
+  const scope: string[] = [];
+  const pending: (string | null)[] = [];
+  const lookup = (name: string): string => {
+    for (let depth = scope.length; depth >= 0; depth--) {
+      const key = [...scope.slice(0, depth), name].join(".");
+      if (values.has(key)) return values.get(key)!;
+    }
+    throw new Error(`AppFeatures.cs: cannot resolve ${name} in ${scope.join(".")}`);
+  };
+  for (const line of src.split("\n")) {
+    const cls = /\bclass\s+(\w+)/.exec(line);
+    if (cls) pending.push(cls[1]);
+    const constant = /\bconst\s+string\s+(\w+)\s*=\s*(.+);/.exec(line);
+    if (constant) {
+      const value = constant[2]
+        .split("+")
+        .map((part) => part.trim())
+        .map((part) => (part.startsWith('"') ? part.slice(1, -1) : lookup(part)))
+        .join("");
+      values.set([...scope, constant[1]].join("."), value);
+    }
+    for (const char of line) {
+      if (char === "{") scope.push(pending.pop() ?? "");
+      else if (char === "}") scope.pop();
+    }
+  }
+  /* Blocks that are not classes (none today) would push "": drop them from the keys. */
+  return [...values.entries()].filter(([key]) => key !== "AppFeatures.GroupName").map(([, value]) => value);
+}
 
 type PathNode = { path: string; children?: readonly PathNode[] };
 const paths = (views: readonly PathNode[]): string[] =>
@@ -73,10 +114,27 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 35 features as the backend's AppFeatures", () => {
+  it("names the same 40 features as the backend's AppFeatures", () => {
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(35);
-    expect(new Set(names).size).toBe(35);
+    expect(names).toHaveLength(40);
+    expect(new Set(names).size).toBe(40);
+    const backend = backendAppFeatures();
+    expect(backend).toHaveLength(40);
+    expect([...names].sort()).toEqual([...backend].sort());
+  });
+
+  it("carries design 49's Platform domain group and its four lists directly under it", () => {
+    const names = Object.keys(allOn(masterData));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "Apps.MasterData.Platform",
+        "Apps.MasterData.Platform.EmailTemplates",
+        "Apps.MasterData.Platform.ReportDefinitions",
+        "Apps.MasterData.Platform.DocumentTypes",
+        "Apps.MasterData.Platform.NumberSequences",
+      ]),
+    );
+    expect(names.filter((n) => n.startsWith("Apps.MasterData.Platform"))).toHaveLength(5);
   });
 
   it("carries design 48's three nodes under their groups", () => {
@@ -100,8 +158,19 @@ describe("createAppFeatureChecker – tenant side", () => {
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    expect(visible).toHaveLength(1);
+    /* Two domain groups: General (without Reference) and Platform. */
+    expect(visible).toHaveLength(2);
     expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
+    expect(checker.visibleViews(masterData)[1].path).toBe("/master-data/platform");
+  });
+
+  it("the Platform group off hides its four lists, even with the lists on; General stays", () => {
+    const checker = tenant({ ...allOn(masterData), "Apps.MasterData.Platform": "false" });
+    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general"]);
+    for (const path of ["/master-data/email-templates", "/master-data/report-definitions", "/master-data/document-types", "/master-data/number-sequences"]) {
+      expect(checker.isPathEnabled(masterData, path), path).toBe(false);
+    }
+    expect(checker.isPathEnabled(masterData, "/master-data/countries")).toBe(true);
   });
 
   it("a group with all its children off is hidden, even though the group feature is on", () => {
@@ -208,6 +277,18 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
     expect(checker.firstEnabledPath(masterData, "/master-data/reference")).toBe("/master-data/countries");
   });
 
+  it("under the Platform group path returns its first enabled list; with General off the app's first list is a Platform one", () => {
+    const checker = tenant(allOn(masterData));
+    expect(checker.firstEnabledPath(masterData, "/master-data/platform")).toBe("/master-data/email-templates");
+    expect(
+      tenant({ ...allOn(masterData), "Apps.MasterData.Platform.EmailTemplates": "false" }).firstEnabledPath(masterData, "/master-data/platform"),
+    ).toBe("/master-data/report-definitions");
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General": "false" }).firstEnabledPath(masterData)).toBe("/master-data/email-templates");
+    expect(
+      tenant({ ...allOn(masterData), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" }).firstEnabledPath(masterData),
+    ).toBeUndefined();
+  });
+
   it("is undefined when nothing is on", () => {
     expect(tenant({}).firstEnabledPath(admin)).toBeUndefined();
     expect(tenant(on("Apps.MasterData")).firstEnabledPath(masterData)).toBeUndefined();
@@ -257,6 +338,10 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
     ["/master-data/product-relation-codes", "Apps.MasterData.General.Transport.ProductRelationCodes"],
     ["/master-data/countries", "Apps.MasterData.General.Reference.Countries"],
     ["/master-data/geographical-regions", "Apps.MasterData.General.Reference.GeographicalRegions"],
+    ["/master-data/email-templates", "Apps.MasterData.Platform.EmailTemplates"],
+    ["/master-data/report-definitions", "Apps.MasterData.Platform.ReportDefinitions"],
+    ["/master-data/document-types", "Apps.MasterData.Platform.DocumentTypes"],
+    ["/master-data/number-sequences", "Apps.MasterData.Platform.NumberSequences"],
   ])("a Master data list outside its group's path (%s) is off when its node is off", (path, node) => {
     /* The lists of a group do not live under the group's path (/master-data/countries is in the group
      * /master-data/reference), so a direct link must still be refused when the node is off. */

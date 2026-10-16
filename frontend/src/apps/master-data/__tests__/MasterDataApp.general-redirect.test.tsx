@@ -21,6 +21,8 @@ for (const view of [
   "AddressTypesView", "CountriesView", "CurrenciesView", "DriversView", "GeographicalRegionsView", "ProductsView",
   "RelationCategoriesView", "RelationsView", "TemperaturesView", "TransportCharacteristicsView", "TransportUnitsView", "VehicleTypesView",
   "VehiclesView", "VehicleCombinationsView", "ProductRelationCodesView",
+  /* Design 49: the Platform domain's lists. */
+  "EmailTemplatesView", "ReportDefinitionsView", "DocumentTypesView", "NumberSequencesView",
 ]) {
   vi.doMock(`@/apps/master-data/views/${view}`, () => ({ [view]: () => <div data-testid={view} /> }));
 }
@@ -51,7 +53,7 @@ const go = (path: string) => {
   render(<MasterDataApp />);
 };
 
-describe("MasterDataApp – the General domain group path", () => {
+describe("MasterDataApp – the domain group paths (General; Platform, design 49)", () => {
   it("/master-data/general goes to the first list that is on", () => {
     go("/master-data/general");
     expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/relations", replace: true });
@@ -89,10 +91,22 @@ describe("MasterDataApp – the General domain group path", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("the bare app path does not navigate when General is off", () => {
+  it("the bare app path goes to the first Platform list when General is off (design 49)", () => {
     values = { ...allOn(), "Apps.MasterData.General": "false" };
     go("/master-data");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/email-templates", replace: true });
+  });
+
+  it("the bare app path does not navigate when General and Platform are off", () => {
+    values = { ...allOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" };
+    go("/master-data");
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("the bare app path still goes to General's first list when Platform is off", () => {
+    values = { ...allOn(), "Apps.MasterData.Platform": "false" };
+    go("/master-data");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/relations", replace: true });
   });
 
   it("a group path does not navigate when General is off even though the group and its lists are on", () => {
@@ -101,7 +115,35 @@ describe("MasterDataApp – the General domain group path", () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("the list routes did not move under /general", () => {
+  it("/master-data/platform goes to the first Platform list that is on", () => {
+    go("/master-data/platform");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/email-templates", replace: true });
+  });
+
+  it("/master-data/platform skips Platform lists that are off", () => {
+    values = { ...allOn(), "Apps.MasterData.Platform.EmailTemplates": "false", "Apps.MasterData.Platform.ReportDefinitions": "false" };
+    go("/master-data/platform/");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/document-types", replace: true });
+  });
+
+  it("/master-data/platform does not navigate when Platform is off, even with General on", () => {
+    values = { ...allOn(), "Apps.MasterData.Platform": "false" };
+    go("/master-data/platform");
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["/master-data/email-templates", "EmailTemplatesView"],
+    ["/master-data/report-definitions", "ReportDefinitionsView"],
+    ["/master-data/document-types", "DocumentTypesView"],
+    ["/master-data/number-sequences", "NumberSequencesView"],
+  ])("%s renders %s without navigating", (path, view) => {
+    go(path);
+    expect(document.querySelector(`[data-testid=${view}]`)).not.toBeNull();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("the list routes did not move under /general or /platform", () => {
     const paths: string[] = [];
     const walk = (views: typeof masterData.views) =>
       views?.forEach((view) => {
@@ -109,7 +151,7 @@ describe("MasterDataApp – the General domain group path", () => {
         walk(view.children);
       });
     walk(masterData.views);
-    expect(paths).toHaveLength(15);
-    expect(paths.every((p) => /^\/master-data\/[a-z-]+$/.test(p) && !p.startsWith("/master-data/general"))).toBe(true);
+    expect(paths).toHaveLength(19);
+    expect(paths.every((p) => /^\/master-data\/[a-z-]+$/.test(p) && !p.startsWith("/master-data/general") && !p.startsWith("/master-data/platform"))).toBe(true);
   });
 });
