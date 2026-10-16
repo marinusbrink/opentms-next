@@ -159,7 +159,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
     <nav
       aria-label={`${appName} navigation`}
       className={cn(
-        "flex flex-col border-r bg-surface-page py-2 transition-[width]",
+        "flex min-h-0 flex-col border-r bg-surface-page py-2 transition-[width]",
         effectiveCollapsed ? "w-14" : "w-[250px]",
       )}
     >
@@ -173,7 +173,8 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
         </button>
       </div>
 
-      <ul className="flex flex-col gap-0.5 px-1">
+      {/* The tree scrolls inside the pane; the collapse toggle above stays in view. */}
+      <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1">
         {views.map((view) => (
           <li key={view.path}>
             <NavEntry

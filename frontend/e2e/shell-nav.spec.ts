@@ -81,4 +81,28 @@ test.describe("AppShell + AppNavPane — shell navigation (critical risk)", () =
     // No AppNavPane for dashboard (no views configured).
     await expect(page.getByRole("navigation", { name: /dashboard navigation/i })).toHaveCount(0);
   });
+
+  test("a nav tree taller than the window scrolls inside the pane, never the page", async ({ page }) => {
+    // A short window and every group open: the tree is taller than the pane (reported by the PO, 2026-10-16).
+    await page.setViewportSize({ width: 1280, height: 300 });
+    await page.goto("/admin/users");
+    await page.waitForURL("/admin/users", { timeout: 10_000 });
+
+    const nav = page.getByRole("navigation", { name: /administration navigation/i });
+    await expect(nav).toBeVisible();
+    await nav.getByRole("button", { name: /audit logs|auditlogboeken|logboek/i }).click();
+
+    const metrics = await page.evaluate(() => {
+      const list = document.querySelector('nav[aria-label$="navigation"] > ul') as HTMLElement;
+      return {
+        pageOverflow: document.documentElement.scrollHeight - window.innerHeight,
+        listOverflow: list.scrollHeight - list.clientHeight,
+      };
+    });
+    expect(metrics.pageOverflow, "the page itself never scrolls").toBeLessThanOrEqual(0);
+    expect(metrics.listOverflow, "the tree scrolls inside the nav pane").toBeGreaterThan(0);
+
+    // The collapse toggle stays reachable above the scrolling tree.
+    await expect(page.getByRole("button", { name: /collapse navigation/i })).toBeInViewport();
+  });
 });
