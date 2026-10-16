@@ -5,7 +5,7 @@ import {
   createRouter,
   Outlet,
 } from "@tanstack/react-router";
-import { APPS } from "@/app/apps.config";
+import { APPS, type AppView } from "@/app/apps.config";
 import { componentForApp } from "@/apps/registry";
 import { AppShell } from "@/app/shell/AppShell";
 import { Landing } from "@/app/Landing";
@@ -75,12 +75,15 @@ const adminSubRoutes = [
   }),
 );
 
-/* Sub-routes of the Master data app (design 41): every nav group and list path in apps.config.ts
+/** Every path in a nav tree, at any depth (Master data has three levels since D15). */
+export function treePaths(views: readonly AppView[]): string[] {
+  return views.flatMap((view) => [view.path, ...treePaths(view.children ?? [])]);
+}
+
+/* Sub-routes of the Master data app (design 41): every nav group and list path in apps.config.ts, at any depth,
  * resolves to the app component, which reads the pathname. */
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
-const masterDataSubRoutes = Array.from(
-  new Set((masterDataApp.views ?? []).flatMap((view) => [view.path, ...(view.children ?? []).map((child) => child.path)])),
-).map((path) =>
+const masterDataSubRoutes = Array.from(new Set(treePaths(masterDataApp.views ?? []))).map((path) =>
     createRoute({
       getParentRoute: () => shellRoute,
       path,
