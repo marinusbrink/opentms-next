@@ -19,6 +19,7 @@ import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   RELATION_ROLES,
+  hasOwnCompanyRole,
   relationCategories,
   relationRoleKeys,
   relations,
@@ -180,9 +181,11 @@ export function RelationsView() {
     [t],
   );
 
+  /* The own company is never archived (PO 2026-10-16): its row offers no Archive; an archived one (data from before
+   * the rule) still offers Unarchive. */
   const extraRowActions = useCallback(
     (row: RelationRow, refresh: () => void): GridRowAction[] =>
-      canUpdate
+      canUpdate && (row.isArchived || !hasOwnCompanyRole(row.roles))
         ? [
             {
               id: "archive",

@@ -38,6 +38,9 @@ public static class MasterDataErrorCodes
     public const string BlockReasonRequired = Namespace + ":BlockReasonRequired";
     public const string ExternalIdentifierIncomplete = Namespace + ":ExternalIdentifierIncomplete";
 
+    /// <summary>The own company (OwnCompany role) is never archived (PO 2026-10-16).</summary>
+    public const string OwnCompanyCannotBeArchived = Namespace + ":OwnCompanyCannotBeArchived";
+
     // Run 3: Vehicle, vehicle combination and product relation code (design 48)
     public const string OwnerRoleRequired = Namespace + ":OwnerRoleRequired";
     public const string HomeDepotRoleRequired = Namespace + ":HomeDepotRoleRequired";
@@ -53,7 +56,7 @@ public static class MasterDataErrorCodes
     public static readonly string[] ConflictCodes =
     [
         DuplicateKey, InUse, DefaultCannotBeDeleted, DefaultMustBeActive, SelfIncompatibility, DuplicateLoadFactor,
-        OwnCompanyAlreadyExists, AnonymisedRecordIsReadOnly,
+        OwnCompanyAlreadyExists, AnonymisedRecordIsReadOnly, OwnCompanyCannotBeArchived,
         VehicleAlreadyInCombination
     ];
 

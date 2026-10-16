@@ -379,6 +379,11 @@ export const RELATION_ROLES: { value: number; key: string }[] = [
 ];
 /** Carrier | OwnCompany: the roles a driver's employer must carry (design 43). */
 export const EMPLOYER_ROLES = 2 | 16;
+/** The OwnCompany flag: one relation per tenant, never archived (PO 2026-10-16). */
+export const OWN_COMPANY_ROLE = 16;
+export function hasOwnCompanyRole(flags: number | null | undefined): boolean {
+  return ((flags ?? 0) & OWN_COMPANY_ROLE) === OWN_COMPANY_ROLE;
+}
 
 /** The generated enum names the single flags; a combination is the same flags enum to the server. */
 export function asRoles(flags: number | undefined): RelationRoles | undefined {

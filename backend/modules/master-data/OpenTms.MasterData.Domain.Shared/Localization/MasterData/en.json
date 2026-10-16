@@ -264,6 +264,8 @@
     "Permission:Drivers.Delete": "Delete drivers",
     "Permission:Drivers.Anonymise": "Anonymise drivers",
     "OpenTms.MasterData:OwnCompanyAlreadyExists": "There is already a relation with the role Own company. A tenant has exactly one.",
+    "OpenTms.MasterData:OwnCompanyCannotBeArchived": "The own company cannot be archived. A relation with the role Own company always stays active.",
+    "MasterData:OwnCompanyCannotBeArchivedHint": "The own company is never archived.",
     "OpenTms.MasterData:RolesRequired": "A relation needs at least one role.",
     "OpenTms.MasterData:EmployerRoleRequired": "The employer of a driver must be a relation with the role Carrier or Own company.",
     "OpenTms.MasterData:InvalidIban": "The IBAN is not valid.",

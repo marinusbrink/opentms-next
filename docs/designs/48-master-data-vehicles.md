@@ -129,7 +129,7 @@ combination on a trip is Planning's fact and references vehicle ids itself.
 
 | Field | Type | Rule |
 |---|---|---|
-| `Name` | string(64), required | unique per tenant; defaults to the members' names joined by " + " |
+| `Name` | string(64), required | **unique per tenant regardless of case** (PO 2026-10-16): stored as typed, with `NormalizedName` (upper case) as the unique key, as the vehicle name; defaults to the members' names joined by " + " |
 | `IsArchived` | bool | |
 | `Description` | string(2500)? | |
 | child **VehicleCombinationMember** | `VehicleId` FK → Vehicles (restrict), `Position` int (1-based) | 2 to 4 members; position 1 is the **motorised** vehicle (kind Tractor, Rigid or Van), later positions are **trailers**; a vehicle appears **at most once in all active combinations** (unique partial index on `(TenantId, VehicleId)` over members of non-archived, non-deleted combinations, maintained by a denormalised `IsActive` on the member) |
@@ -215,7 +215,7 @@ the typed client regenerated.
 
 ## Migration strategy
 
-Two additive migrations. `MasterDataVehicleNormalizedName` (PO 2026-10-16) adds `Vehicles.NormalizedName`, fills it from `Name`, moves the unique key onto `(TenantId, NormalizedName)` and keeps `(TenantId, Name)` as a plain index for the default sort; no release shipped vehicles before it. The first, `MasterDataVehicles` after `MasterDataRelationAdministration`: tables `Vehicles`,
+Three additive migrations. `MasterDataVehicleNormalizedName` (PO 2026-10-16) adds `Vehicles.NormalizedName`, fills it from `Name`, moves the unique key onto `(TenantId, NormalizedName)` and keeps `(TenantId, Name)` as a plain index for the default sort; no release shipped vehicles before it. `MasterDataVehicleCombinationNormalizedName` (PO 2026-10-16) does the same for `VehicleCombinations` (fill: `upper(trim(Name))`); no release shipped combinations before it, so only a development database could hold two names differing in case only, and there the unique index stops the migration with a duplicate-key error until one is renamed. The first, `MasterDataVehicles` after `MasterDataRelationAdministration`: tables `Vehicles`,
 `VehicleTransportCharacteristics`, `VehicleDefaultDrivers`, `VehicleOrganizationUnits`,
 `VehicleExternalIdentifiers`, `VehicleCombinations`, `VehicleCombinationMembers`, `ProductRelationCodes`.
 Indexes: per-tenant unique (`NULLS NOT DISTINCT`, soft-delete filter) on vehicle name, `(TenantId,

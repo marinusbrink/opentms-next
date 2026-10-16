@@ -19,6 +19,9 @@ public class VehicleCombination : MasterDataAggregateRoot
 
     public string Name { get; private set; } = default!;
 
+    /// <summary>The name in upper case: the unique key, so "Night shift" and "NIGHT SHIFT" are one name (PO 2026-10-16).</summary>
+    public string NormalizedName { get; private set; } = default!;
+
     public bool IsArchived { get; private set; }
 
     public virtual ICollection<VehicleCombinationMember> Members { get; private set; } = new List<VehicleCombinationMember>();
@@ -36,7 +39,14 @@ public class VehicleCombination : MasterDataAggregateRoot
     public static string NormalizeCombinationName(string name)
         => Check.NotNullOrWhiteSpace(name, nameof(name), MasterDataConsts.MaxVehicleCombinationNameLength).Trim();
 
-    public void SetName(string name) => Name = NormalizeCombinationName(name);
+    /// <summary>The unique key of a name: trimmed and upper case.</summary>
+    public static string NormalizedNameOf(string name) => NormalizeCombinationName(name).ToUpperInvariant();
+
+    public void SetName(string name)
+    {
+        Name = NormalizeCombinationName(name);
+        NormalizedName = Name.ToUpperInvariant();
+    }
 
     /// <summary>
     /// Replaces the members in the given order (positions 1, 2, …): 2 to 4 vehicles, each once, the first motorised

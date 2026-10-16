@@ -360,6 +360,13 @@ public class RelationAppService
             relation.SetCode(code);
         }
 
+        /* Unarchive before the roles: an archived relation cannot take the OwnCompany role, but one that is being
+         * unarchived in the same save can (PO 2026-10-16). Archiving happens in ApplyAsync, after the roles. */
+        if (!input.IsArchived)
+        {
+            relation.Unarchive();
+        }
+
         relation.SetRoles(input.Roles);
         await ApplyAsync(relation, input);
     }
