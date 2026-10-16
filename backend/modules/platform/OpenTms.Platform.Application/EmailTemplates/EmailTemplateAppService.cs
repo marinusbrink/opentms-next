@@ -83,7 +83,13 @@ public class EmailTemplateAppService
     protected override async Task<List<EmailTemplateRowDto>> ToRowsAsync(List<EmailTemplate> entities)
     {
         var ids = entities.Select(t => t.Id).ToList();
-        var contents = ids.Count == 0 ? [] : await _contents.GetListAsync(c => ids.Contains(c.EmailTemplateId));
+        /* Only the language of each content row: the bodies (up to 200,000 characters each) are not read for a list. */
+        var contents = ids.Count == 0
+            ? []
+            : await AsyncExecuter.ToListAsync(
+                (await _contents.GetQueryableAsync())
+                    .Where(c => ids.Contains(c.EmailTemplateId))
+                    .Select(c => new { c.EmailTemplateId, c.Culture }));
         var cultures = contents
             .GroupBy(c => c.EmailTemplateId)
             .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(c => c.Culture).OrderBy(c => c, StringComparer.Ordinal)));
