@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { useCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import {
   NumberField,
@@ -49,9 +50,9 @@ interface Values {
 
 /* One Name field in the user's language (PO, 2026-10-11), as in the currency editor. */
 const initialValuesFor =
-  (culture: string) =>
+  (culture: string, initialName: string | undefined) =>
   (dto: CountryDto | undefined): Values => ({
-    name: resolveLocalizedName(dto?.names, culture),
+    name: dto ? resolveLocalizedName(dto.names, culture) : (initialName ?? ""),
     isoAlpha2: dto?.isoAlpha2 ?? "",
     isoAlpha3: dto?.isoAlpha3 ?? "",
     isoNumeric: numberToText(dto?.isoNumeric),
@@ -87,10 +88,15 @@ export function CountryEditor({
   open,
   onClose,
   onSaved,
+  initialName,
 }: EntityEditorProps) {
   const { t, culture } = useL();
   const detail = countries.useDetail(mode === "edit" ? id : undefined);
-  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
+  const initialValues = useMemo(
+    () => initialValuesFor(culture, mode === "create" ? initialName : undefined),
+    [culture, mode, initialName],
+  );
+  const inPlace = useCreateInPlace();
   const create = countries.useCreate();
   const update = countries.useUpdate();
   const remove = countries.useDelete();
@@ -146,14 +152,12 @@ export function CountryEditor({
         primaryTimeZoneId: v.primaryTimeZoneId,
         description: v.description.trim() || null,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({
-          id: id!,
-          dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" },
-        });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({
+            id: id!,
+            dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" },
+          });
     },
     [create, update, mode, id, culture],
   );
@@ -193,6 +197,9 @@ export function CountryEditor({
                 onChange={(next) => form.set("defaultCurrencyId", next)}
                 options={currencyOptions}
                 disabled={form.readOnly}
+                {...inPlace.offer("Currency", form.readOnly, (r) =>
+                  form.set("defaultCurrencyId", r.id),
+                )}
               />
             </FormField>
             <TextField
@@ -294,6 +301,7 @@ export function CountryEditor({
         confirmLabel={t("MasterData:SetAsDefault")}
         onConfirm={makeDefault}
       />
+      {inPlace.dialog}
     </>
   );
 }

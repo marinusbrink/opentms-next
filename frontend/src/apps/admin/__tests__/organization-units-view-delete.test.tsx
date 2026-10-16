@@ -38,7 +38,7 @@ vi.mock("@/domains/platform/administration-organization-units", () => ({
   useDeleteOrganizationUnit: () => ({ mutateAsync: deleteMutateAsync, isPending: false }),
 }));
 
-vi.mock("@/apps/admin/components/OrganizationUnitFormDialog", () => ({
+vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", () => ({
   OrganizationUnitFormDialog: () => null,
 }));
 

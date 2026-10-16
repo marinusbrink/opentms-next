@@ -22,14 +22,14 @@ vi.mock("@/components/ui/lines-grid-lazy", () => ({
   },
 }));
 
-vi.mock("@/apps/admin/components/AddOrganizationUnitMembersDialog", () => ({
+vi.mock("@/domains/platform/components/AddOrganizationUnitMembersDialog", () => ({
   AddOrganizationUnitMembersDialog: (props: typeof pickerProps) => {
     pickerProps = props;
     return <div data-testid="add-members-dialog" />;
   },
 }));
 
-import { OrganizationUnitMembersPanel } from "@/apps/admin/components/OrganizationUnitMembersPanel";
+import { OrganizationUnitMembersPanel } from "@/domains/platform/components/OrganizationUnitMembersPanel";
 
 const members = [{ id: "a", userName: "a" }, { id: "b", userName: "b" }];
 

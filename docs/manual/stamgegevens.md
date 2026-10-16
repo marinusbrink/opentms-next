@@ -32,6 +32,29 @@ record alleen-lezen.
   verwijderd. Gearchiveerde records verdwijnen uit de keuzelijsten; met *Gearchiveerde tonen*
   blijven ze in de lijst zichtbaar.
 
+## Nieuw record vanuit een keuzelijst
+
+Elke keuzelijst in een scherm die een record kiest (een land, valuta, voertuigtype, product,
+relatie, chauffeur, organisatie-eenheid en zo verder) eindigt met de regel **Nieuw … toevoegen…**,
+bijvoorbeeld *Nieuw land toevoegen…* of *Nieuwe relatiecategorie toevoegen…*. Zo hoeft u het scherm
+niet te verlaten (en uw wijzigingen niet kwijt te raken) als het record dat u zoekt nog niet bestaat:
+
+- De regel opent het scherm voor een nieuw record bovenop het scherm waarin u werkt. Wat u in de
+  keuzelijst had getypt, staat al in het veld *Naam* (bij een chauffeur: één woord is de achternaam,
+  bij meer woorden is het eerste woord de voornaam).
+- Na **Opslaan** sluit dat scherm en is het nieuwe record gekozen; in een keuzelijst met meerdere
+  waarden (bijvoorbeeld de categorieën van een relatie) wordt het aan de keuze toegevoegd. **Sluiten**
+  zonder opslaan laat de keuzelijst zoals hij was.
+- Dat geldt ook voor de keuzelijsten in een tabel in het scherm, zoals het land van een
+  postcodebereik of het voertuigtype van een beladingsfactor: het nieuwe record komt in die regel.
+- De regel staat er alleen als u het recht hebt om zo'n record aan te maken én het onderdeel van
+  dat record voor uw organisatie aanstaat (bijvoorbeeld *Stamgegevens › Referentie › Landen* voor
+  een land), en niet in een scherm dat alleen-lezen is geopend.
+- In een keuzelijst in een tabel kiest **Tab** de gemarkeerde waarde en gaat naar de volgende cel.
+  Met **pijl omlaag** voorbij de laatste waarde komt u op de regel **Nieuw … toevoegen…**; **Enter**
+  opent dan het scherm voor het nieuwe record. Keuzelijsten met vaste waarden (een soort, een blokkeerreden,
+  een brandstof) en de filters boven een lijst hebben de regel niet.
+
 ## Meertalige namen
 
 Valuta's, landen en adrestypen hebben een naam per taal (Nederlands en Engels). De Engelse naam

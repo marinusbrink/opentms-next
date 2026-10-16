@@ -16,7 +16,7 @@ import type {
 } from "@/components/ui/opentms-grid";
 import { BulkDeleteUsersDialog } from "@/apps/admin/components/BulkDeleteUsersDialog";
 import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog";
-import { UserFormDialog } from "@/apps/admin/components/UserFormDialog";
+import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import {
   useDeleteUser,
   useUnlockUser,

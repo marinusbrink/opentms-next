@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAppFeatures } from "@/app/app-features";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialog";
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildTree, collectSubtreeIds, TreeSelect, type TreeSelectNode } from "@/components/ui/tree-select";
-import { OrganizationUnitMembersPanel } from "@/apps/admin/components/OrganizationUnitMembersPanel";
+import { OrganizationUnitMembersPanel } from "@/domains/platform/components/OrganizationUnitMembersPanel";
 import {
   membersQueryKey,
   useAddOrganizationUnitMembers,
@@ -37,7 +38,10 @@ interface OrganizationUnitFormDialogProps {
   readOnly?: boolean;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** After a save; a create passes the unit the API returned (a picker's "Add new …" selects it, UI-LOOK-004). */
+  onSuccess: (saved?: OrganizationUnitRow) => void;
+  /** Create mode only: the name a picker's "Add new …" row was typed with (UI-LOOK-004). */
+  initialName?: string;
 }
 
 interface FormValues {
@@ -61,9 +65,22 @@ export function OrganizationUnitFormDialog({
   open,
   onClose,
   onSuccess,
+  initialName,
 }: OrganizationUnitFormDialogProps) {
+  /* Unique per instance: "Add new organization unit…" opens this dialog on top of itself (UI-LOOK-004). */
+  const fieldId = useId();
+  const nameId = `${fieldId}-name`;
+  const parentId = `${fieldId}-parent`;
   const { t } = useL();
   const queryClient = useQueryClient();
+  /* Create needs the permission and the node's feature chain, as the controller's RequiresTenantAppFeature does
+   * (UI-PERM-006; on the host side Administration is always on). Same gate as useCreateInPlace's "OrganizationUnit",
+   * which this dialog cannot import (that registry imports this dialog). */
+  const appFeatures = useAppFeatures();
+  const canCreateUnit =
+    useIsGranted("Platform.Administration.OrganizationUnits.Create") && appFeatures.isFeatureEnabled("Apps.Administration.OrganizationUnits");
+  /* "Add new …" in the parent picker (UI-LOOK-004): a new unit's editor on top; the saved unit becomes the parent. */
+  const [newParent, setNewParent] = useState(false);
   const canManageMembers = useIsGranted("Platform.Administration.OrganizationUnits.ManageMembers") && !readOnly;
   const createUnit = useCreateOrganizationUnit();
   const updateUnit = useUpdateOrganizationUnit();
@@ -75,10 +92,10 @@ export function OrganizationUnitFormDialog({
 
   const initial = useMemo<FormValues>(
     () => ({
-      displayName: mode === "edit" ? (unit?.displayName ?? "") : "",
+      displayName: mode === "edit" ? (unit?.displayName ?? "") : (initialName ?? ""),
       parentId: mode === "edit" ? (unit?.parentId ?? null) : (parent?.id ?? null),
     }),
-    [mode, unit, parent],
+    [mode, unit, parent, initialName],
   );
 
   const [values, setValues] = useState<FormValues>(initial);
@@ -127,13 +144,14 @@ export function OrganizationUnitFormDialog({
     setServerError(null);
     if (nameError) {
       setActiveTab("general");
-      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>("#ouf-name")?.focus());
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`#${CSS.escape(nameId)}`)?.focus());
       return;
     }
 
     try {
+      let created: OrganizationUnitRow | undefined;
       if (mode === "create") {
-        await createUnit.mutateAsync({ displayName: values.displayName.trim(), parentId: values.parentId });
+        created = ((await createUnit.mutateAsync({ displayName: values.displayName.trim(), parentId: values.parentId })) ?? undefined) as OrganizationUnitRow | undefined;
       } else {
         const id = unit!.id!;
         if (JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial))) {
@@ -154,7 +172,7 @@ export function OrganizationUnitFormDialog({
         }
       }
       void queryClient.invalidateQueries({ queryKey: ["administration", "organization-units", "all"] });
-      onSuccess();
+      onSuccess(created);
       onClose();
       toast.success(t("Administration:OrganizationUnitSaved"));
     } catch (err) {
@@ -201,9 +219,9 @@ export function OrganizationUnitFormDialog({
         {/* One topic: the section carries the entity's name (UI-FORM-005). */}
         <FormSection title={t("Administration:OrganizationUnit")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <FormField label={t("Administration:DisplayName")} htmlFor="ouf-name" required error={shownNameError}>
+            <FormField label={t("Administration:DisplayName")} htmlFor={nameId} required error={shownNameError}>
               <Input
-                id="ouf-name"
+                id={nameId}
                 value={values.displayName}
                 onChange={(e) => setValues((v) => ({ ...v, displayName: e.target.value }))}
                 onBlur={() => setNameTouched(true)}
@@ -213,15 +231,17 @@ export function OrganizationUnitFormDialog({
               />
             </FormField>
 
-            <FormField label={t("Administration:ParentUnit")} htmlFor="ouf-parent" floating="always">
+            <FormField label={t("Administration:ParentUnit")} htmlFor={parentId} floating="always">
               <TreeSelect
-                id="ouf-parent"
+                id={parentId}
                 nodes={tree}
                 value={values.parentId}
                 onChange={(parentId) => setValues((v) => ({ ...v, parentId }))}
                 noneLabel={t("Administration:NoParentUnit")}
                 disabledIds={disabledParentIds}
                 disabled={readOnly || allUnits.isLoading}
+                onCreateNew={canCreateUnit && !readOnly ? () => setNewParent(true) : undefined}
+                createLabel={t("Administration:AddNewOrganizationUnit")}
               />
             </FormField>
           </div>
@@ -264,6 +284,7 @@ export function OrganizationUnitFormDialog({
   ];
 
   return (
+    <>
     <EntityDialog
       open={open}
       onOpenChange={(next) => {
@@ -279,5 +300,22 @@ export function OrganizationUnitFormDialog({
       isDirty={isDirty}
       isBusy={isPending}
     />
+    {newParent && (
+      <OrganizationUnitFormDialog
+        mode="create"
+        open
+        onClose={() => setNewParent(false)}
+        onSuccess={(saved) => {
+          const id = saved?.id;
+          if (!id) return;
+          /* The tree shows the new unit at once (the refetch the save started replaces this). */
+          queryClient.setQueryData<OrganizationUnitRow[]>(["administration", "organization-units", "all"], (rows) =>
+            rows && !rows.some((r) => r.id === id) ? [...rows, saved] : rows,
+          );
+          setValues((v) => ({ ...v, parentId: id }));
+        }}
+      />
+    )}
+    </>
   );
 }

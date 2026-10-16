@@ -24,7 +24,7 @@ vi.mock("@/domains/platform/administration-users", () => ({
   useDeleteUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUnlockUser: () => ({ mutateAsync: unlockMutateAsync, isPending: false }),
 }));
-vi.mock("@/apps/admin/components/UserFormDialog", () => ({ UserFormDialog: () => null }));
+vi.mock("@/domains/platform/components/UserFormDialog", () => ({ UserFormDialog: () => null }));
 vi.mock("@/apps/admin/components/ResetPasswordDialog", () => ({ ResetPasswordDialog: () => null }));
 vi.mock("@/apps/admin/components/BulkDeleteUsersDialog", () => ({ BulkDeleteUsersDialog: () => null }));
 vi.mock("@/components/ui/opentms-grid", () => ({

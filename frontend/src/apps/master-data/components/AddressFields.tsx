@@ -103,6 +103,11 @@ export interface AddressFieldsProps {
   zoneOptions: ReferenceOption[];
   /** The user picked a country: the caller lets the time zone follow it. */
   onCountryPicked: (countryId: string) => void;
+  /** UI-LOOK-004: "Add new country…" in the country picker with the typed text; the caller opens the country
+   *  editor on top and sets the saved country on this address. Absent without the Create permission. */
+  onCreateCountry?: (term: string) => void;
+  /** The label of that row, already translated. */
+  createCountryLabel?: string;
   /** Design 44: asked when the postal code or the house number loses focus; fills only the empty fields. Absent while the feature is off. */
   onLookup?: (row: AddressRow) => Promise<AddressLookupFill | null>;
   /** The postal-code dropdown: lines for what was typed so far in the row's country. Absent while the feature is off. */
@@ -195,6 +200,8 @@ export function AddressFields({
   countryOptions,
   zoneOptions,
   onCountryPicked,
+  onCreateCountry,
+  createCountryLabel,
   onLookup,
   onSuggest,
 }: AddressFieldsProps) {
@@ -320,6 +327,8 @@ export function AddressFields({
           }}
           options={countryOptions}
           disabled={readOnly}
+          onCreateNew={readOnly ? undefined : onCreateCountry}
+          createLabel={createCountryLabel}
         />
       </FormField>
       {onSuggest && !readOnly ? (

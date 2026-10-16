@@ -5,6 +5,7 @@ import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { useCanCreateInPlace, useCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, TextAreaField, TextField } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -60,7 +61,8 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
   const update = productRelationCodes.useUpdate();
   const remove = productRelationCodes.useDelete();
   const canDelete = useIsGranted("MasterData.ProductRelationCodes.Delete");
-  const canCreateRelation = useIsGranted("MasterData.Relations.Create");
+  /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
+  const canCreate = useCanCreateInPlace();
   const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
   const relationPage = useMemo(() => relationLookupPage(), []);
   const productLookup = products.useLookup(open);
@@ -68,6 +70,7 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
   const productOptions = useMemo(() => (productLookup.data ?? []).map((i) => ({ value: i.id ?? "", label: i.name ?? "" })), [productLookup.data]);
   const unitOptions = useMemo(() => (unitLookup.data ?? []).map((i) => ({ value: i.id ?? "", label: i.name ?? "" })), [unitLookup.data]);
 
+  const inPlace = useCreateInPlace();
   const [applyValues, setApplyValues] = useState<{ key: number; update: (values: Values) => Values } | undefined>();
   const [relationDialog, setRelationDialog] = useState<{ mode: "create"; term: string } | { mode: "edit"; id: string } | null>(null);
 
@@ -114,7 +117,7 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
                     <div className="text-label text-muted-foreground">{[r.code, [r.city, r.countryCode].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>
                   </>
                 )}
-                onCreateNew={canCreateRelation && !form.readOnly ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
+                onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
                 createLabel={t("MasterData:AddNewRelation")}
                 onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
                 aria-invalid={form.error("relation") != null}
@@ -129,6 +132,7 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
                 onChange={(next) => form.set("productId", next)}
                 options={productOptions}
                 disabled={form.readOnly}
+                {...inPlace.offer("Product", form.readOnly, (r) => form.set("productId", r.id))}
               />
             </FormField>
             {/* DEVIATION(UI-LOOK-001): transport unit is a ReferenceCombobox, not an EntityLookup: run-1 lists without a lookup-page endpoint, small per tenant (the lookup's cap of 500 holds), approved in docs/designs/48-master-data-vehicles.md (UI design, product relation code editor). */}
@@ -139,6 +143,7 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
                 onChange={(next) => form.set("transportUnitId", next)}
                 options={unitOptions}
                 disabled={form.readOnly}
+                {...inPlace.offer("TransportUnit", form.readOnly, (r) => form.set("transportUnitId", r.id))}
               />
             </FormField>
             <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} className="col-span-2" />
@@ -187,6 +192,7 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
           }}
         />
       )}
+      {inPlace.dialog}
     </>
   );
 }

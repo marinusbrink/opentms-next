@@ -26,8 +26,8 @@ interface Values {
 
 /* One Name field in the user's language (PO, 2026-10-11): the editor binds to the resolved text and
  * writes it back to that language; other languages stay as they are. */
-const initialValuesFor = (culture: string) => (dto: CurrencyDto | undefined): Values => ({
-  name: resolveLocalizedName(dto?.names, culture),
+const initialValuesFor = (culture: string, initialName: string | undefined) => (dto: CurrencyDto | undefined): Values => ({
+  name: dto ? resolveLocalizedName(dto.names, culture) : (initialName ?? ""),
   isoCode: dto?.isoCode ?? "",
   symbol: dto?.symbol ?? "",
   isoNumeric: numberToText(dto?.isoNumeric),
@@ -47,10 +47,10 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t, culture } = useL();
   const detail = currencies.useDetail(mode === "edit" ? id : undefined);
-  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
+  const initialValues = useMemo(() => initialValuesFor(culture, mode === "create" ? initialName : undefined), [culture, mode, initialName]);
   const create = currencies.useCreate();
   const update = currencies.useUpdate();
   const remove = currencies.useDelete();
@@ -69,11 +69,9 @@ export function CurrencyEditor({ mode, id, readOnly, open, onClose, onSaved }: E
         description: v.description.trim() || null,
         isActive: v.isActive,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id, culture],
   );

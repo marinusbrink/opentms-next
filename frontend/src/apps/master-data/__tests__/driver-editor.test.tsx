@@ -16,11 +16,14 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 }));
 
 let grants: Record<string, boolean> = {};
+/* The relations node's chain is on: "Add new relation…" needs it besides Relations.Create (UI-PERM-006). */
+const DEFAULT_FEATURES = { "Apps.MasterData.Fleet.Drivers": "true", "Apps.MasterData": "true", "Apps.MasterData.Relations": "true", "Apps.MasterData.Relations.Relations": "true" };
+let features: Record<string, string> = { ...DEFAULT_FEATURES };
 vi.mock("@/lib/abp/queries", () => ({
   useApplicationConfiguration: () => ({
     data: {
       auth: { grantedPolicies: grants },
-      features: { values: { "Apps.MasterData.Fleet.Drivers": "true" } },
+      features: { values: features },
       localization: { languages: [{ cultureName: "nl", displayName: "Nederlands" }] },
     },
   }),
@@ -117,6 +120,7 @@ const stored: DriverDto = {
 let detail: DriverDto = stored;
 
 beforeEach(() => {
+  features = { ...DEFAULT_FEATURES };
   vi.stubGlobal("IntersectionObserver", ObserverStub);
   grants = {};
   detail = stored;
@@ -298,6 +302,16 @@ describe("DriverEditor — create", () => {
   });
 
   it("hides Add new relation… without Relations.Create", async () => {
+    renderEditor();
+    const employer = field(editorDialog(), "MasterData:Employer");
+    openPopup(employer);
+    await screen.findByText("Acme Transport");
+    expect(screen.queryByText("MasterData:AddNewRelation")).toBeNull();
+  });
+
+  it.each(["Apps.MasterData.Relations.Relations", "Apps.MasterData.Relations"])("hides Add new relation… with Relations.Create when %s is off", async (off) => {
+    grants = { "MasterData.Relations.Create": true };
+    features = { ...DEFAULT_FEATURES, [off]: "false" };
     renderEditor();
     const employer = field(editorDialog(), "MasterData:Employer");
     openPopup(employer);

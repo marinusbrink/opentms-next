@@ -10,7 +10,7 @@ import { DateCell, NumberCell } from "@/components/ui/grid-cells";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import type { GridRequest, GridRowAction, GridTreeDataOptions } from "@/components/ui/opentms-grid";
 import { PermissionDenied } from "@/components/ui/permission-denied";
-import { OrganizationUnitFormDialog } from "@/apps/admin/components/OrganizationUnitFormDialog";
+import { OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
 import {
   useDeleteOrganizationUnit,
   useOrganizationUnitsGridFetcher,

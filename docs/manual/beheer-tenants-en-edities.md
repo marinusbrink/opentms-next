@@ -24,7 +24,11 @@ navigatiepaneel links heeft twee onderdelen:
 
 1. Open de app **Tenants** via het wafel-icoon (negen stippen) linksboven en kies links **Tenants**.
 2. Klik op **Nieuwe tenant**.
-3. Vul de **Naam** in en kies eventueel een **Editie**.
+3. Vul de **Naam** in en kies eventueel een **Editie**. Bestaat de editie nog niet, dan
+   opent **Nieuwe editie toevoegen…** onderaan de keuzelijst het venster voor een nieuwe
+   editie (met wat je in de keuzelijst typte als naam); na **Opslaan** is die editie
+   gekozen. De functies van de nieuwe editie stel je daarna in bij **Edities**. Je hebt
+   daarvoor het recht nodig om edities aan te maken.
 4. Vul het **E-mailadres beheerder** in. Op dat adres ontvangt de beheerder van de tenant
    een e-mail met een link om zelf een wachtwoord te kiezen. Er wordt nooit een wachtwoord
    gemaild.

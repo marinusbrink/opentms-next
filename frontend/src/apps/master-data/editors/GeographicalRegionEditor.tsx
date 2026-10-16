@@ -1,10 +1,12 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
+import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor";
+import { useCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { TextAreaField, TextField } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -29,8 +31,8 @@ interface Values {
 
 let rowCounter = 0;
 
-const initialValues = (dto: GeographicalRegionDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: GeographicalRegionDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   description: dto?.description ?? "",
   postalCodeRanges: (dto?.postalCodeRanges ?? []).map((r) => ({
     key: r.id ?? `new-${++rowCounter}`,
@@ -58,8 +60,12 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const { offer, dialog: createDialog } = useCreateInPlace();
+  /* The range grid's columns live outside the tabs: a country created from a cell reaches its row through applyValues. */
+  const [applyValues, setApplyValues] = useState<{ key: number; update: (values: Values) => Values } | undefined>();
   const detail = geographicalRegions.useDetail(mode === "edit" ? id : undefined);
   const create = geographicalRegions.useCreate();
   const update = geographicalRegions.useUpdate();
@@ -70,7 +76,22 @@ export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, on
     () => new Map((countryLookup.data ?? []).map((c) => [c.id ?? "", `${c.code ?? ""} ${c.name ?? ""}`.trim()])),
     [countryLookup.data],
   );
-  const countryIds = useMemo(() => (countryLookup.data ?? []).map((c) => c.id ?? ""), [countryLookup.data]);
+  const countryOptions = useMemo(
+    () => (countryLookup.data ?? []).map((c) => ({ value: c.id ?? "", label: `${c.code ?? ""} ${c.name ?? ""}`.trim() })),
+    [countryLookup.data],
+  );
+  /* "Add new country…" in a range's country cell (UI-LOOK-004): the saved country goes into that row. */
+  const createCountryFor = useCallback(
+    (term: string, row: RangeRow) =>
+      offer("Country", readOnly, (r) =>
+        setApplyValues((previous) => ({
+          key: (previous?.key ?? 0) + 1,
+          update: (values) => ({ ...values, postalCodeRanges: values.postalCodeRanges.map((x) => (x.key === row.key ? { ...x, countryId: r.id } : x)) }),
+        })),
+      ).onCreateNew?.(term),
+    [offer, readOnly],
+  );
+  const canCreateCountry = offer("Country", readOnly, () => undefined).onCreateNew != null;
 
   const rangeColumns = useMemo<ColDef<RangeRow>[]>(
     () => [
@@ -80,15 +101,18 @@ export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, on
         flex: 2,
         minWidth: 180,
         editable: !readOnly,
-        cellEditor: "agRichSelectCellEditor",
-        cellEditorParams: { values: countryIds, formatValue: (value: string) => countryLabels.get(value) ?? "", allowTyping: true, filterList: true, searchType: "matchAny" },
+        ...referenceCellEditorColDef<RangeRow>({
+          options: countryOptions,
+          onCreateNew: canCreateCountry ? createCountryFor : undefined,
+          createLabel: t("MasterData:AddNewCountry"),
+        }),
         valueFormatter: (p) => (p.value ? (countryLabels.get(p.value as string) ?? "") : ""),
       },
       { field: "fromNumeric", headerName: t("MasterData:FromNumeric"), flex: 1, minWidth: 100, editable: !readOnly, cellEditor: "agNumberCellEditor", cellEditorParams: { precision: 0, min: 0 }, type: "rightAligned" },
       { field: "tillNumeric", headerName: t("MasterData:TillNumeric"), flex: 1, minWidth: 100, editable: !readOnly, cellEditor: "agNumberCellEditor", cellEditorParams: { precision: 0, min: 0 }, type: "rightAligned" },
       { field: "prefix", headerName: t("MasterData:Prefix"), flex: 1, minWidth: 110, editable: !readOnly, cellEditor: "agTextCellEditor", cellEditorParams: { maxLength: 16 } },
     ],
-    [countryIds, countryLabels, readOnly, t],
+    [countryOptions, countryLabels, readOnly, t, canCreateCountry, createCountryFor],
   );
 
   const save = useCallback(
@@ -104,11 +128,9 @@ export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, on
           prefix: (r.prefix ?? "").trim() || null,
         })),
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );
@@ -162,6 +184,7 @@ export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, on
   ];
 
   return (
+    <>
     <MasterDataEditor<Values, GeographicalRegionDto>
       entityKey="GeographicalRegion"
       queryEntity={geographicalRegions.entity}
@@ -179,6 +202,9 @@ export function GeographicalRegionEditor({ mode, id, readOnly, open, onClose, on
       isSaving={create.isPending || update.isPending}
       tabs={tabs}
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
+      applyValues={applyValues}
     />
+    {createDialog}
+    </>
   );
 }

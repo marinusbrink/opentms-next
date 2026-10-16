@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
  * GAP-02, built as option (a): a Popover with a recursive list, no extra dependency). Single
  * select: the control shows the chosen node's label (UI-LOOK-003); optional ones clear with an
  * X (UI-LOOK-006). Nodes in `disabledIds` (a unit itself and its subtree when picking a new
- * parent) show but cannot be chosen. */
+ * parent) show but cannot be chosen. With `onCreateNew` the list ends with the "Add new …" row of
+ * UI-LOOK-004, the same row as EntityLookup's; the tree has no search, so the term is empty. */
 
 export interface TreeSelectNode {
   id: string;
@@ -30,6 +31,10 @@ export interface TreeSelectProps {
   disabled?: boolean;
   "aria-invalid"?: boolean;
   className?: string;
+  /** UI-LOOK-004: shows "Add new …" at the end of the list; omit when the user may not create. The tree has no search: the term is "". */
+  onCreateNew?: (term: string) => void;
+  /** The label of that row, already translated, e.g. t("Administration:AddNewOrganizationUnit"). */
+  createLabel?: string;
 }
 
 /** Builds the tree from a flat list of parent references; roots are the items without a known parent. */
@@ -93,6 +98,8 @@ export function TreeSelect({
   disabled = false,
   "aria-invalid": ariaInvalid,
   className,
+  onCreateNew,
+  createLabel,
 }: TreeSelectProps) {
   const { t } = useL();
   const [open, setOpen] = useState(false);
@@ -214,6 +221,22 @@ export function TreeSelect({
           )}
           {renderNodes(nodes, 0)}
         </ul>
+        {onCreateNew && (
+          <div className="border-t border-border p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                setOpen(false);
+                onCreateNew("");
+              }}
+            >
+              <Plus aria-hidden="true" /> {createLabel ?? t("AddNew")}
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

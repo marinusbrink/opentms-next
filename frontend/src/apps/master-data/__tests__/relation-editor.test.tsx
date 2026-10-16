@@ -188,7 +188,13 @@ let suggestions: Record<string, unknown>[] = [SUGGESTED_PC, SUGGESTED_ADDRESS];
 
 beforeEach(() => {
   grants = { "MasterData.Relations.Delete": true };
-  features = { "Apps.MasterData.Relations.Relations": "true" };
+  /* With the characteristics node's chain: "Add new transport characteristic…" needs it besides the permission (UI-PERM-006). */
+  features = {
+    "Apps.MasterData.Relations.Relations": "true",
+    "Apps.MasterData": "true",
+    "Apps.MasterData.Fleet": "true",
+    "Apps.MasterData.Fleet.TransportCharacteristics": "true",
+  };
   lookupResult = LOOKUP_FOUND;
   lookupFails = false;
   suggestions = [SUGGESTED_PC, SUGGESTED_ADDRESS];
@@ -2052,6 +2058,15 @@ describe("RelationEditor — Administration tab fields (PO 2026-10-13)", () => {
     });
 
     it("hides Add new transport characteristic… without MasterData.TransportCharacteristics.Create", async () => {
+      await startNew();
+      openPopup(lookup());
+      expect(await option("Dangerous goods")).toBeInTheDocument();
+      expect(screen.queryByText("MasterData:AddNewTransportCharacteristics")).toBeNull();
+    }, LONG_FLOW);
+
+    it.each(["Apps.MasterData.Fleet.TransportCharacteristics", "Apps.MasterData.Fleet"])("hides Add new transport characteristic… with Create when %s is off", async (off) => {
+      grants = { ...grants, "MasterData.TransportCharacteristics.Create": true };
+      features = { ...features, [off]: "false" };
       await startNew();
       openPopup(lookup());
       expect(await option("Dangerous goods")).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { AppDefinition, AppView } from "@/app/apps.config";
+import { APPS, type AppDefinition, type AppView } from "@/app/apps.config";
 import { useApplicationConfiguration } from "@/lib/abp/queries";
 
 /* App and navigation features (docs/designs/tenants-and-editions.md, "App features"; PO 2026-10-14): every app and
@@ -30,6 +30,12 @@ export interface AppFeatureChecker {
   firstEnabledPath: (app: AppDefinition, underPath?: string) => string | undefined;
   /** Whether the route at this pathname is on (the deepest matching node decides). */
   isPathEnabled: (app: AppDefinition, pathname: string) => boolean;
+  /**
+   * Whether a node feature ("Apps.MasterData.Reference.Countries") and every ancestor are on, as the server's
+   * feature chain on that node's endpoints requires (UI-PERM-006). On the host side the owning app's
+   * hostAlwaysEnabled applies, as in the shell. False until the configuration has loaded.
+   */
+  isFeatureEnabled: (feature: string) => boolean;
 }
 
 function matches(path: string, pathname: string): boolean {
@@ -40,9 +46,10 @@ export function createAppFeatureChecker(
   values: Record<string, string | null | undefined>,
   isHost: boolean,
   isLoaded = true,
+  apps: readonly AppDefinition[] = APPS,
 ): AppFeatureChecker {
-  const on = (feature: string | undefined, app: AppDefinition) =>
-    feature == null || (isHost && app.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true");
+  const on = (feature: string | undefined, app: AppDefinition | undefined) =>
+    feature == null || (isHost && app?.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true");
 
   const leafPaths = (app: AppDefinition, view: AppView): string[] => {
     if (!on(view.feature, app)) return [];
@@ -91,6 +98,12 @@ export function createAppFeatureChecker(
        * that is no node (the app root) is decided by the redirect it leads to. */
       const node = nodeFor(app, pathname);
       return node == null || on(node.feature, app);
+    },
+    isFeatureEnabled: (feature) => {
+      if (!isLoaded) return false;
+      /* The app is the one whose feature is the chain's first link. */
+      const root = featureChain(feature)[0];
+      return on(feature, apps.find((app) => app.feature === root));
     },
   };
 }

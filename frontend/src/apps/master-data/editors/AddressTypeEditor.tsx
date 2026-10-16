@@ -18,18 +18,18 @@ interface Values {
 }
 
 /* One Name field in the user's language (PO, 2026-10-11), as in the currency and country editors. */
-const initialValuesFor = (culture: string) => (dto: AddressTypeDto | undefined): Values => ({
-  name: resolveLocalizedName(dto?.names, culture),
+const initialValuesFor = (culture: string, initialName: string | undefined) => (dto: AddressTypeDto | undefined): Values => ({
+  name: dto ? resolveLocalizedName(dto.names, culture) : (initialName ?? ""),
   kind: dto?.kind ?? 0,
   description: dto?.description ?? "",
 });
 
 const validate = (v: Values): FieldErrors<Values> => (v.name.trim() ? {} : { name: "MasterData:Required" });
 
-export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t, culture } = useL();
   const detail = addressTypes.useDetail(mode === "edit" ? id : undefined);
-  const initialValues = useMemo(() => initialValuesFor(culture), [culture]);
+  const initialValues = useMemo(() => initialValuesFor(culture, mode === "create" ? initialName : undefined), [culture, mode, initialName]);
   const create = addressTypes.useCreate();
   const update = addressTypes.useUpdate();
   const remove = addressTypes.useDelete();
@@ -38,11 +38,9 @@ export function AddressTypeEditor({ mode, id, readOnly, open, onClose, onSaved }
   const save = useCallback(
     async (v: Values, dto: AddressTypeDto | undefined) => {
       const body = { kind: v.kind, names: withTextForCulture(dto?.names, culture, v.name), description: v.description.trim() || null };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id, culture],
   );

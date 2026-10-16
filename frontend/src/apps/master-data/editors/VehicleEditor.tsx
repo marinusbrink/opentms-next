@@ -16,6 +16,7 @@ import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCanCreateInPlace, useCreateInPlace, withId } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseNumber } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/apps/master-data/components/MasterDataEditor";
@@ -39,6 +40,7 @@ import {
   vehicleTypes,
   vehicles,
   fetchVehicleTypeDefaults,
+  type DriverDto,
   type DriverOption,
   type EuroClass,
   type FuelType,
@@ -139,9 +141,9 @@ const toOption = (id: string | null | undefined, name: string | null | undefined
   id ? { id, code: "", name: name ?? "", city: null, countryCode: null, roles: 0 } : null;
 
 const initialValuesFor =
-  (defaults: { owner: RelationOption | null; countryId: string | null }) =>
+  (defaults: { owner: RelationOption | null; countryId: string | null; name: string | undefined }) =>
   (dto: VehicleDto | undefined): Values => ({
-    name: dto?.name ?? "",
+    name: dto?.name ?? defaults.name ?? "",
     vehicleTypeId: dto?.vehicleTypeId ?? null,
     isArchived: dto?.isArchived ?? false,
     registrationCountryId: dto ? (dto.registrationCountryId ?? null) : defaults.countryId,
@@ -204,7 +206,7 @@ const validate = (v: Values): FieldErrors<Values> => {
 
 const GENERAL_FIELDS: (keyof Values & string)[] = ["name", "vehicleTypeId", "isArchived", "registrationCountryId", "licencePlate", "vin", "owner", "homeDepot", "organizationUnitIds", "description"];
 
-export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
   const queryClient = useQueryClient();
   const detail = vehicles.useDetail(mode === "edit" ? id : undefined);
@@ -215,9 +217,9 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
   const unarchive = useUnarchiveVehicle();
   const canDelete = useIsGranted("MasterData.Vehicles.Delete");
   const canUpdate = useIsGranted("MasterData.Vehicles.Update");
-  const canCreateRelation = useIsGranted("MasterData.Relations.Create");
+  /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
+  const canCreate = useCanCreateInPlace();
   const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
-  const canCreateCharacteristic = useIsGranted("MasterData.TransportCharacteristics.Create");
 
   /* A new vehicle starts with the own company as owner and the tenant's default country (design 48); it waits for
    * both (cached after the first open) so its initial values hold them and an untouched record stays clean. */
@@ -226,7 +228,12 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
   const ready = mode !== "create" || (ownCompany.isFetched && defaultCountry.isFetched);
   const ownerDefault = ownCompany.data ?? null;
   const countryDefault = defaultCountry.data?.id ?? null;
-  const initialValues = useMemo(() => initialValuesFor({ owner: ownerDefault, countryId: countryDefault }), [ownerDefault, countryDefault]);
+  const typedName = mode === "create" ? initialName : undefined;
+  const initialValues = useMemo(
+    () => initialValuesFor({ owner: ownerDefault, countryId: countryDefault, name: typedName }),
+    [ownerDefault, countryDefault, typedName],
+  );
+  const inPlace = useCreateInPlace();
 
   const typeLookup = vehicleTypes.useLookup(open);
   const typeOptions = useMemo(() => (typeLookup.data ?? []).map((i) => ({ value: i.id ?? "", label: i.name ?? "" })), [typeLookup.data]);
@@ -346,7 +353,7 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
           <div className="text-label text-muted-foreground">{[r.code, [r.city, r.countryCode].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>
         </>
       )}
-      onCreateNew={canCreateRelation && !form.readOnly ? (term) => setRelationDialog({ field, mode: "create", term }) : undefined}
+      onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ field, mode: "create", term }) : undefined}
       createLabel={t("MasterData:AddNewRelation")}
       onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ field, mode: "edit", id: r.id }) : undefined}
       required={required}
@@ -417,6 +424,12 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                   required
                   aria-invalid={form.error("vehicleTypeId") != null}
                   disabled={form.readOnly}
+                  {...inPlace.offer("VehicleType", form.readOnly, (r) => {
+                    /* Like a picked type: a new vehicle takes the type's dimensions (design 48). */
+                    form.set("vehicleTypeId", r.id);
+                    form.blur("vehicleTypeId");
+                    if (mode === "create") void fillFromType(r.id);
+                  })}
                 />
               </FormField>
               <CheckboxField form={form} field="isArchived" labelKey="MasterData:IsArchived" />
@@ -435,6 +448,10 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                   options={countryOptions}
                   aria-invalid={form.error("registrationCountryId") != null}
                   disabled={form.readOnly}
+                  {...inPlace.offer("Country", form.readOnly, (r) => {
+                    form.set("registrationCountryId", r.id);
+                    if (isLicencePlateShape(form.values.licencePlate)) form.set("licencePlate", formatLicencePlate(form.values.licencePlate, r.code));
+                  })}
                 />
               </FormField>
               <FormField label={t("MasterData:LicencePlate")} htmlFor={form.id("licencePlate")} error={form.error("licencePlate")}>
@@ -458,6 +475,9 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                   onChange={(next) => form.set("organizationUnitIds", next)}
                   options={unitOptions}
                   disabled={form.readOnly}
+                  {...inPlace.offer("OrganizationUnit", form.readOnly, (r) =>
+                    form.update((v) => ({ ...v, organizationUnitIds: withId(v.organizationUnitIds, r.id) })),
+                  )}
                 />
               </FormField>
             </div>
@@ -503,7 +523,7 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
         <CharacteristicsTab
           form={form}
           typeCharacteristics={detail.data?.vehicleTypeId === form.values.vehicleTypeId ? (detail.data?.characteristics ?? []).filter((c) => c.origin === ORIGIN_TYPE) : undefined}
-          onCreateNew={canCreateCharacteristic && !form.readOnly ? (term) => setNewCharacteristic({ term }) : undefined}
+          onCreateNew={canCreate("TransportCharacteristics", form.readOnly) ? (term) => setNewCharacteristic({ term }) : undefined}
         />
       ),
     },
@@ -546,6 +566,19 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
                         )}
                         placeholder={t("MasterData:AddDefaultDriver")}
                         className="w-72"
+                        {...inPlace.offer<DriverDto>("Driver", form.readOnly, (r) =>
+                          form.update((v) =>
+                            v.defaultDrivers.some((d) => d.driverId === r.id) || v.defaultDrivers.length >= MAX_DEFAULT_DRIVERS
+                              ? v
+                              : {
+                                  ...v,
+                                  defaultDrivers: [
+                                    ...v.defaultDrivers,
+                                    { key: r.id, driverId: r.id, name: r.name, sortOrder: Math.max(0, ...v.defaultDrivers.map((d) => d.sortOrder)) + 1 },
+                                  ],
+                                },
+                          ),
+                        )}
                       />
                     </>
                   ) : undefined
@@ -680,6 +713,7 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved }: En
         confirmLabel={t(archived ? "MasterData:Unarchive" : "MasterData:Archive")}
         onConfirm={handleArchive}
       />
+      {inPlace.dialog}
     </>
   );
 }

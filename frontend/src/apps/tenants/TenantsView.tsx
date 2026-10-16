@@ -45,6 +45,7 @@ export function TenantsView() {
   const canUpdate = useIsGranted("Platform.Tenants.Update");
   const canDelete = useIsGranted("Platform.Tenants.Delete");
   const canImpersonate = useIsGranted("Platform.Tenants.Impersonation");
+  const canCreateEdition = useIsGranted("Platform.Editions.Create");
 
   const retryProvisioning = useRetryTenantProvisioning();
   const resendInvitation = useResendTenantInvitation();
@@ -221,6 +222,7 @@ export function TenantsView() {
           open
           onClose={() => setEditor(null)}
           onSuccess={invalidateGrid}
+          canCreateEdition={canCreateEdition}
         />
       )}
 

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useCreateInPlace, withId } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseNumber } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -19,8 +20,8 @@ interface Values {
   incompatibleTemperatureIds: string[];
 }
 
-const initialValues = (dto: TemperatureDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: TemperatureDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   description: dto?.description ?? "",
   minCelsius: numberToText(dto?.minCelsius),
   maxCelsius: numberToText(dto?.maxCelsius),
@@ -41,8 +42,10 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const inPlace = useCreateInPlace();
   const detail = temperatures.useDetail(mode === "edit" ? id : undefined);
   const create = temperatures.useCreate();
   const update = temperatures.useUpdate();
@@ -64,11 +67,9 @@ export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved }
         isArchived: v.isArchived,
         incompatibleTemperatureIds: v.incompatibleTemperatureIds,
       };
-      if (mode === "create") {
-        await create.mutateAsync(body);
-      } else {
-        await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
-      }
+      return mode === "create"
+        ? await create.mutateAsync(body)
+        : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
     },
     [create, update, mode, id],
   );
@@ -103,6 +104,9 @@ export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved }
               onChange={(next) => form.set("incompatibleTemperatureIds", next)}
               options={options}
               disabled={form.readOnly}
+              {...inPlace.offer("Temperature", form.readOnly, (r) =>
+                form.update((v) => ({ ...v, incompatibleTemperatureIds: withId(v.incompatibleTemperatureIds, r.id) })),
+              )}
             />
           </FormField>
         </FormSection>
@@ -111,6 +115,7 @@ export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved }
   ];
 
   return (
+    <>
     <MasterDataEditor<Values, TemperatureDto>
       entityKey="Temperature"
       queryEntity={temperatures.entity}
@@ -129,5 +134,7 @@ export function TemperatureEditor({ mode, id, readOnly, open, onClose, onSaved }
       tabs={tabs}
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
     />
+    {inPlace.dialog}
+    </>
   );
 }

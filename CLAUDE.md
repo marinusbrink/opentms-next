@@ -146,7 +146,7 @@ or the mapping are PO decisions** — agents never create a module per app.
 | Planboard | `/planboard` | Planning & Execution |
 | Transport | `/transport` | Orders, Planning & Execution |
 | Finance | `/finance` | Financial |
-| Master data | `/master-data` | Master Data |
+| Master data | `/master-data` | Master Data; creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004) |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
 | Tenants (host only; views Tenants and Editions) | `/tenants` | Platform |
@@ -163,7 +163,7 @@ Platform, named after the tree path, mirrored by the `feature` of each entry in 
 a nav node adds its feature in the same change. The host-only Tenants app has none.
 
 Frontend structure: `src/domains/<domain>/` mirrors the backend modules (query hooks,
-domain components); `src/apps/<app>/` holds the views composing them. All server access
+domain components, and dialogs two apps share, e.g. `domains/platform/components/UserFormDialog`; an app never imports another app); `src/apps/<app>/` holds the views composing them. All server access
 goes through the generated typed client (`src/lib/api/client.ts`) wrapped in TanStack
 Query — no hand-written fetches. Every user-facing string, shell and app names included,
 comes from ABP's localization endpoint (resources in each module's `Domain.Shared`;

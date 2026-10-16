@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
+import { useCreateInPlace } from "@/apps/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
 import { CheckboxField, TextAreaField, TextField } from "@/apps/master-data/components/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
@@ -15,6 +16,7 @@ import {
   vehicleLookupPage,
   vehicleTypeKindKey,
   type VehicleCombinationDto,
+  type VehicleDto,
   type VehicleOption,
   type VehicleTypeKind,
 } from "@/domains/master-data/entities";
@@ -47,8 +49,8 @@ interface Values {
   members: MemberLine[];
 }
 
-const initialValues = (dto: VehicleCombinationDto | undefined): Values => ({
-  name: dto?.name ?? "",
+const initialValuesFor = (initialName: string | undefined) => (dto: VehicleCombinationDto | undefined): Values => ({
+  name: dto?.name ?? initialName ?? "",
   isArchived: dto?.isArchived ?? false,
   description: dto?.description ?? "",
   members: (dto?.members ?? []).map((m) => ({
@@ -74,8 +76,10 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, onSaved }: EntityEditorProps) {
+export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
   const { t } = useL();
+  const initialValues = useMemo(() => initialValuesFor(mode === "create" ? initialName : undefined), [mode, initialName]);
+  const inPlace = useCreateInPlace();
   const detail = vehicleCombinations.useDetail(mode === "edit" ? id : undefined);
   const create = vehicleCombinations.useCreate();
   const update = vehicleCombinations.useUpdate();
@@ -119,6 +123,13 @@ export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, on
         /* The picker fills the motorised position while the combination has no motorised vehicle, else a trailer position. */
         const wantMotorised = !form.values.members.some((m) => MOTORISED_KINDS.includes(m.kind));
         const canAdd = form.values.members.length < MAX_MEMBERS;
+        const addMember = (vehicle: VehicleOption) => {
+          if (form.values.members.some((m) => m.vehicleId === vehicle.id)) return;
+          const line: MemberLine = { key: vehicle.id, vehicleId: vehicle.id, name: vehicle.name, kind: vehicle.kind, licencePlate: vehicle.licencePlate ?? "", position: 0 };
+          const lines = wantMotorised ? [line, ...ordered(form.values.members)] : [...ordered(form.values.members), line];
+          form.set("members", lines.map((m, index) => ({ ...m, position: index + 1 })));
+          form.blur("members");
+        };
         return (
           <div className="flex flex-col gap-4">
             <FormSection title={t("MasterData:VehicleCombination")}>
@@ -152,11 +163,7 @@ export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, on
                           id={form.id("members")}
                           value={null}
                           onChange={(vehicle) => {
-                            if (!vehicle || form.values.members.some((m) => m.vehicleId === vehicle.id)) return;
-                            const line: MemberLine = { key: vehicle.id, vehicleId: vehicle.id, name: vehicle.name, kind: vehicle.kind, licencePlate: vehicle.licencePlate ?? "", position: 0 };
-                            const lines = wantMotorised ? [line, ...ordered(form.values.members)] : [...ordered(form.values.members), line];
-                            form.set("members", lines.map((m, index) => ({ ...m, position: index + 1 })));
-                            form.blur("members");
+                            if (vehicle) addMember(vehicle);
                           }}
                           fetchPage={wantMotorised ? motorisedPage : trailerPage}
                           getLabel={(v) => v.name}
@@ -170,6 +177,10 @@ export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, on
                           )}
                           placeholder={t("MasterData:AddMember")}
                           className="w-72"
+                          {...inPlace.offer<VehicleDto>("Vehicle", form.readOnly, (r) =>
+                            /* The new vehicle joins the lines like a picked one; a wrong kind is reported on submit. */
+                            addMember({ id: r.id, name: r.name, kind: r.dto.kind ?? 1, licencePlate: r.dto.licencePlate ?? null, vehicleTypeName: r.dto.vehicleTypeName ?? null }),
+                          )}
                         />
                       </>
                     ) : undefined
@@ -184,6 +195,7 @@ export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, on
   ];
 
   return (
+    <>
     <MasterDataEditor<Values, VehicleCombinationDto>
       entityKey="VehicleCombination"
       queryEntity={vehicleCombinations.entity}
@@ -203,5 +215,7 @@ export function VehicleCombinationEditor({ mode, id, readOnly, open, onClose, on
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
       badges={mode === "edit" && detail.data?.isArchived ? <Badge variant="outline">{t("MasterData:Archived")}</Badge> : undefined}
     />
+    {inPlace.dialog}
+    </>
   );
 }

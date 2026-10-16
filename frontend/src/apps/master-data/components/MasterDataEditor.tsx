@@ -22,6 +22,8 @@ export type FieldErrors<TValues> = Partial<Record<keyof TValues & string, string
 export interface FormContext<TValues extends object> {
   values: TValues;
   set: <K extends keyof TValues & string>(field: K, value: TValues[K]) => void;
+  /** A change computed from the latest values (a record created in place added to a list, UI-LOOK-004). */
+  update: (change: (values: TValues) => TValues) => void;
   /** The error to show under a field: only after blur or submit (UI-FORM-006). */
   error: (field: keyof TValues & string) => string | undefined;
   blur: (field: keyof TValues & string) => void;
@@ -143,6 +145,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   const form: FormContext<TValues> = {
     values,
     set: (field, value) => setValues((v) => ({ ...v, [field]: value })),
+    update: (change) => setValues(change),
     error: (field) => (touched.has(field) || submitted ? (errors[field] ? t(errors[field]!) : undefined) : undefined),
     blur: (field) => setTouched((s) => (s.has(field) ? s : new Set(s).add(field))),
     readOnly,
