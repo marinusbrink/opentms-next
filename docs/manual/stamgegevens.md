@@ -159,23 +159,24 @@ facturen en inkooporders. Elke lijst is een eigen functie en staat standaard uit
 ### E-mailsjablonen
 
 Een e-mailsjabloon bepaalt hoe een bericht eruitziet dat het systeem verstuurt, bijvoorbeeld een
-orderbevestiging of een factuur.
+orderbevestiging of een factuur. Het scherm is opgebouwd als een e-mail, zoals in het oude OpenTMS.
 
 - **Doel** zegt waarvoor het sjabloon is (transportopdracht, rit, factuur, betalingsherinnering,
   inkooporder, ETA-melding, chauffeursinstructies, digitaal archief, proforma-overzicht). Per doel
   is één sjabloon de **standaard**; maakt u een ander sjabloon standaard, dan vervalt de vorige.
-- Het tabblad **Adressen** bevat afzender, afzendernaam, antwoordadres, aan, cc en bcc. Laat u
+- **Taal**: een sjabloon geldt voor één taal, of voor **alle talen**. Maak voor elke taal een eigen
+  sjabloon. Zodra het systeem deze mails verstuurt, kiest het het sjabloon van het doel in de taal
+  van de ontvanger, en anders de standaard.
+- **Van**, **Antwoordadres**, **Aan**, **Cc** en **Bcc** zijn de adressen van het bericht. Laat u
   **Aan** leeg, dan gaat het bericht naar de ontvanger die bij het record hoort (bijvoorbeeld de
-  klant van de factuur).
-- Per taal is er een tabblad met **Onderwerp** en **HTML-inhoud**. Engels is verplicht; Nederlands
-  is optioneel. Zodra het systeem deze mails verstuurt, kiest het de taal van de ontvanger en valt
-  het terug op Engels.
+  klant van de factuur). Met **Stuur mij een kopie** krijgt de verzender zelf een kopie.
+- **Onderwerp** en **Inhoud** zijn verplicht. De inhoud bewerkt u zoals in een e-mailprogramma:
+  vet, cursief, koppen, lijsten, koppelingen. Met de knop voor de HTML-weergave ziet en wijzigt u
+  de HTML zelf, bijvoorbeeld voor een herhaling `{{ for … }}`.
 - Teksten tussen `{{` en `}}` zijn velden die bij het versturen worden ingevuld, bijvoorbeeld
   `{{ company.name }}`. Welke velden er zijn, hangt af van het doel; die lijst verschijnt zodra de
   functie die de mail verstuurt beschikbaar is. Een fout in deze schrijfwijze (bijvoorbeeld een
-  ontbrekende `}}`) wordt bij opslaan gemeld, met het veld, de taal en de regel.
-- De inhoud bewerkt u als HTML. **Voorbeeld** toont hoe de HTML eruitziet, nog zonder ingevulde
-  velden.
+  ontbrekende `}}`) wordt bij opslaan gemeld, met het veld en de regel.
 
 Met het doelfilter boven de lijst ziet u alleen de sjablonen voor dat doel.
 

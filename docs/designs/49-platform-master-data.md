@@ -40,8 +40,7 @@ features (tenants-and-editions D8): `Apps.MasterData.Platform` (the domain group
 
 | Entity | Rows per tenant | Note |
 |---|---|---|
-| EmailTemplate | up to 200 | 9 purposes, a few variants each |
-| EmailTemplateContent | 2 per template (nl, en) | bodies up to 200 KB |
+| EmailTemplate | up to 200 | 9 purposes, a variant per language; bodies up to 200 KB |
 | ReportDefinition | up to 200 | |
 | DocumentType | up to 100 | |
 | DocumentTypeTransformation | 0–4 per type | one per kind |
@@ -98,14 +97,20 @@ AD-09 (generated documents are stored, so a changed report definition never chan
 |---|---|---|
 | `Name` | string(128), required | unique per tenant **regardless of case** (`NormalizedName`, PO 2026-10-16 rule as vehicles) |
 | `Purpose` | enum `EmailTemplatePurpose` | `TransportOrder`, `TransportFile`, `Invoice`, `InvoiceReminder`, `PurchaseOrder`, `EtaNotification`, `DriverInstructions`, `DigitalArchive`, `ProformaOverview` (OpenTMS's free-text `EntityTypeName`, §3.10) |
-| `IsDefault` | bool | at most one default per purpose (unique partial index, §3.8); setting it clears the previous default in the same transaction |
-| `SenderAddress`, `SenderName`, `ReplyTo`, `To`, `Cc`, `Bcc` | string(512)? | Scriban expressions allowed (`{{ company.email }}`); `To` empty = the consumer's recipient |
-| `SendCopyToSender` | bool | |
-| `Description` | string(2500)? | |
-| child **EmailTemplateContent** | `Culture` string(10), `Subject` string(512), `HtmlBody` text (≤ 200,000 chars) | one row per language (§3.10 "per-language content"); a row for the default language `en` is required, `nl` optional; languages limited to the configured ones (nl, en); unique (template, culture) |
+| `Culture` | string(10)? | the template's language, a configured one (nl, en); empty = all languages (OpenTMS `Language`) |
+| `IsDefault` | bool | at most one default per purpose (unique partial index, §3.8); setting it clears the previous default in the same transaction. A sender picks the template of the purpose whose language matches the recipient, else the purpose's default (OpenTMS) |
+| `SenderAddress` ("From"), `ReplyTo`, `To`, `Cc`, `Bcc` | string(512)? | Scriban expressions allowed (`{{ company.email }}`); `To` empty = the consumer's recipient |
+| `SendCopyToSender` | bool | "Send me a copy" |
+| `Subject` | string(512), required | Scriban |
+| `HtmlBody` | text, required, ≤ 200,000 chars | Scriban; edited in the `RichTextEditor` (Tiptap, GAP-08, PO 2026-10-18) |
+| `Description` | string(2500)? | kept from the base, not shown in the editor (OpenTMS had no input for it) |
+
+**PO decision 2026-10-18:** the e-mail template equals the OpenTMS one, "as it is a mail template": one template per
+language with the mail fields on the template itself, edited in one dialog laid out like an e-mail. This replaces the
+earlier per-language content rows (§3.10 "per-language content" is met by one template per language).
 
 Every Scriban field is parsed on save (`Scriban.Template.Parse`); a syntax error is refused with
-`Platform:TemplateSyntaxError` naming the field, language and line. Placeholders are **Scriban** (`{{ … }}`), the one
+`Platform:TemplateSyntaxError` naming the field and the line. Placeholders are **Scriban** (`{{ … }}`), the one
 placeholder system of §3.10; the typed model of each purpose (and so the list of placeholders) is published by the
 module that sends that mail, with that module's run. HTML encoding happens when the model is built (§3.10).
 
@@ -193,7 +198,7 @@ row stays locked until commit.
 | Area | Dropped or changed | Reason |
 |---|---|---|
 | E-mail template | free-text `EntityTypeName` | enum `Purpose` (§3.10) |
-| E-mail template | one row per language with its own addresses; `IsDefault` recomputed per entity | one template, content per language; one enforced default per purpose (§3.8, §3.10) |
+| E-mail template | `IsDefault` recomputed per entity; `SenderDisplayName` without an input | kept: one template per language (PO 2026-10-18); one enforced default per purpose (§3.8); the display name is dropped |
 | E-mail template | three tag systems with `[Tag]` and `string.Replace` | Scriban, parsed on save; typed models from the consumers (§3.10) |
 | E-mail template | `Tag` (Postmark), `TextBody` | not editable in OpenTMS; the text part is derived from the HTML by the sender |
 | Report definition | `EntityTypeName` resolved by reflection | enum `Purpose` |
@@ -218,21 +223,21 @@ detail, create and update DTOs with concurrency stamp, `BulkDelete` over a grid 
 | `DocumentTypeAppService` | `/api/platform/document-type` | `POST /{id}/archive`, `POST /{id}/unarchive` |
 | `NumberSequenceAppService` | `/api/platform/number-sequence` | — |
 
-- Rows: email template `id, name, purpose, isDefault, cultures (joined)`; report definition `id, name, purpose,
+- Rows: email template `id, name, purpose, culture, isDefault`; report definition `id, name, purpose,
   culture, provider, isDefault, isArchived`; document type `id, code, name, isFreightDocument, includeWithInvoice,
   isArchived`; number sequence `id, name, scheme, exampleNumber, isInUse`. Filters: `purpose` (templates, report
   definitions), `includeArchived`. Wildcard over name (and code). Sort whitelists per row.
 - Errors (`PlatformErrorCodes`, localized nl/en): `DuplicateKey`, `InUse`, `TemplateSyntaxError`,
-  `DefaultLanguageContentRequired`, `UnsupportedCulture`, `InvalidRegex`, `TransformationArgumentRequired`,
+  `UnsupportedCulture`, `InvalidRegex`, `TransformationArgumentRequired`,
   `DuplicateTransformation`, `NumberSequenceInUse`, `UnknownSortColumn`, `TooManyRows`, `NameRequired`.
 
 ## Migration strategy
 
 One additive migration `PlatformMasterData` in the Platform context: tables `EmailTemplates`,
-`EmailTemplateContents`, `ReportDefinitions`, `DocumentTypes`, `DocumentTypeTransformations`, `NumberSequences`,
+`ReportDefinitions`, `DocumentTypes`, `DocumentTypeTransformations`, `NumberSequences`,
 `NumberSequenceCounters`. Indexes: per-tenant unique (`NULLS NOT DISTINCT`, soft-delete filter) on each
 `NormalizedName` and on `DocumentTypes.Code`; partial unique default indexes (`(TenantId, Purpose) WHERE IsDefault`
-and `(TenantId, Purpose, Culture) WHERE IsDefault`); unique (`EmailTemplateId`, `Culture`), (`DocumentTypeId`,
+and `(TenantId, Purpose, Culture) WHERE IsDefault`); unique (`DocumentTypeId`,
 `Kind`), (`NumberSequenceId`, `PeriodYear`, `PeriodMonth`). Children cascade with their aggregate. Expand only;
 `Down` drops the tables. The document-type seed is a data-seed contributor (DbMigrator and provisioning job).
 
@@ -247,10 +252,10 @@ E-mailsjablonen, Rapportdefinities, Documentsoorten, Nummerreeksen.
 Lists use `MasterDataListView` (OpenTmsGrid, wildcard search, command bar New / Delete selected, row actions Edit,
 Archive/Unarchive where archivable, Delete). Editors use `MasterDataEditor`:
 
-- **E-mail template** (`lg`): tab *General* (Name, Purpose `Select`, Default switch, Description), tab *Addresses*
-  (Sender address, Sender name, Reply-to, To, Cc, Bcc, Send copy to sender), one tab per language (*English*,
-  *Nederlands*: Subject, HTML body as a monospace source `Textarea` with a sandboxed preview, `iframe sandbox` with
-  no scripts). See Assumption 3 for GAP-08.
+- **E-mail template** (`lg`), one tab *General* in the OpenTMS order (PO 2026-10-18): Name and Default; Purpose;
+  Language (All languages, English, Nederlands); a divider; From and Reply-to; To; Cc; Bcc and Send me a copy;
+  Subject; HTML body in the `RichTextEditor` (Tiptap toolbar; a source view keeps raw HTML and Scriban blocks
+  editable).
 - **Report definition** (`md`): Name, Purpose, Language, Provider, Provider template id, File name pattern, Default,
   Archived, Available in customer portal, Description.
 - **Document type** (`md`): tab *General* (Code, Name per language, the three switches, Archived, Description), tab
@@ -293,8 +298,8 @@ No new infrastructure. Generation: one indexed upsert, p95 < 20 ms; list reads p
    e-mail templates per language; their placeholders depend on the typed models the consuming modules publish, and the
    report definitions point at template ids in a provider workspace this project does not have. Each consuming run
    seeds its defaults.
-3. **GAP-08 stays open:** the HTML body is edited as source with a sandboxed preview, not with a rich-text editor.
-   A Scriban template with loops is source; a WYSIWYG editor arrives when the PO picks one (component map §4).
+3. **GAP-08 decided: Tiptap** (PO 2026-10-18). The body is edited WYSIWYG like OpenTMS's angular-editor; a source
+   view keeps raw HTML and Scriban blocks (`{{ for … }}`) editable where WYSIWYG would reflow them.
 4. **Platform domain group without sub-groups:** four lists sit directly under *Platform*.
 5. **Names unique regardless of case** for templates, report definitions and sequences, as for vehicles (PO
    2026-10-16).
@@ -316,7 +321,7 @@ map to 409 (`DuplicateKey`, `InUse`, `NumberSequenceInUse`) and 400 (the rest) i
 - **Permissions:** sixteen new definitions, both sides; every public method attributed (architecture test); four leaf
   features as the second gate.
 - **Input validation:** lengths, enum ranges, configured cultures only, Scriban parsed (never rendered here), regex
-  compiled with a match timeout, children bounded (2 contents, 4 transformations), body ≤ 200,000 characters.
+  compiled with a match timeout, children bounded (4 transformations), body ≤ 200,000 characters.
 - **Attack surface:** four conventional controllers behind authentication, permissions and features; no anonymous
   endpoint, no upload, no outbound call; the generator has no HTTP endpoint. The preview iframe is sandboxed without
   `allow-scripts`, so template HTML cannot run script in the app's origin.

@@ -84,7 +84,7 @@ Counts are template occurrences in the Angular app ([ui-inventory.md](ui-invento
 | invoice lines virtual table, editable ag-grids in dialogs (`singleClickEdit`) | 13 grids + invoice | `LinesGrid` (client-side AG Grid on form state) | build | UI-GRID-014, UI-GRID-015 |
 | `documents` attachments tab, upload dialog, `ng2-file-upload`, dropzone | 44 | `AttachmentsTab`, `FileDropzone` | **GAP-05** | |
 | `remarks`, `record-identifications` tabs | 43 / 43 | `RemarksTab`, `RecordIdentificationTab` | build | standard tabs (UI-FORM-008) |
-| rich text (`@kolkov/angular-editor`, summernote) | e-mail templates | `RichTextEditor` | **GAP-08** | |
+| rich text (`@kolkov/angular-editor`, summernote) | e-mail templates | `RichTextEditor` | build on Tiptap | **GAP-08 decided: Tiptap** (PO 2026-10-18) |
 | signature pad / canvas | 2 | none | **GAP-09** | bespoke |
 | `ngx-extended-pdf-viewer` | 2 | none | **GAP-10** | |
 | colour picker (highlight colour) | 1 | `FlagColorPicker` (8 fixed `--flag-*` swatches) | build | |
@@ -102,7 +102,7 @@ Counts are template occurrences in the Angular app ([ui-inventory.md](ui-invento
 | **GAP-05** | **File upload / attachments**: drag and drop, progress, multiple files | ng2-file-upload, dropzone | (a) react-dropzone + own list UI; (b) build on a native drop zone |
 | **GAP-06** | **Charts** (dashboard KPIs, sensor time series) | chart.js 4 | (a) shadcn `Chart` (Recharts); (b) AG Charts (already licensed with AG Grid Enterprise) |
 | **GAP-07** | **Planboard docking workspace** (dockable, persisted tab panels) | smart-webcomponents docking layout | (a) dockview; (b) flexlayout-react; (c) a fixed `Resizable` layout with tabs (simplification) |
-| **GAP-08** | **Rich text editor** (e-mail templates) | @kolkov/angular-editor, summernote | (a) Tiptap; (b) Lexical |
+| **GAP-08** | **Rich text editor** (e-mail templates) | @kolkov/angular-editor, summernote | **Decided (PO 2026-10-18): (a) Tiptap.** `RichTextEditor` in `components/ui`, HTML in and out, toolbar on tokens; Scriban placeholders stay plain text. Not chosen: (b) Lexical |
 | **GAP-09** | **Signature capture** | raw canvas | (a) signature_pad; (b) own canvas component |
 | **GAP-10** | **PDF viewer** | ngx-extended-pdf-viewer | (a) react-pdf (pdf.js); (b) the browser's native viewer in an iframe |
 | **GAP-11** | **Gantt / resource scheduler** (vehicle planboard, resource calendar) | gantt-schedule-timeline-calendar, smart scheduler | (a) bryntum / dhtmlx (commercial); (b) a custom build on a virtualised grid; (c) FullCalendar resource timeline |
