@@ -19,7 +19,7 @@ export type PlatformBulkDeleteResult = Schemas["OpenTms.Platform.PlatformMasterD
 
 export const PLATFORM_LOOKUP_TAKE = 500;
 
-/** The configured languages (nl, en) and the default one whose content is required (LocalizedName.DefaultCulture). */
+/** The configured languages (nl, en) and the default one (LocalizedName.DefaultCulture). */
 export const PLATFORM_DEFAULT_CULTURE = "en";
 export const PLATFORM_CULTURES = ["en", "nl"] as const;
 export type PlatformCulture = (typeof PLATFORM_CULTURES)[number];
@@ -222,7 +222,6 @@ export type EmailTemplateRow = Schemas["OpenTms.Platform.EmailTemplates.EmailTem
 export type EmailTemplateDto = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateDto"];
 export type EmailTemplateCreateDto = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateCreateDto"];
 export type EmailTemplateUpdateDto = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateUpdateDto"];
-export type EmailTemplateContentInputDto = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto"];
 
 export const emailTemplates = createPlatformMasterDataHooks<
   EmailTemplateRow,

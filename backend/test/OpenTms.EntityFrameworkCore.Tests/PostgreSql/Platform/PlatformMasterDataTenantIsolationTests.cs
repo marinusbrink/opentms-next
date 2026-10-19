@@ -18,7 +18,7 @@ namespace OpenTms.PostgreSql.Platform;
 /// (docs/designs/49-platform-master-data.md, test risk analysis "Tenant isolation of all four lists and of the counters",
 /// Critical; constitution rule 1): rows written by tenant A (own database) are unreachable from the shared-tier tenant and
 /// from the host through every operation (list with and without search, lookup, detail, update, delete, archive,
-/// unarchive, both bulk deletes, drawing a number) and their child rows (contents, transformations, counters) are
+/// unarchive, both bulk deletes, drawing a number) and their child rows (transformations, counters) are
 /// invisible; the shared tenant and the host, which share the host database, each have their own key space, their own
 /// default per purpose and their own counters, and never see each other's rows. The services are resolved per call, as a
 /// request does.
@@ -41,8 +41,8 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
     {
         var template = await Templates.CreateAsync(new EmailTemplateCreateDto
         {
-            Name = "QQ isolation mail", Purpose = EmailTemplatePurpose.Invoice, IsDefault = true, Description = "isolation probe",
-            Contents = [new() { Culture = "en", Subject = "Invoice {{ number }}", HtmlBody = "<p>isolation</p>" }, new() { Culture = "nl", Subject = "Factuur", HtmlBody = "<p>isolatie</p>" }]
+            Name = "QQ isolation mail", Purpose = EmailTemplatePurpose.Invoice, Culture = "nl", IsDefault = true, Description = "isolation probe",
+            SenderAddress = "{{ company.email }}", Subject = "Factuur {{ number }}", HtmlBody = "<p>isolatie</p>"
         });
         var definition = await Definitions.CreateAsync(new ReportDefinitionCreateDto
         {
@@ -73,19 +73,21 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
                 {
                     var who = NameFor(other);
 
-                    /* E-mail templates and their content rows. */
+                    /* E-mail templates (the list filtered on the purpose and the lookup searched too). */
                     (await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>())).TotalCount.ShouldBe(0, who);
                     (await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>("isolation"))).Rows.ShouldBeEmpty(who);
+                    (await Templates.GetListAsync(new EmailTemplateListRequestDto { Purpose = EmailTemplatePurpose.Invoice, SortBy = "culture" })).TotalCount.ShouldBe(0, who);
                     (await Templates.GetLookupAsync()).ShouldBeEmpty(who);
+                    (await Templates.GetLookupAsync("isolation")).ShouldBeEmpty(who);
                     await Should.ThrowAsync<EntityNotFoundException>(() => Templates.GetAsync(a.Template.Id));
                     await Should.ThrowAsync<EntityNotFoundException>(() => Templates.UpdateAsync(a.Template.Id, new EmailTemplateUpdateDto
                     {
-                        Name = "Stolen", Purpose = EmailTemplatePurpose.Invoice, Contents = [new() { Culture = "en", Subject = "x", HtmlBody = "x" }], ConcurrencyStamp = a.Template.ConcurrencyStamp
+                        Name = "Stolen", Purpose = EmailTemplatePurpose.Invoice, Culture = "nl", Subject = "x", HtmlBody = "x", ConcurrencyStamp = a.Template.ConcurrencyStamp
                     }));
                     await Should.ThrowAsync<EntityNotFoundException>(() => Templates.DeleteAsync(a.Template.Id));
                     (await Templates.BulkDeleteAsync(new EmailTemplateBulkDeleteRequestDto { Selection = Explicit(a.Template.Id) })).DeletedCount.ShouldBe(0, who);
                     (await Templates.BulkDeleteAsync(new EmailTemplateBulkDeleteRequestDto { Selection = FilterBased() })).DeletedCount.ShouldBe(0, who);
-                    (await GetRequiredService<IRepository<EmailTemplateContent>>().CountAsync(c => c.EmailTemplateId == a.Template.Id)).ShouldBe(0, who);
+                    (await GetRequiredService<IRepository<EmailTemplate, Guid>>().CountAsync(t => t.Id == a.Template.Id)).ShouldBe(0, who);
 
                     /* Report definitions. */
                     (await Definitions.GetListAsync(new ReportDefinitionListRequestDto { IncludeArchived = true })).TotalCount.ShouldBe(0, who);
@@ -174,7 +176,8 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
 
             /* Tenant A still has all its rows, children and defaults. */
             var template = await Templates.GetAsync(a.Template.Id);
-            (template.Name, template.IsDefault, template.Contents.Count).ShouldBe(("QQ isolation mail", true, 2));
+            (template.Name, template.IsDefault, template.Culture, template.Subject, template.HtmlBody)
+                .ShouldBe(("QQ isolation mail", true, "nl", "Factuur {{ number }}", "<p>isolatie</p>"), "tenant B's update attempts changed nothing");
             var definition = await Definitions.GetAsync(a.Definition.Id);
             (definition.IsDefault, definition.IsArchived).ShouldBe((true, false));
             (await Types.GetAsync(a.Type.Id)).Transformations.ShouldHaveSingleItem().Argument.ShouldBe("^QQ");
@@ -195,14 +198,14 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
             {
                 hostSequence = (await Sequences.CreateAsync(new NumberSequenceCreateDto { Name = "QQ same name", Scheme = NumberSequenceScheme.CounterOnly, MinimumDigits = 4 })).Id;
                 await Generator.GetNextAsync(hostSequence, Date);
-                await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ same name", Purpose = EmailTemplatePurpose.Invoice, Contents = [new() { Culture = "en", Subject = "s", HtmlBody = "b" }] });
+                await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ same name", Purpose = EmailTemplatePurpose.Invoice, Culture = "en", Subject = "s", HtmlBody = "b" });
                 await FlushAsync();
             }
 
             /* The shared tenant, same database: the same names are free, and its own sequence is not in use. */
             var mine = await Sequences.CreateAsync(new NumberSequenceCreateDto { Name = "qq SAME name", Scheme = NumberSequenceScheme.CounterOnly, MinimumDigits = 4 });
             mine.IsInUse.ShouldBeFalse();
-            (await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ SAME NAME", Purpose = EmailTemplatePurpose.Invoice, Contents = [new() { Culture = "en", Subject = "s", HtmlBody = "b" }] }))
+            (await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ SAME NAME", Purpose = EmailTemplatePurpose.Invoice, Culture = "en", Subject = "s", HtmlBody = "b" }))
                 .Name.ShouldBe("QQ SAME NAME");
             await Sequences.DeleteAsync(mine.Id);
         });

@@ -12,46 +12,27 @@ public class EmailTemplateRowDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public EmailTemplatePurpose Purpose { get; set; }
+    /// <summary>The template's language ("nl", "en"); null: all languages.</summary>
+    public string? Culture { get; set; }
     public bool IsDefault { get; set; }
-    /// <summary>The languages with content, sorted and joined by ", " (e.g. "en, nl").</summary>
-    public string Cultures { get; set; } = string.Empty;
-}
-
-public class EmailTemplateContentDto
-{
-    public string Culture { get; set; } = string.Empty;
-    public string Subject { get; set; } = string.Empty;
-    public string HtmlBody { get; set; } = string.Empty;
 }
 
 public class EmailTemplateDto : PlatformMasterDataDetailDtoBase
 {
     public string Name { get; set; } = string.Empty;
     public EmailTemplatePurpose Purpose { get; set; }
+    /// <summary>The template's language ("nl", "en"); null: all languages.</summary>
+    public string? Culture { get; set; }
     public bool IsDefault { get; set; }
+    /// <summary>"From".</summary>
     public string? SenderAddress { get; set; }
-    public string? SenderName { get; set; }
     public string? ReplyTo { get; set; }
     public string? To { get; set; }
     public string? Cc { get; set; }
     public string? Bcc { get; set; }
+    /// <summary>"Send me a copy".</summary>
     public bool SendCopyToSender { get; set; }
-    /// <summary>One per language, ordered by culture.</summary>
-    public List<EmailTemplateContentDto> Contents { get; set; } = new();
-}
-
-public class EmailTemplateContentInputDto
-{
-    /// <summary>A configured language ("nl", "en").</summary>
-    [Required, MaxLength(PlatformMasterDataConsts.MaxCultureLength)]
-    public string Culture { get; set; } = string.Empty;
-
-    /// <summary>Scriban, parsed on save.</summary>
-    [Required, MaxLength(PlatformMasterDataConsts.MaxSubjectLength)]
     public string Subject { get; set; } = string.Empty;
-
-    /// <summary>HTML source with Scriban expressions, parsed on save.</summary>
-    [Required, MaxLength(PlatformMasterDataConsts.MaxHtmlBodyLength)]
     public string HtmlBody { get; set; } = string.Empty;
 }
 
@@ -63,14 +44,16 @@ public class EmailTemplateCreateDto
     [Required, EnumDataType(typeof(EmailTemplatePurpose))]
     public EmailTemplatePurpose Purpose { get; set; }
 
+    /// <summary>A configured language ("nl", "en"); null or empty: all languages.</summary>
+    [MaxLength(PlatformMasterDataConsts.MaxCultureLength)]
+    public string? Culture { get; set; }
+
     /// <summary>True makes this the purpose's default and clears the previous one.</summary>
     public bool IsDefault { get; set; }
 
+    /// <summary>"From"; Scriban, parsed on save.</summary>
     [MaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength)]
     public string? SenderAddress { get; set; }
-
-    [MaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength)]
-    public string? SenderName { get; set; }
 
     [MaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength)]
     public string? ReplyTo { get; set; }
@@ -85,14 +68,19 @@ public class EmailTemplateCreateDto
     [MaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength)]
     public string? Bcc { get; set; }
 
+    /// <summary>"Send me a copy".</summary>
     public bool SendCopyToSender { get; set; }
+
+    /// <summary>Scriban, parsed on save.</summary>
+    [Required, MaxLength(PlatformMasterDataConsts.MaxSubjectLength)]
+    public string Subject { get; set; } = string.Empty;
+
+    /// <summary>HTML source with Scriban expressions, parsed on save.</summary>
+    [Required, MaxLength(PlatformMasterDataConsts.MaxHtmlBodyLength)]
+    public string HtmlBody { get; set; } = string.Empty;
 
     [MaxLength(PlatformMasterDataConsts.MaxDescriptionLength)]
     public string? Description { get; set; }
-
-    /// <summary>One per language; "en" is required.</summary>
-    [MaxLength(PlatformMasterDataConsts.MaxEmailTemplateContents)]
-    public List<EmailTemplateContentInputDto> Contents { get; set; } = new();
 }
 
 public class EmailTemplateUpdateDto : EmailTemplateCreateDto, IPlatformMasterDataUpdateDto

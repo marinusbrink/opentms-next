@@ -26,9 +26,6 @@ public static class PlatformMasterDataConsts
     public const int MaxSubjectLength = 512;
     public const int MaxHtmlBodyLength = 200_000;
 
-    /// <summary>One content row per configured language (nl, en).</summary>
-    public const int MaxEmailTemplateContents = 2;
-
     // Report definitions
     public const int MaxProviderTemplateIdLength = 128;
     public const int MaxFileNamePatternLength = 255;

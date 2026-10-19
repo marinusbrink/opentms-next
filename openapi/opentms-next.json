@@ -7213,50 +7213,6 @@
         ],
         "type": "object"
       },
-      "OpenTms.Platform.EmailTemplates.EmailTemplateContentDto": {
-        "additionalProperties": false,
-        "properties": {
-          "culture": {
-            "nullable": true,
-            "type": "string"
-          },
-          "htmlBody": {
-            "nullable": true,
-            "type": "string"
-          },
-          "subject": {
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto": {
-        "additionalProperties": false,
-        "properties": {
-          "culture": {
-            "maxLength": 10,
-            "minLength": 1,
-            "type": "string"
-          },
-          "htmlBody": {
-            "maxLength": 200000,
-            "minLength": 1,
-            "type": "string"
-          },
-          "subject": {
-            "maxLength": 512,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "culture",
-          "htmlBody",
-          "subject"
-        ],
-        "type": "object"
-      },
       "OpenTms.Platform.EmailTemplates.EmailTemplateCreateDto": {
         "additionalProperties": false,
         "properties": {
@@ -7270,17 +7226,19 @@
             "nullable": true,
             "type": "string"
           },
-          "contents": {
-            "items": {
-              "$ref": "#/components/schemas/OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto"
-            },
-            "maxItems": 2,
+          "culture": {
+            "maxLength": 10,
             "nullable": true,
-            "type": "array"
+            "type": "string"
           },
           "description": {
             "maxLength": 2500,
             "nullable": true,
+            "type": "string"
+          },
+          "htmlBody": {
+            "maxLength": 200000,
+            "minLength": 1,
             "type": "string"
           },
           "isDefault": {
@@ -7307,9 +7265,9 @@
             "nullable": true,
             "type": "string"
           },
-          "senderName": {
+          "subject": {
             "maxLength": 512,
-            "nullable": true,
+            "minLength": 1,
             "type": "string"
           },
           "to": {
@@ -7319,8 +7277,10 @@
           }
         },
         "required": [
+          "htmlBody",
           "name",
-          "purpose"
+          "purpose",
+          "subject"
         ],
         "type": "object"
       },
@@ -7339,13 +7299,6 @@
             "nullable": true,
             "type": "string"
           },
-          "contents": {
-            "items": {
-              "$ref": "#/components/schemas/OpenTms.Platform.EmailTemplates.EmailTemplateContentDto"
-            },
-            "nullable": true,
-            "type": "array"
-          },
           "creationTime": {
             "format": "date-time",
             "type": "string"
@@ -7355,7 +7308,15 @@
             "nullable": true,
             "type": "string"
           },
+          "culture": {
+            "nullable": true,
+            "type": "string"
+          },
           "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "htmlBody": {
             "nullable": true,
             "type": "string"
           },
@@ -7394,7 +7355,7 @@
             "nullable": true,
             "type": "string"
           },
-          "senderName": {
+          "subject": {
             "nullable": true,
             "type": "string"
           },
@@ -7423,7 +7384,7 @@
       "OpenTms.Platform.EmailTemplates.EmailTemplateRowDto": {
         "additionalProperties": false,
         "properties": {
-          "cultures": {
+          "culture": {
             "nullable": true,
             "type": "string"
           },
@@ -7461,17 +7422,19 @@
             "minLength": 1,
             "type": "string"
           },
-          "contents": {
-            "items": {
-              "$ref": "#/components/schemas/OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto"
-            },
-            "maxItems": 2,
+          "culture": {
+            "maxLength": 10,
             "nullable": true,
-            "type": "array"
+            "type": "string"
           },
           "description": {
             "maxLength": 2500,
             "nullable": true,
+            "type": "string"
+          },
+          "htmlBody": {
+            "maxLength": 200000,
+            "minLength": 1,
             "type": "string"
           },
           "isDefault": {
@@ -7498,9 +7461,9 @@
             "nullable": true,
             "type": "string"
           },
-          "senderName": {
+          "subject": {
             "maxLength": 512,
-            "nullable": true,
+            "minLength": 1,
             "type": "string"
           },
           "to": {
@@ -7511,8 +7474,10 @@
         },
         "required": [
           "concurrencyStamp",
+          "htmlBody",
           "name",
-          "purpose"
+          "purpose",
+          "subject"
         ],
         "type": "object"
       },

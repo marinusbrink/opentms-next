@@ -54,6 +54,17 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
 
     protected abstract Task<List<TRowDto>> ToRowsAsync(List<TEntity> entities);
 
+    /// <summary>
+    /// Reads a sorted list page as rows. The default loads the entities and maps them with <see cref="ToRowsAsync"/>; a
+    /// service whose entity holds large columns the row does not show (an e-mail template's body) projects instead.
+    /// </summary>
+    protected virtual async Task<List<TRowDto>> ReadRowsAsync(IQueryable<TEntity> page)
+        => await ToRowsAsync(await AsyncExecuter.ToListAsync(page));
+
+    /// <summary>Reads a sorted, bounded lookup query; overridable for the same reason as <see cref="ReadRowsAsync"/>.</summary>
+    protected virtual async Task<List<PlatformMasterDataLookupDto>> ReadLookupsAsync(IQueryable<TEntity> query)
+        => (await AsyncExecuter.ToListAsync(query)).Select(ToLookup).ToList();
+
     protected abstract Task<TDto> ToDtoAsync(TEntity entity);
 
     protected abstract PlatformMasterDataLookupDto ToLookup(TEntity entity);
@@ -87,11 +98,9 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
             .Skip(input.StartRow)
             .Take(input.EndRow - input.StartRow);
 
-        var entities = await AsyncExecuter.ToListAsync(page);
-
         return new GridResponse<TRowDto>
         {
-            Rows = await ToRowsAsync(entities),
+            Rows = await ReadRowsAsync(page),
             TotalCount = totalCount,
             FilteredCount = filteredCount
         };
@@ -115,8 +124,7 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
         }
 
         var bounded = Math.Clamp(take, 1, PlatformMasterDataConsts.MaxLookupTake);
-        var entities = await AsyncExecuter.ToListAsync(ApplySort(query, null, false).Take(bounded));
-        return entities.Select(ToLookup).ToList();
+        return await ReadLookupsAsync(ApplySort(query, null, false).Take(bounded));
     }
 
     protected async Task<TDto> CreateInternalAsync(TCreateDto input)
@@ -158,7 +166,7 @@ public abstract class PlatformCrudAppServiceBase<TEntity, TRowDto, TDto, TCreate
         List<TEntity> targets;
         if (string.Equals(selection.Mode, "FilterBased", StringComparison.OrdinalIgnoreCase))
         {
-            /* No details: a soft delete touches the parent only, and an e-mail template's contents hold up to 200 KB each. */
+            /* No details: a soft delete touches the parent only. */
             var all = await Repository.GetQueryableAsync();
             var query = applyFilters(all);
             var term = NormalizeTerm(selection.FilterRequest?.WildcardSearch);

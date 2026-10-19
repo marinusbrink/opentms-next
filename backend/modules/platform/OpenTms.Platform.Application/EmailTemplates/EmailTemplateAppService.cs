@@ -19,16 +19,13 @@ public class EmailTemplateAppService
     : PlatformCrudAppServiceBase<EmailTemplate, EmailTemplateRowDto, EmailTemplateDto, EmailTemplateCreateDto, EmailTemplateUpdateDto, EmailTemplateListRequestDto>,
       IEmailTemplateAppService
 {
-    private readonly IRepository<EmailTemplateContent> _contents;
     private readonly IReadOnlyCollection<string> _cultures;
 
     public EmailTemplateAppService(
         IRepository<EmailTemplate, Guid> repository,
-        IRepository<EmailTemplateContent> contents,
         IOptions<AbpLocalizationOptions> localization)
         : base(repository)
     {
-        _contents = contents;
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
     }
 
@@ -76,33 +73,34 @@ public class EmailTemplateAppService
         {
             null or "" or "name" => Order(query, t => t.Name, descending),
             "purpose" => Order(query, t => t.Purpose, descending),
+            "culture" => Order(query, t => t.Culture, descending),
             "isdefault" => Order(query, t => t.IsDefault, descending),
             _ => throw UnknownSortColumn(sortBy)
         };
 
-    protected override async Task<List<EmailTemplateRowDto>> ToRowsAsync(List<EmailTemplate> entities)
-    {
-        var ids = entities.Select(t => t.Id).ToList();
-        /* Only the language of each content row: the bodies (up to 200,000 characters each) are not read for a list. */
-        var contents = ids.Count == 0
-            ? []
-            : await AsyncExecuter.ToListAsync(
-                (await _contents.GetQueryableAsync())
-                    .Where(c => ids.Contains(c.EmailTemplateId))
-                    .Select(c => new { c.EmailTemplateId, c.Culture }));
-        var cultures = contents
-            .GroupBy(c => c.EmailTemplateId)
-            .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(c => c.Culture).OrderBy(c => c, StringComparer.Ordinal)));
-
-        return entities.Select(t => new EmailTemplateRowDto
+    protected override Task<List<EmailTemplateRowDto>> ToRowsAsync(List<EmailTemplate> entities)
+        => Task.FromResult(entities.Select(t => new EmailTemplateRowDto
         {
             Id = t.Id,
             Name = t.Name,
             Purpose = t.Purpose,
-            IsDefault = t.IsDefault,
-            Cultures = cultures.GetValueOrDefault(t.Id) ?? string.Empty
-        }).ToList();
-    }
+            Culture = t.Culture,
+            IsDefault = t.IsDefault
+        }).ToList());
+
+    /* The list and the lookup project their columns: a body holds up to 200,000 characters and neither shows it. */
+    protected override async Task<List<EmailTemplateRowDto>> ReadRowsAsync(IQueryable<EmailTemplate> page)
+        => await AsyncExecuter.ToListAsync(page.Select(t => new EmailTemplateRowDto
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Purpose = t.Purpose,
+            Culture = t.Culture,
+            IsDefault = t.IsDefault
+        }));
+
+    protected override async Task<List<PlatformMasterDataLookupDto>> ReadLookupsAsync(IQueryable<EmailTemplate> query)
+        => await AsyncExecuter.ToListAsync(query.Select(t => new PlatformMasterDataLookupDto { Id = t.Id, Name = t.Name }));
 
     protected override Task<EmailTemplateDto> ToDtoAsync(EmailTemplate t)
     {
@@ -110,18 +108,16 @@ public class EmailTemplateAppService
         {
             Name = t.Name,
             Purpose = t.Purpose,
+            Culture = t.Culture,
             IsDefault = t.IsDefault,
             SenderAddress = t.SenderAddress,
-            SenderName = t.SenderName,
             ReplyTo = t.ReplyTo,
             To = t.To,
             Cc = t.Cc,
             Bcc = t.Bcc,
             SendCopyToSender = t.SendCopyToSender,
-            Contents = t.Contents
-                .OrderBy(c => c.Culture, StringComparer.Ordinal)
-                .Select(c => new EmailTemplateContentDto { Culture = c.Culture, Subject = c.Subject, HtmlBody = c.HtmlBody })
-                .ToList()
+            Subject = t.Subject,
+            HtmlBody = t.HtmlBody
         };
         MapAudit(t, dto);
         return Task.FromResult(dto);
@@ -139,7 +135,8 @@ public class EmailTemplateAppService
         var normalized = EmailTemplate.NormalizedNameOf(input.Name);
         await EnsureUniqueAsync(t => t.NormalizedName == normalized, "name", input.Name.Trim());
 
-        var template = new EmailTemplate(GuidGenerator.Create(), CurrentTenant.Id, input.Name, input.Purpose);
+        var template = new EmailTemplate(
+            GuidGenerator.Create(), CurrentTenant.Id, input.Name, input.Purpose, input.Culture, _cultures, input.Subject, input.HtmlBody);
         await ApplyAsync(template, input);
         return template;
     }
@@ -155,14 +152,15 @@ public class EmailTemplateAppService
 
         template.SetName(input.Name);
         template.SetPurpose(input.Purpose);
+        template.SetCulture(input.Culture, _cultures);
+        template.SetContent(input.Subject, input.HtmlBody);
         await ApplyAsync(template, input);
     }
 
     private async Task ApplyAsync(EmailTemplate template, EmailTemplateCreateDto input)
     {
-        template.SetAddresses(input.SenderAddress, input.SenderName, input.ReplyTo, input.To, input.Cc, input.Bcc, input.SendCopyToSender);
+        template.SetAddresses(input.SenderAddress, input.ReplyTo, input.To, input.Cc, input.Bcc, input.SendCopyToSender);
         template.SetDescription(input.Description);
-        template.SetContents(input.Contents.Select(c => (c.Culture, c.Subject, c.HtmlBody)).ToList(), _cultures);
 
         if (input.IsDefault)
         {
@@ -195,20 +193,18 @@ public class EmailTemplateAppService
         }
     }
 
-    /// <summary>Every Scriban field parses (design 49); the error names the field, the language and the line.</summary>
+    /// <summary>
+    /// Every Scriban field parses (design 49); the error names the field as the screen labels it, and the line. The
+    /// template is one language, so no field carries a language suffix.
+    /// </summary>
     private void Validate(EmailTemplateCreateDto input)
     {
-        ScribanTemplateValidator.EnsureValid(input.SenderAddress, "senderAddress", L);
-        ScribanTemplateValidator.EnsureValid(input.SenderName, "senderName", L);
+        ScribanTemplateValidator.EnsureValid(input.SenderAddress, "senderAddress", L, labelKey: "Platform:From");
         ScribanTemplateValidator.EnsureValid(input.ReplyTo, "replyTo", L);
         ScribanTemplateValidator.EnsureValid(input.To, "to", L);
         ScribanTemplateValidator.EnsureValid(input.Cc, "cc", L);
         ScribanTemplateValidator.EnsureValid(input.Bcc, "bcc", L);
-        foreach (var content in input.Contents)
-        {
-            var culture = content.Culture?.Trim().ToLowerInvariant();
-            ScribanTemplateValidator.EnsureValid(content.Subject, "subject", L, culture);
-            ScribanTemplateValidator.EnsureValid(content.HtmlBody, "htmlBody", L, culture);
-        }
+        ScribanTemplateValidator.EnsureValid(input.Subject, "subject", L);
+        ScribanTemplateValidator.EnsureValid(input.HtmlBody, "htmlBody", L);
     }
 }

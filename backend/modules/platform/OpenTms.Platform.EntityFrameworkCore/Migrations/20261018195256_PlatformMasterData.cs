@@ -49,14 +49,16 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     NormalizedName = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     Purpose = table.Column<int>(type: "integer", nullable: false),
+                    Culture = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
                     IsDefault = table.Column<bool>(type: "boolean", nullable: false),
                     SenderAddress = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
-                    SenderName = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     ReplyTo = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     To = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     Cc = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     Bcc = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: true),
                     SendCopyToSender = table.Column<bool>(type: "boolean", nullable: false),
+                    Subject = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
+                    HtmlBody = table.Column<string>(type: "text", nullable: false),
                     ExtraProperties = table.Column<string>(type: "text", nullable: false),
                     ConcurrencyStamp = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     CreationTime = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
@@ -165,29 +167,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "EmailTemplateContents",
-                schema: "platform",
-                columns: table => new
-                {
-                    EmailTemplateId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Culture = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    TenantId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Subject = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
-                    HtmlBody = table.Column<string>(type: "text", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_EmailTemplateContents", x => new { x.EmailTemplateId, x.Culture });
-                    table.ForeignKey(
-                        name: "FK_EmailTemplateContents_EmailTemplates_EmailTemplateId",
-                        column: x => x.EmailTemplateId,
-                        principalSchema: "platform",
-                        principalTable: "EmailTemplates",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "NumberSequenceCounters",
                 schema: "platform",
                 columns: table => new
@@ -273,7 +252,7 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                 schema: "platform");
 
             migrationBuilder.DropTable(
-                name: "EmailTemplateContents",
+                name: "EmailTemplates",
                 schema: "platform");
 
             migrationBuilder.DropTable(
@@ -286,10 +265,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 
             migrationBuilder.DropTable(
                 name: "DocumentTypes",
-                schema: "platform");
-
-            migrationBuilder.DropTable(
-                name: "EmailTemplates",
                 schema: "platform");
 
             migrationBuilder.DropTable(

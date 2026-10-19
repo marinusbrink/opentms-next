@@ -12,7 +12,6 @@ public static class PlatformErrorCodes
     public const string DuplicateKey = Namespace + ":DuplicateKey";
     public const string InUse = Namespace + ":InUse";
     public const string TemplateSyntaxError = Namespace + ":TemplateSyntaxError";
-    public const string DefaultLanguageContentRequired = Namespace + ":DefaultLanguageContentRequired";
     public const string UnsupportedCulture = Namespace + ":UnsupportedCulture";
     public const string InvalidRegex = Namespace + ":InvalidRegex";
     public const string TransformationArgumentRequired = Namespace + ":TransformationArgumentRequired";
@@ -31,7 +30,7 @@ public static class PlatformErrorCodes
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
     public static readonly string[] BadRequestCodes =
     [
-        TemplateSyntaxError, DefaultLanguageContentRequired, UnsupportedCulture, InvalidRegex, TransformationArgumentRequired,
+        TemplateSyntaxError, UnsupportedCulture, InvalidRegex, TransformationArgumentRequired,
         DuplicateTransformation, UnknownSortColumn, TooManyRows, NameRequired
     ];
 }

@@ -174,11 +174,12 @@ public class PlatformMasterDataAuthorizationTests
             .Where(code => code.StartsWith(PlatformErrorCodes.Namespace + ":", StringComparison.Ordinal))
             .ToList();
 
-        /* The twelve codes of the API contract (the Platform module had OutboxTenantNotFound before design 49). */
+        /* The eleven codes of the API contract (the Platform module had OutboxTenantNotFound before design 49). DefaultLanguageContentRequired
+         * left with the per-language content rows (PO 2026-10-18: one template per language). */
         foreach (var code in new[]
                  {
                      PlatformErrorCodes.DuplicateKey, PlatformErrorCodes.InUse, PlatformErrorCodes.TemplateSyntaxError,
-                     PlatformErrorCodes.DefaultLanguageContentRequired, PlatformErrorCodes.UnsupportedCulture, PlatformErrorCodes.InvalidRegex,
+                     PlatformErrorCodes.UnsupportedCulture, PlatformErrorCodes.InvalidRegex,
                      PlatformErrorCodes.TransformationArgumentRequired, PlatformErrorCodes.DuplicateTransformation, PlatformErrorCodes.NumberSequenceInUse,
                      PlatformErrorCodes.UnknownSortColumn, PlatformErrorCodes.TooManyRows, PlatformErrorCodes.NameRequired
                  })
@@ -186,6 +187,9 @@ public class PlatformMasterDataAuthorizationTests
             all.ShouldContain(code);
             (PlatformErrorCodes.ConflictCodes.Contains(code) ^ PlatformErrorCodes.BadRequestCodes.Contains(code)).ShouldBeTrue($"{code} is in exactly one list");
         }
+
+        all.ShouldNotContain(PlatformErrorCodes.Namespace + ":DefaultLanguageContentRequired");
+        PlatformErrorCodes.BadRequestCodes.ShouldNotContain(PlatformErrorCodes.Namespace + ":DefaultLanguageContentRequired");
 
         PlatformErrorCodes.ConflictCodes.ShouldBe([PlatformErrorCodes.DuplicateKey, PlatformErrorCodes.InUse, PlatformErrorCodes.NumberSequenceInUse], ignoreOrder: true);
         PlatformErrorCodes.ConflictCodes.Intersect(PlatformErrorCodes.BadRequestCodes).ShouldBeEmpty();

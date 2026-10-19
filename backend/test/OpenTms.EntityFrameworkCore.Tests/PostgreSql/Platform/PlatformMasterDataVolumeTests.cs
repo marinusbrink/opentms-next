@@ -14,6 +14,7 @@ using OpenTms.Platform.Localization;
 using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
+using OpenTms.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore;
 using Xunit;
 using Xunit.Abstractions;
@@ -22,11 +23,12 @@ namespace OpenTms.PostgreSql.Platform;
 
 /// <summary>
 /// VOLUME TEST (docs/designs/49-platform-master-data.md, "Expected volumes" × 5; "Cost &amp; SLO impact": list reads
-/// p95 &lt; 300 ms, generation p95 &lt; 20 ms): in tenant A, 1,000 e-mail templates with content in two languages (the
-/// templates of the first list page carry the maximum body of 200,000 characters per language, the rest 10,000),
+/// p95 &lt; 300 ms, generation p95 &lt; 20 ms): in tenant A, 1,000 e-mail templates, one per language (nl, en, all
+/// languages; the templates of the first list page carry the maximum body of 200,000 characters, the rest 10,000),
 /// 1,000 report definitions, 500 document types with 0–4 transformations and 250 number sequences with 12 counter rows
 /// each. The lists (first page, searched, filtered, non-default sorts), the lookups and the template detail are timed cold
-/// and warm after ANALYZE; every warm read is held to the 300 ms interactive-read budget (performance-budgets.md). Then
+/// and warm after ANALYZE; every warm read is held to the 300 ms interactive-read budget (performance-budgets.md), and the
+/// SQL of the template list and lookup is captured to prove they never read the body (the detail, as control, does). Then
 /// 200 numbers are drawn and the p95 of one draw is held to 20 ms. Risk class: Critical/High parts (test-engineer
 /// obligation). The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
@@ -44,6 +46,7 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
     private static readonly TimeSpan ReadBudget = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan DrawBudget = TimeSpan.FromMilliseconds(20);
     private static readonly string[] Cultures = ["nl", "en"];
+    private static readonly string?[] TemplateCultures = ["nl", "en", null];
 
     private readonly ITestOutputHelper _output;
 
@@ -95,12 +98,12 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
                 warm.Add((name, w.Elapsed));
             }
 
-            await TimeAsync("template list page 1 (100 rows whose bodies are 2 × 200,000 characters)", () => Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>()));
+            await TimeAsync("template list page 1 (100 rows whose bodies are 200,000 characters)", () => Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>()));
             await TimeAsync("template list page 10", () => Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>(start: 900, end: 1_000)));
             await TimeAsync("template list searched", () => Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>("template 05")));
             await TimeAsync("template list filtered on a purpose, sorted by default desc", () => Templates.GetListAsync(new EmailTemplateListRequestDto { Purpose = EmailTemplatePurpose.Invoice, SortBy = "isDefault", SortDir = "desc" }));
             await TimeAsync("template lookup (500)", () => Templates.GetLookupAsync());
-            await TimeAsync("template detail with two 200,000-character bodies", () => Templates.GetAsync(firstTemplate));
+            await TimeAsync("template detail with a 200,000-character body", () => Templates.GetAsync(firstTemplate));
             await TimeAsync("report definition list page 1", () => Definitions.GetListAsync(PlatformList<ReportDefinitionListRequestDto>()));
             await TimeAsync("report definition list searched, archived included", () => Definitions.GetListAsync(new ReportDefinitionListRequestDto { WildcardSearch = "layout 07", IncludeArchived = true }));
             await TimeAsync("report definition list filtered on a purpose, sorted by culture", () => Definitions.GetListAsync(new ReportDefinitionListRequestDto { Purpose = ReportPurpose.Invoice, SortBy = "culture" }));
@@ -137,7 +140,26 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
             var page = await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>());
             page.TotalCount.ShouldBe(TemplateCount);
             page.Rows.Count.ShouldBe(100);
-            page.Rows.ShouldAllBe(r => r.Cultures == "en, nl");
+            page.Rows.Select(r => r.Culture).Distinct().ShouldBe(TemplateCultures, ignoreOrder: true);
+            page.Rows.Count(r => r.IsDefault).ShouldBe(Enum.GetValues<EmailTemplatePurpose>().Length, "one default per purpose, all on the first page");
+
+            /* The list and the lookup never read the body, at volume too; the detail (control) does. */
+            using (var capture = EfCommandCapture.Begin())
+            {
+                await Task.Delay(EfCommandCapture.LoggingCacheTime);
+                (await Templates.GetAsync(firstTemplate)).HtmlBody.Length.ShouldBe(PlatformMasterDataConsts.MaxHtmlBodyLength);
+                capture.On("EmailTemplates").ShouldContain(c => c.Contains("\"HtmlBody\"", StringComparison.Ordinal), "control: the detail reads the body");
+                capture.Clear();
+
+                await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>());
+                await Templates.GetListAsync(new EmailTemplateListRequestDto { Purpose = EmailTemplatePurpose.Invoice, SortBy = "culture", SortDir = "desc", WildcardSearch = "template" });
+                await Templates.GetLookupAsync();
+                await Templates.GetLookupAsync("template 00");
+                var commands = capture.On("EmailTemplates");
+                commands.Count.ShouldBeGreaterThanOrEqualTo(4, string.Join("\n---\n", capture.Commands));
+                commands.ShouldAllBe(c => !c.Contains("\"HtmlBody\"", StringComparison.Ordinal), string.Join("\n---\n", commands));
+            }
+
             (await Templates.GetLookupAsync()).Count.ShouldBe(PlatformMasterDataConsts.MaxLookupTake);
             (await Definitions.GetListAsync(PlatformList<ReportDefinitionListRequestDto>())).TotalCount.ShouldBe(DefinitionCount - DefinitionCount / 10, "every tenth definition is archived");
             (await Types.GetListAsync(new DocumentTypeListRequestDto { IncludeArchived = true })).TotalCount.ShouldBe(TypeCount + 2, "the volume plus the seeded FREIGHT and GENERAL");
@@ -165,10 +187,10 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
         {
             for (var i = start; i < start + 100; i++)
             {
-                var template = new EmailTemplate(Guid.NewGuid(), TenantA, $"Template {i:D4}", purposes[i % purposes.Length]);
                 var body = i < MaxBodyTemplates ? maxBody : smallBody;
-                template.SetContents([("en", $"Subject {i} {{{{ number }}}}", body), ("nl", $"Onderwerp {i}", body)], Cultures);
-                template.SetAddresses("{{ company.email }}", "{{ company.name }}", null, null, null, null, false);
+                var template = new EmailTemplate(Guid.NewGuid(), TenantA, $"Template {i:D4}", purposes[i % purposes.Length], TemplateCultures[i % TemplateCultures.Length], Cultures,
+                    $"Subject {i} {{{{ number }}}}", body);
+                template.SetAddresses("{{ company.email }}", null, null, null, null, i % 2 == 0);
                 template.SetDefault(i < purposes.Length);
                 if (i == 0)
                 {
@@ -233,12 +255,12 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
-        _output.WriteLine($"inserted {TemplateCount} templates ({TemplateCount * 2} content rows, {MaxBodyTemplates} with 200,000-character bodies), {DefinitionCount} report definitions, " +
+        _output.WriteLine($"inserted {TemplateCount} templates ({MaxBodyTemplates} with 200,000-character bodies), {DefinitionCount} report definitions, " +
                           $"{TypeCount} document types, {SequenceCount} sequences with {SequenceCount * CountersPerSequence} counters in {insert.Elapsed.TotalSeconds:F1} s");
 
         var connection = (NpgsqlConnection)context.Database.GetDbConnection();
         var transaction = (NpgsqlTransaction?)context.Database.CurrentTransaction?.GetDbTransaction();
-        foreach (var table in new[] { "EmailTemplates", "EmailTemplateContents", "ReportDefinitions", "DocumentTypes", "DocumentTypeTransformations", "NumberSequences", "NumberSequenceCounters" })
+        foreach (var table in new[] { "EmailTemplates", "ReportDefinitions", "DocumentTypes", "DocumentTypeTransformations", "NumberSequences", "NumberSequenceCounters" })
         {
             await using var command = new NpgsqlCommand($"ANALYZE platform.\"{table}\"", connection, transaction);
             await command.ExecuteNonQueryAsync();

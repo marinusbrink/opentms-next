@@ -102,7 +102,7 @@ public class PlatformLocalizationParityTests
         texts[PlatformErrorCodes.DuplicateKey].ShouldContain("{field}");
         texts[PlatformErrorCodes.DuplicateKey].ShouldContain("{value}");
         texts[PlatformErrorCodes.InUse].ShouldContain("{reason}");
-        /* The readable field and language ("HTML body (English)"); field and language stay in the data for clients. */
+        /* The readable field ("HTML body", "From"); the field id stays in the data for clients. */
         texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{fieldLabel}");
         texts[PlatformErrorCodes.TemplateSyntaxError].ShouldContain("{line}");
         texts[PlatformErrorCodes.UnsupportedCulture].ShouldContain("{culture}");
@@ -111,5 +111,37 @@ public class PlatformLocalizationParityTests
         texts[PlatformErrorCodes.DuplicateTransformation].ShouldContain("{kind}");
         texts[PlatformErrorCodes.UnknownSortColumn].ShouldContain("{sortBy}");
         texts[PlatformErrorCodes.TooManyRows].ShouldContain("{max}");
+    }
+
+    [Theory]
+    [InlineData("en", "From", "Send me a copy", "All languages")]
+    [InlineData("nl", "Van", "Stuur mij een kopie", "Alle talen")]
+    public void The_email_template_editor_has_its_labels_and_the_per_language_content_keys_are_gone(string culture, string from, string sendMeACopy, string allLanguages)
+    {
+        /* PO 2026-10-18: one template per language, one mail-shaped dialog (design 49, "EmailTemplate"). */
+        var texts = Read(culture);
+        texts["Platform:From"].ShouldBe(from);
+        texts["Platform:SendMeACopy"].ShouldBe(sendMeACopy);
+        texts["Platform:AllLanguages"].ShouldBe(allLanguages);
+
+        /* The labels the editor shows, and the ones ScribanTemplateValidator builds for a refusal ("Platform:" + the
+         * capitalized field id; the sender address uses Platform:From). */
+        foreach (var key in new[]
+                 {
+                     "Platform:Culture", "Platform:Language.en", "Platform:Language.nl", "Platform:ReplyTo", "Platform:To", "Platform:ToEmptyHint",
+                     "Platform:Cc", "Platform:Bcc", "Platform:Subject", "Platform:HtmlBody", "Platform:Tab.General"
+                 })
+        {
+            texts.ShouldContainKey(key, culture);
+        }
+
+        foreach (var removed in new[]
+                 {
+                     "Platform:SenderAddress", "Platform:SenderName", "Platform:SendCopyToSender", "Platform:Tab.Addresses", "Platform:Cultures",
+                     "Platform:DefaultLanguageContentRequired", PlatformErrorCodes.Namespace + ":DefaultLanguageContentRequired"
+                 })
+        {
+            texts.ShouldNotContainKey(removed, culture);
+        }
     }
 }

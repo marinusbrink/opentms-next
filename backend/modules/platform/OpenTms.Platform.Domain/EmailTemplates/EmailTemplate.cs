@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using OpenTms.Platform.Localization;
 using Volo.Abp;
-using Volo.Abp.Domain.Entities;
-using Volo.Abp.MultiTenancy;
 
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// An e-mail template (design 49; OpenTMS <c>OutboundEMailMessageTemplate</c>): one template per purpose variant with its
-/// addresses, and its subject and HTML body per language. Every text may hold Scriban expressions; the service parses
-/// them on save (never renders). At most one default per purpose (partial unique index); the service clears the
-/// previous default in the same transaction. Sender and reply-to hold company addresses: business data, never logged.
+/// An e-mail template (design 49; OpenTMS <c>OutboundEMailMessageTemplate</c>, PO 2026-10-18): one template per language
+/// with the mail fields on the template itself. A null <see cref="Culture"/> serves all languages. Every text field may
+/// hold Scriban expressions; the service parses them on save (never renders). At most one default per purpose (partial
+/// unique index); the service clears the previous default in the same transaction. A sender picks the template of the
+/// purpose whose language matches the recipient, else the purpose's default. The address fields hold company
+/// addresses: business data, never logged.
 /// </summary>
 public class EmailTemplate : PlatformMasterDataAggregateRoot
 {
@@ -23,11 +23,13 @@ public class EmailTemplate : PlatformMasterDataAggregateRoot
 
     public EmailTemplatePurpose Purpose { get; private set; }
 
+    /// <summary>A configured language code ("nl", "en"); null: all languages (OpenTMS <c>Language</c> empty).</summary>
+    public string? Culture { get; private set; }
+
     public bool IsDefault { get; private set; }
 
+    /// <summary>"From" in the editor.</summary>
     public string? SenderAddress { get; private set; }
-
-    public string? SenderName { get; private set; }
 
     public string? ReplyTo { get; private set; }
 
@@ -38,19 +40,33 @@ public class EmailTemplate : PlatformMasterDataAggregateRoot
 
     public string? Bcc { get; private set; }
 
+    /// <summary>"Send me a copy" in the editor.</summary>
     public bool SendCopyToSender { get; private set; }
 
-    public virtual ICollection<EmailTemplateContent> Contents { get; private set; } = new List<EmailTemplateContent>();
+    public string Subject { get; private set; } = default!;
+
+    /// <summary>Up to 200,000 characters of HTML source with Scriban expressions.</summary>
+    public string HtmlBody { get; private set; } = default!;
 
     protected EmailTemplate()
     {
     }
 
-    public EmailTemplate(Guid id, Guid? tenantId, string name, EmailTemplatePurpose purpose)
+    public EmailTemplate(
+        Guid id,
+        Guid? tenantId,
+        string name,
+        EmailTemplatePurpose purpose,
+        string? culture,
+        IReadOnlyCollection<string> configuredCultures,
+        string subject,
+        string htmlBody)
         : base(id, tenantId)
     {
         SetName(name);
         SetPurpose(purpose);
+        SetCulture(culture, configuredCultures);
+        SetContent(subject, htmlBody);
     }
 
     public void SetName(string name)
@@ -61,14 +77,31 @@ public class EmailTemplate : PlatformMasterDataAggregateRoot
 
     public void SetPurpose(EmailTemplatePurpose purpose) => Purpose = Defined(purpose, nameof(purpose));
 
+    /// <summary>Empty is all languages; anything else must be a configured language (UnsupportedCulture).</summary>
+    public void SetCulture(string? culture, IReadOnlyCollection<string> configuredCultures)
+    {
+        var key = LocalizedName.NormalizeCulture(culture);
+        if (key.Length == 0)
+        {
+            Culture = null;
+            return;
+        }
+
+        if (key.Length > PlatformMasterDataConsts.MaxCultureLength || !configuredCultures.Contains(key))
+        {
+            throw new BusinessException(PlatformErrorCodes.UnsupportedCulture).WithData("culture", key);
+        }
+
+        Culture = key;
+    }
+
     /// <summary>The service clears the previous default of the purpose first (the partial unique index remains the truth).</summary>
     public void SetDefault(bool isDefault) => IsDefault = isDefault;
 
-    public void SetAddresses(string? senderAddress, string? senderName, string? replyTo, string? to, string? cc, string? bcc, bool sendCopyToSender)
+    public void SetAddresses(string? senderAddress, string? replyTo, string? to, string? cc, string? bcc, bool sendCopyToSender)
     {
         const int max = PlatformMasterDataConsts.MaxEmailAddressFieldLength;
         SenderAddress = Optional(senderAddress, nameof(senderAddress), max);
-        SenderName = Optional(senderName, nameof(senderName), max);
         ReplyTo = Optional(replyTo, nameof(replyTo), max);
         To = Optional(to, nameof(to), max);
         Cc = Optional(cc, nameof(cc), max);
@@ -76,88 +109,10 @@ public class EmailTemplate : PlatformMasterDataAggregateRoot
         SendCopyToSender = sendCopyToSender;
     }
 
-    /// <summary>
-    /// Replaces the content rows: one per language, only the configured languages, the default language
-    /// (<see cref="LocalizedName.DefaultCulture"/>) required. Validated before anything changes.
-    /// </summary>
-    public void SetContents(IReadOnlyList<(string Culture, string Subject, string HtmlBody)> contents, IReadOnlyCollection<string> configuredCultures)
+    /// <summary>The subject (trimmed) and the HTML body (kept as typed), both required.</summary>
+    public void SetContent(string subject, string htmlBody)
     {
-        var normalized = new List<(string Culture, string Subject, string HtmlBody)>();
-        foreach (var (culture, subject, htmlBody) in contents)
-        {
-            var key = LocalizedName.NormalizeCulture(culture);
-            if (key.Length == 0 || key.Length > PlatformMasterDataConsts.MaxCultureLength || !configuredCultures.Contains(key))
-            {
-                throw new BusinessException(PlatformErrorCodes.UnsupportedCulture).WithData("culture", key);
-            }
-
-            if (normalized.Any(c => c.Culture == key))
-            {
-                throw new BusinessException(PlatformErrorCodes.DuplicateKey).WithData("field", "culture").WithData("value", key);
-            }
-
-            normalized.Add((
-                key,
-                Check.NotNullOrWhiteSpace(subject, nameof(subject), PlatformMasterDataConsts.MaxSubjectLength).Trim(),
-                Check.Length(Check.NotNullOrWhiteSpace(htmlBody, nameof(htmlBody)), nameof(htmlBody), PlatformMasterDataConsts.MaxHtmlBodyLength)!));
-        }
-
-        if (normalized.All(c => c.Culture != LocalizedName.DefaultCulture))
-        {
-            throw new BusinessException(PlatformErrorCodes.DefaultLanguageContentRequired).WithData("culture", LocalizedName.DefaultCulture);
-        }
-
-        var wanted = normalized.Select(c => c.Culture).ToHashSet(StringComparer.Ordinal);
-        foreach (var stale in Contents.Where(c => !wanted.Contains(c.Culture)).ToList())
-        {
-            Contents.Remove(stale);
-        }
-
-        foreach (var (culture, subject, htmlBody) in normalized)
-        {
-            var content = Contents.FirstOrDefault(c => c.Culture == culture);
-            if (content == null)
-            {
-                content = new EmailTemplateContent(TenantId, Id, culture);
-                Contents.Add(content);
-            }
-
-            content.Set(subject, htmlBody);
-        }
+        Subject = Check.NotNullOrWhiteSpace(subject, nameof(subject), PlatformMasterDataConsts.MaxSubjectLength).Trim();
+        HtmlBody = Check.Length(Check.NotNullOrWhiteSpace(htmlBody, nameof(htmlBody)), nameof(htmlBody), PlatformMasterDataConsts.MaxHtmlBodyLength)!;
     }
-}
-
-/// <summary>The subject and HTML body of a template in one language; composite key (template, culture).</summary>
-public class EmailTemplateContent : Entity, IMultiTenant
-{
-    public Guid? TenantId { get; private set; }
-
-    public Guid EmailTemplateId { get; private set; }
-
-    /// <summary>A configured language code ("nl", "en").</summary>
-    public string Culture { get; private set; } = default!;
-
-    public string Subject { get; private set; } = default!;
-
-    /// <summary>Up to 200,000 characters of HTML source with Scriban expressions.</summary>
-    public string HtmlBody { get; private set; } = default!;
-
-    protected EmailTemplateContent()
-    {
-    }
-
-    public EmailTemplateContent(Guid? tenantId, Guid emailTemplateId, string culture)
-    {
-        TenantId = tenantId;
-        EmailTemplateId = emailTemplateId;
-        Culture = culture;
-    }
-
-    public void Set(string subject, string htmlBody)
-    {
-        Subject = subject;
-        HtmlBody = htmlBody;
-    }
-
-    public override object[] GetKeys() => [EmailTemplateId, Culture];
 }

@@ -22,9 +22,10 @@ namespace OpenTms.PostgreSql.Platform;
 /// repositories (and plain SQL for the child keys) so the services' friendly checks are bypassed
 /// (docs/designs/49-platform-master-data.md, test risk analysis "Unique and default indexes, migration", High): names
 /// unique per tenant regardless of case and freed by a soft delete, the document-type code unique, one default per purpose
-/// (templates) and per purpose and language (report definitions), unique (template, culture), (type, kind) and
+/// (templates, regardless of their language) and per purpose and language (report definitions), unique (type, kind) and
 /// (sequence, year, month), NULLS NOT DISTINCT so host rows are unique too, two tenants of one database each with their
-/// own key space, the position and minimum-digits checks, the cascades. A violation aborts the PostgreSQL transaction,
+/// own key space, the position and minimum-digits checks, the cascades, the e-mail template's NOT NULL subject and body
+/// and ten-character culture. A violation aborts the PostgreSQL transaction,
 /// so every one is the last statement of its own rolled-back transaction. Also the services' default switch on the real
 /// partial index.
 /// </summary>
@@ -38,10 +39,9 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     private IRepository<DocumentType, Guid> Types => GetRequiredService<IRepository<DocumentType, Guid>>();
     private IRepository<NumberSequence, Guid> Sequences => GetRequiredService<IRepository<NumberSequence, Guid>>();
 
-    private static EmailTemplate Template(Guid? tenant, string name, EmailTemplatePurpose purpose = EmailTemplatePurpose.Invoice, bool isDefault = false)
+    private static EmailTemplate Template(Guid? tenant, string name, EmailTemplatePurpose purpose = EmailTemplatePurpose.Invoice, bool isDefault = false, string? culture = "en")
     {
-        var template = new EmailTemplate(Guid.NewGuid(), tenant, name, purpose);
-        template.SetContents([("en", "Subject", "<p>Body</p>")], Cultures);
+        var template = new EmailTemplate(Guid.NewGuid(), tenant, name, purpose, culture, Cultures, "Subject", "<p>Body</p>");
         template.SetDefault(isDefault);
         return template;
     }
@@ -196,6 +196,19 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
             await ShouldViolateAsync(() => Templates.InsertAsync(Template(TenantA, "QQ D", isDefault: true), autoSave: true), "IX_EmailTemplates_TenantId_Purpose_Default");
         });
 
+        /* One template per language, but one default per purpose: a Dutch and an all-languages default collide with the
+         * English one (design 49: at most one default per purpose). */
+        foreach (var culture in new[] { "nl", null })
+        {
+            await InRolledBackTransactionAsync(TenantA, async () =>
+            {
+                await Templates.InsertAsync(Template(TenantA, "QQ EN default", isDefault: true, culture: "en"), autoSave: true);
+                await Templates.InsertAsync(Template(TenantA, "QQ other language", isDefault: false, culture: culture), autoSave: true);
+                await ShouldViolateAsync(() => Templates.InsertAsync(Template(TenantA, "QQ other default", isDefault: true, culture: culture), autoSave: true),
+                    "IX_EmailTemplates_TenantId_Purpose_Default");
+            });
+        }
+
         /* Host rows: NULLS NOT DISTINCT applies to the default index as well; the shared tenant's default is its own. */
         await InRolledBackTransactionAsync(null, async () =>
         {
@@ -235,18 +248,19 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
             var templates = GetRequiredService<IEmailTemplateAppService>();
-            EmailTemplateCreateDto TemplateDto(string name) => new()
+            EmailTemplateCreateDto TemplateDto(string name, string? culture) => new()
             {
-                Name = name, Purpose = EmailTemplatePurpose.Invoice, IsDefault = true, Contents = [new() { Culture = "en", Subject = "s", HtmlBody = "b" }]
+                Name = name, Purpose = EmailTemplatePurpose.Invoice, Culture = culture, IsDefault = true, Subject = "s", HtmlBody = "b"
             };
 
-            var a = await templates.CreateAsync(TemplateDto("QQ A"));
-            var b = await templates.CreateAsync(TemplateDto("QQ B"));
+            /* Different languages, one default per purpose: the switch clears across languages on the real index. */
+            var a = await templates.CreateAsync(TemplateDto("QQ A", "nl"));
+            var b = await templates.CreateAsync(TemplateDto("QQ B", "en"));
             (await templates.GetAsync(a.Id)).IsDefault.ShouldBeFalse();
             a = await templates.GetAsync(a.Id);
             var update = new EmailTemplateUpdateDto
             {
-                Name = a.Name, Purpose = a.Purpose, IsDefault = true, Contents = [new() { Culture = "en", Subject = "s", HtmlBody = "b" }], ConcurrencyStamp = a.ConcurrencyStamp
+                Name = a.Name, Purpose = a.Purpose, Culture = a.Culture, IsDefault = true, Subject = a.Subject, HtmlBody = a.HtmlBody, ConcurrencyStamp = a.ConcurrencyStamp
             };
             (await templates.UpdateAsync(a.Id, update)).IsDefault.ShouldBeTrue();
             (await templates.GetAsync(b.Id)).IsDefault.ShouldBeFalse();
@@ -270,15 +284,38 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     // ── Child keys, checks, cascades ─────────────────────────────────────────
 
     [Fact]
-    public async Task One_content_row_per_template_and_language()
+    public async Task The_email_template_subject_and_body_are_not_null_and_the_culture_is_at_most_ten_characters_in_the_database()
     {
+        foreach (var (column, value, sqlState) in new (string, string?, string)[]
+                 {
+                     ("Subject", null, PostgresErrorCodes.NotNullViolation),
+                     ("HtmlBody", null, PostgresErrorCodes.NotNullViolation),
+                     ("Subject", new string('s', PlatformMasterDataConsts.MaxSubjectLength + 1), PostgresErrorCodes.StringDataRightTruncation),
+                     ("Culture", "nl-NL-extra", PostgresErrorCodes.StringDataRightTruncation),
+                 })
+        {
+            await InRolledBackTransactionAsync(TenantA, async () =>
+            {
+                var template = Template(TenantA, "QQ columns");
+                await Templates.InsertAsync(template, autoSave: true);
+                var ex = await Should.ThrowAsync<Exception>(() => value == null
+                    ? SqlAsync($"UPDATE platform.\"EmailTemplates\" SET \"{column}\" = NULL WHERE \"Id\" = {{0}}", template.Id)
+                    : SqlAsync($"UPDATE platform.\"EmailTemplates\" SET \"{column}\" = {{0}} WHERE \"Id\" = {{1}}", value, template.Id));
+                var postgres = (ex as PostgresException ?? ex.InnerException as PostgresException).ShouldNotBeNull($"{ex.GetType().Name}: {ex.Message}");
+                postgres.SqlState.ShouldBe(sqlState, $"{column}: {postgres.MessageText}");
+            });
+        }
+
+        /* A body of 200,000 characters and an all-languages template are stored as they are. */
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
-            var template = Template(TenantA, "QQ content");
+            var body = new string('b', PlatformMasterDataConsts.MaxHtmlBodyLength);
+            var template = new EmailTemplate(Guid.NewGuid(), TenantA, "QQ big", EmailTemplatePurpose.Invoice, null, Cultures, "s", body);
             await Templates.InsertAsync(template, autoSave: true);
-            await ShouldViolateAsync(() => SqlAsync(
-                "INSERT INTO platform.\"EmailTemplateContents\" (\"EmailTemplateId\", \"Culture\", \"TenantId\", \"Subject\", \"HtmlBody\") VALUES ({0}, 'en', {1}, 'x', 'x')",
-                template.Id, TenantA), "PK_EmailTemplateContents");
+            var context = await GetRequiredService<IDbContextProvider<PlatformDbContext>>().GetDbContextAsync();
+            context.ChangeTracker.Clear();
+            var read = await Templates.GetAsync(template.Id);
+            (read.Culture, read.HtmlBody.Length).ShouldBe(((string?)null, 200_000));
         });
     }
 
@@ -343,13 +380,52 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     }
 
     [Fact]
+    public async Task A_refused_email_template_update_changes_nothing_on_the_production_stack()
+    {
+        /* Every call in its own transactional unit of work, as a request: the refusal (UnsupportedCulture, raised after the
+         * name was already set on the tracked entity) must roll the whole update back. The SQLite harness runs without
+         * transactions, so this is only provable here. */
+        var templates = GetRequiredService<IEmailTemplateAppService>();
+        EmailTemplateDto created;
+        using (CurrentTenant.Change(TenantA))
+        {
+            created = await templates.CreateAsync(new EmailTemplateCreateDto
+            {
+                Name = "QQ refused " + Guid.NewGuid().ToString("N"), Purpose = EmailTemplatePurpose.Invoice, Culture = "en", Subject = "s", HtmlBody = "<p>b</p>"
+            });
+        }
+
+        try
+        {
+            using (CurrentTenant.Change(TenantA))
+            {
+                var ex = await Should.ThrowAsync<Volo.Abp.BusinessException>(() => templates.UpdateAsync(created.Id, new EmailTemplateUpdateDto
+                {
+                    Name = "QQ changed", Purpose = EmailTemplatePurpose.TransportOrder, Culture = "de", Subject = "changed", HtmlBody = "<p>changed</p>",
+                    ConcurrencyStamp = created.ConcurrencyStamp
+                }));
+                ex.Code.ShouldBe(PlatformErrorCodes.UnsupportedCulture);
+
+                var read = await templates.GetAsync(created.Id);
+                (read.Name, read.Purpose, read.Culture, read.Subject, read.HtmlBody, read.ConcurrencyStamp)
+                    .ShouldBe((created.Name, EmailTemplatePurpose.Invoice, "en", "s", "<p>b</p>", created.ConcurrencyStamp));
+            }
+        }
+        finally
+        {
+            await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(PostgreSqlTestDatabases.TenantADatabase));
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand("DELETE FROM platform.\"EmailTemplates\" WHERE \"Id\" = @id", connection);
+            command.Parameters.AddWithValue("id", created.Id);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
     public async Task The_children_go_with_a_hard_deleted_parent()
     {
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
-            var template = Template(TenantA, "QQ cascade");
-            template.SetContents([("en", "s", "b"), ("nl", "s", "b")], Cultures);
-            await Templates.InsertAsync(template, autoSave: true);
             var type = Type(TenantA, "QQCASCADE");
             type.SetTransformations([(DocumentTransformationKind.ImageToPdf, null), (DocumentTransformationKind.LinkByFileName, null)]);
             await Types.InsertAsync(type, autoSave: true);
@@ -357,11 +433,9 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
             await Sequences.InsertAsync(sequence, autoSave: true);
             await GetRequiredService<INumberGenerator>().GetNextAsync(sequence.Id, new DateOnly(2026, 1, 1));
 
-            await SqlAsync("DELETE FROM platform.\"EmailTemplates\" WHERE \"Id\" = {0}", template.Id);
             await SqlAsync("DELETE FROM platform.\"DocumentTypes\" WHERE \"Id\" = {0}", type.Id);
             await SqlAsync("DELETE FROM platform.\"NumberSequences\" WHERE \"Id\" = {0}", sequence.Id);
 
-            (await GetRequiredService<IRepository<EmailTemplateContent>>().CountAsync(c => c.EmailTemplateId == template.Id)).ShouldBe(0);
             (await GetRequiredService<IRepository<DocumentTypeTransformation>>().CountAsync(t => t.DocumentTypeId == type.Id)).ShouldBe(0);
             (await GetRequiredService<IRepository<NumberSequenceCounter>>().CountAsync(c => c.NumberSequenceId == sequence.Id)).ShouldBe(0);
         });

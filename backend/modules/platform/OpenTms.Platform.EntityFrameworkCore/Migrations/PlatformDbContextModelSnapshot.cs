@@ -249,6 +249,10 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
 
+                    b.Property<string>("Culture")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<Guid?>("DeleterId")
                         .HasColumnType("uuid")
                         .HasColumnName("DeleterId");
@@ -265,6 +269,10 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("ExtraProperties");
+
+                    b.Property<string>("HtmlBody")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean");
@@ -307,7 +315,8 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
-                    b.Property<string>("SenderName")
+                    b.Property<string>("Subject")
+                        .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
@@ -334,33 +343,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "TenantId", "Purpose" }, "IX_EmailTemplates_TenantId_Purpose_Default"), false);
 
                     b.ToTable("EmailTemplates", "platform");
-                });
-
-            modelBuilder.Entity("OpenTms.Platform.EmailTemplates.EmailTemplateContent", b =>
-                {
-                    b.Property<Guid>("EmailTemplateId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Culture")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<string>("HtmlBody")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<Guid?>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("TenantId");
-
-                    b.HasKey("EmailTemplateId", "Culture");
-
-                    b.ToTable("EmailTemplateContents", "platform");
                 });
 
             modelBuilder.Entity("OpenTms.Platform.Grid.GridUserSetting", b =>
@@ -774,15 +756,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("OpenTms.Platform.EmailTemplates.EmailTemplateContent", b =>
-                {
-                    b.HasOne("OpenTms.Platform.EmailTemplates.EmailTemplate", null)
-                        .WithMany("Contents")
-                        .HasForeignKey("EmailTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequenceCounter", b =>
                 {
                     b.HasOne("OpenTms.Platform.NumberSequences.NumberSequence", null)
@@ -795,11 +768,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
             modelBuilder.Entity("OpenTms.Platform.DocumentTypes.DocumentType", b =>
                 {
                     b.Navigation("Transformations");
-                });
-
-            modelBuilder.Entity("OpenTms.Platform.EmailTemplates.EmailTemplate", b =>
-                {
-                    b.Navigation("Contents");
                 });
 #pragma warning restore 612, 618
         }

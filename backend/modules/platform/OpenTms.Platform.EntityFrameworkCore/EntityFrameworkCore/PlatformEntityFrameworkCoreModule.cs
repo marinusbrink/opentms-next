@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTms.Platform.DocumentTypes;
-using OpenTms.Platform.EmailTemplates;
 using OpenTms.Platform.EntityFrameworkCore.NumberSequences;
 using OpenTms.Platform.Events;
 using OpenTms.Platform.NumberSequences;
@@ -29,7 +28,6 @@ public class PlatformEntityFrameworkCoreModule : AbpModule
             options.AddRepository<NumberSequenceCounter, EfCoreNumberSequenceCounterRepository>();
 
             /* includeDetails: the master-data aggregates with children load them with GetAsync(id, includeDetails: true). */
-            options.Entity<EmailTemplate>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.Contents));
             options.Entity<DocumentType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.Transformations));
         });
 

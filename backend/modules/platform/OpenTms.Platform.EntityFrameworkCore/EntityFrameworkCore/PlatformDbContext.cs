@@ -52,7 +52,6 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
 
     // Platform master data (docs/designs/49-platform-master-data.md)
     public DbSet<EmailTemplate> EmailTemplates { get; set; } = default!;
-    public DbSet<EmailTemplateContent> EmailTemplateContents { get; set; } = default!;
     public DbSet<ReportDefinition> ReportDefinitions { get; set; } = default!;
     public DbSet<DocumentType> DocumentTypes { get; set; } = default!;
     public DbSet<DocumentTypeTransformation> DocumentTypeTransformations { get; set; } = default!;
@@ -146,30 +145,20 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.ConfigureByConvention();
             b.Property(t => t.Name).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
             b.Property(t => t.NormalizedName).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
+            b.Property(t => t.Culture).HasMaxLength(PlatformMasterDataConsts.MaxCultureLength);
             b.Property(t => t.SenderAddress).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
-            b.Property(t => t.SenderName).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
             b.Property(t => t.ReplyTo).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
             b.Property(t => t.To).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
             b.Property(t => t.Cc).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
             b.Property(t => t.Bcc).HasMaxLength(PlatformMasterDataConsts.MaxEmailAddressFieldLength);
+            b.Property(t => t.Subject).HasMaxLength(PlatformMasterDataConsts.MaxSubjectLength).IsRequired();
+            b.Property(t => t.HtmlBody).IsRequired(); // text; bounded to 200,000 characters by the DTO and the aggregate
             b.Property(t => t.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
-            b.HasMany(t => t.Contents).WithOne().HasForeignKey(c => c.EmailTemplateId).OnDelete(DeleteBehavior.Cascade);
             /* Names are unique regardless of case (PO 2026-10-16). */
             b.HasIndex(t => new { t.TenantId, t.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             /* At most one default per purpose (assessment §3.8). */
             b.HasIndex(t => new { t.TenantId, t.Purpose }, "IX_EmailTemplates_TenantId_Purpose_Default")
                 .IsUnique().AreNullsDistinct(false).HasFilter("\"IsDefault\" = true AND " + NotDeleted);
-        });
-
-        builder.Entity<EmailTemplateContent>(b =>
-        {
-            b.ToTable("EmailTemplateContents", PlatformDbProperties.DbSchema);
-            b.ConfigureByConvention();
-            /* One row per (template, culture). */
-            b.HasKey(c => new { c.EmailTemplateId, c.Culture });
-            b.Property(c => c.Culture).HasMaxLength(PlatformMasterDataConsts.MaxCultureLength).IsRequired();
-            b.Property(c => c.Subject).HasMaxLength(PlatformMasterDataConsts.MaxSubjectLength).IsRequired();
-            b.Property(c => c.HtmlBody).IsRequired(); // text; bounded to 200,000 characters by the DTO and the aggregate
         });
 
         builder.Entity<ReportDefinition>(b =>

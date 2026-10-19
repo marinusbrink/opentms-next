@@ -8,9 +8,10 @@ import { MasterDataListView } from "@/apps/master-data/components/MasterDataList
 import { EMAIL_TEMPLATE_PURPOSES, cultureKey, emailTemplatePurposeKey, emailTemplates, type EmailTemplatePurpose, type EmailTemplateRow } from "@/domains/platform/master-data";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The E-mail templates list (design 49, UI design): Name, Purpose, Default, Languages. The wildcard searches name and
- * description; Languages is not sortable (not in the server's sort whitelist). Purpose is the toolbar filter (the
- * API contract's `purpose`), as the Kind filter on the vehicles list. */
+/* The E-mail templates list (design 49, UI design): Name, Purpose, Language (one template per language, PO
+ * 2026-10-18; an empty language is "All languages"), Default. The wildcard searches name and description; every
+ * column is in the server's sort whitelist. Purpose is the toolbar filter (the API contract's `purpose`), as the Kind
+ * filter on the vehicles list. */
 
 const ALL_PURPOSES = "all";
 
@@ -36,21 +37,14 @@ export function EmailTemplatesView() {
         flex: 2,
         minWidth: 180,
       },
-      { field: "isDefault", headerName: t("Platform:IsDefault"), cellRenderer: BoolCell, flex: 1, minWidth: 100 },
       {
-        field: "cultures",
-        headerName: t("Platform:Cultures"),
-        valueFormatter: (p) =>
-          String(p.value ?? "")
-            .split(",")
-            .map((c) => c.trim())
-            .filter(Boolean)
-            .map((c) => t(cultureKey(c)))
-            .join(", "),
-        sortable: false,
+        field: "culture",
+        headerName: t("Platform:Culture"),
+        valueFormatter: (p) => (p.value ? t(cultureKey(p.value as string)) : t("Platform:AllLanguages")),
         flex: 1,
         minWidth: 140,
       },
+      { field: "isDefault", headerName: t("Platform:IsDefault"), cellRenderer: BoolCell, flex: 1, minWidth: 100 },
     ],
     [t],
   );

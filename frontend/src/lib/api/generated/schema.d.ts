@@ -25445,40 +25445,32 @@ export interface components {
             purpose?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
             selection: components["schemas"]["OpenTms.Platform.Grid.GridSelectionDto"];
         };
-        "OpenTms.Platform.EmailTemplates.EmailTemplateContentDto": {
-            culture?: string | null;
-            htmlBody?: string | null;
-            subject?: string | null;
-        };
-        "OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto": {
-            culture: string;
-            htmlBody: string;
-            subject: string;
-        };
         "OpenTms.Platform.EmailTemplates.EmailTemplateCreateDto": {
             bcc?: string | null;
             cc?: string | null;
-            contents?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto"][] | null;
+            culture?: string | null;
             description?: string | null;
+            htmlBody: string;
             isDefault?: boolean;
             name: string;
             purpose: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
             replyTo?: string | null;
             sendCopyToSender?: boolean;
             senderAddress?: string | null;
-            senderName?: string | null;
+            subject: string;
             to?: string | null;
         };
         "OpenTms.Platform.EmailTemplates.EmailTemplateDto": {
             bcc?: string | null;
             cc?: string | null;
             concurrencyStamp?: string | null;
-            contents?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateContentDto"][] | null;
             /** Format: date-time */
             creationTime?: string;
             /** Format: uuid */
             creatorId?: string | null;
+            culture?: string | null;
             description?: string | null;
+            htmlBody?: string | null;
             /** Format: uuid */
             id?: string;
             isDefault?: boolean;
@@ -25491,7 +25483,7 @@ export interface components {
             replyTo?: string | null;
             sendCopyToSender?: boolean;
             senderAddress?: string | null;
-            senderName?: string | null;
+            subject?: string | null;
             to?: string | null;
         };
         /**
@@ -25500,7 +25492,7 @@ export interface components {
          */
         "OpenTms.Platform.EmailTemplates.EmailTemplatePurpose": 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
         "OpenTms.Platform.EmailTemplates.EmailTemplateRowDto": {
-            cultures?: string | null;
+            culture?: string | null;
             /** Format: uuid */
             id?: string;
             isDefault?: boolean;
@@ -25511,15 +25503,16 @@ export interface components {
             bcc?: string | null;
             cc?: string | null;
             concurrencyStamp: string;
-            contents?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateContentInputDto"][] | null;
+            culture?: string | null;
             description?: string | null;
+            htmlBody: string;
             isDefault?: boolean;
             name: string;
             purpose: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
             replyTo?: string | null;
             sendCopyToSender?: boolean;
             senderAddress?: string | null;
-            senderName?: string | null;
+            subject: string;
             to?: string | null;
         };
         "OpenTms.Platform.Grid.ColumnFilterModel": {

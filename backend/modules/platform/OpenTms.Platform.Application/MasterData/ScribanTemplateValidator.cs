@@ -16,9 +16,11 @@ public static class ScribanTemplateValidator
     /// <summary>The language value for a field that is not per language.</summary>
     public const string AllLanguages = "-";
 
-    /// <param name="localizer">Builds the readable "fieldLabel" of the message ("HTML body (English)"); <c>field</c> and
-    /// <c>language</c> stay in the data for clients that act on them.</param>
-    public static void EnsureValid(string? text, string field, IStringLocalizer localizer, string? culture = null)
+    /// <param name="localizer">Builds the readable "fieldLabel" of the message ("HTML body", or "HTML body (English)" for
+    /// a per-language field); <c>field</c> and <c>language</c> stay in the data for clients that act on them.</param>
+    /// <param name="labelKey">The localization key of the field's label on screen when it is not "Platform:" + the
+    /// capitalized field name (the e-mail template's sender address is labelled "From").</param>
+    public static void EnsureValid(string? text, string field, IStringLocalizer localizer, string? culture = null, string? labelKey = null)
     {
         if (string.IsNullOrEmpty(text))
         {
@@ -32,7 +34,7 @@ public static class ScribanTemplateValidator
         }
 
         var error = template.Messages.FirstOrDefault(m => m.Type == ParserMessageType.Error) ?? template.Messages.First();
-        var label = localizer["Platform:" + char.ToUpperInvariant(field[0]) + field[1..]].Value;
+        var label = localizer[labelKey ?? "Platform:" + char.ToUpperInvariant(field[0]) + field[1..]].Value;
         var languageName = string.IsNullOrEmpty(culture) ? null : localizer["Platform:Language." + culture];
         var fieldLabel = languageName == null ? label : $"{label} ({(languageName.ResourceNotFound ? culture : languageName.Value)})";
         throw new BusinessException(PlatformErrorCodes.TemplateSyntaxError)
