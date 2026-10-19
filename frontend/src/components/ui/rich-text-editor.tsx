@@ -332,6 +332,9 @@ export function RichTextEditor({
   /* Puts a value into the visual view without emitting and without an undo step; returns whether it was lossless. */
   const load = useCallback(
     (html: string): boolean => {
+      /* useEditor destroys its instance when React unmounts or hides the component (StrictMode, Suspense) and makes a
+       * new one; an effect of the old render must not touch the destroyed instance (its schema is gone). */
+      if (editor.isDestroyed) return true;
       editor.chain().setMeta("addToHistory", false).setContent(html, { emitUpdate: false }).run();
       return !preserveUnsupportedMarkup || isLosslessRoundTrip(html, editor.getHTML());
     },
@@ -341,7 +344,7 @@ export function RichTextEditor({
   /* The value the editor was created with: check it once. */
   const checkedInitial = useRef(false);
   useEffect(() => {
-    if (checkedInitial.current || !preserveUnsupportedMarkup) return;
+    if (checkedInitial.current || !preserveUnsupportedMarkup || editor.isDestroyed) return;
     checkedInitial.current = true;
     if (!isLosslessRoundTrip(initialContent, editor.getHTML())) {
       setLossy(true);
@@ -351,7 +354,7 @@ export function RichTextEditor({
 
   /* A value from outside (record loaded, form reset): replace the content; a lossy one opens in the source view. */
   useEffect(() => {
-    if (value === lastValue.current) return;
+    if (value === lastValue.current || editor.isDestroyed) return;
     lastValue.current = value;
     const lossless = load(value);
     setLossy(!lossless);
@@ -359,7 +362,7 @@ export function RichTextEditor({
   }, [load, value]);
 
   useEffect(() => {
-    editor.setEditable(editable, false);
+    if (!editor.isDestroyed) editor.setEditable(editable, false);
   }, [editor, editable]);
 
   const state = useEditorState({
