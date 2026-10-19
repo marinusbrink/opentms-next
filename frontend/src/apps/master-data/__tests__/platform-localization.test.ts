@@ -17,7 +17,7 @@ import {
 /* Every Platform localization key the design-49 screens use exists in the Platform resource in both languages (nl,
  * en): the literal "Platform:…" keys of the new files, the enum keys of the domain module, the language tab keys and
  * the keys MasterDataEditor / MasterDataListView build from `resource` + entityKey (New…, …Saved, …Deleted,
- * Delete…, Delete…Question). A missing key shows the raw key to the user. Risk class: Low (texts). */
+ * Delete…, Delete…Question), and the RichTextEditor's RichText:… keys (the e-mail template body). A missing key shows the raw key to the user. Risk class: Low (texts). */
 
 const SRC = resolve((import.meta as unknown as { dirname: string }).dirname, "../../..");
 const REPO = resolve(SRC, "../..");
@@ -32,6 +32,9 @@ const FILES = [
   "apps/master-data/views/ReportDefinitionsView.tsx",
   "apps/master-data/views/DocumentTypesView.tsx",
   "apps/master-data/views/NumberSequencesView.tsx",
+  "apps/master-data/components/HtmlBodyField.tsx",
+  /* The RichTextEditor's toolbar, link popover and warning texts live in the Platform resource. */
+  "components/ui/rich-text-editor.tsx",
 ];
 
 const ENTITIES = ["EmailTemplate", "ReportDefinition", "DocumentType", "NumberSequence"];
@@ -45,7 +48,7 @@ function literalKeys(): string[] {
   const keys = new Set<string>();
   for (const file of FILES) {
     const src = readFileSync(resolve(SRC, file), "utf-8");
-    for (const match of src.matchAll(/["'`](Platform:[A-Za-z0-9.]+)["'`]/g)) keys.add(match[1]);
+    for (const match of src.matchAll(/["'`]((?:Platform|RichText):[A-Za-z0-9.]+)["'`]/g)) keys.add(match[1]);
   }
   return [...keys];
 }
@@ -54,7 +57,6 @@ const derivedKeys = (): string[] => [
   ...ENTITIES.flatMap((e) => [`Platform:${e}`, `Platform:${e}s`, `Platform:New${e}`, `Platform:${e}Saved`, `Platform:${e}Deleted`, `Platform:Delete${e}`, `Platform:Delete${e}Question`]),
   ...[EMAIL_TEMPLATE_PURPOSES, REPORT_PURPOSES, REPORT_RENDERING_PROVIDERS, DOCUMENT_TRANSFORMATION_KINDS, NUMBER_SEQUENCE_SCHEMES].flatMap((options) => options.map((o) => o.key)),
   ...PLATFORM_CULTURES.map((c) => cultureKey(c)),
-  `Platform:Preview`,
 ];
 
 describe("Platform master-data localization (design 49)", () => {
@@ -64,6 +66,8 @@ describe("Platform master-data localization (design 49)", () => {
     expect(keys.length).toBeGreaterThan(60);
     expect(keys).toContain("Platform:Nav.Platform");
     expect(keys).toContain("Platform:NumberSequenceInUseCannotDelete");
+    expect(keys).toContain("RichText:UnsupportedMarkupNotice");
+    expect(keys).toContain("RichText:SourceView");
   });
 
   it.each(["en", "nl"])("every key has a non-empty text in %s.json", (lang) => {

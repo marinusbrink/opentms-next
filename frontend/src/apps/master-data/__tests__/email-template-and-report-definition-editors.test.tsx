@@ -1,14 +1,17 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The e-mail template editor and the report definition editor (design 49, UI design). E-mail template: Name and
- * Purpose required; the English content (subject and body) is required, a Dutch tab is optional but a started one
- * needs both parts, and an empty Dutch tab sends no content row; the POST/PUT body carries purpose, default, the
- * addresses and the contents; the HTML body shows in the sandboxed preview; read-only mode has no commands and no
- * editable control. Report definition: the fields, the language a new definition starts in, the body shape and the
- * Archived switch. The domain hooks are real; the generated client is the mock. Risk class: Medium (UI flow); the
- * server tests prove the same rules where they are enforced (DefaultLanguageContentRequired, Scriban parsing). */
+/* The e-mail template editor and the report definition editor (design 49, UI design). E-mail template (PO 2026-10-18:
+ * as the OpenTMS template): one tab General in the OpenTMS order (Name | Default; Purpose; Language; a divider;
+ * From | Reply-to; To; Cc; Bcc | Send me a copy; Subject; HTML body); Name, Purpose, Subject and HTML body required;
+ * Language "All languages" is the null culture; the POST/PUT body carries every mail field (empty addresses as null),
+ * the description sent back unchanged and the concurrency stamp; the body is the real RichTextEditor (lazy, Tiptap in
+ * jsdom), so a body the visual view cannot keep is saved unchanged; a server refusal shows on the tab the user is on;
+ * read-only mode has no commands and no editable control. Report definition: the fields, the language a new definition
+ * starts in, the body shape and the Archived switch. The domain hooks are real; the generated client is the mock.
+ * Risk class: Medium (UI flow); the server tests prove the same rules where they are enforced (required fields,
+ * configured cultures, Scriban parsing). */
 
 let culture = "en";
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -36,8 +39,10 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
+import { HtmlBodyField } from "@/apps/master-data/components/HtmlBodyField";
 import { EmailTemplateEditor } from "@/apps/master-data/editors/EmailTemplateEditor";
 import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
+import { installProseMirrorDomStubs, typeAtEnd } from "@/components/ui/__tests__/rich-text-test-helpers";
 import {
   checkbox,
   editorDialog,
@@ -64,12 +69,22 @@ class MockResizeObserver {
   unobserve() {}
 }
 
-beforeAll(() => {
+beforeAll(async () => {
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
     cb(0);
     return 0;
   });
+  installProseMirrorDomStubs();
+  /* The body editor is React.lazy: it suspends once per module, on its first render. Resolve that here (render the
+   * fallback, let the chunk load, unmount before the content commits), so every test below meets the editor itself
+   * and none depends on running first. The first, suspended mount is covered on its own in html-body-field.test.tsx. */
+  const warmUp = render(<HtmlBodyField id="warm-up" label="" value="" readOnly onChange={() => {}} />);
+  await act(async () => {
+    await import("@/components/ui/rich-text-editor");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  warmUp.unmount();
 });
 
 afterEach(() => {
@@ -83,21 +98,19 @@ afterEach(() => {
 
 const TEMPLATE = {
   id: "et1",
-  name: "Order confirmation",
+  name: "Orderbevestiging",
   purpose: 1,
+  culture: "nl",
   isDefault: true,
-  description: null,
+  description: "Kept although the editor has no input for it",
   senderAddress: "planning@example.com",
-  senderName: "{{ company.name }}",
   replyTo: null,
   to: null,
   cc: null,
   bcc: "archive@example.com",
-  sendCopyToSender: false,
-  contents: [
-    { culture: "en", subject: "Your order {{ order.number }}", htmlBody: "<p>Dear customer</p>" },
-    { culture: "nl", subject: "Uw order {{ order.number }}", htmlBody: "<p>Beste klant</p>" },
-  ],
+  sendCopyToSender: true,
+  subject: "Uw order {{ order.number }}",
+  htmlBody: "<p>Beste klant</p>",
   concurrencyStamp: "stamp-et1",
   creationTime: "2026-10-16T10:00:00Z",
   lastModificationTime: null,
@@ -149,7 +162,6 @@ function renderWith(element: React.ReactElement) {
 }
 
 const GENERAL = "Platform:Tab.General";
-const ADDRESSES = "Platform:Tab.Addresses";
 const EN = "Platform:Language.en";
 const NL = "Platform:Language.nl";
 
@@ -161,22 +173,72 @@ const putCall = () => PUT.mock.calls[0] as [string, { params: { path: { id: stri
 const renderTemplate = (props: Partial<React.ComponentProps<typeof EmailTemplateEditor>> = {}) =>
   renderWith(<EmailTemplateEditor mode="create" readOnly={false} open onClose={() => {}} onSaved={() => {}} {...props} />);
 
-const loadedTemplate = () => waitFor(() => expect(fieldIn(GENERAL, "Platform:Name")).toHaveValue("Order confirmation"));
+const loadedTemplate = () => waitFor(() => expect(fieldIn(GENERAL, "Platform:Name")).toHaveValue("Orderbevestiging"));
 
-function fillMinimalTemplate() {
-  typeIn(GENERAL, "Platform:Name", "Order confirmation");
-  typeIn(EN, "Platform:Subject", "Your order");
-  typeIn(EN, "Platform:HtmlBody", "<p>Hello</p>");
+/** The HTML body's editable (the contenteditable of the visual view), once the lazy editor is there. */
+const bodyEditor = () => within(panel(GENERAL)).findByRole("textbox", { name: /^Platform:HtmlBody/ });
+const sourceToggle = () => within(panel(GENERAL)).getByRole("button", { name: "RichText:SourceView" });
+
+/** Types raw HTML into the body's source view (the textarea is labelled by the field's label there). */
+async function typeBodySource(html: string) {
+  await bodyEditor();
+  if (sourceToggle().getAttribute("aria-pressed") !== "true") fireEvent.click(sourceToggle());
+  typeIn(GENERAL, "Platform:HtmlBody", html);
 }
 
-describe("EmailTemplateEditor — tabs and fields", () => {
-  it("has General, Addresses and one tab per configured language, English first; the purposes are the nine of the design", () => {
+async function fillMinimalTemplate() {
+  typeIn(GENERAL, "Platform:Name", "Order confirmation");
+  typeIn(GENERAL, "Platform:Subject", "Your order");
+  await typeBodySource("<p>Hello</p>");
+}
+
+/** The FormField / checkbox labels of the General tab in document order, without the required marker. */
+const labelsInOrder = () =>
+  Array.from(panel(GENERAL).querySelectorAll("label"))
+    .map((label) => (label.textContent ?? "").replace(/\s*\*$/, "").trim())
+    .filter(Boolean);
+
+/** Whether the field's label carries the required marker (FormField renders " *"). */
+const markedRequired = (id: string) => panel(GENERAL).querySelector(`label[for="${id}"]`)?.textContent?.includes("*") ?? false;
+const idOf = (label: string) => fieldIn(GENERAL, label).id;
+/* The mock select adds an empty "—" option when no item has a null value; it is not one of the editor's items. */
+const optionsOf = (label: string) => Array.from(fieldIn(GENERAL, label).querySelectorAll("option")).map((o) => o.textContent).filter((t) => t !== "—");
+
+describe("EmailTemplateEditor — one tab General, laid out like an e-mail", () => {
+  it("has the fields in the OpenTMS order with their labels, the divider after Language, and no Description input", async () => {
     renderTemplate();
-    const tabs = within(editorDialog()).getAllByRole("tab").map((t) => t.textContent);
-    expect(tabs.slice(0, 4)).toEqual([GENERAL, ADDRESSES, EN, NL]);
-    const purpose = fieldIn(GENERAL, "Platform:Purpose");
-    expect(purpose).toHaveValue("1");
-    expect(Array.from(purpose.querySelectorAll("option")).map((o) => o.textContent).filter((t) => t !== "—")).toEqual([
+    await bodyEditor();
+    /* One form tab; the record-identification tab is the icon tab every editor has. */
+    expect(within(editorDialog()).getAllByRole("tab").map((t) => t.textContent || t.getAttribute("aria-label"))).toEqual([GENERAL, "RecordIdentification"]);
+    expect(labelsInOrder()).toEqual([
+      "Platform:Name",
+      "Platform:IsDefault",
+      "Platform:Purpose",
+      "Platform:Culture",
+      "Platform:From",
+      "Platform:ReplyTo",
+      "Platform:To",
+      "Platform:Cc",
+      "Platform:Bcc",
+      "Platform:SendMeACopy",
+      "Platform:Subject",
+      "Platform:HtmlBody",
+    ]);
+    const divider = panel(GENERAL).querySelector("[data-slot=separator]")!;
+    expect(divider).not.toBeNull();
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(fieldIn(GENERAL, "Platform:Culture"), divider)).toBe(true);
+    expect(follows(divider, fieldIn(GENERAL, "Platform:From"))).toBe(true);
+    expect(within(panel(GENERAL)).queryByLabelText(/^Platform:Description/)).toBeNull();
+    /* "To" empty means the consumer's recipient: the hint says so. */
+    expect(within(panel(GENERAL)).getByText("Platform:ToEmptyHint")).toBeInTheDocument();
+  });
+
+  it("offers the nine purposes and the languages All languages, English, Nederlands; a new template is the first purpose for all languages", async () => {
+    renderTemplate();
+    await bodyEditor();
+    expect(fieldIn(GENERAL, "Platform:Purpose")).toHaveValue("1");
+    expect(optionsOf("Platform:Purpose")).toEqual([
       "Platform:EmailTemplatePurpose.TransportOrder",
       "Platform:EmailTemplatePurpose.TransportFile",
       "Platform:EmailTemplatePurpose.Invoice",
@@ -187,36 +249,49 @@ describe("EmailTemplateEditor — tabs and fields", () => {
       "Platform:EmailTemplatePurpose.DigitalArchive",
       "Platform:EmailTemplatePurpose.ProformaOverview",
     ]);
-    for (const label of ["Platform:SenderAddress", "Platform:SenderName", "Platform:ReplyTo", "Platform:To", "Platform:Cc", "Platform:Bcc"]) {
-      expect(fieldIn(ADDRESSES, label)).toBeInTheDocument();
-    }
-    expect(fieldIn(EN, "Platform:HtmlBody").tagName).toBe("TEXTAREA");
-    expect(fieldIn(NL, "Platform:HtmlBody").tagName).toBe("TEXTAREA");
+    expect(fieldIn(GENERAL, "Platform:Culture")).toHaveValue("all");
+    expect(optionsOf("Platform:Culture")).toEqual(["Platform:AllLanguages", EN, NL]);
+    expect(checkbox("Platform:IsDefault")).toHaveAttribute("aria-checked", "false");
+    expect(checkbox("Platform:SendMeACopy")).toHaveAttribute("aria-checked", "false");
+    /* The body starts empty in the visual view. */
+    expect((await bodyEditor()).textContent).toBe("");
   });
 });
 
-/** Whether the field's label carries the required marker (FormField renders " *"). */
-const markedRequired = (tabLabel: string, label: string) => {
-  const control = fieldIn(tabLabel, label);
-  return panel(tabLabel).querySelector(`label[for="${control.id}"]`)?.textContent?.includes("*") ?? false;
-};
-
 describe("EmailTemplateEditor — required fields", () => {
-  it("marks Name, Purpose and the English subject and body required; the Dutch ones and the addresses optional", () => {
+  it("marks Name, Purpose, Subject and HTML body required; Language and the addresses optional", async () => {
     renderTemplate();
-    expect(markedRequired(GENERAL, "Platform:Name")).toBe(true);
-    expect(markedRequired(GENERAL, "Platform:Purpose")).toBe(true);
-    expect(markedRequired(EN, "Platform:Subject")).toBe(true);
-    expect(markedRequired(EN, "Platform:HtmlBody")).toBe(true);
-    expect(markedRequired(NL, "Platform:Subject")).toBe(false);
-    expect(markedRequired(NL, "Platform:HtmlBody")).toBe(false);
-    expect(markedRequired(ADDRESSES, "Platform:SenderAddress")).toBe(false);
-    expect(markedRequired(ADDRESSES, "Platform:To")).toBe(false);
+    const body = await bodyEditor();
+    expect(markedRequired(idOf("Platform:Name"))).toBe(true);
+    expect(markedRequired(idOf("Platform:Purpose"))).toBe(true);
+    expect(markedRequired(idOf("Platform:Subject"))).toBe(true);
+    expect(markedRequired(body.id)).toBe(true);
+    expect(body).toHaveAttribute("aria-required", "true");
+    for (const label of ["Platform:Culture", "Platform:From", "Platform:ReplyTo", "Platform:To", "Platform:Cc", "Platform:Bcc"]) {
+      expect(markedRequired(idOf(label)), label).toBe(false);
+    }
+  });
+
+  it("refuses an empty name, subject and body (whitespace counts as empty) and sends nothing", async () => {
+    renderTemplate();
+    const body = await bodyEditor();
+    await submitEditor();
+    expect(POST).not.toHaveBeenCalled();
+    expect(within(panel(GENERAL)).getAllByText("Platform:Required")).toHaveLength(3);
+    expect(body).toHaveAttribute("aria-invalid", "true");
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveAttribute("aria-invalid", "true");
+
+    typeIn(GENERAL, "Platform:Name", "T");
+    typeIn(GENERAL, "Platform:Subject", "   ");
+    await typeBodySource("  \n ");
+    await submitEditor();
+    expect(POST).not.toHaveBeenCalled();
+    expect(within(panel(GENERAL)).getAllByText("Platform:Required")).toHaveLength(2);
   });
 
   it("a purpose is always chosen: clearing the select keeps the previous purpose", async () => {
     renderTemplate();
-    fillMinimalTemplate();
+    await fillMinimalTemplate();
     fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "6" } });
     fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "" } });
     expect(fieldIn(GENERAL, "Platform:Purpose")).toHaveValue("6");
@@ -226,194 +301,221 @@ describe("EmailTemplateEditor — required fields", () => {
   });
 });
 
-describe("EmailTemplateEditor — validation", () => {
-  it("refuses an empty name and missing English content, and sends nothing", async () => {
-    renderTemplate();
-    await submitEditor();
-    expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(GENERAL)).getByText("Platform:Required")).toBeInTheDocument();
-    expect(within(panel(EN)).getAllByText("Platform:DefaultLanguageContentRequired")).toHaveLength(2);
-    /* The Dutch tab is optional: no error there while it is empty. */
-    expect(within(panel(NL)).queryByText("Platform:Required")).toBeNull();
-  });
-
-  it("refuses an English subject without a body (and a body without a subject)", async () => {
-    renderTemplate();
-    typeIn(GENERAL, "Platform:Name", "T");
-    typeIn(EN, "Platform:Subject", "Only a subject");
-    await submitEditor();
-    expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(EN)).getAllByText("Platform:DefaultLanguageContentRequired")).toHaveLength(1);
-
-    typeIn(EN, "Platform:Subject", "   ");
-    typeIn(EN, "Platform:HtmlBody", "<p>Only a body</p>");
-    await submitEditor();
-    expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(EN)).getAllByText("Platform:DefaultLanguageContentRequired")).toHaveLength(1);
-  });
-
-  it("refuses a half-filled Dutch tab: a subject without a body, then a body without a subject", async () => {
-    renderTemplate();
-    fillMinimalTemplate();
-    typeIn(NL, "Platform:Subject", "Uw order");
-    await submitEditor();
-    expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(NL)).getAllByText("Platform:Required")).toHaveLength(1);
-    /* The editor moves to the tab with the first error. */
-    expect(screen.getByRole("tab", { name: NL })).toHaveAttribute("aria-selected", "true");
-
-    typeIn(NL, "Platform:Subject", "");
-    typeIn(NL, "Platform:HtmlBody", "<p>Beste klant</p>");
-    await submitEditor();
-    expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(NL)).getAllByText("Platform:Required")).toHaveLength(1);
-
-    typeIn(NL, "Platform:Subject", "Uw order");
-    await submitEditor();
-    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
-    expect(postedBody("/api/platform/email-template").contents).toEqual([
-      { culture: "en", subject: "Your order", htmlBody: "<p>Hello</p>" },
-      { culture: "nl", subject: "Uw order", htmlBody: "<p>Beste klant</p>" },
-    ]);
-  });
-});
-
 describe("EmailTemplateEditor — the request body", () => {
-  it("POSTs purpose, default, every address (empty as null) and only the English content when the Dutch tab is empty", async () => {
+  it("POSTs every mail field: name and subject trimmed, empty addresses as null, the body as typed in the source view, the chosen language", async () => {
     renderTemplate();
-    typeIn(GENERAL, "Platform:Name", "  Invoice mail  ");
-    fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "3" } });
+    typeIn(GENERAL, "Platform:Name", "  Factuurmail  ");
     fireEvent.click(checkbox("Platform:IsDefault"));
-    typeIn(GENERAL, "Platform:Description", "  Sent with every invoice ");
-    tab(ADDRESSES);
-    typeIn(ADDRESSES, "Platform:SenderAddress", "{{ company.email }}");
-    typeIn(ADDRESSES, "Platform:SenderName", " Finance ");
-    typeIn(ADDRESSES, "Platform:Cc", "cc@example.com");
-    typeIn(ADDRESSES, "Platform:Bcc", "   ");
-    fireEvent.click(checkbox("Platform:SendCopyToSender"));
-    typeIn(EN, "Platform:Subject", "  Invoice {{ invoice.number }}  ");
-    typeIn(EN, "Platform:HtmlBody", "<p>Dear {{ customer.name }}</p>\n");
+    fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "3" } });
+    fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value: "nl" } });
+    typeIn(GENERAL, "Platform:From", "{{ company.email }}");
+    typeIn(GENERAL, "Platform:ReplyTo", "   ");
+    typeIn(GENERAL, "Platform:Cc", "cc@example.com");
+    typeIn(GENERAL, "Platform:Bcc", " archive@example.com ");
+    fireEvent.click(checkbox("Platform:SendMeACopy"));
+    typeIn(GENERAL, "Platform:Subject", "  Factuur {{ invoice.number }}  ");
+    await typeBodySource("<p>Beste {{ customer.name }}</p>\n");
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
     expect(POST.mock.calls[0][0]).toBe("/api/platform/email-template");
     expect(postedBody("/api/platform/email-template")).toEqual({
-      name: "Invoice mail",
+      name: "Factuurmail",
       purpose: 3,
+      culture: "nl",
       isDefault: true,
-      description: "Sent with every invoice",
       senderAddress: "{{ company.email }}",
-      senderName: "Finance",
       replyTo: null,
       to: null,
       cc: "cc@example.com",
-      bcc: null,
+      bcc: "archive@example.com",
       sendCopyToSender: true,
-      /* The HTML source goes as typed; the subject is trimmed. No "nl" row: the Dutch tab is empty. */
-      contents: [{ culture: "en", subject: "Invoice {{ invoice.number }}", htmlBody: "<p>Dear {{ customer.name }}</p>\n" }],
+      subject: "Factuur {{ invoice.number }}",
+      htmlBody: "<p>Beste {{ customer.name }}</p>\n",
+      description: null,
     });
   });
 
-  it("loads both languages and PUTs them with the concurrency stamp; clearing the Dutch tab drops its row", async () => {
+  it.each([
+    ["all", null],
+    ["en", "en"],
+    ["nl", "nl"],
+  ])("Language %s is sent as culture %s", async (choice, expected) => {
+    renderTemplate();
+    await fillMinimalTemplate();
+    fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value: choice === "all" ? "nl" : choice } });
+    if (choice === "all") fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value: "all" } });
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template").culture).toBe(expected);
+  });
+
+  it("clearing the Language select falls back to All languages (culture null)", async () => {
+    renderTemplate();
+    await fillMinimalTemplate();
+    fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value: "en" } });
+    fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value: "" } });
+    expect(fieldIn(GENERAL, "Platform:Culture")).toHaveValue("all");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template").culture).toBeNull();
+  });
+
+  it("a body typed in the visual view is posted as HTML, with Scriban un-escaped inside {{ }} only", async () => {
+    renderTemplate();
+    typeIn(GENERAL, "Platform:Name", "Reminder");
+    typeIn(GENERAL, "Platform:Subject", "Reminder");
+    const body = await bodyEditor();
+    typeAtEnd(body, "Total {{ if total > 0 }}due{{ end }} & more");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template").htmlBody).toBe("<p>Total {{ if total > 0 }}due{{ end }} &amp; more</p>");
+  });
+
+  it("loads a template into the fields and PUTs it unchanged: every field, the description sent back, the concurrency stamp", async () => {
     renderTemplate({ mode: "edit", id: "et1" });
     await loadedTemplate();
-    expect(fieldIn(EN, "Platform:Subject")).toHaveValue("Your order {{ order.number }}");
-    expect(fieldIn(NL, "Platform:Subject")).toHaveValue("Uw order {{ order.number }}");
-    expect(fieldIn(NL, "Platform:HtmlBody")).toHaveValue("<p>Beste klant</p>");
-    expect(fieldIn(ADDRESSES, "Platform:Bcc")).toHaveValue("archive@example.com");
+    expect(fieldIn(GENERAL, "Platform:Culture")).toHaveValue("nl");
+    expect(fieldIn(GENERAL, "Platform:Purpose")).toHaveValue("1");
+    expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("planning@example.com");
+    expect(fieldIn(GENERAL, "Platform:Bcc")).toHaveValue("archive@example.com");
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("Uw order {{ order.number }}");
+    expect(checkbox("Platform:IsDefault")).toHaveAttribute("aria-checked", "true");
+    expect(checkbox("Platform:SendMeACopy")).toHaveAttribute("aria-checked", "true");
+    await waitFor(async () => expect(await bodyEditor()).toHaveTextContent("Beste klant"));
 
     await submitEditor();
     await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
     expect(putCall()[0]).toBe("/api/platform/email-template/{id}");
-    expect(putCall()[1].params).toEqual({ path: { id: "et1" } });
-    expect(putCall()[1].body).toEqual(
-      expect.objectContaining({
-        name: "Order confirmation",
+    expect(putCall()[1]).toEqual({
+      params: { path: { id: "et1" } },
+      body: {
+        name: "Orderbevestiging",
         purpose: 1,
+        culture: "nl",
         isDefault: true,
         senderAddress: "planning@example.com",
+        replyTo: null,
+        to: null,
+        cc: null,
         bcc: "archive@example.com",
+        sendCopyToSender: true,
+        subject: "Uw order {{ order.number }}",
+        htmlBody: "<p>Beste klant</p>",
+        description: "Kept although the editor has no input for it",
         concurrencyStamp: "stamp-et1",
-        contents: [
-          { culture: "en", subject: "Your order {{ order.number }}", htmlBody: "<p>Dear customer</p>" },
-          { culture: "nl", subject: "Uw order {{ order.number }}", htmlBody: "<p>Beste klant</p>" },
-        ],
-      }),
-    );
-
-    PUT.mockClear();
-    typeIn(NL, "Platform:Subject", "");
-    typeIn(NL, "Platform:HtmlBody", "");
-    await submitEditor();
-    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
-    expect(putCall()[1].body.contents).toEqual([{ culture: "en", subject: "Your order {{ order.number }}", htmlBody: "<p>Dear customer</p>" }]);
+      },
+    });
   });
 
-  it("reads content rows whatever the case of their culture", async () => {
-    template = { ...TEMPLATE, contents: [{ culture: "EN", subject: "S", htmlBody: "<b>B</b>" }] };
+  it("a template for all languages (culture null) shows All languages; a culture in another case is read as the configured one", async () => {
+    template = { ...TEMPLATE, culture: null };
     renderTemplate({ mode: "edit", id: "et1" });
     await loadedTemplate();
-    expect(fieldIn(EN, "Platform:Subject")).toHaveValue("S");
-    expect(fieldIn(NL, "Platform:Subject")).toHaveValue("");
+    expect(fieldIn(GENERAL, "Platform:Culture")).toHaveValue("all");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putCall()[1].body.culture).toBeNull();
+  });
+
+  it("reads a culture whatever its case and sends the configured one", async () => {
+    template = { ...TEMPLATE, culture: "EN" };
+    renderTemplate({ mode: "edit", id: "et1" });
+    await loadedTemplate();
+    expect(fieldIn(GENERAL, "Platform:Culture")).toHaveValue("en");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putCall()[1].body.culture).toBe("en");
+  });
+});
+
+describe("EmailTemplateEditor — the body is never changed behind the user's back", () => {
+  const TABLE_BODY = '<table width="100%"><tbody>{{ for line in order.lines }}<tr><td style="padding: 4px">{{ line.text }}</td></tr>{{ end }}</tbody></table>';
+
+  it("loading a template does not make the form dirty: Close closes without asking", async () => {
+    const onClose = vi.fn();
+    renderTemplate({ mode: "edit", id: "et1", onClose });
+    await loadedTemplate();
+    await waitFor(async () => expect(await bodyEditor()).toHaveTextContent("Beste klant"));
+    fireEvent.click(within(editorDialog()).getAllByRole("button", { name: "Close" })[0]);
+    expect(screen.queryByText("DiscardChangesQuestion")).toBeNull();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("a table body opens in the source view with the warning and is PUT byte for byte", async () => {
+    template = { ...TEMPLATE, htmlBody: TABLE_BODY };
+    renderTemplate({ mode: "edit", id: "et1" });
+    await loadedTemplate();
+    expect(await within(panel(GENERAL)).findByRole("status")).toHaveTextContent("RichText:UnsupportedMarkupNotice");
+    expect(fieldIn(GENERAL, "Platform:HtmlBody").tagName).toBe("TEXTAREA");
+    expect(fieldIn(GENERAL, "Platform:HtmlBody")).toHaveValue(TABLE_BODY);
+
+    typeIn(GENERAL, "Platform:Subject", "Changed subject");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putCall()[1].body.htmlBody).toBe(TABLE_BODY);
+    expect(putCall()[1].body.subject).toBe("Changed subject");
   });
 });
 
 describe("EmailTemplateEditor — a server refusal", () => {
-  it("shows the server's message on the tab the user saved from, not on the hidden first tab", async () => {
+  const MESSAGE = "The template in HTML body has a syntax error on line 1.";
+  const refuse = () =>
     POST.mockResolvedValue({
       data: undefined,
-      error: { error: { code: "OpenTms.Platform:TemplateSyntaxError", message: "The template in HTML body (English) has a syntax error on line 1." } },
+      error: { error: { code: "OpenTms.Platform:TemplateSyntaxError", message: MESSAGE } },
       response: new Response(null, { status: 400 }),
     });
+
+  it("shows the server's message on the General tab the user saved from, and keeps what was typed", async () => {
+    refuse();
     renderTemplate();
-    typeIn(GENERAL, "Platform:Name", "Invoice mail");
-    fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value: "3" } });
-    tab(EN);
-    typeIn(EN, "Platform:Subject", "Invoice");
-    typeIn(EN, "Platform:HtmlBody", "{{ if overdue }}<p>Overdue</p>");
-
+    await fillMinimalTemplate();
+    typeIn(GENERAL, "Platform:HtmlBody", "{{ if overdue }}<p>Overdue</p>");
     await submitEditor();
-    const message = "The template in HTML body (English) has a syntax error on line 1.";
-    await waitFor(() => expect(within(panel(EN)).getByText(message)).toBeInTheDocument());
-    expect(within(panel(GENERAL)).queryByText(message)).toBeNull();
+    await waitFor(() => expect(within(panel(GENERAL)).getByText(MESSAGE)).toBeInTheDocument());
+    expect(fieldIn(GENERAL, "Platform:HtmlBody")).toHaveValue("{{ if overdue }}<p>Overdue</p>");
+    expect(fieldIn(GENERAL, "Platform:Name")).toHaveValue("Order confirmation");
   });
-});
 
-describe("EmailTemplateEditor — preview", () => {
-  it("shows each language's body in its own sandboxed preview and follows the edits", async () => {
+  it("saved from the record-identification tab (no form there), the message shows on General", async () => {
+    PUT.mockResolvedValue({
+      data: undefined,
+      error: { error: { code: "OpenTms.Platform:TemplateSyntaxError", message: MESSAGE } },
+      response: new Response(null, { status: 400 }),
+    });
     renderTemplate({ mode: "edit", id: "et1" });
     await loadedTemplate();
-    const enPreview = within(panel(EN)).getByTitle(`Platform:Preview ${EN}`);
-    const nlPreview = within(panel(NL)).getByTitle(`Platform:Preview ${NL}`);
-    expect(enPreview.tagName).toBe("IFRAME");
-    expect(enPreview.getAttribute("sandbox")).toBe("");
-    expect(nlPreview.getAttribute("sandbox")).toBe("");
-    await waitFor(() => expect(enPreview.getAttribute("srcdoc")).toBe("<p>Dear customer</p>"));
-    expect(nlPreview.getAttribute("srcdoc")).toBe("<p>Beste klant</p>");
-
-    typeIn(EN, "Platform:HtmlBody", "<h1>Changed</h1><script>alert(1)</script>");
-    await waitFor(() => expect(within(panel(EN)).getByTitle(`Platform:Preview ${EN}`).getAttribute("srcdoc")).toBe("<h1>Changed</h1><script>alert(1)</script>"));
-    expect(document.querySelectorAll("script")).toHaveLength(0);
+    tab("RecordIdentification");
+    await submitEditor();
+    await waitFor(() => expect(within(panel(GENERAL)).getByText(MESSAGE)).toBeInTheDocument());
   });
 });
 
 describe("EmailTemplateEditor — read-only, delete", () => {
-  it("read-only: every control disabled, no Save and no Delete, nothing sent on submit", async () => {
+  it("read-only: every control disabled, the body not editable and its formatting off, no Save and no Delete, nothing sent on submit", async () => {
     grants = { "Platform.EmailTemplates.Delete": true };
     renderTemplate({ mode: "edit", id: "et1", readOnly: true });
     await loadedTemplate();
+    const body = await bodyEditor();
     expect(enabledControls()).toEqual([]);
-    expect(fieldIn(EN, "Platform:HtmlBody")).toBeDisabled();
     expect(fieldIn(GENERAL, "Platform:Purpose")).toBeDisabled();
+    expect(fieldIn(GENERAL, "Platform:Culture")).toBeDisabled();
+    expect(body).toHaveAttribute("contenteditable", "false");
+    expect(within(panel(GENERAL)).getByRole("button", { name: "RichText:Bold" })).toBeDisabled();
     expectNoSave();
     await submitEditor();
     expect(PUT).not.toHaveBeenCalled();
   });
 
-  it("editable: the controls are enabled and Save is there; without Platform.EmailTemplates.Delete there is no Delete", async () => {
+  it("editable: the controls and the body are editable and Save is there; without Platform.EmailTemplates.Delete there is no Delete", async () => {
     renderTemplate({ mode: "edit", id: "et1" });
     await loadedTemplate();
-    expect(enabledControls().length).toBeGreaterThan(10);
+    const body = await bodyEditor();
+    for (const label of ["Platform:Name", "Platform:Purpose", "Platform:Culture", "Platform:From", "Platform:ReplyTo", "Platform:To", "Platform:Cc", "Platform:Bcc", "Platform:Subject"]) {
+      expect(fieldIn(GENERAL, label), label).toBeEnabled();
+    }
+    expect(body).toHaveAttribute("contenteditable", "true");
     expect(ribbonButton("Save")).not.toBeNull();
     expect(ribbonButton("Delete")).toBeNull();
   });
@@ -425,7 +527,7 @@ describe("EmailTemplateEditor — read-only, delete", () => {
     fireEvent.click(ribbonButton("Delete")!);
     const confirm = await screen.findByRole("alertdialog");
     expect(within(confirm).getByText("Platform:DeleteEmailTemplate")).toBeInTheDocument();
-    expect(within(confirm).getByText(/Order confirmation/)).toBeInTheDocument();
+    expect(within(confirm).getByText(/Orderbevestiging/)).toBeInTheDocument();
     fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(DELETE).toHaveBeenCalledWith("/api/platform/email-template/{id}", { params: { path: { id: "et1" } } }));
   });

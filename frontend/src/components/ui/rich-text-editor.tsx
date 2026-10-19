@@ -359,7 +359,7 @@ export function RichTextEditor({
     const lossless = load(value);
     setLossy(!lossless);
     if (!lossless) setSourceView(true);
-  }, [load, value]);
+  }, [editor, load, value]);
 
   useEffect(() => {
     if (!editor.isDestroyed) editor.setEditable(editable, false);

@@ -323,8 +323,10 @@ map to 409 (`DuplicateKey`, `InUse`, `NumberSequenceInUse`) and 400 (the rest) i
 - **Input validation:** lengths, enum ranges, configured cultures only, Scriban parsed (never rendered here), regex
   compiled with a match timeout, children bounded (4 transformations), body ≤ 200,000 characters.
 - **Attack surface:** four conventional controllers behind authentication, permissions and features; no anonymous
-  endpoint, no upload, no outbound call; the generator has no HTTP endpoint. The preview iframe is sandboxed without
-  `allow-scripts`, so template HTML cannot run script in the app's origin.
+  endpoint, no upload, no outbound call; the generator has no HTTP endpoint. Template HTML never runs in the app's
+  origin: the visual editor renders it only through Tiptap's schema (script tags, event handlers and images are
+  dropped, `javascript:` links refused), and the HTML view is a plain textarea. Component tests cover this; an E2E
+  check in a real browser is still to be written.
 - **Tenant isolation:** every entity `IMultiTenant`; the generator's raw SQL filters on a sequence id first read
   through the tenant-filtered repository, so a foreign id is `EntityNotFound`.
 - **Logging:** ids and counts only; never template bodies, addresses or generated numbers.

@@ -167,12 +167,14 @@ describe("the four Platform lists — permissions", () => {
 });
 
 describe("EmailTemplatesView", () => {
-  it("renders platform.emailTemplates with Name, Purpose, Default and Languages (not sortable) and sends the Purpose filter", async () => {
+  it("renders platform.emailTemplates with Name, Purpose, Language and Default, all sortable, and sends the Purpose filter", async () => {
     grants = { "Platform.EmailTemplates": true };
     renderView(<EmailTemplatesView />);
     expect((await screen.findByTestId("mock-grid")).getAttribute("data-grid-id")).toBe("platform.emailTemplates");
-    expect(columns()).toEqual(["name", "purpose", "isDefault", "cultures"]);
-    expect(unsortable()).toEqual(["cultures"]);
+    expect(columns()).toEqual(["name", "purpose", "culture", "isDefault"]);
+    expect(columnSpans().map((el) => el.textContent)).toEqual(["Platform:Name", "Platform:Purpose", "Platform:Culture", "Platform:IsDefault"]);
+    /* One template per language (PO 2026-10-18): the culture is a plain row field in the server's sort whitelist. */
+    expect(unsortable()).toEqual([]);
     await waitFor(() => expect(listCalls("/api/platform/email-template")).toHaveLength(1));
     expect(lastListQuery("/api/platform/email-template").purpose).toBeUndefined();
 
@@ -196,22 +198,24 @@ describe("EmailTemplatesView", () => {
     expect(lastListQuery("/api/platform/email-template").purpose).toBeUndefined();
   });
 
-  it("shows the purpose by name and the languages of the joined culture list (the server joins with \", \") by name", async () => {
+  it("shows the purpose by name and the language by name, an empty language as All languages", async () => {
     grants = { "Platform.EmailTemplates": true };
     renderView(<EmailTemplatesView />);
     await screen.findByTestId("mock-grid");
     expect(formatted("purpose", 3)).toBe("Platform:EmailTemplatePurpose.Invoice");
-    expect(formatted("cultures", "en, nl")).toBe("Platform:Language.en, Platform:Language.nl");
-    expect(formatted("cultures", "en,nl")).toBe("Platform:Language.en, Platform:Language.nl");
-    expect(formatted("cultures", "")).toBe("");
-    expect(formatted("cultures", null)).toBe("");
+    expect(formatted("culture", "en")).toBe("Platform:Language.en");
+    expect(formatted("culture", "nl")).toBe("Platform:Language.nl");
+    expect(formatted("culture", "NL")).toBe("Platform:Language.nl");
+    expect(formatted("culture", null)).toBe("Platform:AllLanguages");
+    expect(formatted("culture", undefined)).toBe("Platform:AllLanguages");
+    expect(formatted("culture", "")).toBe("Platform:AllLanguages");
   });
 
   it("Delete from the row confirms and calls the delete endpoint; bulk delete sends the selection with the Purpose filter", async () => {
     grants = { "Platform.EmailTemplates": true, "Platform.EmailTemplates.Delete": true };
     gridRows.current = [
-      { id: "e1", name: "Invoice mail", purpose: 3, isDefault: true, cultures: "en,nl" },
-      { id: "e2", name: "Reminder", purpose: 4, isDefault: false, cultures: "en" },
+      { id: "e1", name: "Invoice mail", purpose: 3, culture: null, isDefault: true },
+      { id: "e2", name: "Reminder", purpose: 4, culture: "en", isDefault: false },
     ];
     renderView(<EmailTemplatesView />);
     await screen.findByTestId("mock-grid");
