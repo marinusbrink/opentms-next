@@ -114,6 +114,49 @@ Every Scriban field is parsed on save (`Scriban.Template.Parse`); a syntax error
 placeholder system of §3.10; the typed model of each purpose (and so the list of placeholders) is published by the
 module that sends that mail, with that module's run. HTML encoding happens when the model is built (§3.10).
 
+#### Tags and default content (PO 2026-10-20)
+
+OpenTMS resolved `[Tag]` placeholders in three diverging ways (assessment §3.10) and showed the author no list.
+Here **Platform owns one tag catalogue**, `EmailTemplateTagCatalogue` (`Domain.Shared`), served by
+`GET /api/platform/email-template/tags?purpose=` as localized groups, and shown in the editor. A tag is a Scriban
+path in snake_case (Scriban's default member naming), inserted as `{{ path }}`; a collection tag inserts a
+`{{ for item in path }} … {{ end }}` block. The module that sends the mail of a purpose builds the typed model that
+exposes **every catalogued path of that purpose** (its run adds a contract test against the catalogue); a path the
+sender cannot fill renders empty, never fails.
+
+| Group | Tags | Purposes | OpenTMS source |
+|---|---|---|---|
+| `company` (own company: the relation with the OwnCompany role, its postal address) | `name`, `address`, `postal_code`, `city`, `country`, `phone`, `email`, `invoice_email`, `website`, `logo_url`, `brand_color` | all | `[Company*]`, `PrimaryBackgroundColor` |
+| `user` (the user sending) | `full_name`, `email` | all | `[FullName]`, `[EMailAddress]` |
+| `recipient` (the relation the mail goes to) | `name`, `email`, `invoice_email`, `contact_person`, `contact_person_email`, `salutation` | all | `RelationName`, `RelationEmail`, `RelationInvoiceEmail`, `ContactPersonEmail`, `[ContactPerson]` |
+| `general` | `today`, `now`, `year` | all | `ThisYear`, `[EntityDate]` formatting |
+| `order` (transport order) | `number`, `date`, `reference`, `customer_reference`, `status`, `loading_date`, `unloading_date`, `remarks`, `origin.name`, `origin.address`, `origin.postal_code`, `origin.city`, `origin.country`, `destination.name`, `destination.address`, `destination.postal_code`, `destination.city`, `destination.country`, `type_name` | TransportOrder, EtaNotification, DigitalArchive | `[EntityNumber]`, `[EntityDate]`, `[EntityReference]`, `[UnloadingDate]`, `[EntityType]`, `Destination*` |
+| `freight` (collection: the order's lines) | `product`, `transport_unit`, `quantity`, `colli`, `weight_kg`, `volume_m3`, `length_cm`, `width_cm`, `height_cm`, `loading_meters`, `container_number`, `pincode`, `invoice_reference`, `shipper`, `remarks` | TransportOrder, EtaNotification | `[FreightTable:…]` columns |
+| `trip` (transport file) | `number`, `date`, `reference`, `vehicle`, `licence_plate`, `driver`, `driver_email`, `carrier`, `departure_date`, `type_name` | TransportFile, DriverInstructions | `TransportFileVehicle`, `TransportFileTransportCompany`, `DriverEmail` |
+| `eta` | `day_of_arrival`, `time_of_arrival`, `margin_from`, `margin_till`, `margin`, `track_and_trace_url` | EtaNotification | `Calculated*`, `TrackAndTraceUrl` |
+| `invoice` | `number`, `date`, `due_date`, `reference`, `period`, `total_amount`, `vat_amount`, `currency`, `open_amount`, `days_overdue`, `type_name` | Invoice, InvoiceReminder | invoice scalar properties |
+| `invoice.lines` (collection) | `description`, `quantity`, `amount` | Invoice, InvoiceReminder | |
+| `purchase_order` | `number`, `date`, `reference`, `carrier`, `total_amount`, `currency`, `type_name` | PurchaseOrder | purchase-order scalar properties |
+| `driver` | `name`, `email`, `instructions_url` | DriverInstructions | `[DriverName]`, `[DriverInstructionsLink]` |
+| `trips` (collection: the driver's planned trips) | `number`, `date`, `vehicle`, `first_stop`, `last_stop` | DriverInstructions | "Your scheduled trips" |
+| `document` | `file_name`, `document_type`, `received_at` | DigitalArchive | the forwarded binary object |
+| `proforma` | `period_from`, `period_till`, `total_amount`, `currency` | ProformaOverview | |
+| `proforma.orders` (collection) | `number`, `date`, `reference`, `amount` | ProformaOverview | |
+
+**Default content.** `GET /api/platform/email-template/defaults?purpose=&culture=` returns the OpenTMS seed
+texts converted to Scriban (`EmailTemplateDefaults`, embedded in `Domain.Shared`, nl and en; an unknown or empty
+culture gives the UI language): `senderAddress` and `replyTo` are `{{ company.email }}`, for the invoice purposes
+(Invoice, InvoiceReminder, ProformaOverview) `{{ company.invoice_email }}` (OpenTMS seeded `[CompanyInvoiceEMail]`
+there); `subject` and `htmlBody` per purpose. The editor applies them on **create** to From, Reply-to, Subject and
+HTML body while those fields are untouched, and again when the purpose or the language changes (a field the user
+has typed in is never overwritten); on edit nothing is filled. This is not seeding (Assumption 2 stands): no template
+row exists until the user saves.
+
+**Editor.** A **Tags** panel beside the fields (collapsible, with a filter box) lists the groups of the chosen
+purpose; a click inserts the tag at the cursor of the field last focused (From, Reply-to, To, Cc, Bcc, Subject or the
+body, in the visual or the HTML view), by default the body. `RichTextEditor` exposes `insertText` through a ref for
+this.
+
 ### ReportDefinition (rapportdefinitie; OpenTMS `ReportDefinition`, UI "Bestandlayouts")
 
 | Field | Type | Notes |
@@ -218,7 +261,7 @@ detail, create and update DTOs with concurrency stamp, `BulkDelete` over a grid 
 
 | Service | Route root | Extra operations |
 |---|---|---|
-| `EmailTemplateAppService` | `/api/platform/email-template` | — |
+| `EmailTemplateAppService` | `/api/platform/email-template` | `GET /tags?purpose=` (the catalogue, localized), `GET /defaults?purpose=&culture=` (From, Reply-to, Subject, HTML body for a new template) |
 | `ReportDefinitionAppService` | `/api/platform/report-definition` | `POST /{id}/archive`, `POST /{id}/unarchive` |
 | `DocumentTypeAppService` | `/api/platform/document-type` | `POST /{id}/archive`, `POST /{id}/unarchive` |
 | `NumberSequenceAppService` | `/api/platform/number-sequence` | — |
@@ -256,6 +299,8 @@ Archive/Unarchive where archivable, Delete). Editors use `MasterDataEditor`:
   Language (All languages, English, Nederlands); a divider; From and Reply-to; To; Cc; Bcc and Send me a copy;
   Subject; HTML body in the `RichTextEditor` (Tiptap toolbar; a source view keeps raw HTML and Scriban blocks
   editable).
+  On create the fields start from the purpose's defaults (see "Tags and default content") and the **Tags** panel
+  beside the form inserts a tag into the field last focused.
 - **Report definition** (`md`): Name, Purpose, Language, Provider, Provider template id, File name pattern, Default,
   Archived, Available in customer portal, Description.
 - **Document type** (`md`): tab *General* (Code, Name per language, the three switches, Archived, Description), tab

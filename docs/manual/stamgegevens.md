@@ -173,10 +173,19 @@ orderbevestiging of een factuur. Het scherm is opgebouwd als een e-mail, zoals i
 - **Onderwerp** en **Inhoud** zijn verplicht. De inhoud bewerkt u zoals in een e-mailprogramma:
   vet, cursief, koppen, lijsten, koppelingen. Met de knop voor de HTML-weergave ziet en wijzigt u
   de HTML zelf, bijvoorbeeld voor een herhaling `{{ for … }}`.
-- Teksten tussen `{{` en `}}` zijn velden die bij het versturen worden ingevuld, bijvoorbeeld
-  `{{ company.name }}`. Welke velden er zijn, hangt af van het doel; die lijst verschijnt zodra de
-  functie die de mail verstuurt beschikbaar is. Een fout in deze schrijfwijze (bijvoorbeeld een
-  ontbrekende `}}`) wordt bij opslaan gemeld, met het veld en de regel.
+- Een nieuw sjabloon begint niet leeg: **Van** en **Antwoordadres** staan op het e-mailadres van uw
+  eigen bedrijf (`{{ company.email }}`, voor factuurdoelen `{{ company.invoice_email }}`), en
+  **Onderwerp** en **Inhoud** krijgen de standaardtekst van het gekozen doel in de gekozen taal.
+  Kiest u een ander doel of een andere taal, dan wisselt die tekst mee, zolang u er zelf nog niets in
+  hebt getypt. Een bestaand sjabloon wordt nooit overschreven.
+- Teksten tussen `{{` en `}}` zijn **tags**: velden die bij het versturen worden ingevuld, bijvoorbeeld
+  `{{ company.name }}` of `{{ invoice.number }}`. Het paneel **Tags** naast het formulier toont alle
+  tags die voor het gekozen doel beschikbaar zijn, per groep (eigen bedrijf, ontvanger, order, factuur,
+  …) met een korte uitleg; met het zoekvak filtert u de lijst. Klik op een tag om hem in te voegen op
+  de plek van de cursor in het veld waar u het laatst was (Van, Aan, Onderwerp, de inhoud, …). Een
+  lijsttag (bijvoorbeeld de vrachtregels van een order) voegt een herhaalblok `{{ for … }}` in, dat
+  per regel wordt herhaald. Een fout in deze schrijfwijze (bijvoorbeeld een ontbrekende `}}`) wordt bij
+  opslaan gemeld, met het veld en de regel.
 
 Met het doelfilter boven de lijst ziet u alleen de sjablonen voor dat doel.
 
