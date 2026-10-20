@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,7 @@ using OpenTms.Platform.Permissions;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
 using Volo.Abp.Localization;
+using Volo.Abp.Validation;
 
 namespace OpenTms.Platform.EmailTemplates;
 
@@ -56,6 +58,70 @@ public class EmailTemplateAppService
     [Authorize(PlatformPermissions.MasterData.EmailTemplates.Delete)]
     public Task<PlatformMasterDataBulkDeleteResultDto> BulkDeleteAsync(EmailTemplateBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.Purpose));
+
+    // ── editor support: tags and defaults (design 49, "Tags and default content") ──
+
+    [RequiresFeature(AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.EmailTemplates, RequiresAll = true)]
+    [Authorize(PlatformPermissions.MasterData.EmailTemplates.Default)]
+    public Task<List<EmailTemplateTagGroupDto>> GetTagsAsync(EmailTemplatePurpose purpose)
+    {
+        EnsureDefined(purpose);
+        var groups = EmailTemplateTagCatalogue.GroupsFor(purpose).Select(group => new EmailTemplateTagGroupDto
+        {
+            Group = group.Key,
+            Label = L[group.LabelKey],
+            Tags = group.Tags.Select(ToDto).ToList()
+        }).ToList();
+        return Task.FromResult(groups);
+    }
+
+    [RequiresFeature(AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.EmailTemplates, RequiresAll = true)]
+    [Authorize(PlatformPermissions.MasterData.EmailTemplates.Default)]
+    public Task<EmailTemplateDefaultsDto> GetDefaultsAsync(EmailTemplatePurpose purpose, string? culture = null)
+    {
+        EnsureDefined(purpose);
+        var resolved = EmailTemplateDefaults.ResolveCulture(culture);
+        var address = EmailTemplateDefaults.SenderAddressFor(purpose);
+
+        /* The subject is a localization text: read it in the template's language, not the UI's. */
+        string subject;
+        using (CultureHelper.Use(resolved))
+        {
+            subject = L[EmailTemplateDefaults.SubjectKeyOf(purpose)];
+        }
+
+        return Task.FromResult(new EmailTemplateDefaultsDto
+        {
+            SenderAddress = address,
+            ReplyTo = address,
+            Subject = subject,
+            HtmlBody = EmailTemplateDefaults.HtmlBodyFor(purpose, resolved)
+        });
+    }
+
+    private EmailTemplateTagDto ToDto(EmailTemplateTag tag) => new()
+    {
+        Path = tag.Path,
+        Label = L[tag.LabelKey],
+        Description = L[tag.DescriptionKey],
+        Kind = tag.Kind,
+        Snippet = tag.Snippet,
+        Children = tag.Children.Select(ToDto).ToList()
+    };
+
+    /// <summary>
+    /// A plain enum parameter is bound and passes ABP's validation whatever its number; an undefined purpose is a 400
+    /// (AbpValidationException), never a 500 from a missing resource.
+    /// </summary>
+    private static void EnsureDefined(EmailTemplatePurpose purpose)
+    {
+        if (!Enum.IsDefined(purpose))
+        {
+            throw new AbpValidationException(
+                "The purpose is not defined.",
+                [new ValidationResult($"'{(int)purpose}' is not a valid purpose.", [nameof(purpose)])]);
+        }
+    }
 
     // ── list hooks ────────────────────────────────────────────────────────────
 

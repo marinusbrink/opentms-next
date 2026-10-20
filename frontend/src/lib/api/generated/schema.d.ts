@@ -19669,6 +19669,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/email-template/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    purpose?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
+                    culture?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateDefaultsDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateDefaultsDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateDefaultsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/email-template/lookup": {
         parameters: {
             query?: never;
@@ -19697,6 +19803,111 @@ export interface paths {
                         "application/json": components["schemas"]["OpenTms.Platform.PlatformMasterDataLookupDto"][];
                         "text/json": components["schemas"]["OpenTms.Platform.PlatformMasterDataLookupDto"][];
                         "text/plain": components["schemas"]["OpenTms.Platform.PlatformMasterDataLookupDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/email-template/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    purpose?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagGroupDto"][];
+                        "text/json": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagGroupDto"][];
+                        "text/plain": components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagGroupDto"][];
                     };
                 };
                 /** @description Bad Request */
@@ -25460,6 +25671,12 @@ export interface components {
             subject: string;
             to?: string | null;
         };
+        "OpenTms.Platform.EmailTemplates.EmailTemplateDefaultsDto": {
+            htmlBody?: string | null;
+            replyTo?: string | null;
+            senderAddress?: string | null;
+            subject?: string | null;
+        };
         "OpenTms.Platform.EmailTemplates.EmailTemplateDto": {
             bcc?: string | null;
             cc?: string | null;
@@ -25499,6 +25716,24 @@ export interface components {
             name?: string | null;
             purpose?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplatePurpose"];
         };
+        "OpenTms.Platform.EmailTemplates.EmailTemplateTagDto": {
+            children?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagDto"][] | null;
+            description?: string | null;
+            kind?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagKind"];
+            label?: string | null;
+            path?: string | null;
+            snippet?: string | null;
+        };
+        "OpenTms.Platform.EmailTemplates.EmailTemplateTagGroupDto": {
+            group?: string | null;
+            label?: string | null;
+            tags?: components["schemas"]["OpenTms.Platform.EmailTemplates.EmailTemplateTagDto"][] | null;
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.Platform.EmailTemplates.EmailTemplateTagKind": 1 | 2;
         "OpenTms.Platform.EmailTemplates.EmailTemplateUpdateDto": {
             bcc?: string | null;
             cc?: string | null;

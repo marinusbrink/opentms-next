@@ -1,0 +1,18 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'">
+    <p style="margin-bottom:15px;">Dear {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">
+        I hereby send you the relevant documents for {{ trip.type_name }} {{ trip.number }}.
+    </p>
+    <p style="margin-bottom:15px;">
+        With kind regards,<br />Mit freundlichen Grüßen,<br />Met vriendelijke groet,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

@@ -1,0 +1,26 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
+    <p style="margin-bottom:15px;">Geachte {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">In de bijlage van dit e-mailbericht vindt u het proforma-overzicht van de periode {{ proforma.period_from }} tot en met {{ proforma.period_till }}.</p>
+    <table style="width:100%; border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;">Order</th><th style="text-align:left;">Datum</th><th style="text-align:left;">Referentie</th><th style="text-align:left;">Bedrag</th></tr></thead>
+        <tbody>
+            {{ for order in proforma.orders }}
+            <tr><td>{{ order.number }}</td><td>{{ order.date }}</td><td>{{ order.reference }}</td><td>{{ order.amount }}</td></tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <p style="margin-bottom:15px;"><b>Totaal: {{ proforma.currency }} {{ proforma.total_amount }}</b></p>
+    <p style="margin-bottom:15px;">Heeft u een vraag over dit overzicht? Stuur dan een e-mail naar {{ company.invoice_email }} of beantwoord dit e-mailbericht.</p>
+    <p style="margin-bottom:15px;">
+        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

@@ -1,0 +1,18 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'">
+    <p style="margin-bottom:15px;">Geachte {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">
+        Hierbij stuur ik u de documenten horende bij {{ order.type_name }} {{ order.number }}.
+    </p>
+    <p style="margin-bottom:15px;">
+        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

@@ -1,0 +1,21 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'">
+    <p style="margin-bottom:15px;">Geachte {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">
+        In de bijlage van dit e-mailbericht vindt u inkooporder {{ purchase_order.number }} van {{ purchase_order.date }}. Onze referentie is {{ purchase_order.reference }}.
+    </p>
+    <p style="margin-bottom:15px;">
+        Wij verzoeken u de opdracht te bevestigen door dit e-mailbericht te beantwoorden.
+    </p>
+    <p style="margin-bottom:15px;">
+        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

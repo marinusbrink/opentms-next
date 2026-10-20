@@ -1,0 +1,24 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
+    <p style="margin-bottom:15px;">Geachte {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">
+        In de bijlage van dit e-mailbericht vindt u factuur {{ invoice.number }} van {{ company.name }}.
+    </p>
+    <p style="margin-bottom:15px;">
+        Indien u een incasso-machtiging heeft afgegeven, hoeft u niets te doen. Wij zullen dan binnenkort het openstaande bedrag van uw rekeningnummer incasseren. Heeft u geen incasso-machtiging afgegeven? Dan verzoeken wij u vriendelijk het factuurbedrag binnen de overeengekomen betalingstermijn te voldoen.
+    </p>
+    <p style="margin-bottom:15px;">
+        Heeft u een vraag over deze factuur? Stuur dan een e-mail naar {{ company.invoice_email }} of beantwoord dit e-mailbericht.
+    </p>
+    <p style="margin-bottom:15px;">
+        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

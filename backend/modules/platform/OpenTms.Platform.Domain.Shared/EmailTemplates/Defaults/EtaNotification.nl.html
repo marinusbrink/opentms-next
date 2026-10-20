@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr">
+<head>
+    <style type="text/css">
+        body { font-family: Arial, Verdana, sans-serif !important; font-size: 1rem; font-weight: normal; line-height: 1.5rem; letter-spacing: normal !important; margin: 0px !important; }
+        a { text-decoration: none; color: dimgrey; }
+        table { margin: 20px auto 20px auto; text-align: center; }
+        th { text-align: left; padding: 0 0px 0 10px; }
+        td { text-align: left; padding: 0 0px 0 10px; }
+        .border { margin-left: 50px; margin-right: 50px; margin-top: 10px; border: solid; border-color: {{ company.brand_color }}; border-width: 1px; background-color: rgba(239, 239, 239, 0.40); text-align: center; }
+        .header { overflow: auto; }
+        .center { margin-top: 20px; text-align: center; }
+        .logo { max-width: 180px; }
+        .email-body { padding: 35px; color: dimgrey; }
+        .copyright { padding: 25px; color: dimgrey; font-size: 7pt; }
+        .button { width: 250px; padding: 10px; cursor: pointer; border-radius: 5px; font-size: large; border: 2px solid {{ company.brand_color }}; background: {{ company.brand_color }}; color: white; }
+        .button:hover { background: white; color: {{ company.brand_color }}; }
+    </style>
+    <title>{{ company.name }}</title>
+</head>
+<body>
+    <div class="header">
+        <div class="center">
+            <img class="logo" src="{{ company.logo_url }}" width="180" alt="{{ company.name }}" />
+        </div>
+    </div>
+    <div class="border">
+        <div class="email-body">
+            <p>Beste heer / mevrouw {{ order.destination.name }},</p>
+            <p>Uw bestelling bij {{ order.shipper }} is overgedragen aan onze vervoerder {{ trip.carrier }}. Deze zal uw bestelling zo spoedig mogelijk verwerken.</p>
+            <table style="width:100%;">
+                <tbody>
+                    <tr class="center" style="vertical-align:top; height:100px;">
+                        <td style="width:10%"></td>
+                        <td class="center"><img src="https://webapi.opentms.nl/Common/Images/icon-address.png" /></td>
+                        <td class="center"><img src="https://webapi.opentms.nl/Common/Images/icon-shipping-company.png" /></td>
+                        <td style="width:10%"></td>
+                    </tr>
+                    <tr style="vertical-align:top;">
+                        <td></td>
+                        <td class="center">
+                            {{ order.destination.name }}<br />{{ order.destination.address }}<br />{{ order.destination.postal_code }}  {{ order.destination.city }}
+                        </td>
+                        <td class="center">Vervoerder:<br />{{ trip.carrier }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <img style="margin-top:50px;" src="https://webapi.opentms.nl/Common/Images/icon-shipment.png" />
+            <p>De volgende goederen zullen worden geleverd:</p>
+            <table style="width:100%;">
+                <thead><tr><th>Aantal</th><th>Transporteenheid</th><th>Product</th><th>Referentie</th></tr></thead>
+                <tbody>
+                    {{ for line in freight }}
+                    <tr><td>{{ line.quantity }}</td><td>{{ line.transport_unit }}</td><td>{{ line.product }}</td><td>{{ line.destination_reference }}</td></tr>
+                    {{ end }}
+                </tbody>
+            </table>
+            <p>{{ trip.carrier }} zal op <b>{{ eta.day_of_arrival }}</b> bij u langs komen:<br /><br />{{ eta.margin }}</p>
+            <p>U kunt uw bestelling volgen via de volgende link:<br /><br /><br />
+            <a href="{{ eta.track_and_trace_url }}"><span class="button">Track and Trace</span></a></p>
+        </div>
+    </div>
+    <div class="copyright">Powered by FiLogic OpenTMS © {{ general.year }}<br /><a href="https://filogic.nl">www.filogic.nl</a></div>
+</body>
+</html>

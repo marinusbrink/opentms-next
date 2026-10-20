@@ -111,4 +111,13 @@ public interface IEmailTemplateAppService : IApplicationService
     Task<EmailTemplateDto> UpdateAsync(Guid id, EmailTemplateUpdateDto input);
     Task DeleteAsync(Guid id);
     Task<PlatformMasterDataBulkDeleteResultDto> BulkDeleteAsync(EmailTemplateBulkDeleteRequestDto input);
+
+    /// <summary>The tag catalogue of a purpose, localized in the UI language (design 49, "Tags and default content").</summary>
+    Task<List<EmailTemplateTagGroupDto>> GetTagsAsync(EmailTemplatePurpose purpose);
+
+    /// <summary>
+    /// From, Reply-to, Subject and HTML body for a new template of a purpose; <paramref name="culture"/> "nl" or "en",
+    /// anything else (or empty) gives the UI language.
+    /// </summary>
+    Task<EmailTemplateDefaultsDto> GetDefaultsAsync(EmailTemplatePurpose purpose, string? culture = null);
 }
