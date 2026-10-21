@@ -67,9 +67,10 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   extraCommands?: RibbonCommand[];
   /**
    * Ribbon commands that do not change this record and carry their own permission (a report definition's template
-   * commands, design 50): after the extra commands, and shown in read-only mode too.
+   * commands, design 50): after the extra commands, and shown in read-only mode too. A function receives whether the
+   * form has unsaved changes (commands that act on the saved record wait for a save).
    */
-  actionCommands?: RibbonCommand[];
+  actionCommands?: RibbonCommand[] | ((state: { isDirty: boolean }) => RibbonCommand[]);
   /** One of `actionCommands` is running: the dialog is busy (UI-DLG-010). */
   isCommandBusy?: boolean;
   /** The failure of an `actionCommands` command, shown like a save's server error on the active tab (UI-FB-004). */
@@ -215,8 +216,9 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
 
   const title = mode === "create" ? t(`${resource}:New${entityKey}`) : `${t(`${resource}:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
 
+  const recordCommands = typeof actionCommands === "function" ? actionCommands({ isDirty }) : (actionCommands ?? []);
   const commands: RibbonCommand[] = readOnly
-    ? (actionCommands ?? [])
+    ? recordCommands
     : [
         {
           id: "save",
@@ -227,7 +229,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
           onClick: () => formRef.current?.requestSubmit(),
         },
         ...(extraCommands ?? []),
-        ...(actionCommands ?? []),
+        ...recordCommands,
         ...(mode === "edit" && deleteRecord
           ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, groupKey: "Delete", disabled: !loaded || deleteDisabledReasonKey != null, disabledReasonKey: deleteDisabledReasonKey, onClick: () => setConfirmDelete(true) }]
           : []),

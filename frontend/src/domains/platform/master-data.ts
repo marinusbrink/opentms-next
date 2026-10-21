@@ -423,13 +423,25 @@ export type ReportTemplateCommand = "editTemplate" | "copyTemplate" | "testDocum
 
 /**
  * Why a template command cannot run for this definition (UI-PERM-005: business state), as a localization key, or
- * undefined when it can. Missing permissions are not a reason: those commands are not rendered (UI-PERM-002). An
- * unknown template (the provider did not answer: `templateFound` / `templateOwnedByWorkspace` null) blocks nothing;
- * the server decides and its error shows.
+ * undefined when it can. Missing permissions are not a reason: those commands are not rendered (UI-PERM-002).
+ *
+ * - A provider that failed to answer (the status carries a `message`) counts as unavailable; the caller appends the
+ *   message to the reason.
+ * - Without a status (it failed to load) only unsaved changes block; the server decides the rest and its error shows.
+ * - Unsaved changes come last: the commands act on the saved template id, and a more fundamental reason wins.
  */
-export function reportTemplateCommandBlock(command: ReportTemplateCommand, status: ReportRenderingStatus, isArchived: boolean): string | undefined {
+export function reportTemplateCommandBlock(
+  command: ReportTemplateCommand,
+  status: ReportRenderingStatus | undefined,
+  isArchived: boolean,
+  isDirty = false,
+): string | undefined {
+  return (status ? statusBlock(command, status, isArchived) : undefined) ?? (isDirty ? "Platform:SaveChangesFirst" : undefined);
+}
+
+function statusBlock(command: ReportTemplateCommand, status: ReportRenderingStatus, isArchived: boolean): string | undefined {
   if (!status.featureEnabled) return "Platform:RenderingFeatureOff";
-  if (!status.providerAvailable) return "Platform:RenderingUnavailableHint";
+  if (!status.providerAvailable || status.message) return "Platform:RenderingUnavailableHint";
   if (!status.providerConfigured) return "OpenTms.Platform:RenderingNotConfigured";
   if (isArchived) return "OpenTms.Platform:ReportDefinitionArchived";
   if (command === "editTemplate" && !status.supportsTemplateEditor) return "Platform:TemplateEditorNotSupported";

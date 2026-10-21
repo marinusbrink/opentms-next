@@ -223,7 +223,9 @@ Wilt u er een aanpassen, kopieer het dan eerst: u bewerkt daarna de kopie in uw 
 
 De knoppen werken alleen als de functie **Documenten maken** voor uw omgeving aanstaat (FiLogic zet
 die aan via uw pakket) en FiLogic de koppeling met de documentdienst heeft ingericht. Kan een knop
-niet worden gebruikt, dan is hij grijs; houd de muis erop om de reden te zien. Ziet u een knop
+niet worden gebruikt, dan is hij grijs; houd de muis erop om de reden te zien. Hebt u in het venster nog niet
+opgeslagen wijzigingen, dan zijn de drie knoppen grijs tot u hebt opgeslagen: ze werken met het opgeslagen
+sjabloon. Ziet u een knop
 helemaal niet, dan hebt u er geen recht op (**Rapportsjablonen bewerken** voor bewerken en kopiëren,
 plus **Rapportdefinities aanmaken** voor kopiëren).
 

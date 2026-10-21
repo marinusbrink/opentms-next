@@ -751,6 +751,7 @@
     "Platform:RenderingUnavailableHint": "De opmaakdienst van deze rapportdefinitie is niet beschikbaar op deze server.",
     "Platform:TemplateEditorNotSupported": "De opmaakdienst heeft geen sjablooneditor.",
     "Platform:TemplateCopyNotSupported": "De opmaakdienst kan geen sjablonen kopiëren.",
+    "Platform:SaveChangesFirst": "Sla eerst uw wijzigingen op.",
     "Platform:AvailableInCustomerPortal": "Beschikbaar in klantportaal",
     "Platform:Tab.Transformations": "Transformaties",
     "Platform:IsFreightDocument": "Vrachtdocument",

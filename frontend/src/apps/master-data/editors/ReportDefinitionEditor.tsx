@@ -118,16 +118,19 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
   const templateLabel = status.data?.templateName || detail.data?.providerTemplateId || "";
 
   /* The status describes the SAVED definition: archived and the template id are the loaded record's. While it loads
-   * the commands wait; when it failed they stay enabled and the server's answer to the command shows. */
+   * the commands wait; when it failed only unsaved changes block them and the server's answer to the command shows. */
   const templateCommand = (
     command: ReportTemplateCommand,
     labelKey: string,
     busyKey: string,
     icon: RibbonCommand["icon"],
     isPending: boolean,
+    isDirty: boolean,
     onClick: () => void,
   ): RibbonCommand => {
-    const reason = status.data ? reportTemplateCommandBlock(command, status.data, detail.data?.isArchived === true) : undefined;
+    const reason = reportTemplateCommandBlock(command, status.data, detail.data?.isArchived === true, isDirty);
+    /* A provider that failed to answer: its message follows the reason. */
+    const message = reason === "Platform:RenderingUnavailableHint" ? status.data?.message : undefined;
     return {
       id: command,
       labelKey: isPending ? busyKey : labelKey,
@@ -135,6 +138,7 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
       groupKey: TEMPLATE_GROUP,
       disabled: detail.data == null || status.isLoading || reason != null,
       disabledReasonKey: reason,
+      disabledReason: message ? `${t(reason!)} ${message}` : undefined,
       onClick,
     };
   };
@@ -173,24 +177,34 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
     }
   };
 
-  const actionCommands: RibbonCommand[] = isEdit
-    ? [
-        ...(canEditTemplate
-          ? [templateCommand("editTemplate", "Platform:EditTemplate", "Platform:OpeningTemplate", ExternalLink, openTemplateEditor.isPending, () => void handleEditTemplate())]
-          : []),
-        ...(canEditTemplate && canCreate
-          ? [
-              templateCommand("copyTemplate", "Platform:CopyTemplate", "Platform:CopyingTemplate", Copy, copyTemplate.isPending, () => {
-                setCommandError(null);
-                setConfirmCopy(true);
-              }),
-            ]
-          : []),
-        ...(canView
-          ? [templateCommand("testDocument", "Platform:TestDocument", "Platform:GeneratingDocument", FileDown, testRender.isPending, () => void handleTestDocument())]
-          : []),
-      ]
-    : [];
+  /* The commands act on the SAVED template id: unsaved changes disable them ("Save your changes first"). */
+  const actionCommands = ({ isDirty }: { isDirty: boolean }): RibbonCommand[] =>
+    isEdit
+      ? [
+          ...(canEditTemplate
+            ? [
+                templateCommand("editTemplate", "Platform:EditTemplate", "Platform:OpeningTemplate", ExternalLink, openTemplateEditor.isPending, isDirty, () =>
+                  void handleEditTemplate(),
+                ),
+              ]
+            : []),
+          ...(canEditTemplate && canCreate
+            ? [
+                templateCommand("copyTemplate", "Platform:CopyTemplate", "Platform:CopyingTemplate", Copy, copyTemplate.isPending, isDirty, () => {
+                  setCommandError(null);
+                  setConfirmCopy(true);
+                }),
+              ]
+            : []),
+          ...(canView
+            ? [
+                templateCommand("testDocument", "Platform:TestDocument", "Platform:GeneratingDocument", FileDown, testRender.isPending, isDirty, () =>
+                  void handleTestDocument(),
+                ),
+              ]
+            : []),
+        ]
+      : [];
 
   /* The provider's name for the saved template id; nothing while the user types another id, or when unknown. */
   const templateHint = (typedId: string): string | undefined => {

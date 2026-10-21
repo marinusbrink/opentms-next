@@ -751,6 +751,7 @@
     "Platform:RenderingUnavailableHint": "The rendering provider of this report definition is not available on this server.",
     "Platform:TemplateEditorNotSupported": "The rendering provider has no template editor.",
     "Platform:TemplateCopyNotSupported": "The rendering provider cannot copy templates.",
+    "Platform:SaveChangesFirst": "Save your changes first.",
     "Platform:AvailableInCustomerPortal": "Available in customer portal",
     "Platform:Tab.Transformations": "Transformations",
     "Platform:IsFreightDocument": "Freight document",

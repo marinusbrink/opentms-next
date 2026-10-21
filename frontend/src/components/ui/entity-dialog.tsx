@@ -40,6 +40,8 @@ export type EntityDialogSize = "sm" | "md" | "lg" | "full";
 export interface RibbonCommand extends AppCommandBarCommand {
   /** Localization key of the group caption under the button(s); defaults to "Edit" for the primary group. */
   groupKey?: string;
+  /** An already localized disabled reason (it carries a server text); wins over disabledReasonKey. */
+  disabledReason?: string;
 }
 
 /** One tab of an editor (UI-FORM-008). Text tabs have a label; the standard tabs at the end have an icon. */
@@ -373,7 +375,11 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
   return (
     <button
       type="button"
-      title={t(isDisabled && command.disabledReasonKey ? command.disabledReasonKey : (command.tooltipKey ?? command.labelKey))}
+      title={
+        isDisabled && command.disabledReason
+          ? command.disabledReason
+          : t(isDisabled && command.disabledReasonKey ? command.disabledReasonKey : (command.tooltipKey ?? command.labelKey))
+      }
       aria-disabled={isDisabled || undefined}
       data-slot="ribbon-button"
       onClick={() => {
