@@ -23,17 +23,19 @@ interface TextProps<TValues extends object> {
   disabled?: boolean;
   /** Localization key of a muted help text under the control. */
   hintKey?: string;
+  /** A muted help text that is already localized (it carries a value, e.g. a template name); wins over hintKey. */
+  hint?: string;
   /** The input element, for a caller that inserts at its caret (the e-mail template's Tags panel). */
   inputRef?: Ref<HTMLInputElement>;
   /** The input received focus (the caller tracks the field last focused). */
   onFocus?: () => void;
 }
 
-export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hintKey, inputRef, onFocus }: TextProps<TValues>) {
+export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hintKey, hint, inputRef, onFocus }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
-    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hintKey ? t(hintKey) : undefined} className={className}>
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hint ?? (hintKey ? t(hintKey) : undefined)} className={className}>
       <Input
         ref={inputRef}
         id={form.id(field)}

@@ -1,6 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Copy, ExternalLink, FileDown } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import type { RibbonCommand } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,16 +22,37 @@ import {
   REPORT_RENDERING_PROVIDERS,
   cultureKey,
   reportDefinitions,
+  reportTemplateCommandBlock,
+  useCopyReportTemplate,
+  useOpenReportTemplateEditor,
+  useReportRenderingStatus,
+  useTestRenderReport,
   type ReportDefinitionDto,
   type ReportPurpose,
   type ReportRenderingProvider,
+  type ReportTemplateCommand,
 } from "@/domains/platform/master-data";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
+import { openPendingTab } from "@/lib/browser";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The report definition editor (design 49, UI design): `md`; Name, Purpose, Language, Provider, Provider template id,
  * File name pattern (Scriban, ".pdf" added by the server when missing), Default, Archived, Available in customer
- * portal, Description. The server parses the pattern and keeps one default per purpose and language. */
+ * portal, Description. The server parses the pattern and keeps one default per purpose and language.
+ *
+ * The ribbon group Template (design 50, UI design), edit mode only: Edit template (the provider's editor in a new
+ * tab), Copy template (confirmed; opens the new definition) and Test document (downloads the test PDF). Each needs its
+ * permission (hidden without it, UI-PERM-002: EditTemplate; EditTemplate + Create; the view permission) and is
+ * disabled with the reason from the rendering status (UI-PERM-005). They do not change this record, so they show in
+ * read-only mode too. Under Provider template id the template's name at the provider, or "not found".
+ *
+ * DEVIATION(UI-PERM-006): feature Platform.DocumentRendering off disables the commands with the reason "feature off"
+ * instead of hiding them, approved in docs/designs/50-report-rendering.md (UI design: "disabled with its reason ...
+ * feature off"; Report-definition operations: the status reports the feature "so it can report 'feature off' as a
+ * reason"). */
+
+const TEMPLATE_GROUP = "Platform:TemplateGroup";
 
 interface Values {
   name: string;
@@ -69,7 +94,7 @@ const validate = (v: Values): FieldErrors<Values> => {
   return errors;
 };
 
-export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSaved, initialName }: EntityEditorProps) {
+export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSaved, initialName, onOpenRecord }: EntityEditorProps) {
   const { t, culture } = useL();
   const initialValues = useMemo(() => initialValuesFor(culture, mode === "create" ? initialName : undefined), [culture, mode, initialName]);
   const detail = reportDefinitions.useDetail(mode === "edit" ? id : undefined);
@@ -77,6 +102,103 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
   const update = reportDefinitions.useUpdate();
   const remove = reportDefinitions.useDelete();
   const canDelete = useIsGranted("Platform.ReportDefinitions.Delete");
+
+  /* ── Template commands (design 50) ── */
+  const isEdit = mode === "edit" && id != null;
+  const canView = useIsGranted("Platform.ReportDefinitions");
+  const canCreate = useIsGranted("Platform.ReportDefinitions.Create");
+  const canEditTemplate = useIsGranted("Platform.ReportDefinitions.EditTemplate");
+  const status = useReportRenderingStatus(isEdit ? id : undefined);
+  const openTemplateEditor = useOpenReportTemplateEditor();
+  const copyTemplate = useCopyReportTemplate();
+  const testRender = useTestRenderReport();
+  const [commandError, setCommandError] = useState<string | null>(null);
+  const [confirmCopy, setConfirmCopy] = useState(false);
+  const isCommandBusy = openTemplateEditor.isPending || copyTemplate.isPending || testRender.isPending;
+  const templateLabel = status.data?.templateName || detail.data?.providerTemplateId || "";
+
+  /* The status describes the SAVED definition: archived and the template id are the loaded record's. While it loads
+   * the commands wait; when it failed they stay enabled and the server's answer to the command shows. */
+  const templateCommand = (
+    command: ReportTemplateCommand,
+    labelKey: string,
+    busyKey: string,
+    icon: RibbonCommand["icon"],
+    isPending: boolean,
+    onClick: () => void,
+  ): RibbonCommand => {
+    const reason = status.data ? reportTemplateCommandBlock(command, status.data, detail.data?.isArchived === true) : undefined;
+    return {
+      id: command,
+      labelKey: isPending ? busyKey : labelKey,
+      icon,
+      groupKey: TEMPLATE_GROUP,
+      disabled: detail.data == null || status.isLoading || reason != null,
+      disabledReasonKey: reason,
+      onClick,
+    };
+  };
+
+  /* The tab opens inside the click (popup blockers allow it only there) and gets the URL after the POST. */
+  const handleEditTemplate = async () => {
+    if (!id) return;
+    setCommandError(null);
+    const tab = openPendingTab();
+    try {
+      tab.navigate(await openTemplateEditor.mutateAsync(id));
+    } catch (err) {
+      tab.close();
+      setCommandError(getApiErrorMessage(err, t));
+    }
+  };
+
+  /* A failure stays in the confirmation (UI-FB-004: where the user is); ConfirmDialog shows what this throws. */
+  const handleCopyTemplate = async () => {
+    if (!id) return;
+    const copy = await copyTemplate.mutateAsync(id);
+    setConfirmCopy(false);
+    toast.success(t("Platform:TemplateCopied").replace("{0}", copy.name ?? ""));
+    onSaved(copy);
+    if (onOpenRecord && copy.id) onOpenRecord(copy.id);
+    else onClose();
+  };
+
+  const handleTestDocument = async () => {
+    if (!id) return;
+    setCommandError(null);
+    try {
+      await testRender.mutateAsync({ id, fallbackName: detail.data?.name ?? "" });
+    } catch (err) {
+      setCommandError(getApiErrorMessage(err, t));
+    }
+  };
+
+  const actionCommands: RibbonCommand[] = isEdit
+    ? [
+        ...(canEditTemplate
+          ? [templateCommand("editTemplate", "Platform:EditTemplate", "Platform:OpeningTemplate", ExternalLink, openTemplateEditor.isPending, () => void handleEditTemplate())]
+          : []),
+        ...(canEditTemplate && canCreate
+          ? [
+              templateCommand("copyTemplate", "Platform:CopyTemplate", "Platform:CopyingTemplate", Copy, copyTemplate.isPending, () => {
+                setCommandError(null);
+                setConfirmCopy(true);
+              }),
+            ]
+          : []),
+        ...(canView
+          ? [templateCommand("testDocument", "Platform:TestDocument", "Platform:GeneratingDocument", FileDown, testRender.isPending, () => void handleTestDocument())]
+          : []),
+      ]
+    : [];
+
+  /* The provider's name for the saved template id; nothing while the user types another id, or when unknown. */
+  const templateHint = (typedId: string): string | undefined => {
+    if (!isEdit || !status.data || typedId.trim() !== (detail.data?.providerTemplateId ?? "")) return undefined;
+    if (status.data.templateFound === true) return t("Platform:TemplateName").replace("{0}", templateLabel);
+    if (status.data.templateFound === false) return t("Platform:TemplateNotFoundHint");
+    return undefined;
+  };
 
   const save = useCallback(
     async (v: Values, dto: ReportDefinitionDto | undefined) => {
@@ -178,7 +300,14 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
                 </SelectContent>
               </Select>
             </FormField>
-            <TextField form={form} field="providerTemplateId" labelKey="Platform:ProviderTemplateId" required maxLength={MAX_PROVIDER_TEMPLATE_ID_LENGTH} />
+            <TextField
+              form={form}
+              field="providerTemplateId"
+              labelKey="Platform:ProviderTemplateId"
+              required
+              maxLength={MAX_PROVIDER_TEMPLATE_ID_LENGTH}
+              hint={templateHint(form.values.providerTemplateId)}
+            />
             <TextField
               form={form}
               field="fileNamePattern"
@@ -199,25 +328,41 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
   ];
 
   return (
-    <MasterDataEditor<Values, ReportDefinitionDto>
-      entityKey="ReportDefinition"
-      resource="Platform"
-      queryEntity={reportDefinitions.entity}
-      size="md"
-      mode={mode}
-      readOnly={readOnly}
-      open={open}
-      onClose={onClose}
-      onSaved={onSaved}
-      detail={detail}
-      titleOf={(dto) => dto.name ?? ""}
-      initialValues={initialValues}
-      validate={validate}
-      save={save}
-      isSaving={create.isPending || update.isPending}
-      tabs={tabs}
-      deleteRecord={mode === "edit" && canDelete ? remove : undefined}
-      badges={mode === "edit" && detail.data?.isArchived ? <Badge variant="outline">{t("Platform:IsArchived")}</Badge> : undefined}
-    />
+    <>
+      <MasterDataEditor<Values, ReportDefinitionDto>
+        entityKey="ReportDefinition"
+        resource="Platform"
+        queryEntity={reportDefinitions.entity}
+        size="md"
+        mode={mode}
+        readOnly={readOnly}
+        open={open}
+        onClose={onClose}
+        onSaved={onSaved}
+        detail={detail}
+        titleOf={(dto) => dto.name ?? ""}
+        initialValues={initialValues}
+        validate={validate}
+        save={save}
+        isSaving={create.isPending || update.isPending}
+        tabs={tabs}
+        actionCommands={actionCommands}
+        isCommandBusy={isCommandBusy}
+        commandError={commandError}
+        deleteRecord={mode === "edit" && canDelete ? remove : undefined}
+        badges={mode === "edit" && detail.data?.isArchived ? <Badge variant="outline">{t("Platform:IsArchived")}</Badge> : undefined}
+      />
+      <ConfirmDialog
+        open={confirmCopy}
+        onOpenChange={(next) => {
+          if (!next) setConfirmCopy(false);
+        }}
+        title={t("Platform:CopyTemplate")}
+        description={t("Platform:CopyTemplateQuestion").replace("{0}", templateLabel)}
+        confirmLabel={t("Platform:Copy")}
+        busyLabel={t("Platform:CopyingTemplate")}
+        onConfirm={handleCopyTemplate}
+      />
+    </>
   );
 }

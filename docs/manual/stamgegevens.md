@@ -205,6 +205,28 @@ factuur, inkooporder, emballageoverzicht) als PDF wordt gemaakt.
 
 Met het doelfilter boven de lijst ziet u alleen de definities voor dat doel.
 
+#### Sjabloon bewerken, kopiëren en testen
+
+Bij een bestaande rapportdefinitie staan bovenin de groep **Sjabloon** drie knoppen:
+
+- **Sjabloon bewerken** opent de opmaak in de editor van de documentdienst, in een nieuw tabblad van
+  de browser. Onder **Sjabloon-id bij provider** ziet u de naam van het sjabloon bij de
+  documentdienst, of de melding dat het sjabloon daar niet bestaat.
+- **Sjabloon kopiëren** zet na uw bevestiging een kopie van het sjabloon in uw eigen werkruimte bij
+  de documentdienst en maakt een nieuwe rapportdefinitie die die kopie gebruikt (naam met
+  "(kopie)", niet standaard). Die nieuwe definitie gaat direct open.
+- **Testdocument** maakt een PDF met voorbeeldgegevens en downloadt die. Een testdocument is gemarkeerd
+  als voorbeeld (PREVIEW) en wordt niet in rekening gebracht.
+
+De standaardsjablonen van FiLogic worden door alle klanten gedeeld en kunt u niet zelf bewerken.
+Wilt u er een aanpassen, kopieer het dan eerst: u bewerkt daarna de kopie in uw eigen werkruimte.
+
+De knoppen werken alleen als de functie **Documenten maken** voor uw omgeving aanstaat (FiLogic zet
+die aan via uw pakket) en FiLogic de koppeling met de documentdienst heeft ingericht. Kan een knop
+niet worden gebruikt, dan is hij grijs; houd de muis erop om de reden te zien. Ziet u een knop
+helemaal niet, dan hebt u er geen recht op (**Rapportsjablonen bewerken** voor bewerken en kopiëren,
+plus **Rapportdefinities aanmaken** voor kopiëren).
+
 ### Documentsoorten
 
 Een documentsoort deelt bestanden in het digitale archief in, bijvoorbeeld vrachtbrieven of

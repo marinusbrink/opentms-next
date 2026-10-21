@@ -48,8 +48,9 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   deleteDisabledReasonKey?: (row: TRow) => string | undefined;
   /** Extra row actions between Edit and Delete (UI-GRID-008 order); `refresh` reloads the grid after the action. */
   extraRowActions?: (row: TRow, refresh: () => void) => GridRowAction[];
-  /** Renders the entity's editor for the open state; `onSaved` refreshes the grid. */
-  renderEditor: (state: EditorState, onClose: () => void, onSaved: () => void) => ReactNode;
+  /** Renders the entity's editor for the open state; `onSaved` refreshes the grid; `openRecord` replaces the editor
+   *  by the one of another record (as a double-click on its row would open it). */
+  renderEditor: (state: EditorState, onClose: () => void, onSaved: () => void, openRecord: (id: string) => void) => ReactNode;
 }
 
 /* Every list page of the Master data app (UI-PAGE-001): command bar, full-height server-side grid,
@@ -99,10 +100,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
   const selectionCount =
     selection.mode === "Explicit" ? selection.explicitIds.length : Math.max(0, lastFilteredCount - selection.excludedIds.length);
 
-  const openRecord = useCallback(
-    (row: TRow) => setEditor({ mode: "edit", id: row.id, readOnly: !canUpdate }),
-    [canUpdate],
-  );
+  const openRecordById = useCallback((id: string | undefined) => setEditor({ mode: "edit", id, readOnly: !canUpdate }), [canUpdate]);
+  const openRecord = useCallback((row: TRow) => openRecordById(row.id), [openRecordById]);
 
   const commands = useMemo<AppCommandBarCommand[]>(
     () => [
@@ -234,7 +233,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
         </Suspense>
       </div>
 
-      {editor && renderEditor(editor, () => setEditor(null), invalidateGrid)}
+      {editor && renderEditor(editor, () => setEditor(null), invalidateGrid, openRecordById)}
 
       <ConfirmDialog
         open={rowToDelete != null}

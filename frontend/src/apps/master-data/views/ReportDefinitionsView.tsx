@@ -146,8 +146,17 @@ export function ReportDefinitionsView() {
           </>
         }
         extraRowActions={extraRowActions}
-        renderEditor={(state, onClose, onSaved) => (
-          <ReportDefinitionEditor key={`${state.mode}-${state.id ?? "new"}`} mode={state.mode} id={state.id} readOnly={state.readOnly} open onClose={onClose} onSaved={onSaved} />
+        renderEditor={(state, onClose, onSaved, openRecord) => (
+          <ReportDefinitionEditor
+            key={`${state.mode}-${state.id ?? "new"}`}
+            mode={state.mode}
+            id={state.id}
+            readOnly={state.readOnly}
+            open
+            onClose={onClose}
+            onSaved={onSaved}
+            onOpenRecord={openRecord}
+          />
         )}
       />
       <ConfirmDialog

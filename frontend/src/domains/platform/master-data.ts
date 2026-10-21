@@ -1,8 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
+import { fallbackFileName, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import type { components } from "@/lib/api/generated/schema";
 import type { NumberSequenceScheme } from "@/domains/platform/number-sequence-format";
 
@@ -344,6 +345,98 @@ export function useUnarchiveReportDefinition() {
       if (error) throw error;
     },
   });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Report definitions: template commands (design 50, "Report-definition operations")
+
+export type ReportRenderingStatus = Schemas["OpenTms.Platform.ReportDefinitions.ReportRenderingStatusDto"];
+
+/* Under the list's root, so a save or a copy (which invalidate ["masterData", "reportDefinitions"]) refetches it. */
+const renderingStatusKey = (id: string | undefined) => platformMasterDataQueryKey(reportDefinitions.entity, "renderingStatus", id);
+
+/**
+ * Whether the definition can render, and its template at the provider (name, found, owned by the tenant's workspace).
+ * Edit mode only (an undefined id does not fetch). With the feature off or the provider not configured the server
+ * does not call the provider. A short staleTime: every refetch on window focus is one provider call.
+ */
+export function useReportRenderingStatus(id: string | undefined) {
+  return useQuery({
+    queryKey: renderingStatusKey(id),
+    enabled: id != null,
+    staleTime: 30 * 1000,
+    queryFn: async (): Promise<ReportRenderingStatus> => {
+      const { data, error } = await apiClient.GET("/api/platform/report-definition/{id}/rendering-status", { params: { path: { id: id! } } });
+      if (error) throw error;
+      return data ?? {};
+    },
+  });
+}
+
+/** The provider's editor URL for the definition's template (the caller opens it in a new tab). */
+export function useOpenReportTemplateEditor() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<string> => {
+      const { data, error } = await apiClient.POST("/api/platform/report-definition/{id}/template-editor", { params: { path: { id } } });
+      if (error) throw error;
+      if (!data?.url) throw new Error("The server returned no template editor URL.");
+      return data.url;
+    },
+  });
+}
+
+/** Copies the template into the tenant's workspace; the server creates and returns a new report definition. */
+export function useCopyReportTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<ReportDefinitionDto> => {
+      const { data, error } = await apiClient.POST("/api/platform/report-definition/{id}/copy-template", { params: { path: { id } } });
+      if (error) throw error;
+      return data as ReportDefinitionDto;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: platformMasterDataQueryKey(reportDefinitions.entity) }),
+  });
+}
+
+/**
+ * Renders a test document from the template's sample data (marked as a test, not billed) and downloads it under the
+ * server's file name, or `fallbackName` when the Content-Disposition header is not readable (see
+ * fileNameFromContentDisposition).
+ */
+export function useTestRenderReport() {
+  return useMutation({
+    mutationFn: async ({ id, fallbackName }: { id: string; fallbackName: string }): Promise<void> => {
+      const { data, error, response } = await apiClient.POST("/api/platform/report-definition/{id}/test-render", {
+        params: { path: { id } },
+        parseAs: "blob",
+      });
+      if (error) throw error;
+      const blob = data as Blob | undefined;
+      if (!blob) throw new Error("The server returned no document.");
+      const contentType = response.headers.get("Content-Type") ?? blob.type;
+      saveBlob(blob, fileNameFromContentDisposition(response.headers.get("Content-Disposition")) ?? fallbackFileName(fallbackName, contentType));
+    },
+  });
+}
+
+export type ReportTemplateCommand = "editTemplate" | "copyTemplate" | "testDocument";
+
+/**
+ * Why a template command cannot run for this definition (UI-PERM-005: business state), as a localization key, or
+ * undefined when it can. Missing permissions are not a reason: those commands are not rendered (UI-PERM-002). An
+ * unknown template (the provider did not answer: `templateFound` / `templateOwnedByWorkspace` null) blocks nothing;
+ * the server decides and its error shows.
+ */
+export function reportTemplateCommandBlock(command: ReportTemplateCommand, status: ReportRenderingStatus, isArchived: boolean): string | undefined {
+  if (!status.featureEnabled) return "Platform:RenderingFeatureOff";
+  if (!status.providerAvailable) return "Platform:RenderingUnavailableHint";
+  if (!status.providerConfigured) return "OpenTms.Platform:RenderingNotConfigured";
+  if (isArchived) return "OpenTms.Platform:ReportDefinitionArchived";
+  if (command === "editTemplate" && !status.supportsTemplateEditor) return "Platform:TemplateEditorNotSupported";
+  if (command === "copyTemplate" && !status.supportsTemplateCopy) return "Platform:TemplateCopyNotSupported";
+  if (status.templateFound === false) return "Platform:TemplateNotFoundHint";
+  if (command === "editTemplate" && status.templateOwnedByWorkspace === false) return "OpenTms.Platform:TemplateNotOwned";
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
