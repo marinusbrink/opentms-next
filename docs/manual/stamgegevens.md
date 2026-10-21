@@ -171,7 +171,8 @@ orderbevestiging of een factuur. Het scherm is opgebouwd als een e-mail, zoals i
   **Aan** leeg, dan gaat het bericht naar de ontvanger die bij het record hoort (bijvoorbeeld de
   klant van de factuur). Met **Stuur mij een kopie** krijgt de verzender zelf een kopie.
 - **Onderwerp** en **Inhoud** zijn verplicht. De inhoud bewerkt u zoals in een e-mailprogramma:
-  vet, cursief, koppen, lijsten, koppelingen. Met de knop voor de HTML-weergave ziet en wijzigt u
+  vet, cursief, koppen, lijsten, koppelingen en afbeeldingen (via een webadres; het bedrijfslogo is
+  `{{ company.logo_url }}`). Met de knop voor de HTML-weergave ziet en wijzigt u
   de HTML zelf, bijvoorbeeld voor een herhaling `{{ for … }}`.
 - Een nieuw sjabloon begint niet leeg: **Van** en **Antwoordadres** staan op het e-mailadres van uw
   eigen bedrijf (`{{ company.email }}`, voor factuurdoelen `{{ company.invoice_email }}`), en

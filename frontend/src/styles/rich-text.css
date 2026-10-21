@@ -57,3 +57,12 @@
 .rich-text-content pre {
   @apply p-2;
 }
+
+/* An image never widens the editor; a selected one (ProseMirror's node selection) shows the focus ring (UI-TOK-001). */
+.rich-text-content img {
+  @apply inline-block max-w-full;
+}
+
+.rich-text-content img.ProseMirror-selectednode {
+  @apply rounded-sm ring-2 ring-ring;
+}

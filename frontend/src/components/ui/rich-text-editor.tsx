@@ -10,6 +10,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Image as ImageIcon,
   Italic,
   Link as LinkIcon,
   List,
@@ -31,6 +32,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { isLosslessRoundTrip } from "@/components/ui/rich-text-fidelity";
+import { isAllowedImageSrc, RichTextImage } from "@/components/ui/rich-text-image";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
@@ -53,6 +55,8 @@ import { cn } from "@/lib/utils";
  *   a div, a class or style it does not know, a comment; rich-text-fidelity.ts) opens in the source view with a
  *   warning. Switching to the visual view stays possible; the warning stays while the value is lossy. The check runs on
  *   every value from outside and whenever the user switches back from the source view.
+ * - Images (rich-text-image.ts): inline `<img>` with src, alt, title, width and height as attributes; the toolbar
+ *   inserts one by URL. Only http(s), relative and Scriban (`{{ … }}`) sources are rendered; anything else is dropped.
  * - `transformOutput` rewrites what the visual view emits (e.g. HtmlBodyField un-escapes Scriban regions). It runs
  *   here, not in the caller's onChange, so the transformed value counts as an own edit and does not reset the
  *   editor. The source view emits the textarea's text as typed.
@@ -261,6 +265,90 @@ function LinkButton({ editor, active, disabled, idPrefix }: { editor: Editor; ac
   );
 }
 
+function ImageButton({ editor, disabled, idPrefix }: { editor: Editor; disabled: boolean; idPrefix: string }) {
+  const { t } = useL();
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [alt, setAlt] = useState("");
+  const urlId = `${idPrefix}-image-url`;
+  const altId = `${idPrefix}-image-alt`;
+  /* The same guard the node applies: a source it would not render is not inserted (the button stays disabled). */
+  const allowed = isAllowedImageSrc(url.trim());
+
+  const insert = () => {
+    if (!allowed) return;
+    const description = alt.trim();
+    editor
+      .chain()
+      .focus()
+      .setImage({ src: url.trim(), ...(description ? { alt: description } : {}) })
+      .run();
+    setOpen(false);
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setUrl("");
+          setAlt("");
+        }
+        setOpen(next);
+      }}
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button type="button" variant="ghost" size="icon-sm" aria-label={t("RichText:Image")} disabled={disabled} onMouseDown={(e) => e.preventDefault()} />
+              }
+            />
+          }
+        >
+          <ImageIcon aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>{t("RichText:Image")}</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="start" className="w-80 gap-3 p-3">
+        <FormField label={t("RichText:ImageUrl")} htmlFor={urlId} floating="always">
+          <Input
+            id={urlId}
+            value={url}
+            autoFocus
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                insert();
+              }
+            }}
+          />
+        </FormField>
+        <FormField label={t("RichText:ImageAlt")} htmlFor={altId} floating="always">
+          <Input
+            id={altId}
+            value={alt}
+            onChange={(e) => setAlt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                insert();
+              }
+            }}
+          />
+        </FormField>
+        <div className="flex justify-end gap-2">
+          <Button type="button" disabled={!allowed} onClick={insert}>
+            {t("RichText:InsertImage")}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function RichTextEditor({
   value,
   onChange,
@@ -303,6 +391,7 @@ export function RichTextEditor({
         link: { openOnClick: false, HTMLAttributes: { target: null, rel: null } },
       }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      RichTextImage,
       maxHtmlLength(() => maxLengthRef.current, htmlCache),
     ],
     [htmlCache],
@@ -481,6 +570,7 @@ export function RichTextEditor({
           <ToolButton label={t("RichText:BulletList")} icon={List} pressed={state.bulletList} disabled={tools} onClick={run((ed) => ed.chain().focus().toggleBulletList().run())} />
           <ToolButton label={t("RichText:OrderedList")} icon={ListOrdered} pressed={state.orderedList} disabled={tools} onClick={run((ed) => ed.chain().focus().toggleOrderedList().run())} />
           <LinkButton editor={editor} active={state.link} disabled={tools} idPrefix={id} />
+          <ImageButton editor={editor} disabled={tools} idPrefix={id} />
           <span aria-hidden className="mx-1 h-5 w-px bg-border" />
           <ToolButton label={t("RichText:AlignLeft")} icon={TextAlignStart} pressed={state.alignLeft} disabled={tools} onClick={run((ed) => ed.chain().focus().setTextAlign("left").run())} />
           <ToolButton label={t("RichText:AlignCenter")} icon={TextAlignCenter} pressed={state.alignCenter} disabled={tools} onClick={run((ed) => ed.chain().focus().setTextAlign("center").run())} />
