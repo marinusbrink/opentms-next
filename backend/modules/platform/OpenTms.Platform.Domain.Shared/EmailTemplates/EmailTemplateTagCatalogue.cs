@@ -91,7 +91,7 @@ public static class EmailTemplateTagCatalogue
         Values("purchase_order", [EmailTemplatePurpose.PurchaseOrder],
             "number", "date", "reference", "carrier", "total_amount", "currency", "type_name"),
         Values("driver", [EmailTemplatePurpose.DriverInstructions], "name", "email", "instructions_url"),
-        Collection("trips", "trip", [EmailTemplatePurpose.DriverInstructions],
+        Collection("trips", "planned_trip", [EmailTemplatePurpose.DriverInstructions],
             "number", "date", "vehicle", "first_stop", "last_stop"),
         Values("document", [EmailTemplatePurpose.DigitalArchive], "file_name", "document_type", "received_at"),
         Values("proforma", [EmailTemplatePurpose.ProformaOverview], "period_from", "period_till", "total_amount", "currency"),
@@ -137,7 +137,7 @@ public static class EmailTemplateTagCatalogue
     private static EmailTemplateTagGroup Values(string key, IReadOnlyList<EmailTemplatePurpose> purposes, params string[] paths)
         => new(key, purposes, paths.Select(p => new EmailTemplateTag(key + "." + p, EmailTemplateTagKind.Value, "{{ " + key + "." + p + " }}", [])).ToList());
 
-    /// <param name="item">The loop variable of the inserted block ("line", "trip", "order").</param>
+    /// <param name="item">The loop variable of the inserted block ("line", "planned_trip", "order"); never a group key of the same purpose, which it would hide inside the block.</param>
     private static EmailTemplateTagGroup Collection(string key, string item, IReadOnlyList<EmailTemplatePurpose> purposes, params string[] fields)
     {
         var children = fields.Select(f => new EmailTemplateTag(key + "." + f, EmailTemplateTagKind.Value, "{{ " + item + "." + f + " }}", [])).ToList();

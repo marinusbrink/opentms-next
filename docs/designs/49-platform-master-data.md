@@ -120,7 +120,8 @@ OpenTMS resolved `[Tag]` placeholders in three diverging ways (assessment §3.10
 Here **Platform owns one tag catalogue**, `EmailTemplateTagCatalogue` (`Domain.Shared`), served by
 `GET /api/platform/email-template/tags?purpose=` as localized groups, and shown in the editor. A tag is a Scriban
 path in snake_case (Scriban's default member naming), inserted as `{{ path }}`; a collection tag inserts a
-`{{ for item in path }} … {{ end }}` block. The module that sends the mail of a purpose builds the typed model that
+`{{ for item in path }} … {{ end }}` block. The loop variable (`line`, `planned_trip`, `order`) is never a group key of the
+same purpose: inside the block it would hide that group. The module that sends the mail of a purpose builds the typed model that
 exposes **every catalogued path of that purpose** (its run adds a contract test against the catalogue); a path the
 sender cannot fill renders empty, never fails.
 

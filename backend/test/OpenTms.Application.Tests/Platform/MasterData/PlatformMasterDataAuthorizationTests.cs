@@ -48,7 +48,37 @@ public class PlatformMasterDataAuthorizationTests
                 yield return [service.Name, "ArchiveAsync", update];
                 yield return [service.Name, "UnarchiveAsync", update];
             }
+
+            if (service == typeof(EmailTemplateAppService))
+            {
+                /* Editor support (design 49, "Tags and default content", PO 2026-10-20): reading the catalogue and the
+                 * defaults is viewing the list; both sit behind the Platform group and the EmailTemplates leaf (the
+                 * reflection theory below pins the chain, PlatformMasterDataFeatureGatingTests exercises it). */
+                yield return [service.Name, "GetTagsAsync", view];
+                yield return [service.Name, "GetDefaultsAsync", view];
+            }
         }
+    }
+
+    [Theory]
+    [InlineData("GetTagsAsync")]
+    [InlineData("GetDefaultsAsync")]
+    public void The_editor_support_methods_need_the_view_permission_the_Platform_group_and_the_EmailTemplates_leaf(string method)
+    {
+        /* A duplicate of what the theories above derive, spelled out: a later change that turns the tags or the defaults
+         * into a picker-style endpoint (app feature only, no permission) fails here by name. */
+        var info = typeof(EmailTemplateAppService).GetMethod(method, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+        info.ShouldNotBeNull(method);
+        info.GetCustomAttribute<AuthorizeAttribute>()!.Policy.ShouldBe(PlatformPermissions.MasterData.EmailTemplates.Default);
+
+        var feature = info.GetCustomAttribute<RequiresFeatureAttribute>();
+        feature.ShouldNotBeNull($"{method} is a screen method, not a picker");
+        feature.RequiresAll.ShouldBeTrue();
+        feature.Features.ShouldBe([AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.EmailTemplates], ignoreOrder: true);
+
+        /* The interface declares both, so the runtime gating theory (every interface method, leaf off / group off / app
+         * off through the production interceptor) covers them without a list to maintain. */
+        typeof(IEmailTemplateAppService).GetMethod(method).ShouldNotBeNull($"IEmailTemplateAppService.{method}");
     }
 
     private static readonly (Type Service, string View, string Create, string Update, string Delete, string Leaf)[] Services =
