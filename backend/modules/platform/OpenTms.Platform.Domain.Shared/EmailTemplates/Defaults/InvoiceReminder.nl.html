@@ -1,24 +1,8 @@
-<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
-    <p style="margin-bottom:15px;">Geachte {{ recipient.salutation }},</p>
-    <p style="margin-bottom:15px;">
-        Volgens onze administratie is factuur {{ invoice.number }} van {{ invoice.date }} met een openstaand bedrag van {{ invoice.currency }} {{ invoice.open_amount }} nog niet voldaan. De vervaldatum was {{ invoice.due_date }}.
-    </p>
-    <p style="margin-bottom:15px;">
-        Wij verzoeken u het openstaande bedrag binnen 7 dagen over te maken. Heeft u inmiddels betaald? Dan kunt u deze herinnering als niet verzonden beschouwen.
-    </p>
-    <p style="margin-bottom:15px;">
-        Heeft u een vraag over deze factuur? Stuur dan een e-mail naar {{ company.invoice_email }} of beantwoord dit e-mailbericht.
-    </p>
-    <p style="margin-bottom:15px;">
-        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
-    </p>
-    <p style="margin-bottom:15px;">
-        <b>{{ user.full_name }}<br />{{ company.name }}</b>
-    </p>
-    <p style="font-size:smaller;">
-        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
-    </p>
-    <p style="margin-top:30px;">
-        <img alt="Logo" src="{{ company.logo_url }}" width="200">
-    </p>
-</div>
+<p>Geachte {{ recipient.salutation }},</p>
+<p>Volgens onze administratie is factuur {{ invoice.number }} van {{ invoice.date }} met een openstaand bedrag van {{ invoice.currency }} {{ invoice.open_amount }} nog niet voldaan. De vervaldatum was {{ invoice.due_date }}.</p>
+<p>Wij verzoeken u het openstaande bedrag binnen 7 dagen over te maken. Heeft u inmiddels betaald? Dan kunt u deze herinnering als niet verzonden beschouwen.</p>
+<p>Heeft u een vraag over deze factuur? Stuur dan een e-mail naar {{ company.invoice_email }} of beantwoord dit e-mailbericht.</p>
+<p>Met vriendelijke groet,<br>Mit freundlichen Grüßen,<br>With kind regards,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

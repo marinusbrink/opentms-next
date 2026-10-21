@@ -1,24 +1,8 @@
-<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
-    <p style="margin-bottom:15px;">Dear {{ recipient.salutation }},</p>
-    <p style="margin-bottom:15px;">
-        Please find invoice {{ invoice.number }} from {{ company.name }} attached to this message.
-    </p>
-    <p style="margin-bottom:15px;">
-        If you have issued a direct debit authorization, you do not need to do anything. We will shortly collect the outstanding amount from your account number. Have you not issued a direct debit authorization? Then please kindly pay the invoice amount within the agreed payment period.
-    </p>
-    <p style="margin-bottom:15px;">
-        Do you have a question about this invoice? Then send an e-mail to {{ company.invoice_email }} or reply to this e-mail message.
-    </p>
-    <p style="margin-bottom:15px;">
-        With kind regards,<br />Mit freundlichen Grüßen,<br />Met vriendelijke groet,
-    </p>
-    <p style="margin-bottom:15px;">
-        <b>{{ user.full_name }}<br />{{ company.name }}</b>
-    </p>
-    <p style="font-size:smaller;">
-        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
-    </p>
-    <p style="margin-top:30px;">
-        <img alt="Logo" src="{{ company.logo_url }}" width="200">
-    </p>
-</div>
+<p>Dear {{ recipient.salutation }},</p>
+<p>Please find invoice {{ invoice.number }} from {{ company.name }} attached to this message.</p>
+<p>If you have issued a direct debit authorization, you do not need to do anything. We will shortly collect the outstanding amount from your account number. Have you not issued a direct debit authorization? Then please kindly pay the invoice amount within the agreed payment period.</p>
+<p>Do you have a question about this invoice? Then send an e-mail to {{ company.invoice_email }} or reply to this e-mail message.</p>
+<p>With kind regards,<br>Mit freundlichen Grüßen,<br>Met vriendelijke groet,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

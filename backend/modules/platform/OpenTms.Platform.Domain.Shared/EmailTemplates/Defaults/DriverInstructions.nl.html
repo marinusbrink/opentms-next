@@ -1,31 +1,9 @@
-<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
-    <p style="margin-bottom:15px;">Beste {{ driver.name }},</p>
-    <p style="margin-bottom:15px;">
-        Hierbij ontvang je het overzicht van jouw ingeplande ritten. Via onderstaande link kun je alle details bekijken:<br /><br />
-        <a href="{{ driver.instructions_url }}">{{ driver.instructions_url }}</a>
-    </p>
-    <p style="margin-bottom:15px;">In het overzicht vind je per rit onder andere:</p>
-    <ul>
-        <li>Datum en geplande tijden</li>
-        <li>Laad- en loslocaties</li>
-        <li>Voertuig en eventuele bijzonderheden</li>
-    </ul>
-    <p style="margin-bottom:15px;">
-        👉 Controleer de planning zorgvuldig.<br /><br />
-        Klopt er iets niet of heb je vragen over (één van) de ritten? Neem dan zo snel mogelijk contact op met de planning.
-        Let op: dit is altijd de meest actuele informatie. De link wordt automatisch bijgewerkt wanneer er iets verandert in de rit.<br /><br />
-        Goede rit morgen en alvast bedankt!
-    </p>
-    <p style="margin-bottom:15px;">
-        Met vriendelijke groet,<br />Mit freundlichen Grüßen,<br />With kind regards,
-    </p>
-    <p style="margin-bottom:15px;">
-        <b>{{ user.full_name }}<br />{{ company.name }}</b>
-    </p>
-    <p style="font-size:smaller;">
-        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
-    </p>
-    <p style="margin-top:30px;">
-        <img alt="Logo" src="{{ company.logo_url }}" width="200">
-    </p>
-</div>
+<p>Beste {{ driver.name }},</p>
+<p>Hierbij ontvang je het overzicht van jouw ingeplande ritten. Via onderstaande link kun je alle details bekijken:<br><br> <a href="{{ driver.instructions_url }}">{{ driver.instructions_url }}</a></p>
+<p>In het overzicht vind je per rit onder andere:</p>
+<ul><li>Datum en geplande tijden</li><li>Laad- en loslocaties</li><li>Voertuig en eventuele bijzonderheden</li></ul>
+<p>👉 Controleer de planning zorgvuldig.<br><br> Klopt er iets niet of heb je vragen over (één van) de ritten? Neem dan zo snel mogelijk contact op met de planning. Let op: dit is altijd de meest actuele informatie. De link wordt automatisch bijgewerkt wanneer er iets verandert in de rit.<br><br> Goede rit morgen en alvast bedankt!</p>
+<p>Met vriendelijke groet,<br>Mit freundlichen Grüßen,<br>With kind regards,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>
