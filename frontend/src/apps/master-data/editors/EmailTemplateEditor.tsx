@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, type MutableRefObject } from "react";
 import { TriangleAlert } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,6 +70,27 @@ interface Values {
 
 /** The fields the Tags panel can insert into. */
 type InsertTarget = "senderAddress" | "replyTo" | "to" | "cc" | "bcc" | "subject" | "htmlBody";
+
+interface CaretRestore {
+  field: InputTarget;
+  /** The value the input must show before the caret is placed. */
+  value: string;
+  caret: number;
+}
+
+/** Puts the caret behind an inserted tag after the commit that wrote the new value into the controlled input. */
+function RestoreCaret({ inputs, pending }: { inputs: MutableRefObject<Partial<Record<InputTarget, HTMLInputElement | null>>>; pending: MutableRefObject<CaretRestore | null> }) {
+  useLayoutEffect(() => {
+    const wanted = pending.current;
+    if (!wanted) return;
+    const input = inputs.current[wanted.field];
+    if (input && input.value === wanted.value) {
+      input.setSelectionRange(wanted.caret, wanted.caret);
+      pending.current = null;
+    }
+  });
+  return null;
+}
 type InputTarget = Exclude<InsertTarget, "htmlBody">;
 
 /** The fields the purpose's defaults fill (the DTO members of the same name). */
@@ -172,6 +193,7 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
   const target = useRef<InsertTarget>("htmlBody");
   const inputs = useRef<Partial<Record<InputTarget, HTMLInputElement | null>>>({});
   const body = useRef<RichTextEditorHandle | null>(null);
+  const caretRestore = useRef<CaretRestore | null>(null);
 
   const insertTag = useCallback((snippet: string) => {
     if (!snippet) return;
@@ -188,11 +210,10 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
     const next = input.value.slice(0, start) + snippet + input.value.slice(end);
     /* As the input's own maxLength: a too-long edit is refused, silently. */
     if (next.length > INPUT_MAX_LENGTH[field]) return;
-    /* The caret first, on the element (the controlled value catches up with the same text and leaves it alone). */
+    /* The value goes through the form (a direct write would be undone by React's next commit of the stale value);
+     * the caret is put behind the tag by RestoreCaret once the committed value is the new text. */
     input.focus();
-    input.value = next;
-    const caret = start + snippet.length;
-    input.setSelectionRange(caret, caret);
+    caretRestore.current = { field, value: next, caret: start + snippet.length };
     edited.current.add(field);
     setPending({ key: ++changeCounter, update: (values) => ({ ...values, [field]: next }) });
   }, []);
@@ -340,6 +361,7 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
                 </div>
               </div>
             </FormSection>
+            <RestoreCaret inputs={inputs} pending={caretRestore} />
             {!form.readOnly && <EmailTemplateTagsPanel purpose={form.values.purpose} onInsert={insertTag} className="lg:w-1/3 lg:shrink-0 lg:self-start" />}
           </div>
         );

@@ -84,6 +84,8 @@ const LOSSLESS: [string, string][] = [
   ["blockquote", "<blockquote><p>Quoted</p></blockquote>"],
   ["&nbsp;", "<p>Total:&nbsp;{{ invoice.total }}</p>"],
   ["{{ if }} … {{ end }} around paragraphs", "{{ if invoice.overdue }}<p>Your invoice is overdue.</p>{{ end }}<p>Regards</p>"],
+  /* Lossless since 2026-10-21: the editor keeps inline images (rich-text-image.ts). */
+  ["an image", '<p><img src="https://example.com/logo.png" alt="Logo"></p>'],
 ];
 
 const LOSSY: [string, string][] = [
@@ -92,7 +94,6 @@ const LOSSY: [string, string][] = [
   ["a span with a style", '<p><span style="color: #c00">Red</span> text</p>'],
   ["a class", '<p class="lead">Intro</p>'],
   ["a font element", '<p><font color="red">Old</font></p>'],
-  ["an image", '<p><img src="https://example.com/logo.png" alt="Logo"></p>'],
   ["an Outlook conditional comment", "<!--[if mso]><p>Outlook only</p><![endif]--><p>Everyone</p>"],
   ["a full document with a style block and bgcolor", '<html><head><style>p { color: #333; }</style></head><body bgcolor="#ffffff"><p>Hello</p></body></html>'],
 ];
@@ -101,8 +102,20 @@ const CASES = [...LOSSLESS.map(([name, html]) => [name, html, "lossless"] as con
 
 describe("the builder's cases through the real editor", () => {
   it("has the cases", () => {
-    expect(LOSSLESS).toHaveLength(15);
-    expect(LOSSY).toHaveLength(8);
+    expect(LOSSLESS).toHaveLength(16);
+    expect(LOSSY).toHaveLength(7);
+  });
+
+  it("the default bodies' logo line round-trips byte for byte: an inline image with a Scriban source, alt and width", () => {
+    const html = '<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>';
+    render(<RichTextEditor id="probe" value={html} onChange={vi.fn()} />);
+    const control = document.getElementById("probe")!;
+    expect(control).toHaveAttribute("contenteditable", "true");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(editorOf(control).getHTML()).toBe(html);
+    /* The content image (ProseMirror adds src-less separator images around an inline leaf node). */
+    expect(control.querySelector("img[src]")).toHaveAttribute("src", "{{ company.logo_url }}");
+    expect(control.querySelector("img[src]")).toHaveAttribute("width", "200");
   });
 
   it.each(CASES)("%s → %s", (_name, html, verdict) => {

@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { StrictMode, Suspense, lazy, useState } from "react";
+import { StrictMode, Suspense, createRef, lazy, useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 /* RichTextEditor (component map GAP-08, PO 2026-10-18: Tiptap), the HTML body control of the e-mail template
@@ -15,7 +15,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
 
-import { RichTextEditor, type RichTextEditorProps } from "@/components/ui/rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle, type RichTextEditorProps } from "@/components/ui/rich-text-editor";
+import { isAllowedImageSrc } from "@/components/ui/rich-text-image";
 import { editorOf, installProseMirrorDomStubs, positionIn, rangeOf, selectAll, selectRange, typeAtEnd, typeVisually } from "./rich-text-test-helpers";
 
 beforeAll(installProseMirrorDomStubs);
@@ -37,6 +38,7 @@ const TOOLBAR_LABELS = [
   "RichText:BulletList",
   "RichText:OrderedList",
   "RichText:Link",
+  "RichText:Image",
   "RichText:AlignLeft",
   "RichText:AlignCenter",
   "RichText:AlignRight",
@@ -55,6 +57,8 @@ const tool = (label: string) => within(toolbar()).getByRole("button", { name: la
 const warning = () => screen.queryByRole("status");
 const lastEmitted = (spy: ReturnType<typeof vi.fn>) => spy.mock.calls.at(-1)?.[0] as string | undefined;
 const openTooltips = () => Array.from(document.querySelectorAll("[data-slot=tooltip-content][data-open]")).map((el) => el.textContent);
+/** The images that are content: ProseMirror adds src-less `img.ProseMirror-separator` helpers around inline leaf nodes. */
+const contentImages = () => Array.from(document.querySelectorAll("img")).filter((img) => !img.classList.contains("ProseMirror-separator"));
 
 function renderEditor(props: Partial<RichTextEditorProps> = {}) {
   const onChange = vi.fn();
@@ -384,28 +388,328 @@ describe("RichTextEditor — untrusted HTML (Critical)", () => {
   const HOSTILE =
     '<p>Hi</p><script>window.__pwned = 1</script><img src="x" onerror="window.__pwned = 2"><p onclick="window.__pwned = 3"><a href="javascript:window.__pwned = 4">click</a></p>';
 
+  /* Images are kept since 2026-10-21 (rich-text-image.ts): an <img> may be live, but only with an allowed source and
+   * never with an event handler. */
   const expectNothingLive = () => {
     expect(document.querySelectorAll("script")).toHaveLength(0);
-    expect(document.querySelectorAll("img")).toHaveLength(0);
-    expect(document.querySelectorAll("[onerror], [onclick]")).toHaveLength(0);
+    expect(document.querySelectorAll("[onerror], [onclick], [onload], [onmouseover]")).toHaveLength(0);
+    for (const img of contentImages()) {
+      expect(isAllowedImageSrc(img.getAttribute("src"))).toBe(true);
+      expect(Array.from(img.attributes).map((a) => a.name).filter((name) => name.startsWith("on"))).toEqual([]);
+    }
     for (const anchor of Array.from(document.querySelectorAll("a"))) expect(anchor.getAttribute("href") ?? "").not.toMatch(/^\s*javascript:/i);
     expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
   };
 
-  it("script, event handlers, images and javascript: links in a value never reach the live document in the visual view", () => {
+  it("script, event handlers and javascript: links in a value never reach the live document in the visual view; the image stays, without its handler", () => {
     renderEditor({ value: HOSTILE, preserveUnsupportedMarkup: false });
     expect(control()).toHaveTextContent("Hi");
     expectNothingLive();
+    const images = contentImages();
+    expect(images.map((img) => img.getAttribute("src"))).toEqual(["x"]);
+    expect(images[0]).not.toHaveAttribute("onerror");
   });
 
   it("the same value opens as text in the source view (with the warning), and switching to the visual view still renders none of it", () => {
     renderEditor({ value: HOSTILE });
     expect(warning()).not.toBeNull();
     expect(control()).toHaveValue(HOSTILE);
+    expect(contentImages()).toHaveLength(0);
     expectNothingLive();
     fireEvent.click(tool("RichText:SourceView"));
     expect(isVisual()).toBe(true);
     expectNothingLive();
+    expect(contentImages()).toHaveLength(1);
+  });
+});
+
+describe("RichTextEditor — images (Critical: an image source is a URL the recipient's or the author's browser fetches)", () => {
+  const FORBIDDEN: [string, string][] = [
+    ["javascript:", "javascript:window.__pwned = 5"],
+    ["JAVAscript: with a leading space", " JAVAscript:window.__pwned = 6"],
+    ["java\\nscript: (a control character inside the scheme)", "java\nscript:window.__pwned = 7"],
+    ["data:image/png;base64", "data:image/png;base64,iVBORw0KGgo="],
+    ["vbscript:", "vbscript:MsgBox"],
+  ];
+  const ALLOWED: [string, string][] = [
+    ["a Scriban expression", "{{ company.logo_url }}"],
+    ["https", "https://cdn.example.com/logo.png"],
+    ["http", "http://cdn.example.com/logo.png"],
+    ["a relative URL", "/images/logo.png"],
+  ];
+  const imageHtml = (src: string) => `<p>Logo <img src="${src}" alt="Logo" onerror="window.__pwned = 8"> here</p>`;
+
+  it.each([
+    ["javascript:x", false],
+    [" JAVAscript:x", false],
+    ["java\nscript:x", false],
+    ["java\tscript:x", false],
+    ["\u0001javascript:x", false],
+    ["data:image/png;base64,AAAA", false],
+    ["vbscript:x", false],
+    ["file:///etc/passwd", false],
+    ["", false],
+    [null, false],
+    [undefined, false],
+    ["   ", false],
+    ["{{ company.logo_url }}", true],
+    ["https://cdn.example.com/logo.png", true],
+    ["HTTPS://cdn.example.com/logo.png", true],
+    ["http://cdn.example.com/logo.png", true],
+    ["//cdn.example.com/logo.png", true],
+    ["/images/logo.png", true],
+    ["logo.png", true],
+  ])("isAllowedImageSrc(%j) is %s", (src, allowed) => {
+    expect(isAllowedImageSrc(src)).toBe(allowed);
+  });
+
+  it.each(FORBIDDEN)("an image with a %s source never reaches the live document: in the visual view, and after the source view opened it", (_name, src) => {
+    const first = renderEditor({ value: imageHtml(src), preserveUnsupportedMarkup: false });
+    expect(control()).toHaveTextContent("Logo here");
+    expect(contentImages()).toHaveLength(0);
+    expect(document.querySelectorAll("[onerror]")).toHaveLength(0);
+    /* The value emitted after an edit carries no such image either. */
+    typeAtEnd(control(), "!");
+    expect(lastEmitted(first.onChange)).not.toMatch(/<img/);
+    first.unmount();
+
+    const { onChange } = renderEditor({ value: imageHtml(src) });
+    /* Dropped at parse time, so the value is lossy: it opens as text, with the warning. */
+    expect(control().tagName).toBe("TEXTAREA");
+    expect(warning()).not.toBeNull();
+    expect(contentImages()).toHaveLength(0);
+    fireEvent.click(tool("RichText:SourceView"));
+    expect(isVisual()).toBe(true);
+    expect(contentImages()).toHaveLength(0);
+    expect(onChange).not.toHaveBeenCalled();
+    expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
+  });
+
+  it.each(ALLOWED)("an image with %s is rendered with its source untouched and without the handler", (_name, src) => {
+    renderEditor({ value: imageHtml(src), preserveUnsupportedMarkup: false });
+    const images = contentImages();
+    expect(images).toHaveLength(1);
+    expect(images[0].getAttribute("src")).toBe(src);
+    expect(images[0].getAttribute("alt")).toBe("Logo");
+    expect(images[0]).not.toHaveAttribute("onerror");
+    expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
+  });
+
+  it("the toolbar inserts an image by address with its description, inline at the cursor", async () => {
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>See</p>" onChange={onChange} />);
+    act(() => {
+      editorOf(control()).commands.focus("end");
+    });
+    fireEvent.click(tool("RichText:Image"));
+    const url = await screen.findByLabelText("RichText:ImageUrl");
+    const insert = screen.getByRole("button", { name: "RichText:InsertImage" });
+    expect(insert).toBeDisabled();
+    fireEvent.change(url, { target: { value: " https://cdn.example.com/logo.png " } });
+    expect(insert).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("RichText:ImageAlt"), { target: { value: " Logo " } });
+    fireEvent.click(insert);
+    expect(lastEmitted(onChange)).toBe('<p>See<img src="https://cdn.example.com/logo.png" alt="Logo"></p>');
+    expect(contentImages().map((img) => img.getAttribute("src"))).toEqual(["https://cdn.example.com/logo.png"]);
+    await waitFor(() => expect(screen.queryByLabelText("RichText:ImageUrl")).toBeNull());
+  });
+
+  it("Enter in the address field inserts; a Scriban address is accepted; without a description there is no alt", async () => {
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>See</p>" onChange={onChange} />);
+    act(() => {
+      editorOf(control()).commands.focus("end");
+    });
+    fireEvent.click(tool("RichText:Image"));
+    const url = await screen.findByLabelText("RichText:ImageUrl");
+    fireEvent.change(url, { target: { value: "{{ company.logo_url }}" } });
+    fireEvent.keyDown(url, { key: "Enter" });
+    expect(lastEmitted(onChange)).toBe('<p>See<img src="{{ company.logo_url }}"></p>');
+  });
+
+  it("Critical: a forbidden address cannot be inserted: Insert stays disabled, Enter does nothing, no image appears", async () => {
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>See</p>" onChange={onChange} />);
+    act(() => {
+      editorOf(control()).commands.focus("end");
+    });
+    fireEvent.click(tool("RichText:Image"));
+    const url = await screen.findByLabelText("RichText:ImageUrl");
+    for (const [, src] of FORBIDDEN) {
+      fireEvent.change(url, { target: { value: src } });
+      expect(screen.getByRole("button", { name: "RichText:InsertImage" })).toBeDisabled();
+      fireEvent.keyDown(url, { key: "Enter" });
+      fireEvent.click(screen.getByRole("button", { name: "RichText:InsertImage" }));
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    expect(contentImages()).toHaveLength(0);
+    expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
+    /* The popover is still open: the user can correct the address. */
+    expect(screen.getByLabelText("RichText:ImageUrl")).toBeInTheDocument();
+  });
+
+  it("read-only and the source view disable the image button", () => {
+    renderEditor({ readOnly: true });
+    expect(tool("RichText:Image")).toBeDisabled();
+  });
+});
+
+describe("RichTextEditor — the ref handle: insertText and focus (the e-mail template's Tags panel, PO 2026-10-20)", () => {
+  /* Risk class: Medium (UI component). "Literal text" below guards the same property as the Critical "untrusted HTML"
+   * tests above: text handed to insertText is never parsed as HTML, so no markup, script or handler can enter the
+   * document through an insert. */
+  const handle = () => {
+    const ref = createRef<RichTextEditorHandle>();
+    return ref;
+  };
+  const insert = (ref: React.RefObject<RichTextEditorHandle | null>, text: string) =>
+    act(() => {
+      ref.current!.insertText(text);
+    });
+  const cursorToEnd = () =>
+    act(() => {
+      editorOf(control()).commands.focus("end");
+    });
+
+  it("visual view: inserts at the cursor as literal text and emits the HTML like typing; {{ }} and tags stay text", () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>Hello</p>" onChange={onChange} ref={ref} />);
+    expect(ref.current).not.toBeNull();
+    cursorToEnd();
+    insert(ref, "{{ company.email }}");
+    expect(lastEmitted(onChange)).toBe("<p>Hello{{ company.email }}</p>");
+    expect(control()).toHaveTextContent("Hello{{ company.email }}");
+
+    insert(ref, "<b>x</b>");
+    expect(lastEmitted(onChange)).toBe("<p>Hello{{ company.email }}&lt;b&gt;x&lt;/b&gt;</p>");
+    expect(control().querySelector("b")).toBeNull();
+    expect(control()).toHaveTextContent("Hello{{ company.email }}<b>x</b>");
+
+    insert(ref, '<img src="x" onerror="window.__pwned = 1"><script>window.__pwned = 2</script>');
+    expect(document.querySelectorAll("img, script, [onerror]")).toHaveLength(0);
+    expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined();
+    expect(lastEmitted(onChange)).toContain("&lt;img src=\"x\" onerror=\"window.__pwned = 1\"&gt;&lt;script&gt;");
+    /* An insert is an own edit: the parent passing the value back does not reset the editor, and it can be undone. */
+    expect(tool("RichText:Undo")).toBeEnabled();
+    expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
+  it("visual view: a line break becomes a hard break; a selection is replaced; the editor is focused afterwards", async () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>Hello world</p>" onChange={onChange} ref={ref} />);
+    cursorToEnd();
+    insert(ref, "{{ for line in freight }}\n{{ line.product }}\n\n{{ end }}");
+    expect(lastEmitted(onChange)).toBe("<p>Hello world{{ for line in freight }}<br>{{ line.product }}<br><br>{{ end }}</p>");
+    expect(control().querySelectorAll("br")).toHaveLength(3);
+
+    selectRange(control(), ...rangeOf(control(), "Hello"));
+    /* jsdom cannot focus a contenteditable and Tiptap focuses on the next frame: the call on the editable is the proof. */
+    const focusSpy = vi.spyOn(control(), "focus");
+    insert(ref, "Hi");
+    expect(lastEmitted(onChange)).toBe("<p>Hi world{{ for line in freight }}<br>{{ line.product }}<br><br>{{ end }}</p>");
+    await waitFor(() => expect(focusSpy).toHaveBeenCalled());
+  });
+
+  it("visual view: an empty text or only line breaks of nothing insert nothing", () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>Hello</p>" onChange={onChange} ref={ref} />);
+    cursorToEnd();
+    insert(ref, "");
+    expect(onChange).not.toHaveBeenCalled();
+    insert(ref, "\n");
+    expect(lastEmitted(onChange)).toBe("<p>Hello<br></p>");
+  });
+
+  it("visual view: transformOutput applies to an insert as it does to typing", () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>a</p>" onChange={onChange} transformOutput={(html) => html.replace(/&gt;/g, ">")} ref={ref} />);
+    cursorToEnd();
+    insert(ref, " {{ if x > y }}");
+    expect(lastEmitted(onChange)).toBe("<p>a {{ if x > y }}</p>");
+  });
+
+  it("source view: inserts at the textarea's caret, emits as typed, moves the caret behind the text and focuses the textarea", () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>Hi {{ name }}</p>" onChange={onChange} ref={ref} />);
+    fireEvent.click(tool("RichText:SourceView"));
+    const textarea = control() as HTMLTextAreaElement;
+    textarea.setSelectionRange(3, 3);
+    insert(ref, "<b>");
+    expect(onChange).toHaveBeenLastCalledWith("<p><b>Hi {{ name }}</p>");
+    expect(textarea).toHaveValue("<p><b>Hi {{ name }}</p>");
+    expect(textarea.selectionStart).toBe(6);
+    expect(textarea.selectionEnd).toBe(6);
+    expect(document.activeElement).toBe(textarea);
+
+    /* A selection is replaced; the parent's value coming back does not move the caret. */
+    textarea.setSelectionRange(6, 8);
+    insert(ref, "Hey");
+    expect(onChange).toHaveBeenLastCalledWith("<p><b>Hey {{ name }}</p>");
+    expect(textarea.selectionStart).toBe(9);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("read-only: insertText is a no-op in both views; disabled too", () => {
+    const ref = handle();
+    const { onChange } = renderEditor({ readOnly: true, ref });
+    cursorToEnd();
+    insert(ref, "{{ x }}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(control()).toHaveTextContent("Hello world");
+    fireEvent.click(tool("RichText:SourceView"));
+    insert(ref, "{{ x }}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(control()).toHaveValue("<p>Hello world</p>");
+
+    const disabledRef = handle();
+    const disabled = render(<RichTextEditor id="other" value="<p>Off</p>" onChange={onChange} disabled ref={disabledRef} />);
+    act(() => {
+      disabledRef.current!.insertText("{{ x }}");
+    });
+    expect(onChange).not.toHaveBeenCalled();
+    disabled.unmount();
+  });
+
+  it("maxLength: an insert that would make the HTML longer is refused in both views; a fitting one is taken", () => {
+    const ref = handle();
+    const onChange = vi.fn();
+    render(<Controlled initial="<p>Hello</p>" onChange={onChange} maxLength={15} ref={ref} />);
+    cursorToEnd();
+    insert(ref, " world");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(control().textContent).toBe("Hello");
+    insert(ref, "!");
+    expect(onChange).toHaveBeenLastCalledWith("<p>Hello!</p>");
+
+    fireEvent.click(tool("RichText:SourceView"));
+    const textarea = control() as HTMLTextAreaElement;
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    insert(ref, "<br>");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(textarea).toHaveValue("<p>Hello!</p>");
+    insert(ref, "!");
+    expect(onChange).toHaveBeenLastCalledWith("<p>Hello!</p>!");
+  });
+
+  it("focus() focuses the editable of the open view", async () => {
+    const ref = handle();
+    renderEditor({ ref });
+    const focusSpy = vi.spyOn(control(), "focus");
+    act(() => {
+      ref.current!.focus();
+    });
+    await waitFor(() => expect(focusSpy).toHaveBeenCalled());
+    fireEvent.click(tool("RichText:SourceView"));
+    expect(document.activeElement).not.toBe(control());
+    act(() => {
+      ref.current!.focus();
+    });
+    expect(document.activeElement).toBe(control());
   });
 });
 

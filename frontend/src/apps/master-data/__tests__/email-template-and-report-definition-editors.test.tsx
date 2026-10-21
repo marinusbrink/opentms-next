@@ -14,8 +14,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  * configured cultures, Scriban parsing). */
 
 let culture = "en";
+/* The keys that take a value carry {0}, so the tests see the value the editor puts in. */
+const TAKES_VALUE = new Set(["Platform:EmailTemplateDefaultsFailed"]);
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
-  useL: () => ({ t: (k: string) => (k.endsWith("Question") ? `${k} {0}` : k), culture, isLoading: false }),
+  useL: () => ({ t: (k: string) => (k.endsWith("Question") || TAKES_VALUE.has(k) ? `${k} {0}` : k), culture, isLoading: false }),
 }));
 
 let grants: Record<string, boolean> = {};
@@ -43,6 +45,7 @@ import { HtmlBodyField } from "@/apps/master-data/components/HtmlBodyField";
 import { EmailTemplateEditor } from "@/apps/master-data/editors/EmailTemplateEditor";
 import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
 import { installProseMirrorDomStubs, typeAtEnd } from "@/components/ui/__tests__/rich-text-test-helpers";
+import { DEFAULTS, TAG_GROUPS, defaultsKey, deferred } from "./email-template-test-fixtures";
 import {
   checkbox,
   editorDialog,
@@ -136,17 +139,29 @@ const REPORT = {
 let template: Record<string, unknown> = TEMPLATE;
 let report: Record<string, unknown> = REPORT;
 
+const DEFAULTS_PATH = "/api/platform/email-template/defaults";
+const TAGS_PATH = "/api/platform/email-template/tags";
+/* The editor-support endpoints (PO 2026-10-20): by default no defaults (the fields stay empty, as before) and no tags. */
+let defaultsFor: (query: Record<string, unknown> | undefined) => unknown;
+let tagGroups: unknown;
+
 beforeEach(() => {
   culture = "en";
   grants = {};
   template = TEMPLATE;
   report = REPORT;
-  GET.mockReset().mockImplementation(async (path) => {
+  defaultsFor = () => ok({});
+  tagGroups = [];
+  GET.mockReset().mockImplementation(async (path, init) => {
     switch (path) {
       case "/api/platform/email-template/{id}":
         return ok(template);
       case "/api/platform/report-definition/{id}":
         return ok(report);
+      case DEFAULTS_PATH:
+        return defaultsFor(init?.params?.query);
+      case TAGS_PATH:
+        return ok(tagGroups);
       default:
         return ok([]);
     }
@@ -530,6 +545,386 @@ describe("EmailTemplateEditor — read-only, delete", () => {
     expect(within(confirm).getByText(/Orderbevestiging/)).toBeInTheDocument();
     fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(DELETE).toHaveBeenCalledWith("/api/platform/email-template/{id}", { params: { path: { id: "et1" } } }));
+  });
+});
+
+/* ── E-mail template: default content and the Tags panel (PO 2026-10-20) ──────────────────────── */
+
+const defaultsRequests = () => GET.mock.calls.filter(([p]) => p === DEFAULTS_PATH).map(([, init]) => init?.params?.query);
+const tagsRequests = () => GET.mock.calls.filter(([p]) => p === TAGS_PATH).map(([, init]) => init?.params?.query);
+const tagsPanel = () => panel(GENERAL).querySelector<HTMLElement>("[data-slot=email-template-tags]");
+/** The row of a tag in the panel, by its monospace path. */
+const tagRow = (path: string) => (within(tagsPanel()!).getByText(path, { selector: "code" }).closest("button") as HTMLButtonElement | null)!;
+const mailFields = () => ({
+  from: fieldIn(GENERAL, "Platform:From").value,
+  replyTo: fieldIn(GENERAL, "Platform:ReplyTo").value,
+  subject: fieldIn(GENERAL, "Platform:Subject").value,
+});
+const expectDefaultsShown = async (key: string) => {
+  const expected = DEFAULTS[key];
+  await waitFor(() => expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue(expected.subject));
+  expect(mailFields()).toEqual({ from: expected.senderAddress, replyTo: expected.replyTo, subject: expected.subject });
+  await waitFor(async () => expect((await bodyEditor()).textContent).toBe(expected.htmlBody!.replace(/<[^>]+>/g, "")));
+};
+const changePurpose = (value: string) => fireEvent.change(fieldIn(GENERAL, "Platform:Purpose"), { target: { value } });
+const changeLanguage = (value: string) => fireEvent.change(fieldIn(GENERAL, "Platform:Culture"), { target: { value } });
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+describe("EmailTemplateEditor — a new template starts from the purpose's defaults", () => {
+  beforeEach(() => {
+    defaultsFor = (query) => ok(DEFAULTS[defaultsKey(query)] ?? {});
+  });
+
+  it("on open, From, Reply-to, Subject and the body hold the defaults of the first purpose for all languages (asked without a culture)", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    expect(defaultsRequests()).toEqual([{ purpose: 1, culture: undefined }]);
+    /* The other fields are not defaulted. */
+    expect(fieldIn(GENERAL, "Platform:To")).toHaveValue("");
+    expect(fieldIn(GENERAL, "Platform:Cc")).toHaveValue("");
+    expect(fieldIn(GENERAL, "Platform:Bcc")).toHaveValue("");
+    expect(fieldIn(GENERAL, "Platform:Name")).toHaveValue("");
+  });
+
+  it("changing the purpose fetches that purpose's defaults and replaces every untouched field", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    changePurpose("3");
+    await expectDefaultsShown("3:");
+    expect(defaultsRequests()).toEqual([
+      { purpose: 1, culture: undefined },
+      { purpose: 3, culture: undefined },
+    ]);
+  });
+
+  it("a field the user typed in is never overwritten: Subject typed and the body typed stay, From and Reply-to follow the new purpose", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    typeIn(GENERAL, "Platform:Subject", "My own subject");
+    typeAtEnd(await bodyEditor(), " PS: typed");
+    changePurpose("3");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.invoice_email }}"));
+    expect(fieldIn(GENERAL, "Platform:ReplyTo")).toHaveValue("{{ company.invoice_email }}");
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("My own subject");
+    expect((await bodyEditor()).textContent).toBe("Dear {{ recipient.salutation }}, we confirm order {{ order.number }}. PS: typed");
+    /* Back to the first purpose: the typed fields still stay. */
+    changePurpose("1");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.email }}"));
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("My own subject");
+    expect((await bodyEditor()).textContent).toContain("PS: typed");
+  });
+
+  it("a cleared field counts as typed: it stays empty when the purpose changes", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    typeIn(GENERAL, "Platform:ReplyTo", "");
+    changePurpose("3");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.invoice_email }}"));
+    expect(fieldIn(GENERAL, "Platform:ReplyTo")).toHaveValue("");
+  });
+
+  it("changing the language fetches the defaults for that culture (nl, en) and none for All languages", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    changeLanguage("nl");
+    await expectDefaultsShown("1:nl");
+    changeLanguage("en");
+    await expectDefaultsShown("1:en");
+    changeLanguage("all");
+    await expectDefaultsShown("1:");
+    expect(defaultsRequests()).toEqual([
+      { purpose: 1, culture: undefined },
+      { purpose: 1, culture: "nl" },
+      { purpose: 1, culture: "en" },
+      /* All languages again: served from the cache, not asked again. */
+    ]);
+  });
+
+  it("a late response for a previous purpose never applies: the first request resolving after the second changes nothing", async () => {
+    const pending = new Map<string, ReturnType<typeof deferred<unknown>>>();
+    defaultsFor = (query) => {
+      const response = deferred<unknown>();
+      pending.set(defaultsKey(query), response);
+      return response.promise;
+    };
+    renderTemplate();
+    await bodyEditor();
+    await waitFor(() => expect(pending.has("1:")).toBe(true));
+    expect(mailFields()).toEqual({ from: "", replyTo: "", subject: "" });
+
+    changePurpose("3");
+    await waitFor(() => expect(pending.has("3:")).toBe(true));
+    await act(async () => {
+      pending.get("3:")!.resolve(ok(DEFAULTS["3:"]));
+    });
+    await expectDefaultsShown("3:");
+
+    await act(async () => {
+      pending.get("1:")!.resolve(ok(DEFAULTS["1:"]));
+    });
+    await settle();
+    expect(mailFields()).toEqual({ from: DEFAULTS["3:"].senderAddress, replyTo: DEFAULTS["3:"].replyTo, subject: DEFAULTS["3:"].subject });
+    expect((await bodyEditor()).textContent).toBe("Please find invoice {{ invoice.number }} attached.");
+    expect(fieldIn(GENERAL, "Platform:Purpose")).toHaveValue("3");
+  });
+
+  it("the POST carries the defaults as they are when the user only typed a name", async () => {
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    typeIn(GENERAL, "Platform:Name", "Order confirmation");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template")).toEqual({
+      name: "Order confirmation",
+      purpose: 1,
+      culture: null,
+      isDefault: false,
+      senderAddress: "{{ company.email }}",
+      replyTo: "{{ company.email }}",
+      to: null,
+      cc: null,
+      bcc: null,
+      sendCopyToSender: false,
+      subject: "Order {{ order.number }} confirmed",
+      htmlBody: "<p>Dear {{ recipient.salutation }}, we confirm order {{ order.number }}.</p>",
+      description: null,
+    });
+  });
+
+  it("the defaults are the baseline: opening and closing without typing asks nothing (UI-FORM-009); after typing, Close asks", async () => {
+    const onClose = vi.fn();
+    renderTemplate({ onClose });
+    await expectDefaultsShown("1:");
+    /* The test's t() gives "…Question {0}": match the key, not the exact text. */
+    fireEvent.click(within(editorDialog()).getAllByRole("button", { name: "Close" })[0]);
+    expect(screen.queryByText(/DiscardChangesQuestion/)).toBeNull();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+
+    typeIn(GENERAL, "Platform:Subject", "Changed");
+    fireEvent.click(within(editorDialog()).getAllByRole("button", { name: "Close" })[0]);
+    expect(await screen.findByText(/DiscardChangesQuestion/)).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("edit mode asks for no defaults and fills nothing: an empty Reply-to stays empty", async () => {
+    renderTemplate({ mode: "edit", id: "et1" });
+    await loadedTemplate();
+    await waitFor(async () => expect(await bodyEditor()).toHaveTextContent("Beste klant"));
+    await settle();
+    expect(defaultsRequests()).toEqual([]);
+    expect(fieldIn(GENERAL, "Platform:ReplyTo")).toHaveValue("");
+    expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("planning@example.com");
+    changePurpose("3");
+    await settle();
+    expect(defaultsRequests()).toEqual([]);
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("Uw order {{ order.number }}");
+  });
+
+  it("read-only create asks for no defaults either", async () => {
+    renderTemplate({ readOnly: true });
+    await bodyEditor();
+    await settle();
+    expect(defaultsRequests()).toEqual([]);
+  });
+
+  it("a failed defaults request shows a warning with the API's message; the fields stay empty and the form still saves", async () => {
+    defaultsFor = () => ({ data: undefined, error: { error: { message: "Catalogue unavailable" } }, response: new Response(null, { status: 500 }) });
+    renderTemplate();
+    const notice = await within(panel(GENERAL)).findByRole("status");
+    expect(notice).toHaveTextContent("Platform:EmailTemplateDefaultsFailed Catalogue unavailable");
+    expect(notice).toHaveAttribute("data-slot", "alert");
+    expect(mailFields()).toEqual({ from: "", replyTo: "", subject: "" });
+    expect(ribbonButton("Save")).not.toBeNull();
+
+    await fillMinimalTemplate();
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template").subject).toBe("Your order");
+  });
+});
+
+describe("EmailTemplateEditor — the Tags panel and inserting", () => {
+  beforeEach(() => {
+    tagGroups = TAG_GROUPS;
+  });
+
+  it("the panel is there for create and edit, follows the purpose, and is not rendered in read-only mode", async () => {
+    renderTemplate();
+    await bodyEditor();
+    await waitFor(() => expect(tagsPanel()).not.toBeNull());
+    await waitFor(() => expect(tagRow("company.email")).not.toBeNull());
+    expect(tagsRequests()).toEqual([{ purpose: 1 }]);
+    changePurpose("3");
+    await waitFor(() => expect(tagsRequests()).toEqual([{ purpose: 1 }, { purpose: 3 }]));
+  });
+
+  it("read-only: no Tags panel and no tags request", async () => {
+    renderTemplate({ mode: "edit", id: "et1", readOnly: true });
+    await loadedTemplate();
+    await settle();
+    expect(tagsPanel()).toBeNull();
+    expect(tagsRequests()).toEqual([]);
+  });
+
+  it("with Subject focused, a tag goes in at the caret (a selection is replaced), the field keeps the focus, and Subject counts as typed from then on", async () => {
+    defaultsFor = (query) => ok(DEFAULTS[defaultsKey(query)] ?? {});
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    await waitFor(() => expect(tagRow("order.reference")).not.toBeNull());
+
+    const subject = fieldIn(GENERAL, "Platform:Subject");
+    act(() => subject.focus());
+    typeIn(GENERAL, "Platform:Subject", "Order  confirmed");
+    subject.setSelectionRange(6, 6);
+    fireEvent.click(tagRow("order.reference"));
+    expect(subject).toHaveValue("Order {{ order.reference }} confirmed");
+    expect(document.activeElement).toBe(subject);
+
+    /* A second tag replaces a selection. */
+    subject.setSelectionRange(0, 5);
+    fireEvent.click(tagRow("company.name"));
+    expect(subject).toHaveValue("{{ company.name }} {{ order.reference }} confirmed");
+
+    changePurpose("3");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.invoice_email }}"));
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("{{ company.name }} {{ order.reference }} confirmed");
+  });
+
+  it("after a tag went into Subject, the caret sits right behind the tag (typing continues there, not at the end of the field)", async () => {
+    /* FINDING 2026-10-21 (test engineer): fails on the committed code. insertTag writes the new text and the caret
+     * into the input, then hands the change to MasterDataEditor through `applyValues`; React's very next commit still
+     * carries the stale form value and writes it back into the input (caret to its end), and only the applyValues
+     * effect's commit writes the new text (caret to ITS end). Probed with a wrapped value setter: writes were
+     * "Order {{ order.number }} confirmed", "Order  confirmed", "Order {{ order.number }} confirmed"; final caret 34.
+     * The user sees the tag inserted where the caret was, but continues typing at the end of the field. */
+    renderTemplate();
+    await bodyEditor();
+    await waitFor(() => expect(tagRow("order.reference")).not.toBeNull());
+    const subject = fieldIn(GENERAL, "Platform:Subject");
+    act(() => subject.focus());
+    typeIn(GENERAL, "Platform:Subject", "Order  confirmed");
+    subject.setSelectionRange(6, 6);
+    fireEvent.click(tagRow("order.reference"));
+    expect(subject).toHaveValue("Order {{ order.reference }} confirmed");
+    expect(subject.selectionStart).toBe(6 + "{{ order.reference }}".length);
+    expect(subject.selectionEnd).toBe(subject.selectionStart);
+  });
+
+  it("an untouched field that received a tag counts as typed too: From keeps the inserted tag when the purpose changes", async () => {
+    defaultsFor = (query) => ok(DEFAULTS[defaultsKey(query)] ?? {});
+    renderTemplate();
+    await expectDefaultsShown("1:");
+    await waitFor(() => expect(tagRow("company.name")).not.toBeNull());
+    const from = fieldIn(GENERAL, "Platform:From");
+    act(() => from.focus());
+    from.setSelectionRange(from.value.length, from.value.length);
+    fireEvent.click(tagRow("company.name"));
+    expect(from).toHaveValue("{{ company.email }}{{ company.name }}");
+    changePurpose("3");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:ReplyTo")).toHaveValue("{{ company.invoice_email }}"));
+    expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.email }}{{ company.name }}");
+  });
+
+  it("with nothing focused, a tag goes into the body as literal text and the body counts as typed; it is posted as HTML", async () => {
+    renderTemplate();
+    const body = await bodyEditor();
+    await waitFor(() => expect(tagRow("company.email")).not.toBeNull());
+    fireEvent.click(tagRow("company.email"));
+    expect(body).toHaveTextContent("{{ company.email }}");
+    expect(body.querySelector("b, img, script")).toBeNull();
+
+    /* The body is edited now: a purpose with defaults leaves it alone and fills From. */
+    defaultsFor = (query) => ok(DEFAULTS[defaultsKey(query)] ?? {});
+    changePurpose("3");
+    await waitFor(() => expect(fieldIn(GENERAL, "Platform:From")).toHaveValue("{{ company.invoice_email }}"));
+    expect(fieldIn(GENERAL, "Platform:Subject")).toHaveValue("Invoice {{ invoice.number }}");
+    expect(body.textContent).toBe("{{ company.email }}");
+
+    typeIn(GENERAL, "Platform:Name", "T");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody("/api/platform/email-template").htmlBody).toBe("<p>{{ company.email }}</p>");
+  });
+
+  it("a collection row inserts its loop block (lines as hard breaks in the visual view); a child inserts its own snippet, in the source view at the caret", async () => {
+    renderTemplate();
+    const body = await bodyEditor();
+    await waitFor(() => expect(tagRow("freight")).not.toBeNull());
+    fireEvent.click(tagRow("freight"));
+    expect(body.querySelectorAll("br")).toHaveLength(3);
+    expect(body.textContent).toBe("{{ for line in freight }}{{ line.product }}{{ line.quantity }}{{ end }}");
+
+    fireEvent.click(sourceToggle());
+    const source = fieldIn(GENERAL, "Platform:HtmlBody");
+    expect(source.tagName).toBe("TEXTAREA");
+    expect(source).toHaveValue("<p>{{ for line in freight }}<br>{{ line.product }}<br>{{ line.quantity }}<br>{{ end }}</p>");
+
+    const at = source.value.indexOf("<br>{{ end }}");
+    source.setSelectionRange(at, at);
+    fireEvent.click(tagRow("freight.product"));
+    expect(source).toHaveValue("<p>{{ for line in freight }}<br>{{ line.product }}<br>{{ line.quantity }}{{ line.product }}<br>{{ end }}</p>");
+    expect(source.selectionStart).toBe(at + "{{ line.product }}".length);
+    expect(document.activeElement).toBe(source);
+  });
+
+  it("the body stays the target after its toolbar was used, and a field focused later takes over", async () => {
+    renderTemplate();
+    const body = await bodyEditor();
+    await waitFor(() => expect(tagRow("order.number")).not.toBeNull());
+    const subject = fieldIn(GENERAL, "Platform:Subject");
+    act(() => subject.focus());
+    fireEvent.click(tagRow("order.number"));
+    expect(subject).toHaveValue("{{ order.number }}");
+    expect(body.textContent).toBe("");
+
+    /* Focus moves into the body control: the next tag goes there. */
+    act(() => body.focus());
+    fireEvent.focusIn(body);
+    fireEvent.click(tagRow("order.number"));
+    expect(body).toHaveTextContent("{{ order.number }}");
+    expect(subject).toHaveValue("{{ order.number }}");
+  });
+
+  it("Enter on a focused tag row inserts (the row is a native button of type button inside the form) and never saves", async () => {
+    renderTemplate();
+    const body = await bodyEditor();
+    await waitFor(() => expect(tagRow("company.name")).not.toBeNull());
+    const target = tagRow("company.name");
+    expect(target).toHaveAttribute("type", "button");
+    expect(target.closest("form")).toBe(editorDialog().querySelector("form"));
+    act(() => target.focus());
+    expect(document.activeElement).toBe(target);
+    /* jsdom has no activation behaviour: Enter on a focused button is the browser's click. */
+    fireEvent.keyDown(target, { key: "Enter" });
+    fireEvent.click(target);
+    expect(body).toHaveTextContent("{{ company.name }}");
+    await settle();
+    expect(POST).not.toHaveBeenCalled();
+  });
+
+  it("an insert that would exceed the input's maximum length is refused, silently; a fitting one is taken", async () => {
+    renderTemplate();
+    await bodyEditor();
+    await waitFor(() => expect(tagRow("order.number")).not.toBeNull());
+    const subject = fieldIn(GENERAL, "Platform:Subject");
+    expect(subject).toHaveAttribute("maxlength", "512");
+    act(() => subject.focus());
+    const almostFull = "s".repeat(500);
+    typeIn(GENERAL, "Platform:Subject", almostFull);
+    subject.setSelectionRange(10, 10);
+    fireEvent.click(tagRow("order.number"));
+    expect(subject).toHaveValue(almostFull);
+    expect(subject.selectionStart).toBe(10);
+
+    /* 494 + the 18 characters of the tag = exactly the limit. */
+    typeIn(GENERAL, "Platform:Subject", "s".repeat(494));
+    subject.setSelectionRange(494, 494);
+    fireEvent.click(tagRow("order.number"));
+    expect(subject).toHaveValue("s".repeat(494) + "{{ order.number }}");
+    expect(subject.value).toHaveLength(512);
   });
 });
 

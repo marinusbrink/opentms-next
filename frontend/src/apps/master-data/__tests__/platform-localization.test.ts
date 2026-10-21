@@ -33,8 +33,23 @@ const FILES = [
   "apps/master-data/views/DocumentTypesView.tsx",
   "apps/master-data/views/NumberSequencesView.tsx",
   "apps/master-data/components/HtmlBodyField.tsx",
+  /* The Tags panel of the e-mail template editor (PO 2026-10-20). */
+  "apps/master-data/components/EmailTemplateTagsPanel.tsx",
   /* The RichTextEditor's toolbar, link popover and warning texts live in the Platform resource. */
   "components/ui/rich-text-editor.tsx",
+];
+
+/* The keys the Tags panel and the default content added (PO 2026-10-20): listed by name, so a renamed key is caught
+ * even if the scan above misses it. */
+const TAGS_AND_DEFAULTS_KEYS = [
+  "Platform:Tags",
+  "Platform:FilterTags",
+  "Platform:TagsHint",
+  "Platform:InsertTag",
+  "Platform:NoTags",
+  "Platform:NoTagsMatch",
+  "Platform:RetryTags",
+  "Platform:EmailTemplateDefaultsFailed",
 ];
 
 const ENTITIES = ["EmailTemplate", "ReportDefinition", "DocumentType", "NumberSequence"];
@@ -68,6 +83,13 @@ describe("Platform master-data localization (design 49)", () => {
     expect(keys).toContain("Platform:NumberSequenceInUseCannotDelete");
     expect(keys).toContain("RichText:UnsupportedMarkupNotice");
     expect(keys).toContain("RichText:SourceView");
+    for (const key of TAGS_AND_DEFAULTS_KEYS) expect(keys).toContain(key);
+  });
+
+  it.each(["en", "nl"])("the Tags panel and default-content keys have a text in %s.json; the group and panel toggles' bare keys too", (lang) => {
+    const resource = texts(lang);
+    const missing = [...TAGS_AND_DEFAULTS_KEYS, "Expand", "Collapse", "UnexpectedError"].filter((key) => !(resource[key] ?? "").trim());
+    expect(missing, `missing in ${lang}.json`).toEqual([]);
   });
 
   it.each(["en", "nl"])("every key has a non-empty text in %s.json", (lang) => {
@@ -78,7 +100,7 @@ describe("Platform master-data localization (design 49)", () => {
 
   it.each(["en", "nl"])("the texts that take a value have the {0} placeholder in %s.json", (lang) => {
     const resource = texts(lang);
-    const withValue = [...ENTITIES.map((e) => `Platform:Delete${e}Question`), "Platform:ExampleLabel"];
+    const withValue = [...ENTITIES.map((e) => `Platform:Delete${e}Question`), "Platform:ExampleLabel", "Platform:EmailTemplateDefaultsFailed"];
     for (const key of withValue) expect(resource[key], key).toContain("{0}");
   });
 
