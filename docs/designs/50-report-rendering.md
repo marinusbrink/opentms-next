@@ -157,6 +157,25 @@ builds a complete sample JSON from the catalogue (used when a template has no sa
 that print a purpose produce exactly this shape (their runs add a contract test against the catalogue). The
 catalogue is developer-facing: it has no screen in this run.
 
+Built from the OpenTMS request DTOs and entity creators: `ReportDataCatalogue.FieldsFor(purpose)` (flattened
+`ReportDataField` list: dot path with `[]` for array elements, type, description, sample), `SampleFor(purpose)` and
+`Validate(purpose, json)` (the contract check: unknown fields, wrong JSON kinds or formats, wrong `EntityType`; nulls
+and missing fields allowed). Each OpenTMS class is defined once as a fragment and composed, so a relation looks the
+same wherever it appears; `Vehicle.DefaultSecondaryVehicle`/`DefaultThirdVehicle` (always null in OpenTMS) are
+catalogued as objects without children. **OpenTMS quirks kept for compatibility:** `Invoice.NetPrice` is the total
+*including* VAT (TotalPrice + VatPrice); the transport-unit balance keeps the `GetSingleOutput` wrapper
+(`Entity.Entity.…`, `EntityType` ``GetSingleOutput`1``); `InvoiceType.InvoiceNumberCreationOption` and `Vehicle.FuelType`
+are text, every other enum an integer; `FileDate` is a `yyyy-MM-dd` string while `PurchaseOrder.OrderDate` and
+`TripOverview[].FileDate` are full date-times; `TransportUnitTransaction.SourceLocation`/`DestinationLocation` repeat
+the source/destination relation; `TransportFile.TransportFileType` and `OrganizationUnit` are listed although OpenTMS
+never filled them; `CompanyLogo` is a `data:image/png;base64,…` URL as OpenTMS stored it. **Not reproduced in the
+samples, documented in the field descriptions:** `FreightItems[].OrderNumber` was always 1 on the order path (the
+sample numbers 1, 2; a producer should number sequentially), `IncomingInvoices[].Id` was the empty GUID on the
+transport-file path, and `OrderCustomProperty0-9` on freight were null on the order path (the sample fills them).
+Samples fill every field (except the two recursion stops) with consistent Dutch data; collections have two elements,
+except where OpenTMS derived them (`Revenue`, `FreightItemsByLeg`: one group of two goods). Field counts:
+TransportOrderConfirmation 1,817; TransportFile 3,890; Invoice 874; PurchaseOrder 309; TransportUnitBalance 611.
+
 ## UI design
 
 Report definition editor ribbon, in a group *Template*: **Edit template** (opens the provider's editor in a new tab),
