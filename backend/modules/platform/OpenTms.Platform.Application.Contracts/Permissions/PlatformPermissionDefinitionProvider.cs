@@ -42,6 +42,10 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
             list.AddChild(delete, L($"Permission:{entity}.Delete"), bothSides);
         }
 
+        /* Report templates at the rendering provider (design 50): open the editor, copy a template. */
+        context.GetPermissionOrNull(PlatformPermissions.MasterData.ReportDefinitions.Default)!
+            .AddChild(PlatformPermissions.MasterData.ReportDefinitions.EditTemplate, L("Permission:ReportDefinitions.EditTemplate"), bothSides);
+
         var users = group.AddPermission(
             PlatformPermissions.Administration.Users.Default,
             L("Permission:Administration.Users"),

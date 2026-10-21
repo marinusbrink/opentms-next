@@ -54,6 +54,29 @@ works-on-my-machine antidote: facts, not preferences.
   then, for each name that belongs to a deleted tenant only:
   `DROP DATABASE "<name>" WITH (FORCE); DROP ROLE "<name>";`
 
+## Report rendering (pdfgeneratorapi.com)
+
+The report definition commands (edit template, copy template, test document; design 50) call
+pdfgeneratorapi.com with FiLogic's account. `appsettings.json` of the host holds only the base URL and the workspace
+names (`Integrations:PdfGeneratorApi`); the key and the secret never go into an appsettings file, the database or the
+repository. Without them the commands are disabled ("not configured") and the `pdfgeneratorapi` check in Maintenance →
+Health reports Degraded; nothing else depends on them.
+
+To render locally, put the key and secret you were given in the host's user secrets (stored outside the repository,
+in `~/.microsoft/usersecrets/opentms-next-httpapi-host/`; loaded in the Development environment only):
+
+```bash
+cd backend/src/OpenTms.HttpApi.Host
+dotnet user-secrets set "Integrations:PdfGeneratorApi:Key" "<api key>"
+dotnet user-secrets set "Integrations:PdfGeneratorApi:Secret" "<api secret>"
+dotnet user-secrets list   # check; never paste the output anywhere
+```
+
+Other environments set them as environment variables `Integrations__PdfGeneratorApi__Key` and
+`Integrations__PdfGeneratorApi__Secret`, injected from Secret Manager. **Do not copy the values from the OpenTMS
+repository**: they are the production credentials in plain text there and are to be rotated after the cut-over.
+Then switch the feature `Platform.DocumentRendering` on in the tenant's edition (Tenants app → Editions → Features).
+
 ## Demo master data
 
 `scripts/seed-demo-masterdata.sh <tenant-name>` fills one **empty** local tenant with a large,

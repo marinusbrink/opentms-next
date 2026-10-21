@@ -77,6 +77,12 @@ public class OpenTmsHttpApiModule : AbpModule
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }
+
+            /* Document rendering (docs/designs/50-report-rendering.md): each code carries its own status. */
+            foreach (var (code, status) in PlatformErrorCodes.DocumentRenderingCodes)
+            {
+                options.Map(code, status);
+            }
         });
     }
 

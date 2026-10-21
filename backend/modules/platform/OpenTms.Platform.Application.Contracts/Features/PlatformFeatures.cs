@@ -7,4 +7,11 @@ namespace OpenTms.Platform.Features;
 public static class PlatformFeatures
 {
     public const string GroupName = "Platform";
+
+    /// <summary>
+    /// Document rendering through a rendering provider (design 50): every provider call per tenant, off until the
+    /// deployment holds the provider's key and secret and the tenant is switched on (constitution rule 4). Defined in
+    /// Platform, not Integrations, because Platform's renderer checks it and Platform references no domain module.
+    /// </summary>
+    public const string DocumentRendering = GroupName + ".DocumentRendering";
 }

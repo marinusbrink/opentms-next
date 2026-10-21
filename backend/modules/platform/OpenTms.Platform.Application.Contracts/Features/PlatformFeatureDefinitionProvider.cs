@@ -60,6 +60,11 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(auditLogs, AppFeatures.Administration.AuditLogs.FunctionalLogbook);
         On(auditLogs, AppFeatures.Administration.AuditLogs.TechnicalLogbook);
         Off(administration, AppFeatures.Administration.Maintenance);
+
+        /* Behaviour features, outside the app tree. Document rendering (design 50) is off by default: switched on per
+         * tenant or edition once the deployment holds the provider's key and secret. */
+        var platformGroup = context.AddGroup(PlatformFeatures.GroupName, L("Feature:" + PlatformFeatures.GroupName));
+        Off(platformGroup, PlatformFeatures.DocumentRendering);
     }
 
     private static FeatureDefinition On(FeatureGroupDefinition group, string name) => Add(group, name, "true");

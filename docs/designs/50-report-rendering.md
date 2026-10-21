@@ -31,7 +31,9 @@ in-house rendering (the abstraction allows it; a later design adds it).
 
 The provider account is FiLogic's, one for all tenants (PO 2026-10-21): host configuration, not tenant data. Each
 tenant works in its own provider workspace; the host works in the default workspace. Feature
-`Integrations.DocumentRendering` (default **off**) gates every provider call per tenant (constitution rule 4).
+`Platform.DocumentRendering` (default **off**) gates every provider call per tenant (constitution rule 4). The
+feature is defined in Platform, not Integrations, because Platform's renderer checks it and Platform references no
+domain module (CLAUDE.md, module boundary rule 4).
 
 ## Expected volumes
 
@@ -113,10 +115,13 @@ provider. Not an application service (no HTTP endpoint); consumers in later runs
   OpenTMS's numeric workspaces).
 - **Organization templates are read-only:** the editor is only opened for a template the tenant's workspace owns
   (`GET templates/{id}` → `owner`); for FiLogic's standard templates the command says "copy it first". This replaces
-  OpenTMS's hard-coded list of 13 template ids.
+  OpenTMS's hard-coded list of 13 template ids. The v4 reference documents `owner` on the items of `GET templates`,
+  not on `GET templates/{id}`: the adapter reads it from the single template when present, else from the list
+  filtered by the template's name; unknown counts as not owned.
 - **Resilience:** typed `HttpClient` from `IHttpClientFactory`, 30 s timeout, TLS validation on (OpenTMS switched it
   off), retry on 429 and 5xx up to 4 retries with 3, 6, 12, 24 s backoff (OpenTMS's schedule), no retry on other 4xx;
-  the provider's error text is surfaced as `Integrations:DocumentRenderingFailed`. Correlation id on the request.
+  the provider's error text is surfaced as Platform's `DocumentRenderingFailed` (the adapter throws Platform's codes
+  so the caller sees one set). Correlation id on the request.
 - **Configuration** (`Integrations:PdfGeneratorApi`): `BaseUrl`, `DefaultWorkspace`, `TenantWorkspace`, `Key`,
   `Secret`. Key and secret come from the deployment's secret store (environment variables injected from Secret
   Manager; `dotnet user-secrets` locally); never in a database, never in `appsettings*.json`, never returned by an
@@ -133,9 +138,12 @@ provider. Not an application service (no HTTP endpoint); consumers in later runs
 | `CopyTemplateAsync(id)` | `POST report-definition/{id}/copy-template` | `Platform.ReportDefinitions.EditTemplate` + `.Create` | copies the template into the tenant's workspace named "<name> (copy)", creates a new report definition with the same purpose, language, provider and file name pattern, not default, pointing at the new template; returns it |
 | `TestRenderAsync(id)` | `POST report-definition/{id}/test-render` | `Platform.ReportDefinitions` | renders with the template's sample data (else the catalogue sample), `testing: true`; returns the file (PDF) for download |
 
-All four require the screen's feature chain and `Integrations.DocumentRendering`. New permission
+All four require the screen's feature chain; the three commands also require `Platform.DocumentRendering`. The
+status needs only the screen's chain so it can report "feature off" as a reason; with the feature off it does not call
+the provider. New permission
 `Platform.ReportDefinitions.EditTemplate` (both sides, seeded for admin). New error codes: `RenderingNotConfigured`,
-`RenderingProviderUnavailable`, `TemplateNotOwned`, `TemplateNotFound`, `DocumentRenderingFailed`.
+`RenderingProviderUnavailable`, `TemplateNotOwned`, `TemplateNotFound`, `DocumentRenderingFailed`, and
+`ReportDefinitionArchived` for "refuses an archived one" (added in the build; HTTP 409, 503, 409, 404, 502 and 409).
 
 ### Report data catalogue (Platform `Domain.Shared/DocumentRendering`)
 
@@ -171,7 +179,7 @@ No live call in automated tests: the account is FiLogic's production account.
 
 ## Flag & rollout plan
 
-`Integrations.DocumentRendering` default off; switched on per tenant or edition once the deployment holds the key
+`Platform.DocumentRendering` default off; switched on per tenant or edition once the deployment holds the key
 and secret. Rollback: switch off.
 
 ## Cost & SLO impact

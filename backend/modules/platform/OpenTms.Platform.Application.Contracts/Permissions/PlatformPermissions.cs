@@ -51,6 +51,9 @@ public static class PlatformPermissions
             public const string Create = Default + ".Create";
             public const string Update = Default + ".Update";
             public const string Delete = Default + ".Delete";
+
+            /// <summary>Open the provider's template editor and copy a template (design 50).</summary>
+            public const string EditTemplate = Default + ".EditTemplate";
         }
 
         public static class DocumentTypes
