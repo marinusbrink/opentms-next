@@ -1,6 +1,7 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type Ref } from "react";
 
 import { FormField } from "@/components/ui/form-field";
+import type { RichTextEditorHandle } from "@/components/ui/rich-text-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { unescapeScribanRegions } from "@/apps/master-data/components/scriban-html";
 
@@ -9,7 +10,8 @@ import { unescapeScribanRegions } from "@/apps/master-data/components/scriban-ht
  * blocks editable, and a body the visual view cannot hold without loss opens there (preserveUnsupportedMarkup).
  * Scriban expressions typed in the visual view reach the server un-escaped (scriban-html.ts).
  * The editor is loaded lazily, so Tiptap is its own chunk and loads only when an e-mail template editor opens; the
- * skeleton has the editor's height, so the dialog does not jump. */
+ * skeleton has the editor's height, so the dialog does not jump. `editorRef` reaches the editor's handle (insertText,
+ * focus) for the Tags panel; it is null until the chunk has loaded. */
 
 const RichTextEditor = lazy(() => import("@/components/ui/rich-text-editor").then((m) => ({ default: m.RichTextEditor })));
 
@@ -27,9 +29,11 @@ export interface HtmlBodyFieldProps {
   required?: boolean;
   maxLength?: number;
   onBlur?: () => void;
+  /** The RichTextEditor's handle (insertText, focus). */
+  editorRef?: Ref<RichTextEditorHandle>;
 }
 
-export function HtmlBodyField({ value, onChange, readOnly, label, error, id, required, maxLength, onBlur }: HtmlBodyFieldProps) {
+export function HtmlBodyField({ value, onChange, readOnly, label, error, id, required, maxLength, onBlur, editorRef }: HtmlBodyFieldProps) {
   return (
     <Suspense
       fallback={
@@ -40,6 +44,7 @@ export function HtmlBodyField({ value, onChange, readOnly, label, error, id, req
     >
       <FormField label={label} htmlFor={id} required={required} error={error} floating="always">
         <RichTextEditor
+          ref={editorRef}
           id={id}
           aria-labelledby={`${id}-label`}
           value={value}

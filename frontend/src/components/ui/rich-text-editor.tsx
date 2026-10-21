@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type FocusEvent } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type FocusEvent, type Ref } from "react";
 import { EditorContent, Extension, getHTMLFromFragment, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Node as PmNode } from "@tiptap/pm/model";
@@ -55,7 +55,16 @@ import { cn } from "@/lib/utils";
  *   every value from outside and whenever the user switches back from the source view.
  * - `transformOutput` rewrites what the visual view emits (e.g. HtmlBodyField un-escapes Scriban regions). It runs
  *   here, not in the caller's onChange, so the transformed value counts as an own edit and does not reset the
- *   editor. The source view emits the textarea's text as typed. */
+ *   editor. The source view emits the textarea's text as typed.
+ * - `ref` (React 19: a prop) gives a RichTextEditorHandle: `insertText` puts text at the cursor as plain text, in the
+ *   view that is open (the e-mail template's Tags panel inserts `{{ … }}` with it; a tag is never parsed as HTML), and
+ *   `focus` focuses that view. An insert is an own edit: it emits onChange like typing, and respects `maxLength`. */
+
+export interface RichTextEditorHandle {
+  /** Inserts `text` at the cursor (replacing a selection) as plain text; line breaks become hard breaks in the visual view. */
+  insertText: (text: string) => void;
+  focus: () => void;
+}
 
 export interface RichTextEditorProps {
   /** The HTML. "" is an empty document. */
@@ -81,6 +90,7 @@ export interface RichTextEditorProps {
   preserveUnsupportedMarkup?: boolean;
   /** Rewrites the visual view's HTML before it is emitted. */
   transformOutput?: (html: string) => string;
+  ref?: Ref<RichTextEditorHandle>;
 }
 
 interface ToolState {
@@ -266,9 +276,11 @@ export function RichTextEditor({
   className,
   preserveUnsupportedMarkup = true,
   transformOutput,
+  ref,
 }: RichTextEditorProps) {
   const { t } = useL();
   const [sourceView, setSourceView] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   /* The current value cannot be shown in the visual view without loss. */
   const [lossy, setLossy] = useState(false);
   const editable = !readOnly && !disabled;
@@ -387,6 +399,44 @@ export function RichTextEditor({
     }),
   });
 
+  useImperativeHandle(
+    ref,
+    (): RichTextEditorHandle => ({
+      insertText: (text) => {
+        if (!editable) return;
+        const textarea = textareaRef.current;
+        if (sourceView) {
+          if (!textarea) return;
+          const start = textarea.selectionStart ?? textarea.value.length;
+          const end = textarea.selectionEnd ?? start;
+          const next = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+          /* As the textarea's own maxLength: a too-long edit is refused, silently. */
+          if (maxLengthRef.current != null && next.length > maxLengthRef.current) return;
+          textarea.focus();
+          textarea.value = next;
+          const caret = start + text.length;
+          textarea.setSelectionRange(caret, caret);
+          lastValue.current = next;
+          onChangeRef.current(next);
+          return;
+        }
+        if (editor.isDestroyed) return;
+        /* JSON content, never a string: a string would be parsed as HTML and a tag must stay literal text. */
+        const content = text.split("\n").flatMap((line, index) => [
+          ...(index > 0 ? [{ type: "hardBreak" }] : []),
+          ...(line ? [{ type: "text", text: line }] : []),
+        ]);
+        if (content.length === 0) return;
+        editor.chain().focus().insertContent(content).run();
+      },
+      focus: () => {
+        if (sourceView) textareaRef.current?.focus();
+        else if (!editor.isDestroyed) editor.commands.focus();
+      },
+    }),
+    [editable, editor, sourceView],
+  );
+
   const toggleSource = () => {
     if (sourceView) {
       /* Back to WYSIWYG: show the source as parsed, but leave the value as typed until the user edits here. */
@@ -453,6 +503,7 @@ export function RichTextEditor({
       )}
       {sourceView ? (
         <textarea
+          ref={textareaRef}
           id={id}
           value={value}
           maxLength={maxLength}

@@ -1,3 +1,5 @@
+import type { Ref } from "react";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -21,20 +23,26 @@ interface TextProps<TValues extends object> {
   disabled?: boolean;
   /** Localization key of a muted help text under the control. */
   hintKey?: string;
+  /** The input element, for a caller that inserts at its caret (the e-mail template's Tags panel). */
+  inputRef?: Ref<HTMLInputElement>;
+  /** The input received focus (the caller tracks the field last focused). */
+  onFocus?: () => void;
 }
 
-export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hintKey }: TextProps<TValues>) {
+export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hintKey, inputRef, onFocus }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
     <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hintKey ? t(hintKey) : undefined} className={className}>
       <Input
+        ref={inputRef}
         id={form.id(field)}
         value={value}
         maxLength={maxLength}
         disabled={form.readOnly || disabled}
         onChange={(e) => form.set(field, (upper ? e.target.value.toUpperCase() : e.target.value) as TValues[typeof field])}
         onBlur={() => form.blur(field)}
+        onFocus={onFocus}
       />
     </FormField>
   );

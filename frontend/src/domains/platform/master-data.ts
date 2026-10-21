@@ -249,6 +249,51 @@ export const MAX_EMAIL_ADDRESS_FIELD_LENGTH = 512;
 export const MAX_SUBJECT_LENGTH = 512;
 export const MAX_HTML_BODY_LENGTH = 200_000;
 
+export type EmailTemplateTagGroup = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateTagGroupDto"];
+export type EmailTemplateTag = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateTagDto"];
+export type EmailTemplateTagKind = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateTagKind"];
+export type EmailTemplateDefaults = Schemas["OpenTms.Platform.EmailTemplates.EmailTemplateDefaultsDto"];
+
+/** EmailTemplateTagKind: 1 Value, 2 Collection (a `{{ for … }}` block with children). */
+export const EMAIL_TEMPLATE_TAG_KIND_COLLECTION: EmailTemplateTagKind = 2;
+
+/* The tag catalogue and the default content are static per session (an embedded catalogue and embedded seed texts):
+ * a long staleTime, and their own query root so a save's invalidation of the list does not refetch them. */
+const EMAIL_TEMPLATE_CATALOGUE_STALE_TIME = 60 * 60 * 1000;
+
+/** The localized tag groups of a purpose (design 49, "Tags and default content"), shown in the editor's Tags panel. */
+export function useEmailTemplateTags(purpose: EmailTemplatePurpose, enabled = true) {
+  return useQuery({
+    queryKey: ["platform", "emailTemplateTags", purpose] as const,
+    enabled,
+    staleTime: EMAIL_TEMPLATE_CATALOGUE_STALE_TIME,
+    queryFn: async (): Promise<EmailTemplateTagGroup[]> => {
+      const { data, error } = await apiClient.GET("/api/platform/email-template/tags", { params: { query: { purpose } } });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+/**
+ * The default content of a new template for a purpose and language (null culture: the UI language). The editor applies
+ * it on create to the fields the user has not typed in.
+ */
+export function useEmailTemplateDefaults(purpose: EmailTemplatePurpose, culture: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["platform", "emailTemplateDefaults", purpose, culture ?? ""] as const,
+    enabled,
+    staleTime: EMAIL_TEMPLATE_CATALOGUE_STALE_TIME,
+    queryFn: async (): Promise<EmailTemplateDefaults> => {
+      const { data, error } = await apiClient.GET("/api/platform/email-template/defaults", {
+        params: { query: { purpose, culture: culture ?? undefined } },
+      });
+      if (error) throw error;
+      return data ?? {};
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Report definitions
 
