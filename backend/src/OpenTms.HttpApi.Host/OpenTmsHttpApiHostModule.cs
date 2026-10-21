@@ -346,6 +346,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
                             .ToArray() ?? Array.Empty<string>()
                     )
                     .WithAbpExposedHeaders()
+                    /* A downloaded file (a test document, design 50) keeps the server's file name across origins. */
+                    .WithExposedHeaders("Content-Disposition")
                     .SetIsOriginAllowedToAllowWildcardSubdomains()
                     .AllowAnyHeader()
                     .AllowAnyMethod()
