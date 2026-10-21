@@ -75,6 +75,8 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   badges?: ReactNode;
   /** An outside change to the values (a lookup's "Add new …" selecting the record it created): applied once per key. */
   applyValues?: { key: number; update: (values: TValues) => TValues };
+  /** EntityDialog's fixed full height, for a tab that keeps part of itself fixed and scrolls a region (UI-DLG-006). */
+  panelScroll?: boolean;
 }
 
 /** Empty strings become null, recursively, so dirty compares values and not touches (UI-FORM-009). */
@@ -112,6 +114,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   notice,
   badges,
   applyValues,
+  panelScroll,
 }: MasterDataEditorProps<TValues, TDto>) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -229,7 +232,9 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
         <Skeleton className="h-10 w-2/3" />
       </div>
     ) : (
-      <div className="flex flex-col gap-4">
+      /* h-full: the panel's height reaches the tab's content, so a tab can fill it and scroll a region of itself
+       * (UI-DLG-006); the alerts and the notice keep their own height, the content below them shrinks. */
+      <div className="flex h-full min-h-0 flex-col gap-4">
         {showsServerError && serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>
@@ -252,7 +257,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       hasError: tab.fields.some((field) => form.error(field) != null),
       content:
         index === 0 ? (
-          <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} noValidate>
+          <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} noValidate className="h-full min-h-0">
             {body(tab.render, true, tab.value === errorTab)}
             <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
           </form>
@@ -284,6 +289,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
         onActiveTabChange={setActiveTab}
         isDirty={isDirty}
         isBusy={isSaving || deleteRecord?.isPending === true}
+        panelScroll={panelScroll}
       />
       {deleteRecord && (
         <ConfirmDialog

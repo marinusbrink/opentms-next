@@ -106,6 +106,8 @@ taller than the screen scrolls inside a component: every tab panel scrolls its o
 a dialog without tabs scrolls its one content section, and a tab may keep part of itself fixed (a lines grid's totals,
 a tags panel's filter) and scroll only a region. Nothing scrolls horizontally: content fits the width (`min-w-0` on
 flex children). The dialog sizes to its content up to the viewport ceiling; `EntityDialog` does this for every editor.
+The body padding sits on the scrolling panel or section, so focus rings are never clipped and the scrollbar sits at
+the dialog's edge.
 - In `full` dialogs, a lines grid fills the remaining height instead of scrolling a panel.
 - **Check:** no `overflow-auto` on the popup or the body; every scrollbar inside an editor belongs to a panel or a
   section; a window-wide scrollbar on a tall tab is a blocker.

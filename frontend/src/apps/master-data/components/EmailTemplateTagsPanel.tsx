@@ -169,7 +169,13 @@ export function EmailTemplateTagsPanel({ purpose, onInsert, className }: EmailTe
     <section
       aria-labelledby={headingId}
       data-slot="email-template-tags"
-      className={cn("flex flex-col gap-3 rounded-lg border border-border-section bg-surface-section p-4", collapsed && "gap-0", className)}
+      /* UI-DLG-006: the caption, hint and filter stay fixed, only the groups list scrolls (when the editor gives the
+       * panel a height). Collapsed, the panel hugs its caption instead of standing as a tall empty card. */
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-border-section bg-surface-section p-4",
+        className,
+        collapsed && "gap-0 lg:h-auto lg:self-start",
+      )}
     >
       <div className="flex items-center gap-2">
         <h3 id={headingId} className={cn("min-w-0 flex-1", FORM_SECTION_CAPTION)}>
@@ -188,7 +194,7 @@ export function EmailTemplateTagsPanel({ purpose, onInsert, className }: EmailTe
         </Button>
       </div>
       {!collapsed && (
-        <div id={listId} className="flex min-h-0 flex-col gap-3">
+        <div id={listId} className="flex min-h-0 flex-1 flex-col gap-3">
           <p className="text-label text-muted-foreground">{t("Platform:TagsHint")}</p>
           <div className="relative">
             <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -223,7 +229,8 @@ export function EmailTemplateTagsPanel({ purpose, onInsert, className }: EmailTe
             <p className="px-1 text-sm text-muted-foreground">{needle ? t("Platform:NoTagsMatch") : t("Platform:NoTags")}</p>
           ) : (
             <TooltipProvider>
-              <ul className="flex max-h-96 flex-col gap-1 overflow-y-auto lg:max-h-none">
+              {/* -m-1 p-1: the rows' focus rings keep their room inside the scroll container. */}
+              <ul className="-m-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-1">
                 {groups.map((group) => (
                   <TagGroup key={group.group} group={group} forceOpen={needle.length > 0} onInsert={onInsert} insertLabel={insertLabel} />
                 ))}

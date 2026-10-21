@@ -280,8 +280,10 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
           },
         };
         return (
-          <div className="flex flex-col gap-4 lg:flex-row">
-            <FormSection title={t("Platform:EmailTemplate")} className="min-w-0 flex-1">
+          /* UI-DLG-006: side by side (lg) the tab takes the panel's full height and the form column and the Tags panel
+           * scroll on their own; stacked (narrow) the tab panel scrolls as a whole and neither is height-limited. */
+          <div className="flex flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-row">
+            <FormSection title={t("Platform:EmailTemplate")} className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto">
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <TextField form={typed} field="name" labelKey="Platform:Name" required maxLength={MAX_PLATFORM_NAME_LENGTH} />
                 <CheckboxField form={form} field="isDefault" labelKey="Platform:IsDefault" />
@@ -362,7 +364,7 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
               </div>
             </FormSection>
             <RestoreCaret inputs={inputs} pending={caretRestore} />
-            {!form.readOnly && <EmailTemplateTagsPanel purpose={form.values.purpose} onInsert={insertTag} className="lg:w-1/3 lg:shrink-0 lg:self-start" />}
+            {!form.readOnly && <EmailTemplateTagsPanel purpose={form.values.purpose} onInsert={insertTag} className="lg:h-full lg:min-h-0 lg:w-1/3 lg:shrink-0" />}
           </div>
         );
       },
@@ -389,6 +391,8 @@ export function EmailTemplateEditor({ mode, id, readOnly, open, onClose, onSaved
       tabs={tabs}
       notice={notice}
       applyValues={pending}
+      /* The body editor is tall: a fixed full-height dialog, the form column and the Tags panel scrolling inside it. */
+      panelScroll
       deleteRecord={mode === "edit" && canDelete ? remove : undefined}
     />
   );
