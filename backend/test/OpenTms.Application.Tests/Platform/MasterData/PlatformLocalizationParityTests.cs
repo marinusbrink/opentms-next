@@ -113,6 +113,68 @@ public class PlatformLocalizationParityTests
         texts[PlatformErrorCodes.TooManyRows].ShouldContain("{max}");
     }
 
+    // ── e-mail template tag catalogue and default content (design 49, "Tags and default content", PO 2026-10-20) ──
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
+    public void Every_tag_group_tag_label_tag_description_and_default_subject_has_a_non_empty_text(string culture)
+    {
+        var texts = Read(culture);
+        var expected = EmailTemplateTagCatalogue.AllLocalizationKeys().Concat(EmailTemplateDefaults.AllLocalizationKeys()).ToList();
+
+        expected.Count.ShouldBe(16 + 2 * 119 + 9, "16 group labels, label + description of 119 tags, 9 default subjects");
+        expected.Where(key => !texts.ContainsKey(key)).ShouldBeEmpty($"missing in {culture}.json");
+        expected.Where(key => string.IsNullOrWhiteSpace(texts[key])).ShouldBeEmpty($"empty in {culture}.json");
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
+    public void No_tag_or_default_subject_text_exists_beyond_the_catalogue(string culture)
+    {
+        /* A stray key is a tag the editor never offers (or a renamed path whose text was not moved along). */
+        var texts = Read(culture);
+        var expected = EmailTemplateTagCatalogue.AllLocalizationKeys().Concat(EmailTemplateDefaults.AllLocalizationKeys()).ToHashSet();
+        string[] prefixes = ["Platform:Tag.", "Platform:TagGroup.", "Platform:TagDescription.", "Platform:DefaultSubject."];
+
+        texts.Keys
+            .Where(key => prefixes.Any(prefix => key.StartsWith(prefix, StringComparison.Ordinal)))
+            .Where(key => !expected.Contains(key))
+            .ShouldBeEmpty($"stray keys in {culture}.json");
+    }
+
+    [Theory]
+    [InlineData("en", "Company", "Company name", "The name of your own company.", "Invoice lines", "{{ invoice.type_name }} {{ invoice.number }} of {{ company.name }}")]
+    [InlineData("nl", "Bedrijf", "Bedrijfsnaam", "De naam van uw eigen bedrijf.", "Factuurregels", "{{ invoice.type_name }} {{ invoice.number }} van {{ company.name }}")]
+    public void The_pinned_tag_texts_and_the_invoice_subject_read_as_the_PO_decided(string culture, string company, string companyName, string companyNameDescription, string invoiceLines, string invoiceSubject)
+    {
+        var texts = Read(culture);
+        texts[EmailTemplateTagCatalogue.GroupLabelKeyOf("company")].ShouldBe(company);
+        texts[EmailTemplateTagCatalogue.LabelKeyOf("company.name")].ShouldBe(companyName);
+        texts[EmailTemplateTagCatalogue.DescriptionKeyOf("company.name")].ShouldBe(companyNameDescription);
+        texts[EmailTemplateTagCatalogue.LabelKeyOf("invoice.lines")].ShouldBe(invoiceLines);
+        texts[EmailTemplateDefaults.SubjectKeyOf(EmailTemplatePurpose.Invoice)].ShouldBe(invoiceSubject);
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
+    public void A_tag_label_is_never_its_path_or_its_key_and_a_description_is_a_sentence(string culture)
+    {
+        var texts = Read(culture);
+        foreach (var group in EmailTemplateTagCatalogue.Groups)
+        {
+            texts[group.LabelKey].ShouldNotBe(group.Key, $"{culture}: group {group.Key} shows a label, not its key");
+            foreach (var tag in group.Tags.Concat(group.Tags.SelectMany(t => t.Children)))
+            {
+                texts[tag.LabelKey].ShouldNotBe(tag.Path, $"{culture}: {tag.Path} shows a label, not its path");
+                texts[tag.LabelKey].ShouldNotContain("{{", Case.Sensitive, $"{culture}: {tag.Path} label");
+                texts[tag.DescriptionKey].TrimEnd().ShouldEndWith(".", Case.Sensitive, $"{culture}: {tag.Path} description");
+            }
+        }
+    }
+
     [Theory]
     [InlineData("en", "From", "Send me a copy", "All languages")]
     [InlineData("nl", "Van", "Stuur mij een kopie", "Alle talen")]
