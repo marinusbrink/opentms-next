@@ -73,10 +73,10 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 35 features as the backend's AppFeatures", () => {
+  it("names the same 51 features as the backend's AppFeatures", () => {
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(35);
-    expect(new Set(names).size).toBe(35);
+    expect(names).toHaveLength(51);
+    expect(new Set(names).size).toBe(51);
   });
 
   it("carries design 48's three nodes under their groups", () => {
@@ -100,7 +100,8 @@ describe("createAppFeatureChecker – tenant side", () => {
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    expect(visible).toHaveLength(1);
+    /* General, Orders, Planning & Execution and Financial (designs 51–53). */
+    expect(visible).toHaveLength(4);
     expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
   });
 

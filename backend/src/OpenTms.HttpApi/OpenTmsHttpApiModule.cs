@@ -2,6 +2,7 @@
 using System.Net;
 using OpenTms.Localization;
 using OpenTms.MasterData;
+using OpenTms.Platform.ReferenceData;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Account;
@@ -62,6 +63,17 @@ public class OpenTmsHttpApiModule : AbpModule
             }
 
             foreach (var code in MasterDataErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* The reference-data base of Orders, Financial and Planning & Execution (design 50); their own codes below. */
+            foreach (var code in ReferenceDataErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in ReferenceDataErrorCodes.BadRequestCodes)
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }

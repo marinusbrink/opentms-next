@@ -5,6 +5,7 @@ using OpenTms.Platform.Auditing;
 using OpenTms.Platform.Events.Outbox;
 using OpenTms.Platform.Maintenance.Caching;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.Tenants;
 using Volo.Abp;
 using Volo.Abp.Auditing;
@@ -33,6 +34,9 @@ public class PlatformDomainModule : AbpModule
 
         /* The instance registry (docs/designs/maintenance-view.md): the worker is started by the host. */
         Configure<InstanceRegistryOptions>(configuration.GetSection("InstanceRegistry"));
+
+        /* Number sequences (design 50): the time zone whose local date decides year and month. */
+        Configure<NumberSequenceOptions>(configuration.GetSection("NumberSequences"));
 
         /* The functional logbook (entity history) is on by default: PO decision 2026-10-10.
          * ABP records entity changes only for types a selector matches and ships with none. */

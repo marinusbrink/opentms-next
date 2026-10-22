@@ -42,6 +42,8 @@ export interface EditorTab<TValues extends object> {
 
 export interface MasterDataEditorProps<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }> {
   entityKey: string;
+  /** The resource of the entity's own texts: the owning domain's ("Orders", "Financial"; designs 51–53). */
+  resource?: string;
   /** The query-key entity of the hooks (detail and lookup caches are invalidated after a save). */
   queryEntity: string;
   size: EntityDialogSize;
@@ -87,6 +89,7 @@ let instanceCounter = 0;
 
 export function MasterDataEditor<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }>({
   entityKey,
+  resource = "MasterData",
   queryEntity,
   size,
   mode,
@@ -171,7 +174,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       void queryClient.invalidateQueries({ queryKey: masterDataQueryKey(queryEntity) });
       onSaved(saved);
       onClose();
-      toast.success(t(`MasterData:${entityKey}Saved`));
+      toast.success(t(`${resource}:${entityKey}Saved`));
     } catch (err) {
       setServerError(getApiErrorMessage(err, t));
     }
@@ -185,14 +188,14 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       setConfirmDelete(false);
       onSaved();
       onClose();
-      toast.success(t(`MasterData:${entityKey}Deleted`));
+      toast.success(t(`${resource}:${entityKey}Deleted`));
     } catch (err) {
       setConfirmDelete(false);
       setServerError(getApiErrorMessage(err, t));
     }
   };
 
-  const title = mode === "create" ? t(`MasterData:New${entityKey}`) : `${t(`MasterData:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
+  const title = mode === "create" ? t(`${resource}:New${entityKey}`) : `${t(`${resource}:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
 
   const commands: RibbonCommand[] = readOnly
     ? []
@@ -281,8 +284,8 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
           onOpenChange={(next) => {
             if (!next) setConfirmDelete(false);
           }}
-          title={t(`MasterData:Delete${entityKey}`)}
-          description={`${t(`MasterData:Delete${entityKey}Question`).replace("{0}", detail.data ? titleOf(detail.data) : "")} ${t("ThisCannotBeUndone")}`}
+          title={t(`${resource}:Delete${entityKey}`)}
+          description={`${t(`${resource}:Delete${entityKey}Question`).replace("{0}", detail.data ? titleOf(detail.data) : "")} ${t("ThisCannotBeUndone")}`}
           confirmLabel={t("Delete")}
           busyLabel={t("Deleting")}
           destructive

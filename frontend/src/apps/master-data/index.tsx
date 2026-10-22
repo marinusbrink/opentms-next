@@ -18,6 +18,15 @@ import { TransportCharacteristicsView } from "@/apps/master-data/views/Transport
 import { TransportUnitsView } from "@/apps/master-data/views/TransportUnitsView";
 import { VehicleCombinationsView } from "@/apps/master-data/views/VehicleCombinationsView";
 import { VehicleTypesView } from "@/apps/master-data/views/VehicleTypesView";
+import { TransportTripTypesView } from "@/apps/master-data/views/TransportTripTypesView";
+import { TransportOrderTypesView } from "@/apps/master-data/views/TransportOrderTypesView";
+import { WaypointTypesView } from "@/apps/master-data/views/WaypointTypesView";
+import { TimeSlotsView } from "@/apps/master-data/views/TimeSlotsView";
+import { VatPercentagesView } from "@/apps/master-data/views/VatPercentagesView";
+import { OutboundInvoiceTypesView } from "@/apps/master-data/views/OutboundInvoiceTypesView";
+import { InboundInvoiceTypesView } from "@/apps/master-data/views/InboundInvoiceTypesView";
+import { AdditionalServicesView } from "@/apps/master-data/views/AdditionalServicesView";
+import { DiscountsOrSurchargesView } from "@/apps/master-data/views/DiscountsOrSurchargesView";
 import { VehiclesView } from "@/apps/master-data/views/VehiclesView";
 
 /* The Master data app (design 41): routes by pathname like the Administration app. The bare app path, a domain
@@ -30,6 +39,13 @@ const GROUP_PATHS = new Set([
   "/master-data/transport",
   "/master-data/fleet",
   "/master-data/reference",
+  "/master-data/orders",
+  "/master-data/transport-orders",
+  "/master-data/planning",
+  "/master-data/trips",
+  "/master-data/financial",
+  "/master-data/invoicing",
+  "/master-data/pricing",
 ]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
 
@@ -62,5 +78,15 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/countries")) return <CountriesView />;
   if (pathname.startsWith("/master-data/currencies")) return <CurrenciesView />;
   if (pathname.startsWith("/master-data/geographical-regions")) return <GeographicalRegionsView />;
+  /* Designs 51–53: the Orders, Planning & Execution and Financial domain groups. */
+  if (pathname.startsWith("/master-data/transport-order-types")) return <TransportOrderTypesView />;
+  if (pathname.startsWith("/master-data/waypoint-types")) return <WaypointTypesView />;
+  if (pathname.startsWith("/master-data/time-slots")) return <TimeSlotsView />;
+  if (pathname.startsWith("/master-data/transport-trip-types")) return <TransportTripTypesView />;
+  if (pathname.startsWith("/master-data/vat-percentages")) return <VatPercentagesView />;
+  if (pathname.startsWith("/master-data/outbound-invoice-types")) return <OutboundInvoiceTypesView />;
+  if (pathname.startsWith("/master-data/inbound-invoice-types")) return <InboundInvoiceTypesView />;
+  if (pathname.startsWith("/master-data/additional-services")) return <AdditionalServicesView />;
+  if (pathname.startsWith("/master-data/discounts-or-surcharges")) return <DiscountsOrSurchargesView />;
   return <AddressTypesView />;
 }

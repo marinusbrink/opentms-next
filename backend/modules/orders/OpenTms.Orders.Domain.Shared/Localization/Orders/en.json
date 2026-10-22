@@ -2,6 +2,9 @@
   "culture": "en",
   "texts": {
     "Permission:Orders": "Orders",
-    "Module:Orders": "Orders"
+    "Module:Orders": "Orders",
+    "Orders:TransportOrderTypes": "Transport order types",
+    "Orders:WaypointTypes": "Waypoint types",
+    "Orders:TimeSlots": "Time slots"
   }
 }

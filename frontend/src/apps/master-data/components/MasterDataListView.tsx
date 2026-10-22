@@ -31,6 +31,8 @@ export interface EditorState {
 export interface MasterDataListViewProps<TRow extends { id?: string }> {
   /** The localization stem: "Currency" → MasterData:NewCurrency, MasterData:DeleteCurrencyQuestion, … */
   entityKey: string;
+  /** The resource of the entity's own texts: the owning domain's ("Orders", "Financial"; designs 51–53). */
+  resource?: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
   gridId: string;
@@ -52,6 +54,7 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
  * the list's feature is on is decided by the shell ("App features", tenants-and-editions.md). */
 export function MasterDataListView<TRow extends { id?: string }>({
   entityKey,
+  resource = "MasterData",
   permission,
   gridId,
   columnDefs,
@@ -103,7 +106,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
         ? [
             {
               id: "new",
-              labelKey: `MasterData:New${entityKey}`,
+              labelKey: `${resource}:New${entityKey}`,
               icon: Plus,
               isPrimary: true,
               onClick: () => setEditor({ mode: "create", readOnly: false }),
@@ -129,7 +132,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
           ]
         : []),
     ],
-    [canCreate, canDelete, entityKey, bulkTarget, selection, selectionCount],
+    [canCreate, canDelete, entityKey, resource, bulkTarget, selection, selectionCount],
   );
 
   const rowActions = useCallback(
@@ -170,7 +173,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
     try {
       await deleteOne.mutateAsync(rowToDelete.id);
       setRowToDelete(null);
-      toast.success(t(`MasterData:${entityKey}Deleted`));
+      toast.success(t(`${resource}:${entityKey}Deleted`));
       invalidateGrid();
     } catch (err) {
       toast.error(getApiErrorMessage(err, t));
@@ -231,8 +234,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
         onOpenChange={(open) => {
           if (!open && !busy) setRowToDelete(null);
         }}
-        title={t(`MasterData:Delete${entityKey}`)}
-        description={`${t(`MasterData:Delete${entityKey}Question`).replace("{0}", rowToDelete ? rowName(rowToDelete) : "")} ${t("ThisCannotBeUndone")}`}
+        title={t(`${resource}:Delete${entityKey}`)}
+        description={`${t(`${resource}:Delete${entityKey}Question`).replace("{0}", rowToDelete ? rowName(rowToDelete) : "")} ${t("ThisCannotBeUndone")}`}
         confirmLabel={t("Delete")}
         busyLabel={t("Deleting")}
         destructive

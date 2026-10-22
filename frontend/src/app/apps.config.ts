@@ -1,12 +1,17 @@
 import {
+  BadgePercent,
   Barcode,
   BarChart3,
   Boxes,
   BookOpen,
   Building2,
+  CalendarClock,
   CalendarRange,
+  ClipboardList,
   Coins,
   Database,
+  FileInput,
+  FileOutput,
   Flag,
   FolderTree,
   History,
@@ -20,8 +25,11 @@ import {
   MapPinned,
   Network,
   Package,
+  PackagePlus,
+  Percent,
   Plug,
   Receipt,
+  Route,
   ScrollText,
   Shield,
   ShieldCheck,
@@ -29,6 +37,8 @@ import {
   Thermometer,
   Truck,
   Users,
+  Wallet,
+  Waypoints,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -136,16 +146,17 @@ export const APPS: readonly AppDefinition[] = [
     id: "master-data",
     nameKey: "App:MasterData",
     path: "/master-data",
-    domains: ["MasterData"],
+    domains: ["MasterData", "Orders", "PlanningExecution", "Financial"],
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
     /* PO 2026-10-16: the Master data app holds the master data of EVERY domain, one group per domain in its nav
      * tree (app → domain group → group → list). A domain's group, with its feature and its entry in `domains`,
      * arrives with that domain's first list; a group without children is hidden. So far only the Master Data
-     * domain's own group (General) exists: the ten reference lists of the first run
+     * domain's own group (General) holds the ten reference lists of the first run
      * (docs/designs/41-master-data-first-run.md), grouped as the old menu was, plus Relations and Drivers of the
      * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48).
+     * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53).
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -199,6 +210,71 @@ export const APPS: readonly AppDefinition[] = [
               { nameKey: "MasterData:Countries", path: "/master-data/countries", icon: Flag, feature: "Apps.MasterData.General.Reference.Countries" },
               { nameKey: "MasterData:Currencies", path: "/master-data/currencies", icon: Coins, feature: "Apps.MasterData.General.Reference.Currencies" },
               { nameKey: "MasterData:GeographicalRegions", path: "/master-data/geographical-regions", icon: MapPinned, feature: "Apps.MasterData.General.Reference.GeographicalRegions" },
+            ],
+          },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.Orders",
+        path: "/master-data/orders",
+        feature: "Apps.MasterData.Orders",
+        icon: ClipboardList,
+        children: [
+          {
+            nameKey: "MasterData:Nav.TransportOrders",
+            path: "/master-data/transport-orders",
+            feature: "Apps.MasterData.Orders.TransportOrders",
+            icon: ClipboardList,
+            children: [
+              { nameKey: "Orders:TransportOrderTypes", path: "/master-data/transport-order-types", icon: ClipboardList, feature: "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes" },
+              { nameKey: "Orders:WaypointTypes", path: "/master-data/waypoint-types", icon: Waypoints, feature: "Apps.MasterData.Orders.TransportOrders.WaypointTypes" },
+              { nameKey: "Orders:TimeSlots", path: "/master-data/time-slots", icon: CalendarClock, feature: "Apps.MasterData.Orders.TransportOrders.TimeSlots" },
+            ],
+          },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.PlanningExecution",
+        path: "/master-data/planning",
+        feature: "Apps.MasterData.PlanningExecution",
+        icon: Route,
+        children: [
+          {
+            nameKey: "MasterData:Nav.Trips",
+            path: "/master-data/trips",
+            feature: "Apps.MasterData.PlanningExecution.Trips",
+            icon: Route,
+            children: [
+              { nameKey: "PlanningExecution:TransportTripTypes", path: "/master-data/transport-trip-types", icon: Route, feature: "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes" },
+            ],
+          },
+        ],
+      },
+      {
+        nameKey: "MasterData:Nav.Financial",
+        path: "/master-data/financial",
+        feature: "Apps.MasterData.Financial",
+        icon: Wallet,
+        children: [
+          {
+            nameKey: "MasterData:Nav.Invoicing",
+            path: "/master-data/invoicing",
+            feature: "Apps.MasterData.Financial.Invoicing",
+            icon: Receipt,
+            children: [
+              { nameKey: "Financial:VatPercentages", path: "/master-data/vat-percentages", icon: Percent, feature: "Apps.MasterData.Financial.Invoicing.VatPercentages" },
+              { nameKey: "Financial:OutboundInvoiceTypes", path: "/master-data/outbound-invoice-types", icon: FileOutput, feature: "Apps.MasterData.Financial.Invoicing.OutboundInvoiceTypes" },
+              { nameKey: "Financial:InboundInvoiceTypes", path: "/master-data/inbound-invoice-types", icon: FileInput, feature: "Apps.MasterData.Financial.Invoicing.InboundInvoiceTypes" },
+            ],
+          },
+          {
+            nameKey: "MasterData:Nav.Pricing",
+            path: "/master-data/pricing",
+            feature: "Apps.MasterData.Financial.Pricing",
+            icon: BadgePercent,
+            children: [
+              { nameKey: "Financial:AdditionalServices", path: "/master-data/additional-services", icon: PackagePlus, feature: "Apps.MasterData.Financial.Pricing.AdditionalServices" },
+              { nameKey: "Financial:DiscountsOrSurcharges", path: "/master-data/discounts-or-surcharges", icon: BadgePercent, feature: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges" },
             ],
           },
         ],

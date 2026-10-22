@@ -2,6 +2,9 @@
   "culture": "nl",
   "texts": {
     "Permission:Orders": "Orders",
-    "Module:Orders": "Orders"
+    "Module:Orders": "Orders",
+    "Orders:TransportOrderTypes": "Transportordertypes",
+    "Orders:WaypointTypes": "Waypointtypes",
+    "Orders:TimeSlots": "Tijdvakken"
   }
 }

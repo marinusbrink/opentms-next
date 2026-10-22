@@ -2,6 +2,11 @@
   "culture": "nl",
   "texts": {
     "Permission:Financial": "Financieel",
-    "Module:Financial": "Financieel"
+    "Module:Financial": "Financieel",
+    "Financial:VatPercentages": "Btw-percentages",
+    "Financial:OutboundInvoiceTypes": "Verkoopfactuurtypes",
+    "Financial:InboundInvoiceTypes": "Inkoopfactuurtypes",
+    "Financial:AdditionalServices": "Extra diensten",
+    "Financial:DiscountsOrSurcharges": "Kortingen en toeslagen"
   }
 }

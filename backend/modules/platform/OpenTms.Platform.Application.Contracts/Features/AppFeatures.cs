@@ -65,6 +65,53 @@ public static class AppFeatures
                 public const string GeographicalRegions = Default + ".GeographicalRegions";
             }
         }
+
+        /// <summary>The Orders domain's group (design 51).</summary>
+        public static class Orders
+        {
+            public const string Default = MasterData.Default + ".Orders";
+
+            public static class TransportOrders
+            {
+                public const string Default = Orders.Default + ".TransportOrders";
+                public const string TransportOrderTypes = Default + ".TransportOrderTypes";
+                public const string WaypointTypes = Default + ".WaypointTypes";
+                public const string TimeSlots = Default + ".TimeSlots";
+            }
+        }
+
+        /// <summary>The Planning &amp; Execution domain's group (design 53).</summary>
+        public static class PlanningExecution
+        {
+            public const string Default = MasterData.Default + ".PlanningExecution";
+
+            public static class Trips
+            {
+                public const string Default = PlanningExecution.Default + ".Trips";
+                public const string TransportTripTypes = Default + ".TransportTripTypes";
+            }
+        }
+
+        /// <summary>The Financial domain's group (design 52).</summary>
+        public static class Financial
+        {
+            public const string Default = MasterData.Default + ".Financial";
+
+            public static class Invoicing
+            {
+                public const string Default = Financial.Default + ".Invoicing";
+                public const string VatPercentages = Default + ".VatPercentages";
+                public const string OutboundInvoiceTypes = Default + ".OutboundInvoiceTypes";
+                public const string InboundInvoiceTypes = Default + ".InboundInvoiceTypes";
+            }
+
+            public static class Pricing
+            {
+                public const string Default = Financial.Default + ".Pricing";
+                public const string AdditionalServices = Default + ".AdditionalServices";
+                public const string DiscountsOrSurcharges = Default + ".DiscountsOrSurcharges";
+            }
+        }
     }
 
     public static class Administration

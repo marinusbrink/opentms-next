@@ -239,6 +239,38 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.ToTable("ApplicationInstances", "platform");
                 });
 
+            modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequenceCounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("LastValue")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<string>("SequenceKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SequenceKey", "Period")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "SequenceKey", "Period"), false);
+
+                    b.ToTable("NumberSequenceCounters", "platform");
+                });
+
             modelBuilder.Entity("Volo.Abp.EntityFrameworkCore.DistributedEvents.OutgoingEventRecord", b =>
                 {
                     b.Property<Guid>("Id")

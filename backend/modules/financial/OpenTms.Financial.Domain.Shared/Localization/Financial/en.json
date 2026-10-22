@@ -2,6 +2,11 @@
   "culture": "en",
   "texts": {
     "Permission:Financial": "Financial",
-    "Module:Financial": "Financial"
+    "Module:Financial": "Financial",
+    "Financial:VatPercentages": "VAT percentages",
+    "Financial:OutboundInvoiceTypes": "Outbound invoice types",
+    "Financial:InboundInvoiceTypes": "Inbound invoice types",
+    "Financial:AdditionalServices": "Additional services",
+    "Financial:DiscountsOrSurcharges": "Discounts and surcharges"
   }
 }

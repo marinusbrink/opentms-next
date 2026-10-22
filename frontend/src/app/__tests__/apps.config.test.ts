@@ -68,7 +68,7 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app lists its fifteen lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views).toHaveLength(1);
+    expect(masterData.views).toHaveLength(4);
     const general = masterData.views![0];
     expect(general.nameKey).toBe("MasterData:Nav.General");
     expect(general.icon).toBeTruthy();
@@ -97,6 +97,28 @@ describe("apps.config – AppView extension (low risk)", () => {
       expect(group.icon).toBeTruthy();
       group.children!.forEach((child) => expect(child.icon).toBeTruthy());
     });
+  });
+
+  it("the Master data app holds the Orders, Planning & Execution and Financial domain groups after General (designs 51–53)", () => {
+    const masterData = APPS.find((a) => a.id === "master-data")!;
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial"]);
+    const [, orders, planning, financial] = masterData.views!;
+    const lists = (group: (typeof masterData.views)[number]) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
+    expect(lists(orders)).toEqual([
+      ["/master-data/transport-order-types", "Orders:TransportOrderTypes", "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes"],
+      ["/master-data/waypoint-types", "Orders:WaypointTypes", "Apps.MasterData.Orders.TransportOrders.WaypointTypes"],
+      ["/master-data/time-slots", "Orders:TimeSlots", "Apps.MasterData.Orders.TransportOrders.TimeSlots"],
+    ]);
+    expect(lists(planning)).toEqual([
+      ["/master-data/transport-trip-types", "PlanningExecution:TransportTripTypes", "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes"],
+    ]);
+    expect(lists(financial)).toEqual([
+      ["/master-data/vat-percentages", "Financial:VatPercentages", "Apps.MasterData.Financial.Invoicing.VatPercentages"],
+      ["/master-data/outbound-invoice-types", "Financial:OutboundInvoiceTypes", "Apps.MasterData.Financial.Invoicing.OutboundInvoiceTypes"],
+      ["/master-data/inbound-invoice-types", "Financial:InboundInvoiceTypes", "Apps.MasterData.Financial.Invoicing.InboundInvoiceTypes"],
+      ["/master-data/additional-services", "Financial:AdditionalServices", "Apps.MasterData.Financial.Pricing.AdditionalServices"],
+      ["/master-data/discounts-or-surcharges", "Financial:DiscountsOrSurcharges", "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges"],
+    ]);
   });
 
   it("findAppByPath returns admin app for /admin/users", () => {

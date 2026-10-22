@@ -3,6 +3,7 @@ using OpenTms.Platform.DataProtection;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.Platform.NumberSequences;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -44,6 +45,13 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// (docs/designs/tenants-and-editions.md, "Shared data-protection keys").
     /// </summary>
     public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
+
+    /// <summary>
+    /// Number-sequence counters: platform."NumberSequenceCounters", one row per (tenant, sequence, period), written
+    /// only by the atomic upsert of <see cref="EfCoreNumberSequenceCounterStore"/> inside the numbered fact's
+    /// transaction (docs/designs/50-platform-reference-data-and-number-sequences.md).
+    /// </summary>
+    public DbSet<NumberSequenceCounter> NumberSequenceCounters { get; set; } = default!;
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -105,6 +113,16 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.ConfigureByConvention();
             b.Property(k => k.FriendlyName).HasMaxLength(DataProtectionKeyRecord.MaxFriendlyNameLength);
             b.Property(k => k.Xml).IsRequired();
+        });
+
+        builder.Entity<NumberSequenceCounter>(b =>
+        {
+            b.ToTable("NumberSequenceCounters", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.SequenceKey).IsRequired().HasMaxLength(NumberSequenceCounter.MaxSequenceKeyLength);
+            b.Property(c => c.Period).IsRequired().HasMaxLength(NumberSequenceFormat.MaxPeriodLength);
+            /* The conflict target of the upsert. NULLS NOT DISTINCT so host-level counters are unique too. */
+            b.HasIndex(c => new { c.TenantId, c.SequenceKey, c.Period }).IsUnique().AreNullsDistinct(false);
         });
     }
 }
