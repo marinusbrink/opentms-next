@@ -627,6 +627,13 @@
     "OpenTms.Platform:ReferenceData.InvalidCode": "'{value}' is not a valid value for {field}.",
     "OpenTms.Platform:ReferenceData.InvalidNumberSequence": "The numbering is not valid ({field}: '{value}').",
     "OpenTms.Platform:ReferenceData.NextNumberTooLow": "The next number must be at least {minimum}: numbers that were issued are never issued again.",
-    "OpenTms.Platform:ReferenceData.RequiresTransaction": "A number can only be taken inside a transaction."
+    "OpenTms.Platform:ReferenceData.RequiresTransaction": "A number can only be taken inside a transaction.",
+    "Permission:DerivedValues.Recalculate": "Recalculate derived values",
+    "OpenTms.Platform:DerivedValues.UnknownTargetType": "'{targetType}' is not a record type with derived values.",
+    "OpenTms.Platform:DerivedValues.TooManyTargets": "At most {max} records at once.",
+    "OpenTms.Platform:DerivedValues.RequiresTransaction": "A recalculation can only be requested inside a transaction.",
+    "Platform:DerivedValues.Calculating": "Calculating…",
+    "Platform:DerivedValues.Failed": "Calculation failed",
+    "Platform:DerivedValues.FailedDetail": "The last calculation failed ({0}); it is retried automatically. The values shown are the previous ones."
   }
 }

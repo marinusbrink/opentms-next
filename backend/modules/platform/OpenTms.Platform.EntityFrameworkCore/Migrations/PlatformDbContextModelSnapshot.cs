@@ -46,6 +46,57 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.ToTable("DataProtectionKeys", "platform");
                 });
 
+            modelBuilder.Entity("OpenTms.Platform.DerivedValues.DerivedValueState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CalculatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("CalculatedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("RequestedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "TargetType", "Status");
+
+                    b.HasIndex("TenantId", "TargetType", "TargetId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "TargetType", "TargetId"), false);
+
+                    b.ToTable("DerivedValueStates", "platform");
+                });
+
             modelBuilder.Entity("OpenTms.Platform.Editions.Edition", b =>
                 {
                     b.Property<Guid>("Id")

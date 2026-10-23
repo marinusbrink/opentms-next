@@ -9,6 +9,8 @@ using OpenTms.Orders.EntityFrameworkCore;
 using OpenTms.PlanningExecution.EntityFrameworkCore;
 using OpenTms.Platform.EntityFrameworkCore;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
+using OpenTms.DerivedValues;
+using OpenTms.Platform.DerivedValues;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -67,6 +69,9 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         });
 
         ConfigureInMemorySqlite(context.Services);
+
+        /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
+        Configure<DerivedValueOptions>(DerivedValueProbe.Register);
 
     }
 

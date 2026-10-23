@@ -2,6 +2,7 @@
 using System.Net;
 using OpenTms.Localization;
 using OpenTms.MasterData;
+using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.AspNetCore.Mvc;
@@ -74,6 +75,12 @@ public class OpenTmsHttpApiModule : AbpModule
             }
 
             foreach (var code in ReferenceDataErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Design 49. */
+            foreach (var code in DerivedValueErrorCodes.BadRequestCodes)
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }

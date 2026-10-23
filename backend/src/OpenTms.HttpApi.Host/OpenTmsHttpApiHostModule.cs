@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,7 +31,9 @@ using OpenTms.PlanningExecution;
 using OpenTms.Platform;
 using OpenTms.Platform.Events.Outbox;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.RecordUpdates;
 using OpenTms.Reporting;
+using Volo.Abp.AspNetCore.SignalR;
 using Volo.Abp.BackgroundJobs.Hangfire;
 using Microsoft.OpenApi;
 using Volo.Abp;
@@ -72,7 +75,8 @@ namespace OpenTms;
     typeof(AbpAccountWebOpenIddictModule),
     typeof(AbpSwashbuckleModule),
     typeof(AbpAspNetCoreSerilogModule),
-    typeof(AbpBackgroundJobsHangfireModule)
+    typeof(AbpBackgroundJobsHangfireModule),
+    typeof(AbpAspNetCoreSignalRModule)
     )]
 public class OpenTmsHttpApiHostModule : AbpModule
 {
@@ -80,6 +84,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
     {
         var hostingEnvironment = context.Services.GetHostingEnvironment();
         var configuration = context.Services.GetConfiguration();
+
+        ConfigureSignalRBackplane(configuration);
 
         PreConfigure<OpenIddictBuilder>(builder =>
         {
@@ -191,6 +197,21 @@ public class OpenTmsHttpApiHostModule : AbpModule
                 }
             };
         });
+    }
+
+    /* Live record updates (docs/designs/49-derived-values-and-live-updates.md): with SignalR:Redis:Configuration set,
+     * the Redis backplane carries a push from the instance that ran the job to the instance the browser is connected to
+     * (AP-13, PROPOSED). Required once more than one instance runs or the Jobs role is split off; local dev runs without. */
+    private void ConfigureSignalRBackplane(IConfiguration configuration)
+    {
+        var redis = configuration["SignalR:Redis:Configuration"];
+        if (!string.IsNullOrWhiteSpace(redis))
+        {
+            PreConfigure<ISignalRServerBuilder>(builder => builder.AddStackExchangeRedis(redis, options =>
+            {
+                options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("OpenTms.RecordUpdates");
+            }));
+        }
     }
 
     private void ConfigureHangfire(ServiceConfigurationContext context, IConfiguration configuration)
@@ -378,6 +399,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
         app.UseAbpStudioLink();
         app.UseAbpSecurityHeaders();
         app.UseCors();
+        /* The SignalR client's query-string token becomes a bearer header on the hub paths only (design 49). */
+        app.Use(HubAccessTokenMiddleware.InvokeAsync);
         app.UseAuthentication();
         app.UseAbpOpenIddictValidation();
 

@@ -77,7 +77,7 @@ it. The cost-per-leg calculator itself, and whether its result is copied onto th
 ```
 A  module save ──► IDerivedValueScheduler.RequestAsync("PlanningExecution.TransportTrip", tripId, "CarrierChanged")
                     ├─ upsert DerivedValueState: RequestedVersion + 1, Status Pending      ┐ same transaction,
-                    └─ publish DerivedValuesRequestedEto {type, id, version}  (outbox)       ┘ same database
+                    └─ publish DerivedValuesRequestedEto {type, [(id, version)]}  (outbox)   ┘ same database
 B  outbox dispatcher ─► DerivedValuesRequestedHandler ─► Hangfire job DerivedValueCalculationJob {tenant, type, id, version}
 C  job (tenant context, own transaction):
      state.RequestedVersion ≠ version or CalculatedVersion ≥ version ─► skip (a newer job will write)
@@ -111,20 +111,21 @@ the event itself succeeds as soon as the job is enqueued.
 
 | Type | Project | Role |
 |---|---|---|
-| `DerivedValues.DerivedValuesRequestedEto`, `DerivedValuesRecalculatedEto` | Domain.Shared | `{ TargetType, TargetId, Version }` (+ `Reason` on the request, a short code). Past-tense facts with ids only (rule 5); `OpenTms.*` namespace, so the outbox carries them. Names follow AP-06 as far as a generic event can (Assumption 2). |
+| `DerivedValues.DerivedValuesRequestedEto`, `DerivedValuesRecalculatedEto` | Domain.Shared | request: `{ TargetType, Targets: [{ TargetId, Version }], Reason }` — one record for a save, up to 1,000 per event for a bulk request (so 10,000 records cost ten outbox rows); recalculated: `{ TargetType, TargetId, Version }`. Ids only (rule 5); `OpenTms.*` namespace, so the outbox carries them. Names follow AP-06 as far as a generic event can (Assumption 2). |
 | `DerivedValues.DerivedValueStatus` | Domain.Shared | `Pending = 1, UpToDate = 2, Failed = 3` |
-| `DerivedValues.DerivedValueConsts` | Domain.Shared | `MaxTargetTypeLength = 64`, `MaxReasonLength = 64`, `MaxErrorCodeLength = 128`, `MaxTargetsPerRequest = 10_000`, `MaxStatesPerRead = 500`, `MaxWatchPerCall = 200` |
+| `DerivedValues.DerivedValueConsts` | Domain.Shared | `MaxTargetTypeLength = 64`, `MaxReasonLength = 64`, `MaxErrorCodeLength = 128`, `MaxTargetsPerRequest = 10_000`, `MaxTargetsPerEvent = 1_000`, `MaxStatesPerRead = 500`, `MaxWatchPerCall = 200` |
 | `DerivedValues.DerivedValueState` | Domain | aggregate: `TenantId`, `TargetType`, `TargetId`, `RequestedVersion` (long), `CalculatedVersion` (long), `Status`, `FailedAttempts`, `LastErrorCode`, `RequestedAt`, `CalculatedAt` |
-| `DerivedValues.IDerivedValueCalculator` | Domain | implemented by a module: `string TargetType`, `string WatchPermission`, `Task CalculateAsync(DerivedValueCalculationContext context)`; the context carries `TargetId`, `Version`, `CancellationToken` |
-| `DerivedValues.DerivedValueCalculatorRegistry` | Domain | every registered calculator by target type; a duplicate type or a type with the wrong shape (`<Module>.<Entity>`, letters and dots) fails start-up |
+| `DerivedValues.IDerivedValueCalculator` | Domain | implemented by a module: `Task CalculateAsync(DerivedValueCalculationContext context)`; the context carries `TargetType`, `TargetId`, `Version`, `CancellationToken` |
+| `DerivedValues.DerivedValueOptions` | Domain | the registry: a module calls `Configure<DerivedValueOptions>(o => o.AddCalculator<TCalculator>("<Module>.<Entity>", watchPermission))`, or `AddWatchable(type, permission)` for a type that only sends change notices; a duplicate type, a type of the wrong shape or a missing permission fails start-up |
 | `DerivedValues.IDerivedValueScheduler` / `DerivedValueScheduler` | Domain | `RequestAsync(type, id, reason)`, `RequestManyAsync(type, ids, reason)`; refuses an unknown type and a non-transactional unit of work (as the outbox); returns the new version(s) |
-| `DerivedValues.IDerivedValueStateStore` | Domain | the two atomic statements (upsert-increment, guarded complete) plus reads; implemented in EntityFrameworkCore with parameterised SQL over the mapped table name |
-| `DerivedValues.DerivedValueCalculationJob` | Domain | the Hangfire job (ABP `AsyncBackgroundJob`); arguments: tenant id, type, id, version — nothing else (Hangfire stores arguments in plain text) |
-| `DerivedValues.DerivedValuesRequestedHandler` | Domain | outbox handler: enqueues the job unless the state already moved past the version (idempotent: a duplicate delivery enqueues a job that skips) |
+| `DerivedValues.IDerivedValueStateStore` | Domain | the atomic statements (upsert-increment, a single-statement bulk upsert over `unnest` arrays, guarded complete, guarded fail) plus reads; implemented in EntityFrameworkCore with parameterised SQL over the mapped table name |
+| `DerivedValues.DerivedValueCalculationJob` | Application | the Hangfire job (ABP `AsyncBackgroundJob`); arguments: tenant id, type, id, version — nothing else (Hangfire stores arguments in plain text). In Application, as the other Platform jobs (the DbMigrator never runs jobs) |
+| `DerivedValues.DerivedValuesRequestedHandler` | Application | outbox handler: enqueues one job per record whose state still asks for that version (idempotent: a duplicate or stale delivery enqueues nothing) |
+| `RecordUpdates.RecordUpdateWatchPolicy` | Application | which groups a hub client may join (registered type, its watch permission, ≤ 200 ids, the caller's own tenant) |
 | `RecordUpdates.IRecordUpdateNotifier` | Domain | `NotifyAsync(type, id, version, status)`; also usable without a calculator, for "this record was changed by someone else" (`status` null). Sends after the current unit of work commits; outside one, at once. |
 | `RecordUpdates.RecordUpdatePermissions` | Domain | the watch permission per target type: from the calculator, or registered on its own by a module that only notifies |
 | `RecordUpdatesHub`, `SignalRRecordUpdateNotifier` | HttpApi.Host | ABP `AbpHub` at `/signalr-hubs/record-updates` (`[Authorize]`); `Watch(type, ids[])`, `Unwatch(type, ids[])`; checks the type's watch permission; groups `<tenantId or "host">:<type>:<id>` |
-| `DerivedValues.DerivedValueAppService` | Application | `GET /api/platform/derived-values/states`, `POST /api/platform/derived-values/recalculate` |
+| `DerivedValues.DerivedValueAppService` | Application | `GET /api/platform/derived-value/states`, `POST /api/platform/derived-value/recalculate` |
 
 **Transport.** The hub lives in the API host (one image, roles later, AD-11). When `SignalR:Redis:Configuration` is
 set, SignalR uses the Redis backplane, so a job on one instance reaches a browser connected to another (AP-13,
@@ -136,14 +137,26 @@ token as `access_token` in the query string; a small middleware copies it into t
 `/signalr-hubs/*` and only when no header is present**, before authentication runs. The token is never logged:
 request logging of that path drops the query string.
 
+### How a module uses it (the transport order and trip designs)
+
+1. Write a calculator in the module (`IDerivedValueCalculator`, e.g. `TransportTripCostCalculator`) that reads the
+   facts and writes the stored values in the module's own tables.
+2. Register it in the module's `ConfigureServices`:
+   `Configure<DerivedValueOptions>(o => o.AddCalculator<TransportTripCostCalculator>("PlanningExecution.TransportTrip", PlanningExecutionPermissions.Trips.Default));`
+3. In every application-service method whose save changes what the values depend on, call
+   `await DerivedValueScheduler.RequestAsync("PlanningExecution.TransportTrip", trip.Id, "CarrierChanged")` (or
+   `RequestManyAsync` for a retroactive change). Nothing else: version, outbox, job, retry and push are Platform's.
+4. In the screen: `useRecordUpdates("PlanningExecution.TransportTrip", [tripId])` refetches the trip's queries when it
+   was recalculated; `useDerivedValueStates(...)` plus `<CalculatingIndicator state={…} />` show "calculating".
+
 ## API contract
 
 Conventional controller of `DerivedValueAppService` (route root `platform`):
 
 | Operation | Route | Permission | Notes |
 |---|---|---|---|
-| States of a set of records | `GET /api/platform/derived-values/states?targetType=&targetIds=` | the type's watch permission | at most 500 ids; returns `DerivedValueStateDto[] { targetId, requestedVersion, calculatedVersion, status, lastErrorCode, calculatedAt }`; ids without a state are absent (never calculated) |
-| Recalculate | `POST /api/platform/derived-values/recalculate` `{ targetType, targetIds[] }` | `Platform.DerivedValues.Recalculate` | at most 10,000 ids; returns the number requested; the bulk re-run after a retroactive change (flow 2) |
+| States of a set of records | `GET /api/platform/derived-value/states?TargetType=&TargetIds=` | the type's watch permission | at most 500 ids; returns `DerivedValueStateDto[] { targetId, requestedVersion, calculatedVersion, status, lastErrorCode, calculatedAt }`; ids without a state are absent (never calculated) |
+| Recalculate | `POST /api/platform/derived-value/recalculate` `{ targetType, targetIds[] }` | `Platform.DerivedValues.Recalculate` | at most 10,000 ids; returns the number requested; the bulk re-run after a retroactive change (flow 2) |
 
 Hub contract (not in OpenAPI; typed in `src/lib/realtime/record-updates.ts`):
 
@@ -196,7 +209,7 @@ No screen of its own. What the domain screens get:
 | Socket token middleware: only hub paths, never overrides a header | **High** | middleware unit tests |
 | Endpoints: permissions, 500/10,000 limits | **High** | SQLite service tests, authorization architecture test |
 | Frontend: watch/unwatch reference counting, re-watch on reconnect, invalidation, indicator states | **Medium** | vitest with a fake hub connection |
-| Volume ×5: 25,000 requests in a day per tenant → one upsert + one outbox row per save; 50,000 re-run targets in batches | **High** | PostgreSQL volume test: `RequestManyAsync` of 50,000 ids < 10 s, single request adds < 5 ms to a save |
+| Volume ×5: 25,000 requests in a day per tenant → one upsert + one outbox row per save; bulk re-runs of 10,000 records | **High** | PostgreSQL volume test: `RequestManyAsync` of 10,000 ids in one transaction < 2 s (measured 0.29 s: one upsert, ten outbox rows); 10,001 refused |
 
 ## Flag & rollout plan
 

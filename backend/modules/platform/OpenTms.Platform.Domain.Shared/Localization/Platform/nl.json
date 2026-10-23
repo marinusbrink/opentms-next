@@ -627,6 +627,13 @@
     "OpenTms.Platform:ReferenceData.InvalidCode": "'{value}' is geen geldige waarde voor {field}.",
     "OpenTms.Platform:ReferenceData.InvalidNumberSequence": "De nummering is niet geldig ({field}: '{value}').",
     "OpenTms.Platform:ReferenceData.NextNumberTooLow": "Het volgende nummer moet minimaal {minimum} zijn: uitgegeven nummers worden nooit opnieuw uitgegeven.",
-    "OpenTms.Platform:ReferenceData.RequiresTransaction": "Een nummer kan alleen binnen een transactie worden uitgegeven."
+    "OpenTms.Platform:ReferenceData.RequiresTransaction": "Een nummer kan alleen binnen een transactie worden uitgegeven.",
+    "Permission:DerivedValues.Recalculate": "Afgeleide waarden herberekenen",
+    "OpenTms.Platform:DerivedValues.UnknownTargetType": "'{targetType}' is geen recordtype met afgeleide waarden.",
+    "OpenTms.Platform:DerivedValues.TooManyTargets": "Maximaal {max} records tegelijk.",
+    "OpenTms.Platform:DerivedValues.RequiresTransaction": "Een herberekening kan alleen binnen een transactie worden aangevraagd.",
+    "Platform:DerivedValues.Calculating": "Wordt berekend…",
+    "Platform:DerivedValues.Failed": "Berekening mislukt",
+    "Platform:DerivedValues.FailedDetail": "De laatste berekening is mislukt ({0}); er wordt automatisch opnieuw gerekend. De getoonde waarden zijn de vorige."
   }
 }

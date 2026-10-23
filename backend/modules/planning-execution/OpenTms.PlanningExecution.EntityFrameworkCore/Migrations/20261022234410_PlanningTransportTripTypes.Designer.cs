@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(PlanningExecutionDbContext))]
-    [Migration("20261022232324_PlanningTransportTripTypes")]
+    [Migration("20261022234410_PlanningTransportTripTypes")]
     partial class PlanningTransportTripTypes
     {
         /// <inheritdoc />
@@ -46,7 +46,7 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasColumnName("ConcurrencyStamp");
 
                     b.Property<DateTime>("CreationTime")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("CreationTime");
 
                     b.Property<Guid?>("CreatorId")
@@ -61,7 +61,7 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasColumnName("DeleterId");
 
                     b.Property<DateTime?>("DeletionTime")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("DeletionTime");
 
                     b.Property<string>("Description")
@@ -86,7 +86,7 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasColumnName("IsDeleted");
 
                     b.Property<DateTime?>("LastModificationTime")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("LastModificationTime");
 
                     b.Property<Guid?>("LastModifierId")
