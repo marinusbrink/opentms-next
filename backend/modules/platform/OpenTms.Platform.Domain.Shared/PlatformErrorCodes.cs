@@ -24,6 +24,7 @@ public static class PlatformErrorCodes
     public const string UnknownSortColumn = Namespace + ":UnknownSortColumn";
     public const string TooManyRows = Namespace + ":TooManyRows";
     public const string NameRequired = Namespace + ":NameRequired";
+    public const string FileNamePatternUnknownField = Namespace + ":FileNamePatternUnknownField";
 
     /* Document rendering (docs/designs/50-report-rendering.md). */
     public const string RenderingNotConfigured = Namespace + ":RenderingNotConfigured";
@@ -43,7 +44,7 @@ public static class PlatformErrorCodes
     public static readonly string[] BadRequestCodes =
     [
         TemplateSyntaxError, UnsupportedCulture, InvalidRegex, TransformationArgumentRequired,
-        DuplicateTransformation, UnknownSortColumn, TooManyRows, NameRequired
+        DuplicateTransformation, UnknownSortColumn, TooManyRows, NameRequired, FileNamePatternUnknownField
     ];
 
     /// <summary>

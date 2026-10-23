@@ -3,13 +3,14 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTms.Platform.DocumentRendering;
 using Volo.Abp;
 
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
 /// The connection test of pdfgeneratorapi.com (design 50): <c>GET templates?per_page=1</c> in the default workspace,
-/// one attempt. Tagged <see cref="Tag"/>: not part of <c>/health/ready</c> or <c>/health-status</c>; it runs on demand
+/// one interactive attempt (an operator waits on it). Tagged <see cref="Tag"/>: not part of <c>/health/ready</c> or <c>/health-status</c>; it runs on demand
 /// in the host's Maintenance → Health tab. Without key and secret it reports Degraded ("not configured"), not Unhealthy.
 /// </summary>
 public class PdfGeneratorApiHealthCheck : IHealthCheck
@@ -36,8 +37,8 @@ public class PdfGeneratorApiHealthCheck : IHealthCheck
         try
         {
             await _client.SendAsync(
-                HttpMethod.Get, "templates?per_page=1", null, "health", null, cancellationToken,
-                workspace: _client.DefaultWorkspace, maxRetries: 0);
+                HttpMethod.Get, "templates?per_page=1", null, "health", null, RenderCallMode.Interactive, cancellationToken,
+                workspace: _client.DefaultWorkspace);
             return HealthCheckResult.Healthy("pdfgeneratorapi answered in the default workspace.");
         }
         catch (BusinessException e)

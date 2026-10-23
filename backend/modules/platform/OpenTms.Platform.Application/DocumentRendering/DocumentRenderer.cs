@@ -58,7 +58,8 @@ public class DocumentRenderer : IDocumentRenderer, ITransientDependency
         await _featureChecker.CheckEnabledAsync(PlatformFeatures.DocumentRendering);
         var definition = await _definitions.FindAsync(reportDefinitionId, cancellationToken: cancellationToken)
                          ?? throw new EntityNotFoundException(typeof(ReportDefinition), reportDefinitionId);
-        return await RenderDefinitionAsync(definition, data, format, isTest: false, cancellationToken);
+        /* Real renders run in jobs (design 50): nobody waits on them, so they keep the retry schedule. */
+        return await RenderDefinitionAsync(definition, data, format, isTest: false, RenderCallMode.Background, cancellationToken);
     }
 
     /// <summary>The provider implementation for a definition's provider, or null when none is registered.</summary>
@@ -84,13 +85,17 @@ public class DocumentRenderer : IDocumentRenderer, ITransientDependency
 
     /// <summary>
     /// The shared render steps after the definition is read in the tenant and the feature is checked: refuse an
-    /// archived definition, compose the file name from the first record, call the provider.
+    /// archived definition, compose the file name from the first record, call the provider. A file-name pattern that
+    /// fails to render (a row saved before the pattern was checked against <c>{{ number }}</c>) gives a random name and a
+    /// warning naming the definition.
     /// </summary>
+    /// <param name="callMode">Interactive when a user waits for the document (the test render), Background for jobs.</param>
     public async Task<RenderedDocument> RenderDefinitionAsync(
         ReportDefinition definition,
         IReadOnlyList<JsonElement> data,
         ReportRenderFormat format,
         bool isTest,
+        RenderCallMode callMode,
         CancellationToken cancellationToken)
     {
         if (definition.IsArchived)
@@ -104,17 +109,26 @@ public class DocumentRenderer : IDocumentRenderer, ITransientDependency
         }
 
         var provider = await GetConfiguredProviderAsync(definition.Provider, cancellationToken);
+        var fileName = ReportFileNameComposer.Compose(definition.FileNamePattern, data[0], format, out var patternFailed);
+        if (patternFailed)
+        {
+            Logger.LogWarning(
+                "The file-name pattern of report definition {ReportDefinitionId} for tenant {TenantId} failed to render; the document gets a random file name",
+                definition.Id, _currentTenant.Id);
+        }
+
         var request = new RenderRequest
         {
             Templates = data.Select(d => new RenderTemplate { TemplateId = definition.ProviderTemplateId, Data = d }).ToList(),
             Format = format,
-            FileName = ReportFileNameComposer.Compose(definition.FileNamePattern, data[0], format),
-            IsTest = isTest
+            FileName = fileName,
+            IsTest = isTest,
+            CallMode = callMode
         };
 
         Logger.LogInformation(
-            "Rendering report definition {ReportDefinitionId} for tenant {TenantId}: {RecordCount} record(s), format {Format}, test {IsTest}",
-            definition.Id, _currentTenant.Id, data.Count, format, isTest);
+            "Rendering report definition {ReportDefinitionId} for tenant {TenantId}: {RecordCount} record(s), format {Format}, test {IsTest}, call mode {CallMode}",
+            definition.Id, _currentTenant.Id, data.Count, format, isTest, callMode);
         return await provider.RenderAsync(request, cancellationToken);
     }
 }

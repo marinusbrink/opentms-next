@@ -16,6 +16,26 @@ public class RenderRequest
 
     /// <summary>A test render: the provider marks it as such and does not bill it.</summary>
     public bool IsTest { get; init; }
+
+    /// <summary>
+    /// How patient the provider call may be (design 50, "Resilience"): <see cref="RenderCallMode.Background"/> for the
+    /// renders of jobs (the default, <see cref="IDocumentRenderer"/>), <see cref="RenderCallMode.Interactive"/> when a
+    /// user waits for the answer (the test render). Set explicitly; never inferred from <see cref="IsTest"/>.
+    /// </summary>
+    public RenderCallMode CallMode { get; init; } = RenderCallMode.Background;
+}
+
+/// <summary>
+/// The patience of a provider call (design 50, "Resilience"). A provider's template operations (editor URL, copy,
+/// template lookup, template data) are always interactive; only a render carries the mode in its request.
+/// </summary>
+public enum RenderCallMode
+{
+    /// <summary>Nobody waits on the request (a job): retry with backoff on throttling and server errors.</summary>
+    Background = 0,
+
+    /// <summary>A user waits on the request: one attempt with a short timeout, no retries.</summary>
+    Interactive = 1
 }
 
 /// <summary>One provider template with the data it renders.</summary>

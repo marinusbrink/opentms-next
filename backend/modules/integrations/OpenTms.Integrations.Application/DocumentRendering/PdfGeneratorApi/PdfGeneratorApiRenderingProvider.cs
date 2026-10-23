@@ -17,6 +17,8 @@ namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 /// <c>POST documents/generate</c> and <c>documents/generate/batch</c> (<c>output: base64</c>, <c>testing</c> for test
 /// renders), <c>POST templates/{id}/editor</c>, <c>POST templates/{id}/copy</c>, <c>GET templates/{id}</c>,
 /// <c>GET templates/{id}/data</c>. The workspace follows the current tenant (<see cref="PdfGeneratorApiClient"/>).
+/// A render takes the request's <see cref="RenderRequest.CallMode"/>; the template operations are always interactive
+/// (a user waits on them): one attempt, no retries.
 /// </summary>
 public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
 {
@@ -62,7 +64,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
 
         var root = await _client.SendAsync(
             HttpMethod.Post, single ? "documents/generate" : "documents/generate/batch", body, single ? "generate" : "generate-batch",
-            request.Templates[0].TemplateId, ct);
+            request.Templates[0].TemplateId, request.CallMode, ct);
 
         var base64 = Text(root, "response");
         if (string.IsNullOrEmpty(base64))
@@ -103,7 +105,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
             body["language"] = language;
         }
 
-        var root = await _client.SendAsync(HttpMethod.Post, $"templates/{Escape(templateId)}/editor", body, "editor", templateId, ct);
+        var root = await _client.SendAsync(HttpMethod.Post, $"templates/{Escape(templateId)}/editor", body, "editor", templateId, RenderCallMode.Interactive, ct);
         var url = Text(root, "response");
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
         {
@@ -116,7 +118,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
     public async Task<ProviderTemplate> CopyTemplateAsync(string templateId, string newName, CancellationToken ct)
     {
         var body = new Dictionary<string, object?> { ["name"] = newName };
-        var root = await _client.SendAsync(HttpMethod.Post, $"templates/{Escape(templateId)}/copy", body, "copy", templateId, ct);
+        var root = await _client.SendAsync(HttpMethod.Post, $"templates/{Escape(templateId)}/copy", body, "copy", templateId, RenderCallMode.Interactive, ct);
         var template = Object(root, "response");
         var id = Id(template);
         if (string.IsNullOrEmpty(id))
@@ -130,7 +132,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
 
     public async Task<ProviderTemplate?> GetTemplateAsync(string templateId, CancellationToken ct)
     {
-        var root = await _client.SendAsync(HttpMethod.Get, $"templates/{Escape(templateId)}", null, "get-template", templateId, ct, allowNotFound: true);
+        var root = await _client.SendAsync(HttpMethod.Get, $"templates/{Escape(templateId)}", null, "get-template", templateId, RenderCallMode.Interactive, ct, allowNotFound: true);
         if (root == null)
         {
             return null;
@@ -151,7 +153,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
 
     public async Task<JsonElement?> GetTemplateSampleDataAsync(string templateId, CancellationToken ct)
     {
-        var root = await _client.SendAsync(HttpMethod.Get, $"templates/{Escape(templateId)}/data", null, "template-data", templateId, ct, allowNotFound: true);
+        var root = await _client.SendAsync(HttpMethod.Get, $"templates/{Escape(templateId)}/data", null, "template-data", templateId, RenderCallMode.Interactive, ct, allowNotFound: true);
         if (root is not { ValueKind: JsonValueKind.Object } answer || !answer.TryGetProperty("response", out var data))
         {
             return null;
@@ -170,7 +172,7 @@ public class PdfGeneratorApiRenderingProvider : IReportRenderingProvider
         var query = string.IsNullOrWhiteSpace(name)
             ? $"templates?access=private&per_page={TemplateListPageSize}"
             : $"templates?name={Uri.EscapeDataString(name)}&per_page={TemplateListPageSize}";
-        var root = await _client.SendAsync(HttpMethod.Get, query, null, "list-templates", templateId, ct);
+        var root = await _client.SendAsync(HttpMethod.Get, query, null, "list-templates", templateId, RenderCallMode.Interactive, ct);
         if (root is not { ValueKind: JsonValueKind.Object } answer
             || !answer.TryGetProperty("response", out var items)
             || items.ValueKind != JsonValueKind.Array)

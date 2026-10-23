@@ -167,7 +167,7 @@ this.
 | `Culture` | string(10), required | a configured language |
 | `Provider` | enum `ReportRenderingProvider` | `PdfGeneratorApi` only for now (§5: behind a rendering-provider abstraction) |
 | `ProviderTemplateId` | string(128), required | the provider's template id |
-| `FileNamePattern` | string(255), required | Scriban (`factuur-{{ number }}.pdf`), parsed on save; `.pdf` added when missing |
+| `FileNamePattern` | string(255), required | Scriban (`factuur-{{ number }}.pdf`), parsed on save; `.pdf` added when missing. May use only `{{ number }}` (design 50, "File name"; PO 2026-10-23): any other field is refused on save with `FileNamePatternUnknownField` |
 | `IsDefault` | bool | at most one default per (purpose, culture) (unique partial index) |
 | `IsArchived` | bool | OpenTMS `IsDisabled`: hidden from pickers and automatic selection |
 | `AvailableInCustomerPortal` | bool | OpenTMS `IsAvailableForSelfServicePortalUsers` |
@@ -273,7 +273,8 @@ detail, create and update DTOs with concurrency stamp, `BulkDelete` over a grid 
   definitions), `includeArchived`. Wildcard over name (and code). Sort whitelists per row.
 - Errors (`PlatformErrorCodes`, localized nl/en): `DuplicateKey`, `InUse`, `TemplateSyntaxError`,
   `UnsupportedCulture`, `InvalidRegex`, `TransformationArgumentRequired`,
-  `DuplicateTransformation`, `NumberSequenceInUse`, `UnknownSortColumn`, `TooManyRows`, `NameRequired`.
+  `DuplicateTransformation`, `NumberSequenceInUse`, `UnknownSortColumn`, `TooManyRows`, `NameRequired`;
+  `FileNamePatternUnknownField` (HTTP 400) added by design 50 (PO 2026-10-23).
 
 ## Migration strategy
 

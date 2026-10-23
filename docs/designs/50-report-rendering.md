@@ -91,7 +91,7 @@ public interface IReportRenderingProvider
 }
 ```
 
-`RenderRequest { Templates: [{ TemplateId, Data (JsonElement) }], Format (Pdf | Html | Zip | Xlsx), FileName, IsTest }`;
+`RenderRequest { Templates: [{ TemplateId, Data (JsonElement) }], Format (Pdf | Html | Zip | Xlsx), FileName, IsTest, CallMode (Background | Interactive) }`;
 `RenderedDocument { Content (byte[]), FileName, ContentType }`. The workspace is the current tenant's (the provider
 decides from `ICurrentTenant`), never passed by the caller. A later in-house provider implements the same interface
 and reports `SupportsTemplateEditor = false`.
@@ -99,8 +99,19 @@ and reports `SupportsTemplateEditor = false`.
 **`IDocumentRenderer`** (published, Platform `Application.Contracts`, implemented in Platform.Application):
 `RenderAsync(Guid reportDefinitionId, JsonElement data, ReportRenderFormat format = Pdf)` and a batch overload. It
 reads the definition in the tenant, refuses an archived one, picks the provider by `Provider`, composes the file name
-from `FileNamePattern` (Scriban, rendered with the data's `EntityNumber`/`number`), checks the feature, and calls the
-provider. Not an application service (no HTTP endpoint); consumers in later runs call it.
+from `FileNamePattern`, checks the feature, and calls the provider with `CallMode = Background` (its renders run in
+jobs). Not an application service (no HTTP endpoint); consumers in later runs call it.
+
+**File name.** The pattern is Scriban rendered with one field, `number`: the payload's `Entity.EntityNumber`, and for
+the transport-unit balance, whose entity has no number (OpenTMS's `GetSingleOutput<TransportUnitTransactionPeriodOverview>`),
+the period's name `Entity.Entity.Period.Name` (PO 2026-10-23; OpenTMS read a non-existent `EntityNumber` there, so every
+balance file was "saldo-.pdf"). `Entity.EntityNumber` wins wherever it exists. `{{ number }}` is the **only** field a
+pattern may use: on create and update the report definition service renders the pattern against a model holding only
+`number` (sample "12345") with strict variables and strict member access, under the render limits (100 loop
+iterations, recursion depth 10), and refuses any other name (`{{ invoice.number }}`, `{{ number.foo }}`) with
+`FileNamePatternUnknownField` (HTTP 400, naming the name; PO 2026-10-23). Scriban's built-in functions
+(`string.upcase`, `date.now`) are not fields and stay available. A row saved before this check whose pattern fails at
+render time still gets a random name, as in OpenTMS, and the renderer logs a warning with the definition id.
 
 ### pdfgeneratorapi adapter (Integrations, `Application/DocumentRendering/PdfGeneratorApi`)
 
@@ -118,10 +129,29 @@ provider. Not an application service (no HTTP endpoint); consumers in later runs
   OpenTMS's hard-coded list of 13 template ids. The v4 reference documents `owner` on the items of `GET templates`,
   not on `GET templates/{id}`: the adapter reads it from the single template when present, else from the list
   filtered by the template's name; unknown counts as not owned.
-- **Resilience:** typed `HttpClient` from `IHttpClientFactory`, 30 s timeout, TLS validation on (OpenTMS switched it
-  off), retry on 429 and 5xx up to 4 retries with 3, 6, 12, 24 s backoff (OpenTMS's schedule), no retry on other 4xx;
-  the provider's error text is surfaced as Platform's `DocumentRenderingFailed` (the adapter throws Platform's codes
-  so the caller sees one set). Correlation id on the request.
+- **Resilience:** typed `HttpClient` from `IHttpClientFactory`, TLS validation on (OpenTMS switched it off). Two call
+  modes (`RenderCallMode`, PO 2026-10-23), timed per request with a token linked to the caller's, because one client
+  serves both; the client's own 30 s timeout stays as the ceiling of any one attempt:
+  - **Interactive** (a user waits): the editor URL, the copy, the template lookup, the template data, the health check
+    and the test render. **One attempt, 15 s timeout, no retries.** A 429 fails at once as `DocumentRenderingFailed`
+    with "the document service is busy, try again in a moment" (nl/en); a 5xx fails at once with the provider's text.
+    The template operations are always interactive; a render is interactive only when its `RenderRequest.CallMode`
+    says so (set explicitly, never inferred from `IsTest`).
+  - **Background** (`IDocumentRenderer`'s real renders, for the later jobs): 30 s per attempt, retry on 429 and 5xx up
+    to 4 retries with 3, 6, 12, 24 s backoff (OpenTMS's schedule).
+
+  **Command budget** (PO 2026-10-23): each interactive command of the report definition service (rendering status,
+  open editor, copy template, test render) shares ONE budget of **20 s** across all its provider calls, a token linked
+  to the request's and passed to every call; the 15 s per call stays. The budget is host configuration,
+  `Platform:DocumentRendering:InteractiveCommandBudget` (`DocumentRenderingOptions`, default 20 s). A command that runs out of budget fails as
+  `DocumentRenderingFailed` with "the document service did not answer in time" (nl/en); for the rendering status,
+  which is advisory, that text becomes the status message. The copy's new report definition is written with the
+  request's token, outside the budget. A copy interrupted after the provider created it (budget exhausted, request
+  aborted) leaves an unlinked template in the tenant's workspace: harmless, and removable in the provider (PO
+  2026-10-23).
+
+  No retry on other 4xx in either mode; the provider's error text is surfaced as Platform's `DocumentRenderingFailed`
+  (the adapter throws Platform's codes so the caller sees one set). Correlation id on the request.
 - **Configuration** (`Integrations:PdfGeneratorApi`): `BaseUrl`, `DefaultWorkspace`, `TenantWorkspace`, `Key`,
   `Secret`. Key and secret come from the deployment's secret store (environment variables injected from Secret
   Manager; `dotnet user-secrets` locally); never in a database, never in `appsettings*.json`, never returned by an
@@ -143,7 +173,8 @@ status needs only the screen's chain so it can report "feature off" as a reason;
 the provider. New permission
 `Platform.ReportDefinitions.EditTemplate` (both sides, seeded for admin). New error codes: `RenderingNotConfigured`,
 `RenderingProviderUnavailable`, `TemplateNotOwned`, `TemplateNotFound`, `DocumentRenderingFailed`, and
-`ReportDefinitionArchived` for "refuses an archived one" (added in the build; HTTP 409, 503, 409, 404, 502 and 409).
+`ReportDefinitionArchived` for "refuses an archived one" (added in the build; HTTP 409, 503, 409, 404, 502 and 409);
+`FileNamePatternUnknownField` on create and update (PO 2026-10-23; HTTP 400, see "File name").
 
 ### Report data catalogue (Platform `Domain.Shared/DocumentRendering`)
 
@@ -164,7 +195,8 @@ and missing fields allowed). Each OpenTMS class is defined once as a fragment an
 same wherever it appears; `Vehicle.DefaultSecondaryVehicle`/`DefaultThirdVehicle` (always null in OpenTMS) are
 catalogued as objects without children. **OpenTMS quirks kept for compatibility:** `Invoice.NetPrice` is the total
 *including* VAT (TotalPrice + VatPrice); the transport-unit balance keeps the `GetSingleOutput` wrapper
-(`Entity.Entity.…`, `EntityType` ``GetSingleOutput`1``); `InvoiceType.InvoiceNumberCreationOption` and `Vehicle.FuelType`
+(`Entity.Entity.…`, `EntityType` ``GetSingleOutput`1``) and has no `EntityNumber`: its file-name number is
+`Entity.Entity.Period.Name`; `InvoiceType.InvoiceNumberCreationOption` and `Vehicle.FuelType`
 are text, every other enum an integer; `FileDate` is a `yyyy-MM-dd` string while `PurchaseOrder.OrderDate` and
 `TripOverview[].FileDate` are full date-times; `TransportUnitTransaction.SourceLocation`/`DestinationLocation` repeat
 the source/destination relation; `TransportFile.TransportFileType` and `OrganizationUnit` are listed although OpenTMS
@@ -189,7 +221,8 @@ the provider, or "not found". Manual: a section in `docs/manual/stamgegevens.md`
 | Part | Class | Coverage |
 |---|---|---|
 | JWT, workspace choice, never editing an organization template, secrets never returned or logged | **Critical** | unit tests on the adapter with a fake HTTP handler: claims, Base64Url signature, workspace per tenant and host, `TemplateNotOwned`, log capture without key/secret/payload |
-| Retry/backoff, timeouts, error mapping, not configured | **High** | adapter unit tests (429, 5xx, 4xx, timeout) with a fake clock |
+| Retry/backoff, timeouts, error mapping, not configured | **High** | adapter unit tests (429, 5xx, 4xx, timeout) with a fake clock, per call mode: interactive one attempt within 15 s and "busy" on 429, background the retry schedule |
+| File-name pattern: only `{{ number }}`, balance number from the period | **High** | composer unit tests against the catalogue; service tests refusing unknown fields on create and update |
 | Report-definition operations: permissions, feature gating, tenant isolation (another tenant's definition is not found) | **High** | SQLite service tests with a fake provider; authorization tests |
 | Catalogue and sample JSON | **Medium** | unit tests: every purpose's sample serializes to the documented shape |
 | Editor commands | **Medium** | vitest |
@@ -206,7 +239,12 @@ and secret. Rollback: switch off.
 pdfgeneratorapi bills per merge (generated document). Test renders use `testing` and are not billed. Editor opens and
 copies are not merges. Real renders (later runs) add one merge per document: those runs state the volume per tenant.
 No Cloud SQL or Cloud Run change. Render p95 is the provider's (OpenTMS: 1–3 s per document), outside the request
-budgets because real renders run in jobs.
+budgets because real renders run in jobs. **Interactive commands stay within 20 s:** each provider call is one
+attempt of at most 15 s, no backoff, and all calls of one command share a 20 s budget, so a click never holds a
+request (and a Cloud Run request slot) for minutes, even when a command makes up to four calls (editor: template
+lookup, the owner list when the template answer lacks it, template data, editor URL; test render: template data,
+render). **Background renders** keep the retry schedule: up to 5 × 30 s plus 45 s of backoff
+(about 195 s) per call in the worst case, which only a job can afford.
 
 ## Assumptions
 

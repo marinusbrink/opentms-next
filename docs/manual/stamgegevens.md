@@ -199,6 +199,9 @@ factuur, inkooporder, emballageoverzicht) als PDF wordt gemaakt.
   **standaard**.
 - **Renderprovider** en **Sjabloon-id bij provider** wijzen de opmaak bij de documentdienst aan.
 - **Bestandsnaampatroon** bepaalt de naam van het PDF-bestand, bijvoorbeeld `factuur-{{ number }}.pdf`.
+  Het enige veld dat u kunt gebruiken is `{{ number }}`: het nummer van het document (bij een
+  emballageoverzicht de naam van de periode). Een patroon met een ander veld, zoals
+  `{{ invoice.number }}`, wordt bij opslaan geweigerd.
 - **Beschikbaar in klantportaal** laat klanten het document in het portaal downloaden.
 - Een **gearchiveerde** definitie verschijnt niet meer in keuzelijsten en wordt niet automatisch
   gekozen.
@@ -217,6 +220,9 @@ Bij een bestaande rapportdefinitie staan bovenin de groep **Sjabloon** drie knop
   "(kopie)", niet standaard). Die nieuwe definitie gaat direct open.
 - **Testdocument** maakt een PDF met voorbeeldgegevens en downloadt die. Een testdocument is gemarkeerd
   als voorbeeld (PREVIEW) en wordt niet in rekening gebracht.
+
+Een knop wacht hooguit 20 seconden op de documentdienst. Antwoordt die niet op tijd of is hij bezet,
+dan ziet u een melding: probeer het dan zo nog eens.
 
 De standaardsjablonen van FiLogic worden door alle klanten gedeeld en kunt u niet zelf bewerken.
 Wilt u er een aanpassen, kopieer het dan eerst: u bewerkt daarna de kopie in uw eigen werkruimte.

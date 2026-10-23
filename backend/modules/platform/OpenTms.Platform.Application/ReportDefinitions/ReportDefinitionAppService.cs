@@ -34,11 +34,25 @@ public class ReportDefinitionAppService
     private readonly IReadOnlyCollection<string> _cultures;
     private readonly DocumentRenderer _renderer;
 
-    public ReportDefinitionAppService(IRepository<ReportDefinition, Guid> repository, IOptions<AbpLocalizationOptions> localization, DocumentRenderer renderer)
+    /// <summary>
+    /// The one budget every interactive command (editor, copy, test render, rendering status) shares across all its
+    /// provider calls (design 50, "Resilience"; <see cref="DocumentRenderingOptions.InteractiveCommandBudget"/>, 20 s
+    /// by default): each call keeps its own 15 s limit inside it.
+    /// </summary>
+    private readonly TimeSpan _interactiveCommandBudget;
+
+    public ReportDefinitionAppService(
+        IRepository<ReportDefinition, Guid> repository,
+        IOptions<AbpLocalizationOptions> localization,
+        DocumentRenderer renderer,
+        IOptions<DocumentRenderingOptions> renderingOptions)
         : base(repository)
     {
         _cultures = localization.Value.Languages.Select(l => l.CultureName.ToLowerInvariant()).ToList();
         _renderer = renderer;
+        /* A zero or negative setting would cancel every command at once (or throw): the default applies instead. */
+        var budget = renderingOptions.Value.InteractiveCommandBudget;
+        _interactiveCommandBudget = budget > TimeSpan.Zero ? budget : DocumentRenderingOptions.DefaultInteractiveCommandBudget;
     }
 
     [RequiresFeature(AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.ReportDefinitions, RequiresAll = true)]
@@ -111,22 +125,25 @@ public class ReportDefinitionAppService
             return status;
         }
 
-        var ct = RequestCancellation;
         status.ProviderAvailable = true;
         status.SupportsTemplateEditor = provider.SupportsTemplateEditor;
         status.SupportsTemplateCopy = provider.SupportsTemplateCopy;
-        status.ProviderConfigured = (await provider.GetStatusAsync(ct)).IsConfigured;
-        if (!status.ProviderConfigured || !status.FeatureEnabled)
-        {
-            return status;
-        }
-
         try
         {
-            var template = await provider.GetTemplateAsync(definition.ProviderTemplateId, ct);
-            status.TemplateFound = template != null;
-            status.TemplateName = template?.Name;
-            status.TemplateOwnedByWorkspace = template?.OwnedByWorkspace;
+            await WithinCommandBudgetAsync(definition.Id, async ct =>
+            {
+                status.ProviderConfigured = (await provider.GetStatusAsync(ct)).IsConfigured;
+                if (!status.ProviderConfigured || !status.FeatureEnabled)
+                {
+                    return true;
+                }
+
+                var template = await provider.GetTemplateAsync(definition.ProviderTemplateId, ct);
+                status.TemplateFound = template != null;
+                status.TemplateName = template?.Name;
+                status.TemplateOwnedByWorkspace = template?.OwnedByWorkspace;
+                return true;
+            });
         }
         catch (BusinessException e) when (e.Code == PlatformErrorCodes.DocumentRenderingFailed)
         {
@@ -151,22 +168,24 @@ public class ReportDefinitionAppService
         await EnsureDocumentRenderingAsync();
         var definition = await Repository.GetAsync(id);
         EnsureNotArchived(definition);
-        var ct = RequestCancellation;
-        var provider = await _renderer.GetConfiguredProviderAsync(definition.Provider, ct);
-        if (!provider.SupportsTemplateEditor)
+        var url = await WithinCommandBudgetAsync(definition.Id, async ct =>
         {
-            throw new BusinessException(PlatformErrorCodes.RenderingProviderUnavailable).WithData("provider", definition.Provider.ToString());
-        }
+            var provider = await _renderer.GetConfiguredProviderAsync(definition.Provider, ct);
+            if (!provider.SupportsTemplateEditor)
+            {
+                throw new BusinessException(PlatformErrorCodes.RenderingProviderUnavailable).WithData("provider", definition.Provider.ToString());
+            }
 
-        var template = await provider.GetTemplateAsync(definition.ProviderTemplateId, ct)
-                       ?? throw new BusinessException(PlatformErrorCodes.TemplateNotFound).WithData("templateId", definition.ProviderTemplateId);
-        if (!template.OwnedByWorkspace)
-        {
-            throw new BusinessException(PlatformErrorCodes.TemplateNotOwned).WithData("templateId", definition.ProviderTemplateId);
-        }
+            var template = await provider.GetTemplateAsync(definition.ProviderTemplateId, ct)
+                           ?? throw new BusinessException(PlatformErrorCodes.TemplateNotFound).WithData("templateId", definition.ProviderTemplateId);
+            if (!template.OwnedByWorkspace)
+            {
+                throw new BusinessException(PlatformErrorCodes.TemplateNotOwned).WithData("templateId", definition.ProviderTemplateId);
+            }
 
-        var sample = await SampleDataAsync(provider, definition, ct);
-        var url = await provider.GetTemplateEditorUrlAsync(definition.ProviderTemplateId, sample, definition.Culture, ct);
+            var sample = await SampleDataAsync(provider, definition, ct);
+            return await provider.GetTemplateEditorUrlAsync(definition.ProviderTemplateId, sample, definition.Culture, ct);
+        });
         Logger.LogInformation("Template editor opened for report definition {ReportDefinitionId} of tenant {TenantId}", definition.Id, CurrentTenant.Id);
         return new ReportTemplateEditorDto { Url = url };
     }
@@ -185,16 +204,20 @@ public class ReportDefinitionAppService
         await AuthorizationService.CheckAsync(PlatformPermissions.MasterData.ReportDefinitions.Create);
         var source = await Repository.GetAsync(id);
         EnsureNotArchived(source);
-        var ct = RequestCancellation;
-        var provider = await _renderer.GetConfiguredProviderAsync(source.Provider, ct);
-        if (!provider.SupportsTemplateCopy)
+        var (name, copied) = await WithinCommandBudgetAsync(source.Id, async ct =>
         {
-            throw new BusinessException(PlatformErrorCodes.RenderingProviderUnavailable).WithData("provider", source.Provider.ToString());
-        }
+            var provider = await _renderer.GetConfiguredProviderAsync(source.Provider, ct);
+            if (!provider.SupportsTemplateCopy)
+            {
+                throw new BusinessException(PlatformErrorCodes.RenderingProviderUnavailable).WithData("provider", source.Provider.ToString());
+            }
 
-        var name = await UniqueCopyNameAsync(source.Name);
-        var copied = await provider.CopyTemplateAsync(source.ProviderTemplateId, name, ct);
+            var copyName = await UniqueCopyNameAsync(source.Name);
+            return (copyName, await provider.CopyTemplateAsync(source.ProviderTemplateId, copyName, ct));
+        });
 
+        /* The new row is written with the request's token, not the provider budget: the copy exists at the provider. */
+        var ct = RequestCancellation;
         var definition = new ReportDefinition(
             GuidGenerator.Create(), CurrentTenant.Id, name, source.Purpose, source.Culture, _cultures,
             source.Provider, copied.Id, source.FileNamePattern);
@@ -214,10 +237,13 @@ public class ReportDefinitionAppService
         await EnsureDocumentRenderingAsync();
         var definition = await Repository.GetAsync(id);
         EnsureNotArchived(definition);
-        var ct = RequestCancellation;
-        var provider = await _renderer.GetConfiguredProviderAsync(definition.Provider, ct);
-        var sample = await SampleDataAsync(provider, definition, ct);
-        var document = await _renderer.RenderDefinitionAsync(definition, [sample], ReportRenderFormat.Pdf, isTest: true, ct);
+        var document = await WithinCommandBudgetAsync(definition.Id, async ct =>
+        {
+            var provider = await _renderer.GetConfiguredProviderAsync(definition.Provider, ct);
+            var sample = await SampleDataAsync(provider, definition, ct);
+            /* A user waits for the download: one attempt with the interactive timeout, no retries (design 50, "Resilience"). */
+            return await _renderer.RenderDefinitionAsync(definition, [sample], ReportRenderFormat.Pdf, isTest: true, RenderCallMode.Interactive, ct);
+        });
         return new RemoteStreamContent(new MemoryStream(document.Content), document.FileName, document.ContentType);
     }
 
@@ -228,6 +254,30 @@ public class ReportDefinitionAppService
     private Task EnsureDocumentRenderingAsync() => FeatureChecker.CheckEnabledAsync(PlatformFeatures.DocumentRendering);
 
     private CancellationToken RequestCancellation => LazyServiceProvider.LazyGetRequiredService<ICancellationTokenProvider>().Token;
+
+    /// <summary>
+    /// Runs a command's provider calls under one interactive command budget, linked to the request's token
+    /// so a browser that goes away still stops them at once. Each call keeps its own 15 s limit inside the budget. A
+    /// command that runs out of budget fails as DocumentRenderingFailed, "the document service did not answer in time".
+    /// </summary>
+    private async Task<T> WithinCommandBudgetAsync<T>(Guid definitionId, Func<CancellationToken, Task<T>> providerCalls)
+    {
+        var request = RequestCancellation;
+        using var budget = new CancellationTokenSource(_interactiveCommandBudget);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(request, budget.Token);
+        try
+        {
+            return await providerCalls(linked.Token);
+        }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested && !request.IsCancellationRequested)
+        {
+            Logger.LogWarning(
+                "Report definition {ReportDefinitionId} for tenant {TenantId}: the rendering provider did not answer within the command budget of {BudgetSeconds} s",
+                definitionId, CurrentTenant.Id, _interactiveCommandBudget.TotalSeconds);
+            throw new BusinessException(PlatformErrorCodes.DocumentRenderingFailed)
+                .WithData("message", L["Platform:DocumentRenderingTimedOut"].Value);
+        }
+    }
 
     private static void EnsureNotArchived(ReportDefinition definition)
     {
@@ -339,6 +389,7 @@ public class ReportDefinitionAppService
     protected override async Task<ReportDefinition> CreateEntityAsync(ReportDefinitionCreateDto input)
     {
         ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern", L);
+        EnsureFileNamePatternFieldsKnown(input.FileNamePattern);
         var normalized = ReportDefinition.NormalizedNameOf(input.Name);
         await EnsureUniqueAsync(d => d.NormalizedName == normalized, "name", input.Name.Trim());
 
@@ -352,6 +403,7 @@ public class ReportDefinitionAppService
     protected override async Task ApplyUpdateAsync(ReportDefinition definition, ReportDefinitionUpdateDto input)
     {
         ScribanTemplateValidator.EnsureValid(input.FileNamePattern, "fileNamePattern", L);
+        EnsureFileNamePatternFieldsKnown(input.FileNamePattern);
         var normalized = ReportDefinition.NormalizedNameOf(input.Name);
         if (normalized != definition.NormalizedName)
         {
@@ -363,6 +415,22 @@ public class ReportDefinitionAppService
         definition.SetProvider(input.Provider, input.ProviderTemplateId);
         definition.SetFileNamePattern(input.FileNamePattern);
         await ApplyAsync(definition, input);
+    }
+
+    /// <summary>
+    /// A file-name pattern may use only <c>{{ number }}</c> (design 49/50): one that names another field
+    /// (<c>{{ invoice.number }}</c>) parses but would give every document a wrong or random name, so it is refused on
+    /// save with FileNamePatternUnknownField naming the field. Only this service's create and update call it; the
+    /// e-mail templates keep the syntax check alone.
+    /// </summary>
+    private static void EnsureFileNamePatternFieldsKnown(string? pattern)
+    {
+        if (ReportFileNameComposer.FindUnknownField(pattern) is { } name)
+        {
+            throw new BusinessException(PlatformErrorCodes.FileNamePatternUnknownField)
+                .WithData("field", "fileNamePattern")
+                .WithData("name", name);
+        }
     }
 
     private async Task ApplyAsync(ReportDefinition definition, ReportDefinitionCreateDto input)
