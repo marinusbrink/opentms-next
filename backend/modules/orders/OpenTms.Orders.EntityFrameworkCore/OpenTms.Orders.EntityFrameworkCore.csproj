@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.EntityFrameworkCore\OpenTms.Platform.EntityFrameworkCore.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Domain\OpenTms.Orders.Domain.csproj" />
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain.Shared\OpenTms.Platform.Domain.Shared.csproj" />
   </ItemGroup>

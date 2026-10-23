@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenTms.Features;
+using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.Features;
 using Shouldly;
@@ -29,6 +30,9 @@ public class ReferenceDataFeatureGatingTests : ReferenceDataAppServiceTestBase
     private static readonly Dictionary<Type, (string Node, string DomainGroup)> Services = new()
     {
         [typeof(ITransportTripTypeAppService)] = (AppFeatures.MasterData.PlanningExecution.Trips.TransportTripTypes, AppFeatures.MasterData.PlanningExecution.Default),
+        [typeof(ITransportOrderTypeAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.TransportOrderTypes, AppFeatures.MasterData.Orders.Default),
+        [typeof(IWaypointTypeAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.WaypointTypes, AppFeatures.MasterData.Orders.Default),
+        [typeof(ITimeSlotAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.TimeSlots, AppFeatures.MasterData.Orders.Default),
     };
 
     private static readonly HashSet<string> Pickers = ["GetLookupAsync", "GetLookupPageAsync"];

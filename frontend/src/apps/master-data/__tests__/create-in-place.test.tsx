@@ -42,6 +42,7 @@ vi.mock("@/apps/master-data/editors/TransportCharacteristicsEditor", async () =>
 vi.mock("@/apps/master-data/editors/TransportUnitEditor", async () => ({ TransportUnitEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportUnit") }));
 vi.mock("@/apps/master-data/editors/VehicleEditor", async () => ({ VehicleEditor: (await import("./create-in-place-test-mocks")).stubEditor("Vehicle") }));
 vi.mock("@/apps/master-data/editors/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
+vi.mock("@/apps/master-data/editors/WaypointTypeEditor", async () => ({ WaypointTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("WaypointType") }));
 vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", async () => ({ OrganizationUnitFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("OrganizationUnit") }));
 vi.mock("@/domains/platform/components/UserFormDialog", async () => ({ UserFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("User") }));
 
@@ -61,6 +62,7 @@ import {
   vehicleTypes,
 } from "@/domains/master-data/entities";
 import { masterDataQueryKey, type LookupItem } from "@/domains/master-data/shared";
+import { waypointTypes } from "@/domains/orders/reference-data";
 
 import { APPS, type AppView } from "@/app/apps.config";
 import { featureChain } from "@/app/app-features";
@@ -111,6 +113,13 @@ const CASES: Case[] = [
   { entity: "TransportUnit", permission: "MasterData.TransportUnits.Create", labelKey: "MasterData:AddNewTransportUnit", record: { id: "new-unit", code: null, name: "Box pallet" }, cacheKey: masterDataQueryKey(transportUnits.entity, "lookup") },
   { entity: "Vehicle", permission: "MasterData.Vehicles.Create", labelKey: "MasterData:AddNewVehicle", record: { id: "new-vehicle", code: null, name: "Truck 42" }, cacheKey: masterDataQueryKey(vehicles.entity, "lookup") },
   { entity: "VehicleType", permission: "MasterData.VehicleTypes.Create", labelKey: "MasterData:AddNewVehicleType", record: { id: "new-type", code: null, name: "Low loader" }, cacheKey: masterDataQueryKey(vehicleTypes.entity, "lookup") },
+  {
+    entity: "WaypointType",
+    permission: "Orders.WaypointTypes.Create",
+    labelKey: "Orders:AddNewWaypointType",
+    record: { id: "new-waypoint-type", code: "DEPOT", name: "Depot stop" },
+    cacheKey: masterDataQueryKey(waypointTypes.entity, "lookup"),
+  },
   {
     entity: "OrganizationUnit",
     permission: "Platform.Administration.OrganizationUnits.Create",
@@ -262,6 +271,7 @@ describe("useCreateInPlace — offer", () => {
       const all = {
         ...texts(`backend/modules/master-data/OpenTms.MasterData.Domain.Shared/Localization/MasterData/${culture}.json`),
         ...texts(`backend/modules/platform/OpenTms.Platform.Domain.Shared/Localization/Platform/${culture}.json`),
+        ...texts(`backend/modules/orders/OpenTms.Orders.Domain.Shared/Localization/Orders/${culture}.json`),
       };
       for (const { labelKey } of CASES) expect(all[labelKey]?.trim(), `${culture}: ${labelKey}`).toBeTruthy();
       expect(all["Editions:AddNewEdition"]?.trim(), `${culture}: Editions:AddNewEdition`).toBeTruthy();

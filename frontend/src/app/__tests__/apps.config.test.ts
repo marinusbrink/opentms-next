@@ -103,7 +103,7 @@ describe("apps.config – AppView extension (low risk)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
     expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial"]);
     const [, orders, planning, financial] = masterData.views!;
-    const lists = (group: (typeof masterData.views)[number]) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
+    const lists = (group: NonNullable<typeof masterData.views>[number]) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
     expect(lists(orders)).toEqual([
       ["/master-data/transport-order-types", "Orders:TransportOrderTypes", "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes"],
       ["/master-data/waypoint-types", "Orders:WaypointTypes", "Apps.MasterData.Orders.TransportOrders.WaypointTypes"],

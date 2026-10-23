@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
+using OpenTms.Orders.Permissions;
 using OpenTms.PlanningExecution.Permissions;
 using OpenTms.Platform.ReferenceData;
 using Shouldly;
@@ -27,6 +28,9 @@ public class ReferenceDataDefinitionsTests : OpenTmsEntityFrameworkCoreTestBase
     public static readonly string[] ViewPermissions =
     [
         PlanningExecutionPermissions.TransportTripTypes.Default,
+        OrdersPermissions.TransportOrderTypes.Default,
+        OrdersPermissions.WaypointTypes.Default,
+        OrdersPermissions.TimeSlots.Default,
     ];
 
     /// <summary>The module resources (folder under backend/modules, resource name) whose nl/en parity is checked.</summary>
@@ -72,6 +76,18 @@ public class ReferenceDataDefinitionsTests : OpenTmsEntityFrameworkCoreTestBase
             .Where(f => f.IsLiteral && f.Name != nameof(ReferenceDataErrorCodes.Namespace))
             .Select(f => (string)f.GetRawConstantValue()!);
         codes.Where(code => !en.ContainsKey(code)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Every_orders_error_code_has_a_text_and_an_http_status()
+    {
+        var en = Read("orders", "OpenTms.Orders.Domain.Shared", "Orders", "en");
+        var codes = typeof(OpenTms.Orders.OrdersErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.Name != nameof(OpenTms.Orders.OrdersErrorCodes.Namespace))
+            .Select(f => (string)f.GetRawConstantValue()!)
+            .ToList();
+        codes.Where(code => !en.ContainsKey(code)).ShouldBeEmpty();
+        codes.Except(OpenTms.Orders.OrdersErrorCodes.ConflictCodes.Concat(OpenTms.Orders.OrdersErrorCodes.BadRequestCodes)).ShouldBeEmpty();
     }
 
     [Fact]
