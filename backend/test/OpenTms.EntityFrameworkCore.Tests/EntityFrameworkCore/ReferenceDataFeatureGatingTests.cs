@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenTms.Features;
+using OpenTms.Financial.Invoicing;
+using OpenTms.Financial.Tariffs;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.Features;
 using Shouldly;
@@ -29,6 +31,11 @@ public class ReferenceDataFeatureGatingTests : ReferenceDataAppServiceTestBase
     private static readonly Dictionary<Type, (string Node, string DomainGroup)> Services = new()
     {
         [typeof(ITransportTripTypeAppService)] = (AppFeatures.MasterData.PlanningExecution.Trips.TransportTripTypes, AppFeatures.MasterData.PlanningExecution.Default),
+        [typeof(IVatPercentageAppService)] = (AppFeatures.MasterData.Financial.Invoicing.VatPercentages, AppFeatures.MasterData.Financial.Default),
+        [typeof(IOutboundInvoiceTypeAppService)] = (AppFeatures.MasterData.Financial.Invoicing.OutboundInvoiceTypes, AppFeatures.MasterData.Financial.Default),
+        [typeof(IInboundInvoiceTypeAppService)] = (AppFeatures.MasterData.Financial.Invoicing.InboundInvoiceTypes, AppFeatures.MasterData.Financial.Default),
+        [typeof(IAdditionalServiceAppService)] = (AppFeatures.MasterData.Financial.Pricing.AdditionalServices, AppFeatures.MasterData.Financial.Default),
+        [typeof(IDiscountOrSurchargeAppService)] = (AppFeatures.MasterData.Financial.Pricing.DiscountsOrSurcharges, AppFeatures.MasterData.Financial.Default),
     };
 
     private static readonly HashSet<string> Pickers = ["GetLookupAsync", "GetLookupPageAsync"];

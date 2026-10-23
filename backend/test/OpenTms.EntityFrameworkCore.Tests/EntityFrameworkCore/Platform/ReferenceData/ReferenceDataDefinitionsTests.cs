@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
+using OpenTms.Financial.Permissions;
 using OpenTms.PlanningExecution.Permissions;
 using OpenTms.Platform.ReferenceData;
 using Shouldly;
@@ -27,6 +28,11 @@ public class ReferenceDataDefinitionsTests : OpenTmsEntityFrameworkCoreTestBase
     public static readonly string[] ViewPermissions =
     [
         PlanningExecutionPermissions.TransportTripTypes.Default,
+        FinancialPermissions.VatPercentages.Default,
+        FinancialPermissions.AdditionalServices.Default,
+        FinancialPermissions.DiscountsOrSurcharges.Default,
+        FinancialPermissions.OutboundInvoiceTypes.Default,
+        FinancialPermissions.InboundInvoiceTypes.Default,
     ];
 
     /// <summary>The module resources (folder under backend/modules, resource name) whose nl/en parity is checked.</summary>
@@ -70,6 +76,16 @@ public class ReferenceDataDefinitionsTests : OpenTmsEntityFrameworkCoreTestBase
         var en = Read("platform", "OpenTms.Platform.Domain.Shared", "Platform", "en");
         var codes = typeof(ReferenceDataErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Where(f => f.IsLiteral && f.Name != nameof(ReferenceDataErrorCodes.Namespace))
+            .Select(f => (string)f.GetRawConstantValue()!);
+        codes.Where(code => !en.ContainsKey(code)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Every_financial_error_code_has_a_text()
+    {
+        var en = Read("financial", "OpenTms.Financial.Domain.Shared", "Financial", "en");
+        var codes = typeof(OpenTms.Financial.FinancialErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.Name != nameof(OpenTms.Financial.FinancialErrorCodes.Namespace))
             .Select(f => (string)f.GetRawConstantValue()!);
         codes.Where(code => !en.ContainsKey(code)).ShouldBeEmpty();
     }

@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain\OpenTms.Platform.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Financial.Domain.Shared\OpenTms.Financial.Domain.Shared.csproj" />
   </ItemGroup>
 
