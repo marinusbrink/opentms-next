@@ -67,7 +67,7 @@ describe("RecordUpdatesClient", () => {
     const client = new RecordUpdatesClient(() => fake.connection);
     client.watch("Orders.TransportOrder", Array.from({ length: 450 }, (_, i) => `o${i}`));
     await flush();
-    expect(fake.raw.invoke.mock.calls.map((c) => (c[2] as string[]).length)).toEqual([200, 200, 50]);
+    expect(fake.raw.invoke.mock.calls.map((c) => ((c as unknown[])[2] as string[]).length)).toEqual([200, 200, 50]);
   });
 
   it("delivers pushes to subscribers and re-watches everything after a reconnect", async () => {
