@@ -1,5 +1,6 @@
 ﻿using Localization.Resources.AbpUi;
 using System.Net;
+using OpenTms.Financial;
 using OpenTms.Localization;
 using OpenTms.MasterData;
 using OpenTms.Orders;
@@ -93,6 +94,17 @@ public class OpenTmsHttpApiModule : AbpModule
             }
 
             foreach (var code in OrdersErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Financial master data (design 52): validity rows, currencies, days of the week. */
+            foreach (var code in FinancialErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in FinancialErrorCodes.BadRequestCodes)
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }

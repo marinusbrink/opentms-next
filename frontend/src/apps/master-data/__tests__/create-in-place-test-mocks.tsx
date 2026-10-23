@@ -30,6 +30,7 @@ export const CREATE_NODE_FEATURES = {
   Vehicle: "Apps.MasterData.General.Fleet.Vehicles",
   VehicleType: "Apps.MasterData.General.Fleet.VehicleTypes",
   WaypointType: "Apps.MasterData.Orders.TransportOrders.WaypointTypes",
+  VatPercentage: "Apps.MasterData.Financial.Invoicing.VatPercentages",
   OrganizationUnit: "Apps.Administration.OrganizationUnits",
   User: "Apps.Administration.Users",
 } as const;
@@ -175,6 +176,7 @@ export function resetSavedDtos() {
     Vehicle: { id: "new-vehicle", code: null, name: "Truck 42", kind: 2, licencePlate: "AB-12-CD", vehicleTypeName: "Trailer" },
     VehicleType: { id: "new-type", code: null, name: "Low loader" },
     WaypointType: { id: "new-waypoint-type", code: "DEPOT", names: { en: "Depot stop", nl: "Depotstop" } },
+    VatPercentage: { id: "new-vat", code: "HIGH", names: { en: "High", nl: "Hoog" } },
     OrganizationUnit: { id: "new-ou", code: "00009", displayName: "Depot Venlo", parentId: null },
     User: { id: "new-user", userName: "jdoe", name: "Jane", surname: "Doe", email: "jane@example.test" },
     Edition: { id: "new-edition", displayName: "Platinum" },

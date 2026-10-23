@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenTms.Features;
 using OpenTms.Orders.TransportOrders;
+using OpenTms.Financial.Invoicing;
+using OpenTms.Financial.Tariffs;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.Features;
 using Shouldly;
@@ -33,6 +35,11 @@ public class ReferenceDataFeatureGatingTests : ReferenceDataAppServiceTestBase
         [typeof(ITransportOrderTypeAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.TransportOrderTypes, AppFeatures.MasterData.Orders.Default),
         [typeof(IWaypointTypeAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.WaypointTypes, AppFeatures.MasterData.Orders.Default),
         [typeof(ITimeSlotAppService)] = (AppFeatures.MasterData.Orders.TransportOrders.TimeSlots, AppFeatures.MasterData.Orders.Default),
+        [typeof(IVatPercentageAppService)] = (AppFeatures.MasterData.Financial.Invoicing.VatPercentages, AppFeatures.MasterData.Financial.Default),
+        [typeof(IOutboundInvoiceTypeAppService)] = (AppFeatures.MasterData.Financial.Invoicing.OutboundInvoiceTypes, AppFeatures.MasterData.Financial.Default),
+        [typeof(IInboundInvoiceTypeAppService)] = (AppFeatures.MasterData.Financial.Invoicing.InboundInvoiceTypes, AppFeatures.MasterData.Financial.Default),
+        [typeof(IAdditionalServiceAppService)] = (AppFeatures.MasterData.Financial.Pricing.AdditionalServices, AppFeatures.MasterData.Financial.Default),
+        [typeof(IDiscountOrSurchargeAppService)] = (AppFeatures.MasterData.Financial.Pricing.DiscountsOrSurcharges, AppFeatures.MasterData.Financial.Default),
     };
 
     private static readonly HashSet<string> Pickers = ["GetLookupAsync", "GetLookupPageAsync"];
