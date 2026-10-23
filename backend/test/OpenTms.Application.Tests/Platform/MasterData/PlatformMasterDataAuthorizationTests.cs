@@ -49,6 +49,17 @@ public class PlatformMasterDataAuthorizationTests
                 yield return [service.Name, "UnarchiveAsync", update];
             }
 
+            if (service == typeof(ReportDefinitionAppService))
+            {
+                /* Report rendering (docs/designs/50-report-rendering.md, "Report-definition operations"): the status and the
+                 * test render are viewing; the editor and the copy need EditTemplate (the copy checks Create inside the
+                 * body as well, exercised at runtime in ReportDefinitionRenderingOperationsTests). */
+                yield return [service.Name, "GetRenderingStatusAsync", view];
+                yield return [service.Name, "TestRenderAsync", view];
+                yield return [service.Name, "OpenTemplateEditorAsync", PlatformPermissions.MasterData.ReportDefinitions.EditTemplate];
+                yield return [service.Name, "CopyTemplateAsync", PlatformPermissions.MasterData.ReportDefinitions.EditTemplate];
+            }
+
             if (service == typeof(EmailTemplateAppService))
             {
                 /* Editor support (design 49, "Tags and default content", PO 2026-10-20): reading the catalogue and the
@@ -193,7 +204,61 @@ public class PlatformMasterDataAuthorizationTests
         AppFeatures.MasterData.Platform.NumberSequences.ShouldBe("Apps.MasterData.Platform.NumberSequences");
     }
 
+    [Fact]
+    public void The_EditTemplate_permission_and_the_DocumentRendering_feature_have_the_designed_names()
+    {
+        PlatformPermissions.MasterData.ReportDefinitions.EditTemplate.ShouldBe("Platform.ReportDefinitions.EditTemplate");
+        PlatformFeatures.DocumentRendering.ShouldBe("Platform.DocumentRendering");
+    }
+
+    [Theory]
+    [InlineData("OpenTemplateEditorAsync")]
+    [InlineData("CopyTemplateAsync")]
+    [InlineData("TestRenderAsync")]
+    public void The_template_commands_hold_no_database_transaction_across_the_provider_call(string method)
+    {
+        /* Design 50 calls the provider from these three; the service pins [UnitOfWork(isTransactional: false)] so a slow
+         * provider (30 s timeout, retries up to 45 s) never holds a database transaction open. */
+        var info = typeof(ReportDefinitionAppService).GetMethod(method, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)!;
+        var unitOfWork = info.GetCustomAttribute<Volo.Abp.Uow.UnitOfWorkAttribute>();
+        unitOfWork.ShouldNotBeNull(method);
+        unitOfWork.IsTransactional.ShouldBe(false, method);
+    }
+
     // ── Error codes → HTTP status (API contract) ─────────────────────────────
+
+    [Fact]
+    public void The_HttpApi_module_maps_the_document_rendering_codes_to_their_designed_status()
+    {
+        /* Design 50: RenderingNotConfigured, RenderingProviderUnavailable, TemplateNotOwned, TemplateNotFound,
+         * DocumentRenderingFailed and ReportDefinitionArchived travel as 409, 503, 409, 404, 502 and 409. */
+        var expected = new Dictionary<string, HttpStatusCode>
+        {
+            [PlatformErrorCodes.RenderingNotConfigured] = HttpStatusCode.Conflict,
+            [PlatformErrorCodes.RenderingProviderUnavailable] = HttpStatusCode.ServiceUnavailable,
+            [PlatformErrorCodes.TemplateNotOwned] = HttpStatusCode.Conflict,
+            [PlatformErrorCodes.TemplateNotFound] = HttpStatusCode.NotFound,
+            [PlatformErrorCodes.DocumentRenderingFailed] = HttpStatusCode.BadGateway,
+            [PlatformErrorCodes.ReportDefinitionArchived] = HttpStatusCode.Conflict,
+        };
+
+        var services = new ServiceCollection();
+        services.AddOptions();
+        var module = new OpenTmsHttpApiModule();
+        typeof(AbpModule).GetProperty("ServiceConfigurationContext", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!
+            .SetValue(module, new ServiceConfigurationContext(services));
+        module.ConfigureServices(new ServiceConfigurationContext(services));
+        var mappings = services.BuildServiceProvider().GetRequiredService<IOptions<AbpExceptionHttpStatusCodeOptions>>().Value.ErrorCodeToHttpStatusCodeMappings;
+
+        PlatformErrorCodes.DocumentRenderingCodes.Keys.ShouldBe(expected.Keys, ignoreOrder: true);
+        foreach (var (code, status) in expected)
+        {
+            mappings.ShouldContainKey(code);
+            mappings[code].ShouldBe(status, code);
+            PlatformErrorCodes.ConflictCodes.ShouldNotContain(code);
+            PlatformErrorCodes.BadRequestCodes.ShouldNotContain(code);
+        }
+    }
 
     [Fact]
     public void Every_Platform_error_code_is_either_a_conflict_or_a_bad_request()

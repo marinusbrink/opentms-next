@@ -31,7 +31,9 @@ namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 /// Apps.MasterData.Platform → its leaf; GetLookupAsync needs only Apps.MasterData; INumberGenerator is not gated). Every
 /// interface method is invoked by reflection, so a method added later without the chain fails here. Also the definition
 /// of the Platform group (parent, default, children) and its display names in both languages, and a stored tenant value
-/// that applies to that tenant only. Risk class: High in the design ("Permissions and feature chain on every method");
+/// that applies to that tenant only. The report definitions' three template commands (design 50) need
+/// Platform.DocumentRendering on top of the chain, a feature outside the app tree that defaults off: these theories switch
+/// it on, so "everything on" means everything, and pin that it alone refuses the three commands but not the status. Risk class: High in the design ("Permissions and feature chain on every method");
 /// Critical in the department matrix (feature gating is authorization, feature values are per tenant).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
@@ -46,6 +48,15 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
     ];
 
     private static bool IsPicker(MethodInfo method) => method.Name == "GetLookupAsync";
+
+    /// <summary>The template commands of design 50: the screen's chain plus Platform.DocumentRendering.</summary>
+    private static readonly string[] RenderingCommands = ["OpenTemplateEditorAsync", "CopyTemplateAsync", "TestRenderAsync"];
+
+    /// <summary>
+    /// Platform.DocumentRendering on: it is not part of the app tree (TestFeatureValueProvider leaves it at its default,
+    /// off), so without this the three commands would be refused by it and every "everything on" control would fail.
+    /// </summary>
+    private static IDisposable DocumentRenderingOn() => TestFeatureValueProvider.Override(PlatformFeatures.DocumentRendering, "true");
 
     public static IEnumerable<object[]> Methods() =>
         Services.SelectMany(s => s.Service.GetMethods().Select(m => new object[] { s.Service.Name, m.Name }));
@@ -133,6 +144,7 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
     {
         var (service, leaf, method) = Find(serviceName, methodName);
         using var _ = InTenantA();
+        using var rendering = DocumentRenderingOn();
         SkipInputValidation();
 
         foreach (var off in new[] { AppFeatures.MasterData.Platform.Default, leaf })
@@ -169,6 +181,7 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
     {
         var (service, leaf, method) = Find(serviceName, methodName);
         using var _ = InTenantA();
+        using var rendering = DocumentRenderingOn();
         SkipInputValidation();
 
         foreach (var other in Services.Select(s => s.Leaf).Where(l => l != leaf))
@@ -178,6 +191,29 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
                 var result = await InvokeAsync(service, method);
                 IsFeatureRefusal(result).ShouldBeFalse($"{serviceName}.{methodName} with {other} off: {result?.Message}");
             }
+        }
+    }
+
+    [Theory]
+    [InlineData("OpenTemplateEditorAsync", true)]
+    [InlineData("CopyTemplateAsync", true)]
+    [InlineData("TestRenderAsync", true)]
+    [InlineData("GetRenderingStatusAsync", false)]
+    public async Task With_the_chain_on_Platform_DocumentRendering_off_refuses_the_three_template_commands_but_not_the_status(string methodName, bool refused)
+    {
+        /* Design 50: "the three commands also require Platform.DocumentRendering. The status needs only the screen's chain
+         * so it can report 'feature off' as a reason". Default value, no override: off. */
+        RenderingCommands.Contains(methodName).ShouldBe(refused);
+        var (service, _, method) = Find(nameof(IReportDefinitionAppService), methodName);
+        using var _ = InTenantA();
+        SkipInputValidation();
+
+        (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(PlatformFeatures.DocumentRendering)).ShouldBeFalse("off by default");
+        var result = await InvokeAsync(service, method);
+        IsFeatureRefusal(result).ShouldBe(refused, $"{methodName} with Platform.DocumentRendering off: {result?.GetType().Name}: {result?.Message}");
+        if (refused)
+        {
+            ((AbpAuthorizationException)result!).Data.Values.Cast<object?>().ShouldContain(PlatformFeatures.DocumentRendering, "the refusal names the rendering feature");
         }
     }
 

@@ -17,20 +17,32 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// The sixteen Platform master-data permissions through the real definition manager and the admin seed
+/// The seventeen Platform master-data permissions through the real definition manager and the admin seed
 /// (docs/designs/49-platform-master-data.md, "Feature flags and permissions": both sides, Create/Update/Delete children of
-/// each list's view permission, "Seeded for the admin role on both sides by AdministrationPermissionDataSeedContributor").
-/// Risk class: Critical (authorization).
+/// each list's view permission, "Seeded for the admin role on both sides by AdministrationPermissionDataSeedContributor";
+/// docs/designs/50-report-rendering.md: a fourth child of the report definitions, EditTemplate, "both sides, seeded for
+/// admin"). Risk class: Critical (authorization).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestBase
 {
-    private static readonly string[] All = PlatformPermissions.MasterData.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete }).ToArray();
+    private static readonly string[] All =
+    [
+        .. PlatformPermissions.MasterData.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete }),
+        PlatformPermissions.MasterData.ReportDefinitions.EditTemplate,
+    ];
+
+    /// <summary>The children of a list's view permission: Create/Update/Delete, plus EditTemplate for the report definitions (design 50).</summary>
+    private static string[] ChildrenOf(string view, string create, string update, string delete) =>
+        view == PlatformPermissions.MasterData.ReportDefinitions.Default
+            ? [create, update, delete, PlatformPermissions.MasterData.ReportDefinitions.EditTemplate]
+            : [create, update, delete];
 
     [Fact]
-    public async Task Sixteen_permissions_on_both_sides_each_list_with_its_three_children()
+    public async Task Seventeen_permissions_on_both_sides_each_list_with_its_three_children_and_the_report_definitions_with_EditTemplate_as_fourth()
     {
-        All.Length.ShouldBe(16);
+        All.Length.ShouldBe(17);
+        PlatformPermissions.MasterData.ReportDefinitions.EditTemplate.ShouldBe("Platform.ReportDefinitions.EditTemplate");
         var manager = GetRequiredService<IPermissionDefinitionManager>();
 
         foreach (var (entity, view, create, update, delete) in PlatformPermissions.MasterData.All)
@@ -38,7 +50,7 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
             var parent = await manager.GetAsync(view);
             parent.Parent.ShouldBeNull(view);
             parent.MultiTenancySide.ShouldBe(MultiTenancySides.Both, view);
-            parent.Children.Select(c => c.Name).ShouldBe([create, update, delete], ignoreOrder: true);
+            parent.Children.Select(c => c.Name).ShouldBe(ChildrenOf(view, create, update, delete), ignoreOrder: true);
             parent.Children.ShouldAllBe(c => c.MultiTenancySide == MultiTenancySides.Both && c.Children.Count == 0);
             entity.ShouldNotBeNullOrWhiteSpace();
         }
@@ -63,7 +75,7 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
     }
 
     [Fact]
-    public async Task The_seed_grants_all_sixteen_to_the_admin_role_of_the_host_and_of_a_tenant_and_a_second_run_changes_nothing()
+    public async Task The_seed_grants_all_seventeen_to_the_admin_role_of_the_host_and_of_a_tenant_and_a_second_run_changes_nothing()
     {
         var tenantId = await WithUnitOfWorkAsync(async () =>
         {
@@ -100,7 +112,7 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
                     }
 
                     var list = await grants.GetListAsync(RolePermissionValueProvider.ProviderName, "admin");
-                    list.Where(g => All.Contains(g.Name)).Count().ShouldBe(16, "one grant per permission after two runs");
+                    list.Where(g => All.Contains(g.Name)).Count().ShouldBe(17, "one grant per permission after two runs");
                 }
             }
         });
