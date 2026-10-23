@@ -3,9 +3,12 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Platform;
+using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
 using Xunit;
@@ -18,8 +21,9 @@ namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 /// <see cref="PdfGeneratorApiPipelineTestModule"/> (base URL on a reserved ".invalid" host: no live call). Covers the
 /// design-50 Critical rows end to end: the workspace follows the current tenant, an organization template is never
 /// opened in the editor (owner false or unknown), and no log line of any level or category, the HttpClient factory's
-/// own included, carries the key, the secret, a token, the payload or the document. Also the DI wiring: the retry delay
-/// is the injected one.
+/// own included, carries the key, the secret, a token, the payload or the document. Also the DI wiring and the call modes
+/// (PO 2026-10-23): the test render is interactive (one attempt, a 429 is "busy" in the user's language, localized through
+/// the injected localizer), a real render through IDocumentRenderer is background and retries through the injected delay.
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class PdfGeneratorApiPipelineTests : ReportRenderingTestBase<PdfGeneratorApiPipelineTestModule>
@@ -45,7 +49,6 @@ public class PdfGeneratorApiPipelineTests : ReportRenderingTestBase<PdfGenerator
         var definition = await CreateDefinitionAsync(templateId: "123456");
         _handler
             .ThenJson($$$"""{"response":{"Entity":{"EntityNumber":"T-1","Remarks":"{{{PayloadMarker}}}"},"EntityType":"Invoice"}}""")
-            .ThenStatus(HttpStatusCode.TooManyRequests, $$$"""{"message":"rate limited {{{PayloadMarker}}}"}""")
             .ThenJson($$$"""{"response":"{{{DocumentBase64}}}","meta":{"content_type":"application/pdf"}}""");
 
         var file = await Definitions.TestRenderAsync(definition.Id);
@@ -55,19 +58,77 @@ public class PdfGeneratorApiPipelineTests : ReportRenderingTestBase<PdfGenerator
         [
             ("GET", PdfGeneratorApiPipelineTestModule.BaseUrl + "templates/123456/data"),
             ("POST", PdfGeneratorApiPipelineTestModule.BaseUrl + "documents/generate"),
-            ("POST", PdfGeneratorApiPipelineTestModule.BaseUrl + "documents/generate"),
         ]);
         _handler.Requests.ShouldAllBe(r => r.Uri.Host == "pdfgeneratorapi.invalid");
-        _handler.Requests[2].Json.GetProperty("testing").GetBoolean().ShouldBeTrue();
-        _handler.Requests[2].Json.GetProperty("template").GetProperty("data").GetProperty("Entity").GetProperty("Remarks").GetString().ShouldBe(PayloadMarker);
+        _handler.Requests[1].Json.GetProperty("testing").GetBoolean().ShouldBeTrue();
+        _handler.Requests[1].Json.GetProperty("template").GetProperty("data").GetProperty("Entity").GetProperty("Remarks").GetString().ShouldBe(PayloadMarker);
         foreach (var request in _handler.Requests)
         {
             PdfHarness.Decode(request.Bearer!).Payload.GetProperty("sub").GetString().ShouldBe(WorkspaceOf(TenantA));
             PdfHarness.Decode(request.Bearer!).Payload.GetProperty("iss").GetString().ShouldBe(PdfGeneratorApiPipelineTestModule.Key);
         }
 
-        GetRequiredService<RecordingRetryDelay>().Delays.ShouldBe([TimeSpan.FromSeconds(3)], "the 429 waited through the injected delay");
+        AssertNothingSecretInAnyLog();
+    }
 
+    [Theory]
+    [InlineData("en", "the document service is busy, try again in a moment.")]
+    [InlineData("nl", "de opmaakdienst is bezet, probeer het zo nog eens.")]
+    public async Task The_test_render_is_interactive_so_a_429_fails_at_once_with_the_busy_text_without_a_retry(string culture, string busy)
+    {
+        /* Design 50, "Resilience" (PO 2026-10-23): the test render is interactive, one attempt, no backoff; a 429 says the
+         * service is busy in the user's language. */
+        using var _ = InTenantA();
+        using var on = RenderingOn();
+        using var ui = new CultureScope(culture);
+        var definition = await CreateDefinitionAsync(templateId: "123456");
+        _handler
+            .ThenJson($$$"""{"response":{"Entity":{"EntityNumber":"T-1","Remarks":"{{{PayloadMarker}}}"},"EntityType":"Invoice"}}""")
+            .ThenStatus(HttpStatusCode.TooManyRequests, $$$"""{"message":"rate limited {{{PayloadMarker}}}"}""")
+            .ThenJson($$$"""{"response":"{{{DocumentBase64}}}","meta":{"content_type":"application/pdf"}}""");
+
+        var ex = await ShouldFailAsync(() => Definitions.TestRenderAsync(definition.Id), PlatformErrorCodes.DocumentRenderingFailed);
+
+        ex.Data["message"].ShouldBe(busy);
+        ex.Data["status"].ShouldBe(429);
+        _handler.Requests.Count(r => r.Uri.AbsolutePath.EndsWith("/documents/generate", StringComparison.Ordinal))
+            .ShouldBe(1, "exactly one render request: no retry while a user waits");
+        _handler.Requests.Count.ShouldBe(2, "the template data, then the one render attempt");
+        GetRequiredService<RecordingRetryDelay>().Delays.ShouldBeEmpty("no backoff in an interactive call");
+        GetRequiredService<AllLevelsLog>().Snapshot().ShouldContain(
+            e => e.Level == LogLevel.Warning && e.Values.Contains("CallMode=Interactive") && e.Values.Contains("StatusCode=429"));
+        AssertNothingSecretInAnyLog();
+    }
+
+    [Fact]
+    public async Task A_background_render_through_IDocumentRenderer_still_retries_a_429_after_3_seconds()
+    {
+        using var _ = InTenantA();
+        using var on = RenderingOn();
+        var definition = await CreateDefinitionAsync(templateId: "123456");
+        var data = JsonDocument.Parse($$$"""{"Entity":{"EntityNumber":"F-9","Remarks":"{{{PayloadMarker}}}"},"EntityType":"Invoice"}""").RootElement.Clone();
+        _handler
+            .ThenStatus(HttpStatusCode.TooManyRequests, $$$"""{"message":"rate limited {{{PayloadMarker}}}"}""")
+            .ThenJson($$$"""{"response":"{{{DocumentBase64}}}","meta":{"content_type":"application/pdf"}}""");
+
+        var document = await GetRequiredService<IDocumentRenderer>().RenderAsync(definition.Id, data);
+
+        document.FileName.ShouldBe("factuur-F-9.pdf");
+        document.Content.ShouldBe(Document);
+        _handler.Requests.Select(r => (r.Method.Method, r.Uri.AbsoluteUri)).ShouldBe(
+        [
+            ("POST", PdfGeneratorApiPipelineTestModule.BaseUrl + "documents/generate"),
+            ("POST", PdfGeneratorApiPipelineTestModule.BaseUrl + "documents/generate"),
+        ]);
+        _handler.Requests.ShouldAllBe(r => !r.Json.GetProperty("testing").GetBoolean());
+        GetRequiredService<RecordingRetryDelay>().Delays.ShouldBe([TimeSpan.FromSeconds(3)], "the 429 waited through the injected delay");
+        GetRequiredService<AllLevelsLog>().Snapshot().ShouldContain(
+            e => e.Level == LogLevel.Warning && e.Values.Contains("CallMode=Background") && e.Values.Contains("DelaySeconds=3"));
+        AssertNothingSecretInAnyLog();
+    }
+
+    private void AssertNothingSecretInAnyLog()
+    {
         var entries = GetRequiredService<AllLevelsLog>().Snapshot();
         entries.ShouldContain(e => e.Category.StartsWith("System.Net.Http.HttpClient", StringComparison.Ordinal),
             "the factory's own logging handlers ran, so their lines are part of the check");

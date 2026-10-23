@@ -10,7 +10,8 @@ namespace OpenTms.Platform.DocumentRendering;
 /// <summary>
 /// The file name of a rendered document (docs/designs/50-report-rendering.md, "IDocumentRenderer": the definition's
 /// Scriban <c>FileNamePattern</c> rendered with the payload's number): <c>{{ number }}</c> from <c>Entity.EntityNumber</c>,
-/// the transport-unit balance's <c>Entity.Entity.EntityNumber</c> as fallback, ".pdf" replaced by the format's extension,
+/// for the transport-unit balance the period's name <c>Entity.Entity.Period.Name</c> (PO 2026-10-23; the old
+/// <c>Entity.Entity.EntityNumber</c> fallback is gone), ".pdf" replaced by the format's extension,
 /// characters a file system or a Content-Disposition header cannot hold replaced, an empty or failing pattern giving a
 /// random name (as OpenTMS). Risk class: High (part of the renderer's contract with the Orders, Planning and Financial runs).
 /// </summary>
@@ -54,12 +55,23 @@ public class ReportFileNameComposerTests
     }
 
     [Fact]
-    public void The_balance_number_is_read_one_level_deeper_and_Entity_EntityNumber_wins_when_both_exist()
+    public void The_balance_number_is_the_periods_name_and_Entity_EntityNumber_wins_when_present()
     {
-        ReportFileNameComposer.NumberOf(Payload("""{"Entity":{"EntityNumber":"S-7"}}""")).ShouldBe("S-7");
-        ReportFileNameComposer.NumberOf(Payload("""{"EntityNumber":"TOP","Entity":{"EntityNumber":"INNER"}}""")).ShouldBe("TOP");
-        ReportFileNameComposer.Compose("saldo-{{ number }}.pdf", Payload("""{"Entity":{"EntityNumber":"S-7"}}"""), ReportRenderFormat.Pdf)
-            .ShouldBe("saldo-S-7.pdf");
+        /* Design 50, "File name" (PO 2026-10-23): the balance payload (GetSingleOutput<TransportUnitTransactionPeriodOverview>)
+         * has no entity number; its number is Entity.Entity.Period.Name. Entity.EntityNumber wins wherever it exists. */
+        var balance = Payload("""{"Entity":{"Period":{"Name":"Oktober 2026","Code":"P-10"}}}""");
+        ReportFileNameComposer.NumberOf(balance).ShouldBe("Oktober 2026");
+        ReportFileNameComposer.Compose("saldo-{{ number }}.pdf", balance, ReportRenderFormat.Pdf).ShouldBe("saldo-Oktober 2026.pdf");
+        ReportFileNameComposer.NumberOf(Payload("""{"EntityNumber":"TOP","Entity":{"Period":{"Name":"Oktober 2026"}}}""")).ShouldBe("TOP");
+        ReportFileNameComposer.NumberOf(Payload("""{"Entity":{"Period":{"Name":202610}}}""")).ShouldBe("202610", "a numeric period name is used as written");
+    }
+
+    [Fact]
+    public void The_old_Entity_Entity_EntityNumber_fallback_is_gone()
+    {
+        ReportFileNameComposer.NumberOf(Payload("""{"Entity":{"EntityNumber":"S-7"}}""")).ShouldBeNull();
+        ReportFileNameComposer.NumberOf(Payload("""{"Entity":{"EntityNumber":"INNER","Period":{"Name":"Oktober 2026"}}}"""))
+            .ShouldBe("Oktober 2026", "the period's name, not the inner entity number");
     }
 
     [Theory]
@@ -69,6 +81,12 @@ public class ReportFileNameComposerTests
     [InlineData("""{"Entity":"F-1"}""")]
     [InlineData("""{"EntityNumber":"F-1"}""")]
     [InlineData("""[1,2]""")]
+    [InlineData("""{"Entity":{"Entity":{"EntityNumber":"S-7"}}}""")]
+    [InlineData("""{"Entity":{"Entity":{"Period":{}}}}""")]
+    [InlineData("""{"Entity":{"Entity":{"Period":{"Name":null}}}}""")]
+    [InlineData("""{"Entity":{"Entity":{"Period":"Oktober 2026"}}}""")]
+    [InlineData("""{"Entity":{"Entity":"Oktober 2026"}}""")]
+    [InlineData("""{"Entity":{"Period":{"Name":"Oktober 2026"}}}""")]
     public void Without_a_number_the_placeholder_is_empty(string json)
     {
         var data = JsonDocument.Parse(json).RootElement.Clone();
@@ -170,14 +188,77 @@ public class ReportFileNameComposerTests
     [InlineData(ReportPurpose.TransportUnitBalance)]
     public void Every_purposes_catalogue_payload_gives_the_file_name_its_number(ReportPurpose purpose)
     {
-        /* The renderer fills {{ number }} from Entity.EntityNumber, for the transport-unit balance from
-         * Entity.Entity.EntityNumber. The catalogue is the contract the printing modules produce; a number path the
-         * catalogue does not define can never be filled by a conforming payload. */
+        /* The renderer fills {{ number }} from Entity.EntityNumber, for the transport-unit balance (no entity number) from
+         * the period's name Entity.Entity.Period.Name (design 50, "File name"). The catalogue is the contract the printing
+         * modules produce; a number path the catalogue does not define can never be filled by a conforming payload. */
         var sample = JsonSerializer.SerializeToElement(ReportDataCatalogue.SampleFor(purpose));
         var paths = ReportDataCatalogue.FieldsFor(purpose).Select(f => f.Path).ToHashSet();
+        var numberPath = purpose == ReportPurpose.TransportUnitBalance ? "Entity.Entity.Period.Name" : "Entity.EntityNumber";
 
-        (paths.Contains("Entity.EntityNumber") || paths.Contains("Entity.Entity.EntityNumber"))
-            .ShouldBeTrue($"{purpose}: the catalogue defines neither Entity.EntityNumber nor Entity.Entity.EntityNumber, the paths ReportFileNameComposer reads");
-        ReportFileNameComposer.NumberOf(sample).ShouldNotBeNullOrWhiteSpace($"{purpose}: the sample gives no number for the file name");
+        paths.ShouldContain(numberPath, $"{purpose}: the catalogue does not define {numberPath}, the path ReportFileNameComposer reads");
+        if (purpose == ReportPurpose.TransportUnitBalance)
+        {
+            paths.ShouldNotContain("Entity.EntityNumber", "the balance payload has no entity number (OpenTMS GetSingleOutput)");
+        }
+
+        var expected = numberPath.Split('.').Aggregate(sample, (element, name) => element.GetProperty(name)).ToString();
+        expected.ShouldNotBeNullOrWhiteSpace($"{purpose}: the sample has no value at {numberPath}");
+        ReportFileNameComposer.NumberOf(sample).ShouldBe(expected, $"{purpose}: the sample gives the file name the value at {numberPath}");
+    }
+
+    // ── The save-time field check (design 49 FileNamePattern row, design 50 "File name"; High) ──
+
+    [Theory]
+    [InlineData("factuur-{{ invoice.number }}.pdf", "invoice.number")]
+    [InlineData("{{ number.foo }}", "number.foo")]
+    [InlineData("{{ Number }}", "Number")]
+    [InlineData("{{ x }}", "x")]
+    [InlineData("{{ for i in items }}{{ i }}{{ end }}", "items")]
+    [InlineData("{{ number }}-{{ klant.naam }}", "klant.naam")]
+    [InlineData("{{ invoice.number | string.upcase }}", "invoice.number")]
+    [InlineData("{{ string.foo number }}", "string.foo")]
+    public void A_pattern_naming_anything_but_number_reports_the_dotted_name(string pattern, string name)
+    {
+        ReportFileNameComposer.FindUnknownField(pattern).ShouldBe(name);
+    }
+
+    [Theory]
+    [InlineData("factuur-{{ number }}.pdf")]
+    [InlineData("{{ number }}")]
+    [InlineData("{{ string.upcase number }}")]
+    [InlineData("{{ number | string.upcase }}")]
+    [InlineData("{{ date.now }}")]
+    [InlineData("vaste-naam.pdf")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void Number_Scriban_built_ins_plain_text_and_an_empty_pattern_pass(string? pattern)
+    {
+        ReportFileNameComposer.FindUnknownField(pattern).ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("{{ 1 + }}")]
+    [InlineData("{{ for i in items }}")]
+    [InlineData("{{ for i in 1..100000 }}x{{ end }}.pdf")]
+    public void A_syntax_error_or_a_render_limit_is_not_an_unknown_field(string pattern)
+    {
+        /* A pattern that does not parse is TemplateSyntaxError's on save; a loop beyond the limit is the render-time
+         * fallback's (design 50: "any other render failure is left to the render-time fallback"). */
+        ReportFileNameComposer.FindUnknownField(pattern).ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_stored_pattern_that_fails_at_render_time_gives_a_random_name_and_says_so()
+    {
+        /* A row saved before the field check (design 50): the renderer logs a warning when patternFailed is set. */
+        var name = ReportFileNameComposer.Compose("factuur-{{ invoice.number }}.pdf", Invoice, ReportRenderFormat.Pdf, out var failed);
+
+        failed.ShouldBeTrue();
+        IsRandom(name, "pdf").ShouldBeTrue(name);
+        ReportFileNameComposer.Compose("factuur-{{ number }}.pdf", Invoice, ReportRenderFormat.Pdf, out var ok).ShouldBe("factuur-F-2026-0001.pdf");
+        ok.ShouldBeFalse();
+        ReportFileNameComposer.Compose("", Invoice, ReportRenderFormat.Pdf, out var empty);
+        empty.ShouldBeFalse("an empty pattern is not a failure: its random name is the designed outcome");
     }
 }

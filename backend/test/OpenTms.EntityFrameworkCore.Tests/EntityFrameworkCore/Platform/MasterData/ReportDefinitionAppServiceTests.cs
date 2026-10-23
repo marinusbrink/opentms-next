@@ -73,7 +73,7 @@ public class ReportDefinitionAppServiceTests : PlatformMasterDataAppServiceTestB
         var created = await _service.CreateAsync(Dto(" Invoice NL ", culture: " NL ", configure: d =>
         {
             d.ProviderTemplateId = "  123456  ";
-            d.FileNamePattern = " factuur-{{ invoice.number }} ";
+            d.FileNamePattern = " factuur-{{ number }} ";
             d.AvailableInCustomerPortal = true;
             d.Description = " For Dutch customers ";
         }));
@@ -82,14 +82,14 @@ public class ReportDefinitionAppServiceTests : PlatformMasterDataAppServiceTestB
         created.Culture.ShouldBe("nl");
         created.Provider.ShouldBe(ReportRenderingProvider.PdfGeneratorApi);
         created.ProviderTemplateId.ShouldBe("123456");
-        created.FileNamePattern.ShouldBe("factuur-{{ invoice.number }}.pdf");
+        created.FileNamePattern.ShouldBe("factuur-{{ number }}.pdf");
         created.AvailableInCustomerPortal.ShouldBeTrue();
         created.Description.ShouldBe("For Dutch customers");
         created.IsDefault.ShouldBeFalse();
         created.IsArchived.ShouldBeFalse();
 
         (await _service.CreateAsync(Dto("Upper", configure: d => d.FileNamePattern = "INVOICE.PDF"))).FileNamePattern.ShouldBe("INVOICE.PDF", "an existing extension is kept in any case");
-        (await _service.CreateAsync(Dto("Pdf in middle", configure: d => d.FileNamePattern = "a.pdf-{{ n }}"))).FileNamePattern.ShouldBe("a.pdf-{{ n }}.pdf");
+        (await _service.CreateAsync(Dto("Pdf in middle", configure: d => d.FileNamePattern = "a.pdf-{{ number }}"))).FileNamePattern.ShouldBe("a.pdf-{{ number }}.pdf");
 
         var row = (await _service.GetListAsync(Request(search: "invoice nl"))).Rows.ShouldHaveSingleItem();
         (row.Name, row.Purpose, row.Culture, row.Provider, row.IsDefault, row.IsArchived).ShouldBe(("Invoice NL", ReportPurpose.Invoice, "nl", ReportRenderingProvider.PdfGeneratorApi, false, false));

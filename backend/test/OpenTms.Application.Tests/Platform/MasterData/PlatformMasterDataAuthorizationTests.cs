@@ -291,6 +291,26 @@ public class PlatformMasterDataAuthorizationTests
     }
 
     [Fact]
+    public void FileNamePatternUnknownField_is_a_bad_request_and_travels_as_400()
+    {
+        /* Design 49 FileNamePattern row and design 50 "File name" (PO 2026-10-23): HTTP 400, not ABP's default 403. */
+        PlatformErrorCodes.FileNamePatternUnknownField.ShouldBe("OpenTms.Platform:FileNamePatternUnknownField");
+        PlatformErrorCodes.BadRequestCodes.ShouldContain(PlatformErrorCodes.FileNamePatternUnknownField);
+        PlatformErrorCodes.ConflictCodes.ShouldNotContain(PlatformErrorCodes.FileNamePatternUnknownField);
+        PlatformErrorCodes.DocumentRenderingCodes.Keys.ShouldNotContain(PlatformErrorCodes.FileNamePatternUnknownField);
+
+        var services = new ServiceCollection();
+        services.AddOptions();
+        var module = new OpenTmsHttpApiModule();
+        typeof(AbpModule).GetProperty("ServiceConfigurationContext", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!
+            .SetValue(module, new ServiceConfigurationContext(services));
+        module.ConfigureServices(new ServiceConfigurationContext(services));
+        var mappings = services.BuildServiceProvider().GetRequiredService<IOptions<AbpExceptionHttpStatusCodeOptions>>().Value.ErrorCodeToHttpStatusCodeMappings;
+
+        mappings[PlatformErrorCodes.FileNamePatternUnknownField].ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public void The_HttpApi_module_maps_the_conflict_codes_to_409_and_the_rest_to_400()
     {
         /* The module's real ConfigureServices, against a bare service collection: no ABP application is started. */
