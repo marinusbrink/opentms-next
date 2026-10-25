@@ -29,6 +29,26 @@
     "Shell:EmptyAppTitle": "Nog niets te zien",
     "Shell:EmptyAppText": "Deze app is een stub — functionaliteit komt via de pipeline van het department.",
     "Shell:ReadsFrom": "Leest uit domeinen",
-    "App:Tenants": "Tenants"
+    "App:Tenants": "Tenants",
+    "App:Transport.Orders": "Opdrachten",
+    "App:Transport.Templates": "Sjablonen",
+    "App:Transport.Trips": "Ritten",
+    "App:Transport.Documents": "Documenten",
+    "App:Transport.View.Today": "Vandaag",
+    "App:Transport.View.Tomorrow": "Morgen",
+    "App:Transport.View.ThisWeek": "Deze week",
+    "App:Transport.View.Open": "Open",
+    "App:Transport.View.Drafts": "Concepten",
+    "App:Transport.View.All": "Alles",
+    "RecordNotFound": "Dit record bestaat niet of is niet meer beschikbaar.",
+    "Wizard:Previous": "Vorige",
+    "Wizard:Next": "Volgende",
+    "Wizard:StepOf": "Stap {0} van {1}",
+    "Wizard:Steps": "Stappen",
+    "Wizard:Progress": "{0} van {1} gereed",
+    "Wizard:Task.Waiting": "Wachten",
+    "Wizard:Task.Running": "Bezig",
+    "Wizard:Task.Done": "Gereed",
+    "Wizard:Task.Failed": "Mislukt"
   }
 }

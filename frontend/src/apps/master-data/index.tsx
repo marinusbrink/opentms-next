@@ -31,6 +31,13 @@ import { InboundInvoiceTypesView } from "@/apps/master-data/views/InboundInvoice
 import { AdditionalServicesView } from "@/apps/master-data/views/AdditionalServicesView";
 import { DiscountsOrSurchargesView } from "@/apps/master-data/views/DiscountsOrSurchargesView";
 import { VehiclesView } from "@/apps/master-data/views/VehiclesView";
+import { ConsignmentNoteProfilesView } from "@/apps/master-data/views/ConsignmentNoteProfilesView";
+import { ConsignmentNoteFixedDescriptionsView } from "@/apps/master-data/views/ConsignmentNoteFixedDescriptionsView";
+import { OrderAttributeDefinitionsView } from "@/apps/master-data/views/OrderAttributeDefinitionsView";
+import { ViaDepotRulesView } from "@/apps/master-data/views/ViaDepotRulesView";
+import { TripAttributeDefinitionsView } from "@/apps/master-data/views/TripAttributeDefinitionsView";
+import { PriceListsView } from "@/apps/master-data/views/PriceListsView";
+import { RelationFinancialSettingsView } from "@/apps/master-data/views/RelationFinancialSettingsView";
 
 /* The Master data app (design 41): routes by pathname like the Administration app. The bare app path, a domain
  * group path and a group path (the nav categories; PO 2026-10-16) redirect to the first list under it that is on for
@@ -92,6 +99,14 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/inbound-invoice-types")) return <InboundInvoiceTypesView />;
   if (pathname.startsWith("/master-data/additional-services")) return <AdditionalServicesView />;
   if (pathname.startsWith("/master-data/discounts-or-surcharges")) return <DiscountsOrSurchargesView />;
+  /* Design 61: the Transport run's lists under the Orders, Planning & Execution and Financial groups. */
+  if (pathname.startsWith("/master-data/consignment-note-profiles")) return <ConsignmentNoteProfilesView />;
+  if (pathname.startsWith("/master-data/consignment-note-fixed-descriptions")) return <ConsignmentNoteFixedDescriptionsView />;
+  if (pathname.startsWith("/master-data/order-attribute-definitions")) return <OrderAttributeDefinitionsView />;
+  if (pathname.startsWith("/master-data/via-depot-rules")) return <ViaDepotRulesView />;
+  if (pathname.startsWith("/master-data/trip-attribute-definitions")) return <TripAttributeDefinitionsView />;
+  if (pathname.startsWith("/master-data/price-lists")) return <PriceListsView />;
+  if (pathname.startsWith("/master-data/relation-financial-settings")) return <RelationFinancialSettingsView />;
 
   /* The Platform domain's lists (design 54). */
   if (pathname.startsWith("/master-data/email-templates")) return <EmailTemplatesView />;

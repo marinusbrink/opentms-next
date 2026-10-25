@@ -91,6 +91,19 @@ const masterDataSubRoutes = Array.from(new Set(treePaths(masterDataApp.views ?? 
     }),
   );
 
+/* Sub-routes of the Transport app (design 61): every nav path (the saved filters share their list's path, so the set
+ * dedupes them) plus the record pages (/transport/orders/{id}, …; design 61 Assumption 1, reached through
+ * useOpenRecord). All resolve to the app component, which reads the pathname. */
+const transportApp = APPS.find((app) => app.id === "transport")!;
+export const TRANSPORT_RECORD_ROUTES = ["/transport/orders/$id", "/transport/templates/$id", "/transport/trips/$id"] as const;
+const transportSubRoutes = [...new Set(treePaths(transportApp.views ?? [])), ...TRANSPORT_RECORD_ROUTES].map((path) =>
+  createRoute({
+    getParentRoute: () => shellRoute,
+    path,
+    component: componentForApp(transportApp),
+  }),
+);
+
 /* Sub-routes of the Tenants app (host only): its two views resolve to the app component, which reads the pathname. */
 const tenantsApp = APPS.find((app) => app.id === "tenants")!;
 const tenantsSubRoutes = (tenantsApp.views ?? []).map((view) =>
@@ -104,7 +117,7 @@ const tenantsSubRoutes = (tenantsApp.views ?? []).map((view) =>
 const routeTree = rootRoute.addChildren([
   landingRoute,
   authCallbackRoute,
-  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes, ...tenantsSubRoutes]),
+  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes, ...transportSubRoutes, ...tenantsSubRoutes]),
 ]);
 
 /* No `Register` module augmentation on purpose: app routes are derived from

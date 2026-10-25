@@ -13,6 +13,7 @@ import { APPS, type AppDefinition, type AppView } from "@/app/apps.config";
  * screen) — this checker decides the launcher, the nav pane, the FeatureUnavailable state and the index redirects. */
 
 const masterData = APPS.find((a) => a.id === "master-data")!;
+const transport = APPS.find((a) => a.id === "transport")!;
 const admin = APPS.find((a) => a.id === "admin")!;
 const dashboard = APPS.find((a) => a.id === "dashboard")!;
 const tenants = APPS.find((a) => a.id === "tenants")!;
@@ -103,7 +104,22 @@ describe("apps.config – every app and node has its tree feature", () => {
         expect(view.feature?.startsWith(`${app.feature}.`), view.path).toBe(true);
       }
       for (const view of nodes(app.views)) {
-        view.children?.forEach((child) => expect(child.feature?.startsWith(`${view.feature}.`), child.path).toBe(true));
+        /* A saved filter (UI-PAGE-004: a child with a `search`) has no feature; its list's node decides. */
+        view.children?.filter((child) => child.search == null).forEach((child) => expect(child.feature?.startsWith(`${view.feature}.`), child.path).toBe(true));
+      }
+    }
+  });
+
+  it("a saved filter shares its list's path, carries a search and no feature (UI-PAGE-004; design 61)", () => {
+    const filters = nodes(APPS.flatMap((app) => app.views ?? [])).filter((view) => view.search != null);
+    expect(filters.length).toBeGreaterThan(0);
+    for (const app of APPS) {
+      for (const view of nodes(app.views)) {
+        view.children?.filter((child) => child.search != null).forEach((child) => {
+          expect(child.path, child.nameKey).toBe(view.path);
+          expect(child.feature, child.nameKey).toBeUndefined();
+          expect(child.children, child.nameKey).toBeUndefined();
+        });
       }
     }
   });
@@ -114,13 +130,38 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 55 features as the backend's AppFeatures", () => {
+  it("names the same 66 features as the backend's AppFeatures", () => {
+    /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(55);
-    expect(new Set(names).size).toBe(55);
+    expect(names).toHaveLength(66);
+    expect(new Set(names).size).toBe(66);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(55);
+    expect(backend).toHaveLength(66);
     expect([...names].sort()).toEqual([...backend].sort());
+  });
+
+  it("carries the Transport app's nodes of design 56: Orders, Templates (chained under Orders), Trips, Documents", () => {
+    const names = Object.keys(allOn(transport));
+    expect(names).toEqual(["Apps.Transport", "Apps.Transport.Orders", "Apps.Transport.Orders.Templates", "Apps.Transport.Trips", "Apps.Transport.Documents"]);
+    expect(featureChain("Apps.Transport.Orders.Templates")).toEqual(["Apps.Transport", "Apps.Transport.Orders", "Apps.Transport.Orders.Templates"]);
+  });
+
+  it("carries design 61's seven Master data lists under their existing groups", () => {
+    const names = Object.keys(allOn(masterData));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles",
+        "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions",
+        "Apps.MasterData.Orders.TransportOrders.OrderAttributeDefinitions",
+        "Apps.MasterData.PlanningExecution.Trips.ViaDepotRules",
+        "Apps.MasterData.PlanningExecution.Trips.TripAttributeDefinitions",
+        "Apps.MasterData.Financial.Pricing.PriceLists",
+        "Apps.MasterData.Financial.Pricing.RelationFinancialSettings",
+      ]),
+    );
+    expect(names.filter((n) => n.startsWith("Apps.MasterData.Orders.TransportOrders."))).toHaveLength(6);
+    expect(names.filter((n) => n.startsWith("Apps.MasterData.PlanningExecution.Trips."))).toHaveLength(3);
+    expect(names.filter((n) => n.startsWith("Apps.MasterData.Financial.Pricing."))).toHaveLength(4);
   });
 
   it("carries design 54's Platform domain group and its three lists directly under it", () => {
@@ -218,6 +259,51 @@ describe("createAppFeatureChecker – tenant side", () => {
   it("is loaded unless told otherwise", () => {
     expect(tenant({}).isLoaded).toBe(true);
     expect(createAppFeatureChecker({}, false, false).isLoaded).toBe(false);
+  });
+});
+
+describe("createAppFeatureChecker – the Transport app (design 61)", () => {
+  it("shows the four views with their saved filters when everything is on", () => {
+    const visible = tenant(allOn(transport)).visibleViews(transport);
+    expect(visible.map((v) => v.path)).toEqual(["/transport/orders", "/transport/templates", "/transport/trips", "/transport/documents"]);
+    expect(visible[0].children?.map((c) => c.search?.filter)).toEqual(["today", "tomorrow", "this-week", "open", "drafts", "all"]);
+    expect(visible[2].children?.map((c) => c.search?.filter)).toEqual(["today", "this-week", "open", "all"]);
+  });
+
+  it("Orders off hides Orders and its filters, and Templates through the chain; Trips and Documents stay", () => {
+    const checker = tenant({ ...allOn(transport), "Apps.Transport.Orders": "false" });
+    expect(checker.visibleViews(transport).map((v) => v.path)).toEqual(["/transport/trips", "/transport/documents"]);
+    expect(checker.isPathEnabled(transport, "/transport/orders")).toBe(false);
+    expect(checker.isPathEnabled(transport, "/transport/templates")).toBe(false);
+    expect(checker.isPathEnabled(transport, "/transport/trips")).toBe(true);
+    expect(checker.isFeatureEnabled("Apps.Transport.Orders.Templates")).toBe(false);
+  });
+
+  it("a list path and its record pages follow the list's node, although the saved filters under it carry no feature", () => {
+    /* The deepest node at /transport/orders is a saved filter without a feature; the gate must still see Orders. */
+    const on = tenant(allOn(transport));
+    const ordersOff = tenant({ ...allOn(transport), "Apps.Transport.Orders": "false" });
+    const tripsOff = tenant({ ...allOn(transport), "Apps.Transport.Trips": "false" });
+    expect(on.isPathEnabled(transport, "/transport/orders")).toBe(true);
+    expect(on.isPathEnabled(transport, "/transport/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6")).toBe(true);
+    expect(ordersOff.isPathEnabled(transport, "/transport/orders")).toBe(false);
+    expect(ordersOff.isPathEnabled(transport, "/transport/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6")).toBe(false);
+    expect(tripsOff.isPathEnabled(transport, "/transport/trips/3fa85f64-5717-4562-b3fc-2c963f66afa6")).toBe(false);
+    expect(tripsOff.isPathEnabled(transport, "/transport/orders")).toBe(true);
+  });
+
+  it("the app root goes to Orders, or to the next list when Orders is off; nothing when the app is off", () => {
+    expect(tenant(allOn(transport)).firstEnabledPath(transport)).toBe("/transport/orders");
+    expect(tenant({ ...allOn(transport), "Apps.Transport.Orders": "false" }).firstEnabledPath(transport)).toBe("/transport/trips");
+    expect(tenant({ ...allOn(transport), "Apps.Transport": "false" }).firstEnabledPath(transport)).toBeUndefined();
+    expect(tenant({ ...allOn(transport), "Apps.Transport": "false" }).isAppEnabled(transport)).toBe(false);
+  });
+
+  it("the app is hidden when every node is off, and shown with one node on", () => {
+    const allNodesOff = { "Apps.Transport": "true", "Apps.Transport.Orders": "false", "Apps.Transport.Trips": "false", "Apps.Transport.Documents": "false" };
+    expect(tenant(allNodesOff).isAppEnabled(transport)).toBe(false);
+    expect(tenant({ ...allNodesOff, "Apps.Transport.Documents": "true" }).isAppEnabled(transport)).toBe(true);
+    expect(tenant({ ...allNodesOff, "Apps.Transport.Documents": "true" }).visibleViews(transport).map((v) => v.path)).toEqual(["/transport/documents"]);
   });
 });
 

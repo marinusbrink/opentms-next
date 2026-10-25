@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
  *   the dirty guard is always the same: clicking the backdrop never closes an editor; Esc, the X
  *   and Close ask "Discard changes?" when `isDirty`.
  * - `action`: one operation with parameters. Plain header, a body, a right-aligned footer
- *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy.
+ *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy; an action dialog with
+ *   input (`isDirty`: a wizard past its first step, UI-WIZ-001) asks "Discard changes?" first, like an editor.
  *
  * `size` is a content tier (UI-DLG-003); features never pass a width. While `isBusy`, close
  * requests are ignored and every command is disabled (UI-DLG-010).
@@ -132,12 +133,12 @@ export function EntityDialog({
 
   const requestClose = useCallback(() => {
     if (isBusy) return;
-    if (variant === "editor" && isDirty) {
+    if (isDirty) {
       setDiscardOpen(true);
       return;
     }
     onOpenChange(false);
-  }, [isBusy, isDirty, onOpenChange, variant]);
+  }, [isBusy, isDirty, onOpenChange]);
 
   const handleOpenChange = useCallback(
     (next: boolean, details: { reason: string; cancel: () => void }) => {
@@ -297,7 +298,7 @@ export function EntityDialog({
         </DialogContent>
       </Dialog>
 
-      {variant === "editor" && (
+      {(variant === "editor" || isDirty) && (
         <ConfirmDialog
           open={discardOpen}
           onOpenChange={setDiscardOpen}

@@ -2,8 +2,9 @@ import { lazy, Suspense, type ReactElement } from "react";
 import { APPS, type AppDefinition } from "@/app/apps.config";
 import { DashboardApp } from "@/apps/dashboard";
 import { PlanboardApp } from "@/apps/planboard";
-import { TransportApp } from "@/apps/transport";
 import { FinanceApp } from "@/apps/finance";
+// The Transport app is lazy (design 61); its wrapper lives next to it.
+import { LazyTransportApp } from "@/apps/transport/lazy";
 import { IntegrationsApp } from "@/apps/integrations";
 import { ReportsApp } from "@/apps/reports";
 
@@ -47,7 +48,7 @@ function LazyTenantsApp(): ReactElement {
 const components: Record<string, () => ReactElement> = {
   dashboard: DashboardApp,
   planboard: PlanboardApp,
-  transport: TransportApp,
+  transport: LazyTransportApp,
   finance: FinanceApp,
   "master-data": LazyMasterDataApp,
   integrations: IntegrationsApp,

@@ -5,14 +5,19 @@ import {
   Boxes,
   BookOpen,
   Building2,
+  CalendarArrowDown,
   CalendarClock,
+  CalendarDays,
   CalendarRange,
+  CircleDot,
   ClipboardList,
   Coins,
   Cog,
   Database,
+  FileBadge,
   FileInput,
   FileOutput,
+  FilePen,
   FileText,
   Files,
   Flag,
@@ -22,7 +27,9 @@ import {
   Landmark,
   Layers,
   LayoutDashboard,
+  LayoutTemplate,
   Link2,
+  List,
   Mail,
   ListTree,
   MapPin,
@@ -37,11 +44,14 @@ import {
   ScrollText,
   Shield,
   ShieldCheck,
+  SlidersHorizontal,
   Tags,
+  TextQuote,
   Thermometer,
   Truck,
   Users,
   Wallet,
+  Warehouse,
   Waypoints,
   Wrench,
   type LucideIcon,
@@ -63,6 +73,11 @@ export interface AppView {
   nameKey: string;
   /** Route path (exact or prefix) for active-state matching and navigation. */
   path: string;
+  /**
+   * A saved list preset (UI-PAGE-004): the node routes to its list's path with this search (`?filter=today`). Such a
+   * node has no feature of its own; the list's node decides (design 61: the Orders and Trips views).
+   */
+  search?: Readonly<Record<string, string>>;
   icon: LucideIcon;
   /** Sub-items for expandable categories (Administration's "Audit logs" holds the two logbooks). */
   children?: readonly AppView[];
@@ -132,10 +147,45 @@ export const APPS: readonly AppDefinition[] = [
     id: "transport",
     nameKey: "App:Transport",
     path: "/transport",
-    domains: ["Orders", "PlanningExecution"],
+    domains: ["Orders", "PlanningExecution", "Financial", "MasterData"],
     icon: Truck,
     tileClass: "bg-indigo-600",
     feature: "Apps.Transport",
+    /* Design 61 (features of design 56, all default on): Orders, Templates, Trips, Documents. The children of Orders
+     * and Trips are saved filters of the one list (UI-PAGE-004): nav entries that route to the list's path with
+     * `?filter=`; they carry no feature, the list's node decides. Templates' feature chains under Orders
+     * (AppFeatures.TransportApp), so it is off whenever Orders is, although it is a sibling in the tree. Records are
+     * pages under the list's path (/transport/orders/{id}; design 61, Assumption 1), reached through useOpenRecord. */
+    views: [
+      {
+        nameKey: "App:Transport.Orders",
+        path: "/transport/orders",
+        feature: "Apps.Transport.Orders",
+        icon: ClipboardList,
+        children: [
+          { nameKey: "App:Transport.View.Today", path: "/transport/orders", search: { filter: "today" }, icon: CalendarDays },
+          { nameKey: "App:Transport.View.Tomorrow", path: "/transport/orders", search: { filter: "tomorrow" }, icon: CalendarArrowDown },
+          { nameKey: "App:Transport.View.ThisWeek", path: "/transport/orders", search: { filter: "this-week" }, icon: CalendarRange },
+          { nameKey: "App:Transport.View.Open", path: "/transport/orders", search: { filter: "open" }, icon: CircleDot },
+          { nameKey: "App:Transport.View.Drafts", path: "/transport/orders", search: { filter: "drafts" }, icon: FilePen },
+          { nameKey: "App:Transport.View.All", path: "/transport/orders", search: { filter: "all" }, icon: List },
+        ],
+      },
+      { nameKey: "App:Transport.Templates", path: "/transport/templates", feature: "Apps.Transport.Orders.Templates", icon: LayoutTemplate },
+      {
+        nameKey: "App:Transport.Trips",
+        path: "/transport/trips",
+        feature: "Apps.Transport.Trips",
+        icon: Route,
+        children: [
+          { nameKey: "App:Transport.View.Today", path: "/transport/trips", search: { filter: "today" }, icon: CalendarDays },
+          { nameKey: "App:Transport.View.ThisWeek", path: "/transport/trips", search: { filter: "this-week" }, icon: CalendarRange },
+          { nameKey: "App:Transport.View.Open", path: "/transport/trips", search: { filter: "open" }, icon: CircleDot },
+          { nameKey: "App:Transport.View.All", path: "/transport/trips", search: { filter: "all" }, icon: List },
+        ],
+      },
+      { nameKey: "App:Transport.Documents", path: "/transport/documents", feature: "Apps.Transport.Documents", icon: FileText },
+    ],
   },
   {
     id: "finance",
@@ -161,7 +211,8 @@ export const APPS: readonly AppDefinition[] = [
      * (docs/designs/41-master-data-first-run.md), grouped as the old menu was, plus Relations and Drivers of the
      * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48).
      * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53), then the Platform
-     * domain's group (design 54) with its three lists directly under it, no sub-groups.
+     * domain's group (design 54) with its three lists directly under it, no sub-groups. The Transport run (design 61)
+     * adds seven lists under the existing Orders, Planning & Execution and Financial groups.
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -234,6 +285,10 @@ export const APPS: readonly AppDefinition[] = [
               { nameKey: "Orders:TransportOrderTypes", path: "/master-data/transport-order-types", icon: ClipboardList, feature: "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes" },
               { nameKey: "Orders:WaypointTypes", path: "/master-data/waypoint-types", icon: Waypoints, feature: "Apps.MasterData.Orders.TransportOrders.WaypointTypes" },
               { nameKey: "Orders:TimeSlots", path: "/master-data/time-slots", icon: CalendarClock, feature: "Apps.MasterData.Orders.TransportOrders.TimeSlots" },
+              /* Design 61 (the Transport run). */
+              { nameKey: "Orders:ConsignmentNoteProfiles", path: "/master-data/consignment-note-profiles", icon: FileBadge, feature: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles" },
+              { nameKey: "Orders:ConsignmentNoteFixedDescriptions", path: "/master-data/consignment-note-fixed-descriptions", icon: TextQuote, feature: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions" },
+              { nameKey: "Orders:OrderAttributeDefinitions", path: "/master-data/order-attribute-definitions", icon: SlidersHorizontal, feature: "Apps.MasterData.Orders.TransportOrders.OrderAttributeDefinitions" },
             ],
           },
         ],
@@ -251,6 +306,9 @@ export const APPS: readonly AppDefinition[] = [
             icon: Route,
             children: [
               { nameKey: "PlanningExecution:TransportTripTypes", path: "/master-data/transport-trip-types", icon: Route, feature: "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes" },
+              /* Design 61 (the Transport run). */
+              { nameKey: "PlanningExecution:ViaDepotRules", path: "/master-data/via-depot-rules", icon: Warehouse, feature: "Apps.MasterData.PlanningExecution.Trips.ViaDepotRules" },
+              { nameKey: "PlanningExecution:TripAttributeDefinitions", path: "/master-data/trip-attribute-definitions", icon: SlidersHorizontal, feature: "Apps.MasterData.PlanningExecution.Trips.TripAttributeDefinitions" },
             ],
           },
         ],
@@ -280,6 +338,9 @@ export const APPS: readonly AppDefinition[] = [
             children: [
               { nameKey: "Financial:AdditionalServices", path: "/master-data/additional-services", icon: PackagePlus, feature: "Apps.MasterData.Financial.Pricing.AdditionalServices" },
               { nameKey: "Financial:DiscountsOrSurcharges", path: "/master-data/discounts-or-surcharges", icon: BadgePercent, feature: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges" },
+              /* Design 61 (the Transport run; design 57). */
+              { nameKey: "Financial:PriceLists", path: "/master-data/price-lists", icon: ScrollText, feature: "Apps.MasterData.Financial.Pricing.PriceLists" },
+              { nameKey: "Financial:RelationFinancialSettings", path: "/master-data/relation-financial-settings", icon: Landmark, feature: "Apps.MasterData.Financial.Pricing.RelationFinancialSettings" },
             ],
           },
         ],
