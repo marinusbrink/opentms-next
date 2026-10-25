@@ -317,7 +317,7 @@ export function EntityDialog({
 }
 
 /** UI-ACT-002: Save (primary), then Close, then the rest. Close is never written by a feature. */
-function withCloseCommand(commands: RibbonCommand[], onClose: () => void): RibbonCommand[] {
+export function withCloseCommand(commands: RibbonCommand[], onClose: () => void): RibbonCommand[] {
   const primaries = commands.filter((c) => c.isPrimary);
   const editGroup = primaries[0]?.groupKey ?? "Edit";
   const closeCommand: RibbonCommand = {
@@ -332,9 +332,9 @@ function withCloseCommand(commands: RibbonCommand[], onClose: () => void): Ribbo
   return [...primaries.map((c) => ({ ...c, groupKey: c.groupKey ?? editGroup })), closeCommand, ...others];
 }
 
-/* The ribbon (D-13 A, modernised): icon over label, buttons in groups with a caption under
+/* The ribbon (D-13 A, modernised; shared with RecordPage, design 61): icon over label, buttons in groups with a caption under
  * them, a divider between groups. Icons in the brand colour, destructive ones in red. */
-function Ribbon({ commands, t }: { commands: RibbonCommand[]; t: (key: string) => string }) {
+export function Ribbon({ commands, t }: { commands: RibbonCommand[]; t: (key: string) => string }) {
   const groups: { key: string; commands: RibbonCommand[] }[] = [];
   for (const command of commands) {
     const key = command.groupKey ?? "";
@@ -402,7 +402,7 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
 
 /* UI-FORM-008: end-aligned, General first, the icon-only standard tabs last with tooltips;
  * UI-FORM-007: a tab with errors is red with an alert icon. Old-app look: uppercase, brand ink. */
-function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: string) => string }) {
+export function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: string) => string }) {
   const triggerClass =
     "h-10 flex-none rounded-none border-0 px-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
   return (
