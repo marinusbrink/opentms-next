@@ -176,8 +176,6 @@ describe("apps.config nameKeys resolve in a localization resource (nl and en)", 
     "Orders:OrderAttributeDefinitions": "TODO: Orders module (design 58)",
     "PlanningExecution:ViaDepotRules": "TODO: Planning & Execution module (design 59)",
     "PlanningExecution:TripAttributeDefinitions": "TODO: Planning & Execution module (design 59)",
-    "Financial:PriceLists": "TODO: Financial module (design 57)",
-    "Financial:RelationFinancialSettings": "TODO: Financial module (design 57)",
   };
   /* StatusBadge label keys registered in design 61; the texts arrive with the modules too. */
   const PENDING_STATUS_KEYS = [
