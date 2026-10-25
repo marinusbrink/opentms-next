@@ -125,6 +125,34 @@ public class TransportOrderLine : Entity<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>Whether <see cref="SetStops"/> with these stops would change a place, date or window, add or remove a stop (no mutation).</summary>
+    public bool StopsWouldChange(IReadOnlyList<StopInput> stops)
+    {
+        if (stops.Count != Stops.Count)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < stops.Count; i++)
+        {
+            var input = stops[i];
+            var existing = input.Id == null ? null : Stops.FirstOrDefault(s => s.Id == input.Id.Value);
+            if (existing == null || existing.Position != i + 1 || existing.Date != input.Date)
+            {
+                return true;
+            }
+
+            var details = StopDetails.Create(input.WaypointTypeId, input.RelationId, input.RelationAddressId, input.ContactPersonId, input.TimeSlotId,
+                input.WindowFrom, input.WindowTill, input.Reference, input.Remarks, input.PlannedDurationMin, i + 1);
+            if (!existing.Details.SamePlaceAndWindowAs(details))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Replaces the stops (matched on id); returns true when any stop's place or window changed, or a stop came or went.</summary>
     public bool SetStops(IReadOnlyList<StopInput> stops, Func<Guid> newId)
     {

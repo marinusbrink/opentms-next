@@ -96,7 +96,7 @@ public static class OrdersErrorCodes
     public static readonly string[] ConflictCodes =
     [
         InvalidTransition, OrderNotEditable, StopLockedByTrip, CancelRefusedTripInProgress, DeleteRefusedLegsAssigned,
-        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive
+        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive, RenderTimedOut
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>

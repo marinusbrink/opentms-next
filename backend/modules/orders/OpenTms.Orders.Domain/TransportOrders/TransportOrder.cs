@@ -277,6 +277,32 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     // ── lines ───────────────────────────────────────────────────────────────────
 
+    /// <summary>What <see cref="SetLines"/> would change, without mutating: the service checks Planning's locks on these first.</summary>
+    public LineChanges PreviewLineChanges(IReadOnlyList<LineInput> inputs)
+    {
+        Check.NotNull(inputs, nameof(inputs));
+        var changes = new LineChanges();
+        var keep = new HashSet<Guid>();
+        foreach (var input in inputs)
+        {
+            var existing = input.Id == null ? null : Lines.FirstOrDefault(l => l.Id == input.Id.Value);
+            if (existing == null)
+            {
+                continue;
+            }
+
+            keep.Add(existing.Id);
+            changes.LineIds.Add(existing.Id);
+            if (existing.StopsWouldChange(input.Stops))
+            {
+                changes.StopChangedLineIds.Add(existing.Id);
+            }
+        }
+
+        changes.RemovedLineIds.AddRange(Lines.Where(l => !keep.Contains(l.Id)).Select(l => l.Id));
+        return changes;
+    }
+
     /// <summary>Replaces the lines (matched on id; new lines without id); returns the ids whose stops changed.</summary>
     public LineChanges SetLines(IReadOnlyList<LineInput> inputs, Func<Guid> newId)
     {

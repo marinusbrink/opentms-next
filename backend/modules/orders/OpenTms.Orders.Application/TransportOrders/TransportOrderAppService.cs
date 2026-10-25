@@ -134,8 +134,10 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
         var pattern = order.StopsFromPattern();
         var lines = input.Lines.Select(l => TransportOrderInputMapper.Line(l, l.Id == null ? pattern : null)).ToList();
         await ValidateLinesAsync(lines);
+        /* The lock check runs before anything changes in memory: a refusal leaves the tracked aggregate as it was. */
+        var preview = order.PreviewLineChanges(lines);
+        await _commands.EnsureStopsUnlockedAsync(order, preview.StopChangedLineIds.Concat(preview.RemovedLineIds));
         var changes = order.SetLines(lines, GuidGenerator.Create);
-        await _commands.EnsureStopsUnlockedAsync(order, changes.StopChangedLineIds.Concat(changes.RemovedLineIds));
         await _orders.UpdateAsync(order, autoSave: true);
         await _commands.PublishLinesChangedAsync(order, changes);
         return await ReloadAsync(id);
@@ -169,13 +171,17 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
         input.Id = lineId;
         var line = TransportOrderInputMapper.Line(input, existing.Stops.OrderBy(s => s.Position).Select(s => s.ToInput()).ToList());
         await ValidateLinesAsync([line]);
+        if (existing.StopsWouldChange(line.Stops))
+        {
+            await _commands.EnsureStopsUnlockedAsync(order, [lineId]);
+        }
+
         var stopsChanged = existing.Set(existing.Position, line, GuidGenerator.Create);
         var changes = new LineChanges();
         changes.LineIds.Add(lineId);
         if (stopsChanged)
         {
             changes.StopChangedLineIds.Add(lineId);
-            await _commands.EnsureStopsUnlockedAsync(order, [lineId]);
         }
 
         await _orders.UpdateAsync(order, autoSave: true);
