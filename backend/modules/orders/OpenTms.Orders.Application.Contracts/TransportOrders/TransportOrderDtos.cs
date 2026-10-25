@@ -225,7 +225,7 @@ public class TransportOrderLineDto : TransportOrderLineInputDto
     public decimal? Co2Kg { get; set; }
 }
 
-public class TransportOrderReferenceDto
+public class TransportOrderReferenceEntryDto
 {
     [Required, MaxLength(OrdersConsts.MaxReferenceTypeLength)]
     public string Type { get; set; } = string.Empty;
@@ -342,7 +342,7 @@ public class TransportOrderCreateDto : TransportOrderHeaderDto
 
     public List<TransportOrderLineInputDto> Lines { get; set; } = new();
 
-    public List<TransportOrderReferenceDto> References { get; set; } = new();
+    public List<TransportOrderReferenceEntryDto> References { get; set; } = new();
 
     public TransportOrderTripRequestInputDto? TripRequest { get; set; }
 
@@ -359,6 +359,12 @@ public class TransportOrderCreateDto : TransportOrderHeaderDto
 
 public class TransportOrderUpdateDto : TransportOrderHeaderDto, IReferenceDataUpdateDto
 {
+    /// <summary>
+    /// The terms to apply with the header. Left out on a customer change, the new customer's defaults are copied
+    /// server-side (design 58); given, they are kept as posted. Ignored when neither the customer changes nor terms are posted.
+    /// </summary>
+    public TransportOrderFinancialTermsInputDto? FinancialTerms { get; set; }
+
     [Required] public string ConcurrencyStamp { get; set; } = string.Empty;
 }
 
@@ -376,7 +382,7 @@ public class TransportOrderDefaultStopsUpdateDto : IReferenceDataUpdateDto
 
 public class TransportOrderReferencesUpdateDto : IReferenceDataUpdateDto
 {
-    [Required] public List<TransportOrderReferenceDto> References { get; set; } = new();
+    [Required] public List<TransportOrderReferenceEntryDto> References { get; set; } = new();
     [Required] public string ConcurrencyStamp { get; set; } = string.Empty;
 }
 
@@ -441,7 +447,7 @@ public class TransportOrderDto : ReferenceDataDetailDtoBase
     public TransportOrderTripRequestDto? TripRequest { get; set; }
     public List<TransportOrderDefaultStopDto> DefaultStops { get; set; } = new();
     public List<TransportOrderLineDto> Lines { get; set; } = new();
-    public List<TransportOrderReferenceDto> References { get; set; } = new();
+    public List<TransportOrderReferenceEntryDto> References { get; set; } = new();
     public List<TransportOrderRemarkDto> Remarks { get; set; } = new();
     public TransportOrderSummaryDto Summary { get; set; } = new();
 }

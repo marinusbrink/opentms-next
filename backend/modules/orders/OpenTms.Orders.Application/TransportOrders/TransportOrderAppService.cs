@@ -87,9 +87,11 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
     public virtual async Task<TransportOrderDto> CreateAsync(TransportOrderCreateDto input)
     {
         var header = TransportOrderInputMapper.Header(input, string.Empty, input.OrderDate ?? _clock.Today());
+        /* Terms posted are kept as posted; without them the customer's defaults are copied (design 58, Financial's lookup). */
+        var terms = input.FinancialTerms != null ? TransportOrderInputMapper.Terms(input.FinancialTerms) : await _references.DefaultTermsAsync(input.CustomerRelationId, header.OrderDate);
         var draft = new TransportOrderDraft(
             header,
-            TransportOrderInputMapper.Terms(input.FinancialTerms),
+            terms,
             (input.DefaultStops ?? []).Select(TransportOrderInputMapper.DefaultStop).ToList(),
             input.Lines.Select(l => TransportOrderInputMapper.Line(l, null)).ToList(),
             input.References.Select(TransportOrderInputMapper.Reference).ToList(),
@@ -111,8 +113,19 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
             await _references.NamesAsync(MasterData.Published.MasterDataReferenceKind.ContactPerson, [input.CustomerContactPersonId.Value], require: true, "customerContactPersonId");
         }
 
-        var pricingChanged = order.CustomerRelationId != input.CustomerRelationId || order.OrderDate != (input.OrderDate ?? order.OrderDate);
+        var customerChanged = order.CustomerRelationId != input.CustomerRelationId;
+        var pricingChanged = customerChanged || order.OrderDate != (input.OrderDate ?? order.OrderDate);
         order.SetHeader(TransportOrderInputMapper.Header(input, customerName, input.OrderDate ?? order.OrderDate), type.Numbering);
+
+        /* A customer change takes the new customer's defaults unless the request carries terms; posted terms always apply. */
+        if (input.FinancialTerms != null || customerChanged)
+        {
+            var terms = input.FinancialTerms != null ? TransportOrderInputMapper.Terms(input.FinancialTerms) : await _references.DefaultTermsAsync(input.CustomerRelationId, order.OrderDate);
+            await _references.EnsureFinancialTermsAsync(terms);
+            order.SetFinancialTerms(terms, GuidGenerator.Create);
+            pricingChanged = true;
+        }
+
         await _orders.UpdateAsync(order, autoSave: true);
         if (pricingChanged)
         {

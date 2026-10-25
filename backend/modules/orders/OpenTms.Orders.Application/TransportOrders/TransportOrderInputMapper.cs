@@ -35,7 +35,7 @@ public static class TransportOrderInputMapper
         dto.Stops == null ? patternStops ?? [] : dto.Stops.Select(Stop).ToList(),
         dto.Attributes);
 
-    public static ReferenceInput Reference(TransportOrderReferenceDto dto) => new(dto.Type, dto.Value, dto.Description);
+    public static ReferenceInput Reference(TransportOrderReferenceEntryDto dto) => new(dto.Type, dto.Value, dto.Description);
 
     public static FinancialTermsInput Terms(TransportOrderFinancialTermsInputDto? dto) => dto == null
         ? TransportOrderFinancialTerms.Default()

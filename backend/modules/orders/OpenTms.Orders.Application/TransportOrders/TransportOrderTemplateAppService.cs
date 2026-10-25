@@ -390,7 +390,7 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
                 TransportOrderDtoMapper.CopyFreight(l.Freight, line);
                 return line;
             }).ToList(),
-            References = t.References.OrderBy(r => r.Position).Select(r => new TransportOrderReferenceDto { Type = r.Type, Value = r.Value, Description = r.Description }).ToList(),
+            References = t.References.OrderBy(r => r.Position).Select(r => new TransportOrderReferenceEntryDto { Type = r.Type, Value = r.Value, Description = r.Description }).ToList(),
             TripRequest = t.TripRequest == null ? null : new TemplateTripRequestInputDto
             {
                 TransportTripTypeId = t.TripRequest.TransportTripTypeId, DepartureRelationId = t.TripRequest.DepartureRelationId, DepartureAddressId = t.TripRequest.DepartureAddressId,

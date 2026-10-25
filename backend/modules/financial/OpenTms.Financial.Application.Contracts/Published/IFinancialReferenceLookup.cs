@@ -21,7 +21,39 @@ public interface IFinancialReferenceLookup
 
     Task<IReadOnlyList<PriceListReferenceDto>> GetPriceListsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The financial defaults of a Master Data relation (design 57 <c>RelationFinancialSettings</c>) as Orders copies them
+    /// into an order's terms and checks them on approval (design 58, rule <c>FinancialDefaultsMismatch</c>): the revenue
+    /// lists in order, how several matching lists combine, the default discounts and surcharges valid on <paramref name="asOf"/>,
+    /// VAT, payment term, the fixed-price and documents flags, the currency. Null when the relation has no settings.
+    /// </summary>
+    Task<RelationFinancialSettingsReferenceDto?> GetRelationFinancialSettingsAsync(Guid relationId, DateOnly asOf, CancellationToken cancellationToken = default);
+
     const int MaxKeys = 500;
+}
+
+public class RelationFinancialSettingsReferenceDto
+{
+    public Guid RelationId { get; set; }
+
+    /// <summary>The revenue price lists in position order (QP5).</summary>
+    public List<Guid> RevenuePriceListIds { get; set; } = new();
+
+    public MultipleMatches RevenueMultipleMatches { get; set; } = MultipleMatches.All;
+
+    /// <summary>The default discounts and surcharges valid on the date asked for.</summary>
+    public List<Guid> DiscountOrSurchargeIds { get; set; } = new();
+
+    public Guid? VatPercentageId { get; set; }
+
+    public int? PaymentTermDays { get; set; }
+
+    public bool ChargeFixedPriceByDefault { get; set; }
+
+    public bool SendFreightDocumentsWithInvoice { get; set; }
+
+    /// <summary>ISO 4217; null = the relation's currency from Master Data (Orders then keeps its default).</summary>
+    public string? CurrencyCode { get; set; }
 }
 
 public class FinancialReferenceDto

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using OpenTms.Financial.Tariffs;
 using Volo.Abp;
 
 namespace OpenTms.Orders.TransportOrders.Approval;
@@ -24,7 +25,61 @@ public sealed record ApprovalFacts(
     bool HasConsignmentNoteDocument,
     bool DuplicateCustomerReference,
     IReadOnlyList<ApprovalLegFact> Legs,
-    bool ReferencesExist);
+    bool ReferencesExist,
+    CustomerFinancialDefaults? CustomerDefaults = null);
+
+/// <summary>
+/// The customer's financial defaults on the order's date (Financial's relation settings, read through its published
+/// lookup): what an order's terms start from and what the rule <c>FinancialDefaultsMismatch</c> compares them with.
+/// A null part is "no default": the order's own value is fine.
+/// </summary>
+public sealed record CustomerFinancialDefaults(
+    string? CurrencyCode,
+    Guid? VatPercentageId,
+    int? PaymentTermDays,
+    IReadOnlyList<Guid> PriceListIds,
+    MultipleMatches MultipleMatches,
+    IReadOnlyList<Guid> DiscountOrSurchargeIds)
+{
+    /// <summary>The parts of the order's terms that differ from these defaults, as field names; empty when they agree.</summary>
+    public IReadOnlyList<string> DifferencesWith(TransportOrder order)
+    {
+        var differences = new List<string>();
+        var terms = order.FinancialTerms;
+        if (CurrencyCode != null && !string.Equals(CurrencyCode, terms.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+        {
+            differences.Add("currencyCode");
+        }
+
+        if (VatPercentageId != null && VatPercentageId != terms.VatPercentageId)
+        {
+            differences.Add("vatPercentageId");
+        }
+
+        if (PaymentTermDays != null && PaymentTermDays != terms.PaymentTermDays)
+        {
+            differences.Add("paymentTermDays");
+        }
+
+        if (!PriceListIds.SequenceEqual(order.PriceLists.OrderBy(p => p.Position).Select(p => p.PriceListId)))
+        {
+            differences.Add("priceListIds");
+        }
+
+        if (PriceListIds.Count > 0 && MultipleMatches != terms.MultipleMatches)
+        {
+            differences.Add("multipleMatches");
+        }
+
+        var onOrder = order.DiscountsOrSurcharges.Select(d => d.DiscountOrSurchargeId).ToHashSet();
+        if (DiscountOrSurchargeIds.Any(id => !onOrder.Contains(id)))
+        {
+            differences.Add("discountsOrSurcharges");
+        }
+
+        return differences;
+    }
+}
 
 public sealed record ApprovalLegFact(Guid LineId, int? DistanceM, bool DestinationArrived);
 
@@ -129,9 +184,11 @@ public static class ApprovalEvaluator
             }
 
             case ApprovalRule.FinancialDefaultsMismatch:
-                /* The customer's financial defaults have no published reader yet (design 57 exposes none); the rule
-                 * cannot find a mismatch and passes. Build note of design 58. */
-                return null;
+            {
+                /* Without settings for the customer there is nothing to differ from. */
+                var differences = facts.CustomerDefaults?.DifferencesWith(order) ?? [];
+                return differences.Count == 0 ? null : Warning(rule, "Orders:Approval.FinancialDefaultsMismatch", ("fields", string.Join(", ", differences)));
+            }
 
             case ApprovalRule.FixedPriceFilled:
                 return order.FinancialTerms.FixedPriceAmount is null or > 0m ? null : Error(rule, "Orders:Approval.FixedPriceFilled");

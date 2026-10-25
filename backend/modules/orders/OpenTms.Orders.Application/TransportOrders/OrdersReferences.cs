@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenTms.Financial.Published;
 using OpenTms.MasterData.Published;
+using OpenTms.Orders.TransportOrders.Approval;
 using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
@@ -187,6 +188,41 @@ public class OrdersReferences : ITransientDependency
             vat.ToDictionary(v => v.Id, v => v.Name),
             priceLists.ToDictionary(p => p.Id, p => p.Name),
             ds.ToDictionary(d => d.Id, d => d.Name));
+    }
+
+    /// <summary>
+    /// The customer's financial defaults on the order's date (design 57's relation settings through Financial's published
+    /// lookup), or null when the relation has none.
+    /// </summary>
+    public async Task<CustomerFinancialDefaults?> CustomerDefaultsAsync(Guid customerRelationId, DateOnly orderDate)
+    {
+        var settings = await _financial.GetRelationFinancialSettingsAsync(customerRelationId, orderDate);
+        return settings == null
+            ? null
+            : new CustomerFinancialDefaults(settings.CurrencyCode, settings.VatPercentageId, settings.PaymentTermDays, settings.RevenuePriceListIds, settings.RevenueMultipleMatches, settings.DiscountOrSurchargeIds);
+    }
+
+    /// <summary>
+    /// The terms an order starts with when the request carries none (design 58): the customer's defaults copied — lists,
+    /// VAT, payment term, the default discounts and surcharges of the date, the currency — else the module's default.
+    /// </summary>
+    public async Task<FinancialTermsInput> DefaultTermsAsync(Guid customerRelationId, DateOnly orderDate)
+    {
+        var defaults = await CustomerDefaultsAsync(customerRelationId, orderDate);
+        if (defaults == null)
+        {
+            return TransportOrderFinancialTerms.Default();
+        }
+
+        return new FinancialTermsInput(
+            defaults.CurrencyCode ?? "EUR",
+            defaults.VatPercentageId,
+            defaults.PaymentTermDays,
+            defaults.PriceListIds.ToList(),
+            defaults.MultipleMatches,
+            defaults.DiscountOrSurchargeIds.Select(id => new DiscountOrSurchargeInput(id, DiscountOrSurchargeSource.Default)).ToList(),
+            null,
+            false);
     }
 
     public async Task<FinancialNames> FinancialNamesAsync(FinancialTermsInput terms)

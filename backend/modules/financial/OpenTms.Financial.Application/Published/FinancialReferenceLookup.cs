@@ -25,13 +25,44 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
     private readonly IRepository<DiscountOrSurcharge, Guid> _discounts;
     private readonly IRepository<AdditionalService, Guid> _services;
     private readonly IRepository<PriceList, Guid> _priceLists;
+    private readonly IRepository<RelationFinancialSettings, Guid> _relationSettings;
 
-    public FinancialReferenceLookup(IRepository<VatPercentage, Guid> vat, IRepository<DiscountOrSurcharge, Guid> discounts, IRepository<AdditionalService, Guid> services, IRepository<PriceList, Guid> priceLists)
+    public FinancialReferenceLookup(IRepository<VatPercentage, Guid> vat, IRepository<DiscountOrSurcharge, Guid> discounts, IRepository<AdditionalService, Guid> services, IRepository<PriceList, Guid> priceLists,
+        IRepository<RelationFinancialSettings, Guid> relationSettings)
     {
         _vat = vat;
         _discounts = discounts;
         _services = services;
         _priceLists = priceLists;
+        _relationSettings = relationSettings;
+    }
+
+    [Authorize]
+    public virtual async Task<RelationFinancialSettingsReferenceDto?> GetRelationFinancialSettingsAsync(Guid relationId, DateOnly asOf, CancellationToken cancellationToken = default)
+    {
+        if (relationId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var settings = await _relationSettings.FindAsync(s => s.RelationId == relationId, includeDetails: true, cancellationToken: cancellationToken);
+        if (settings == null)
+        {
+            return null;
+        }
+
+        return new RelationFinancialSettingsReferenceDto
+        {
+            RelationId = settings.RelationId,
+            RevenuePriceListIds = settings.PriceListIdsFor(RateSide.Revenue).ToList(),
+            RevenueMultipleMatches = settings.RevenueMultipleMatches,
+            DiscountOrSurchargeIds = settings.DiscountOrSurchargeIdsOn(asOf).ToList(),
+            VatPercentageId = settings.VatPercentageId,
+            PaymentTermDays = settings.PaymentTermDays,
+            ChargeFixedPriceByDefault = settings.ChargeFixedPriceByDefault,
+            SendFreightDocumentsWithInvoice = settings.SendFreightDocumentsWithInvoice,
+            CurrencyCode = settings.CurrencyCode
+        };
     }
 
     [Authorize]

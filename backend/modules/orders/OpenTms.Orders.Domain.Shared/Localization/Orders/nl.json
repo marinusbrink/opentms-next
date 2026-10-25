@@ -361,7 +361,7 @@
     "Orders:Approval.PriceCalculationCorrect": "De prijzen zijn nog niet berekend.",
     "Orders:Approval.DuplicateCustomerReference": "Een andere order van deze klant heeft referentie '{reference}'.",
     "Orders:Approval.EmptyLinePrice": "Regels zonder prijs: {positions}.",
-    "Orders:Approval.FinancialDefaultsMismatch": "De financiële voorwaarden wijken af van de standaarden van de klant.",
+    "Orders:Approval.FinancialDefaultsMismatch": "De financiële voorwaarden wijken af van de standaarden van de klant ({fields}).",
     "Orders:Approval.FixedPriceFilled": "De vaste prijs is ingesteld maar leeg.",
     "Orders:Approval.LegDistanceMatchesLine": "De trajectafstanden wijken af van de regelafstanden: {positions}.",
     "Orders:Approval.AllStopsArrived": "Niet elke stop is aangekomen.",

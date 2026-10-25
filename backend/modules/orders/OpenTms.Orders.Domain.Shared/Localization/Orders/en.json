@@ -361,7 +361,7 @@
     "Orders:Approval.PriceCalculationCorrect": "The prices have not been calculated yet.",
     "Orders:Approval.DuplicateCustomerReference": "Another order of this customer carries reference '{reference}'.",
     "Orders:Approval.EmptyLinePrice": "Lines without a price: {positions}.",
-    "Orders:Approval.FinancialDefaultsMismatch": "The financial terms differ from the customer's defaults.",
+    "Orders:Approval.FinancialDefaultsMismatch": "The financial terms differ from the customer's defaults ({fields}).",
     "Orders:Approval.FixedPriceFilled": "The fixed price is set but empty.",
     "Orders:Approval.LegDistanceMatchesLine": "The leg distances differ from the lines' distances: {positions}.",
     "Orders:Approval.AllStopsArrived": "Not every stop has arrived.",

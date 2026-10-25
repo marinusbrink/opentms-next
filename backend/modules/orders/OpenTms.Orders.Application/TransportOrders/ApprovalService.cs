@@ -61,6 +61,11 @@ public class ApprovalService : ITransientDependency
         var duplicates = await DuplicateReferencesAsync(orders);
         var relationIds = orders.Select(o => o.CustomerRelationId).Concat(orders.SelectMany(o => o.Lines).SelectMany(l => l.Stops).Select(s => s.Details.RelationId).OfType<Guid>()).Distinct().ToList();
         var relations = await _references.RelationsAsync(relationIds, require: false);
+        var defaults = new Dictionary<(Guid Customer, DateOnly Date), CustomerFinancialDefaults?>();
+        foreach (var key in orders.Select(o => (o.CustomerRelationId, o.OrderDate)).Distinct())
+        {
+            defaults[key] = await _references.CustomerDefaultsAsync(key.CustomerRelationId, key.OrderDate);
+        }
 
         return orders.Select(order =>
         {
@@ -74,7 +79,8 @@ public class ApprovalService : ITransientDependency
                 documented.Contains(order.Id),
                 duplicates.Contains(order.Id),
                 legs[order.Id].Select(l => new ApprovalLegFact(l.OrderLineId, l.DistanceM, l.Destination.ActualAt != null)).ToList(),
-                referenced.All(relations.ContainsKey));
+                referenced.All(relations.ContainsKey),
+                defaults[(order.CustomerRelationId, order.OrderDate)]);
             return ApprovalEvaluator.Evaluate(facts, rules);
         }).ToList();
     }

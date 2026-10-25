@@ -219,7 +219,7 @@ public class TransportOrderDtoMapper : ITransientDependency
                 CopyFreight(l.Freight, dto);
                 return dto;
             }).ToList(),
-            References = o.References.OrderBy(r => r.Position).Select(r => new TransportOrderReferenceDto { Type = r.Type, Value = r.Value, Description = r.Description }).ToList(),
+            References = o.References.OrderBy(r => r.Position).Select(r => new TransportOrderReferenceEntryDto { Type = r.Type, Value = r.Value, Description = r.Description }).ToList(),
             Remarks = o.Remarks.OrderBy(r => r.At).Select(r => new TransportOrderRemarkDto { Kind = r.Kind, Text = r.Text, At = r.At, UserId = r.UserId }).ToList(),
             Summary = await SummaryAsync(o)
         };

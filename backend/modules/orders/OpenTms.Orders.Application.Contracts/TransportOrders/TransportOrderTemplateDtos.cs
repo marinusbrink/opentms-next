@@ -133,7 +133,7 @@ public class TransportOrderTemplateCreateDto
     public TransportOrderFinancialTermsInputDto? FinancialTerms { get; set; }
     public List<TransportOrderDefaultStopInputDto> DefaultStops { get; set; } = new();
     public List<TemplateLineInputDto> Lines { get; set; } = new();
-    public List<TransportOrderReferenceDto> References { get; set; } = new();
+    public List<TransportOrderReferenceEntryDto> References { get; set; } = new();
     public TemplateTripRequestInputDto? TripRequest { get; set; }
     [Required] public TemplateScheduleDto Schedule { get; set; } = new();
     public bool IsActive { get; set; } = true;
@@ -160,7 +160,7 @@ public class TransportOrderTemplateDto : ReferenceDataDetailDtoBase
     public TransportOrderFinancialTermsDto FinancialTerms { get; set; } = new();
     public List<TransportOrderDefaultStopDto> DefaultStops { get; set; } = new();
     public List<TemplateLineDto> Lines { get; set; } = new();
-    public List<TransportOrderReferenceDto> References { get; set; } = new();
+    public List<TransportOrderReferenceEntryDto> References { get; set; } = new();
     public TemplateTripRequestInputDto? TripRequest { get; set; }
     public TemplateScheduleDto Schedule { get; set; } = new();
     public DateOnly? LastMaterialisedDate { get; set; }
