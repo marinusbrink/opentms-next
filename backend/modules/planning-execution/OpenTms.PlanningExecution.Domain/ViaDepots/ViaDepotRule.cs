@@ -101,9 +101,6 @@ public class ViaDepotRule : ReferenceDataAggregateRoot
 
     public void SetArchived(bool archived) => IsArchived = archived;
 
-    /// <summary>The waypoint type the onward leg departs the depot with.</summary>
-    public Guid DepartureTypeOrArrival => DepartureWaypointTypeId ?? ArrivalWaypointTypeId;
-
     /// <summary>True when the rule applies to a stop pair of an order (design 59 "Generation").</summary>
     public bool Matches(Guid customerRelationId, Guid originRelationId, Guid destinationRelationId, System.Collections.Generic.IReadOnlyCollection<Guid> regionIds)
         => Scope switch

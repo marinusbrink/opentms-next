@@ -63,10 +63,12 @@ public sealed class LegGenerationResult
 /// </summary>
 public class LegGenerator : DomainService
 {
+    /// <param name="successorOf">The successive waypoint type of a waypoint type (Orders' master data): the onward leg of a via depot departs with the arrival type's successor when the rule names no departure type (design 59), else with the arrival type itself.</param>
     public LegGenerationResult Generate(
         LegGenerationInput input,
         IReadOnlyList<ViaDepotRule> rules,
         Func<Guid, DepotLocation?> depotOf,
+        Func<Guid, Guid?> successorOf,
         IReadOnlyList<Leg> existing,
         Guid? tenantId,
         Func<Guid> newId)
@@ -102,7 +104,7 @@ public class LegGenerator : DomainService
                 continue;
             }
 
-            var wanted = Plan(input, line, orderedRules, depotOf);
+            var wanted = Plan(input, line, orderedRules, depotOf, successorOf);
             Match(input, line, wanted, current, result, tenantId, newId);
         }
 
@@ -118,7 +120,7 @@ public class LegGenerator : DomainService
     private sealed record PlannedLeg(LegSource Source, Guid? RuleId, LegEndSnapshot Origin, LegEndSnapshot Destination);
 
     /// <summary>The legs a line should have: consecutive pairs, each split at its depot when a rule matches.</summary>
-    private static List<PlannedLeg> Plan(LegGenerationInput input, LegGenerationLine line, IReadOnlyList<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf)
+    private static List<PlannedLeg> Plan(LegGenerationInput input, LegGenerationLine line, IReadOnlyList<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf, Func<Guid, Guid?> successorOf)
     {
         var planned = new List<PlannedLeg>();
         for (var i = 0; i + 1 < line.Stops.Count; i++)
@@ -137,7 +139,8 @@ public class LegGenerator : DomainService
 
             var viaStopId = Leg.SyntheticStopId("via", rule.Id, a.Snapshot.StopId, b.Snapshot.StopId);
             var arrival = DepotEnd(depot, viaStopId, rule.ArrivalWaypointTypeId, a.Snapshot.PlannedDate);
-            var departure = DepotEnd(depot, viaStopId, rule.DepartureTypeOrArrival, rule.Overnight ? a.Snapshot.PlannedDate.AddDays(1) : a.Snapshot.PlannedDate);
+            var departureType = rule.DepartureWaypointTypeId ?? successorOf(rule.ArrivalWaypointTypeId) ?? rule.ArrivalWaypointTypeId;
+            var departure = DepotEnd(depot, viaStopId, departureType, rule.Overnight ? a.Snapshot.PlannedDate.AddDays(1) : a.Snapshot.PlannedDate);
             planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, a.Snapshot, arrival));
             planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, departure, b.Snapshot));
         }

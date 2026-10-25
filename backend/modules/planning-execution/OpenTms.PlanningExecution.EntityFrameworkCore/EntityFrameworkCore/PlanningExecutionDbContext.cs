@@ -189,7 +189,6 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
         {
             b.ToTable("ViaDepotRules", Schema, t => t.HasCheckConstraint("CK_ViaDepotRules_Position", "\"Position\" >= 1"));
             b.ConfigureByConvention();
-            b.Ignore(r => r.DepartureTypeOrArrival);
             b.Property(r => r.Description).HasMaxLength(ReferenceDataConsts.MaxDescriptionLength);
             b.HasIndex(r => r.TenantId);
             b.HasIndex(r => new { r.TenantId, r.Scope, r.Position });

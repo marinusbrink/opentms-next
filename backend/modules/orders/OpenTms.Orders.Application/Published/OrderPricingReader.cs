@@ -58,10 +58,30 @@ public class OrderPricingReader : OrdersAppServiceBase, IOrderPricingReader
 public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
 {
     private readonly IRepository<TransportOrder, Guid> _orders;
+    private readonly IRepository<WaypointType, Guid> _waypointTypes;
 
-    public TransportOrderLookup(IRepository<TransportOrder, Guid> orders)
+    public TransportOrderLookup(IRepository<TransportOrder, Guid> orders, IRepository<WaypointType, Guid> waypointTypes)
     {
         _orders = orders;
+        _waypointTypes = waypointTypes;
+    }
+
+    [Authorize]
+    public virtual async Task<IReadOnlyList<WaypointTypeReferenceDto>> GetWaypointTypesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var keys = (ids ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
+        if (keys.Count > ITransportOrderLookup.MaxKeys)
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.TooManyRows).WithData("max", ITransportOrderLookup.MaxKeys);
+        }
+
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        var types = await _waypointTypes.GetListAsync(w => keys.Contains(w.Id), cancellationToken: cancellationToken);
+        return types.Select(w => new WaypointTypeReferenceDto { Id = w.Id, Activity = w.Activity, SuccessiveWaypointTypeId = w.SuccessiveWaypointTypeId, DefaultDurationMinutes = w.DefaultDurationMinutes }).ToList();
     }
 
     [Authorize]

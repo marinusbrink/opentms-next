@@ -17,7 +17,22 @@ public interface ITransportOrderLookup
     /// <summary>The order's "Tevens trip" request (design 58, PO decision Q9), or null when it has none; read by Planning on <c>TransportOrderConfirmed</c>.</summary>
     Task<TripRequestDto?> GetTripRequestAsync(Guid orderId, CancellationToken cancellationToken = default);
 
+    /// <summary>The waypoint types by id (activity, successor, default stay), for Planning's via-depot departure (design 59 "Generation"); unknown ids are absent.</summary>
+    Task<IReadOnlyList<WaypointTypeReferenceDto>> GetWaypointTypesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default);
+
     const int MaxKeys = 500;
+}
+
+public class WaypointTypeReferenceDto
+{
+    public Guid Id { get; set; }
+
+    public WaypointActivity Activity { get; set; }
+
+    /// <summary>The type a stop of this type is followed by (the depot's departure activity after its arrival), when the tenant set one.</summary>
+    public Guid? SuccessiveWaypointTypeId { get; set; }
+
+    public int? DefaultDurationMinutes { get; set; }
 }
 
 public class TripRequestDto

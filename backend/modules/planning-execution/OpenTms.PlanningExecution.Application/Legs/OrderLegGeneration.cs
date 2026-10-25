@@ -30,6 +30,7 @@ public class OrderLegGeneration : ITransientDependency
     public ILogger<OrderLegGeneration> Logger { get; set; } = NullLogger<OrderLegGeneration>.Instance;
 
     private readonly IOrderPricingReader _orders;
+    private readonly ITransportOrderLookup _orderLookup;
     private readonly IRepository<Leg, Guid> _legs;
     private readonly IRepository<ViaDepotRule, Guid> _rules;
     private readonly LegGenerator _generator;
@@ -42,6 +43,7 @@ public class OrderLegGeneration : ITransientDependency
 
     public OrderLegGeneration(
         IOrderPricingReader orders,
+        ITransportOrderLookup orderLookup,
         IRepository<Leg, Guid> legs,
         IRepository<ViaDepotRule, Guid> rules,
         LegGenerator generator,
@@ -53,6 +55,7 @@ public class OrderLegGeneration : ITransientDependency
         ICurrentTenant currentTenant)
     {
         _orders = orders;
+        _orderLookup = orderLookup;
         _legs = legs;
         _rules = rules;
         _generator = generator;
@@ -75,8 +78,10 @@ public class OrderLegGeneration : ITransientDependency
 
         var rules = input.IsCancelled ? [] : await _rules.GetListAsync(r => !r.IsArchived);
         var depots = await _masterData.AddressesAsync(rules.Select(r => (Guid?)r.DepotAddressId));
+        var successors = await SuccessorsAsync(rules);
 
-        var result = _generator.Generate(input, rules, id => depots.TryGetValue(id, out var a) ? MasterDataReferences.ToDepot(a) : null, existing, _currentTenant.Id, _guids.Create);
+        var result = _generator.Generate(input, rules, id => depots.TryGetValue(id, out var a) ? MasterDataReferences.ToDepot(a) : null,
+            id => successors.GetValueOrDefault(id), existing, _currentTenant.Id, _guids.Create);
         await PersistAsync(orderId, result, reason);
         return result;
     }
@@ -85,8 +90,29 @@ public class OrderLegGeneration : ITransientDependency
     public async Task<LegGenerationResult> RemoveAllAsync(Guid orderId, string reason)
     {
         var existing = await _legs.GetListAsync(l => l.OrderId == orderId);
-        var result = _generator.Generate(new LegGenerationInput { OrderId = orderId, IsCancelled = true }, [], _ => null, existing, _currentTenant.Id, _guids.Create);
+        var result = _generator.Generate(new LegGenerationInput { OrderId = orderId, IsCancelled = true }, [], _ => null, _ => null, existing, _currentTenant.Id, _guids.Create);
         await PersistAsync(orderId, result, reason);
+        return result;
+    }
+
+    /// <summary>The arrival types' successors (Orders' waypoint types) for the rules that name no departure type (design 59 "Generation").</summary>
+    private async Task<Dictionary<Guid, Guid?>> SuccessorsAsync(IReadOnlyList<ViaDepotRule> rules)
+    {
+        var arrivalTypeIds = rules.Where(r => r.DepartureWaypointTypeId == null).Select(r => r.ArrivalWaypointTypeId).Distinct().ToList();
+        if (arrivalTypeIds.Count == 0)
+        {
+            return new Dictionary<Guid, Guid?>();
+        }
+
+        var result = new Dictionary<Guid, Guid?>();
+        foreach (var chunk in arrivalTypeIds.Chunk(ITransportOrderLookup.MaxKeys))
+        {
+            foreach (var type in await _orderLookup.GetWaypointTypesAsync(chunk))
+            {
+                result[type.Id] = type.SuccessiveWaypointTypeId;
+            }
+        }
+
         return result;
     }
 

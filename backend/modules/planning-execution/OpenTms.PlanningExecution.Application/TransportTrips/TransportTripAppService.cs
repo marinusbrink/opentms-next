@@ -30,6 +30,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
     private readonly LegAssignmentService _assignment;
     private readonly MasterDataReferences _masterData;
     private readonly LegDtoMapper _legMapper;
+    private readonly PlanningExecutionClock _clock;
 
     public TransportTripAppService(
         IRepository<TransportTrip, Guid> trips,
@@ -38,7 +39,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         TripOperations ops,
         LegAssignmentService assignment,
         MasterDataReferences masterData,
-        LegDtoMapper legMapper)
+        LegDtoMapper legMapper,
+        PlanningExecutionClock clock)
     {
         _trips = trips;
         _legs = legs;
@@ -47,6 +49,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         _assignment = assignment;
         _masterData = masterData;
         _legMapper = legMapper;
+        _clock = clock;
     }
 
     private const string Trips = AppFeatures.TransportApp.Trips;
@@ -132,7 +135,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             query = query.Where(t => t.Stops.Any());
         }
 
-        var today = DateOnly.FromDateTime(Clock.Now);
+        /* The planner's day and week run in the tenant's time zone, not UTC. */
+        var today = _clock.Today();
         switch (input.View?.Trim().ToLowerInvariant())
         {
             case "today":
