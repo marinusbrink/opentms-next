@@ -172,11 +172,9 @@ describe("apps.config nameKeys resolve in a localization resource (nl and en)", 
    * Financial resources are theirs). Remove an entry here when its module lands; the test then demands the text. */
   const PENDING: Record<string, string> = {
   };
-  /* StatusBadge label keys registered in design 61; the texts arrive with the modules too. */
-  const PENDING_STATUS_KEYS = [
-    ...["Draft", "Open", "ReadyForInvoicing", "Invoiced", "Archived", "Cancelled"].map((s) => `Orders:Status.${s}`),
-    ...["Planned", "InProgress", "Completed", "Cancelled"].map((s) => `PlanningExecution:Status.${s}`),
-  ];
+  /* The StatusBadge label keys of design 61 (Orders:Status.*, PlanningExecution:Status.*) landed with the Transport
+   * screens; nothing is pending any more. A new pending key goes here with its module. */
+  const PENDING_STATUS_KEYS: string[] = [];
 
   const nameKeys = (): string[] => {
     const keys: string[] = [];
