@@ -49,6 +49,7 @@ const ALLOWED: { file: string; id: string; reason: string }[] = [
 /** Form Selects whose `items` the heuristic cannot read, keyed by file and the items expression, with why they are fixed. */
 const SELECT_ALLOWED: { file: string; items: string; reason: string }[] = [
   { file: "apps/master-data/editors/VehicleEditor.tsx", items: "items", reason: "enumSelect helper: called only with fuelItems / euroItems (FUEL_TYPES, EURO_CLASSES enums)" },
+  { file: "apps/master-data/components/fields.tsx", items: "options", reason: "EnumSelectField helper: its items are the caller's localized enum table (sides, bases, scopes, targets, box sources), never records" },
   { file: "apps/tenants/EditionFormDialog.tsx", items: "items", reason: "an ABP selection feature's item source: fixed values of the feature definition, no record" },
 ];
 

@@ -32,6 +32,21 @@ const BOUNDED = /(?<![\w-])(?:[a-z0-9-]+:)*(?:min-h-0|max-h-[\w[\]().%-]+)(?![\w
 /** Scroll regions in feature code, keyed by file and the exact token, each with why it is a region inside a panel. */
 const ALLOWED: { file: string; token: string; reason: string }[] = [
   {
+    file: "apps/master-data/editors/PriceListEditor.tsx",
+    token: "overflow-y-auto",
+    reason: "the General form of the full-height price list editor (panelScroll, design 57): a min-h-0 region; the Rules and Simulate panels keep their own fixed parts",
+  },
+  {
+    file: "apps/master-data/editors/price-list/PriceListRuleDetail.tsx",
+    token: "overflow-y-auto",
+    reason: "the selected rule's form under its fixed command row, a min-h-0 flex-1 region of the Rules panel's right half (design 57 master-detail)",
+  },
+  {
+    file: "apps/master-data/editors/price-list/PriceListSimulateTab.tsx",
+    token: "overflow-y-auto",
+    reason: "the line snapshot form and its result under the fixed hint, a min-h-0 flex-1 region of the full-height Simulate panel",
+  },
+  {
     file: "apps/admin/components/TechnicalLogbookEntryDialog.tsx",
     token: "overflow-auto",
     reason: "the exception text and an action's parameters: <pre> blocks capped at max-h-64 / max-h-48, self-contained inside the section",
