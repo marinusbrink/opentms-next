@@ -105,14 +105,16 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             query = query.Where(t => t.TripDate <= input.DateTo);
         }
 
-        if (input.ExecutionFrom != null)
+        if (input.ExecutionFrom is { } executionFrom)
         {
-            query = query.Where(t => (t.PlannedArrival ?? t.PlannedDeparture) >= input.ExecutionFrom);
+            var from = executionFrom.UtcDateTime;
+            query = query.Where(t => (t.PlannedArrivalUtc ?? t.PlannedDepartureUtc) >= from);
         }
 
-        if (input.ExecutionTo != null)
+        if (input.ExecutionTo is { } executionTo)
         {
-            query = query.Where(t => t.PlannedDeparture <= input.ExecutionTo);
+            var to = executionTo.UtcDateTime;
+            query = query.Where(t => t.PlannedDepartureUtc <= to);
         }
 
         if (input.CarrierRelationId != null)
@@ -162,15 +164,13 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
         return (sortBy?.ToLowerInvariant()) switch
         {
-            null or "" or "planneddeparture" => Order(t => t.PlannedDeparture),
+            null or "" or "planneddeparture" => Order(t => t.PlannedDepartureUtc),
             "number" => Order(t => t.Number),
             "name" => Order(t => t.Name),
             "tripdate" => Order(t => t.TripDate),
             "status" => Order(t => t.Status),
             "execution" => Order(t => t.Execution),
-            "plannedarrival" => Order(t => t.PlannedArrival),
-            "actualdeparture" => Order(t => t.ActualDeparture),
-            "actualarrival" => Order(t => t.ActualArrival),
+            "plannedarrival" => Order(t => t.PlannedArrivalUtc),
             "planneddistancem" => Order(t => t.PlannedDistanceM),
             "actualdistancem" => Order(t => t.ActualDistanceM),
             "loadfactor" => Order(t => t.LoadFactor),
@@ -197,7 +197,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var types = (await _types.GetListAsync(t => typeIds.Contains(t.Id))).ToDictionary(t => t.Id, t => t.Name.Resolve(System.Globalization.CultureInfo.CurrentUICulture.Name));
         var carriers = await _masterData.RelationNamesAsync(trips.Select(t => t.CarrierRelationId));
 
-        var vehicleRows = await AsyncExecuter.ToListAsync((await _trips.WithDetailsAsync(t => t.Vehicles, t => t.Drivers)).Where(t => tripIds.Contains(t.Id)).Select(t => new { t.Id, t.Vehicles, t.Drivers }));
+        var vehicleRows = await AsyncExecuter.ToListAsync((await _trips.WithDetailsAsync(t => t.Vehicles, t => t.Drivers)).Where(t => tripIds.Contains(t.Id)));
         var combinations = await _masterData.CombinationsAsync(trips.Select(t => t.VehicleCombinationId));
         var vehicleIds = vehicleRows.SelectMany(r => r.Vehicles.Select(v => v.VehicleId)).Concat(combinations.Values.SelectMany(c => c.VehicleIds));
         var vehicles = await _masterData.VehiclesAsync(vehicleIds);
@@ -464,6 +464,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         trip.SetHeader(input.Name, input.TripDate, input.PlannedDeparture, input.PlannedArrival, input.DepartureRelationId, input.DepartureAddressId,
             input.ArrivalRelationId, input.ArrivalAddressId, input.Remarks, input.DriverInstructions, input.OrganizationUnitId, input.Execution,
             input.StopCompositionMode, input.FirstLastStopRule, input.Attributes);
+        var distanceChanged = input.ActualDistanceM != trip.ActualDistanceM;
         trip.SetActualDistance(input.ActualDistanceM);
         trip.ConcurrencyStamp = input.ConcurrencyStamp;
         trip.ApplyFirstLastStopRule();
@@ -479,10 +480,16 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             }
 
             _assignment.Recompose(trip, legs, _ops.NewId);
-            await _legs.UpdateManyAsync(legs);
+            await _legs.UpdateManyAsync(legs, autoSave: true);
         }
 
         await _ops.ChangedAsync(trip, TripChangeKind.Header, timingChanged || compositionChanged);
+        if (distanceChanged)
+        {
+            /* Financial's own-fleet distance line follows the actual distance (design 57). */
+            await _ops.ChangedAsync(trip, TripChangeKind.Distance, recalculate: !(timingChanged || compositionChanged));
+        }
+
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
@@ -679,6 +686,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         trip.EnsureEditable();
         if (trip.IsFinal)
         {
+            /* Refused by the status machine before any leg is touched. */
             trip.Cancel();
         }
 
@@ -748,8 +756,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var target = input.ToTripId == null ? null : input.ToTripId == id ? trip : await _ops.GetWithDetailsAsync(input.ToTripId.Value);
         var legsOnTarget = target == null ? [] : await _ops.LegsOnTripAsync(target.Id);
         var clone = _assignment.SplitLine(leg, input.Quantity, target, legsOnTarget, input.AllowOutsideWindow, _ops.NewId);
-        await _legs.InsertAsync(clone);
-        await _legs.UpdateAsync(leg);
+        await _legs.InsertAsync(clone, autoSave: true);
+        await _legs.UpdateAsync(leg, autoSave: true);
         await _ops.RequestRecalculationAsync(trip.Id, "LegSplit");
         if (target != null)
         {
@@ -776,7 +784,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var legsOnTrip = await _ops.LegsOnTripAsync(id);
         var legsOfLine = await _legs.GetListAsync(l => l.OrderLineId == leg.OrderLineId);
         var returnLeg = _assignment.CreateReturnLeg(leg, trip, legsOnTrip, legsOfLine, _ops.NewId);
-        await _legs.InsertAsync(returnLeg);
+        await _legs.InsertAsync(returnLeg, autoSave: true);
         await _ops.AfterLegsChangedAsync(trip, [leg.OrderId], "ReturnLegCreated");
         await LazyServiceProvider.LazyGetRequiredService<Platform.DerivedValues.IDerivedValueScheduler>()
             .RequestAsync(PlanningExecutionApplicationModule.LegTargetType, returnLeg.Id, "ReturnLegCreated");
@@ -793,7 +801,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var leg = legsOnTrip.FirstOrDefault(l => l.Id == input.LegId)
                   ?? throw new BusinessException(PlanningExecutionErrorCodes.LegNotOnTrip).WithData("legId", input.LegId).WithData("number", trip.Number);
         _assignment.CarryOutSeparately(trip, leg, legsOnTrip, _ops.NewId);
-        await _legs.UpdateAsync(leg);
+        await _legs.UpdateAsync(leg, autoSave: true);
         await _ops.ChangedAsync(trip, TripChangeKind.Stops, recalculate: true);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
@@ -821,8 +829,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var legsOnTrip = await _ops.LegsOnTripAsync(id);
         var legsOnTarget = await _ops.LegsOnTripAsync(target.Id);
         var hubLeg = _assignment.OutsourceOriginActivity(leg, MasterDataReferences.ToDepot(hubAddress), target, legsOnTarget, trip, legsOnTrip, input.AllowOutsideWindow, _ops.NewId);
-        await _legs.InsertAsync(hubLeg);
-        await _legs.UpdateAsync(leg);
+        await _legs.InsertAsync(hubLeg, autoSave: true);
+        await _legs.UpdateAsync(leg, autoSave: true);
         await _ops.AfterLegsChangedAsync(trip, [leg.OrderId], "OriginOutsourced");
         await _ops.AfterLegsChangedAsync(target, [leg.OrderId], "OriginOutsourced");
         await LazyServiceProvider.LazyGetRequiredService<Platform.DerivedValues.IDerivedValueScheduler>()

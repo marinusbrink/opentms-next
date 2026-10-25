@@ -48,6 +48,11 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public DateTimeOffset? PlannedArrival { get; private set; }
 
+    /// <summary>The planned instants in UTC: the sortable, indexable form the lists order and filter on (SQLite cannot order a DateTimeOffset).</summary>
+    public DateTime PlannedDepartureUtc { get; private set; }
+
+    public DateTime? PlannedArrivalUtc { get; private set; }
+
     public DateTimeOffset? ActualDeparture { get; private set; }
 
     public DateTimeOffset? ActualArrival { get; private set; }
@@ -112,7 +117,15 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TripDate = tripDate;
         SetExecution(execution);
         SetComposition(stopCompositionMode, firstLastStopRule);
-        PlannedDeparture = plannedDeparture;
+        SetPlannedTimes(plannedDeparture, null);
+    }
+
+    private void SetPlannedTimes(DateTimeOffset departure, DateTimeOffset? arrival)
+    {
+        PlannedDeparture = departure;
+        PlannedArrival = arrival;
+        PlannedDepartureUtc = departure.UtcDateTime;
+        PlannedArrivalUtc = arrival?.UtcDateTime;
     }
 
     public bool IsFinal => Status is TransportTripStatus.Completed or TransportTripStatus.Cancelled;
@@ -157,8 +170,7 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         Name = Text(name, PlanningExecutionConsts.MaxNameLength);
         TripDate = tripDate;
-        PlannedDeparture = plannedDeparture;
-        PlannedArrival = plannedArrival;
+        SetPlannedTimes(plannedDeparture, plannedArrival);
         DepartureRelationId = departureRelationId;
         DepartureAddressId = departureAddressId;
         ArrivalRelationId = arrivalRelationId;
@@ -481,7 +493,7 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         PlannedDurationS = plannedDurationS;
         if (plannedArrival != null)
         {
-            PlannedArrival = plannedArrival;
+            SetPlannedTimes(PlannedDeparture, plannedArrival);
         }
     }
 

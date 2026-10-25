@@ -56,7 +56,7 @@ public class OrderLegsHandler :
     public virtual Task HandleEventAsync(TransportOrderLinesChangedEto eventData) => _generation.RegenerateAsync(eventData.OrderId, "LinesChanged");
 
     [UnitOfWork]
-    public virtual Task HandleEventAsync(TransportOrderCancelledEto eventData) => _generation.RegenerateAsync(eventData.OrderId, "OrderCancelled");
+    public virtual Task HandleEventAsync(TransportOrderCancelledEto eventData) => _generation.RemoveAllAsync(eventData.OrderId, "OrderCancelled");
 
     /// <summary>The order's trip request, honoured once: an existing trip created from the order is the natural key.</summary>
     private async Task CreateRequestedTripAsync(Guid orderId)

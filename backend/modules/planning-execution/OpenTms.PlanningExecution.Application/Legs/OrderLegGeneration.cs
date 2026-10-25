@@ -81,6 +81,15 @@ public class OrderLegGeneration : ITransientDependency
         return result;
     }
 
+    /// <summary>The order was cancelled or deleted (the fact itself, whatever the reader still shows): every leg goes.</summary>
+    public async Task<LegGenerationResult> RemoveAllAsync(Guid orderId, string reason)
+    {
+        var existing = await _legs.GetListAsync(l => l.OrderId == orderId);
+        var result = _generator.Generate(new LegGenerationInput { OrderId = orderId, IsCancelled = true }, [], _ => null, existing, _currentTenant.Id, _guids.Create);
+        await PersistAsync(orderId, result, reason);
+        return result;
+    }
+
     public static LegGenerationInput ToInput(PricingSnapshotDto snapshot) => new()
     {
         OrderId = snapshot.OrderId ?? Guid.Empty,
@@ -112,17 +121,17 @@ public class OrderLegGeneration : ITransientDependency
     {
         if (result.Created.Count > 0)
         {
-            await _legs.InsertManyAsync(result.Created);
+            await _legs.InsertManyAsync(result.Created, autoSave: true);
         }
 
         if (result.Updated.Count > 0)
         {
-            await _legs.UpdateManyAsync(result.Updated);
+            await _legs.UpdateManyAsync(result.Updated, autoSave: true);
         }
 
         if (result.Deleted.Count > 0)
         {
-            await _legs.DeleteManyAsync(result.Deleted);
+            await _legs.DeleteManyAsync(result.Deleted, autoSave: true);
         }
 
         /* Changed or removed legs leave their trips: the stops are rebuilt and the trip warns (design 59 "Generation"). */

@@ -53,14 +53,18 @@ public class LegReader : PlanningExecutionAppServiceBase, ILegReader
         var trips = tripIds.Count == 0
             ? new Dictionary<Guid, TransportTrip>()
             : (await _trips.GetListAsync(t => tripIds.Contains(t.Id), cancellationToken: cancellationToken)).ToDictionary(t => t.Id);
-        var stops = tripIds.Count == 0
-            ? new Dictionary<(Guid LegId, StopLegRole Role), TripStop>()
-            : (await _trips.WithDetailsAsync(t => t.Stops))
-                .Where(t => tripIds.Contains(t.Id))
-                .SelectMany(t => t.Stops)
-                .SelectMany(s => s.Legs.Select(l => new { Stop = s, l.LegId, l.Role }))
-                .ToList()
-                .ToDictionary(x => (x.LegId, x.Role), x => x.Stop);
+        var stops = new Dictionary<(Guid LegId, StopLegRole Role), TripStop>();
+        if (tripIds.Count > 0)
+        {
+            var tripsWithStops = await AsyncExecuter.ToListAsync((await _trips.WithDetailsAsync()).Where(t => tripIds.Contains(t.Id)), cancellationToken);
+            foreach (var stop in tripsWithStops.SelectMany(t => t.Stops))
+            {
+                foreach (var link in stop.Legs)
+                {
+                    stops[(link.LegId, link.Role)] = stop;
+                }
+            }
+        }
 
         return legs
             .OrderBy(l => l.OrderId).ThenBy(l => l.OrderLineId).ThenBy(l => l.Position)

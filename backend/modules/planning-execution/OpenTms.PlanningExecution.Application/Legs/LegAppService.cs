@@ -78,7 +78,9 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         }
 
         var filtered = await AsyncExecuter.LongCountAsync(query);
-        var sorted = Sort(query, input.SortBy, input.Descending);
+        /* The legs of a trip come in their order of assignment unless the grid sorts otherwise. */
+        var sortBy = string.IsNullOrEmpty(input.SortBy) && input.TripId != null && input.OrderId == null ? "tripposition" : input.SortBy;
+        var sorted = Sort(query, sortBy, input.Descending);
         var page = await AsyncExecuter.ToListAsync(sorted.Skip(input.StartRow).Take(input.EndRow - input.StartRow));
         return new GridResponse<LegDto> { Rows = await _mapper.MapAsync(page), TotalCount = total, FilteredCount = filtered };
     }
@@ -91,8 +93,8 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         return (sortBy?.ToLowerInvariant()) switch
         {
             null or "" or "origindate" or "originplanneddate" => descending
-                ? query.OrderByDescending(l => l.OriginPlannedDate).ThenByDescending(l => l.OriginWindowFrom).ThenBy(l => l.OrderId).ThenBy(l => l.Position)
-                : query.OrderBy(l => l.OriginPlannedDate).ThenBy(l => l.OriginWindowFrom).ThenBy(l => l.OrderId).ThenBy(l => l.Position),
+                ? query.OrderByDescending(l => l.OriginPlannedDate).ThenBy(l => l.OrderId).ThenBy(l => l.OrderLineId).ThenBy(l => l.Position)
+                : query.OrderBy(l => l.OriginPlannedDate).ThenBy(l => l.OrderId).ThenBy(l => l.OrderLineId).ThenBy(l => l.Position),
             "destinationdate" or "destinationplanneddate" => Order(l => l.DestinationPlannedDate),
             "origin" or "originname" => Order(l => l.OriginName),
             "destination" or "destinationname" => Order(l => l.DestinationName),

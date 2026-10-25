@@ -123,6 +123,8 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     ArrivalAddressId = table.Column<Guid>(type: "uuid", nullable: true),
                     PlannedDeparture = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     PlannedArrival = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    PlannedDepartureUtc = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    PlannedArrivalUtc = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     ActualDeparture = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     ActualArrival = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     StopCompositionMode = table.Column<int>(type: "integer", nullable: false),
@@ -424,10 +426,10 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                 .Annotation("Npgsql:NullsDistinct", false);
 
             migrationBuilder.CreateIndex(
-                name: "IX_TransportTrips_TenantId_PlannedDeparture",
+                name: "IX_TransportTrips_TenantId_PlannedDepartureUtc",
                 schema: "planning",
                 table: "TransportTrips",
-                columns: new[] { "TenantId", "PlannedDeparture" });
+                columns: new[] { "TenantId", "PlannedDepartureUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_TransportTrips_TenantId_Status_TripDate",

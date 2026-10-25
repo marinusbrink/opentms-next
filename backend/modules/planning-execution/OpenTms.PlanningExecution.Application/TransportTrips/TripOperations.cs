@@ -109,6 +109,10 @@ public class TripOperations : ITransientDependency
                    ?? throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "transportTripTypeId").WithData("value", input.TransportTripTypeId);
         await _masterData.EnsureRelationsExistAsync([input.CarrierRelationId, input.DepartureRelationId, input.ArrivalRelationId], "relations");
 
+        await ValidateVehiclesAsync(input.VehicleCombinationId, input.VehicleIds);
+        await ValidateDriversAsync(input.DriverIds);
+
+        /* The number is drawn last: a refused request leaves no gap (the counter is taken inside the transaction). */
         var tripDate = input.TripDate ?? DateOnly.FromDateTime(input.PlannedDeparture.Date);
         var number = await _numbers.NextAsync(type.SequenceKey, type.Numbering);
         var trip = new TransportTrip(_guids.Create(), _currentTenant.Id, number, type.Id, tripDate, input.Execution ?? type.DefaultExecution,
@@ -117,9 +121,7 @@ public class TripOperations : ITransientDependency
             input.ArrivalRelationId, input.ArrivalAddressId, input.Remarks, input.DriverInstructions, input.OrganizationUnitId,
             input.Execution ?? type.DefaultExecution, input.StopCompositionMode, input.FirstLastStopRule, input.Attributes);
         trip.SetCarrier(input.CarrierRelationId, input.CarrierContactPersonId);
-        await ValidateVehiclesAsync(input.VehicleCombinationId, input.VehicleIds);
         trip.SetVehicles(input.VehicleCombinationId, input.VehicleIds);
-        await ValidateDriversAsync(input.DriverIds);
         trip.SetDrivers(input.DriverIds);
         if (createdFromOrderId != null)
         {
@@ -127,7 +129,7 @@ public class TripOperations : ITransientDependency
         }
 
         await RefreshSearchKeyAsync(trip, []);
-        await _trips.InsertAsync(trip);
+        await _trips.InsertAsync(trip, autoSave: true);
         await _events.PublishAsync(new TransportTripCreatedEto
         {
             TripId = trip.Id,
@@ -186,10 +188,29 @@ public class TripOperations : ITransientDependency
         await EnsureOrdersPlannableAsync(legs);
         var onTrip = await LegsOnTripAsync(trip.Id);
         var sourceTrips = legs.Where(l => l.TripId != null && l.TripId != trip.Id).Select(l => l.TripId!.Value).Distinct().ToList();
+        var movingIds = legs.Select(l => l.Id).ToHashSet();
+
+        /* A moved leg leaves its old stops first: a leg's end is at one stop (the unique key of TripStopLegs). */
+        var sources = new List<TransportTrip>();
+        foreach (var sourceId in sourceTrips)
+        {
+            var source = await GetWithDetailsAsync(sourceId);
+            foreach (var stop in source.Stops)
+            {
+                foreach (var link in stop.Legs.Where(l => movingIds.Contains(l.LegId)).ToList())
+                {
+                    stop.Legs.Remove(link);
+                }
+            }
+
+            await _trips.UpdateAsync(source, autoSave: true);
+            sources.Add(source);
+        }
 
         _assignment.Assign(trip, legs, onTrip, allowOutsideWindow, afterStopId, moving, NewId);
 
-        await _legs.UpdateManyAsync(legs);
+        /* Flushed at once: the queries below (legs on the trip, the search key) read the database. */
+        await _legs.UpdateManyAsync(legs, autoSave: true);
         foreach (var leg in legs)
         {
             await _events.PublishAsync(new LegAssignedEto { LegId = leg.Id, TripId = trip.Id, OrderId = leg.OrderId });
@@ -197,13 +218,12 @@ public class TripOperations : ITransientDependency
 
         await AfterLegsChangedAsync(trip, legs.Select(l => l.OrderId), "LegsAssigned");
 
-        foreach (var sourceId in sourceTrips)
+        foreach (var source in sources)
         {
-            var source = await GetWithDetailsAsync(sourceId);
             await RecomposeAsync(source, legs.Select(l => l.OrderId), "LegsMovedAway");
             foreach (var leg in legs)
             {
-                await _events.PublishAsync(new LegUnassignedEto { LegId = leg.Id, TripId = sourceId, OrderId = leg.OrderId });
+                await _events.PublishAsync(new LegUnassignedEto { LegId = leg.Id, TripId = source.Id, OrderId = leg.OrderId });
             }
         }
     }
@@ -212,7 +232,7 @@ public class TripOperations : ITransientDependency
     {
         var onTrip = await LegsOnTripAsync(trip.Id);
         _assignment.Unassign(trip, legs, onTrip, NewId);
-        await _legs.UpdateManyAsync(onTrip);
+        await _legs.UpdateManyAsync(onTrip, autoSave: true);
         foreach (var leg in legs)
         {
             await _events.PublishAsync(new LegUnassignedEto { LegId = leg.Id, TripId = trip.Id, OrderId = leg.OrderId });
@@ -228,7 +248,7 @@ public class TripOperations : ITransientDependency
     {
         var onTrip = await LegsOnTripAsync(trip.Id);
         _assignment.Recompose(trip, onTrip, NewId);
-        await _legs.UpdateManyAsync(onTrip);
+        await _legs.UpdateManyAsync(onTrip, autoSave: true);
         await AfterLegsChangedAsync(trip, orderIds, reason);
     }
 
@@ -236,7 +256,7 @@ public class TripOperations : ITransientDependency
     {
         var onTrip = await LegsOnTripAsync(trip.Id);
         await RefreshSearchKeyAsync(trip, onTrip);
-        await _trips.UpdateAsync(trip);
+        await _trips.UpdateAsync(trip, autoSave: true);
         await _events.PublishAsync(new TransportTripLegsChangedEto { TripId = trip.Id, OrderIds = orderIds.Distinct().ToList() });
         await _scheduler.RequestAsync(PlanningExecutionApplicationModule.TripTargetType, trip.Id, reason);
     }
@@ -244,7 +264,7 @@ public class TripOperations : ITransientDependency
     public async Task ChangedAsync(TransportTrip trip, TripChangeKind change, bool recalculate)
     {
         await RefreshSearchKeyAsync(trip, null);
-        await _trips.UpdateAsync(trip);
+        await _trips.UpdateAsync(trip, autoSave: true);
         await _events.PublishAsync(new TransportTripChangedEto { TripId = trip.Id, Change = change });
         if (recalculate)
         {
@@ -258,7 +278,8 @@ public class TripOperations : ITransientDependency
         await _events.PublishAsync(new TransportTripStatusChangedEto { TripId = trip.Id, Status = trip.Status, OrderIds = orderIds.Distinct().ToList() });
     }
 
-    public Task RequestRecalculationAsync(Guid tripId, string reason) => _scheduler.RequestAsync(PlanningExecutionApplicationModule.TripTargetType, tripId, reason);
+    /// <summary>Requests the trip's calculation (design 49); returns the version the values will be calculated for.</summary>
+    public Task<long> RequestRecalculationAsync(Guid tripId, string reason) => _scheduler.RequestAsync(PlanningExecutionApplicationModule.TripTargetType, tripId, reason);
 
     /// <summary>The searchable text of the trip's row: number, name, carrier, vehicles, customers, stop cities (one lookup each).</summary>
     public async Task RefreshSearchKeyAsync(TransportTrip trip, IReadOnlyList<Leg>? legsOnTrip)
@@ -269,7 +290,11 @@ public class TripOperations : ITransientDependency
         var relationNames = await _masterData.RelationNamesAsync([trip.CarrierRelationId]);
         parts.AddRange(relationNames.Values);
 
-        var vehicleIds = await _masterData.TripVehicleIdsAsync(trip.VehicleCombinationId, trip.Vehicles.Select(v => v.VehicleId));
+        var combinations = await _masterData.CombinationsAsync([trip.VehicleCombinationId]);
+        parts.AddRange(combinations.Values.Select(c => c.Name));
+        var vehicleIds = trip.VehicleCombinationId != null && combinations.TryGetValue(trip.VehicleCombinationId.Value, out var combination)
+            ? combination.VehicleIds
+            : trip.Vehicles.Select(v => v.VehicleId).ToList();
         var vehicles = await _masterData.VehiclesAsync(vehicleIds);
         parts.AddRange(vehicles.Values.Select(v => v.Name));
         parts.AddRange(vehicles.Values.Select(v => v.LicencePlate));

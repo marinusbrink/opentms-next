@@ -442,8 +442,14 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     b.Property<DateTimeOffset?>("PlannedArrival")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("PlannedArrivalUtc")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTimeOffset>("PlannedDeparture")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PlannedDepartureUtc")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("PlannedDistanceM")
                         .HasColumnType("integer");
@@ -501,7 +507,7 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Number"), false);
 
-                    b.HasIndex("TenantId", "PlannedDeparture");
+                    b.HasIndex("TenantId", "PlannedDepartureUtc");
 
                     b.HasIndex("TenantId", "Status", "TripDate");
 

@@ -137,7 +137,7 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.HasIndex(t => new { t.TenantId, t.Number }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(t => new { t.TenantId, t.Status, t.TripDate });
             b.HasIndex(t => new { t.TenantId, t.CarrierRelationId });
-            b.HasIndex(t => new { t.TenantId, t.PlannedDeparture });
+            b.HasIndex(t => new { t.TenantId, t.PlannedDepartureUtc });
             b.HasIndex(t => new { t.TenantId, t.CreatedFromOrderId });
             b.HasIndex(t => t.TransportTripTypeId);
             b.HasIndex(t => t.Number, "IX_TransportTrips_Number_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");

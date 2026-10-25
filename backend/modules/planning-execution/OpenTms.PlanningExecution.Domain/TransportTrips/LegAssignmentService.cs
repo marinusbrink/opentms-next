@@ -132,8 +132,9 @@ public class LegAssignmentService : DomainService
             throw new BusinessException(PlanningExecutionErrorCodes.ReturnLegExists).WithData("legId", leg.Id);
         }
 
-        var origin = leg.Destination with { Reference = leg.Destination.Reference };
-        var destination = leg.Origin with { PlannedDate = leg.Destination.PlannedDate < leg.Origin.PlannedDate ? leg.Origin.PlannedDate : leg.Destination.PlannedDate };
+        /* Mirrored: loaded where the original unloads, unloaded where it loaded, on or after the original's arrival date. */
+        var origin = leg.Destination with { WaypointTypeId = leg.OriginWaypointTypeId };
+        var destination = leg.Origin with { WaypointTypeId = leg.DestinationWaypointTypeId, PlannedDate = leg.Destination.PlannedDate < leg.Origin.PlannedDate ? leg.Origin.PlannedDate : leg.Destination.PlannedDate };
         var position = legsOfLine.Select(l => l.Position).DefaultIfEmpty(0).Max() + 1;
         var returnLeg = new Leg(newId(), leg.TenantId, leg.OrderId, leg.OrderLineId, leg.CustomerRelationId, position, LegSource.Return, origin, destination, leg.Quantities);
 
