@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenTms.DerivedValues;
+using OpenTms.Platform.DerivedValues;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -60,6 +62,9 @@ public class OpenTmsPostgreSqlTestModule : AbpModule
         });
 
         context.Services.AddLogging(logging => logging.AddProvider(new CapturingLoggerProvider()));
+
+        /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
+        Configure<DerivedValueOptions>(DerivedValueProbe.Register);
 
         /* Seeding mirrors OpenTms.DbMigrator, which does not load Platform.Application: with that
          * contributor present, ABP's permission seeder and the Platform one grant the same admin

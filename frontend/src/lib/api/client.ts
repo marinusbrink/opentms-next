@@ -21,6 +21,11 @@ export function setAccessTokenProvider(provider: () => string | undefined): void
   accessTokenProvider = provider;
 }
 
+/** The signed-in user's access token, for the SignalR connection (design 49), which cannot use the fetch middleware. */
+export function currentAccessToken(): string | undefined {
+  return accessTokenProvider?.();
+}
+
 export function setTenantProvider(provider: () => string | undefined): void {
   tenantProvider = provider;
 }

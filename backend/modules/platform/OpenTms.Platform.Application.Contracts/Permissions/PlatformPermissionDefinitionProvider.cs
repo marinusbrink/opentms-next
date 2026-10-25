@@ -19,6 +19,9 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         /* Tenants and editions are host data: a tenant can never be granted these
          * (docs/designs/tenants-and-editions.md). */
         var host = MultiTenancySides.Host;
+        /* Design 49: tenant administrators re-run calculations of their own records; the host for shared-tier work. */
+        group.AddPermission(PlatformPermissions.DerivedValues.Recalculate, L("Permission:DerivedValues.Recalculate"), MultiTenancySides.Both);
+
         var tenants = group.AddPermission(PlatformPermissions.Tenants.Default, L("Permission:Tenants"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Create, L("Permission:Tenants.Create"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Update, L("Permission:Tenants.Update"), host);

@@ -10,7 +10,8 @@ code, designs and this folder are in English. Use the English term in code and d
 | transportopdracht | transport order | "order" for short |
 | orderregel | order line | |
 | conceptorder | draft order | An order a boundary agent was not sure about; a person confirms it |
-| rit | trip | One vehicle's run; holds legs and stops |
+| rit | trip | One vehicle's run; holds legs and stops. In code: **TransportTrip**; OpenTMS called it *TransportFile* (dossier) — PO decision 2026-10-22 |
+| rittype | transport trip type | **TransportTripType**; OpenTMS *TransportFileType* (PO decision 2026-10-22) |
 | traject | leg | Load at A, unload at B |
 | stop | stop | |
 | planbord | planboard | |

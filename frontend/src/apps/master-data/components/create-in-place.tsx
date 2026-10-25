@@ -17,7 +17,9 @@ import { TemperatureEditor } from "@/apps/master-data/editors/TemperatureEditor"
 import { TransportCharacteristicsEditor } from "@/apps/master-data/editors/TransportCharacteristicsEditor";
 import { TransportUnitEditor } from "@/apps/master-data/editors/TransportUnitEditor";
 import { VehicleEditor } from "@/apps/master-data/editors/VehicleEditor";
+import { VatPercentageEditor } from "@/apps/master-data/editors/VatPercentageEditor";
 import { VehicleTypeEditor } from "@/apps/master-data/editors/VehicleTypeEditor";
+import { WaypointTypeEditor } from "@/apps/master-data/editors/WaypointTypeEditor";
 import { resolveLocalizedName } from "@/domains/master-data/localized-name";
 import { masterDataQueryKey, type LookupItem, type LocalizedNameMap } from "@/domains/master-data/shared";
 import type { OrganizationUnitRow } from "@/domains/platform/administration-organization-units";
@@ -206,6 +208,24 @@ const ENTITIES = {
     render: masterDataEditor(() => VehicleTypeEditor),
     toRecord: named,
     insert: intoLookup("vehicleTypes"),
+  },
+  /* Orders (design 51): the next type of a waypoint type and the default stops of a transport order type. */
+  WaypointType: {
+    permission: "Orders.WaypointTypes.Create",
+    feature: "Apps.MasterData.Orders.TransportOrders.WaypointTypes",
+    labelKey: "Orders:AddNewWaypointType",
+    render: masterDataEditor(() => WaypointTypeEditor),
+    toRecord: localized((d) => d.code),
+    insert: intoLookup("waypointTypes"),
+  },
+  /* Financial (design 52): the VAT category of an additional service or a discount or surcharge. */
+  VatPercentage: {
+    permission: "Financial.VatPercentages.Create",
+    feature: "Apps.MasterData.Financial.Invoicing.VatPercentages",
+    labelKey: "Financial:AddNewVatPercentage",
+    render: masterDataEditor(() => VatPercentageEditor),
+    toRecord: localized((d) => d.code),
+    insert: intoLookup("vatPercentages"),
   },
   /* Platform records picked in master-data forms: the Administration app's own editors open on top. */
   OrganizationUnit: {

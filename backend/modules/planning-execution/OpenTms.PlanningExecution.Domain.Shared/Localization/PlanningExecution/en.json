@@ -2,6 +2,24 @@
   "culture": "en",
   "texts": {
     "Permission:PlanningExecution": "Planning & Execution",
-    "Module:PlanningExecution": "Planning & Execution"
+    "Module:PlanningExecution": "Planning & Execution",
+    "Permission:TransportTripTypes": "Transport trip types",
+    "Permission:TransportTripTypes.Create": "Create transport trip types",
+    "Permission:TransportTripTypes.Update": "Update transport trip types",
+    "Permission:TransportTripTypes.Delete": "Delete transport trip types",
+    "PlanningExecution:TransportTripTypes": "Transport trip types",
+    "PlanningExecution:TransportTripType": "Transport trip type",
+    "PlanningExecution:NewTransportTripType": "New transport trip type",
+    "PlanningExecution:DeleteTransportTripType": "Delete transport trip type",
+    "PlanningExecution:DeleteTransportTripTypeQuestion": "Delete transport trip type '{0}'?",
+    "PlanningExecution:TransportTripTypeSaved": "Transport trip type saved",
+    "PlanningExecution:TransportTripTypeDeleted": "Transport trip type deleted",
+    "PlanningExecution:AddNewTransportTripType": "Add new transport trip type…",
+    "PlanningExecution:DefaultExecution": "Default execution",
+    "PlanningExecution:TripExecution.OwnFleet": "Own fleet",
+    "PlanningExecution:TripExecution.Subcontracted": "Subcontracted",
+    "PlanningExecution:SendToFleetManagementSystem": "Send to the on-board computer",
+    "PlanningExecution:NumberingExample": "Number example",
+    "PlanningExecution:DefaultTripTypeCannotBeDeleted": "the default trip type cannot be deleted"
   }
 }

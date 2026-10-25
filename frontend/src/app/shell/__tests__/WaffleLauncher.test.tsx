@@ -138,7 +138,7 @@ describe("WaffleLauncher – app features", () => {
   it("on a tenant hides an app that is on but whose navigation nodes are all off", () => {
     tenantId = "t-1";
     const masterDataLists = Object.keys(allFeaturesOn()).filter((f) => f.split(".").length === 5 && f.startsWith("Apps.MasterData."));
-    expect(masterDataLists).toHaveLength(15);
+    expect(masterDataLists).toHaveLength(24);
     features = { ...allFeaturesOn(), ...Object.fromEntries(masterDataLists.map((f) => [f, "false"])) };
     render(<WaffleLauncher />);
     openLauncher();

@@ -21,6 +21,13 @@ public static class PlatformPermissions
         public const string Impersonation = Default + ".Impersonation";
     }
 
+    /// <summary>Derived values recalculated in the background (docs/designs/49-derived-values-and-live-updates.md).</summary>
+    public static class DerivedValues
+    {
+        /// <summary>Re-run the calculation of a set of records (the bulk re-run of flow 2).</summary>
+        public const string Recalculate = GroupName + ".DerivedValues.Recalculate";
+    }
+
     /// <summary>The Editions app (host only): docs/designs/tenants-and-editions.md.</summary>
     public static class Editions
     {

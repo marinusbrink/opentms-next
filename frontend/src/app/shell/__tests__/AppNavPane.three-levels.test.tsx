@@ -79,8 +79,13 @@ beforeEach(() => {
 });
 
 describe("AppNavPane – the Master data tree at three levels", () => {
-  it("apps.config holds General as the one domain group with the four groups below it", () => {
-    expect(masterData.views!.map((v) => v.feature)).toEqual(["Apps.MasterData.General"]);
+  it("apps.config holds General first, then Orders, Planning & Execution and Financial, with General's four groups", () => {
+    expect(masterData.views!.map((v) => v.feature)).toEqual([
+      "Apps.MasterData.General",
+      "Apps.MasterData.Orders",
+      "Apps.MasterData.PlanningExecution",
+      "Apps.MasterData.Financial",
+    ]);
     expect(masterData.views![0].path).toBe("/master-data/general");
     expect(masterData.views![0].children!.map((v) => v.feature)).toEqual([
       "Apps.MasterData.General.Relations",
@@ -177,7 +182,8 @@ describe("AppNavPane – the Master data tree at three levels", () => {
   });
 
   it("with General off hides the whole subtree even though its groups and lists are on", () => {
-    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false" };
+    /* The other domain groups off too, so only General's own subtree is under test. */
+    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false" };
     render(<AppNavPane app={masterData} collapsed={false} onToggleCollapsed={() => {}} />);
 
     expect(within(nav()).queryAllByRole("listitem")).toHaveLength(0);

@@ -110,6 +110,19 @@ guarantees:
 - Never read or write the outbox table yourself. Unit tests on SQLite bypass the outbox; the
   PostgreSQL-backed tests (`OpenTmsPostgreSqlTestModule`) cover it.
 
+## Derived values and live updates
+
+Design: [docs/designs/49-derived-values-and-live-updates.md](docs/designs/49-derived-values-and-live-updates.md) (AD-07,
+flow 2). Every stored calculated value (cost or revenue per leg, CO₂, totals) uses this one mechanism, never its own job:
+
+- A module registers an `IDerivedValueCalculator` per record type (`Configure<DerivedValueOptions>(o => o.AddCalculator<…>("<Module>.<Entity>", watchPermission))`)
+  and calls `IDerivedValueScheduler.RequestAsync(type, id, reason)` in every save that changes an input. The save returns
+  at once; the calculation runs as a Hangfire job in the tenant's own transaction and is discarded when a newer save
+  arrived meanwhile. Reads never calculate.
+- Screens watch records through the SignalR hub `/signalr-hubs/record-updates` with `useRecordUpdates` /
+  `useDerivedValueStates` (`src/lib/realtime/`) and show `CalculatingIndicator` while a value is pending.
+- Multi-instance hosting needs `SignalR:Redis:Configuration` (the Redis backplane); one instance works without.
+
 ## Multi-tenancy model
 
 - **Database-per-tenant is the provisioning default.** One **host database** (`OpenTms`)

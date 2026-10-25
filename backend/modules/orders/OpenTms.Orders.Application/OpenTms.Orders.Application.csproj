@@ -13,6 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
+    <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Domain\OpenTms.Orders.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
   </ItemGroup>

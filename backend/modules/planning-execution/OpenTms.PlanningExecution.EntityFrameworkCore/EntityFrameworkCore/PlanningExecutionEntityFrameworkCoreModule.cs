@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.PostgreSql;
 using Volo.Abp.Modularity;
@@ -27,6 +28,9 @@ public class PlanningExecutionEntityFrameworkCoreModule : AbpModule
                     /* Each module context keeps its own migrations history table inside its own schema. */
                     b.MigrationsHistoryTable("__EFMigrationsHistory", PlanningExecutionDbProperties.DbSchema);
                 });
+
+                /* LocalizedNameQuery.Text → jsonb_extract_path_text (Platform, design 41). */
+                c.DbContextOptions.UseLocalizedNameTranslation();
             });
         });
     }

@@ -19,4 +19,8 @@
     <Content Remove="Localization\Orders\*.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain.Shared\OpenTms.Platform.Domain.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

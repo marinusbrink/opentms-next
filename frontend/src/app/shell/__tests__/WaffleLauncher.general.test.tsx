@@ -56,7 +56,7 @@ describe("WaffleLauncher – the General domain group", () => {
   });
 
   it("hides the Master data tile when General is off and nothing else is on", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false" };
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
@@ -64,14 +64,15 @@ describe("WaffleLauncher – the General domain group", () => {
 
   it("hides the Master data tile when every list below General is off", () => {
     features = Object.fromEntries(Object.entries(masterDataOn()).map(([k, v]) => [k, k.split(".").length === 5 ? "false" : v]));
-    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(15);
+    /* Every list of every domain group (designs 41–53: fifteen under General, nine in Orders, Planning & Execution and Financial). */
+    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(24);
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
   });
 
   it("keeps the other apps' tiles when General is off", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.Administration": "true", "Apps.Administration.Users": "true" };
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.Administration": "true", "Apps.Administration.Users": "true" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);

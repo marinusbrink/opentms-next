@@ -2,6 +2,24 @@
   "culture": "nl",
   "texts": {
     "Permission:PlanningExecution": "Planning & uitvoering",
-    "Module:PlanningExecution": "Planning & uitvoering"
+    "Module:PlanningExecution": "Planning & uitvoering",
+    "Permission:TransportTripTypes": "Transportrittypes",
+    "Permission:TransportTripTypes.Create": "Transportrittypes aanmaken",
+    "Permission:TransportTripTypes.Update": "Transportrittypes wijzigen",
+    "Permission:TransportTripTypes.Delete": "Transportrittypes verwijderen",
+    "PlanningExecution:TransportTripTypes": "Transportrittypes",
+    "PlanningExecution:TransportTripType": "Transportrittype",
+    "PlanningExecution:NewTransportTripType": "Nieuw transportrittype",
+    "PlanningExecution:DeleteTransportTripType": "Transportrittype verwijderen",
+    "PlanningExecution:DeleteTransportTripTypeQuestion": "Transportrittype '{0}' verwijderen?",
+    "PlanningExecution:TransportTripTypeSaved": "Transportrittype opgeslagen",
+    "PlanningExecution:TransportTripTypeDeleted": "Transportrittype verwijderd",
+    "PlanningExecution:AddNewTransportTripType": "Nieuw transportrittype toevoegen…",
+    "PlanningExecution:DefaultExecution": "Standaard uitvoering",
+    "PlanningExecution:TripExecution.OwnFleet": "Eigen wagenpark",
+    "PlanningExecution:TripExecution.Subcontracted": "Uitbesteed (charter)",
+    "PlanningExecution:SendToFleetManagementSystem": "Naar de boordcomputer sturen",
+    "PlanningExecution:NumberingExample": "Voorbeeldnummer",
+    "PlanningExecution:DefaultTripTypeCannotBeDeleted": "het standaard rittype kan niet worden verwijderd"
   }
 }

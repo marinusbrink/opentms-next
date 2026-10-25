@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using OpenTms.Platform.DataProtection;
+using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
+using OpenTms.Platform.NumberSequences;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -44,6 +46,19 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// (docs/designs/tenants-and-editions.md, "Shared data-protection keys").
     /// </summary>
     public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
+
+    /// <summary>
+    /// Number-sequence counters: platform."NumberSequenceCounters", one row per (tenant, sequence, period), written
+    /// only by the atomic upsert of <see cref="EfCoreNumberSequenceCounterStore"/> inside the numbered fact's
+    /// transaction (docs/designs/50-platform-reference-data-and-number-sequences.md).
+    /// </summary>
+    public DbSet<NumberSequenceCounter> NumberSequenceCounters { get; set; } = default!;
+
+    /// <summary>
+    /// Derived-value states: platform."DerivedValueStates", one row per (tenant, target type, target id), written only by
+    /// the atomic statements of <see cref="EfCoreDerivedValueStateStore"/> (docs/designs/49-derived-values-and-live-updates.md).
+    /// </summary>
+    public DbSet<DerivedValueState> DerivedValueStates { get; set; } = default!;
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -105,6 +120,28 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.ConfigureByConvention();
             b.Property(k => k.FriendlyName).HasMaxLength(DataProtectionKeyRecord.MaxFriendlyNameLength);
             b.Property(k => k.Xml).IsRequired();
+        });
+
+        builder.Entity<NumberSequenceCounter>(b =>
+        {
+            b.ToTable("NumberSequenceCounters", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.SequenceKey).IsRequired().HasMaxLength(NumberSequenceCounter.MaxSequenceKeyLength);
+            b.Property(c => c.Period).IsRequired().HasMaxLength(NumberSequenceFormat.MaxPeriodLength);
+            /* The conflict target of the upsert. NULLS NOT DISTINCT so host-level counters are unique too. */
+            b.HasIndex(c => new { c.TenantId, c.SequenceKey, c.Period }).IsUnique().AreNullsDistinct(false);
+        });
+
+        builder.Entity<DerivedValueState>(b =>
+        {
+            b.ToTable("DerivedValueStates", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(s => s.TargetType).IsRequired().HasMaxLength(DerivedValueConsts.MaxTargetTypeLength);
+            b.Property(s => s.LastErrorCode).HasMaxLength(DerivedValueConsts.MaxErrorCodeLength);
+            /* The conflict target of the request upsert. NULLS NOT DISTINCT so host-level records are unique too. */
+            b.HasIndex(s => new { s.TenantId, s.TargetType, s.TargetId }).IsUnique().AreNullsDistinct(false);
+            /* "What is still pending or failed" for maintenance and bulk re-runs. */
+            b.HasIndex(s => new { s.TenantId, s.TargetType, s.Status });
         });
     }
 }
