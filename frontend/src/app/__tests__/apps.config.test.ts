@@ -66,9 +66,33 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("the Master data app lists its fifteen lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
+  it("the Master data app has two domain groups, General then Platform, and reads from both domains (design 49; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views).toHaveLength(4);
+    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "Platform:Nav.Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
+  });
+
+  it("the Platform domain group holds its three lists directly under it, no sub-groups (design 54, Assumption 4)", () => {
+    const masterData = APPS.find((a) => a.id === "master-data")!;
+    const platform = masterData.views![4];
+    expect(platform.path).toBe("/master-data/platform");
+    expect(platform.feature).toBe("Apps.MasterData.Platform");
+    expect(platform.icon).toBeTruthy();
+    expect(platform.children!.map((c) => [c.nameKey, c.path, c.feature])).toEqual([
+      ["Platform:EmailTemplates", "/master-data/email-templates", "Apps.MasterData.Platform.EmailTemplates"],
+      ["Platform:ReportDefinitions", "/master-data/report-definitions", "Apps.MasterData.Platform.ReportDefinitions"],
+      ["Platform:DocumentTypes", "/master-data/document-types", "Apps.MasterData.Platform.DocumentTypes"],
+    ]);
+    platform.children!.forEach((child) => {
+      expect(child.children).toBeUndefined();
+      expect(child.icon).toBeTruthy();
+    });
+    expect(findAppByPath("/master-data/document-types")?.id).toBe("master-data");
+  });
+
+  it("the Master data app lists its fifteen General lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
+    const masterData = APPS.find((a) => a.id === "master-data")!;
+    expect(masterData.views).toHaveLength(5);
     const general = masterData.views![0];
     expect(general.nameKey).toBe("MasterData:Nav.General");
     expect(general.icon).toBeTruthy();
@@ -101,7 +125,7 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app holds the Orders, Planning & Execution and Financial domain groups after General (designs 51–53)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
     const [, orders, planning, financial] = masterData.views!;
     const lists = (group: AppView) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
     expect(lists(orders)).toEqual([

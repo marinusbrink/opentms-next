@@ -1,0 +1,26 @@
+<div style="font-family:'Lucida Sans Unicode', 'Lucida Grande', 'sans-serif'; font-size:small;">
+    <p style="margin-bottom:15px;">Dear {{ recipient.salutation }},</p>
+    <p style="margin-bottom:15px;">Please find the pro forma overview of the period {{ proforma.period_from }} to {{ proforma.period_till }} attached to this message.</p>
+    <table style="width:100%; border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;">Order</th><th style="text-align:left;">Date</th><th style="text-align:left;">Reference</th><th style="text-align:left;">Amount</th></tr></thead>
+        <tbody>
+            {{ for order in proforma.orders }}
+            <tr><td>{{ order.number }}</td><td>{{ order.date }}</td><td>{{ order.reference }}</td><td>{{ order.amount }}</td></tr>
+            {{ end }}
+        </tbody>
+    </table>
+    <p style="margin-bottom:15px;"><b>Total: {{ proforma.currency }} {{ proforma.total_amount }}</b></p>
+    <p style="margin-bottom:15px;">Do you have a question about this overview? Then send an e-mail to {{ company.invoice_email }} or reply to this e-mail message.</p>
+    <p style="margin-bottom:15px;">
+        With kind regards,<br />Mit freundlichen Grüßen,<br />Met vriendelijke groet,
+    </p>
+    <p style="margin-bottom:15px;">
+        <b>{{ user.full_name }}<br />{{ company.name }}</b>
+    </p>
+    <p style="font-size:smaller;">
+        {{ company.address }}<br />{{ company.postal_code }}  {{ company.city }}<br /><br />Tel : {{ company.phone }}<br />Url : {{ company.website }}
+    </p>
+    <p style="margin-top:30px;">
+        <img alt="Logo" src="{{ company.logo_url }}" width="200">
+    </p>
+</div>

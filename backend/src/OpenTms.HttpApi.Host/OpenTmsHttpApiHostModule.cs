@@ -315,8 +315,14 @@ public class OpenTmsHttpApiHostModule : AbpModule
 
             /* One route root per module so API paths mirror the domain map:
              * /api/orders/..., /api/planning/..., /api/financial/..., etc. */
-            options.ConventionalControllers.Create(typeof(PlatformApplicationModule).Assembly,
-                opts => opts.RootPath = "platform");
+            options.ConventionalControllers.Create(typeof(PlatformApplicationModule).Assembly, opts =>
+            {
+                opts.RootPath = "platform";
+                /* Design 55's route for OpenTemplateEditorAsync is ".../{id}/template-editor": "Open" is not an HTTP
+                 * verb prefix, so the convention alone would make it "open-template-editor". */
+                opts.UrlActionNameNormalizer = c =>
+                    c.ControllerName == "ReportDefinition" && c.ActionNameInUrl == "OpenTemplateEditor" ? "TemplateEditor" : c.ActionNameInUrl;
+            });
             options.ConventionalControllers.Create(typeof(OrdersApplicationModule).Assembly,
                 opts => opts.RootPath = "orders");
             options.ConventionalControllers.Create(typeof(PlanningExecutionApplicationModule).Assembly,
@@ -361,6 +367,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
                             .ToArray() ?? Array.Empty<string>()
                     )
                     .WithAbpExposedHeaders()
+                    /* A downloaded file (a test document, design 55) keeps the server's file name across origins. */
+                    .WithExposedHeaders("Content-Disposition")
                     .SetIsOriginAllowedToAllowWildcardSubdomains()
                     .AllowAnyHeader()
                     .AllowAnyMethod()

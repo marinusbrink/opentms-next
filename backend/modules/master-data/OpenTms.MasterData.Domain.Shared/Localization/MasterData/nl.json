@@ -264,6 +264,8 @@
     "Permission:Drivers.Delete": "Chauffeurs verwijderen",
     "Permission:Drivers.Anonymise": "Chauffeurs anonimiseren",
     "OpenTms.MasterData:OwnCompanyAlreadyExists": "Er is al een relatie met de rol Eigen bedrijf. Een tenant heeft er precies één.",
+    "OpenTms.MasterData:OwnCompanyCannotBeArchived": "Het eigen bedrijf kan niet worden gearchiveerd. Een relatie met de rol Eigen bedrijf blijft altijd actief.",
+    "MasterData:OwnCompanyCannotBeArchivedHint": "Het eigen bedrijf wordt nooit gearchiveerd.",
     "OpenTms.MasterData:RolesRequired": "Een relatie heeft minimaal één rol nodig.",
     "OpenTms.MasterData:EmployerRoleRequired": "De werkgever van een chauffeur moet een relatie zijn met de rol Vervoerder of Eigen bedrijf.",
     "OpenTms.MasterData:InvalidIban": "Het IBAN is niet geldig.",

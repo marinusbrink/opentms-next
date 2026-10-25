@@ -8,6 +8,8 @@
     <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
     <RootNamespace>OpenTms</RootNamespace>
     <PreserveCompilationReferences>true</PreserveCompilationReferences>
+    <!-- Local secrets (dotnet user-secrets), e.g. Integrations:PdfGeneratorApi:Key and :Secret (docs/local-dev.md). -->
+    <UserSecretsId>opentms-next-httpapi-host</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'OpenTms.HttpApi.Host' " />

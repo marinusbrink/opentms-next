@@ -19,7 +19,8 @@ public static class HealthChecksBuilderExtensions
         services.ConfigureHealthCheckEndpoint("/health-status");
 
         /* Liveness: the process answers requests — no dependencies checked.
-         * Readiness: dependencies (database) are reachable; Cloud Run/K8s probes point here. */
+         * Readiness: dependencies (database) are reachable; Cloud Run/K8s probes point here. Checks of external
+         * services (tag "external") never take part: an outage there must not take the API out of rotation. */
         services.Configure<AbpEndpointRouterOptions>(options =>
         {
             options.EndpointConfigureActions.Add(endpointContext =>
@@ -70,7 +71,9 @@ public static class HealthChecksBuilderExtensions
                     new PathString(path.EnsureStartsWith('/')),
                     new HealthCheckOptions
                     {
-                        Predicate = _ => true,
+                        /* The health UI polls this endpoint: checks of external services (tag "external", e.g.
+                         * pdfgeneratorapi, design 55) run only on demand in Maintenance → Health. */
+                        Predicate = registration => !registration.Tags.Contains("external"),
                         ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
                         AllowCachingResponses = false,
                     });

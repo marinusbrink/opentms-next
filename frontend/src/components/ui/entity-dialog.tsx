@@ -23,7 +23,15 @@ import { cn } from "@/lib/utils";
  *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy.
  *
  * `size` is a content tier (UI-DLG-003); features never pass a width. While `isBusy`, close
- * requests are ignored and every command is disabled (UI-DLG-010). */
+ * requests are ignored and every command is disabled (UI-DLG-010).
+ *
+ * Scrolling (UI-DLG-006, PO 2026-10-21): the popup and the body (`data-slot="entity-dialog-body"`) never show a
+ * scrollbar. The header and the ribbon stay fixed; the dialog sizes to its content up to the viewport ceiling
+ * (`max-h-[92vh]`), and beyond it the content scrolls inside a component: every tab panel scrolls its own content,
+ * a dialog without tabs scrolls its one content section (`data-slot="entity-dialog-section"`). The body's padding
+ * sits on the panel / section, so the scrollbar runs along the body's edge and focus rings keep their room. With
+ * tabs the body is a one-row grid (`minmax(0,1fr)`): every panel shares that cell, so the body is as tall as the
+ * tallest tab (UI-DLG-015) while the row may shrink below the content when the ceiling is hit. */
 
 export type EntityDialogVariant = "editor" | "action";
 export type EntityDialogSize = "sm" | "md" | "lg" | "full";
@@ -32,6 +40,8 @@ export type EntityDialogSize = "sm" | "md" | "lg" | "full";
 export interface RibbonCommand extends AppCommandBarCommand {
   /** Localization key of the group caption under the button(s); defaults to "Edit" for the primary group. */
   groupKey?: string;
+  /** An already localized disabled reason (it carries a server text); wins over disabledReasonKey. */
+  disabledReason?: string;
 }
 
 /** One tab of an editor (UI-FORM-008). Text tabs have a label; the standard tabs at the end have an icon. */
@@ -62,10 +72,11 @@ export interface EntityDialogProps {
   isDirty?: boolean;
   isBusy?: boolean;
   /**
-   * Editor with a tab whose content can be longer than the screen (a feature list): the dialog takes its full
-   * height and never scrolls itself; every tab panel gets the body's height and scrolls its own content, so a
-   * panel can keep part of itself fixed and scroll only a region (an `h-full` flex column with a
-   * `min-h-0 overflow-y-auto` region). UI-DLG-015 holds: the dialog has one height for every tab.
+   * Fixed full height: an editor whose tabs need a definite height (a feature list, a form column next to a tags
+   * panel) takes the viewport ceiling as its height (`h-[92vh]`) instead of sizing to its content. Every panel then
+   * gets that height and can keep part of itself fixed and scroll only a region (an `h-full` flex column with a
+   * `min-h-0 overflow-y-auto` region). Scrolling itself is not opt-in: with or without this prop the body never
+   * scrolls and every panel scrolls its own content (UI-DLG-006). Ignored without tabs.
    */
   panelScroll?: boolean;
   /** The body when there are no tabs. */
@@ -78,6 +89,11 @@ const SIZE_CLASSES: Record<EntityDialogSize, string> = {
   lg: "sm:max-w-dialog-lg",
   full: "h-[96vh] w-[98vw] max-w-none sm:max-w-none",
 };
+
+/* The body's padding lives on the scrolling panel / section (UI-DLG-006), not on the body. Tabs are editor-only, so a
+ * panel always carries the editor padding. */
+const BODY_PADDING = "p-4";
+const EDITOR_BODY_PADDING = "px-6 py-5";
 
 const FOCUSABLE_FIELD =
   'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"]';
@@ -204,42 +220,45 @@ export function EntityDialog({
         ref={bodyRef}
         data-slot="entity-dialog-body"
         className={cn(
-          "min-h-0 flex-1 p-4",
-          panelScroll && hasTabs ? "overflow-hidden" : "overflow-auto",
-          variant === "editor" && "bg-surface-page px-6 py-5",
+          /* UI-DLG-006: the body never scrolls; a panel or the section does. */
+          "min-h-0 flex-1 overflow-hidden",
+          variant === "editor" && "bg-surface-page",
           /* grid-rows-[minmax(0,1fr)]: a layout function, not a size; Tailwind has no utility for a shrinkable single row. */
-          hasTabs && (panelScroll ? "grid grid-rows-[minmax(0,1fr)]" : "grid content-start"),
+          hasTabs ? "grid grid-rows-[minmax(0,1fr)]" : "flex flex-col",
         )}
       >
-        {hasTabs
-          ? tabs!.map((tab) => {
-              const active = tab.value === currentTab;
-              /* UI-DLG-015: switching tabs never changes the dialog's height. Every panel stays
-               * mounted in the same grid cell; an inactive one keeps its space but is invisible,
-               * inert (out of the tab order and the accessibility tree) and non-interactive, so
-               * the body is as tall as the tallest tab. Plain panels on purpose: Base UI's panel
-               * hides with the `hidden` attribute, which preflight forces to display:none. */
-              return (
-                <div
-                  key={tab.value}
-                  role="tabpanel"
-                  aria-label={tab.label}
-                  aria-hidden={!active || undefined}
-                  inert={!active || undefined}
-                  data-slot="entity-dialog-panel"
-                  data-state={active ? "active" : "inactive"}
-                  style={active ? undefined : { visibility: "hidden", opacity: 0 }}
-                  className={cn(
-                    "col-start-1 row-start-1 outline-none",
-                    panelScroll && "min-h-0 overflow-y-auto",
-                    !active && "pointer-events-none",
-                  )}
-                >
-                  {tab.content}
-                </div>
-              );
-            })
-          : children}
+        {hasTabs ? (
+          tabs!.map((tab) => {
+            const active = tab.value === currentTab;
+            /* UI-DLG-015: switching tabs never changes the dialog's height. Every panel stays
+             * mounted in the same grid cell; an inactive one keeps its space but is invisible,
+             * inert (out of the tab order and the accessibility tree) and non-interactive, so
+             * the body is as tall as the tallest tab. Plain panels on purpose: Base UI's panel
+             * hides with the `hidden` attribute, which preflight forces to display:none. */
+            return (
+              <div
+                key={tab.value}
+                role="tabpanel"
+                aria-label={tab.label}
+                aria-hidden={!active || undefined}
+                inert={!active || undefined}
+                data-slot="entity-dialog-panel"
+                data-state={active ? "active" : "inactive"}
+                style={active ? undefined : { visibility: "hidden", opacity: 0 }}
+                className={cn(EDITOR_BODY_PADDING, "col-start-1 row-start-1 min-h-0 overflow-y-auto outline-none", !active && "pointer-events-none")}
+              >
+                {tab.content}
+              </div>
+            );
+          })
+        ) : (
+          <div
+            data-slot="entity-dialog-section"
+            className={cn(BODY_PADDING, variant === "editor" && EDITOR_BODY_PADDING, "min-h-0 flex-1 overflow-y-auto")}
+          >
+            {children}
+          </div>
+        )}
       </div>
 
       {variant === "action" && footer && (
@@ -356,7 +375,11 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
   return (
     <button
       type="button"
-      title={t(isDisabled && command.disabledReasonKey ? command.disabledReasonKey : (command.tooltipKey ?? command.labelKey))}
+      title={
+        isDisabled && command.disabledReason
+          ? command.disabledReason
+          : t(isDisabled && command.disabledReasonKey ? command.disabledReasonKey : (command.tooltipKey ?? command.labelKey))
+      }
       aria-disabled={isDisabled || undefined}
       data-slot="ribbon-button"
       onClick={() => {

@@ -489,6 +489,11 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
@@ -498,10 +503,13 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     b.HasIndex("TenantId");
 
                     b.HasIndex("TenantId", "Name")
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Name"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "NormalizedName"), false);
 
                     b.ToTable("VehicleCombinations", "masterdata");
                 });

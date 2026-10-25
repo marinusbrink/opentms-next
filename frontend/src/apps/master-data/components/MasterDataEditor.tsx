@@ -42,7 +42,7 @@ export interface EditorTab<TValues extends object> {
 
 export interface MasterDataEditorProps<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }> {
   entityKey: string;
-  /** The resource of the entity's own texts: the owning domain's ("Orders", "Financial"; designs 51–53). */
+  /** The resource of the entity's own texts: "MasterData" (default), the owning domain's ("Orders", "Financial"; designs 51–53) or "Platform" (design 54). */
   resource?: string;
   /** The query-key entity of the hooks (detail and lookup caches are invalidated after a save). */
   queryEntity: string;
@@ -65,14 +65,28 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   tabs: EditorTab<TValues>[];
   /** Extra ribbon commands after Save/Close (entity actions), e.g. Set as default. */
   extraCommands?: RibbonCommand[];
+  /**
+   * Ribbon commands that do not change this record and carry their own permission (a report definition's template
+   * commands, design 50): after the extra commands, and shown in read-only mode too. A function receives whether the
+   * form has unsaved changes (commands that act on the saved record wait for a save).
+   */
+  actionCommands?: RibbonCommand[] | ((state: { isDirty: boolean }) => RibbonCommand[]);
+  /** One of `actionCommands` is running: the dialog is busy (UI-DLG-010). */
+  isCommandBusy?: boolean;
+  /** The failure of an `actionCommands` command, shown like a save's server error on the active tab (UI-FB-004). */
+  commandError?: string | null;
   /** Delete from the ribbon (UI-ACT-002), confirmed, in edit mode; absent when the user may not delete. */
   deleteRecord?: { mutateAsync: (id: string) => Promise<unknown>; isPending: boolean };
+  /** A business state that blocks Delete (UI-PERM-005): the reason's localization key, shown as the ribbon tooltip. */
+  deleteDisabledReasonKey?: string;
   /** An extra body element above the tabs' content (warnings, UI-FB-008). */
   notice?: ReactNode;
   /** State badges after the title (UI-DLG-012). */
   badges?: ReactNode;
   /** An outside change to the values (a lookup's "Add new …" selecting the record it created): applied once per key. */
   applyValues?: { key: number; update: (values: TValues) => TValues };
+  /** EntityDialog's fixed full height, for a tab that keeps part of itself fixed and scrolls a region (UI-DLG-006). */
+  panelScroll?: boolean;
 }
 
 /** Empty strings become null, recursively, so dirty compares values and not touches (UI-FORM-009). */
@@ -105,10 +119,15 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   isSaving,
   tabs,
   extraCommands,
+  actionCommands,
+  isCommandBusy = false,
+  commandError,
   deleteRecord,
+  deleteDisabledReasonKey,
   notice,
   badges,
   applyValues,
+  panelScroll,
 }: MasterDataEditorProps<TValues, TDto>) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -197,8 +216,9 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
 
   const title = mode === "create" ? t(`${resource}:New${entityKey}`) : `${t(`${resource}:${entityKey}`)} ${detail.data ? titleOf(detail.data) : ""}`;
 
+  const recordCommands = typeof actionCommands === "function" ? actionCommands({ isDirty }) : (actionCommands ?? []);
   const commands: RibbonCommand[] = readOnly
-    ? []
+    ? recordCommands
     : [
         {
           id: "save",
@@ -209,12 +229,17 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
           onClick: () => formRef.current?.requestSubmit(),
         },
         ...(extraCommands ?? []),
+        ...recordCommands,
         ...(mode === "edit" && deleteRecord
-          ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, groupKey: "Delete", disabled: !loaded, onClick: () => setConfirmDelete(true) }]
+          ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, groupKey: "Delete", disabled: !loaded || deleteDisabledReasonKey != null, disabledReasonKey: deleteDisabledReasonKey, onClick: () => setConfirmDelete(true) }]
           : []),
       ];
 
-  const body = (render: (form: FormContext<TValues>) => ReactNode, first: boolean) =>
+  /* A server error shows on the tab the user is on (a save from the third tab must not hide it on the first); on the
+   * record-identification tab, which has no form, it shows on the first tab. */
+  const errorTab = tabs.some((tab) => tab.value === activeTab) ? activeTab : tabs[0]?.value;
+
+  const body = (render: (form: FormContext<TValues>) => ReactNode, first: boolean, showsServerError: boolean) =>
     !loaded ? (
       <div className="grid grid-cols-1 gap-3">
         <Skeleton className="h-10 w-full" />
@@ -222,10 +247,17 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
         <Skeleton className="h-10 w-2/3" />
       </div>
     ) : (
-      <div className="flex flex-col gap-4">
-        {first && serverError && (
+      /* h-full: the panel's height reaches the tab's content, so a tab can fill it and scroll a region of itself
+       * (UI-DLG-006); the alerts and the notice keep their own height, the content below them shrinks. */
+      <div className="flex h-full min-h-0 flex-col gap-4">
+        {showsServerError && serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+        {showsServerError && commandError && (
+          <Alert variant="destructive">
+            <AlertDescription>{commandError}</AlertDescription>
           </Alert>
         )}
         {first && detail.error != null && (
@@ -245,12 +277,12 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       hasError: tab.fields.some((field) => form.error(field) != null),
       content:
         index === 0 ? (
-          <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} noValidate>
-            {body(tab.render, true)}
+          <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} noValidate className="h-full min-h-0">
+            {body(tab.render, true, tab.value === errorTab)}
             <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
           </form>
         ) : (
-          body(tab.render, false)
+          body(tab.render, false, tab.value === errorTab)
         ),
     })),
     recordIdentificationTab(t, {
@@ -276,7 +308,8 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
         activeTab={activeTab}
         onActiveTabChange={setActiveTab}
         isDirty={isDirty}
-        isBusy={isSaving || deleteRecord?.isPending === true}
+        isBusy={isSaving || deleteRecord?.isPending === true || isCommandBusy}
+        panelScroll={panelScroll}
       />
       {deleteRecord && (
         <ConfirmDialog

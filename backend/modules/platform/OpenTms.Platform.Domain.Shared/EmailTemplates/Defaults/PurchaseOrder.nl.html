@@ -1,0 +1,7 @@
+<p>Geachte {{ recipient.salutation }},</p>
+<p>In de bijlage van dit e-mailbericht vindt u inkooporder {{ purchase_order.number }} van {{ purchase_order.date }}. Onze referentie is {{ purchase_order.reference }}.</p>
+<p>Wij verzoeken u de opdracht te bevestigen door dit e-mailbericht te beantwoorden.</p>
+<p>Met vriendelijke groet,<br>Mit freundlichen Grüßen,<br>With kind regards,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

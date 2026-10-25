@@ -1,0 +1,8 @@
+<p>Geachte {{ recipient.salutation }},</p>
+<p>In de bijlage van dit e-mailbericht vindt u factuur {{ invoice.number }} van {{ company.name }}.</p>
+<p>Indien u een incasso-machtiging heeft afgegeven, hoeft u niets te doen. Wij zullen dan binnenkort het openstaande bedrag van uw rekeningnummer incasseren. Heeft u geen incasso-machtiging afgegeven? Dan verzoeken wij u vriendelijk het factuurbedrag binnen de overeengekomen betalingstermijn te voldoen.</p>
+<p>Heeft u een vraag over deze factuur? Stuur dan een e-mail naar {{ company.invoice_email }} of beantwoord dit e-mailbericht.</p>
+<p>Met vriendelijke groet,<br>Mit freundlichen Grüßen,<br>With kind regards,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

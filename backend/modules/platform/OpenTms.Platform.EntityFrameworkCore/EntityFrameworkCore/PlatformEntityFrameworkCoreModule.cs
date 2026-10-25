@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.Events;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -19,6 +21,9 @@ public class PlatformEntityFrameworkCoreModule : AbpModule
         context.Services.AddAbpDbContext<PlatformDbContext>(options =>
         {
             options.AddDefaultRepositories(includeAllEntities: true);
+
+            /* includeDetails: the master-data aggregates with children load them with GetAsync(id, includeDetails: true). */
+            options.Entity<DocumentType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.Transformations));
         });
 
         Configure<AbpDbContextOptions>(options =>

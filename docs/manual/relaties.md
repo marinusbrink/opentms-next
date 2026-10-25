@@ -17,6 +17,11 @@ ingeschakeld met de functie *Relaties* (via de editie van de tenant). De rechten
   naar verwijzen. Gearchiveerde relaties verdwijnen uit de keuzelijsten en uit het automatisch
   koppelen; met *Toon gearchiveerd* blijven ze in de lijst zichtbaar. Rechtsklikken op een regel
   geeft **Archiveren** of **Dearchiveren**.
+- Uw **eigen bedrijf** (de relatie met de rol *Eigen bedrijf*) wordt nooit gearchiveerd: op die regel
+  staat geen *Archiveren*, en archiveren via het venster wordt geweigerd. Wilt u een relatie
+  archiveren die nu het eigen bedrijf is, haal dan eerst de rol *Eigen bedrijf* weg. Een
+  gearchiveerde relatie kan de rol *Eigen bedrijf* pas krijgen als u haar in dezelfde wijziging
+  dearchiveert.
 - Een relatie die als werkgever van een chauffeur, als eigenaar of standplaats van een
   [voertuig](voertuigen.md) of als bestemming van een productrelatiecode is vastgelegd, kan niet
   worden verwijderd.
@@ -28,7 +33,9 @@ Het venster heeft drie tabbladen.
 **Algemeen**
 
 - Bovenaan: de *Rollen* (kies er minimaal één; de rol *Eigen bedrijf* kan maar één relatie per
-  tenant hebben) met de schakelaars *Gearchiveerd* en *Geblokkeerd*; zodra *Geblokkeerd* aan staat
+  tenant hebben) met de schakelaars *Gearchiveerd* en *Geblokkeerd*. Zolang de rol *Eigen bedrijf*
+  gekozen is, staat *Gearchiveerd* uit en is de schakelaar niet te gebruiken; een korte tekst eronder
+  zegt waarom (stond hij al aan, dan kunt u hem nog uitzetten). Zodra *Geblokkeerd* aan staat
   verschijnt de verplichte *Reden blokkade* (betalingsachterstand, kredietlimiet overschreden,
   insolventie, geschil of overig; een blokkade is nu alleen een kenmerk, wat zij tegenhoudt bepalen de
   orders en de facturatie later). Daaronder de categorieën en de geografische regio's.

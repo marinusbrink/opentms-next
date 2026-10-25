@@ -3,9 +3,9 @@
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
 verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
 app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
-eerst een groep per domein, daaronder de groepen met de lijsten. Nu is er één domeingroep,
-**Algemeen** (de stamgegevens van het domein Stamgegevens zelf); de groepen van andere domeinen,
-zoals Orders of Financieel, verschijnen zodra hun eerste lijst er is.
+eerst een groep per domein, daaronder de groepen met de lijsten. De domeingroepen zijn **Algemeen** (de
+stamgegevens van het domein Stamgegevens zelf), **Orders**, **Planning & Uitvoering**, **Financieel** en
+**Platform** (e-mailsjablonen, rapportdefinities en documentsoorten, zie [Platform](#platform)).
 
 Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 
@@ -63,9 +63,10 @@ niet te verlaten (en uw wijzigingen niet kwijt te raken) als het record dat u zo
 
 ## Meertalige namen
 
-Valuta's, landen en adrestypen hebben een naam per taal (Nederlands en Engels). De Engelse naam
-is verplicht en is de terugvaloptie; de lijst en de keuzelijsten tonen de naam in de taal van de
-gebruiker.
+Valuta's, landen, adrestypen en documentsoorten hebben een naam per taal (Nederlands en Engels).
+De Engelse naam is verplicht en is de terugvaloptie; de lijst en de keuzelijsten tonen de naam in de
+taal van de gebruiker. In het scherm vult u de naam in uw eigen taal in; de namen in de andere talen
+blijven bewaard. Heeft het record nog geen Engelse naam, dan wordt uw naam ook de Engelse naam.
 
 ## Valuta's en landen
 
@@ -147,3 +148,108 @@ Een regio bestaat uit postcodebereiken per land. Een bereik is óf numeriek (*va
   `SW` matcht `SW1A 1AA`.
 
 Met het landfilter boven de lijst ziet u alleen regio's met een bereik in dat land.
+
+## Platform
+
+De domeingroep **Platform** bevat drie lijsten die het systeem zelf gebruikt bij het versturen van
+e-mail, het maken van documenten en het archiveren van bestanden. Elke lijst is een eigen functie en staat
+standaard uit. (De nummering van orders, ritten en facturen staat op de soort zelf: zie de ordersoorten,
+ritsoorten en factuursoorten.)
+
+### E-mailsjablonen
+
+Een e-mailsjabloon bepaalt hoe een bericht eruitziet dat het systeem verstuurt, bijvoorbeeld een
+orderbevestiging of een factuur. Het scherm is opgebouwd als een e-mail, zoals in het oude OpenTMS.
+
+- **Doel** zegt waarvoor het sjabloon is (transportopdracht, rit, factuur, betalingsherinnering,
+  inkooporder, ETA-melding, chauffeursinstructies, digitaal archief, proforma-overzicht). Per doel
+  is één sjabloon de **standaard**; maakt u een ander sjabloon standaard, dan vervalt de vorige.
+- **Taal**: een sjabloon geldt voor één taal, of voor **alle talen**. Maak voor elke taal een eigen
+  sjabloon. Zodra het systeem deze mails verstuurt, kiest het het sjabloon van het doel in de taal
+  van de ontvanger, en anders de standaard.
+- **Van**, **Antwoordadres**, **Aan**, **Cc** en **Bcc** zijn de adressen van het bericht. Laat u
+  **Aan** leeg, dan gaat het bericht naar de ontvanger die bij het record hoort (bijvoorbeeld de
+  klant van de factuur). Met **Stuur mij een kopie** krijgt de verzender zelf een kopie.
+- **Onderwerp** en **Inhoud** zijn verplicht. De inhoud bewerkt u zoals in een e-mailprogramma:
+  vet, cursief, koppen, lijsten, koppelingen en afbeeldingen (via een webadres; het bedrijfslogo is
+  `{{ company.logo_url }}`). Met de knop voor de HTML-weergave ziet en wijzigt u
+  de HTML zelf, bijvoorbeeld voor een herhaling `{{ for … }}`.
+- Een nieuw sjabloon begint niet leeg: **Van** en **Antwoordadres** staan op het e-mailadres van uw
+  eigen bedrijf (`{{ company.email }}`, voor factuurdoelen `{{ company.invoice_email }}`), en
+  **Onderwerp** en **Inhoud** krijgen de standaardtekst van het gekozen doel in de gekozen taal.
+  Kiest u een ander doel of een andere taal, dan wisselt die tekst mee, zolang u er zelf nog niets in
+  hebt getypt. Een bestaand sjabloon wordt nooit overschreven.
+- Teksten tussen `{{` en `}}` zijn **tags**: velden die bij het versturen worden ingevuld, bijvoorbeeld
+  `{{ company.name }}` of `{{ invoice.number }}`. Het paneel **Tags** naast het formulier toont alle
+  tags die voor het gekozen doel beschikbaar zijn, per groep (eigen bedrijf, ontvanger, order, factuur,
+  …) met een korte uitleg; met het zoekvak filtert u de lijst. Klik op een tag om hem in te voegen op
+  de plek van de cursor in het veld waar u het laatst was (Van, Aan, Onderwerp, de inhoud, …). Een
+  lijsttag (bijvoorbeeld de vrachtregels van een order) voegt een herhaalblok `{{ for … }}` in, dat
+  per regel wordt herhaald. Een fout in deze schrijfwijze (bijvoorbeeld een ontbrekende `}}`) wordt bij
+  opslaan gemeld, met het veld en de regel.
+
+Met het doelfilter boven de lijst ziet u alleen de sjablonen voor dat doel.
+
+### Rapportdefinities
+
+Een rapportdefinitie verwijst naar de opmaak waarmee een document (orderbevestiging, ritlijst,
+factuur, inkooporder, emballageoverzicht) als PDF wordt gemaakt.
+
+- **Doel** en **Taal** bepalen waarvoor de definitie dient. Per doel en taal is één definitie de
+  **standaard**.
+- **Renderprovider** en **Sjabloon-id bij provider** wijzen de opmaak bij de documentdienst aan.
+- **Bestandsnaampatroon** bepaalt de naam van het PDF-bestand, bijvoorbeeld `factuur-{{ number }}.pdf`.
+  Het enige veld dat u kunt gebruiken is `{{ number }}`: het nummer van het document (bij een
+  emballageoverzicht de naam van de periode). Een patroon met een ander veld, zoals
+  `{{ invoice.number }}`, wordt bij opslaan geweigerd.
+- **Beschikbaar in klantportaal** laat klanten het document in het portaal downloaden.
+- Een **gearchiveerde** definitie verschijnt niet meer in keuzelijsten en wordt niet automatisch
+  gekozen.
+
+Met het doelfilter boven de lijst ziet u alleen de definities voor dat doel.
+
+#### Sjabloon bewerken, kopiëren en testen
+
+Bij een bestaande rapportdefinitie staan bovenin de groep **Sjabloon** drie knoppen:
+
+- **Sjabloon bewerken** opent de opmaak in de editor van de documentdienst, in een nieuw tabblad van
+  de browser. Onder **Sjabloon-id bij provider** ziet u de naam van het sjabloon bij de
+  documentdienst, of de melding dat het sjabloon daar niet bestaat.
+- **Sjabloon kopiëren** zet na uw bevestiging een kopie van het sjabloon in uw eigen werkruimte bij
+  de documentdienst en maakt een nieuwe rapportdefinitie die die kopie gebruikt (naam met
+  "(kopie)", niet standaard). Die nieuwe definitie gaat direct open.
+- **Testdocument** maakt een PDF met voorbeeldgegevens en downloadt die. Een testdocument is gemarkeerd
+  als voorbeeld (PREVIEW) en wordt niet in rekening gebracht.
+
+Een knop wacht hooguit 20 seconden op de documentdienst. Antwoordt die niet op tijd of is hij bezet,
+dan ziet u een melding: probeer het dan zo nog eens.
+
+De standaardsjablonen van FiLogic worden door alle klanten gedeeld en kunt u niet zelf bewerken.
+Wilt u er een aanpassen, kopieer het dan eerst: u bewerkt daarna de kopie in uw eigen werkruimte.
+
+De knoppen werken alleen als de functie **Documenten maken** voor uw omgeving aanstaat (FiLogic zet
+die aan via uw pakket) en FiLogic de koppeling met de documentdienst heeft ingericht. Kan een knop
+niet worden gebruikt, dan is hij grijs; houd de muis erop om de reden te zien. Hebt u in het venster nog niet
+opgeslagen wijzigingen, dan zijn de drie knoppen grijs tot u hebt opgeslagen: ze werken met het opgeslagen
+sjabloon. Ziet u een knop
+helemaal niet, dan hebt u er geen recht op (**Rapportsjablonen bewerken** voor bewerken en kopiëren,
+plus **Rapportdefinities aanmaken** voor kopiëren).
+
+### Documentsoorten
+
+Een documentsoort deelt bestanden in het digitale archief in, bijvoorbeeld vrachtbrieven of
+algemene documenten. Elke tenant begint met **FREIGHT** (Vrachtdocument) en **GENERAL** (Algemeen
+document); deze mag u aanpassen.
+
+- **Code** is uniek en wordt in hoofdletters opgeslagen. **Naam** vult u in uw eigen taal in; de
+  namen in de andere talen blijven bewaard (zie [Meertalige namen](#meertalige-namen)).
+- **Vrachtdocument**: het bestand is zichtbaar in de portalen en gaat mee in OTM-berichten.
+- **Meesturen met factuur**: het bestand gaat als bijlage mee met de factuurmail.
+- **Tonen in lijstindicator**: het bestand telt mee in het bijlagen-symbool in lijsten.
+- Op het tabblad **Transformaties** legt u vast wat er met een binnenkomend bestand gebeurt, in
+  volgorde: afbeelding omzetten naar PDF, koppelen op bestandsnaam, hernoemen naar een eigenschap van
+  het gekoppelde record, of een PDF splitsen op een referentiepatroon. Elke bewerking komt hooguit
+  één keer voor. Hernoemen en splitsen hebben een argument nodig; voor splitsen is dat een reguliere
+  expressie.
+- Een **gearchiveerde** documentsoort verschijnt niet meer in keuzelijsten; met *Toon gearchiveerd*
+  blijft hij in de lijst zichtbaar en kunt u hem weer activeren.

@@ -215,6 +215,72 @@ public class VehicleCombinationAppServiceTests : MasterDataAppServiceTestBase
         ex.Data["field"].ShouldBe("name");
     }
 
+    [Fact]
+    public async Task A_name_differing_only_in_case_is_a_duplicate_on_create_and_on_update()
+    {
+        /* PO 2026-10-16: unique per tenant regardless of case, as the vehicle name. */
+        using var _ = InTenantA();
+        await SeedAsync();
+        var t1 = await VehicleAsync("T1", VehicleTypeKind.Tractor);
+        var t2 = await VehicleAsync("T2", VehicleTypeKind.Tractor);
+        var tr1 = await VehicleAsync("TR1", VehicleTypeKind.Trailer);
+        var tr2 = await VehicleAsync("TR2", VehicleTypeKind.Trailer);
+        await _service.CreateAsync(Dto("Night shift", t1, tr1));
+
+        var onCreate = await ShouldFailAsync(() => _service.CreateAsync(Dto("NIGHT SHIFT", t2, tr2)), MasterDataErrorCodes.DuplicateKey);
+        onCreate.Data["field"].ShouldBe("name");
+        onCreate.Data["value"].ShouldBe("NIGHT SHIFT", "the message names the name as typed");
+        await ShouldFailAsync(() => _service.CreateAsync(Dto(" night shift ", t2, tr2)), MasterDataErrorCodes.DuplicateKey);
+
+        var day = await _service.CreateAsync(Dto("Day shift", t2, tr2));
+        var onUpdate = await ShouldFailAsync(() => _service.UpdateAsync(day.Id, UpdateFrom(day, u => u.Name = "night SHIFT")), MasterDataErrorCodes.DuplicateKey);
+        onUpdate.Data["field"].ShouldBe("name");
+        (await _service.GetAsync(day.Id)).Name.ShouldBe("Day shift", "a refused update changes nothing");
+        (await _service.GetListAsync(Request(includeArchived: true))).TotalCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_combination_may_change_the_case_of_its_own_name_and_a_deleted_one_frees_its_name_in_any_case()
+    {
+        using var _ = InTenantA();
+        await SeedAsync();
+        var t1 = await VehicleAsync("T1", VehicleTypeKind.Tractor);
+        var tr1 = await VehicleAsync("TR1", VehicleTypeKind.Trailer);
+        var night = await _service.CreateAsync(Dto("Night shift", t1, tr1));
+
+        var renamed = await _service.UpdateAsync(night.Id, UpdateFrom(night, u => u.Name = "NIGHT Shift"));
+        renamed.Name.ShouldBe("NIGHT Shift", "the name keeps the case as typed; only the key ignores it");
+
+        await _service.DeleteAsync(night.Id);
+        (await _service.CreateAsync(Dto("night shift", t1, tr1))).Id.ShouldNotBe(night.Id);
+    }
+
+    [Fact]
+    public async Task Another_tenant_may_use_the_same_name_in_any_case_and_never_sees_tenant_As()
+    {
+        /* Tenant isolation (Critical): the case-insensitive check reads only the current tenant's rows. */
+        VehicleCombinationDto mine;
+        using (InTenantA())
+        {
+            await SeedAsync();
+            mine = await _service.CreateAsync(Dto("Night shift", await VehicleAsync("T1", VehicleTypeKind.Tractor), await VehicleAsync("TR1", VehicleTypeKind.Trailer)));
+        }
+
+        using (InTenantB())
+        {
+            await SeedAsync();
+            var theirs = await _service.CreateAsync(Dto("NIGHT SHIFT", await VehicleAsync("T1", VehicleTypeKind.Tractor), await VehicleAsync("TR1", VehicleTypeKind.Trailer)));
+            theirs.Id.ShouldNotBe(mine.Id);
+            (await _service.GetListAsync(Request(search: "night"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(theirs.Id);
+        }
+
+        using (InTenantA())
+        {
+            (await _service.GetListAsync(Request(search: "night"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(mine.Id);
+            (await _service.GetAsync(mine.Id)).Name.ShouldBe("Night shift");
+        }
+    }
+
     // ── One active combination per vehicle (High; the index on PostgreSQL) ───
 
     [Fact]

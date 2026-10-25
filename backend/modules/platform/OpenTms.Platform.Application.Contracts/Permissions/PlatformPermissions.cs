@@ -38,6 +38,48 @@ public static class PlatformPermissions
         public const string ManageFeatures = Default + ".ManageFeatures";
     }
 
+    /// <summary>
+    /// The Platform master-data lists in the Master data app (design 54): one view permission per list with Create,
+    /// Update and Delete children, both sides.
+    /// </summary>
+    public static class MasterData
+    {
+        public static class EmailTemplates
+        {
+            public const string Default = GroupName + ".EmailTemplates";
+            public const string Create = Default + ".Create";
+            public const string Update = Default + ".Update";
+            public const string Delete = Default + ".Delete";
+        }
+
+        public static class ReportDefinitions
+        {
+            public const string Default = GroupName + ".ReportDefinitions";
+            public const string Create = Default + ".Create";
+            public const string Update = Default + ".Update";
+            public const string Delete = Default + ".Delete";
+
+            /// <summary>Open the provider's template editor and copy a template (design 55).</summary>
+            public const string EditTemplate = Default + ".EditTemplate";
+        }
+
+        public static class DocumentTypes
+        {
+            public const string Default = GroupName + ".DocumentTypes";
+            public const string Create = Default + ".Create";
+            public const string Update = Default + ".Update";
+            public const string Delete = Default + ".Delete";
+        }
+
+        /// <summary>(entity, view, create, update, delete) of every list: the definition provider and the admin seed iterate it.</summary>
+        public static readonly (string Entity, string Default, string Create, string Update, string Delete)[] All =
+        [
+            ("EmailTemplates", EmailTemplates.Default, EmailTemplates.Create, EmailTemplates.Update, EmailTemplates.Delete),
+            ("ReportDefinitions", ReportDefinitions.Default, ReportDefinitions.Create, ReportDefinitions.Update, ReportDefinitions.Delete),
+            ("DocumentTypes", DocumentTypes.Default, DocumentTypes.Create, DocumentTypes.Update, DocumentTypes.Delete),
+        ];
+    }
+
     public static class Administration
     {
         public static class Users

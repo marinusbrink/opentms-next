@@ -36,6 +36,19 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var bothSides = MultiTenancySides.Host | MultiTenancySides.Tenant;
 
+        /* The Platform master-data lists (design 54): a view permission per list with Create, Update and Delete. */
+        foreach (var (entity, view, create, update, delete) in PlatformPermissions.MasterData.All)
+        {
+            var list = group.AddPermission(view, L($"Permission:{entity}"), bothSides);
+            list.AddChild(create, L($"Permission:{entity}.Create"), bothSides);
+            list.AddChild(update, L($"Permission:{entity}.Update"), bothSides);
+            list.AddChild(delete, L($"Permission:{entity}.Delete"), bothSides);
+        }
+
+        /* Report templates at the rendering provider (design 55): open the editor, copy a template. */
+        context.GetPermissionOrNull(PlatformPermissions.MasterData.ReportDefinitions.Default)!
+            .AddChild(PlatformPermissions.MasterData.ReportDefinitions.EditTemplate, L("Permission:ReportDefinitions.EditTemplate"), bothSides);
+
         var users = group.AddPermission(
             PlatformPermissions.Administration.Users.Default,
             L("Permission:Administration.Users"),

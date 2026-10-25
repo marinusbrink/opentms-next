@@ -275,6 +275,33 @@ describe("RelationsView", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("MasterData:RelationUnarchived"));
   });
 
+  it("the own company's row offers no Archive (PO 2026-10-16), other rows keep theirs, and an archived own company can still be unarchived", async () => {
+    grants = { "MasterData.Relations": true, "MasterData.Relations.Update": true };
+    /* Customer | OwnCompany (17) and OwnCompany only (16): never archived; Customer | Carrier (3): as before. */
+    const own = { ...relationRows[0], id: "r-own", code: "OWN", name: "Our company", roles: 17 };
+    const ownOnly = { ...own, id: "r-own-2", roles: 16 };
+    gridRows.current = [own, relationRows[0], ownOnly];
+    const { unmount } = renderView(<RelationsView />);
+    await screen.findByTestId("mock-grid");
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-grid-row]"));
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).queryByText("MasterData:Archive")).toBeNull();
+    expect(within(rows[0]).queryByText("MasterData:Unarchive")).toBeNull();
+    expect(within(rows[1]).getByText("MasterData:Archive")).toBeInTheDocument();
+    expect(within(rows[2]).queryByText("MasterData:Archive")).toBeNull();
+    expect(screen.getAllByText("MasterData:Archive")).toHaveLength(1);
+    unmount();
+
+    /* An own company archived before the rule existed is not stuck: Unarchive stays on offer. */
+    gridRows.current = [{ ...own, isArchived: true }];
+    renderView(<RelationsView />);
+    await screen.findByTestId("mock-grid");
+    fireEvent.click(screen.getByText("MasterData:Unarchive"));
+    fireEvent.click(within(alertDialog()).getByRole("button", { name: "MasterData:Unarchive" }));
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/master-data/relation/{id}/unarchive", { params: { path: { id: "r-own" } } }));
+  });
+
   it("a failing archive shows the server message in the confirmation and keeps it open", async () => {
     grants = { "MasterData.Relations": true, "MasterData.Relations.Update": true };
     gridRows.current = [relationRows[0]];

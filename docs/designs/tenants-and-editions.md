@@ -180,7 +180,7 @@ each node a child of the one above it, so the edition's Features tab shows the a
 because apps are views, not modules, and Platform is the one place every module may reference. The tree
 mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feature in the same change.
 
-**All features after this change (38):**
+**All features after this change (42 here; rows 26–29 from design 54 — designs 51–53 add the Orders, Planning & Execution and Financial groups, 16 features, listed in those designs):**
 
 | # | Feature | Parent | Default | Checked by |
 |---|---|---|---|---|
@@ -209,19 +209,23 @@ mirrors `frontend/src/app/apps.config.ts`; adding an app or a node adds its feat
 | 23 | Apps.MasterData.General.Reference.Countries | Apps.MasterData.General.Reference | false | shell; `CountryAppService` (not its pickers) |
 | 24 | Apps.MasterData.General.Reference.Currencies | Apps.MasterData.General.Reference | false | shell; `CurrencyAppService` |
 | 25 | Apps.MasterData.General.Reference.GeographicalRegions | Apps.MasterData.General.Reference | false | shell; `GeographicalRegionAppService` (not its pickers) |
-| 26 | Apps.Integrations | | false | shell |
-| 27 | Apps.Reports | | false | shell |
-| 28 | Apps.Administration | | true | shell (host always on); chain of 29–35 |
-| 29 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
+| 26 | Apps.MasterData.Platform | Apps.MasterData | true | shell; chain of 27–29 (the Platform domain group; design 54) |
+| 27 | Apps.MasterData.Platform.EmailTemplates | Apps.MasterData.Platform | false | shell; `EmailTemplateAppService` (not its picker; design 54) |
+| 28 | Apps.MasterData.Platform.ReportDefinitions | Apps.MasterData.Platform | false | shell; `ReportDefinitionAppService` (not its picker) |
+| 29 | Apps.MasterData.Platform.DocumentTypes | Apps.MasterData.Platform | false | shell; `DocumentTypeAppService` (not its picker) |
+| 30 | Apps.Integrations | | false | shell |
+| 30 | Apps.Reports | | false | shell |
+| 30 | Apps.Administration | | true | shell (host always on); chain of 33–39 |
+| 30 | Apps.Administration.Users | Apps.Administration | true | shell; `UserAdministrationController` (tenant side) |
 | 30 | Apps.Administration.Roles | Apps.Administration | true | shell; `UserRoleAdministrationController` except the list (picker) |
-| 31 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
-| 32 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 33–34 |
-| 33 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
-| 34 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
-| 35 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
-| 36 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
-| 37 | SettingManagement.Enable | | true | ABP (unchanged) |
-| 38 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
+| 30 | Apps.Administration.OrganizationUnits | Apps.Administration | true | shell; `OrganizationUnitAdministrationController` except `GET all` (picker) |
+| 30 | Apps.Administration.AuditLogs | Apps.Administration | true | shell; chain of 37–38 |
+| 30 | Apps.Administration.AuditLogs.FunctionalLogbook | Apps.Administration.AuditLogs | true | shell; functional actions of `LogbookAdministrationController` |
+| 30 | Apps.Administration.AuditLogs.TechnicalLogbook | Apps.Administration.AuditLogs | true | shell; technical actions of `LogbookAdministrationController` |
+| 30 | Apps.Administration.Maintenance | Apps.Administration | false | shell; `MaintenanceAdministrationController` (tenant side) |
+| 30 | Integrations.AddressLookup | | false | `AddressLookupAppService`, `RelationEditor` (unchanged) |
+| 30 | SettingManagement.Enable | | true | ABP (unchanged) |
+| 30 | SettingManagement.AllowChangingEmailSettings | SettingManagement.Enable | false | ABP (unchanged) |
 
 Removed: `MasterData.FirstRun`, `MasterData.Relations`, `Platform.Maintenance`, `UI.CommonToolbar`.
 
@@ -256,9 +260,13 @@ same pattern) copies every stored tenant (`T`) and edition (`E`) value of the 19
 (`Apps.MasterData.Relations…`, `.Transport…`, `.Fleet…`, `.Reference…`) to its `Apps.MasterData.General…` name,
 unless the new name already has a value for that provider and key; a copy's id is derived from its source row, so
 `Down` removes exactly the copies. `Apps.MasterData.General` itself gets no stored value: its default is on.
-**Expand only:** the old values stay, inert (no definition reads them). **Contract step (planned, later release):**
-a follow-up migration deletes the old names' values and their `AbpFeatures` rows, as `RemoveOldFeatureNames` did for
-the first rename.
+**Expand only:** the old values stay, inert (no definition reads them). **Contract step (PO 2026-10-16):** the
+migration `RemoveOldMasterDataFeatureNames` (application context, raw SQL, the same pattern as `RemoveOldFeatureNames`
+for the first rename) deletes the 19 old names' rows from `AbpFeatureValues` and `AbpFeatures`, for every provider. The
+list is exactly the old side of the expand step's mapping. No feature group goes: the old names sat in `Apps`, which
+still holds every app feature. `Down` restores nothing (the values were copied to the General names by the expand
+step). It ships right after the expand step because no release carrying the old names was ever deployed. After this
+step the old names are free again: a later domain group may be named, for example, `Apps.MasterData.Transport`.
 
 ## Log in as a tenant user (D14)
 

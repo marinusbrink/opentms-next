@@ -66,6 +66,15 @@ public static class AppFeatures
             }
         }
 
+        /// <summary>The Platform domain's group (design 54): its three lists sit directly under it.</summary>
+        public static class Platform
+        {
+            public const string Default = MasterData.Default + ".Platform";
+            public const string EmailTemplates = Default + ".EmailTemplates";
+            public const string ReportDefinitions = Default + ".ReportDefinitions";
+            public const string DocumentTypes = Default + ".DocumentTypes";
+        }
+
         /// <summary>The Orders domain's group (design 51).</summary>
         public static class Orders
         {

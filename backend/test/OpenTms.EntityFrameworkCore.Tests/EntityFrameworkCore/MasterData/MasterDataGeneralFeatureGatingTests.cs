@@ -273,7 +273,7 @@ public class MasterDataGeneralFeatureGatingTests : MasterDataAppServiceTestBase
     // ── Definition and display names ──────────────────────────────────────────
 
     [Fact]
-    public async Task General_sits_between_the_app_and_the_four_groups_on_by_default_with_the_lists_off()
+    public async Task General_sits_between_the_app_and_its_four_groups_on_by_default_with_the_lists_off_beside_the_Platform_group()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var general = await manager.GetAsync(AppFeatures.MasterData.General.Default);
@@ -291,13 +291,14 @@ public class MasterDataGeneralFeatureGatingTests : MasterDataAppServiceTestBase
         general.Children.SelectMany(group => group.Children).Count().ShouldBe(15);
         general.Children.SelectMany(group => group.Children).ShouldAllBe(list => list.DefaultValue == "false" && list.Children.Count == 0);
 
-        /* General first; the other domains' groups follow with their first lists (designs 51–53). */
+        /* General first; the other domains' groups follow with their first lists (designs 51–53), then the Platform group (design 54). */
         (await manager.GetAsync(AppFeatures.MasterData.Default)).Children.Select(c => c.Name).ShouldBe(
         [
             AppFeatures.MasterData.General.Default,
             AppFeatures.MasterData.Orders.Default,
             AppFeatures.MasterData.PlanningExecution.Default,
             AppFeatures.MasterData.Financial.Default,
+            AppFeatures.MasterData.Platform.Default,
         ]);
     }
 

@@ -31,7 +31,7 @@ export interface EditorState {
 export interface MasterDataListViewProps<TRow extends { id?: string }> {
   /** The localization stem: "Currency" → MasterData:NewCurrency, MasterData:DeleteCurrencyQuestion, … */
   entityKey: string;
-  /** The resource of the entity's own texts: the owning domain's ("Orders", "Financial"; designs 51–53). */
+  /** The resource of the entity's own texts: "MasterData" (default), the owning domain's ("Orders", "Financial"; designs 51–53) or "Platform" (design 54). */
   resource?: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
@@ -43,10 +43,14 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   bulkDelete: { mutateAsync: (selection: GridSelectionDto) => Promise<BulkDeleteResult> };
   /** The toolbar filters (UI-GRID-005). */
   filters?: ReactNode;
+  /** A business state that blocks deleting one row (UI-PERM-005): the reason's localization key, shown as the
+   *  Delete item's tooltip; undefined when the row may be deleted. Several rows go to the server-checked bulk delete. */
+  deleteDisabledReasonKey?: (row: TRow) => string | undefined;
   /** Extra row actions between Edit and Delete (UI-GRID-008 order); `refresh` reloads the grid after the action. */
   extraRowActions?: (row: TRow, refresh: () => void) => GridRowAction[];
-  /** Renders the entity's editor for the open state; `onSaved` refreshes the grid. */
-  renderEditor: (state: EditorState, onClose: () => void, onSaved: () => void) => ReactNode;
+  /** Renders the entity's editor for the open state; `onSaved` refreshes the grid; `openRecord` replaces the editor
+   *  by the one of another record (as a double-click on its row would open it). */
+  renderEditor: (state: EditorState, onClose: () => void, onSaved: () => void, openRecord: (id: string) => void) => ReactNode;
 }
 
 /* Every list page of the Master data app (UI-PAGE-001): command bar, full-height server-side grid,
@@ -64,6 +68,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
   bulkDelete,
   filters,
   extraRowActions,
+  deleteDisabledReasonKey,
   renderEditor,
 }: MasterDataListViewProps<TRow>) {
   const { t } = useL();
@@ -95,10 +100,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
   const selectionCount =
     selection.mode === "Explicit" ? selection.explicitIds.length : Math.max(0, lastFilteredCount - selection.excludedIds.length);
 
-  const openRecord = useCallback(
-    (row: TRow) => setEditor({ mode: "edit", id: row.id, readOnly: !canUpdate }),
-    [canUpdate],
-  );
+  const openRecordById = useCallback((id: string | undefined) => setEditor({ mode: "edit", id, readOnly: !canUpdate }), [canUpdate]);
+  const openRecord = useCallback((row: TRow) => openRecordById(row.id), [openRecordById]);
 
   const commands = useMemo<AppCommandBarCommand[]>(
     () => [
@@ -138,6 +141,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
   const rowActions = useCallback(
     (rows: TRow[]): GridRowAction[] => {
       const single = rows.length === 1 ? rows[0] : undefined;
+      const deleteBlockedKey = single && deleteDisabledReasonKey ? deleteDisabledReasonKey(single) : undefined;
       return [
         ...(canUpdate && single ? [{ id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => openRecord(single) }] : []),
         ...(single && extraRowActions ? extraRowActions(single, invalidateGrid) : []),
@@ -149,6 +153,8 @@ export function MasterDataListView<TRow extends { id?: string }>({
                 icon: Trash2,
                 destructive: true,
                 multi: true,
+                disabled: deleteBlockedKey != null,
+                disabledReasonKey: deleteBlockedKey,
                 onClick: () => {
                   if (rows.length === 1) {
                     setRowToDelete(rows[0]);
@@ -164,7 +170,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
           : []),
       ];
     },
-    [canDelete, canUpdate, extraRowActions, invalidateGrid, openRecord],
+    [canDelete, canUpdate, deleteDisabledReasonKey, extraRowActions, invalidateGrid, openRecord],
   );
 
   const deleteSingle = async () => {
@@ -227,7 +233,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
         </Suspense>
       </div>
 
-      {editor && renderEditor(editor, () => setEditor(null), invalidateGrid)}
+      {editor && renderEditor(editor, () => setEditor(null), invalidateGrid, openRecordById)}
 
       <ConfirmDialog
         open={rowToDelete != null}

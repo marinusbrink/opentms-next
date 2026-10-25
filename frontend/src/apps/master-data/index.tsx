@@ -7,10 +7,13 @@ import { useAppFeatures } from "@/app/app-features";
 import { AddressTypesView } from "@/apps/master-data/views/AddressTypesView";
 import { CountriesView } from "@/apps/master-data/views/CountriesView";
 import { CurrenciesView } from "@/apps/master-data/views/CurrenciesView";
+import { DocumentTypesView } from "@/apps/master-data/views/DocumentTypesView";
 import { DriversView } from "@/apps/master-data/views/DriversView";
+import { EmailTemplatesView } from "@/apps/master-data/views/EmailTemplatesView";
 import { GeographicalRegionsView } from "@/apps/master-data/views/GeographicalRegionsView";
 import { ProductRelationCodesView } from "@/apps/master-data/views/ProductRelationCodesView";
 import { ProductsView } from "@/apps/master-data/views/ProductsView";
+import { ReportDefinitionsView } from "@/apps/master-data/views/ReportDefinitionsView";
 import { RelationCategoriesView } from "@/apps/master-data/views/RelationCategoriesView";
 import { RelationsView } from "@/apps/master-data/views/RelationsView";
 import { TemperaturesView } from "@/apps/master-data/views/TemperaturesView";
@@ -46,6 +49,7 @@ const GROUP_PATHS = new Set([
   "/master-data/financial",
   "/master-data/invoicing",
   "/master-data/pricing",
+  "/master-data/platform",
 ]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
 
@@ -88,5 +92,10 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/inbound-invoice-types")) return <InboundInvoiceTypesView />;
   if (pathname.startsWith("/master-data/additional-services")) return <AdditionalServicesView />;
   if (pathname.startsWith("/master-data/discounts-or-surcharges")) return <DiscountsOrSurchargesView />;
+
+  /* The Platform domain's lists (design 54). */
+  if (pathname.startsWith("/master-data/email-templates")) return <EmailTemplatesView />;
+  if (pathname.startsWith("/master-data/report-definitions")) return <ReportDefinitionsView />;
+  if (pathname.startsWith("/master-data/document-types")) return <DocumentTypesView />;
   return <AddressTypesView />;
 }

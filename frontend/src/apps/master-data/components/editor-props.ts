@@ -10,4 +10,6 @@ export interface EntityEditorProps {
   onSaved: (saved?: unknown) => void;
   /** Create mode only: the name a lookup's "Add new …" row was typed with (UI-LOOK-004). */
   initialName?: string;
+  /** Replaces this editor by the editor of another record of the same list (a copy the editor created). */
+  onOpenRecord?: (id: string) => void;
 }

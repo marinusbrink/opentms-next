@@ -1,0 +1,7 @@
+<p>Dear {{ recipient.salutation }},</p>
+<p>Please find purchase order {{ purchase_order.number }} of {{ purchase_order.date }} attached to this message. Our reference is {{ purchase_order.reference }}.</p>
+<p>Please confirm the order by replying to this e-mail message.</p>
+<p>With kind regards,<br>Mit freundlichen Grüßen,<br>Met vriendelijke groet,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

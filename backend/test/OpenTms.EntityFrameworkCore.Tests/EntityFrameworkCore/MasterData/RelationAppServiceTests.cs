@@ -776,6 +776,136 @@ public class RelationAppServiceTests : MasterDataAppServiceTestBase
         (await CreateAsync("OWN2", "Second own", RelationRoles.OwnCompany)).Roles.ShouldBe(RelationRoles.OwnCompany);
     }
 
+    [Fact]
+    public async Task A_second_own_company_is_refused_even_when_it_would_be_created_or_saved_archived()
+    {
+        /* The uniqueness check runs before the archive rule, and an archived own company never comes to exist. */
+        using var _ = InTenantA();
+        await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany);
+        var archived = await CreateAsync("ARC", "Archived customer", configure: dto => dto.IsArchived = true);
+
+        await ShouldFailAsync(() => CreateAsync("OWN2", "Second own", RelationRoles.OwnCompany, dto => dto.IsArchived = true), MasterDataErrorCodes.OwnCompanyAlreadyExists);
+        var promote = UpdateFrom(archived);
+        promote.Roles = RelationRoles.Customer | RelationRoles.OwnCompany;
+        promote.IsArchived = false;
+        await ShouldFailAsync(() => _service.UpdateAsync(archived.Id, promote), MasterDataErrorCodes.OwnCompanyAlreadyExists);
+        (await _service.GetAsync(archived.Id)).IsArchived.ShouldBeTrue("a refused update changes nothing");
+    }
+
+    // ── The own company is never archived (PO 2026-10-16) ───────────────────
+
+    [Fact]
+    public async Task ArchiveAsync_refuses_the_own_company_and_leaves_it_active()
+    {
+        using var _ = InTenantA();
+        var own = await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany | RelationRoles.Carrier);
+
+        await ShouldFailAsync(() => _service.ArchiveAsync(own.Id), MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+
+        (await _service.GetAsync(own.Id)).IsArchived.ShouldBeFalse();
+        (await _service.GetListAsync(Request())).Rows.ShouldHaveSingleItem().Id.ShouldBe(own.Id);
+        (await _service.GetLookupPageAsync(roles: RelationRoles.OwnCompany)).Items.ShouldHaveSingleItem().Id.ShouldBe(own.Id);
+    }
+
+    [Fact]
+    public async Task Create_refuses_an_own_company_that_is_archived_and_stores_nothing()
+    {
+        using var _ = InTenantA();
+
+        await ShouldFailAsync(() => CreateAsync("OWN", "Our company", RelationRoles.OwnCompany | RelationRoles.Customer, dto => dto.IsArchived = true), MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+
+        (await _service.GetListAsync(Request(includeArchived: true))).TotalCount.ShouldBe(0);
+        (await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany)).IsArchived.ShouldBeFalse("the code and the own-company slot are still free");
+    }
+
+    [Fact]
+    public async Task Update_refuses_archiving_the_own_company_and_it_stays_active()
+    {
+        /* Only the flag is asserted: the SQLite tests run without transactions, and ABP's auditing interceptor can flush
+         * the unit of work when a method throws, so other fields changed before the refusal would be written here. In
+         * production the transaction is rolled back. */
+        using var _ = InTenantA();
+        var own = await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany);
+
+        var archive = UpdateFrom(own);
+        archive.IsArchived = true;
+        await ShouldFailAsync(() => _service.UpdateAsync(own.Id, archive), MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+
+        var stored = await _service.GetAsync(own.Id);
+        stored.IsArchived.ShouldBeFalse();
+        stored.Roles.ShouldBe(RelationRoles.OwnCompany);
+    }
+
+    [Fact]
+    public async Task Update_refuses_giving_an_archived_relation_the_own_company_role_unless_the_same_save_unarchives_it()
+    {
+        using var _ = InTenantA();
+        var archived = await CreateAsync("ARC", "Archived carrier", RelationRoles.Carrier, dto => dto.IsArchived = true);
+
+        var promoteArchived = UpdateFrom(archived);
+        promoteArchived.Roles = RelationRoles.Carrier | RelationRoles.OwnCompany;
+        await ShouldFailAsync(() => _service.UpdateAsync(archived.Id, promoteArchived), MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        var unchanged = await _service.GetAsync(archived.Id);
+        unchanged.Roles.ShouldBe(RelationRoles.Carrier);
+        unchanged.IsArchived.ShouldBeTrue();
+
+        var promoteActive = UpdateFrom(unchanged);
+        promoteActive.Roles = RelationRoles.Carrier | RelationRoles.OwnCompany;
+        promoteActive.IsArchived = false;
+        var promoted = await _service.UpdateAsync(archived.Id, promoteActive);
+        promoted.Roles.ShouldBe(RelationRoles.Carrier | RelationRoles.OwnCompany);
+        promoted.IsArchived.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Without_the_own_company_role_the_former_own_company_can_be_archived_and_others_archive_as_before()
+    {
+        using var _ = InTenantA();
+        var own = await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany | RelationRoles.Carrier);
+        var customer = await CreateAsync("CUS", "Customer");
+
+        await _service.ArchiveAsync(customer.Id);
+        (await _service.GetAsync(customer.Id)).IsArchived.ShouldBeTrue();
+
+        /* Removing the role and archiving in one save: the role goes first, then the flag. */
+        var demote = UpdateFrom(own);
+        demote.Roles = RelationRoles.Carrier;
+        demote.IsArchived = true;
+        var demoted = await _service.UpdateAsync(own.Id, demote);
+        demoted.Roles.ShouldBe(RelationRoles.Carrier);
+        demoted.IsArchived.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Tenant_B_can_neither_archive_tenant_As_own_company_nor_is_its_own_rule_affected_by_tenant_A()
+    {
+        RelationDto ownA;
+        using (InTenantA())
+        {
+            ownA = await CreateAsync("OWN", "Our company", RelationRoles.OwnCompany);
+        }
+
+        using (InTenantB())
+        {
+            var service = GetRequiredService<IRelationAppService>();
+            await Should.ThrowAsync<EntityNotFoundException>(() => service.ArchiveAsync(ownA.Id));
+            var archiveA = UpdateFrom(ownA);
+            archiveA.IsArchived = true;
+            await Should.ThrowAsync<EntityNotFoundException>(() => service.UpdateAsync(ownA.Id, archiveA));
+
+            /* Tenant B's own relation with the same code is a customer here and archives normally. */
+            var customerB = await service.CreateAsync(Make("OWN", "Our company", RelationRoles.Customer, null));
+            await service.ArchiveAsync(customerB.Id);
+            (await service.GetAsync(customerB.Id)).IsArchived.ShouldBeTrue();
+            await ShouldFailAsync(() => service.CreateAsync(Make("OWNB", "Own of B", RelationRoles.OwnCompany, dto => dto.IsArchived = true)), MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        }
+
+        using (InTenantA())
+        {
+            (await _service.GetAsync(ownA.Id)).IsArchived.ShouldBeFalse();
+        }
+    }
+
     // ── Natural keys and shapes ──────────────────────────────────────────────
 
     [Fact]

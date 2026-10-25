@@ -9,9 +9,12 @@ import {
   CalendarRange,
   ClipboardList,
   Coins,
+  Cog,
   Database,
   FileInput,
   FileOutput,
+  FileText,
+  Files,
   Flag,
   FolderTree,
   History,
@@ -20,6 +23,7 @@ import {
   Layers,
   LayoutDashboard,
   Link2,
+  Mail,
   ListTree,
   MapPin,
   MapPinned,
@@ -146,17 +150,18 @@ export const APPS: readonly AppDefinition[] = [
     id: "master-data",
     nameKey: "App:MasterData",
     path: "/master-data",
-    domains: ["MasterData", "Orders", "PlanningExecution", "Financial"],
+    domains: ["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"],
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
     /* PO 2026-10-16: the Master data app holds the master data of EVERY domain, one group per domain in its nav
      * tree (app → domain group → group → list). A domain's group, with its feature and its entry in `domains`,
-     * arrives with that domain's first list; a group without children is hidden. So far only the Master Data
+     * arrives with that domain's first list; a group without children is hidden. The Master Data
      * domain's own group (General) holds the ten reference lists of the first run
      * (docs/designs/41-master-data-first-run.md), grouped as the old menu was, plus Relations and Drivers of the
      * second run (design 43) and Vehicles, Vehicle combinations and Product relation codes of the third (design 48).
-     * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53).
+     * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53), then the Platform
+     * domain's group (design 54) with its three lists directly under it, no sub-groups.
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -277,6 +282,17 @@ export const APPS: readonly AppDefinition[] = [
               { nameKey: "Financial:DiscountsOrSurcharges", path: "/master-data/discounts-or-surcharges", icon: BadgePercent, feature: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges" },
             ],
           },
+        ],
+      },
+      {
+        nameKey: "Platform:Nav.Platform",
+        path: "/master-data/platform",
+        feature: "Apps.MasterData.Platform",
+        icon: Cog,
+        children: [
+          { nameKey: "Platform:EmailTemplates", path: "/master-data/email-templates", icon: Mail, feature: "Apps.MasterData.Platform.EmailTemplates" },
+          { nameKey: "Platform:ReportDefinitions", path: "/master-data/report-definitions", icon: FileText, feature: "Apps.MasterData.Platform.ReportDefinitions" },
+          { nameKey: "Platform:DocumentTypes", path: "/master-data/document-types", icon: Files, feature: "Apps.MasterData.Platform.DocumentTypes" },
         ],
       },
     ],

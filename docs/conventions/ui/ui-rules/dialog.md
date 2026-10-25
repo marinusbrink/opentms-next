@@ -99,11 +99,20 @@ Feature code never imports `@base-ui/react/dialog`, `Dialog` or `AlertDialog` di
 - **Check:** `variant="editor"` has `commands` and no `footer`; `variant="action"` has `footer` and no `commands`; no feature passes a Close command.
 - **Evidence:** inventory §6.1–6.2 (ribbon at the top in about 51 editors, footer in about 55 action dialogs); D-13 (A, revised 2026-10-10).
 
-### UI-DLG-006 · MUST · The header and command bar stay fixed; the body scrolls
-- The body scrolls (`min-h-0 flex-1 overflow-auto p-4`).
-- In `full` dialogs, a lines grid fills the remaining height instead of scrolling the body.
-- **Check:** no `overflow-auto` on the dialog popup itself.
-- **Evidence:** inventory §5.4 (header + ribbon above scrolling content); §B3 invoice (lines grid + pinned totals).
+### UI-DLG-006 · MUST · The dialog never scrolls; a tab panel or a content section scrolls
+The header and the command bar stay fixed. The dialog itself (the popup and its body, `data-slot="entity-dialog-body"`,
+`overflow-hidden`) never shows a scrollbar, horizontal or vertical (PO decision 2026-10-21). The content that can be
+taller than the screen scrolls inside a component: every tab panel scrolls its own content (`min-h-0 overflow-y-auto`),
+a dialog without tabs scrolls its one content section, and a tab may keep part of itself fixed (a lines grid's totals,
+a tags panel's filter) and scroll only a region. Nothing scrolls horizontally: content fits the width (`min-w-0` on
+flex children). The dialog sizes to its content up to the viewport ceiling; `EntityDialog` does this for every editor.
+The body padding sits on the scrolling panel or section, so focus rings are never clipped and the scrollbar sits at
+the dialog's edge.
+- In `full` dialogs, a lines grid fills the remaining height instead of scrolling a panel.
+- **Check:** no `overflow-auto` on the popup or the body; every scrollbar inside an editor belongs to a panel or a
+  section; a window-wide scrollbar on a tall tab is a blocker.
+- **Evidence:** inventory §5.4 (header + ribbon above scrolling content); §B3 invoice (lines grid + pinned totals);
+  PO decision 2026-10-21 (the Tags panel of the e-mail template scrolled the whole dialog).
 
 ### UI-DLG-007 · MUST · Records open through `useOpenRecord()` and are deep-linkable
 - `const openRecord = useOpenRecord(); openRecord("TransportOrder", id)` sets the search param `?open=TransportOrder:<id>`.

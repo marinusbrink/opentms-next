@@ -1,0 +1,8 @@
+<p>Dear {{ recipient.salutation }},</p>
+<p>According to our records, invoice {{ invoice.number }} of {{ invoice.date }} with an open amount of {{ invoice.currency }} {{ invoice.open_amount }} has not been paid. The due date was {{ invoice.due_date }}.</p>
+<p>Please transfer the open amount within 7 days. Have you paid in the meantime? Then you can disregard this reminder.</p>
+<p>Do you have a question about this invoice? Then send an e-mail to {{ company.invoice_email }} or reply to this e-mail message.</p>
+<p>With kind regards,<br>Mit freundlichen Grüßen,<br>Met vriendelijke groet,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

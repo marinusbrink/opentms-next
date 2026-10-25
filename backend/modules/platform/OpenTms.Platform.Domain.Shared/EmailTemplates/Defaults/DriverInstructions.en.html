@@ -1,0 +1,9 @@
+<p>Dear {{ driver.name }},</p>
+<p>Hereby you will receive the overview of your scheduled trips. Via the link below you can view all the details:<br><br> <a href="{{ driver.instructions_url }}">{{ driver.instructions_url }}</a></p>
+<p>In the overview, you will find for each trip, among other things:</p>
+<ul><li>Date and scheduled times</li><li>Loading and unloading locations</li><li>Vehicle and any special notes</li></ul>
+<p>👉 Please review the schedule carefully.<br><br> Is something incorrect or do you have any questions about (one of) the trips? Please contact the planning department as soon as possible. Please note: this is always the most up-to-date information. The link is automatically updated whenever something changes in the trip.<br><br> Have a good trip tomorrow and thank you in advance!</p>
+<p>With kind regards,<br>Mit freundlichen Grüßen,<br>Met vriendelijke groet,</p>
+<p><strong>{{ user.full_name }}<br>{{ company.name }}</strong></p>
+<p>{{ company.address }}<br>{{ company.postal_code }} {{ company.city }}<br><br>Tel : {{ company.phone }}<br>Url : {{ company.website }}</p>
+<p><img src="{{ company.logo_url }}" alt="Logo" width="200"></p>

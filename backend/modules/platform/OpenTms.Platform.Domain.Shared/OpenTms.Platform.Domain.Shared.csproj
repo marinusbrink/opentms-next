@@ -17,6 +17,10 @@
   <ItemGroup>
     <EmbeddedResource Include="Localization\Platform\*.json" />
     <Content Remove="Localization\Platform\*.json" />
+    <!-- Default e-mail template bodies per purpose and language (design 54, "Tags and default content"): data, not code.
+         WithCulture=false: the ".en"/".nl" file suffix is not a resource culture, so they stay in this assembly. -->
+    <EmbeddedResource Include="EmailTemplates\Defaults\*.html" WithCulture="false" LogicalName="OpenTms.Platform.EmailTemplates.Defaults.%(Filename)%(Extension)" />
+    <Content Remove="EmailTemplates\Defaults\*.html" />
   </ItemGroup>
 
 </Project>

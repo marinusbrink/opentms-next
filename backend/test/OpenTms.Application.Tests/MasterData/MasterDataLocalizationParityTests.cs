@@ -96,6 +96,20 @@ public class MasterDataLocalizationParityTests
     [Theory]
     [InlineData("en")]
     [InlineData("nl")]
+    public void The_own_company_archive_refusal_and_its_editor_hint_have_a_text(string culture)
+    {
+        /* PO 2026-10-16: the own company is never archived; the server's refusal and the editor's hint. */
+        var texts = Read(culture);
+
+        texts.ShouldContainKey(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        texts.ShouldContainKey("MasterData:OwnCompanyCannotBeArchivedHint");
+        texts[MasterDataErrorCodes.OwnCompanyCannotBeArchived].ShouldNotBeNullOrWhiteSpace();
+        texts["MasterData:OwnCompanyCannotBeArchivedHint"].ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
     public void Every_run_3_error_code_in_use_reason_and_enum_value_has_a_text(string culture)
     {
         /* Design 48 (test risk analysis, Low): the nl/en key parity above covers the new keys; this pins that the

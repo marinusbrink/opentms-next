@@ -10,7 +10,7 @@ namespace OpenTms.Platform.Features;
  * screens that were behind a flag stay off (the Master data lists, Maintenance), placeholder apps are off. Every
  * node is a toggle and a child of the node above it, so an edition's Features tab shows the app tree. The Master data
  * app holds one group per domain (PO 2026-10-16), each domain group defaulting on like the groups below it; General
- * (Master Data), Orders, Planning & Execution and Financial exist so far (designs 41–53). */
+ * (Master Data), Orders, Planning & Execution and Financial (designs 41–53) and the Platform group (design 54). */
 public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
 {
     public override void Define(IFeatureDefinitionContext context)
@@ -61,6 +61,10 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         var pricing = On(financial, AppFeatures.MasterData.Financial.Pricing.Default);
         Off(pricing, AppFeatures.MasterData.Financial.Pricing.AdditionalServices);
         Off(pricing, AppFeatures.MasterData.Financial.Pricing.DiscountsOrSurcharges);
+        var platform = On(masterData, AppFeatures.MasterData.Platform.Default);
+        Off(platform, AppFeatures.MasterData.Platform.EmailTemplates);
+        Off(platform, AppFeatures.MasterData.Platform.ReportDefinitions);
+        Off(platform, AppFeatures.MasterData.Platform.DocumentTypes);
 
         Off(apps, AppFeatures.Integrations);
         Off(apps, AppFeatures.Reports);
@@ -73,6 +77,11 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(auditLogs, AppFeatures.Administration.AuditLogs.FunctionalLogbook);
         On(auditLogs, AppFeatures.Administration.AuditLogs.TechnicalLogbook);
         Off(administration, AppFeatures.Administration.Maintenance);
+
+        /* Behaviour features, outside the app tree. Document rendering (design 50) is off by default: switched on per
+         * tenant or edition once the deployment holds the provider's key and secret. */
+        var platformGroup = context.AddGroup(PlatformFeatures.GroupName, L("Feature:" + PlatformFeatures.GroupName));
+        Off(platformGroup, PlatformFeatures.DocumentRendering);
     }
 
     private static FeatureDefinition On(FeatureGroupDefinition group, string name) => Add(group, name, "true");

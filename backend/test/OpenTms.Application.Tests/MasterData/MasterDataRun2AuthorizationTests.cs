@@ -108,6 +108,9 @@ public class MasterDataRun2AuthorizationTests
     {
         MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.OwnCompanyAlreadyExists);
         MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.AnonymisedRecordIsReadOnly);
+        /* PO 2026-10-16: archiving the own company conflicts with its state, like a second own company. */
+        MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
+        MasterDataErrorCodes.BadRequestCodes.ShouldNotContain(MasterDataErrorCodes.OwnCompanyCannotBeArchived);
         MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.DuplicateKey);
         MasterDataErrorCodes.ConflictCodes.ShouldContain(MasterDataErrorCodes.InUse);
 
