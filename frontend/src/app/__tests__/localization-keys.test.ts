@@ -171,9 +171,6 @@ describe("apps.config nameKeys resolve in a localization resource (nl and en)", 
   /* Keys whose texts arrive with another builder's backend module (design 61: the Orders, Planning & Execution and
    * Financial resources are theirs). Remove an entry here when its module lands; the test then demands the text. */
   const PENDING: Record<string, string> = {
-    "Orders:ConsignmentNoteProfiles": "TODO: Orders module (design 58)",
-    "Orders:ConsignmentNoteFixedDescriptions": "TODO: Orders module (design 58)",
-    "Orders:OrderAttributeDefinitions": "TODO: Orders module (design 58)",
   };
   /* StatusBadge label keys registered in design 61; the texts arrive with the modules too. */
   const PENDING_STATUS_KEYS = [
