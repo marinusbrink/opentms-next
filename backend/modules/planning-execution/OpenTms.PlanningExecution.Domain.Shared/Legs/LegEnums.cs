@@ -14,3 +14,16 @@ public enum StopLegRole
     Origin = 1,
     Destination = 2
 }
+
+/// <summary>
+/// How a leg came to exist (design 59 build note): the generator writes <see cref="Generated"/> and <see cref="ViaDepot"/>
+/// legs and owns them; the planner's operations (trips.md 20–24) create the others, which regeneration keeps.
+/// </summary>
+public enum LegSource
+{
+    Generated = 1,
+    ViaDepot = 2,
+    Split = 3,
+    Return = 4,
+    Outsourced = 5
+}

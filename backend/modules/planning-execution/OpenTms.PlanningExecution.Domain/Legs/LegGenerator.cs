@@ -1,0 +1,242 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using OpenTms.PlanningExecution.ViaDepots;
+using Volo.Abp.Domain.Services;
+
+namespace OpenTms.PlanningExecution.Legs;
+
+/// <summary>The facts of one order the generator needs (mapped from Orders' pricing snapshot by the handler; ids and figures only).</summary>
+public sealed class LegGenerationInput
+{
+    public Guid OrderId { get; init; }
+
+    public Guid CustomerRelationId { get; init; }
+
+    public bool IsCancelled { get; init; }
+
+    public List<LegGenerationLine> Lines { get; init; } = new();
+}
+
+public sealed class LegGenerationLine
+{
+    public Guid LineId { get; init; }
+
+    public LegQuantities Quantities { get; init; } = LegQuantities.Empty(Guid.Empty);
+
+    /// <summary>The stops in position order.</summary>
+    public List<LegGenerationStop> Stops { get; init; } = new();
+}
+
+public sealed class LegGenerationStop
+{
+    public LegEndSnapshot Snapshot { get; init; } = default!;
+
+    /// <summary>The geographical regions the stop's address lies in (region-scoped via-depot rules).</summary>
+    public List<Guid> RegionIds { get; init; } = new();
+}
+
+/// <summary>A depot address as the generator snapshots it (resolved through the Master Data lookup by the handler).</summary>
+public sealed record DepotLocation(Guid RelationId, Guid AddressId, string Name, string? City, string? CountryCode, double? Latitude, double? Longitude, string? TimeZoneId);
+
+public sealed class LegGenerationResult
+{
+    public List<Leg> Created { get; } = new();
+
+    public List<Leg> Updated { get; } = new();
+
+    public List<Leg> Unchanged { get; } = new();
+
+    /// <summary>Legs taken off their trip because their stops changed (design 59: warning <c>LegChangedAfterPlanning</c> on the trip).</summary>
+    public List<(Leg Leg, Guid TripId)> Unassigned { get; } = new();
+
+    public List<Leg> Deleted { get; } = new();
+
+    public IEnumerable<Leg> Remaining => Created.Concat(Updated).Concat(Unchanged);
+}
+
+/// <summary>
+/// Design 59 "Generation" (orders.md §4 made correct): one leg per consecutive stop pair of a line, split at a depot when a
+/// via-depot rule matches (relation of either stop → customer → region of either stop; position order within a scope),
+/// matched to the existing legs on the unique key (line, origin stop, destination stop). Pure: the handler loads and saves.
+/// A line the planner reshaped (a split, return or outsourced leg) keeps its legs; only their stop snapshots are refreshed.
+/// </summary>
+public class LegGenerator : DomainService
+{
+    public LegGenerationResult Generate(
+        LegGenerationInput input,
+        IReadOnlyList<ViaDepotRule> rules,
+        Func<Guid, DepotLocation?> depotOf,
+        IReadOnlyList<Leg> existing,
+        Guid? tenantId,
+        Func<Guid> newId)
+    {
+        var result = new LegGenerationResult();
+        var byLine = existing.GroupBy(l => l.OrderLineId).ToDictionary(g => g.Key, g => g.ToList());
+
+        if (input.IsCancelled)
+        {
+            foreach (var leg in existing)
+            {
+                Delete(leg, result);
+            }
+
+            return result;
+        }
+
+        var orderedRules = rules
+            .Where(r => !r.IsArchived)
+            .OrderBy(r => r.Scope)
+            .ThenBy(r => r.Position)
+            .ThenBy(r => r.Id)
+            .ToList();
+
+        foreach (var line in input.Lines)
+        {
+            var current = byLine.TryGetValue(line.LineId, out var legs) ? legs : [];
+            byLine.Remove(line.LineId);
+
+            if (current.Any(l => !l.IsGeneratorOwned))
+            {
+                RefreshReshapedLine(line, current, result);
+                continue;
+            }
+
+            var wanted = Plan(input, line, orderedRules, depotOf);
+            Match(input, line, wanted, current, result, tenantId, newId);
+        }
+
+        /* Lines the order no longer has. */
+        foreach (var leg in byLine.Values.SelectMany(l => l))
+        {
+            Delete(leg, result);
+        }
+
+        return result;
+    }
+
+    private sealed record PlannedLeg(LegSource Source, Guid? RuleId, LegEndSnapshot Origin, LegEndSnapshot Destination);
+
+    /// <summary>The legs a line should have: consecutive pairs, each split at its depot when a rule matches.</summary>
+    private static List<PlannedLeg> Plan(LegGenerationInput input, LegGenerationLine line, IReadOnlyList<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf)
+    {
+        var planned = new List<PlannedLeg>();
+        for (var i = 0; i + 1 < line.Stops.Count; i++)
+        {
+            var a = line.Stops[i];
+            var b = line.Stops[i + 1];
+            var regions = a.RegionIds.Concat(b.RegionIds).Distinct().ToList();
+            var rule = rules.FirstOrDefault(r => r.Matches(input.CustomerRelationId, a.Snapshot.RelationId, b.Snapshot.RelationId, regions));
+            var depot = rule == null ? null : depotOf(rule.DepotAddressId);
+
+            if (rule == null || depot == null || IsSamePlace(depot, a.Snapshot) || IsSamePlace(depot, b.Snapshot))
+            {
+                planned.Add(new PlannedLeg(LegSource.Generated, null, a.Snapshot, b.Snapshot));
+                continue;
+            }
+
+            var viaStopId = Leg.SyntheticStopId("via", rule.Id, a.Snapshot.StopId, b.Snapshot.StopId);
+            var arrival = DepotEnd(depot, viaStopId, rule.ArrivalWaypointTypeId, a.Snapshot.PlannedDate);
+            var departure = DepotEnd(depot, viaStopId, rule.DepartureTypeOrArrival, rule.Overnight ? a.Snapshot.PlannedDate.AddDays(1) : a.Snapshot.PlannedDate);
+            planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, a.Snapshot, arrival));
+            planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, departure, b.Snapshot));
+        }
+
+        return planned;
+    }
+
+    private static bool IsSamePlace(DepotLocation depot, LegEndSnapshot stop)
+        => stop.RelationId == depot.RelationId && (stop.RelationAddressId == null || stop.RelationAddressId == depot.AddressId);
+
+    private static LegEndSnapshot DepotEnd(DepotLocation depot, Guid stopId, Guid waypointTypeId, DateOnly plannedDate)
+        => new(stopId, waypointTypeId, depot.RelationId, depot.AddressId, depot.Name, depot.City, depot.CountryCode, depot.Latitude, depot.Longitude, depot.TimeZoneId,
+            plannedDate, null, null, null, null);
+
+    private static void Match(LegGenerationInput input, LegGenerationLine line, List<PlannedLeg> wanted, List<Leg> current, LegGenerationResult result, Guid? tenantId, Func<Guid> newId)
+    {
+        var remaining = current.ToList();
+        for (var position = 1; position <= wanted.Count; position++)
+        {
+            var plan = wanted[position - 1];
+            var match = remaining.FirstOrDefault(l => l.OriginStopId == plan.Origin.StopId && l.DestinationStopId == plan.Destination.StopId);
+            if (match == null)
+            {
+                var leg = new Leg(newId(), tenantId, input.OrderId, line.LineId, input.CustomerRelationId, position, plan.Source, plan.Origin, plan.Destination, line.Quantities);
+                if (plan.RuleId != null)
+                {
+                    leg.MarkViaDepot(plan.RuleId.Value);
+                }
+
+                result.Created.Add(leg);
+                continue;
+            }
+
+            remaining.Remove(match);
+            var endsChanged = match.EndsDifferFrom(plan.Origin, plan.Destination);
+            var quantitiesChanged = match.Quantities != line.Quantities;
+            var positionChanged = match.Position != position;
+            if (!endsChanged && !quantitiesChanged && !positionChanged)
+            {
+                result.Unchanged.Add(match);
+                continue;
+            }
+
+            if (endsChanged)
+            {
+                match.SetOrigin(plan.Origin);
+                match.SetDestination(plan.Destination);
+                if (match.TripId is { } tripId)
+                {
+                    result.Unassigned.Add((match, tripId));
+                    match.Unassign();
+                }
+            }
+
+            match.SetQuantities(line.Quantities);
+            match.SetPosition(position);
+            result.Updated.Add(match);
+        }
+
+        foreach (var leg in remaining)
+        {
+            Delete(leg, result);
+        }
+    }
+
+    /// <summary>A reshaped line: the planner's legs stay; ends that still point at an order stop follow the stop's facts.</summary>
+    private static void RefreshReshapedLine(LegGenerationLine line, List<Leg> current, LegGenerationResult result)
+    {
+        var stops = line.Stops.ToDictionary(s => s.Snapshot.StopId, s => s.Snapshot);
+        foreach (var leg in current)
+        {
+            var origin = stops.TryGetValue(leg.OriginStopId, out var o) ? o : leg.Origin;
+            var destination = stops.TryGetValue(leg.DestinationStopId, out var d) ? d : leg.Destination;
+            if (!leg.EndsDifferFrom(origin, destination))
+            {
+                result.Unchanged.Add(leg);
+                continue;
+            }
+
+            leg.SetOrigin(origin);
+            leg.SetDestination(destination);
+            if (leg.TripId is { } tripId)
+            {
+                result.Unassigned.Add((leg, tripId));
+                leg.Unassign();
+            }
+
+            result.Updated.Add(leg);
+        }
+    }
+
+    private static void Delete(Leg leg, LegGenerationResult result)
+    {
+        if (leg.TripId is { } tripId)
+        {
+            result.Unassigned.Add((leg, tripId));
+            leg.Unassign();
+        }
+
+        result.Deleted.Add(leg);
+    }
+}
