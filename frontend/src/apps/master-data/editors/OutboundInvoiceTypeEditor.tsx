@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, TextAreaField, TextField, parseInteger } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, TextAreaField, TextField, parseInteger } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
 import {
   NUMBERING_FIELDS,
   NumberingFields,
@@ -14,7 +14,7 @@ import {
   numberingValuesOf,
   validateNumbering,
   type NumberingFormValues,
-} from "@/apps/master-data/components/numbering-fields";
+} from "@/components/record-editor/numbering-fields";
 import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import {
   OUTBOUND_INVOICE_KINDS,

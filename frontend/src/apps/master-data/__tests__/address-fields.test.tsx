@@ -22,7 +22,7 @@ vi.mock("@/components/ui/reference-combobox", async () => {
   return { ReferenceCombobox: mocks.MockReferenceCombobox };
 });
 
-import { AddressFields, applyLookup, applySuggestion, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressLookupFill, type AddressRow, type AddressSuggestionLine } from "@/apps/master-data/components/AddressFields";
+import { AddressFields, applyLookup, applySuggestion, hasAddressInput, newAddressRow, validateAddressRow, type AddressFieldsProps, type AddressLookupFill, type AddressRow, type AddressSuggestionLine } from "@/domains/master-data/components/AddressFields";
 
 const complete = (): AddressRow => ({ ...newAddressRow("type-1"), countryId: "c-1", street: "Main street", houseNumber: "1", houseNumberSuffix: "a", addressLine2: "Building B", postalCode: "2611 AA", city: "Delft", latitude: "52.01", longitude: "4.36", timeZoneId: "Europe/Amsterdam" });
 

@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
+import { RelationEditor } from "@/domains/master-data/components/RelationEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   RELATION_ROLES,

@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, TextAreaField, TextField } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, TextAreaField, TextField } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
 import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import {
   DOCUMENT_TRANSFORMATION_KINDS,

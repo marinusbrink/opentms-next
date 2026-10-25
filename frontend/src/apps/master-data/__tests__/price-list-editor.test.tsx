@@ -47,9 +47,9 @@ import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api/client";
 import { saveBlob } from "@/lib/browser";
-import { PriceListEditor } from "@/apps/master-data/editors/PriceListEditor";
-import { validateRule } from "@/apps/master-data/editors/price-list/PriceListRuleDetail";
-import { toSimulateDto } from "@/apps/master-data/editors/price-list/PriceListSimulateTab";
+import { PriceListEditor } from "@/domains/financial/components/PriceListEditor";
+import { validateRule } from "@/domains/financial/components/price-list/PriceListRuleDetail";
+import { toSimulateDto } from "@/domains/financial/components/price-list/PriceListSimulateTab";
 import {
   boundsProblem,
   bracketsError,
@@ -60,7 +60,7 @@ import {
   columnsToDto,
   fromBracketRow,
   toBracketRow,
-} from "@/apps/master-data/editors/price-list/rule-ladder";
+} from "@/domains/financial/components/price-list/rule-ladder";
 import { tierOf } from "@/domains/financial/price-lists";
 import { editorDialog, fieldIn, ok, panel, ribbonButton, submitEditor, tab, typeIn } from "./platform-test-helpers";
 import { gridRows } from "./run2-test-mocks";

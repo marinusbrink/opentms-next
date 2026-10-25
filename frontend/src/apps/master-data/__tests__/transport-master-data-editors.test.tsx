@@ -34,8 +34,8 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
-import { ConsignmentNoteFixedDescriptionEditor } from "@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor";
-import { ConsignmentNoteProfileEditor } from "@/apps/master-data/editors/ConsignmentNoteProfileEditor";
+import { ConsignmentNoteFixedDescriptionEditor } from "@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor";
+import { ConsignmentNoteProfileEditor } from "@/domains/orders/components/ConsignmentNoteProfileEditor";
 import { OrderAttributeDefinitionEditor } from "@/apps/master-data/editors/OrderAttributeDefinitionEditor";
 import { TripAttributeDefinitionEditor } from "@/apps/master-data/editors/TripAttributeDefinitionEditor";
 import { ViaDepotRuleEditor } from "@/apps/master-data/editors/ViaDepotRuleEditor";

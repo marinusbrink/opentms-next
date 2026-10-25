@@ -71,7 +71,7 @@ beforeEach(() => {
   detail = { data: undefined, isLoading: false, error: null };
 });
 
-import { TransportTripTypeEditor } from "@/apps/master-data/editors/TransportTripTypeEditor";
+import { TransportTripTypeEditor } from "@/domains/planning-execution/components/TransportTripTypeEditor";
 
 const stored = {
   id: "t1",

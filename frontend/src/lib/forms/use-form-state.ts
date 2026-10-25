@@ -4,8 +4,9 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The form mechanics every record screen shares (UI-FORM-006: errors after blur or submit; UI-FORM-009: dirty by
  * value compare after normalising empty strings to null). The screen owns the values, the validation and the save;
- * this hook owns touched/submitted state, the error texts and the focus on the first invalid field. The Master data
- * app's editor carries the same mechanics inside its dialog; the Transport app's pages (design 61) use this one. */
+ * this hook owns touched/submitted state, the error texts and the focus on the first invalid field. The one form
+ * state of the frontend: the Transport app's pages (design 61) and the nested record dialogs (a relation's contact
+ * person) use it; MasterDataEditor carries the same mechanics inside its dialog over these types. */
 
 export type FieldErrors<TValues> = Partial<Record<keyof TValues & string, string>>;
 

@@ -26,7 +26,7 @@ class MockResizeObserver {
 }
 beforeAll(() => vi.stubGlobal("ResizeObserver", MockResizeObserver));
 
-import { MasterDataEditor, type EditorTab } from "@/apps/master-data/components/MasterDataEditor";
+import { MasterDataEditor, type EditorTab } from "@/components/record-editor/MasterDataEditor";
 
 interface Values {
   name: string;

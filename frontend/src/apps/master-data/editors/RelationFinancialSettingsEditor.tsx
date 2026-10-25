@@ -11,11 +11,11 @@ import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { useCreateInPlace } from "@/apps/master-data/components/create-in-place";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, EnumSelectField, NumberField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/apps/master-data/components/MasterDataEditor";
-import { dateOnly, newLineKey } from "@/apps/master-data/components/validity-rows";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, EnumSelectField, NumberField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
+import { dateOnly, newLineKey } from "@/components/record-editor/validity-rows";
 import { MULTIPLE_MATCHES, usePriceListLookup, type MultipleMatches, type RateSide } from "@/domains/financial/price-lists";
 import { discountsOrSurcharges, vatPercentages } from "@/domains/financial/reference-data";
 import {

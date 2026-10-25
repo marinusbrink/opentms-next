@@ -46,10 +46,10 @@ vi.mock("@/components/ui/entity-lookup", () => ({
   ),
 }));
 
-vi.mock("@/apps/master-data/editors/RelationEditor", () => ({
+vi.mock("@/domains/master-data/components/RelationEditor", () => ({
   RelationEditor: (props: { mode: string; id?: string; readOnly: boolean }) => <div data-testid="relation-editor" data-mode={props.mode} data-id={props.id} data-readonly={String(props.readOnly)} />,
 }));
-vi.mock("@/apps/master-data/editors/DriverEditor", () => ({
+vi.mock("@/domains/master-data/components/DriverEditor", () => ({
   DriverEditor: (props: { mode: string; id?: string; readOnly: boolean }) => <div data-testid="driver-editor" data-mode={props.mode} data-id={props.id} data-readonly={String(props.readOnly)} />,
 }));
 

@@ -82,7 +82,7 @@ beforeEach(() => {
 
 import { toast } from "sonner";
 
-import { CountryEditor } from "@/apps/master-data/editors/CountryEditor";
+import { CountryEditor } from "@/domains/master-data/components/CountryEditor";
 
 const stored = {
   id: "c1",

@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoolCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { ProductRelationCodeEditor } from "@/apps/master-data/editors/ProductRelationCodeEditor";
+import { ProductRelationCodeEditor } from "@/domains/master-data/components/ProductRelationCodeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   productRelationCodes,

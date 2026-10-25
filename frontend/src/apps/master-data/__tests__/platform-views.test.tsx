@@ -49,7 +49,7 @@ const { editorProps, editorMock } = vi.hoisted(() => {
   return { editorProps, editorMock };
 });
 vi.mock("@/apps/master-data/editors/EmailTemplateEditor", () => ({ EmailTemplateEditor: editorMock("email-template-editor") }));
-vi.mock("@/apps/master-data/editors/ReportDefinitionEditor", () => ({ ReportDefinitionEditor: editorMock("report-definition-editor") }));
+vi.mock("@/domains/platform/components/ReportDefinitionEditor", () => ({ ReportDefinitionEditor: editorMock("report-definition-editor") }));
 vi.mock("@/apps/master-data/editors/DocumentTypeEditor", () => ({ DocumentTypeEditor: editorMock("document-type-editor") }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));

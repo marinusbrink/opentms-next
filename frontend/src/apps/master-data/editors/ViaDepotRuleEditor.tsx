@@ -4,10 +4,10 @@ import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { useCreateInPlace } from "@/apps/master-data/components/create-in-place";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, EnumSelectField, NumberField, TextAreaField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/apps/master-data/components/MasterDataEditor";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, EnumSelectField, NumberField, TextAreaField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
 import { geographicalRegions, relationLookupPage, useRelationAddresses, type RelationOption } from "@/domains/master-data/entities";
 import { waypointTypes } from "@/domains/orders/reference-data";
 import {

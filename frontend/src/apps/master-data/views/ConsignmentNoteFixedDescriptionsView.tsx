@@ -3,7 +3,7 @@ import type { ColDef } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell } from "@/components/ui/grid-cells";
-import { ConsignmentNoteFixedDescriptionEditor } from "@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor";
+import { ConsignmentNoteFixedDescriptionEditor } from "@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { consignmentNoteFixedDescriptions, type ConsignmentNoteFixedDescriptionRow } from "@/domains/orders/consignment-note-fixed-descriptions";
 import { useL } from "@/lib/i18n/LocalizationProvider";

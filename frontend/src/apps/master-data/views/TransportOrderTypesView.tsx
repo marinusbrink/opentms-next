@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { TransportOrderTypeEditor } from "@/apps/master-data/editors/TransportOrderTypeEditor";
+import { TransportOrderTypeEditor } from "@/domains/orders/components/TransportOrderTypeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { transportOrderTypes, useSetDefaultTransportOrderType, type TransportOrderTypeRow } from "@/domains/orders/reference-data";
 import { getApiErrorMessage } from "@/lib/api/errors";

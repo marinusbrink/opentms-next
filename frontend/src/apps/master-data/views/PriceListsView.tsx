@@ -4,7 +4,7 @@ import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PriceListEditor } from "@/apps/master-data/editors/PriceListEditor";
+import { PriceListEditor } from "@/domains/financial/components/PriceListEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { QUANTITY_SOURCES, RATE_SIDES, keyOf, priceLists, type PriceListRow, type QuantitySource, type RateSide } from "@/domains/financial/price-lists";
 import { useL } from "@/lib/i18n/LocalizationProvider";

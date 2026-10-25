@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { ConsignmentNoteProfileEditor } from "@/apps/master-data/editors/ConsignmentNoteProfileEditor";
+import { ConsignmentNoteProfileEditor } from "@/domains/orders/components/ConsignmentNoteProfileEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { consignmentNoteProfiles, useSetDefaultConsignmentNoteProfile, type ConsignmentNoteProfileRow } from "@/domains/orders/consignment-note-profiles";
 import { getApiErrorMessage } from "@/lib/api/errors";

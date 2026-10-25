@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
 
 import { FormSection } from "@/components/ui/form-section";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, EnumSelectField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, EnumSelectField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
 import { resolveLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 import {
   MAX_ATTRIBUTE_KEY_LENGTH,

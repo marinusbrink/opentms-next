@@ -68,7 +68,7 @@ beforeEach(() => {
   detail = { data: undefined, isLoading: false, error: null };
 });
 
-import { CurrencyEditor } from "@/apps/master-data/editors/CurrencyEditor";
+import { CurrencyEditor } from "@/domains/master-data/components/CurrencyEditor";
 
 const stored = {
   id: "c1",

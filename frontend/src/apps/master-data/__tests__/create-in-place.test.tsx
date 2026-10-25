@@ -28,32 +28,32 @@ vi.mock("@/lib/abp/queries", () => ({
   useApplicationConfiguration: () => ({ data: { currentTenant: { id: tenantId }, auth: { grantedPolicies: grants }, features: { values: features } } }),
 }));
 
-vi.mock("@/apps/master-data/editors/CountryEditor", async () => ({ CountryEditor: (await import("./create-in-place-test-mocks")).stubEditor("Country") }));
-vi.mock("@/apps/master-data/editors/CurrencyEditor", async () => ({ CurrencyEditor: (await import("./create-in-place-test-mocks")).stubEditor("Currency") }));
-vi.mock("@/apps/master-data/editors/DriverEditor", async () => ({ DriverEditor: (await import("./create-in-place-test-mocks")).stubEditor("Driver") }));
-vi.mock("@/apps/master-data/editors/GeographicalRegionEditor", async () => ({ GeographicalRegionEditor: (await import("./create-in-place-test-mocks")).stubEditor("GeographicalRegion") }));
-vi.mock("@/apps/master-data/editors/ProductEditor", async () => ({ ProductEditor: (await import("./create-in-place-test-mocks")).stubEditor("Product") }));
-vi.mock("@/apps/master-data/editors/RelationCategoryEditor", async () => ({ RelationCategoryEditor: (await import("./create-in-place-test-mocks")).stubEditor("RelationCategory") }));
-vi.mock("@/apps/master-data/editors/RelationEditor", async () => ({ RelationEditor: (await import("./create-in-place-test-mocks")).stubEditor("Relation") }));
-vi.mock("@/apps/master-data/editors/TemperatureEditor", async () => ({ TemperatureEditor: (await import("./create-in-place-test-mocks")).stubEditor("Temperature") }));
-vi.mock("@/apps/master-data/editors/TransportCharacteristicsEditor", async () => ({
+vi.mock("@/domains/master-data/components/CountryEditor", async () => ({ CountryEditor: (await import("./create-in-place-test-mocks")).stubEditor("Country") }));
+vi.mock("@/domains/master-data/components/CurrencyEditor", async () => ({ CurrencyEditor: (await import("./create-in-place-test-mocks")).stubEditor("Currency") }));
+vi.mock("@/domains/master-data/components/DriverEditor", async () => ({ DriverEditor: (await import("./create-in-place-test-mocks")).stubEditor("Driver") }));
+vi.mock("@/domains/master-data/components/GeographicalRegionEditor", async () => ({ GeographicalRegionEditor: (await import("./create-in-place-test-mocks")).stubEditor("GeographicalRegion") }));
+vi.mock("@/domains/master-data/components/ProductEditor", async () => ({ ProductEditor: (await import("./create-in-place-test-mocks")).stubEditor("Product") }));
+vi.mock("@/domains/master-data/components/RelationCategoryEditor", async () => ({ RelationCategoryEditor: (await import("./create-in-place-test-mocks")).stubEditor("RelationCategory") }));
+vi.mock("@/domains/master-data/components/RelationEditor", async () => ({ RelationEditor: (await import("./create-in-place-test-mocks")).stubEditor("Relation") }));
+vi.mock("@/domains/master-data/components/TemperatureEditor", async () => ({ TemperatureEditor: (await import("./create-in-place-test-mocks")).stubEditor("Temperature") }));
+vi.mock("@/domains/master-data/components/TransportCharacteristicsEditor", async () => ({
   TransportCharacteristicsEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportCharacteristics"),
 }));
-vi.mock("@/apps/master-data/editors/TransportUnitEditor", async () => ({ TransportUnitEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportUnit") }));
-vi.mock("@/apps/master-data/editors/VehicleEditor", async () => ({ VehicleEditor: (await import("./create-in-place-test-mocks")).stubEditor("Vehicle") }));
-vi.mock("@/apps/master-data/editors/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
-vi.mock("@/apps/master-data/editors/WaypointTypeEditor", async () => ({ WaypointTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("WaypointType") }));
-vi.mock("@/apps/master-data/editors/VatPercentageEditor", async () => ({ VatPercentageEditor: (await import("./create-in-place-test-mocks")).stubEditor("VatPercentage") }));
-vi.mock("@/apps/master-data/editors/PriceListEditor", async () => ({ PriceListEditor: (await import("./create-in-place-test-mocks")).stubEditor("PriceList") }));
-vi.mock("@/apps/master-data/editors/DiscountOrSurchargeEditor", async () => ({ DiscountOrSurchargeEditor: (await import("./create-in-place-test-mocks")).stubEditor("DiscountOrSurcharge") }));
-vi.mock("@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor", async () => ({
+vi.mock("@/domains/master-data/components/TransportUnitEditor", async () => ({ TransportUnitEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportUnit") }));
+vi.mock("@/domains/master-data/components/VehicleEditor", async () => ({ VehicleEditor: (await import("./create-in-place-test-mocks")).stubEditor("Vehicle") }));
+vi.mock("@/domains/master-data/components/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
+vi.mock("@/domains/orders/components/WaypointTypeEditor", async () => ({ WaypointTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("WaypointType") }));
+vi.mock("@/domains/financial/components/VatPercentageEditor", async () => ({ VatPercentageEditor: (await import("./create-in-place-test-mocks")).stubEditor("VatPercentage") }));
+vi.mock("@/domains/financial/components/PriceListEditor", async () => ({ PriceListEditor: (await import("./create-in-place-test-mocks")).stubEditor("PriceList") }));
+vi.mock("@/domains/financial/components/DiscountOrSurchargeEditor", async () => ({ DiscountOrSurchargeEditor: (await import("./create-in-place-test-mocks")).stubEditor("DiscountOrSurcharge") }));
+vi.mock("@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor", async () => ({
   ConsignmentNoteFixedDescriptionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ConsignmentNoteFixedDescription"),
 }));
-vi.mock("@/apps/master-data/editors/ReportDefinitionEditor", async () => ({ ReportDefinitionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ReportDefinition") }));
+vi.mock("@/domains/platform/components/ReportDefinitionEditor", async () => ({ ReportDefinitionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ReportDefinition") }));
 vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", async () => ({ OrganizationUnitFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("OrganizationUnit") }));
 vi.mock("@/domains/platform/components/UserFormDialog", async () => ({ UserFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("User") }));
 
-import { useCreateInPlace, withId, type CreatableEntity, type CreatedRecord, type CreateInPlaceProps } from "@/apps/master-data/components/create-in-place";
+import { useCreateInPlace, withId, type CreatableEntity, type CreatedRecord, type CreateInPlaceProps } from "@/domains/master-data/components/create-in-place";
 import {
   countries,
   currencies,

@@ -40,9 +40,9 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
-import { TimeSlotEditor } from "@/apps/master-data/editors/TimeSlotEditor";
-import { TransportOrderTypeEditor } from "@/apps/master-data/editors/TransportOrderTypeEditor";
-import { WaypointTypeEditor } from "@/apps/master-data/editors/WaypointTypeEditor";
+import { TimeSlotEditor } from "@/domains/orders/components/TimeSlotEditor";
+import { TransportOrderTypeEditor } from "@/domains/orders/components/TransportOrderTypeEditor";
+import { WaypointTypeEditor } from "@/domains/orders/components/WaypointTypeEditor";
 import { parseTimeOfDay, timeOfDay } from "@/domains/orders/reference-data";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;

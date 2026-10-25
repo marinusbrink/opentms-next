@@ -79,7 +79,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api/client";
-import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
+import { RelationEditor } from "@/domains/master-data/components/RelationEditor";
 import { FORM_SECTION_CAPTION } from "@/components/ui/form-section";
 import type { RelationDto, RelationRoles } from "@/domains/master-data/entities";
 

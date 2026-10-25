@@ -43,7 +43,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
 import { HtmlBodyField } from "@/apps/master-data/components/HtmlBodyField";
 import { EmailTemplateEditor } from "@/apps/master-data/editors/EmailTemplateEditor";
-import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
+import { ReportDefinitionEditor } from "@/domains/platform/components/ReportDefinitionEditor";
 import { installProseMirrorDomStubs, typeAtEnd } from "@/components/ui/__tests__/rich-text-test-helpers";
 import { DEFAULTS, TAG_GROUPS, defaultsKey, deferred } from "./email-template-test-fixtures";
 import {

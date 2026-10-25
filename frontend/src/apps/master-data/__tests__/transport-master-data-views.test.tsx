@@ -30,12 +30,12 @@ vi.mock("@/components/ui/select", async () => {
   const mocks = await import("./run2-test-mocks");
   return { Select: mocks.MockSelect, SelectTrigger: mocks.MockSelectTrigger, SelectValue: mocks.Nothing, SelectContent: mocks.Nothing, SelectItem: mocks.Nothing };
 });
-vi.mock("@/apps/master-data/editors/PriceListEditor", () => ({ PriceListEditor: () => <div data-testid="price-list-editor" /> }));
+vi.mock("@/domains/financial/components/PriceListEditor", () => ({ PriceListEditor: () => <div data-testid="price-list-editor" /> }));
 vi.mock("@/apps/master-data/editors/RelationFinancialSettingsEditor", () => ({
   RelationFinancialSettingsEditor: (props: { mode: string; relationId?: string; readOnly: boolean }) => <div data-testid="settings-editor" data-mode={props.mode} data-relation-id={props.relationId ?? ""} data-readonly={String(props.readOnly)} />,
 }));
-vi.mock("@/apps/master-data/editors/ConsignmentNoteProfileEditor", () => ({ ConsignmentNoteProfileEditor: () => <div data-testid="profile-editor" /> }));
-vi.mock("@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor", () => ({ ConsignmentNoteFixedDescriptionEditor: () => <div data-testid="fixed-text-editor" /> }));
+vi.mock("@/domains/orders/components/ConsignmentNoteProfileEditor", () => ({ ConsignmentNoteProfileEditor: () => <div data-testid="profile-editor" /> }));
+vi.mock("@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor", () => ({ ConsignmentNoteFixedDescriptionEditor: () => <div data-testid="fixed-text-editor" /> }));
 vi.mock("@/apps/master-data/editors/OrderAttributeDefinitionEditor", () => ({ OrderAttributeDefinitionEditor: () => <div data-testid="order-attribute-editor" /> }));
 vi.mock("@/apps/master-data/editors/TripAttributeDefinitionEditor", () => ({ TripAttributeDefinitionEditor: () => <div data-testid="trip-attribute-editor" /> }));
 vi.mock("@/apps/master-data/editors/ViaDepotRuleEditor", () => ({ ViaDepotRuleEditor: () => <div data-testid="via-depot-editor" /> }));

@@ -2,7 +2,7 @@ import type { ColDef } from "ag-grid-community";
 import type { ComponentType, ReactNode } from "react";
 
 import { featureChain } from "@/app/app-features";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import type { EntityLookupProps } from "@/components/ui/entity-lookup";
 import type { LinesGridProps } from "@/components/ui/lines-grid";
 import type { MultiSelectProps } from "@/components/ui/multi-select";
