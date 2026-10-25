@@ -200,6 +200,59 @@ See design 56; order save p95 < 500 ms (the aggregate, ≤ 5 outbox rows, one de
 6. A Draft can be saved incomplete; Confirm validates. Boundary agents (later) create Drafts through `Create` with
    `Source = Agent`.
 
+**Build notes (implementation of 2026-10-25, branch `feat/orders-transport-orders`).** Decisions the design left open and
+deviations, each small and reversible:
+
+7. **Financial terms come with the request.** Design 57 publishes no reader of `RelationFinancialSettings`, so Orders
+   cannot copy the customer's defaults itself: `Create` and `PUT /{id}/financial-terms` take the terms as posted (the
+   screen reads `/api/financial/relation-financial-settings/by-relation/{id}` and asks the clerk on a customer change);
+   without terms an order starts with EUR, no lists. The approval rule `FinancialDefaultsMismatch` passes for the same
+   reason until Financial publishes the defaults. The ids posted are validated through `IFinancialReferenceLookup`.
+8. **Master Data additions (the one exception to "only your module").** `IMasterDataReferenceLookup` gained
+   `GetRelationAddressesAsync(ids)` (address, coordinates, zone, region ids via the postal-code matcher plus the relation's
+   own regions), `GetRelationDefaultAddressesAsync(relationIds)` (the relation list's address rule, for the CMR parties),
+   `GetReferencesAsync(kind, ids)` (names of transport units, products, product codes, temperatures, vehicle types,
+   characteristics, vehicles, combinations, drivers, contact persons) and `GetOwnCompanyAsync()`. The customer's *role* is
+   not checked (the lookup carries no roles); the trip type id of a trip request is Planning's to check.
+9. **Shapes.** `FreightDetails`, `StopDetails` and `TransportOrderFinancialTerms` are owned types shared by the order, its
+   lines and stops, the pattern and the template; the order's price lists and discounts/surcharges are child rows of the
+   order (`TransportOrderPriceLists`, `TransportOrderDiscountsOrSurcharges`), not of the owned terms. The trip request's
+   vehicle and driver ids, a profile's box sets and fixed-description ids, and a template line's measurements and
+   characteristics are jsonb (AD-06); the order line keeps its measurement and characteristic tables. The template's
+   stops live in two tables (`TransportOrderTemplateStops` per line, `TransportOrderTemplateDefaultStops` the pattern).
+   The order stores `CustomerName` (the list's search and sort column; refreshed on every save of the customer) and a
+   `Remarks` child for the revision reasons. `(TenantId, Number)` is unique with the filter `Number IS NOT NULL`,
+   `(TenantId, SourceTemplateId, OrderDate, CopyIndex)` with `SourceTemplateId IS NOT NULL` (a plain `NULLS NOT DISTINCT`
+   would make two Drafts or two orders of one date collide); the latter is named `IX_TransportOrders_TenantId_Template_Date_Copy`
+   because the conventional name exceeds PostgreSQL's 63 characters, as do seven FK names, which carry short explicit names.
+10. **Routes.** ABP's conventional routing gives `PUT /{id}/line?lineId=` and `DELETE /{id}/line?lineId=` for the single-line
+    commands, `POST /validate-approval` and `/approve-many` for the approval of several orders, `GET /{id}/download` and
+    `GET /document-list` on the consignment note, `POST /{id}/materialise`, `/from-order/{orderId}` → `POST /create-from-order?orderId=`
+    and `POST /copy-order?orderId=`; design 61's client follows the generated contract.
+11. **CMR.** A print makes **one document per order** among the selected lines (a trip print therefore returns a list); the
+    `GroupByLeg` flag travels to the template. The profile holds an optional `ReportDefinitionId`; without one the tenant's
+    default of purpose `ConsignmentNote` in the UI culture (else any culture) renders. Box 1's customer and box 21's own
+    company print the relation's default address; stops print their explicit address. The 30 s render budget is a
+    constant (`ConsignmentNoteConsts.RenderTimeoutSeconds`); `Orders:RenderTimedOut` travels as 409. Numbers are
+    `CMR-<year>-<6 digits>` from `Orders.ConsignmentNote`.
+12. **Approval.** `NextInvoicePrice` proposes Archived below € 0,50 (or when never calculated); `PriceCalculationCorrect`
+    fails while the rate lines have no calculation version; `FixedPriceFilled` fails on a fixed price of 0;
+    `ReferencesMustExist` checks the customer and the stop relations through the lookup; `AllStopsArrived` reads the legs'
+    destination actuals. The approval hash is SHA-256 over the ordered results (`ApprovalEvaluator.Hash`).
+13. **Attributes.** Keys must be defined (`OrderAttributeDefinition` of the target; archived definitions keep their stored
+    values readable); the server refuses an undefined key with `Orders:InvalidAttributes {key}`.
+14. **Templates.** The hourly job is an ABP periodic background worker registered by the Orders application module behind
+    `Orders:TemplateMaterialisation:Enabled` (default true, period `Orders:TemplateMaterialisation:Period`, default 1 h); it
+    visits every tenant and runs each template in its own transaction. Copies of "copy order" are Open orders with
+    `Source = Screen` and no template id; materialised orders carry `Source = Template`.
+15. **Platform.** `ReportPurpose.ConsignmentNote = 6` needed its localization texts (`Platform:ReportPurpose.ConsignmentNote`)
+    for the Platform parity test; the catalogue fragment has 232 fields. The frontend's purpose table
+    (`frontend/src/domains/platform/master-data.ts`) is design 61's to extend.
+16. **Tests.** Financial's and Planning's published contracts have no implementation in this branch: `backend/test/
+    OpenTms.EntityFrameworkCore.Tests/Fakes/OrdersFakes.cs` holds `Fake*` stand-ins (deleted at integration). SQLite runs
+    without transactions, so the SQLite test module swaps the number-sequence generator and the derived-value scheduler for
+    lenient/recording doubles; both rules are covered on PostgreSQL. The render-timeout path has no automated test (the budget is a constant).
+
 ## Security quickscan
 
 Permissions per design 56; input bounded (≤ 200 lines, ≤ 50 stops per line, ≤ 50 references, texts ≤ 2,500); ids
