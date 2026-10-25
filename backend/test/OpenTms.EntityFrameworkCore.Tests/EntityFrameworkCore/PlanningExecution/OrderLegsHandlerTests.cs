@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenTms.Financial.Tariffs.Published;
 using OpenTms.MasterData.Relations;
 using OpenTms.Orders.Events;
-using OpenTms.Orders.Published;
+using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
@@ -19,15 +18,17 @@ namespace OpenTms.EntityFrameworkCore.PlanningExecution;
 /// <summary>
 /// Planning's reaction to the Orders facts on SQLite (design 59 "Generation"; orders.md 18–28 corrected; trips.md 52):
 /// legs on confirm, via-depot rules, regeneration after stop changes (unassign + warning), cancellation, and the
-/// "Tevens trip" request honoured once. Risk class: Critical (idempotency) / High (trip request).
+/// "Tevens trip" request honoured once. The orders are real Orders rows: the Orders service publishes the facts and
+/// SQLite delivers them in process, so the handler under test runs on the real published readers.
+/// Risk class: Critical (idempotency) / High (trip request).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class OrderLegsHandlerTests : PlanningAppServiceTestBase
 {
-    private PricingLineDto Line((Guid, Guid) from, (Guid, Guid) to, decimal quantity = 10, int day = 26, params Guid[] regions)
+    private TransportOrderLineInputDto Line((Guid, Guid) from, (Guid, Guid) to, decimal quantity = 10, int day = 26)
         => LineOf(quantity, 1000,
-            StopAt(from, Load, new DateOnly(2026, 10, day), "From", 52.09, 5.12, At(8, 0, day), At(10, 0, day), regions: regions),
-            StopAt(to, Unload, new DateOnly(2026, 10, day), "To", 52.37, 4.90, At(12, 0, day), At(14, 0, day), regions: regions));
+            StopAt(from, Load, new DateOnly(2026, 10, day), At(8, 0, day), At(10, 0, day)),
+            StopAt(to, Unload, new DateOnly(2026, 10, day), At(12, 0, day), At(14, 0, day)));
 
     [Fact]
     public async Task Confirming_an_order_generates_one_leg_per_stop_pair_and_confirming_again_changes_nothing()
@@ -36,15 +37,14 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         var a = await PlaceAsync("A", "A", 52.0, 5.0);
         var b = await PlaceAsync("B", "B", 52.1, 5.1);
         var c = await PlaceAsync("C", "C", 52.2, 5.2);
-        var line = LineOf(10, 1000,
-            StopAt(a, Load, Day, "A", 52.0, 5.0),
-            StopAt(b, Unload, Day, "B", 52.1, 5.1),
-            StopAt(c, Unload, Day.AddDays(1), "C", 52.2, 5.2));
-        var snapshot = Order(a.RelationId, line, LineOf(2, 200, StopAt(a, Load, Day, "A", 52.0, 5.0), StopAt(c, Unload, Day, "C", 52.2, 5.2)));
+        var order = await OrderAsync(a.RelationId,
+            LineOf(10, 1000, StopAt(a, Load, Day), StopAt(b, Unload, Day), StopAt(c, Unload, Day.AddDays(1))),
+            LineOf(2, 200, StopAt(a, Load, Day), StopAt(c, Unload, Day)));
+        var firstLineId = order.Lines.Single(l => l.Position == 1).Id!.Value;
 
-        var orderId = await ConfirmOrderAsync(snapshot);
+        var orderId = await ConfirmOrderAsync(order);
 
-        var legs = (await LegsOfOrderAsync(orderId)).OrderBy(l => l.OrderLineId == line.LineId ? 0 : 1).ThenBy(l => l.Position).ToList();
+        var legs = (await LegsOfOrderAsync(orderId)).OrderBy(l => l.OrderLineId == firstLineId ? 0 : 1).ThenBy(l => l.Position).ToList();
         legs.Count.ShouldBe(3);
         legs[0].OriginName.ShouldBe("A");
         legs[0].DestinationName.ShouldBe("B");
@@ -63,7 +63,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
 
         var unplanned = await Legs.GetListAsync(LegList(orderId: orderId));
         unplanned.Rows.Count.ShouldBe(3);
-        unplanned.Rows.ShouldAllBe(r => r.OrderNumber != null && r.CustomerName != null);
+        unplanned.Rows.ShouldAllBe(r => r.OrderNumber != null && r.CustomerName == "A");
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         rule.DepotAddressCity.ShouldBe("Utrecht");
         rule.RelationName.ShouldBe("A");
 
-        var orderId = await ConfirmOrderAsync(Order(a.RelationId, Line(a, b)));
+        var orderId = await ConfirmedOrderAsync(a.RelationId, Line(a, b));
 
         var legs = (await LegsOfOrderAsync(orderId)).OrderBy(l => l.Position).ToList();
         legs.Count.ShouldBe(2);
@@ -103,7 +103,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         legs[1].OriginPlannedDate.ShouldBe(Day.AddDays(1));
 
         /* Another customer: no rule, one leg. */
-        var other = await ConfirmOrderAsync(Order(b.RelationId, Line(a, b)));
+        var other = await ConfirmedOrderAsync(b.RelationId, Line(a, b));
         (await LegsOfOrderAsync(other)).ShouldHaveSingleItem();
 
         /* The rule archived: regeneration of the first order drops the via legs for a direct one. */
@@ -119,6 +119,26 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
     }
 
     [Fact]
+    public async Task A_rule_without_departure_type_departs_the_depot_with_the_arrival_types_successor()
+    {
+        using var _ = InTenantA();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot, "Utrecht");
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var b = await PlaceAsync("B", "B", 52.5, 5.5);
+        await GetRequiredService<IViaDepotRuleAppService>().CreateAsync(new ViaDepotRuleCreateDto
+        {
+            Scope = ViaDepotScope.Customer, RelationId = a.RelationId, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId, ArrivalWaypointTypeId = DepotIn
+        });
+
+        var orderId = await ConfirmedOrderAsync(a.RelationId, Line(a, b));
+
+        var legs = (await LegsOfOrderAsync(orderId)).OrderBy(l => l.Position).ToList();
+        legs.Count.ShouldBe(2);
+        legs[0].DestinationWaypointTypeId.ShouldBe(DepotIn);
+        legs[1].OriginWaypointTypeId.ShouldBe(DepotOut, "DEPOTIN's successive waypoint type (design 59), read through Orders' published lookup");
+    }
+
+    [Fact]
     public async Task A_changed_stop_takes_the_leg_off_its_trip_rebuilds_the_stops_and_warns_and_a_cancelled_order_loses_its_legs()
     {
         using var _ = InTenantA();
@@ -126,19 +146,19 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         var a = await PlaceAsync("A", "A", 52.0, 5.0);
         var b = await PlaceAsync("B", "B", 52.1, 5.1);
         var b2 = await PlaceAsync("B2", "B two", 52.3, 5.3);
-        var snapshot = Order(a.RelationId, Line(a, b));
-        var orderId = await ConfirmOrderAsync(snapshot);
+        var order = await OrderAsync(a.RelationId, Line(a, b));
+        var orderId = await ConfirmOrderAsync(order);
         var legId = (await LegIdsOfOrderAsync(orderId)).Single();
         var trip = await CreateTripAsync(type, At(6), At(18));
         trip = await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = [legId] });
         trip.Stops.Count.ShouldBe(2);
 
         /* The destination moves to another address: the leg is unassigned, the trip rebuilt and warned. */
-        var stop = snapshot.Lines[0].Stops[1];
-        stop.RelationId = b2.RelationId;
-        stop.RelationAddressId = b2.AddressId;
-        stop.AddressName = "B two";
-        await Handler.HandleEventAsync(new TransportOrderStopsChangedEto { OrderId = orderId, LineIds = [snapshot.Lines[0].LineId!.Value] });
+        var reloaded = await Orders.GetAsync(orderId);
+        var line = LinesOf(reloaded).Single();
+        line.Stops![1].RelationId = b2.RelationId;
+        line.Stops[1].RelationAddressId = b2.AddressId;
+        await Orders.UpdateLineAsync(orderId, line.Id!.Value, line);
 
         var leg = (await LegsOfOrderAsync(orderId)).Single();
         leg.Id.ShouldBe(legId, "the key did not change, so the leg kept its id");
@@ -151,31 +171,30 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
 
         /* Replan, then cancel the order: the leg leaves the trip and is deleted. */
         await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = [legId] });
-        await Handler.HandleEventAsync(new TransportOrderCancelledEto { OrderId = orderId });
+        await Orders.CancelAsync(orderId);
         (await LegsOfOrderAsync(orderId)).ShouldBeEmpty();
         (await Trips.GetAsync(trip.Id)).Stops.ShouldBeEmpty();
 
-        /* Cancelling again is harmless. */
+        /* Delivered again (at least once): harmless. */
         await Handler.HandleEventAsync(new TransportOrderCancelledEto { OrderId = orderId });
         (await LegsOfOrderAsync(orderId)).ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task A_removed_line_deletes_its_legs_and_a_snapshot_the_reader_no_longer_has_deletes_everything()
+    public async Task A_removed_line_deletes_its_legs_and_an_order_the_reader_no_longer_has_deletes_everything()
     {
         using var _ = InTenantA();
         var a = await PlaceAsync("A", "A", 52.0, 5.0);
         var b = await PlaceAsync("B", "B", 52.1, 5.1);
-        var snapshot = Order(a.RelationId, Line(a, b), Line(b, a, quantity: 3));
-        var orderId = await ConfirmOrderAsync(snapshot);
+        var order = await OrderAsync(a.RelationId, Line(a, b), Line(b, a, quantity: 3));
+        var orderId = await ConfirmOrderAsync(order);
         (await LegsOfOrderAsync(orderId)).Count.ShouldBe(2);
 
-        snapshot.Lines.RemoveAt(1);
-        await Handler.HandleEventAsync(new TransportOrderLinesChangedEto { OrderId = orderId });
-        (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem().OrderLineId.ShouldBe(snapshot.Lines[0].LineId!.Value);
+        await Orders.DeleteLineAsync(orderId, order.Lines.Single(l => l.Position == 2).Id!.Value);
+        (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem().OrderLineId.ShouldBe(order.Lines.Single(l => l.Position == 1).Id!.Value);
 
-        World.Snapshots.TryRemove((CurrentTenant.Id, orderId), out var removed);
-        removed.ShouldNotBeNull();
+        /* The order row is gone (whatever the fact that removed it): the next regeneration finds no snapshot and clears the legs. */
+        await Run.RemoveWithoutEventsAsync(orderId);
         await Handler.HandleEventAsync(new TransportOrderStopsChangedEto { OrderId = orderId });
         (await LegsOfOrderAsync(orderId)).ShouldBeEmpty();
     }
@@ -188,11 +207,8 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot | RelationRoles.OwnCompany);
         var a = await PlaceAsync("A", "A", 52.0, 5.0);
         var carrier = await PlaceAsync("CARR", "Carrier BV", 52, 5, RelationRoles.Carrier);
-        var snapshot = Order(a.RelationId, Line(depot, a), Line(depot, a, quantity: 2));
-        var orderId = snapshot.OrderId!.Value;
-        World.TripRequests[(CurrentTenant.Id, orderId)] = new TripRequestDto
+        var request = new TransportOrderTripRequestInputDto
         {
-            OrderId = orderId,
             TransportTripTypeId = type,
             DepartureRelationId = depot.RelationId,
             DepartureAddressId = depot.AddressId,
@@ -204,13 +220,14 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
             AgreedPurchaseAmount = 450m,
             AgreedPurchaseCurrencyCode = "EUR"
         };
+        var order = await OrderAsync(a.RelationId, request, Line(depot, a), Line(depot, a, quantity: 2));
         GetRequiredService<TripCreatedRecorder>().Created.Clear();
 
-        await ConfirmOrderAsync(snapshot);
+        var orderId = await ConfirmOrderAsync(order);
 
         var trips = await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId);
         var trip = trips.ShouldHaveSingleItem();
-        trip.Number.ShouldBe("TR-2026-00001");
+        trip.Number.ShouldBe($"TR-{Run.Today.Year}-00001");
         trip.CarrierRelationId.ShouldBe(carrier.RelationId);
         trip.Execution.ShouldBe(TripExecution.Subcontracted, "a carrier means subcontracted");
         trip.DepartureRelationId.ShouldBe(depot.RelationId);
@@ -221,6 +238,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         eto.CreatedFromOrderId.ShouldBe(orderId);
         eto.AgreedPurchaseAmount.ShouldBe(450m);
         eto.AgreedPurchaseCurrencyCode.ShouldBe("EUR");
+        (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull().TripId.ShouldBe(trip.Id, "Orders recorded the created trip on the request");
 
         /* Delivered again, and later edits: the same trip, nothing new. */
         await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
@@ -229,10 +247,10 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         GetRequiredService<TripCreatedRecorder>().Created.ShouldHaveSingleItem();
 
         /* A request Orders already marked as handled is skipped too. */
-        var another = Order(a.RelationId, Line(depot, a));
-        World.TripRequests[(CurrentTenant.Id, another.OrderId!.Value)] = new TripRequestDto { OrderId = another.OrderId.Value, TransportTripTypeId = type, PlannedDeparture = At(6), TripId = Guid.NewGuid() };
+        var another = await OrderAsync(a.RelationId, request, Line(depot, a));
+        await Run.RecordTripAsync(another.Id, Guid.NewGuid());
         await ConfirmOrderAsync(another);
-        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == another.OrderId)).ShouldBeEmpty();
+        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == another.Id)).ShouldBeEmpty();
     }
 
     [Fact]
@@ -243,14 +261,14 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         {
             var a = await PlaceAsync("A", "A", 52.0, 5.0);
             var b = await PlaceAsync("B", "B", 52.1, 5.1);
-            orderId = await ConfirmOrderAsync(Order(a.RelationId, Line(a, b)));
+            orderId = await ConfirmedOrderAsync(a.RelationId, Line(a, b));
             (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem();
         }
 
         using var _ = InTenantB();
         (await LegsOfOrderAsync(orderId)).ShouldBeEmpty();
         (await Legs.GetListAsync(LegList(orderId: orderId))).Rows.ShouldBeEmpty();
-        /* Tenant B confirming the same id regenerates nothing: the fake reader knows no such order for B. */
+        /* Tenant B confirming the same id regenerates nothing: Orders' reader knows no such order for B. */
         await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
         (await LegsOfOrderAsync(orderId)).ShouldBeEmpty();
     }

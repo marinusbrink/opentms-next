@@ -26,17 +26,16 @@ public class LegAppServiceTests : PlanningAppServiceTestBase
         var a = await PlaceAsync("A", "Alpha", 52.0, 5.0);
         var b = await PlaceAsync("B", "Beta", 52.1, 5.1);
         var c = await PlaceAsync("C", "Gamma", 52.2, 5.2);
-        var early = Order(a.RelationId, LineOf(1, 100, StopAt(a, Load, Day, "Alpha", 52, 5), StopAt(b, Unload, Day, "Beta", 52.1, 5.1)));
-        early.Lines[0].Stops[0].Reference = "REF-EARLY";
-        var late = Order(c.RelationId, LineOf(2, 200, StopAt(c, Load, Day.AddDays(3), "Gamma", 52.2, 5.2), StopAt(b, Unload, Day.AddDays(3), "Beta", 52.1, 5.1)));
+        var early = await OrderAsync(a.RelationId, LineOf(1, 100, StopAt(a, Load, Day, reference: "REF-EARLY"), StopAt(b, Unload, Day)));
+        var late = await OrderAsync(c.RelationId, LineOf(2, 200, StopAt(c, Load, Day.AddDays(3)), StopAt(b, Unload, Day.AddDays(3))));
         await ConfirmOrderAsync(early);
         await ConfirmOrderAsync(late);
 
         var all = await Legs.GetListAsync(LegList());
         all.TotalCount.ShouldBe(2);
         all.Rows.Select(r => r.Origin.Name).ShouldBe(["Alpha", "Gamma"], "by origin date");
-        all.Rows[0].CustomerName.ShouldStartWith("Customer");
-        all.Rows[0].OrderNumber.ShouldNotBeNull();
+        all.Rows[0].CustomerName.ShouldBe("Alpha", "the customer's name through Orders' published lookup");
+        all.Rows[0].OrderNumber.ShouldBe(early.Number ?? (await Orders.GetAsync(early.Id)).Number);
 
         (await Legs.GetListAsync(LegList(dateFrom: Day.AddDays(1)))).Rows.ShouldHaveSingleItem().Origin.Name.ShouldBe("Gamma");
         (await Legs.GetListAsync(LegList(dateTo: Day))).Rows.ShouldHaveSingleItem().Origin.Name.ShouldBe("Alpha");
@@ -60,9 +59,10 @@ public class LegAppServiceTests : PlanningAppServiceTestBase
         var type = await TripTypeAsync();
         var a = await PlaceAsync("A", "Alpha", 52.0, 5.0);
         var b = await PlaceAsync("B", "Beta", 52.1, 5.1);
-        var order = Order(a.RelationId, LineOf(1, 100,
-            StopAt(a, Load, Day, "Alpha", 52, 5, At(8), At(10, 0, 27)),
-            StopAt(b, Unload, Day, "Beta", 52.1, 5.1, At(12), At(14))));
+        /* The origin's window runs from 22:00 into the next morning (a window across midnight ends the next day). */
+        var order = await OrderAsync(a.RelationId, LineOf(1, 100,
+            StopAt(a, Load, Day, At(22), At(10, 0, 27)),
+            StopAt(b, Unload, Day, At(12), At(14))));
         var orderId = await ConfirmOrderAsync(order);
         var leg = (await Legs.GetListAsync(LegList(orderId: orderId))).Rows.Single();
 

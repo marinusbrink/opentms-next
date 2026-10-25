@@ -2,45 +2,38 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenTms.Fakes;
-using OpenTms.Financial.Tariffs.Published;
-using OpenTms.MasterData.Drivers;
 using OpenTms.MasterData.Fleet;
-using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Relations;
-using OpenTms.Orders.Events;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
+using OpenTms.TestDoubles;
+using OpenTms.TransportRun;
 using Volo.Abp.Domain.Repositories;
-using MasterDataNames = OpenTms.MasterData.LocalizedNameDto;
 
 namespace OpenTms.EntityFrameworkCore.PlanningExecution;
 
 /// <summary>
 /// Shared plumbing for the Planning &amp; Execution service tests on SQLite (design 59): the Master Data rows the trips
-/// refer to (relations with geocoded addresses, vehicle types, vehicles, drivers) are created through the Master Data
-/// services in the same tenant; the Orders facts come from the fake pricing reader (<see cref="PlanningFakeWorld"/>);
-/// derived-value requests are recorded (<see cref="RecordedDerivedValueRequests"/>) since SQLite runs no transactions.
+/// refer to (relations with geocoded addresses, vehicle types, vehicles, drivers) and the Orders master data (waypoint
+/// types, a transport unit, the order type) are created through the real services in the same tenant; orders are real
+/// Orders rows confirmed through the Orders service (SQLite delivers the facts in process, so Planning's handler
+/// generates the legs); routing and CO₂ come from <see cref="TestRoutingWorld"/>; derived-value requests are recorded
+/// (<see cref="RecordedDerivedValueRequests"/>) since SQLite runs no transactions.
 /// </summary>
-public abstract class PlanningAppServiceTestBase : ReferenceDataAppServiceTestBase
+public abstract class PlanningAppServiceTestBase : OpenTmsTestBase<PlanningTestModule>
 {
-    /// <summary>Orders waypoint type ids (no foreign key; design 56).</summary>
-    protected static readonly Guid Load = Guid.Parse("11111111-1111-1111-1111-111111111111");
-
-    protected static readonly Guid Unload = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-    protected static readonly Guid DepotIn = Guid.Parse("33333333-3333-3333-3333-333333333333");
-
-    protected static readonly Guid DepotOut = Guid.Parse("44444444-4444-4444-4444-444444444444");
-
-    protected static readonly Guid Pallet = Guid.Parse("55555555-5555-5555-5555-555555555555");
-
     protected static readonly DateOnly Day = new(2026, 10, 26);
 
     protected static readonly TimeSpan Cet = TimeSpan.FromHours(2);
 
-    protected PlanningFakeWorld World { get; }
+    protected Volo.Abp.MultiTenancy.ICurrentTenant CurrentTenant { get; }
+
+    protected Guid TenantA { get; } = Guid.NewGuid();
+
+    protected Guid TenantB { get; } = Guid.NewGuid();
+
+    protected TestRoutingWorld World { get; }
 
     protected RecordedDerivedValueRequests Requests { get; }
 
@@ -52,11 +45,21 @@ public abstract class PlanningAppServiceTestBase : ReferenceDataAppServiceTestBa
 
     protected IRepository<TransportTrip, Guid> TripRepository { get; }
 
-    private readonly Dictionary<Guid, Guid> _countries = new();
+    protected TransportRunFixture Run => GetRequiredService<TransportRunFixture>();
+
+    protected ITransportOrderAppService Orders => GetRequiredService<ITransportOrderAppService>();
+
+    protected OrderLegsHandler Handler => GetRequiredService<OrderLegsHandler>();
+
+    /// <summary>The Orders master data of one tenant (no foreign keys from Planning; design 56).</summary>
+    protected sealed record OrdersMasterData(Guid Load, Guid Unload, Guid DepotIn, Guid DepotOut, Guid Pallet, Guid OrderTypeId);
+
+    private readonly Dictionary<Guid, OrdersMasterData> _ordersMasterData = new();
 
     protected PlanningAppServiceTestBase()
     {
-        World = GetRequiredService<PlanningFakeWorld>();
+        CurrentTenant = GetRequiredService<Volo.Abp.MultiTenancy.ICurrentTenant>();
+        World = GetRequiredService<TestRoutingWorld>();
         Requests = GetRequiredService<RecordedDerivedValueRequests>();
         Trips = GetRequiredService<ITransportTripAppService>();
         Legs = GetRequiredService<ILegAppService>();
@@ -64,82 +67,86 @@ public abstract class PlanningAppServiceTestBase : ReferenceDataAppServiceTestBa
         TripRepository = GetRequiredService<IRepository<TransportTrip, Guid>>();
     }
 
+    protected IDisposable InTenantA() => CurrentTenant.Change(TenantA);
+
+    protected IDisposable InTenantB() => CurrentTenant.Change(TenantB);
+
     protected static DateTimeOffset At(int hour, int minute = 0, int day = 26) => new(2026, 10, day, hour, minute, 0, Cet);
+
+    protected static OpenTms.Platform.ReferenceData.LocalizedNameDto Names(string en, string? nl = null) => TransportRunFixture.Names(en, nl);
+
+    protected static OpenTms.Platform.ReferenceData.ArchivableListRequestDto List(int start = 0, int end = 100, string? search = null, string? sortBy = null, string? sortDir = null, bool includeArchived = false)
+        => new() { StartRow = start, EndRow = end, WildcardSearch = search, SortBy = sortBy, SortDir = sortDir, IncludeArchived = includeArchived };
+
+    protected static OpenTms.Platform.Grid.GridSelectionDto Explicit(params Guid[] ids) => new() { Mode = "Explicit", ExplicitIds = [.. ids] };
+
+    protected static OpenTms.Platform.ReferenceData.NumberSequenceFormatDto Numbering(string? prefix = "X", bool year = false, bool month = false, string separator = "-", int digits = 5)
+        => new() { Prefix = prefix, IncludeYear = year, IncludeMonth = month, Separator = separator, Digits = digits };
+
+    /* Orders master data of the current tenant */
+
+    private OrdersMasterData Current => _ordersMasterData.TryGetValue(CurrentTenant.Id ?? Guid.Empty, out var md)
+        ? md
+        : throw new InvalidOperationException("Call PlaceAsync, TripTypeAsync or OrdersMasterDataAsync first: the Orders master data of this tenant is not built yet.");
+
+    protected Guid Load => Current.Load;
+
+    protected Guid Unload => Current.Unload;
+
+    protected Guid DepotIn => Current.DepotIn;
+
+    protected Guid DepotOut => Current.DepotOut;
+
+    protected Guid Pallet => Current.Pallet;
+
+    protected Guid OrderTypeId => Current.OrderTypeId;
+
+    /// <summary>Builds the tenant's Orders master data once: LOAD/UNLOAD, the depot pair (DEPOTIN whose successor is DEPOTOUT), a pallet unit, the order type.</summary>
+    protected async Task<OrdersMasterData> OrdersMasterDataAsync()
+    {
+        var tenant = CurrentTenant.Id ?? Guid.Empty;
+        if (_ordersMasterData.TryGetValue(tenant, out var existing))
+        {
+            return existing;
+        }
+
+        await Run.CountryAsync();
+        await Run.CurrencyAsync("EUR");
+        var load = await Run.WaypointTypeAsync("LOAD", "Load", "Laden", WaypointActivity.Load, 30);
+        var unload = await Run.WaypointTypeAsync("UNLOAD", "Unload", "Lossen", WaypointActivity.Unload, 30);
+        var depotOut = await Run.WaypointTypeAsync("DEPOTOUT", "Depot out", "Depot uit", WaypointActivity.Load, 15);
+        var depotIn = await Run.WaypointTypeAsync("DEPOTIN", "Depot in", "Depot in", WaypointActivity.Unload, 15, successorId: depotOut);
+        var pallet = await Run.TransportUnitAsync("Pallet");
+        var orderType = await Run.OrderTypeAsync(TransportOrderRequiredFields.None, TransportRunFixture.NewSuffix(), load, unload);
+        var md = new OrdersMasterData(load, unload, depotIn, depotOut, pallet, orderType);
+        _ordersMasterData[tenant] = md;
+        return md;
+    }
 
     /* Master Data fixtures */
 
     protected async Task<Guid> CountryAsync()
     {
-        var tenant = CurrentTenant.Id ?? Guid.Empty;
-        if (_countries.TryGetValue(tenant, out var id))
-        {
-            return id;
-        }
-
-        var country = await GetRequiredService<ICountryAppService>().CreateAsync(new CountryCreateDto
-        {
-            IsoAlpha2 = "NL",
-            IsoAlpha3 = "NLD",
-            Names = new MasterDataNames { ["en"] = "Netherlands", ["nl"] = "Nederland" },
-            PrimaryTimeZoneId = "Europe/Amsterdam"
-        });
-        _countries[tenant] = country.Id;
-        return country.Id;
+        await OrdersMasterDataAsync();
+        return await Run.CountryAsync();
     }
 
     /// <summary>A relation with one geocoded address; returns the relation and address ids.</summary>
     protected async Task<(Guid RelationId, Guid AddressId)> PlaceAsync(string code, string name, double latitude, double longitude, RelationRoles roles = RelationRoles.Customer | RelationRoles.Depot, string city = "Amsterdam")
     {
-        var relations = GetRequiredService<IRelationAppService>();
-        var relation = await relations.CreateAsync(new RelationCreateDto
-        {
-            Code = code,
-            Name = name,
-            Roles = roles,
-            Addresses =
-            [
-                new RelationAddressDto
-                {
-                    CountryId = await CountryAsync(),
-                    Street = "Main street",
-                    HouseNumber = "1",
-                    PostalCode = "1000AA",
-                    City = city,
-                    Latitude = latitude,
-                    Longitude = longitude,
-                    TimeZoneId = "Europe/Amsterdam"
-                }
-            ]
-        });
-        var address = (await relations.GetAddressesAsync(relation.Id)).Single();
-        return (relation.Id, address.Id!.Value);
+        await OrdersMasterDataAsync();
+        var place = await Run.PlaceAsync(code, name, roles, latitude, longitude, city);
+        return (place.RelationId, place.AddressId);
     }
 
     protected async Task<Guid> CharacteristicAsync(string code)
         => (await GetRequiredService<ITransportCharacteristicsAppService>().CreateAsync(new TransportCharacteristicsCreateDto { Code = code, Name = code })).Id;
 
-    protected async Task<Guid> VehicleTypeAsync(string name, VehicleTypeKind kind, double? maxEpq = null, double? maxLoadingMeters = null, params Guid[] characteristics)
-        => (await GetRequiredService<IVehicleTypeAppService>().CreateAsync(new VehicleTypeCreateDto
-        {
-            Name = name,
-            Kind = kind,
-            MaxEpq = maxEpq,
-            MaxLoadingMeters = maxLoadingMeters,
-            TransportCharacteristicsIds = characteristics.ToList()
-        })).Id;
+    protected Task<Guid> VehicleTypeAsync(string name, VehicleTypeKind kind, double? maxEpq = null, double? maxLoadingMeters = null, params Guid[] characteristics)
+        => Run.VehicleTypeAsync(name, kind, maxEpq, maxLoadingMeters, null, characteristics);
 
-    protected async Task<Guid> VehicleAsync(string name, Guid typeId, Guid ownerRelationId, double? grossKg = 18_000, double? maxPayloadKg = null, EuroClass? euroClass = EuroClass.Euro6, params Guid[] characteristics)
-        => (await GetRequiredService<IVehicleAppService>().CreateAsync(new VehicleCreateDto
-        {
-            Name = name,
-            VehicleTypeId = typeId,
-            OwnerRelationId = ownerRelationId,
-            GrossVehicleWeightKg = grossKg,
-            MaxPayloadKg = maxPayloadKg,
-            EuroClass = euroClass,
-            FuelType = FuelType.Diesel,
-            TransportCharacteristicIds = characteristics.ToList()
-        })).Id;
+    protected Task<Guid> VehicleAsync(string name, Guid typeId, Guid ownerRelationId, double? grossKg = 18_000, double? maxPayloadKg = null, EuroClass? euroClass = EuroClass.Euro6, params Guid[] characteristics)
+        => Run.VehicleAsync(name, typeId, ownerRelationId, grossKg, maxPayloadKg, euroClass, null, null, characteristics);
 
     protected async Task<Guid> CombinationAsync(string name, params Guid[] vehicleIds)
         => (await GetRequiredService<IVehicleCombinationAppService>().CreateAsync(new VehicleCombinationCreateDto
@@ -148,75 +155,70 @@ public abstract class PlanningAppServiceTestBase : ReferenceDataAppServiceTestBa
             Members = vehicleIds.Select((id, i) => new VehicleCombinationMemberInputDto { VehicleId = id, Position = i + 1 }).ToList()
         })).Id;
 
-    protected async Task<Guid> DriverAsync(string code, string firstName, string lastName)
-        => (await GetRequiredService<IDriverAppService>().CreateAsync(new DriverCreateDto { Code = code, FirstName = firstName, LastName = lastName })).Id;
+    protected Task<Guid> DriverAsync(string code, string firstName, string lastName) => Run.DriverAsync(code, firstName, lastName);
 
     protected async Task<Guid> TripTypeAsync(string code = "STD", TripExecution execution = TripExecution.OwnFleet)
-        => (await GetRequiredService<ITransportTripTypeAppService>().CreateAsync(new TransportTripTypeCreateDto
-        {
-            Code = code,
-            Names = Names(code),
-            Numbering = Numbering("TR", year: true),
-            DefaultExecution = execution
-        })).Id;
-
-    /* Orders facts (the fake pricing reader) */
-
-    protected static PricingStopDto StopAt((Guid RelationId, Guid AddressId) place, Guid waypointTypeId, DateOnly date, string name, double latitude, double longitude,
-        DateTimeOffset? windowFrom = null, DateTimeOffset? windowTill = null, int? plannedDurationMin = 30, string? city = null, params Guid[] regions) => new()
     {
-        StopId = Guid.NewGuid(),
-        RelationId = place.RelationId,
-        RelationAddressId = place.AddressId,
-        WaypointTypeId = waypointTypeId,
-        Date = date,
-        WindowFrom = windowFrom,
-        WindowTill = windowTill,
-        PlannedDurationMin = plannedDurationMin,
-        Latitude = latitude,
-        Longitude = longitude,
-        TimeZoneId = "Europe/Amsterdam",
-        AddressName = name,
-        City = city ?? name,
-        CountryCode = "NL",
-        GeographicalRegionIds = regions.ToList()
-    };
+        await OrdersMasterDataAsync();
+        return await Run.TripTypeAsync(code, execution);
+    }
 
-    protected static PricingLineDto LineOf(decimal quantity, double? weightKg, params PricingStopDto[] stops) => new()
+    /* Orders (real rows through the Orders service) */
+
+    /// <summary>A stop of an order line at a place; the window is given as instants of the day, stored as the local times of the address.</summary>
+    protected static TransportOrderStopInputDto StopAt((Guid RelationId, Guid AddressId) place, Guid waypointTypeId, DateOnly date,
+        DateTimeOffset? windowFrom = null, DateTimeOffset? windowTill = null, int? plannedDurationMin = 30, string? reference = null)
+        => TransportRunFixture.Stop(waypointTypeId, place.RelationId, place.AddressId, date, reference, null,
+            windowFrom == null ? null : TimeOnly.FromTimeSpan(windowFrom.Value.TimeOfDay), windowTill == null ? null : TimeOnly.FromTimeSpan(windowTill.Value.TimeOfDay), plannedDurationMin);
+
+    protected TransportOrderLineInputDto LineOf(decimal quantity, double? weightKg, params TransportOrderStopInputDto[] stops) => new()
     {
-        LineId = Guid.NewGuid(),
-        Position = 1,
         TransportUnitId = Pallet,
         Quantity = quantity,
         WeightKg = weightKg,
         LoadingMeters = (double)quantity * 0.4,
         Epq = (double)quantity,
-        Stops = stops.Select((s, i) => { s.Position = i + 1; return s; }).ToList()
+        Stops = stops.ToList()
     };
 
-    /// <summary>Registers an Open order with the fake reader for the current tenant.</summary>
-    protected PricingSnapshotDto Order(Guid customerRelationId, params PricingLineDto[] lines)
+    /// <summary>A Draft order of the customer with the given lines, dated <see cref="Day"/>, in the current tenant.</summary>
+    protected Task<TransportOrderDto> OrderAsync(Guid customerRelationId, params TransportOrderLineInputDto[] lines) => OrderAsync(customerRelationId, null, lines);
+
+    /// <summary>A Draft order with a "Tevens trip" request (Q9), honoured by Planning on the confirm.</summary>
+    protected async Task<TransportOrderDto> OrderAsync(Guid customerRelationId, TransportOrderTripRequestInputDto? tripRequest, params TransportOrderLineInputDto[] lines)
     {
-        var snapshot = new PricingSnapshotDto
+        await OrdersMasterDataAsync();
+        return await Orders.CreateAsync(new TransportOrderCreateDto
         {
-            OrderId = Guid.NewGuid(),
+            TransportOrderTypeId = OrderTypeId,
             CustomerRelationId = customerRelationId,
             OrderDate = Day,
-            Status = (int)TransportOrderStatus.Open,
-            Lines = lines.Select((l, i) => { l.Position = i + 1; return l; }).ToList()
-        };
-        World.Register(CurrentTenant.Id, snapshot, customerName: "Customer " + customerRelationId.ToString("N"));
-        return snapshot;
+            Lines = lines.ToList(),
+            TripRequest = tripRequest
+        });
     }
 
-    protected OrderLegsHandler Handler => GetRequiredService<OrderLegsHandler>();
-
-    /// <summary>Registers the order and lets Planning react to its confirmation (legs, and the trip when requested).</summary>
-    protected async Task<Guid> ConfirmOrderAsync(PricingSnapshotDto snapshot)
+    /// <summary>Confirms the order: Planning reacts to the fact in process (legs, and the trip when requested). Returns the order id.</summary>
+    protected async Task<Guid> ConfirmOrderAsync(TransportOrderDto order)
     {
-        await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = snapshot.OrderId!.Value });
-        return snapshot.OrderId.Value;
+        await Orders.ConfirmAsync(order.Id);
+        return order.Id;
     }
+
+    /// <summary>A confirmed order of the customer with the given lines.</summary>
+    protected async Task<Guid> ConfirmedOrderAsync(Guid customerRelationId, params TransportOrderLineInputDto[] lines)
+        => await ConfirmOrderAsync(await OrderAsync(customerRelationId, lines));
+
+    protected static List<TransportOrderLineInputDto> LinesOf(TransportOrderDto dto)
+        => dto.Lines.Select(l => new TransportOrderLineInputDto
+        {
+            Id = l.Id, TransportUnitId = l.TransportUnitId, ProductId = l.ProductId, Quantity = l.Quantity, WeightKg = l.WeightKg, LoadingMeters = l.LoadingMeters, Epq = l.Epq, Remarks = l.Remarks,
+            Stops = l.Stops.Select(s => new TransportOrderStopInputDto
+            {
+                Id = s.Id, WaypointTypeId = s.WaypointTypeId, RelationId = s.RelationId, RelationAddressId = s.RelationAddressId, Date = s.Date,
+                TimeSlotId = s.TimeSlotId, WindowFrom = s.WindowFrom, WindowTill = s.WindowTill, Reference = s.Reference, Remarks = s.Remarks, PlannedDurationMin = s.PlannedDurationMin
+            }).ToList()
+        }).ToList();
 
     protected Task<List<Leg>> LegsOfOrderAsync(Guid orderId) => LegRepository.GetListAsync(l => l.OrderId == orderId);
 

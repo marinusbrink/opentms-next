@@ -2,18 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenTms.Fakes;
 using OpenTms.Financial;
 using OpenTms.Financial.Invoicing;
 using OpenTms.Financial.Tariffs;
 using OpenTms.Financial.Tariffs.Calculators;
 using OpenTms.Financial.Tariffs.Handlers;
 using OpenTms.Financial.Tariffs.Published;
+using OpenTms.MasterData.Fleet;
+using OpenTms.MasterData.Relations;
 using OpenTms.Orders.Events;
+using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.Events;
-using OpenTms.PlanningExecution.Published;
+using OpenTms.PlanningExecution.Legs;
+using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.Events.Outbox;
+using OpenTms.PostgreSql.TransportRun;
+using OpenTms.TransportRun;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Guids;
@@ -28,17 +33,17 @@ namespace OpenTms.PostgreSql.Financial;
 /// The two Financial calculators through the real derived-value job against PostgreSQL (design 57, design 49): the order's
 /// non-manual revenue lines are replaced, manual and adjusted lines kept and re-valued, the event published once per
 /// change, a superseded version discarded, a repeated job and an unchanged recalculation one effect; the trip's cost lines
-/// per segment, the agreed price written once by the handler and left alone, the own-fleet line from the tenant setting
-/// (scenario 62); a job never writes in another tenant. The Orders and Planning readers are the fakes of
-/// Fakes/FinancialFakes.cs. Risk class: Critical.
+/// per segment, the agreed price written once by the handler and left alone, the own-fleet line from the vehicles' cost
+/// price else the tenant setting (scenario 62, QP10); a job never writes in another tenant. The orders, legs and trips are
+/// real rows of Orders and Planning (created through their services and Planning's handler, in tenant A's database); the
+/// facts they raise are drained from the outbox at the end of each test. Risk class: Critical.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
-public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
+public class RateLineCalculatorPostgreSqlTests : OpenTmsTestBase<TransportRunPostgreSqlTestModule>
 {
     private static readonly AbpUnitOfWorkOptions Transactional = new() { IsTransactional = true };
     private static readonly DateOnly Monday = new(2026, 10, 26);
 
-    private readonly FinancialFakeStore _store;
     private readonly IDerivedValueScheduler _scheduler;
     private readonly IDerivedValueStateStore _states;
     private readonly DerivedValueCalculationJob _job;
@@ -52,9 +57,12 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
 
     private static Guid TenantA => PostgreSqlTestDatabases.TenantAId;
 
+    private TransportRunFixture Run => GetRequiredService<TransportRunFixture>();
+
+    private ITransportOrderAppService Orders => GetRequiredService<ITransportOrderAppService>();
+
     public RateLineCalculatorPostgreSqlTests()
     {
-        _store = GetRequiredService<FinancialFakeStore>();
         _scheduler = GetRequiredService<IDerivedValueScheduler>();
         _states = GetRequiredService<IDerivedValueStateStore>();
         _job = GetRequiredService<DerivedValueCalculationJob>();
@@ -83,6 +91,23 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
     private Task InTenantAsync(Guid tenantId, Func<Task> action, bool transactional = true)
         => InTenantAsync(tenantId, async () => { await action(); return 0; }, transactional);
 
+    /// <summary>The real places and master data of one scenario in tenant A: three relations (the lanes), the seeded types, a pallet unit.</summary>
+    private sealed record Scenario(Place Ams, Place Depot, Place Bru, Place Carrier, Guid Pallet, Guid Load, Guid Unload, Guid OrderTypeId);
+
+    private Task<Scenario> ScenarioAsync() => InTenantAsync(TenantA, async () =>
+    {
+        var suffix = TransportRunFixture.NewSuffix();
+        var ams = await Run.PlaceAsync("AMS" + suffix, "Amsterdam " + suffix, RelationRoles.Customer, 52.3676, 4.9041, "Amsterdam");
+        var depot = await Run.PlaceAsync("DEP" + suffix, "Depot " + suffix, RelationRoles.Depot, 52.0907, 5.1214, "Utrecht");
+        var bru = await Run.PlaceAsync("BRU" + suffix, "Brussels " + suffix, RelationRoles.Customer, 50.8503, 4.3517, "Brussels");
+        var carrier = await Run.PlaceAsync("CAR" + suffix, "Carrier " + suffix, RelationRoles.Carrier, 51.9244, 4.4777, "Rotterdam");
+        var load = await Run.WaypointTypeAsync("LOAD", "Load", "Laden", WaypointActivity.Load, 30);
+        var unload = await Run.WaypointTypeAsync("UNLOAD", "Unload", "Lossen", WaypointActivity.Unload, 30);
+        var pallet = await Run.TransportUnitAsync("Pallet");
+        var orderType = await Run.OrderTypeAsync(TransportOrderRequiredFields.None, suffix, load, unload);
+        return new Scenario(ams, depot, bru, carrier, pallet, load, unload, orderType);
+    });
+
     /// <summary>A list with one lane rule from <paramref name="from"/> to <paramref name="to"/> at the given unit price.</summary>
     private async Task<Guid> ListAsync(Guid tenantId, RateSide side, Guid from, Guid to, decimal unitPrice, QuantitySource basis = QuantitySource.LineQuantity)
     {
@@ -95,30 +120,62 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         return list.Id;
     }
 
-    private static PricingSnapshotDto Order(Guid orderId, Guid lineId, Guid from, Guid to, decimal quantity, Guid listId, int? distanceM = null) => new()
+    /// <summary>A confirmed order of one line through the given places (the first and the last define the lane) with the given lists.</summary>
+    private Task<TransportOrderDto> OrderAsync(Scenario s, decimal quantity, Guid? listId, params Place[] stops) => InTenantAsync(TenantA, () => Orders.CreateAsync(new TransportOrderCreateDto
     {
-        OrderId = orderId,
-        CustomerRelationId = Guid.NewGuid(),
+        TransportOrderTypeId = s.OrderTypeId,
+        CustomerRelationId = s.Ams.RelationId,
         OrderDate = Monday,
-        CurrencyCode = "EUR",
-        PriceListIds = [listId],
+        FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = listId == null ? [] : [listId.Value] },
         Lines =
         [
-            new PricingLineDto
+            new TransportOrderLineInputDto
             {
-                LineId = lineId,
-                Position = 1,
-                TransportUnitId = Guid.NewGuid(),
-                Quantity = quantity,
-                DistanceM = distanceM,
-                Stops =
-                [
-                    new PricingStopDto { StopId = Guid.NewGuid(), Position = 1, RelationId = from, Date = Monday },
-                    new PricingStopDto { StopId = Guid.NewGuid(), Position = 2, RelationId = to, Date = Monday }
-                ]
+                TransportUnitId = s.Pallet, Quantity = quantity,
+                Stops = stops.Select((p, i) => TransportRunFixture.Stop(i == 0 ? s.Load : s.Unload, p.RelationId, p.AddressId, Monday)).ToList()
             }
-        ]
-    };
+        ],
+        Confirm = true
+    }));
+
+    private Task SetQuantityAsync(TransportOrderDto order, decimal quantity) => InTenantAsync(TenantA, async () =>
+    {
+        var current = await Orders.GetAsync(order.Id);
+        var line = current.Lines.Single();
+        await Orders.UpdateLineAsync(order.Id, line.Id!.Value, new TransportOrderLineInputDto
+        {
+            Id = line.Id, TransportUnitId = line.TransportUnitId, Quantity = quantity,
+            Stops = line.Stops.Select(st => new TransportOrderStopInputDto { Id = st.Id, WaypointTypeId = st.WaypointTypeId, RelationId = st.RelationId, RelationAddressId = st.RelationAddressId, Date = st.Date, PlannedDurationMin = st.PlannedDurationMin }).ToList()
+        });
+    });
+
+    /// <summary>Planning's legs of the order, generated by its handler (the outbox is drained at the end of the test).</summary>
+    private Task<List<Leg>> LegsAsync(Guid orderId) => InTenantAsync(TenantA, async () =>
+    {
+        await GetRequiredService<OrderLegsHandler>().HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
+        await _uow.Current!.SaveChangesAsync();
+        return (await GetRequiredService<IRepository<Leg, Guid>>().GetListAsync(l => l.OrderId == orderId)).OrderBy(l => l.Position).ToList();
+    });
+
+    /// <summary>A trip (own fleet, or the carrier's when given) with the legs assigned; the legs' distances are stored as the route calculator would.</summary>
+    private Task<TransportTrip> TripAsync(Guid? carrierRelationId, IReadOnlyList<(Leg Leg, int DistanceM)> legs, params Guid[] vehicleIds) => InTenantAsync(TenantA, async () =>
+    {
+        var operations = GetRequiredService<TripOperations>();
+        var typeId = (await GetRequiredService<IRepository<TransportTripType, Guid>>().GetListAsync()).OrderBy(t => t.IsDefault ? 0 : 1).First().Id;
+        var trip = await operations.CreateAsync(new TransportTripCreateDto
+        {
+            TransportTripTypeId = typeId, TripDate = Monday, PlannedDeparture = new DateTimeOffset(2026, 10, 26, 6, 0, 0, TimeSpan.FromHours(1)),
+            PlannedArrival = new DateTimeOffset(2026, 10, 26, 18, 0, 0, TimeSpan.FromHours(1)),
+            CarrierRelationId = carrierRelationId, Execution = carrierRelationId == null ? TripExecution.OwnFleet : TripExecution.Subcontracted, VehicleIds = vehicleIds.ToList()
+        }, null, null, null);
+        await operations.AssignAsync(trip, legs.Select(l => l.Leg).ToList(), allowOutsideWindow: true, afterStopId: null, moving: false);
+        foreach (var (leg, distanceM) in legs)
+        {
+            await Run.SetLegValuesAsync(leg.Id, distanceM);
+        }
+
+        return trip;
+    });
 
     private Task<long> RequestOrderAsync(Guid orderId) => InTenantAsync(TenantA, () => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, orderId, "Test"));
 
@@ -138,24 +195,31 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
 
     private static Task<long> OutboxRowsAsync(Guid id) => PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, id.ToString());
 
+    private async Task DrainOutboxAsync()
+    {
+        while (await _dispatcher.DispatchAsync(TenantA) > 0)
+        {
+        }
+    }
+
     // ── the order calculator ───────────────────────────────────────────────────
 
     [Fact]
     public async Task The_order_calculator_replaces_calculated_lines_keeps_manual_and_adjusted_ones_and_publishes_once_per_change()
     {
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var ams = Guid.NewGuid();
-        var bru = Guid.NewGuid();
-        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, ams, bru, 10m));
+        var s = await ScenarioAsync();
+        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, s.Ams.RelationId, s.Bru.RelationId, 10m));
+        var order = await OrderAsync(s, quantity: 4m, listId, s.Ams, s.Bru);
+        var orderId = order.Id;
+        var lineId = order.Lines.Single().Id!.Value;
         await InTenantAsync(TenantA, async () =>
         {
             var manual = RateLine.Manual(_guids.Create(), TenantA, RateSide.Revenue, RateLineAnchor.OrderLine(orderId, lineId), RateLineKind.Manual, "EUR", "Hand", 1m, QuantitySource.LineQuantity, 2.5m, null);
             var stale = RateLine.Calculated(_guids.Create(), TenantA, RateSide.Revenue, RateLineAnchor.OrderLine(orderId, lineId), RateLineKind.PriceList, "EUR", PriceResolver_Key(), 1m, QuantitySource.LineQuantity, 99m, 99m);
             await _lines.InsertManyAsync([manual, stale]);
         });
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 4m, listId);
 
+        /* The confirm requested the lines already (Financial's handlers run on dispatch; here the test requests itself). */
         var v1 = await RequestOrderAsync(orderId);
         await RunAsync(OrderRateLineCalculator.TargetType, orderId, v1);
 
@@ -171,38 +235,36 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         (await StateAsync(OrderRateLineCalculator.TargetType, orderId))!.Status.ShouldBe(DerivedValueStatus.UpToDate);
         (await InTenantAsync(TenantA, () => GetRequiredService<IRateLineReader>().GetOrderTotalsAsync(orderId), transactional: false)).TotalAmount.ShouldBe(50m);
 
-        /* Requested + recalculated + RateLinesChanged. */
+        /* Requested + recalculated + RateLinesChanged, on top of the confirm's own facts and request. */
         var afterFirst = await OutboxRowsAsync(orderId);
-        afterFirst.ShouldBe(3);
 
         /* A repeated job for the same version is one effect. */
         await RunAsync(OrderRateLineCalculator.TargetType, orderId, v1);
         (await OrderLinesAsync(orderId)).Select(l => l.Id).OrderBy(id => id).ShouldBe(lines.Select(l => l.Id).OrderBy(id => id));
-        (await OutboxRowsAsync(orderId)).ShouldBe(3);
+        (await OutboxRowsAsync(orderId)).ShouldBe(afterFirst);
 
         /* Unchanged facts: a new version writes nothing and publishes no RateLinesChanged (requested + recalculated only). */
         var v2 = await RequestOrderAsync(orderId);
         await RunAsync(OrderRateLineCalculator.TargetType, orderId, v2);
         (await OrderLinesAsync(orderId)).Single(l => l.Kind == RateLineKind.PriceList).Id.ShouldBe(calculated.Id, "the same line row stays");
-        (await OutboxRowsAsync(orderId)).ShouldBe(5);
+        (await OutboxRowsAsync(orderId)).ShouldBe(afterFirst + 2);
 
-        /* A changed fact: the lines are replaced and the event travels. The user adjusted the unit price meanwhile: it is kept. */
+        /* A changed fact (the quantity, saved through Orders): the lines are replaced and the event travels. The user adjusted the unit price meanwhile: it is kept. */
         await InTenantAsync(TenantA, async () =>
         {
             var line = await _lines.GetAsync(calculated.Id);
             line.AdjustUnitPrice(9m);
             await _lines.UpdateAsync(line);
         });
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 6m, listId);
+        await SetQuantityAsync(order, 6m);
+        var beforeChange = await OutboxRowsAsync(orderId);
         var v3 = await RequestOrderAsync(orderId);
         await RunAsync(OrderRateLineCalculator.TargetType, orderId, v3);
         var adjusted = (await OrderLinesAsync(orderId)).Single(l => l.Kind == RateLineKind.PriceList);
         (adjusted.Id, adjusted.IsAdjusted, adjusted.Quantity, adjusted.UnitPrice, adjusted.Amount).ShouldBe((calculated.Id, true, 6m, 9m, 54m));
-        (await OutboxRowsAsync(orderId)).ShouldBe(8);
+        (await OutboxRowsAsync(orderId)).ShouldBe(beforeChange + 3, "requested, recalculated and RateLinesChanged");
 
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
-        {
-        }
+        await DrainOutboxAsync();
     }
 
     private static string PriceResolver_Key() => OpenTms.Financial.Tariffs.Pricing.PriceResolver.PriceListDescriptionKey;
@@ -210,12 +272,9 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
     [Fact]
     public async Task A_superseded_version_is_discarded_and_the_job_writes_only_in_the_tenant_of_its_arguments()
     {
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var ams = Guid.NewGuid();
-        var bru = Guid.NewGuid();
-        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, ams, bru, 10m));
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 1m, listId);
+        var s = await ScenarioAsync();
+        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, s.Ams.RelationId, s.Bru.RelationId, 10m));
+        var orderId = (await OrderAsync(s, quantity: 1m, listId, s.Ams, s.Bru)).Id;
 
         var v1 = await RequestOrderAsync(orderId);
         var v2 = await RequestOrderAsync(orderId);
@@ -232,20 +291,17 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         (await OrderLinesAsync(orderId)).ShouldHaveSingleItem().CalculationVersion.ShouldBe(v2);
         (await OrderLinesAsync(orderId, PostgreSqlTestDatabases.SharedTenantId)).ShouldBeEmpty();
 
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
-        {
-        }
+        await DrainOutboxAsync();
     }
 
     [Fact]
     public async Task The_order_handlers_request_a_new_version_and_a_repeated_delivery_is_one_effect()
     {
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var ams = Guid.NewGuid();
-        var bru = Guid.NewGuid();
-        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, ams, bru, 10m));
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 2m, listId);
+        var s = await ScenarioAsync();
+        var listId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Revenue, s.Ams.RelationId, s.Bru.RelationId, 10m));
+        var order = await OrderAsync(s, quantity: 2m, listId, s.Ams, s.Bru);
+        var orderId = order.Id;
+        var lineId = order.Lines.Single().Id!.Value;
 
         await InTenantAsync(TenantA, () => GetRequiredService<TransportOrderLinesChangedHandler>().HandleEventAsync(new TransportOrderLinesChangedEto { OrderId = orderId, LineIds = [lineId] }));
         await InTenantAsync(TenantA, () => GetRequiredService<TransportOrderLinesChangedHandler>().HandleEventAsync(new TransportOrderLinesChangedEto { OrderId = orderId, LineIds = [lineId] }));
@@ -262,60 +318,34 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         await RunAsync(OrderRateLineCalculator.TargetType, orderId, state.RequestedVersion);
         (await OrderLinesAsync(orderId)).ShouldHaveSingleItem().Amount.ShouldBe(20m);
 
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
-        {
-        }
+        await DrainOutboxAsync();
     }
 
     // ── the trip calculator ────────────────────────────────────────────────────
 
-    private LegSnapshotDto Leg(Guid tripId, Guid orderId, Guid lineId, int position, Guid from, Guid to, int? distanceM) => new()
-    {
-        Id = _guids.Create(),
-        OrderId = orderId,
-        OrderLineId = lineId,
-        Position = position,
-        TripId = tripId,
-        Origin = new LegEndDto { StopId = Guid.NewGuid(), RelationId = from, PlannedDate = Monday },
-        Destination = new LegEndDto { StopId = Guid.NewGuid(), RelationId = to, PlannedDate = Monday },
-        DistanceM = distanceM,
-        Quantity = 1m
-    };
-
     [Fact]
     public async Task The_trip_calculator_prices_the_segments_with_the_carriers_lists_keeps_the_agreed_price_and_reports_totals()
     {
-        var tripId = Guid.NewGuid();
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var otherOrderId = Guid.NewGuid();
-        var otherLineId = Guid.NewGuid();
-        var carrier = Guid.NewGuid();
-        var ams = Guid.NewGuid();
-        var depot = Guid.NewGuid();
-        var bru = Guid.NewGuid();
-        var costListId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Cost, ams, bru, 8m));
+        var s = await ScenarioAsync();
+        var costListId = await InTenantAsync(TenantA, () => ListAsync(TenantA, RateSide.Cost, s.Ams.RelationId, s.Bru.RelationId, 8m));
         await InTenantAsync(TenantA, async () =>
         {
-            var settings = new RelationFinancialSettings(_guids.Create(), TenantA, carrier);
+            var settings = new RelationFinancialSettings(_guids.Create(), TenantA, s.Carrier.RelationId);
             settings.SetPriceLists(RateSide.Cost, [costListId], _guids.Create);
             await GetRequiredService<IRepository<RelationFinancialSettings, Guid>>().InsertAsync(settings);
         });
 
-        _store.Trips[tripId] = new TransportTripReferenceDto { Id = tripId, Number = "T1", TripDate = Monday, CarrierRelationId = carrier };
-        var first = Leg(tripId, orderId, lineId, 1, ams, depot, 100_000);
-        var second = Leg(tripId, orderId, lineId, 2, depot, bru, 200_000);
-        var other = Leg(tripId, otherOrderId, otherLineId, 1, ams, bru, 150_000);
-        foreach (var leg in new[] { first, second, other })
-        {
-            _store.Legs[leg.Id] = leg;
-        }
-
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 5m, Guid.NewGuid());
-        _store.Orders[otherOrderId] = Order(otherOrderId, otherLineId, ams, bru, quantity: 2m, Guid.NewGuid());
+        /* One order through the depot (two legs: one segment on the trip), another direct (one leg), both on the carrier's trip. */
+        var order = await OrderAsync(s, quantity: 5m, null, s.Ams, s.Depot, s.Bru);
+        var other = await OrderAsync(s, quantity: 2m, null, s.Ams, s.Bru);
+        var legs = await LegsAsync(order.Id);
+        legs.Count.ShouldBe(2);
+        var otherLeg = (await LegsAsync(other.Id)).Single();
+        var trip = await TripAsync(s.Carrier.RelationId, [(legs[0], 100_000), (legs[1], 200_000), (otherLeg, 150_000)]);
+        var tripId = trip.Id;
 
         /* The agreed carrier price arrives by event, once. */
-        var created = new TransportTripCreatedEto { TripId = tripId, CreatedFromOrderId = orderId, AgreedPurchaseAmount = 500m, AgreedPurchaseCurrencyCode = "EUR" };
+        var created = new TransportTripCreatedEto { TripId = tripId, CreatedFromOrderId = order.Id, AgreedPurchaseAmount = 500m, AgreedPurchaseCurrencyCode = "EUR" };
         await InTenantAsync(TenantA, () => GetRequiredService<TransportTripCreatedHandler>().HandleEventAsync(created));
         await InTenantAsync(TenantA, () => GetRequiredService<TransportTripCreatedHandler>().HandleEventAsync(created));
         (await TripLinesAsync(tripId)).ShouldHaveSingleItem().Kind.ShouldBe(RateLineKind.AgreedPrice);
@@ -327,41 +357,36 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         lines.Count.ShouldBe(3);
         var agreed = lines.Single(l => l.Kind == RateLineKind.AgreedPrice);
         (agreed.Amount, agreed.OverridesChildren, agreed.TripId).ShouldBe((500m, true, tripId));
-        var segment = lines.Single(l => l.LegId == first.Id);
+        var segment = lines.Single(l => l.LegId == legs[0].Id);
         (segment.Side, segment.Kind, segment.Quantity, segment.Amount, segment.AnchorTripId).ShouldBe((RateSide.Cost, RateLineKind.PriceList, 5m, 40m, tripId));
-        lines.ShouldNotContain(l => l.LegId == second.Id, "one line per segment, anchored to its first leg");
-        lines.Single(l => l.LegId == other.Id).Amount.ShouldBe(16m);
+        lines.ShouldNotContain(l => l.LegId == legs[1].Id, "one line per segment, anchored to its first leg");
+        lines.Single(l => l.LegId == otherLeg.Id).Amount.ShouldBe(16m);
 
         var reader = GetRequiredService<IRateLineReader>();
         var totals = await InTenantAsync(TenantA, () => reader.GetTripTotalsAsync(tripId), transactional: false);
         totals.TotalAmount.ShouldBe(500m, "the agreed price overrides the breakdown (AD-08)");
         totals.HasFixedPrice.ShouldBeTrue();
-        totals.ByChild[first.Id].ShouldBe(40m);
-        totals.ByChild[other.Id].ShouldBe(16m);
-        (await InTenantAsync(TenantA, () => reader.GetLegLinesAsync([first.Id, second.Id, other.Id]), transactional: false)).Select(l => l.Amount).OrderBy(a => a).ShouldBe([16m, 40m]);
+        totals.ByChild[legs[0].Id].ShouldBe(40m);
+        totals.ByChild[otherLeg.Id].ShouldBe(16m);
+        (await InTenantAsync(TenantA, () => reader.GetLegLinesAsync([legs[0].Id, legs[1].Id, otherLeg.Id]), transactional: false)).Select(l => l.Amount).OrderBy(a => a).ShouldBe([16m, 40m]);
 
         /* The trip's legs changed: both the trip and the orders are requested. */
-        await InTenantAsync(TenantA, () => GetRequiredService<TransportTripLegsChangedHandler>().HandleEventAsync(new TransportTripLegsChangedEto { TripId = tripId, OrderIds = [orderId, otherOrderId] }));
+        var orderVersion = (await StateAsync(OrderRateLineCalculator.TargetType, order.Id))?.RequestedVersion ?? 0;
+        await InTenantAsync(TenantA, () => GetRequiredService<TransportTripLegsChangedHandler>().HandleEventAsync(new TransportTripLegsChangedEto { TripId = tripId, OrderIds = [order.Id, other.Id] }));
         (await StateAsync(TripRateLineCalculator.TargetType, tripId))!.RequestedVersion.ShouldBe(version + 1);
-        (await StateAsync(OrderRateLineCalculator.TargetType, orderId))!.RequestedVersion.ShouldBe(1);
+        (await StateAsync(OrderRateLineCalculator.TargetType, order.Id))!.RequestedVersion.ShouldBe(orderVersion + 1);
 
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
-        {
-        }
+        await DrainOutboxAsync();
     }
 
     [Fact]
-    public async Task Scenario_62_an_own_fleet_trip_is_costed_from_the_tenant_setting_and_without_one_gets_no_line()
+    public async Task Scenario_62_an_own_fleet_trip_is_costed_from_the_vehicles_cost_price_else_the_tenant_setting_and_without_either_gets_no_line()
     {
-        var tripId = Guid.NewGuid();
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var ams = Guid.NewGuid();
-        var bru = Guid.NewGuid();
-        _store.Trips[tripId] = new TransportTripReferenceDto { Id = tripId, Number = "T2", TripDate = Monday, CarrierRelationId = null };
-        var leg = Leg(tripId, orderId, lineId, 1, ams, bru, 200_000);
-        _store.Legs[leg.Id] = leg;
-        _store.Orders[orderId] = Order(orderId, lineId, ams, bru, quantity: 1m, Guid.NewGuid());
+        var s = await ScenarioAsync();
+        var order = await OrderAsync(s, quantity: 1m, null, s.Ams, s.Bru);
+        var leg = (await LegsAsync(order.Id)).Single();
+        var trip = await TripAsync(null, [(leg, 200_000)]);
+        var tripId = trip.Id;
 
         var settings = GetRequiredService<ISettingManager>();
         await InTenantAsync(TenantA, () => settings.SetForTenantAsync(TenantA, FinancialSettings.OwnFleetCostPerKm, null));
@@ -376,9 +401,27 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsPostgreSqlTestBase
         var line = (await TripLinesAsync(tripId)).ShouldHaveSingleItem();
         (line.Kind, line.Quantity, line.QuantitySource, line.UnitPrice, line.Amount, line.TripId).ShouldBe((RateLineKind.OwnFleetDistance, 200m, QuantitySource.TripDistanceKm, 1.4m, 280m, tripId));
 
-        await InTenantAsync(TenantA, () => settings.SetForTenantAsync(TenantA, FinancialSettings.OwnFleetCostPerKm, null));
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
+        /* QP10: the vehicles' cost price per kilometre (the vehicle's own, else its type's) outranks the tenant setting: a tractor of 0.95/km and a trailer whose type says 0.30/km. */
+        var vehicleIds = await InTenantAsync(TenantA, async () =>
         {
-        }
+            var tractorType = await Run.VehicleTypeAsync("Tractor " + s.Pallet.ToString("N")[..6], VehicleTypeKind.Tractor, costPricePerKm: 1.10m);
+            var trailerType = await Run.VehicleTypeAsync("Trailer " + s.Pallet.ToString("N")[..6], VehicleTypeKind.Trailer, costPricePerKm: 0.30m);
+            var tractor = await Run.VehicleAsync("Truck " + TransportRunFixture.NewSuffix(), tractorType, s.Carrier.RelationId, costPricePerKm: 0.95m);
+            var trailer = await Run.VehicleAsync("Trailer " + TransportRunFixture.NewSuffix(), trailerType, s.Carrier.RelationId, euroClass: null);
+            return new List<Guid> { tractor, trailer };
+        });
+        await InTenantAsync(TenantA, async () =>
+        {
+            var reloaded = await GetRequiredService<TripOperations>().GetWithDetailsAsync(tripId);
+            reloaded.SetVehicles(null, vehicleIds);
+            await GetRequiredService<IRepository<TransportTrip, Guid>>().UpdateAsync(reloaded);
+        });
+        var v3 = await RequestTripAsync(tripId);
+        await RunAsync(TripRateLineCalculator.TargetType, tripId, v3);
+        var fromVehicles = (await TripLinesAsync(tripId)).ShouldHaveSingleItem();
+        (fromVehicles.UnitPrice, fromVehicles.Amount).ShouldBe((1.25m, 250m), "0.95 (the tractor's own) + 0.30 (the trailer's type) per km × 200 km");
+
+        await InTenantAsync(TenantA, () => settings.SetForTenantAsync(TenantA, FinancialSettings.OwnFleetCostPerKm, null));
+        await DrainOutboxAsync();
     }
 }

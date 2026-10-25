@@ -70,6 +70,7 @@ public class VehicleTypeAppServiceTests : MasterDataAppServiceTestBase
             DefaultWidthCm = 248,
             DefaultHeightCm = 270,
             DefaultGrossVehicleWeightKg = 40000,
+            CostPricePerKm = 0.31234m,
             TransportCharacteristicsIds = [tail.Id, cool.Id, cool.Id]
         });
 
@@ -77,6 +78,8 @@ public class VehicleTypeAppServiceTests : MasterDataAppServiceTestBase
         created.Kind.ShouldBe(VehicleTypeKind.Trailer);
         created.MaxEpq.ShouldBe(33);
         created.DefaultGrossVehicleWeightKg.ShouldBe(40000);
+        created.CostPricePerKm.ShouldBe(0.3123m, "QP10: four decimals");
+        (await _service.GetAsync(created.Id)).CostPricePerKm.ShouldBe(0.3123m);
         created.TransportCharacteristics.Select(c => c.Code).ShouldBe(["COOL", "TAIL"]);
 
         (await _service.GetAsync(created.Id)).TransportCharacteristics.Count.ShouldBe(2);

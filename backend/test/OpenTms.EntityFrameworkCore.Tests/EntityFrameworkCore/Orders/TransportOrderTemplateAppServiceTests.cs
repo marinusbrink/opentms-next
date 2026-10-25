@@ -24,7 +24,7 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
 {
     private ITransportOrderTemplateAppService Templates => GetRequiredService<ITransportOrderTemplateAppService>();
 
-    private TransportOrderTemplateCreateDto TemplateDto(Fixture f, string name = "Weekly Venlo", TemplateScheduleDto? schedule = null) => new()
+    private TransportOrderTemplateCreateDto TemplateDto(OpenTms.TransportRun.TransportRunWorld f, string name = "Weekly Venlo", TemplateScheduleDto? schedule = null) => new()
     {
         Name = name,
         TransportOrderTypeId = f.OrderTypeId,
@@ -43,7 +43,7 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
                 ]
             }
         ],
-        References = [new TransportOrderReferenceDto { Type = "PO", Value = "W-1" }],
+        References = [new TransportOrderReferenceEntryDto { Type = "PO", Value = "W-1" }],
         TripRequest = new TemplateTripRequestInputDto
         {
             TransportTripTypeId = Guid.NewGuid(), DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,

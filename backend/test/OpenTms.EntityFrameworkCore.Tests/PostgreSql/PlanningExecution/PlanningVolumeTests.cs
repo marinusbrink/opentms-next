@@ -29,6 +29,11 @@ public class PlanningVolumeTests : PlanningPostgreSqlTestBase
     private const int UnplannedLegCount = 30_000;
     private static readonly TimeSpan ReadBudget = TimeSpan.FromMilliseconds(300);
 
+    /* Arbitrary Orders ids: the volume rows are written straight into Planning's tables (no foreign keys, design 56). */
+    private static readonly Guid Load = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid Unload = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid Pallet = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
     private readonly ITestOutputHelper _output;
 
     public PlanningVolumeTests(ITestOutputHelper output)

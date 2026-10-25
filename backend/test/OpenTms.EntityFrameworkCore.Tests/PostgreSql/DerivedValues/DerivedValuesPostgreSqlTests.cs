@@ -6,6 +6,7 @@ using OpenTms.DerivedValues;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.Events.Outbox;
 using OpenTms.Platform.NumberSequences;
+using OpenTms.TestDoubles;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.MultiTenancy;
@@ -270,6 +271,38 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
         }
 
         await _dispatcher.DispatchAsync(TenantA);
+    }
+
+    [Fact]
+    public async Task The_dispatcher_runs_the_request_handler_in_a_unit_of_work_which_enqueues_the_job_and_frees_the_outbox()
+    {
+        var targetId = Guid.NewGuid();
+        long version;
+        using (_currentTenant.Change(TenantA))
+        {
+            version = await RequestAsync(targetId);
+        }
+
+        (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(1);
+
+        /* The production path: the dispatcher reads the tenant's outbox and hands the event to DerivedValuesRequestedHandler,
+         * which reads the state (a DbContext: it needs the dispatcher's unit of work) and enqueues the job. */
+        (await _dispatcher.DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1);
+
+        (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(0, "the handled row is deleted; nothing blocks the tenant's outbox");
+        GetRequiredService<RecordingBackgroundJobManager>().Of<DerivedValueCalculationArgs>().ShouldContain(a => a.TargetId == targetId);
+        var enqueued = GetRequiredService<RecordingBackgroundJobManager>().Of<DerivedValueCalculationArgs>().Single(a => a.TargetId == targetId);
+        (enqueued.TenantId, enqueued.TargetType, enqueued.Version).ShouldBe((TenantA, DerivedValueProbe.TargetType, version));
+
+        /* As Hangfire would: the job calculates the record; its "recalculated" fact dispatches in turn. */
+        await RunJobAsync(targetId, version);
+        using (_currentTenant.Change(TenantA))
+        {
+            (await StateAsync(targetId)).ShouldNotBeNull().Status.ShouldBe(DerivedValueStatus.UpToDate);
+        }
+
+        (await _dispatcher.DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1, "the recalculated fact");
+        (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(0);
     }
 
     [Fact]

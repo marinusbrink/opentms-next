@@ -33,11 +33,6 @@ public class RoutingTestModule : AbpModule
         ConfigureRoutingTestServices(context, configured: true);
     }
 
-    public override void OnPreApplicationInitialization(ApplicationInitializationContext context)
-    {
-        CreateIntegrationsTables(context);
-    }
-
     internal static void ConfigureRoutingTestServices(ServiceConfigurationContext context, bool configured)
     {
         var handler = new RoutingHttpHandler();
@@ -59,16 +54,6 @@ public class RoutingTestModule : AbpModule
         var log = new CapturingLog();
         context.Services.AddSingleton(log);
         context.Services.AddLogging(logging => logging.AddProvider(log));
-
-        /* The Integrations context is pointed at SQLite here like the other module contexts in the base module. */
-        context.Services.Configure<AbpDbContextOptions>(options => options.Configure<IntegrationsDbContext>(c => c.UseSqlite()));
-    }
-
-    internal static void CreateIntegrationsTables(ApplicationInitializationContext context)
-    {
-        var connectionString = context.ServiceProvider.GetRequiredService<IOptions<AbpDbConnectionOptions>>().Value.ConnectionStrings.Default;
-        using var integrations = new IntegrationsDbContext(new DbContextOptionsBuilder<IntegrationsDbContext>().UseSqlite(connectionString).Options);
-        integrations.GetService<IRelationalDatabaseCreator>().CreateTables();
     }
 }
 
@@ -79,10 +64,5 @@ public class RoutingUnconfiguredTestModule : AbpModule
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         RoutingTestModule.ConfigureRoutingTestServices(context, configured: false);
-    }
-
-    public override void OnPreApplicationInitialization(ApplicationInitializationContext context)
-    {
-        RoutingTestModule.CreateIntegrationsTables(context);
     }
 }

@@ -7,6 +7,7 @@ using OpenTms.Orders.Events;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.ReferenceData;
+using OpenTms.TransportRun;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Data;
@@ -45,14 +46,17 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         line.ProductName.ShouldBe("Zuivel");
         line.Stops.Select(s => (s.Position, s.RelationName, s.City, s.WaypointTypeName)).ShouldBe([(1, "DC Venlo", "Venlo", "Load"), (2, "Supermarkt Utrecht", "Utrecht", "Unload")]);
         line.Stops[0].TimeSlotName.ShouldBe("Morning");
-        order.FinancialTerms.VatPercentageName.ShouldBe("Hoog");
+        using (UiCulture("nl"))
+        {
+            (await Orders.GetAsync(order.Id)).FinancialTerms.VatPercentageName.ShouldBe("Hoog");
+        }
         order.FinancialTerms.PriceListNames.ShouldBe(["Tarieven 2026"]);
         order.References.ShouldHaveSingleItem().Value.ShouldBe("123");
         order.Summary.ExecutionProgress.ShouldBe(ExecutionProgress.Unplanned);
 
         Events.Of<TransportOrderLinesChangedEto>(order.Id).ShouldHaveSingleItem().LineIds.ShouldBe([line.Id!.Value]);
         Events.Of<TransportOrderConfirmedEto>(order.Id).ShouldBeEmpty();
-        DerivedValues.ReasonsFor(order.Id).ShouldBe(["Created"]);
+        SummaryReasons(order.Id).ShouldBe(["Created"]);
     }
 
     [Fact]
@@ -69,7 +73,8 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         second.Number.ShouldBe($"TO-{Today.Year}-00002");
         Events.Of<TransportOrderConfirmedEto>(first.Id).ShouldHaveSingleItem();
         Events.Of<TransportOrderStopsChangedEto>(first.Id).ShouldHaveSingleItem().LineIds.ShouldBe(first.Lines.Select(l => l.Id!.Value));
-        DerivedValues.ReasonsFor(first.Id).ShouldBe(["Confirmed"]);
+        SummaryReasons(first.Id).ShouldBe(["Confirmed", "LegsGenerated"], "the confirm itself, then Planning's legs (delivered in process on SQLite)");
+        (await Run.LegsOfAsync(first.Id)).ShouldHaveSingleItem("Planning generated the leg of the one line");
     }
 
     [Fact]
@@ -126,6 +131,74 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         (await Should.ThrowAsync<BusinessException>(() => Orders.CreateAsync(unknownType))).Code.ShouldBe(ReferenceDataErrorCodes.ReferenceNotFound);
     }
 
+    [Fact]
+    public async Task Without_posted_terms_the_customers_financial_defaults_are_copied_on_create_and_on_a_customer_change_and_posted_terms_are_kept()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var fuel = await Run.DiscountOrSurchargeAsync("Brandstoftoeslag");
+        await GetRequiredService<OpenTms.Financial.Invoicing.IRelationFinancialSettingsAppService>().UpsertByRelationAsync(f.CustomerId, new OpenTms.Financial.Invoicing.RelationFinancialSettingsUpsertDto
+        {
+            RevenuePriceListIds = [f.PriceListId], VatPercentageId = f.VatId, PaymentTermDays = 45, CurrencyCode = "EUR",
+            DiscountsOrSurcharges = [new OpenTms.Financial.Invoicing.RelationDiscountOrSurchargeInputDto { DiscountOrSurchargeId = fuel, ValidFrom = new DateOnly(2020, 1, 1) }]
+        });
+
+        /* Create without terms: the customer's defaults (design 58 through Financial's published lookup). */
+        var dto = Run.CreateDto(f, withTerms: false);
+        var order = await Orders.CreateAsync(dto);
+        order.FinancialTerms.PriceListIds.ShouldBe([f.PriceListId]);
+        order.FinancialTerms.VatPercentageId.ShouldBe(f.VatId);
+        order.FinancialTerms.PaymentTermDays.ShouldBe(45);
+        order.FinancialTerms.CurrencyCode.ShouldBe("EUR");
+        var surcharge = order.FinancialTerms.DiscountsOrSurcharges.ShouldHaveSingleItem();
+        (surcharge.DiscountOrSurchargeId, surcharge.Source).ShouldBe((fuel, DiscountOrSurchargeSource.Default));
+
+        /* Posted terms are kept as posted. */
+        var posted = await Orders.CreateAsync(CreateDto(f));
+        posted.FinancialTerms.PaymentTermDays.ShouldBe(30);
+        posted.FinancialTerms.DiscountsOrSurcharges.ShouldBeEmpty();
+
+        /* A customer without settings: the module's default terms. */
+        var bare = Run.CreateDto(f, withTerms: false);
+        bare.CustomerRelationId = f.ShopId;
+        var plain = await Orders.CreateAsync(bare);
+        plain.FinancialTerms.PriceListIds.ShouldBeEmpty();
+        plain.FinancialTerms.PaymentTermDays.ShouldBeNull();
+
+        /* The customer changes on the header: the new customer's defaults replace the terms, and the order reprices. */
+        var moved = await Orders.UpdateAsync(plain.Id, HeaderUpdate(plain, u => u.CustomerRelationId = f.CustomerId));
+        moved.FinancialTerms.PriceListIds.ShouldBe([f.PriceListId]);
+        moved.FinancialTerms.PaymentTermDays.ShouldBe(45);
+        Events.Of<TransportOrderFinancialTermsChangedEto>(plain.Id).ShouldHaveSingleItem();
+
+        /* ... unless the request carries terms, which are kept. */
+        var kept = await Orders.UpdateAsync(moved.Id, HeaderUpdate(moved, u =>
+        {
+            u.CustomerRelationId = f.ShopId;
+            u.FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PaymentTermDays = 7, PriceListIds = [f.PriceListId] };
+        }));
+        kept.FinancialTerms.PaymentTermDays.ShouldBe(7);
+        kept.FinancialTerms.PriceListIds.ShouldBe([f.PriceListId]);
+    }
+
+    [Fact]
+    public async Task Approval_warns_when_the_terms_differ_from_the_customers_defaults_and_passes_when_they_agree()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        /* The fixture's customer settings: the revenue list, the VAT, 30 days, EUR — what CreateDto posts. */
+        var agreeing = await Orders.CreateAsync(CreateDto(f, confirm: true));
+        await Run.StoreRevenueAsync(agreeing, 100m);
+        (await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [agreeing.Id] })).Orders.Single().Results.ShouldNotContain(r => r.Rule == ApprovalRule.FinancialDefaultsMismatch);
+
+        var differing = await Orders.CreateAsync(CreateDto(f, confirm: true));
+        await Run.StoreRevenueAsync(differing, 100m);
+        await Orders.UpdateFinancialTermsAsync(differing.Id, new TransportOrderFinancialTermsUpdateDto { CurrencyCode = "EUR", VatPercentageId = f.VatId, PaymentTermDays = 60, PriceListIds = [f.PriceListId], ConcurrencyStamp = differing.ConcurrencyStamp });
+        var result = (await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [differing.Id] })).Orders.Single().Results.Single(r => r.Rule == ApprovalRule.FinancialDefaultsMismatch);
+        result.Severity.ShouldBe(ApprovalSeverity.Warning);
+        result.Message.ShouldContain("paymentTermDays");
+    }
+
     // ── saves per part ───────────────────────────────────────────────────────
 
     [Fact]
@@ -137,7 +210,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
 
         var updated = await Orders.UpdateAsync(order.Id, HeaderUpdate(order, u => { u.CustomerReference = "PO-2"; u.InternalRemarks = "Bel vooraf"; }));
         updated.CustomerReference.ShouldBe("PO-2");
-        DerivedValues.ReasonsFor(order.Id).ShouldBe(["Confirmed", "HeaderChanged"]);
+        SummaryReasons(order.Id).ShouldBe(["Confirmed", "LegsGenerated", "HeaderChanged"]);
         Events.Of<TransportOrderFinancialTermsChangedEto>(order.Id).ShouldBeEmpty();
 
         var dated = await Orders.UpdateAsync(order.Id, HeaderUpdate(updated, u => { u.OrderDate = new DateOnly(Today.Year, 12, 31); }));
@@ -191,7 +264,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         var deleted = await Orders.DeleteLineAsync(order.Id, lineId);
         deleted.Lines.ShouldBeEmpty();
         await Should.ThrowAsync<EntityNotFoundException>(() => Orders.DeleteLineAsync(order.Id, lineId));
-        DerivedValues.ReasonsFor(order.Id).Count(r => r == "LinesChanged").ShouldBe(4);
+        SummaryReasons(order.Id).Count(r => r == "LinesChanged").ShouldBe(4);
     }
 
     [Fact]
@@ -201,13 +274,13 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         var f = await FixtureAsync();
         var order = await Orders.CreateAsync(CreateDto(f, confirm: true));
         var lineId = order.Lines.Single().Id!.Value;
-        Legs.Add(order.Id, lineId, Guid.NewGuid(), "R-1", TransportTripStatus.InProgress);
+        var trip = await Run.PlanAsync(f.TripTypeId, [order.Id], TransportTripStatus.InProgress);
 
         var lineDto = LinesOf(order).Single();
         lineDto.Stops![1].Date = Today.AddDays(5);
         var ex = await Should.ThrowAsync<BusinessException>(() => Orders.UpdateLineAsync(order.Id, lineId, lineDto));
         ex.Code.ShouldBe(OrdersErrorCodes.StopLockedByTrip);
-        ex.Data["tripNumber"].ShouldBe("R-1");
+        ex.Data["tripNumber"].ShouldBe(trip.Number);
         (await Orders.GetAsync(order.Id)).Lines.Single().Stops[1].Date.ShouldBe(Today.AddDays(1), "nothing changed");
 
         var quantityOnly = LinesOf(order).Single();
@@ -223,7 +296,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var order = await Orders.CreateAsync(CreateDto(f));
-        var ds = Financial.AddDiscountOrSurcharge("Brandstoftoeslag");
+        var ds = await Run.DiscountOrSurchargeAsync("Brandstoftoeslag");
 
         var terms = await Orders.UpdateFinancialTermsAsync(order.Id, new TransportOrderFinancialTermsUpdateDto
         {
@@ -280,16 +353,18 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var busy = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        Legs.Add(busy.Id, busy.Lines.Single().Id!.Value, Guid.NewGuid(), "R-9", TransportTripStatus.Completed);
+        var busyTrip = await Run.PlanAsync(f.TripTypeId, [busy.Id], TransportTripStatus.Completed);
         var ex = await Should.ThrowAsync<BusinessException>(() => Orders.CancelAsync(busy.Id));
         ex.Code.ShouldBe(OrdersErrorCodes.CancelRefusedTripInProgress);
-        ex.Data["tripNumber"].ShouldBe("R-9");
+        ex.Data["tripNumber"].ShouldBe(busyTrip.Number);
 
         var planned = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        Legs.Add(planned.Id, planned.Lines.Single().Id!.Value, Guid.NewGuid(), "R-10", TransportTripStatus.Planned);
+        var plannedTrip = await Run.PlanAsync(f.TripTypeId, [planned.Id]);
         var cancelled = await Orders.CancelAsync(planned.Id);
         cancelled.Status.ShouldBe(TransportOrderStatus.Cancelled);
         Events.Of<TransportOrderCancelledEto>(planned.Id).ShouldHaveSingleItem();
+        (await Run.LegsOfAsync(planned.Id)).ShouldBeEmpty("Planning removed the legs of the cancelled order");
+        (await GetRequiredService<ITransportTripAppService>().GetAsync(plannedTrip.Id)).Stops.ShouldBeEmpty();
         (await Should.ThrowAsync<BusinessException>(() => Orders.UpdateAsync(planned.Id, HeaderUpdate(cancelled)))).Code.ShouldBe(OrdersErrorCodes.OrderNotEditable);
         (await Should.ThrowAsync<BusinessException>(() => Orders.CancelAsync(planned.Id))).Code.ShouldBe(OrdersErrorCodes.InvalidTransition);
     }
@@ -300,7 +375,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var order = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        RateLines.SetRevenue(order.Id, 1250m);
+        await Run.StoreRevenueAsync(order, 1250m);
 
         var validation = await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [order.Id] });
         var evaluation = validation.Orders.ShouldHaveSingleItem();
@@ -312,7 +387,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         (await Should.ThrowAsync<BusinessException>(() => Orders.ApproveAsync(order.Id, new TransportOrderApproveDto { Hash = new string('0', 64) }))).Code.ShouldBe(OrdersErrorCodes.ApprovalResultsStale);
 
         /* The revenue drops below the threshold meanwhile: the old hash is stale, the new evaluation proposes the archive. */
-        RateLines.SetRevenue(order.Id, 0.20m);
+        await Run.StoreRevenueAsync(order, 0.20m);
         (await Should.ThrowAsync<BusinessException>(() => Orders.ApproveAsync(order.Id, new TransportOrderApproveDto { Hash = validation.Hash }))).Code.ShouldBe(OrdersErrorCodes.ApprovalResultsStale);
         var again = await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [order.Id] });
         again.Orders.Single().ProposedStatus.ShouldBe(TransportOrderStatus.Archived);
@@ -325,7 +400,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         var revised = await Orders.ReviseAsync(order.Id, new TransportOrderReviseDto { Reason = "Klant betwist het gewicht" });
         revised.Status.ShouldBe(TransportOrderStatus.Open);
         revised.Remarks.ShouldHaveSingleItem().Text.ShouldBe("Klant betwist het gewicht");
-        RateLines.SetRevenue(order.Id, 1250m);
+        await Run.StoreRevenueAsync(order, 1250m);
         var ready = await Orders.ApproveManyAsync(new ApprovalApproveRequestDto { Ids = [order.Id], Hash = (await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [order.Id] })).Hash });
         ready.ApprovedIds.ShouldBe([order.Id]);
         (await Orders.GetAsync(order.Id)).Status.ShouldBe(TransportOrderStatus.ReadyForInvoicing);
@@ -348,7 +423,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var assigned = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        Legs.Add(assigned.Id, assigned.Lines.Single().Id!.Value, Guid.NewGuid(), "R-3", TransportTripStatus.Planned);
+        await Run.PlanAsync(f.TripTypeId, [assigned.Id]);
         (await Should.ThrowAsync<BusinessException>(() => Orders.DeleteAsync(assigned.Id))).Code.ShouldBe(OrdersErrorCodes.DeleteRefusedLegsAssigned);
 
         var free = await Orders.CreateAsync(CreateDto(f, confirm: true));
@@ -357,7 +432,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         Events.Of<TransportOrderCancelledEto>(free.Id).ShouldHaveSingleItem();
 
         var ready = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        RateLines.SetRevenue(ready.Id, 100m);
+        await Run.StoreRevenueAsync(ready, 100m);
         await Orders.ApproveAsync(ready.Id, new TransportOrderApproveDto { Hash = (await Orders.ValidateApprovalAsync(new ApprovalValidateRequestDto { Ids = [ready.Id] })).Hash });
         (await Should.ThrowAsync<BusinessException>(() => Orders.DeleteAsync(ready.Id))).Code.ShouldBe(OrdersErrorCodes.InvalidTransition, "scenario 46");
 
@@ -420,12 +495,16 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         summary.RevenueAmount.ShouldBeNull("never calculated on SQLite");
         summary.ExecutionProgress.ShouldBe(ExecutionProgress.Unplanned);
 
+        /* Financial's real preview over the stored order: the customer's list prices the lane depot → shop. */
         var stored = await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto());
-        stored.TotalAmount.ShouldBe(20m, "2 units × 10 (the fake preview)");
-        var unsaved = await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto { Lines = [Line(f, quantity: 7)], FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", FixedPriceAmount = 500m } });
+        stored.TotalAmount.ShouldBe(2m * TransportRunFixture.RevenueUnitPrice, "2 units × the list price");
+        stored.Lines.ShouldHaveSingleItem().PriceListId.ShouldBe(f.PriceListId);
+        var unsaved = await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto { Lines = [Line(f, quantity: 7)], FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [f.PriceListId], FixedPriceAmount = 500m } });
         unsaved.TotalAmount.ShouldBe(500m, "the posted fixed price overrides");
-        var snapshot = GetRequiredService<OpenTms.Fakes.FakePricePreviewService>().Snapshots.Last();
-        snapshot.Lines.Single().Quantity.ShouldBe(7m);
+        unsaved.Lines.First(l => l.Kind == OpenTms.Financial.Tariffs.RateLineKind.PriceList).Quantity.ShouldBe(7m, "the unsaved line was priced, not the stored one");
+
+        /* The snapshot Orders hands Financial carries the stops with their places, windows and zones. */
+        var snapshot = (await GetRequiredService<OpenTms.Orders.Published.IOrderPricingReader>().GetSnapshotAsync(order.Id)).ShouldNotBeNull();
         snapshot.Lines.Single().Stops.Count.ShouldBe(2);
         snapshot.Lines.Single().Stops[0].CountryCode.ShouldBe("NL");
         snapshot.Lines.Single().Stops[0].City.ShouldBe("Venlo");
@@ -465,7 +544,7 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
             var dto = CreateDto(f, confirm: true);
             dto.TripRequest = new TransportOrderTripRequestInputDto
             {
-                TransportTripTypeId = Guid.NewGuid(), DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
+                TransportTripTypeId = f.TripTypeId, DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
                 PlannedDeparture = DateTimeOffset.UtcNow, VehicleIds = [], DriverIds = []
             };
             orderId = (await Orders.CreateAsync(dto)).Id;

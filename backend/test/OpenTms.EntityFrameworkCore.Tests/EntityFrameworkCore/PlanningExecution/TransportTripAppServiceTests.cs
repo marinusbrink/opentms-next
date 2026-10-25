@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenTms.MasterData.Fleet;
-using OpenTms.Financial.Tariffs.Published;
+using OpenTms.Orders.TransportOrders;
 using OpenTms.MasterData.Relations;
 using OpenTms.PlanningExecution;
 using OpenTms.PlanningExecution.Legs;
@@ -34,24 +34,16 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         return (type, depot, a, b, a.RelationId);
     }
 
-    /// <summary>The order's stops carry the relation names and cities of the fixtures (the legs snapshot them).</summary>
-    private readonly Dictionary<Guid, (string Name, string City, double Lat, double Lon)> _places = new();
+    private Task<(Guid RelationId, Guid AddressId)> NamedPlaceAsync(string code, string name, double lat, double lon, RelationRoles roles, string city)
+        => PlaceAsync(code, name, lat, lon, roles, city);
 
-    private async Task<(Guid RelationId, Guid AddressId)> NamedPlaceAsync(string code, string name, double lat, double lon, RelationRoles roles, string city)
-    {
-        var place = await PlaceAsync(code, name, lat, lon, roles, city);
-        _places[place.RelationId] = (name, city, lat, lon);
-        return place;
-    }
+    /// <summary>A line from → to on one day; the stops' names, cities and coordinates come from Master Data (the legs snapshot them).</summary>
+    private TransportOrderLineInputDto Line((Guid, Guid) from, (Guid, Guid) to, decimal quantity = 10, int fromHour = 8, int toHour = 12, int day = 26, double? weightKg = 1000)
+        => LineOf(quantity, weightKg,
+            StopAt(from, Load, new DateOnly(2026, 10, day), At(fromHour, 0, day), At(fromHour + 2, 0, day)),
+            StopAt(to, Unload, new DateOnly(2026, 10, day), At(toHour, 0, day), At(toHour + 2, 0, day)));
 
-    private PricingLineDto Line((Guid, Guid) from, (Guid, Guid) to, decimal quantity = 10, int fromHour = 8, int toHour = 12, int day = 26, double? weightKg = 1000)
-    {
-        var f = _places[from.Item1];
-        var t = _places[to.Item1];
-        return LineOf(quantity, weightKg,
-            StopAt(from, Load, new DateOnly(2026, 10, day), f.Name, f.Lat, f.Lon, At(fromHour, 0, day), At(fromHour + 2, 0, day), city: f.City),
-            StopAt(to, Unload, new DateOnly(2026, 10, day), t.Name, t.Lat, t.Lon, At(toHour, 0, day), At(toHour + 2, 0, day), city: t.City));
-    }
+    private Task<Guid> ConfirmOrderAsync(Guid customerRelationId, params TransportOrderLineInputDto[] lines) => ConfirmedOrderAsync(customerRelationId, lines);
 
     [Fact]
     public async Task Create_draws_a_number_from_the_types_sequence_takes_the_types_defaults_and_requests_a_calculation()
@@ -183,8 +175,8 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, b, _) = await FixturesAsync();
-        var order1 = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a), Line(depot, b, toHour: 14)));
-        var order2 = await ConfirmOrderAsync(Order(b.Item1, Line(depot, b, quantity: 4, toHour: 15)));
+        var order1 = await ConfirmOrderAsync(a.Item1, Line(depot, a), Line(depot, b, toHour: 14));
+        var order2 = await ConfirmOrderAsync(b.Item1, Line(depot, b, quantity: 4, toHour: 15));
         var legs1 = await LegIdsOfOrderAsync(order1);
         var legs2 = await LegIdsOfOrderAsync(order2);
         var trip = await CreateTripAsync(type, At(6), At(18));
@@ -235,7 +227,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a), Line(depot, a, toHour: 15)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a), Line(depot, a, toHour: 15));
         var trip = await CreateTripAsync(type, At(6), At(18), StopCompositionMode.OneStopPairPerLeg, FirstLastStopRule.Both);
 
         trip = await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = await LegIdsOfOrderAsync(order) });
@@ -252,7 +244,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
         var legs = await LegIdsOfOrderAsync(order);
         var trip = await CreateTripAsync(type, At(6), At(18));
         var other = await CreateTripAsync(type, At(6), At(18));
@@ -278,7 +270,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         await Trips.CancelAsync(other.Id);
         (await Should.ThrowAsync<BusinessException>(() => Trips.AssignLegsAsync(other.Id, new AssignLegsDto { LegIds = legs })))
             .Code.ShouldBe(PlanningExecutionErrorCodes.TripNotAssignable);
-        World.OrderReferences[(CurrentTenant.Id, order)].Status = global::OpenTms.Orders.TransportOrders.TransportOrderStatus.Cancelled;
+        await Run.CancelWithoutEventsAsync(order);
         (await Should.ThrowAsync<BusinessException>(() => Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = legs })))
             .Code.ShouldBe(PlanningExecutionErrorCodes.OrderCancelled);
     }
@@ -289,7 +281,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
         var fuel = await PlaceAsync("FUEL", "Fuel station", 52.2, 5.0, RelationRoles.Depot, "Hilversum");
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
         var trip = await CreateTripAsync(type, At(6), At(18));
         trip = await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = await LegIdsOfOrderAsync(order) });
 
@@ -330,7 +322,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
         var legs = await LegIdsOfOrderAsync(order);
         var trip = await CreateTripAsync(type, At(6), At(18));
         trip = await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = legs });
@@ -361,7 +353,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
 
         /* Cancel a planned trip with legs: the legs are unassigned; delete a planned trip likewise. */
         var cancelled = await CreateTripAsync(type, At(6), At(18));
-        var order2 = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+        var order2 = await ConfirmOrderAsync(a.Item1, Line(depot, a));
         await Trips.AssignLegsAsync(cancelled.Id, new AssignLegsDto { LegIds = await LegIdsOfOrderAsync(order2) });
         cancelled = await Trips.CancelAsync(cancelled.Id);
         cancelled.Status.ShouldBe(TransportTripStatus.Cancelled);
@@ -382,7 +374,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
         var hub = await PlaceAsync("HUB", "Hub Breda", 51.59, 4.78, RelationRoles.Depot, "Breda");
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a, quantity: 10, weightKg: 1000)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a, quantity: 10, weightKg: 1000));
         var legId = (await LegIdsOfOrderAsync(order)).Single();
         var trip = await CreateTripAsync(type, At(6), At(18));
         var shuttle = await CreateTripAsync(type, At(6), At(18));
@@ -447,9 +439,9 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
         var carrier = await PlaceAsync("CARR", "Carrier BV", 52, 5, RelationRoles.Carrier);
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var planned = await CreateTripAsync(type, new DateTimeOffset(today.ToDateTime(new TimeOnly(6, 0)), TimeSpan.Zero), name: "Alpha");
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
+        var today = Run.Today;
+        var planned = await CreateTripAsync(type, new DateTimeOffset(today.ToDateTime(new TimeOnly(6, 0)), Cet), name: "Alpha");
         await Trips.AssignLegsAsync(planned.Id, new AssignLegsDto { LegIds = await LegIdsOfOrderAsync(order), AllowOutsideWindow = true });
         var empty = await CreateTripAsync(type, At(6, 0, 20), name: "Beta");
         await Trips.SetCarrierAsync(empty.Id, new TripCarrierDto { CarrierRelationId = carrier.RelationId });
@@ -486,7 +478,7 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
         using (InTenantA())
         {
             var (type, depot, a, _, _) = await FixturesAsync();
-            var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+            var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
             legs = await LegIdsOfOrderAsync(order);
             var trip = await CreateTripAsync(type, At(6), At(18));
             await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = legs });
@@ -513,12 +505,14 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, _, _) = await FixturesAsync();
-        var tractorType = await VehicleTypeAsync("Tractor", VehicleTypeKind.Tractor);
-        var tractor = await VehicleAsync("Truck 07", tractorType, depot.Item1);
+        var tractorType = await Run.VehicleTypeAsync("Tractor", VehicleTypeKind.Tractor, costPricePerKm: 1.10m);
+        var tractor = await Run.VehicleAsync("Truck 07", tractorType, depot.Item1, costPricePerKm: 0.95m);
+        var trailerType = await Run.VehicleTypeAsync("Trailer", VehicleTypeKind.Trailer, costPricePerKm: 0.30m);
+        var trailer = await Run.VehicleAsync("Trailer 07", trailerType, depot.Item1, euroClass: null);
         var driver = await DriverAsync("D7", "Piet", "Pietersen");
-        var order = await ConfirmOrderAsync(Order(a.Item1, Line(depot, a)));
+        var order = await ConfirmOrderAsync(a.Item1, Line(depot, a));
         var trip = await CreateTripAsync(type, At(6), At(18));
-        await Trips.SetVehiclesAsync(trip.Id, new TripVehiclesDto { VehicleIds = [tractor] });
+        await Trips.SetVehiclesAsync(trip.Id, new TripVehiclesDto { VehicleIds = [tractor, trailer] });
         await Trips.SetDriversAsync(trip.Id, new TripDriversDto { DriverIds = [driver] });
         await Trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = await LegIdsOfOrderAsync(order) });
 
@@ -534,8 +528,15 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
 
         var reference = (await GetRequiredService<OpenTms.PlanningExecution.Published.ITransportTripLookup>().GetAsync([trip.Id])).ShouldHaveSingleItem();
         reference.Number.ShouldBe(trip.Number);
-        reference.VehicleNames.ShouldBe(["Truck 07"]);
+        reference.VehicleNames.ShouldBe(["Truck 07", "Trailer 07"]);
         reference.DriverNames.ShouldBe(["Piet Pietersen"]);
         reference.PlannedDeparture.ShouldBe(At(6));
+        reference.Execution.ShouldBe(TripExecution.OwnFleet);
+        reference.VehicleIds.ShouldBe([tractor, trailer]);
+        reference.VehicleCombinationId.ShouldBeNull();
+        reference.PlannedDistanceM.ShouldBeNull("reads never calculate");
+        reference.OwnFleetCostPerKm.ShouldBe(1.25m, "QP10: the tractor's own 0.95 plus the trailer's type 0.30");
+        var bare = await CreateTripAsync(type);
+        (await GetRequiredService<OpenTms.PlanningExecution.Published.ITransportTripLookup>().GetAsync([bare.Id])).Single().OwnFleetCostPerKm.ShouldBeNull("no vehicle: Financial falls back to the tenant setting");
     }
 }

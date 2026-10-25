@@ -36,8 +36,8 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
         {
             var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, "Utrecht");
             var customer = await PlaceAsync("CUST", "Customer", 52.37, 4.90);
-            orderId = RegisterOrder(tenantId, customer.RelationId,
-                LineOf(10, 1000, StopAt(depot.RelationId, depot.AddressId, Load, "Depot", 52.09, 5.12), StopAt(customer.RelationId, customer.AddressId, Unload, "Customer", 52.37, 4.90)));
+            orderId = (await OrderAsync(customer.RelationId,
+                LineOf(10, 1000, StopAt(depot.RelationId, depot.AddressId, Load), StopAt(customer.RelationId, customer.AddressId, Unload)))).Id;
             var legs = await ConfirmAsync(orderId);
             legIds = legs.Select(l => l.Id).ToList();
             legs.ShouldHaveSingleItem().TenantId.ShouldBe(tenantId);
@@ -65,7 +65,7 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
                 await Should.ThrowAsync<EntityNotFoundException>(() => GetRequiredService<ITransportTripAppService>().GetAsync(tripId));
                 await Should.ThrowAsync<EntityNotFoundException>(() => GetRequiredService<ILegAppService>().GetAsync(legIds[0]));
 
-                /* The other tenant's handler for the same order id: the fake reader has no such order for it; nothing appears. */
+                /* The other tenant's handler for the same order id: Orders' reader has no such order for it; nothing appears. */
                 await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
                 await FlushAsync();
                 (await LegRepository.GetListAsync(l => l.OrderId == orderId)).ShouldBeEmpty();
@@ -82,8 +82,8 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
         {
             var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12);
             var customer = await PlaceAsync("CUST", "Customer", 52.37, 4.90);
-            var orderId = RegisterOrder(TenantA, customer.RelationId,
-                LineOf(10, 1000, StopAt(depot.RelationId, depot.AddressId, Load, "Depot", 52.09, 5.12), StopAt(customer.RelationId, customer.AddressId, Unload, "Customer", 52.37, 4.90)));
+            var orderId = (await OrderAsync(customer.RelationId,
+                LineOf(10, 1000, StopAt(depot.RelationId, depot.AddressId, Load), StopAt(customer.RelationId, customer.AddressId, Unload)))).Id;
             var leg = (await ConfirmAsync(orderId)).Single();
 
             var duplicate = new Leg(Guid.NewGuid(), TenantA, orderId, leg.OrderLineId, leg.CustomerRelationId, 2, LegSource.Generated, leg.Origin, leg.Destination, leg.Quantities);
@@ -133,8 +133,8 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
             var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, "Utrecht");
             var a = await PlaceAsync("A", "A", 52.0, 5.0);
             var b = await PlaceAsync("B", "B", 52.5, 5.5);
-            var orderId = RegisterOrder(tenantId, a.RelationId,
-                LineOf(10, 1000, StopAt(a.RelationId, a.AddressId, Load, "A", 52.0, 5.0), StopAt(b.RelationId, b.AddressId, Unload, "B", 52.5, 5.5)));
+            var orderId = (await OrderAsync(a.RelationId,
+                LineOf(10, 1000, StopAt(a.RelationId, a.AddressId, Load), StopAt(b.RelationId, b.AddressId, Unload)))).Id;
 
             var first = await ConfirmAsync(orderId);
             first.ShouldHaveSingleItem();

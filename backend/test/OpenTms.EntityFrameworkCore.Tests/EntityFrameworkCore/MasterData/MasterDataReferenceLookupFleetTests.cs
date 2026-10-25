@@ -64,7 +64,7 @@ public class MasterDataReferenceLookupFleetTests : OpenTmsEntityFrameworkCoreTes
         var tailLift = (await GetRequiredService<ITransportCharacteristicsAppService>().CreateAsync(new TransportCharacteristicsCreateDto { Code = "TAIL", Name = "Tail lift" })).Id;
         var trailerType = (await GetRequiredService<IVehicleTypeAppService>().CreateAsync(new VehicleTypeCreateDto
         {
-            Name = "Reefer trailer", Kind = VehicleTypeKind.Trailer, MaxEpq = 33, MaxLoadingMeters = 13.6, DefaultGrossVehicleWeightKg = 36_000, TransportCharacteristicsIds = [reefer]
+            Name = "Reefer trailer", Kind = VehicleTypeKind.Trailer, MaxEpq = 33, MaxLoadingMeters = 13.6, DefaultGrossVehicleWeightKg = 36_000, CostPricePerKm = 0.3m, TransportCharacteristicsIds = [reefer]
         })).Id;
         var vehicles = GetRequiredService<IVehicleAppService>();
         var trailer = (await vehicles.CreateAsync(new VehicleCreateDto
@@ -72,7 +72,8 @@ public class MasterDataReferenceLookupFleetTests : OpenTmsEntityFrameworkCoreTes
             Name = "Trailer 1", VehicleTypeId = trailerType, OwnerRelationId = relationId, MaxPayloadKg = 24_000, MaxEpq = 34, LicencePlate = "OJ-12-AB", RegistrationCountryId = _countryId, TransportCharacteristicIds = [tailLift]
         })).Id;
         var tractorType = (await GetRequiredService<IVehicleTypeAppService>().CreateAsync(new VehicleTypeCreateDto { Name = "Tractor", Kind = VehicleTypeKind.Tractor })).Id;
-        var tractor = (await vehicles.CreateAsync(new VehicleCreateDto { Name = "Truck 1", VehicleTypeId = tractorType, OwnerRelationId = relationId, GrossVehicleWeightKg = 18_000, EuroClass = EuroClass.Euro6, FuelType = FuelType.Hvo })).Id;
+        var tractor = (await vehicles.CreateAsync(new VehicleCreateDto { Name = "Truck 1", VehicleTypeId = tractorType, OwnerRelationId = relationId, GrossVehicleWeightKg = 18_000, EuroClass = EuroClass.Euro6, FuelType = FuelType.Hvo, CostPricePerKm = 0.95m })).Id;
+        var bare = (await vehicles.CreateAsync(new VehicleCreateDto { Name = "Truck 2", VehicleTypeId = tractorType, OwnerRelationId = relationId })).Id;
         var combination = (await GetRequiredService<IVehicleCombinationAppService>().CreateAsync(new VehicleCombinationCreateDto
         {
             Name = "Combi", Members = [new VehicleCombinationMemberInputDto { VehicleId = tractor, Position = 1 }, new VehicleCombinationMemberInputDto { VehicleId = trailer, Position = 2 }]
@@ -104,9 +105,12 @@ public class MasterDataReferenceLookupFleetTests : OpenTmsEntityFrameworkCoreTes
         trailerRow.MaxPayloadKg.ShouldBe(24_000);
         trailerRow.GrossVehicleWeightKg.ShouldBe(36_000, "the type's default when the vehicle has none");
         trailerRow.TransportCharacteristicIds.ShouldBe([reefer, tailLift], ignoreOrder: true);
+        trailerRow.CostPricePerKm.ShouldBe(0.3m, "QP10: the type's cost price when the vehicle has none");
         var tractorRow = fleet.Single(v => v.Id == tractor);
         tractorRow.EuroClass.ShouldBe(EuroClass.Euro6);
         tractorRow.FuelType.ShouldBe(FuelType.Hvo);
+        tractorRow.CostPricePerKm.ShouldBe(0.95m, "QP10: the vehicle's own cost price");
+        (await _lookup.GetVehiclesAsync([bare])).Single().CostPricePerKm.ShouldBeNull("QP10: neither the vehicle nor its type has one");
         tractorRow.TransportCharacteristicIds.ShouldBeEmpty();
 
         var combinations = await _lookup.GetVehicleCombinationsAsync([combination]);

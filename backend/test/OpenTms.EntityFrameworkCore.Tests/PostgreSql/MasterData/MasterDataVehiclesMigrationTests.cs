@@ -28,6 +28,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
     private const string PreviousMigration = "20261013153113_MasterDataRelationAdministration";
     private const string NormalizedNameMigration = "20261016071559_MasterDataVehicleNormalizedName";
     private const string CombinationNormalizedNameMigration = "20261016211522_MasterDataVehicleCombinationNormalizedName";
+    private const string CostPricePerKmMigration = "20261025212434_MasterDataCostPricePerKm";
 
     private static readonly string[] Tables =
     [
@@ -54,7 +55,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBeGreaterThan(applied.IndexOf(PreviousMigration));
-            applied.Last().ShouldBe(CombinationNormalizedNameMigration, "the newest Master Data migration");
+            applied.Last().ShouldBe(CostPricePerKmMigration, "the newest Master Data migration (QP10)");
             applied.IndexOf(NormalizedNameMigration).ShouldBeGreaterThan(applied.IndexOf(Migration));
             applied.IndexOf(CombinationNormalizedNameMigration).ShouldBe(applied.IndexOf(NormalizedNameMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();

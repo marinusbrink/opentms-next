@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenTms.Fakes;
-using OpenTms.Financial.Tariffs.Published;
+using OpenTms.Platform.Events.Outbox;
+using OpenTms.TestDoubles;
 using OpenTms.PlanningExecution;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 /// cumulative distances, load, CO₂ with the per-leg allocation, cost and revenue allocation, warnings, the recalculated
 /// event in the tenant's outbox), a superseded version that is skipped, a failing provider that keeps the old values and
 /// is retried, and a provider without a route that warns. The rows commit (the job runs its own transaction) under fresh
-/// ids in tenant A's database. Risk class: Critical.
+/// ids in tenant A's database; the orders' facts are drained from the outbox at the end of each test. Risk class: Critical.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
@@ -65,19 +65,20 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
             var depot = await PlaceAsync("DEP" + suffix, "Depot " + suffix, 52.0907, 5.1214, "Utrecht");
             var a = await PlaceAsync("A" + suffix, "Customer A " + suffix, 52.3676, 4.9041);
             var b = await PlaceAsync("B" + suffix, "Customer B " + suffix, 51.9244, 4.4777, "Rotterdam");
-            var orderId = RegisterOrder(TenantA, a.RelationId,
-                LineOf(10, 8000, StopAt(depot.RelationId, depot.AddressId, Load, "Depot", 52.0907, 5.1214, windowFrom: At(6), windowTill: At(9)),
-                    StopAt(a.RelationId, a.AddressId, Unload, "Customer A", 52.3676, 4.9041, windowFrom: At(7), windowTill: At(12))),
-                LineOf(4, 2000, StopAt(depot.RelationId, depot.AddressId, Load, "Depot", 52.0907, 5.1214),
-                    StopAt(b.RelationId, b.AddressId, Unload, "Customer B", 51.9244, 4.4777, windowFrom: At(16), windowTill: At(17), city: "Rotterdam")));
-            var legs = await ConfirmAsync(orderId);
+            var order = await OrderAsync(a.RelationId,
+                LineOf(10, 8000, StopAt(depot.RelationId, depot.AddressId, Load, windowFrom: At(6), windowTill: At(9)),
+                    StopAt(a.RelationId, a.AddressId, Unload, windowFrom: At(7), windowTill: At(12))),
+                LineOf(4, 2000, StopAt(depot.RelationId, depot.AddressId, Load),
+                    StopAt(b.RelationId, b.AddressId, Unload, windowFrom: At(16), windowTill: At(17))));
+            var legs = await ConfirmAsync(order.Id);
             legs.Count.ShouldBe(2);
-            World.OrderTotals[(TenantA, orderId)] = new RateLineTotalsDto { AnchorId = orderId, TotalAmount = 1_000m, CalculationVersion = 1 };
+            /* Financial's stored lines, as its calculators would have left them: revenue on the order, cost on the trip. */
+            await Run.StoreRevenueAsync(order, 1_000m);
 
             var trip = await CreateTripAsync(await SeededTripTypeAsync(), At(6), At(18));
-            World.TripTotals[(TenantA, trip.Id)] = new RateLineTotalsDto { AnchorId = trip.Id, TotalAmount = 400m, CalculationVersion = 1 };
+            await Run.StoreTripCostAsync(trip.Id, 400m);
             await Operations.AssignAsync(trip, legs, allowOutsideWindow: false, afterStopId: null, moving: false);
-            return new Setup(orderId, trip.Id, legs);
+            return new Setup(order.Id, trip.Id, legs);
         });
     }
 
@@ -89,7 +90,7 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
         {
             var a = await PlaceAsync("RA" + suffix, "A", 52.0, 5.0);
             var b = await PlaceAsync("RB" + suffix, "B", 52.5, 5.5);
-            var id = RegisterOrder(TenantA, a.RelationId, LineOf(2, 1500, StopAt(a.RelationId, a.AddressId, Load, "A", 52.0, 5.0), StopAt(b.RelationId, b.AddressId, Unload, "B", 52.5, 5.5)));
+            var id = (await OrderAsync(a.RelationId, LineOf(2, 1500, StopAt(a.RelationId, a.AddressId, Load), StopAt(b.RelationId, b.AddressId, Unload)))).Id;
             (await ConfirmAsync(id)).ShouldHaveSingleItem();
             return id;
         });
@@ -102,17 +103,18 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
         await RunAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id, version);
 
         var routed = (await LegsAsync(orderId)).Single();
-        var expectedDistance = (int)Math.Round(PlanningFakeWorld.GreatCircleM(new(52.0, 5.0), new(52.5, 5.5)) * World.RoadFactor);
+        var expectedDistance = (int)Math.Round(TestRoutingWorld.GreatCircleM(new(52.0, 5.0), new(52.5, 5.5)) * World.RoadFactor);
         routed.DistanceM.ShouldBe(expectedDistance);
         routed.DurationS.ShouldBe((int)Math.Round(Math.Round(expectedDistance / World.SpeedMps) * 1.2, MidpointRounding.AwayFromZero), "the default speed correction of 120 %");
         routed.TollDistanceM.ShouldBe(expectedDistance / 2);
-        routed.RouteProvider.ShouldBe("Fake");
+        routed.RouteProvider.ShouldBe("Test");
         routed.RoutedAt.ShouldNotBeNull();
         routed.EstimatedCo2Kg.ShouldNotBeNull("an unplanned leg gets the great-circle estimate");
         routed.Co2Provider.ShouldBe("GreatCircleCpi");
         World.RouteCalls.ShouldContain(c => c.TenantId == TenantA && c.Vehicle != null && c.Vehicle.GrossWeightKg == 40_000, "no trip: the default 40 t vehicle");
 
         (await CommittedAsync(async () => (await States.FindAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id))!.Status)).ShouldBe(DerivedValueStatus.UpToDate);
+        await DrainOutboxAsync();
     }
 
     [Fact]
@@ -151,7 +153,7 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
         trip.LoadingMeters.ShouldBe(5.6);
         trip.Co2Kg.ShouldNotBeNull();
         trip.Co2Kg!.Value.ShouldBeGreaterThan(0);
-        legs.ShouldAllBe(l => l.EstimatedCo2Kg != null && l.Co2FactorSet == "Fake");
+        legs.ShouldAllBe(l => l.EstimatedCo2Kg != null && l.Co2FactorSet == "Test");
         legs.Sum(l => l.EstimatedCo2Kg!.Value).ShouldBe(trip.Co2Kg.Value);
 
         /* AD-20: trip cost by km share, order revenue by km share; the sums are exact. */
@@ -172,6 +174,7 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
 
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, setup.TripId.ToString())).ShouldBeGreaterThan(0, "the recalculated fact sits in the tenant's outbox");
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.HostDatabase, setup.TripId.ToString())).ShouldBe(0);
+        await DrainOutboxAsync();
     }
 
     [Fact]
@@ -226,5 +229,15 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
         var unrouted = await TripAsync(setup.TripId);
         unrouted.Warnings.ShouldContain(w => w.Code == TripWarningCode.RoutingNotConfigured);
         unrouted.OrderedStops.First().PlannedArrival.ShouldBe(retried.OrderedStops.First().PlannedArrival, "the old times are kept");
+        await DrainOutboxAsync();
+    }
+
+    /// <summary>The committed facts of this test leave the outbox through the real dispatcher, so later tests find it empty.</summary>
+    private async Task DrainOutboxAsync()
+    {
+        var dispatcher = GetRequiredService<IOutboxDispatcher>();
+        while (await dispatcher.DispatchAsync(TenantA) > 0)
+        {
+        }
     }
 }

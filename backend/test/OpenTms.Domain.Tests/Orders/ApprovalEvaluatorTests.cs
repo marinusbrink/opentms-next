@@ -27,12 +27,12 @@ public class ApprovalEvaluatorTests
 
     private static ApprovalFacts Facts(
         TransportOrder? order = null, decimal? revenue = 1250m, long? version = 3, Dictionary<Guid, decimal>? byLine = null, bool documented = true,
-        bool duplicate = false, IReadOnlyList<ApprovalLegFact>? legs = null, bool referencesExist = true)
+        bool duplicate = false, IReadOnlyList<ApprovalLegFact>? legs = null, bool referencesExist = true, CustomerFinancialDefaults? defaults = null)
     {
         order ??= Priced();
         byLine ??= order.Lines.ToDictionary(l => l.Id, _ => 100m);
         legs ??= order.Lines.Select(l => new ApprovalLegFact(l.Id, null, true)).ToList();
-        return new ApprovalFacts(order, revenue, version, byLine, documented, duplicate, legs, referencesExist);
+        return new ApprovalFacts(order, revenue, version, byLine, documented, duplicate, legs, referencesExist, defaults);
     }
 
     [Fact]
@@ -138,9 +138,26 @@ public class ApprovalEvaluatorTests
     }
 
     [Fact]
-    public void FinancialDefaultsMismatch_passes_until_Financial_publishes_the_customer_defaults()
+    public void FinancialDefaultsMismatch_passes_without_customer_defaults_or_when_the_terms_agree_and_warns_with_the_fields_that_differ()
     {
-        ApprovalEvaluator.Evaluate(ApprovalRule.FinancialDefaultsMismatch, Facts()).ShouldBeNull();
+        var listId = Guid.NewGuid();
+        var surcharge = Guid.NewGuid();
+        var order = Order(OrderSource.Screen, new FinancialTermsInput("EUR", null, 30, [listId], OpenTms.Financial.Tariffs.MultipleMatches.All, [new DiscountOrSurchargeInput(surcharge, DiscountOrSurchargeSource.Default)], null, false));
+        order.Confirm("TO-2026-00001", TransportOrderRequiredFields.None, ActivityOf);
+
+        ApprovalEvaluator.Evaluate(ApprovalRule.FinancialDefaultsMismatch, Facts(order)).ShouldBeNull("no settings for the customer: nothing to differ from");
+
+        var agreeing = new CustomerFinancialDefaults("EUR", null, 30, [listId], OpenTms.Financial.Tariffs.MultipleMatches.All, [surcharge]);
+        ApprovalEvaluator.Evaluate(ApprovalRule.FinancialDefaultsMismatch, Facts(order, defaults: agreeing)).ShouldBeNull();
+
+        var differing = new CustomerFinancialDefaults("USD", Guid.NewGuid(), 14, [Guid.NewGuid()], OpenTms.Financial.Tariffs.MultipleMatches.All, [surcharge, Guid.NewGuid()]);
+        var result = ApprovalEvaluator.Evaluate(ApprovalRule.FinancialDefaultsMismatch, Facts(order, defaults: differing)).ShouldNotBeNull();
+        result.Severity.ShouldBe(ApprovalSeverity.Warning, "a warning: the clerk may have meant it");
+        result.Data["fields"].ShouldBe("currencyCode, vatPercentageId, paymentTermDays, priceListIds, discountsOrSurcharges");
+
+        /* A default the customer leaves open (no VAT, no term, no currency) never differs. */
+        var open = new CustomerFinancialDefaults(null, null, null, [listId], OpenTms.Financial.Tariffs.MultipleMatches.All, []);
+        ApprovalEvaluator.Evaluate(ApprovalRule.FinancialDefaultsMismatch, Facts(order, defaults: open)).ShouldBeNull();
     }
 
     [Fact]

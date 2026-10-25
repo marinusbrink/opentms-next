@@ -20,7 +20,7 @@ public class ViaDepotRuleAppServiceTests : PlanningAppServiceTestBase
 {
     private IViaDepotRuleAppService Rules => GetRequiredService<IViaDepotRuleAppService>();
 
-    private static ViaDepotRuleCreateDto Dto(ViaDepotScope scope, Guid? relationId, Guid? regionId, (Guid RelationId, Guid AddressId) depot, int position = 1) => new()
+    private ViaDepotRuleCreateDto Dto(ViaDepotScope scope, Guid? relationId, Guid? regionId, (Guid RelationId, Guid AddressId) depot, int position = 1) => new()
     {
         Scope = scope,
         RelationId = relationId,

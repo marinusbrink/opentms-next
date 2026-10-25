@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenTms.Financial.Events;
@@ -6,11 +7,13 @@ using OpenTms.Orders;
 using OpenTms.Orders.Events;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.Events;
+using OpenTms.PlanningExecution.Published;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.ReferenceData;
 using Shouldly;
 using Volo.Abp;
+using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.Uow;
 using Xunit;
@@ -21,8 +24,8 @@ namespace OpenTms.EntityFrameworkCore.Orders;
 /// The Orders side of the other modules' facts and the order summary calculator (design 56 "Flow 2", design 58 "Events")
 /// on SQLite: Planning's and Financial's events request a new summary version (idempotently, only for orders that exist),
 /// TransportTripCreated records the trip once, and the calculator writes revenue, cost, margin, progress, CO₂, counts,
-/// first/last stop and trip numbers from the published readers. The attribute definitions list is covered here too.
-/// Risk class: Critical (idempotent handlers), High (calculator).
+/// first/last stop and trip numbers from the published readers over Planning's real legs and trips and Financial's real
+/// rate lines. The attribute definitions list is covered here too. Risk class: Critical (idempotent handlers), High (calculator).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEntityFrameworkCoreTestModule>
@@ -35,8 +38,7 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var order = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        var lineId = order.Lines.Single().Id!.Value;
-        var before = DerivedValues.ReasonsFor(order.Id).Count;
+        var before = SummaryReasons(order.Id).Count;
 
         await Bus.PublishAsync(new LegAssignedEto { LegId = Guid.NewGuid(), TripId = Guid.NewGuid(), OrderId = order.Id });
         await Bus.PublishAsync(new LegUnassignedEto { LegId = Guid.NewGuid(), TripId = Guid.NewGuid(), OrderId = order.Id });
@@ -47,10 +49,10 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         await Bus.PublishAsync(new RateLinesChangedEto { TripId = Guid.NewGuid(), Version = 2 });
         await Bus.PublishAsync(new LegAssignedEto { LegId = Guid.NewGuid(), TripId = Guid.NewGuid(), OrderId = Guid.NewGuid() });
 
-        var reasons = DerivedValues.ReasonsFor(order.Id).Skip(before).ToList();
+        var reasons = SummaryReasons(order.Id).Skip(before).ToList();
         reasons.ShouldBe(["LegAssigned", "LegUnassigned", "LegsGenerated", "TripStatusChanged", "TripRecalculated", "RateLinesChanged"]);
-        DerivedValues.Requests.ShouldAllBe(r => r.TargetType == OrdersConsts.OrderSummaryTargetType);
-        DerivedValues.Requests.Count(r => r.TargetId != order.Id && r.Reason == "LegAssigned").ShouldBe(0, "an unknown order requests nothing");
+        var summaries = Requests.All.Where(r => r.TargetType == OrdersConsts.OrderSummaryTargetType).ToList();
+        summaries.Count(r => r.TargetId != order.Id && r.Reason == "LegAssigned").ShouldBe(0, "an unknown order requests nothing");
     }
 
     [Fact]
@@ -61,22 +63,26 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         var dto = CreateDto(f, confirm: true);
         dto.TripRequest = new TransportOrderTripRequestInputDto
         {
-            TransportTripTypeId = Guid.NewGuid(), DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
-            PlannedDeparture = DateTimeOffset.UtcNow
+            TransportTripTypeId = f.TripTypeId, DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
+            PlannedDeparture = TransportRun.TransportRunFixture.At(Today, 6)
         };
-        var order = await Orders.CreateAsync(dto);
-        var tripId = Guid.NewGuid();
-        var before = DerivedValues.ReasonsFor(order.Id).Count;
 
-        await Bus.PublishAsync(new TransportTripCreatedEto { TripId = tripId, CreatedFromOrderId = order.Id });
-        await Bus.PublishAsync(new TransportTripCreatedEto { TripId = tripId, CreatedFromOrderId = order.Id });
+        /* "Tevens trip" (Q9): Planning creates the trip on the confirm and tells Orders, which records it on the request. */
+        var order = await Orders.CreateAsync(dto);
+        var trip = (await GetRequiredService<IRepository<TransportTrip, Guid>>().GetListAsync(t => t.CreatedFromOrderId == order.Id)).ShouldHaveSingleItem();
+        order.TripRequest.ShouldNotBeNull().TripId.ShouldBe(trip.Id);
+        (await Run.LegsOfAsync(order.Id)).ShouldAllBe(l => l.TripId == trip.Id, "the order's legs ride on the requested trip");
+        SummaryReasons(order.Id).ShouldContain("TripCreated");
+        var before = SummaryReasons(order.Id).Count;
+
+        /* Redelivered, and a trip created for no order: nothing changes. */
+        await Bus.PublishAsync(new TransportTripCreatedEto { TripId = trip.Id, CreatedFromOrderId = order.Id });
         await Bus.PublishAsync(new TransportTripCreatedEto { TripId = Guid.NewGuid(), CreatedFromOrderId = null });
 
-        Trips.Add("R-1").ShouldNotBeNull();
         var reloaded = await Orders.GetAsync(order.Id);
-        reloaded.TripRequest.ShouldNotBeNull().TripId.ShouldBe(tripId);
-        DerivedValues.ReasonsFor(order.Id).Skip(before).ShouldBe(["TripCreated"], "the redelivery changed nothing");
-        (await GetRequiredService<OpenTms.Orders.Published.ITransportOrderLookup>().GetTripRequestAsync(order.Id))!.TripId.ShouldBe(tripId);
+        reloaded.TripRequest.ShouldNotBeNull().TripId.ShouldBe(trip.Id);
+        SummaryReasons(order.Id).Count.ShouldBe(before, "the redelivery changed nothing");
+        (await GetRequiredService<OpenTms.Orders.Published.ITransportOrderLookup>().GetTripRequestAsync(order.Id))!.TripId.ShouldBe(trip.Id);
     }
 
     [Fact]
@@ -85,11 +91,12 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         using var _ = InTenantA();
         var f = await FixtureAsync();
         var order = await Orders.CreateAsync(CreateDto(f, confirm: true, lines: 2));
-        var lineIds = order.Lines.Select(l => l.Id!.Value).ToList();
-        RateLines.SetRevenue(order.Id, 1250m, version: 4);
-        var trip = Trips.Add("R2026-0421");
-        Legs.Add(order.Id, lineIds[0], trip.Id, trip.Number, TransportTripStatus.Planned, distanceM: 120_000, co2Kg: 95.5m, cost: 400m);
-        Legs.Add(order.Id, lineIds[1], trip.Id, trip.Number, TransportTripStatus.Planned, distanceM: 50_000, co2Kg: 40m, cost: 200.25m);
+        var lineIds = order.Lines.OrderBy(l => l.Position).Select(l => l.Id!.Value).ToList();
+        await Run.StoreRevenueAsync(order, 1250m, version: 4);
+        var trip = await Run.PlanAsync(f.TripTypeId, [order.Id]);
+        var legs = await Run.LegsOfAsync(order.Id);
+        await Run.SetLegValuesAsync(legs.Single(l => l.OrderLineId == lineIds[0]).Id, distanceM: 120_000, co2Kg: 95.5m, allocatedCost: 400m);
+        await Run.SetLegValuesAsync(legs.Single(l => l.OrderLineId == lineIds[1]).Id, distanceM: 50_000, co2Kg: 40m, allocatedCost: 200.25m);
 
         /* As the job runs it: one unit of work around the calculation (design 49), so the aggregate is read and written in one context. */
         await WithUnitOfWorkAsync(() => GetRequiredService<OrderSummaryCalculator>().CalculateAsync(new DerivedValueCalculationContext(OrdersConsts.OrderSummaryTargetType, order.Id, 1, default)));
@@ -104,7 +111,7 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         summary.StopCount.ShouldBe(4);
         (summary.FirstStopName, summary.FirstStopCity, summary.FirstStopDate).ShouldBe(("DC Venlo", "Venlo", Today));
         (summary.LastStopName, summary.LastStopCity, summary.LastStopDate).ShouldBe(("Supermarkt Utrecht", "Utrecht", Today.AddDays(1)));
-        summary.TripNumbers.ShouldBe("R2026-0421");
+        summary.TripNumbers.ShouldBe(trip.Number);
         summary.CalculatedAt.ShouldNotBeNull();
 
         var detail = await Orders.GetAsync(order.Id);
@@ -120,32 +127,21 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
     [Fact]
     public void The_progress_follows_the_legs_trips_and_arrivals()
     {
-        var orderId = Guid.NewGuid();
-        var lineId = Guid.NewGuid();
-        var legs = new Fakes.FakeLegs();
         OrderSummaryCalculator.ProgressOf([]).ShouldBe(ExecutionProgress.Unplanned);
-
-        legs.Add(orderId, lineId);
-        OrderSummaryCalculator.ProgressOf(legs.ByOrder[orderId]).ShouldBe(ExecutionProgress.Unplanned);
-        legs.Add(orderId, lineId, Guid.NewGuid(), "R-1", TransportTripStatus.Planned);
-        OrderSummaryCalculator.ProgressOf(legs.ByOrder[orderId]).ShouldBe(ExecutionProgress.PartlyPlanned);
-
-        var planned = new Fakes.FakeLegs();
-        var tripId = Guid.NewGuid();
-        planned.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.Planned);
-        planned.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.Planned);
-        OrderSummaryCalculator.ProgressOf(planned.ByOrder[orderId]).ShouldBe(ExecutionProgress.Planned);
-
-        var inProgress = new Fakes.FakeLegs();
-        inProgress.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.InProgress);
-        inProgress.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.InProgress, arrivedAt: DateTimeOffset.UtcNow);
-        OrderSummaryCalculator.ProgressOf(inProgress.ByOrder[orderId]).ShouldBe(ExecutionProgress.InProgress);
-
-        var delivered = new Fakes.FakeLegs();
-        delivered.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.InProgress, arrivedAt: DateTimeOffset.UtcNow);
-        delivered.Add(orderId, lineId, tripId, "R-1", TransportTripStatus.Completed);
-        OrderSummaryCalculator.ProgressOf(delivered.ByOrder[orderId]).ShouldBe(ExecutionProgress.Delivered);
+        OrderSummaryCalculator.ProgressOf([Leg()]).ShouldBe(ExecutionProgress.Unplanned);
+        OrderSummaryCalculator.ProgressOf([Leg(), Leg(TransportTripStatus.Planned)]).ShouldBe(ExecutionProgress.PartlyPlanned);
+        OrderSummaryCalculator.ProgressOf([Leg(TransportTripStatus.Planned), Leg(TransportTripStatus.Planned)]).ShouldBe(ExecutionProgress.Planned);
+        OrderSummaryCalculator.ProgressOf([Leg(TransportTripStatus.InProgress), Leg(TransportTripStatus.InProgress, arrived: true)]).ShouldBe(ExecutionProgress.InProgress);
+        OrderSummaryCalculator.ProgressOf([Leg(TransportTripStatus.InProgress, arrived: true), Leg(TransportTripStatus.Completed)]).ShouldBe(ExecutionProgress.Delivered);
     }
+
+    private static LegSnapshotDto Leg(TransportTripStatus? tripStatus = null, bool arrived = false) => new()
+    {
+        Id = Guid.NewGuid(), OrderId = Guid.Empty, OrderLineId = Guid.Empty, Position = 1,
+        TripId = tripStatus == null ? null : Guid.NewGuid(), TripNumber = tripStatus == null ? null : "R-1", TripStatus = tripStatus,
+        Origin = new LegEndDto { PlannedDate = new DateOnly(2026, 10, 20) },
+        Destination = new LegEndDto { PlannedDate = new DateOnly(2026, 10, 20), ActualAt = arrived ? DateTimeOffset.UtcNow : null }
+    };
 
     [Fact]
     public async Task Attribute_definitions_are_unique_per_target_and_key_and_feed_the_attribute_check_Q12()

@@ -122,7 +122,7 @@ public class VehicleAppServiceTests : MasterDataAppServiceTestBase
             Name = dto.Name, VehicleTypeId = dto.VehicleTypeId, LicencePlate = dto.LicencePlate, RegistrationCountryId = dto.RegistrationCountryId, Vin = dto.Vin,
             OwnerRelationId = dto.OwnerRelationId, HomeDepotRelationId = dto.HomeDepotRelationId, LengthCm = dto.LengthCm, WidthCm = dto.WidthCm, HeightCm = dto.HeightCm,
             GrossVehicleWeightKg = dto.GrossVehicleWeightKg, EmptyWeightKg = dto.EmptyWeightKg, MaxEpq = dto.MaxEpq, MaxLoadingMeters = dto.MaxLoadingMeters,
-            MaxPayloadKg = dto.MaxPayloadKg, FuelType = dto.FuelType, EuroClass = dto.EuroClass, IsArchived = dto.IsArchived, Description = dto.Description,
+            MaxPayloadKg = dto.MaxPayloadKg, CostPricePerKm = dto.CostPricePerKm, FuelType = dto.FuelType, EuroClass = dto.EuroClass, IsArchived = dto.IsArchived, Description = dto.Description,
             TransportCharacteristicIds = dto.Characteristics.Where(c => c.Origin == VehicleCharacteristicOrigin.Vehicle).Select(c => c.Id).ToList(),
             DefaultDrivers = dto.DefaultDrivers.Select(d => new VehicleDefaultDriverDto { DriverId = d.DriverId, SortOrder = d.SortOrder }).ToList(),
             OrganizationUnitIds = [.. dto.OrganizationUnitIds],
@@ -344,6 +344,24 @@ public class VehicleAppServiceTests : MasterDataAppServiceTestBase
     }
 
     // ── Type defaults and characteristics (High) ─────────────────────────────
+
+    [Fact]
+    public async Task The_cost_price_per_km_is_the_vehicles_own_rounded_to_four_decimals_and_never_negative_QP10()
+    {
+        using var _ = InTenantA();
+        await SeedAsync();
+
+        var own = await CreateAsync("T1", configure: d => d.CostPricePerKm = 0.95126m);
+        own.CostPricePerKm.ShouldBe(0.9513m);
+        var inherited = await CreateAsync("T2");
+        inherited.CostPricePerKm.ShouldBeNull("null = the type's applies (resolved by the published lookup, never copied)");
+
+        var updated = await Service.UpdateAsync(own.Id, UpdateFrom(own, u => u.CostPricePerKm = 1.2m));
+        updated.CostPricePerKm.ShouldBe(1.2m);
+        (await Service.UpdateAsync(own.Id, UpdateFrom(updated, u => u.CostPricePerKm = null))).CostPricePerKm.ShouldBeNull();
+
+        await Should.ThrowAsync<Volo.Abp.Validation.AbpValidationException>(() => CreateAsync("T3", configure: d => d.CostPricePerKm = -1m));
+    }
 
     [Fact]
     public async Task On_create_an_empty_dimension_takes_the_chosen_types_default_and_a_given_one_is_kept()

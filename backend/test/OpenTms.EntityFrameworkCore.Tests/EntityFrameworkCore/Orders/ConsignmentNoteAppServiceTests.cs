@@ -18,6 +18,7 @@ using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.ReferenceData;
 using OpenTms.Platform.ReportDefinitions;
+using OpenTms.TransportRun;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
@@ -172,9 +173,22 @@ public class ConsignmentNoteAppServiceTests : TransportOrderTestBase<Consignment
         await ProfileAsync();
         var first = await Orders.CreateAsync(CreateDto(f, confirm: true, lines: 2));
         var second = await Orders.CreateAsync(CreateDto(f, confirm: true));
-        var trip = Trips.Add("R2026-0421", f.CarrierId, "Charter Transport", f.DepotId, f.ShopId);
-        Legs.Add(first.Id, first.Lines[0].Id!.Value, trip.Id, trip.Number, TransportTripStatus.Planned);
-        Legs.Add(second.Id, second.Lines[0].Id!.Value, trip.Id, trip.Number, TransportTripStatus.Planned);
+
+        /* Planning's real trip: the carrier, a truck with its plate and a driver, the first line's leg of the first order and the second order's leg on it. */
+        var truckType = await Run.VehicleTypeAsync("Truck", OpenTms.MasterData.Fleet.VehicleTypeKind.Rigid);
+        var truck = await GetRequiredService<OpenTms.MasterData.Fleet.IVehicleAppService>().CreateAsync(new OpenTms.MasterData.Fleet.VehicleCreateDto
+        {
+            Name = "Truck 12", VehicleTypeId = truckType, OwnerRelationId = f.OwnCompanyId, LicencePlate = "12-BXL-3", RegistrationCountryId = f.CountryId, GrossVehicleWeightKg = 18_000
+        });
+        var driver = await Run.DriverAsync("JDV", "Jan", "de Vries");
+        var trips = GetRequiredService<ITransportTripAppService>();
+        var trip = await trips.CreateAsync(new TransportTripCreateDto
+        {
+            TransportTripTypeId = f.TripTypeId, PlannedDeparture = TransportRunFixture.At(Today, 6), PlannedArrival = TransportRunFixture.At(Today, 18),
+            CarrierRelationId = f.CarrierId, Execution = TripExecution.Subcontracted, VehicleIds = [truck.Id], DriverIds = [driver]
+        });
+        var firstLegId = (await Run.LegsOfAsync(first.Id)).Single(l => l.OrderLineId == first.Lines[0].Id!.Value).Id;
+        trip = await trips.AssignLegsAsync(trip.Id, new AssignLegsDto { LegIds = [firstLegId, (await Run.LegIdsOfAsync(second.Id)).Single()], AllowOutsideWindow = true });
 
         var documents = await Notes.PrintAsync(new PrintConsignmentNoteDto { TripId = trip.Id });
 
@@ -183,9 +197,9 @@ public class ConsignmentNoteAppServiceTests : TransportOrderTestBase<Consignment
         documents.ShouldAllBe(d => d.TripId == trip.Id);
         documents.Single(d => d.OrderId == first.Id).LineIds.ShouldBe([first.Lines[0].Id!.Value], "only the line on the trip, not the second line of the order");
         var entity = JsonNode.Parse(((RenderRequest)Provider.Calls.First(c => c.Operation == "render").Argument!).Templates.Single().Data.GetRawText())!["Entity"]!;
-        entity["Trip"]!["Number"]!.GetValue<string>().ShouldBe("R2026-0421");
+        entity["Trip"]!["Number"]!.GetValue<string>().ShouldBe(trip.Number);
         entity["Carrier"]!["Name"]!.GetValue<string>().ShouldBe("Charter Transport", "box 16 from the trip's carrier");
-        entity["CarrierRemarks"]!.GetValue<string>().ShouldContain("Truck 12 (12-BXL-3)");
+        entity["CarrierRemarks"]!.GetValue<string>().ShouldContain($"Truck 12 ({truck.LicencePlate})");
         (await Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto { TripId = trip.Id })).TotalCount.ShouldBe(2);
     }
 

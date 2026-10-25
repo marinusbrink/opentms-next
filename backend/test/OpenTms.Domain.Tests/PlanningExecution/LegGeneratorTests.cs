@@ -48,8 +48,8 @@ public class LegGeneratorTests
 
     private static DepotLocation Depot(Guid relationId, Guid addressId) => new(relationId, addressId, "Depot", "Utrecht", "NL", 52.1, 5.1, "Europe/Amsterdam");
 
-    private LegGenerationResult Generate(LegGenerationInput input, IReadOnlyList<Leg> existing, IReadOnlyList<ViaDepotRule>? rules = null, DepotLocation? depot = null)
-        => _generator.Generate(input, rules ?? [], _ => depot, existing, Tenant, Guid.NewGuid);
+    private LegGenerationResult Generate(LegGenerationInput input, IReadOnlyList<Leg> existing, IReadOnlyList<ViaDepotRule>? rules = null, DepotLocation? depot = null, Func<Guid, Guid?>? successorOf = null)
+        => _generator.Generate(input, rules ?? [], _ => depot, successorOf ?? (_ => null), existing, Tenant, Guid.NewGuid);
 
     [Fact]
     public void One_leg_per_consecutive_stop_pair_with_the_lines_quantities_and_positions()
@@ -213,6 +213,31 @@ public class LegGeneratorTests
     }
 
     [Fact]
+    public void A_rule_without_departure_type_departs_the_depot_with_the_arrival_types_successor_else_the_arrival_type()
+    {
+        var depotRelation = Guid.NewGuid();
+        var depotAddress = Guid.NewGuid();
+        var rule = new ViaDepotRule(Guid.NewGuid(), Tenant, ViaDepotScope.Customer, Customer, null, depotRelation, depotAddress, DepotIn);
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", new DateOnly(2026, 10, 26));
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", new DateOnly(2026, 10, 26));
+        var order = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 10, a, b));
+
+        /* Orders' waypoint type DEPOTIN names DEPOTOUT as its successor (design 59 "Generation"). */
+        var withSuccessor = Generate(order, [], [rule], Depot(depotRelation, depotAddress), id => id == DepotIn ? DepotOut : null);
+        withSuccessor.Created[0].DestinationWaypointTypeId.ShouldBe(DepotIn);
+        withSuccessor.Created[1].OriginWaypointTypeId.ShouldBe(DepotOut);
+
+        /* No successor known: the arrival type itself. */
+        var withoutSuccessor = Generate(order, [], [rule], Depot(depotRelation, depotAddress), _ => null);
+        withoutSuccessor.Created[1].OriginWaypointTypeId.ShouldBe(DepotIn);
+
+        /* A rule with its own departure type is not touched by the successor. */
+        rule.SetWaypointTypes(DepotIn, DepotOut);
+        var explicitDeparture = Generate(order, [], [rule], Depot(depotRelation, depotAddress), _ => Guid.NewGuid());
+        explicitDeparture.Created[1].OriginWaypointTypeId.ShouldBe(DepotOut);
+    }
+
+    [Fact]
     public void Rules_match_in_relation_then_customer_then_region_order_and_a_depot_equal_to_a_stop_does_not_split()
     {
         var region = Guid.NewGuid();
@@ -229,26 +254,26 @@ public class LegGeneratorTests
 
         var a = Stop(Guid.NewGuid(), aRelation, Load, "A", new DateOnly(2026, 10, 26), region);
         var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", new DateOnly(2026, 10, 26));
-        var relationWins = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, a, b)), [byRegion, byRelation], id => depots.GetValueOrDefault(id), [], Tenant, Guid.NewGuid);
+        var relationWins = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, a, b)), [byRegion, byRelation], id => depots.GetValueOrDefault(id), _ => null, [], Tenant, Guid.NewGuid);
         relationWins.Created.Count.ShouldBe(2);
         relationWins.Created[0].DestinationRelationId.ShouldBe(relationDepot.Relation);
 
-        var regionOnly = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "X", new DateOnly(2026, 10, 26), region), b)), [byRegion, byRelation], id => depots.GetValueOrDefault(id), [], Tenant, Guid.NewGuid);
+        var regionOnly = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "X", new DateOnly(2026, 10, 26), region), b)), [byRegion, byRelation], id => depots.GetValueOrDefault(id), _ => null, [], Tenant, Guid.NewGuid);
         regionOnly.Created[0].DestinationRelationId.ShouldBe(regionDepot.Relation);
 
         /* The stop at the depot itself: no split. */
         var atDepot = Stop(Guid.NewGuid(), regionDepot.Relation, Load, "Depot", new DateOnly(2026, 10, 26), region);
         atDepot = new LegGenerationStop { Snapshot = atDepot.Snapshot with { RelationAddressId = regionDepot.Address }, RegionIds = atDepot.RegionIds };
-        var noSplit = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, atDepot, b)), [byRegion], id => depots.GetValueOrDefault(id), [], Tenant, Guid.NewGuid);
+        var noSplit = _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, atDepot, b)), [byRegion], id => depots.GetValueOrDefault(id), _ => null, [], Tenant, Guid.NewGuid);
         noSplit.Created.ShouldHaveSingleItem().Source.ShouldBe(LegSource.Generated);
 
         /* An archived rule never applies; a rule whose depot address is unknown neither. */
         var inRegion = new LegGenerationStop { Snapshot = a.Snapshot with { RelationId = Guid.NewGuid() }, RegionIds = [region] };
         byRegion.SetArchived(true);
-        _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, inRegion, b)), [byRegion], id => depots.GetValueOrDefault(id), [], Tenant, Guid.NewGuid)
+        _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, inRegion, b)), [byRegion], id => depots.GetValueOrDefault(id), _ => null, [], Tenant, Guid.NewGuid)
             .Created.ShouldHaveSingleItem();
         byRegion.SetArchived(false);
-        _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, inRegion, b)), [byRegion], _ => null, [], Tenant, Guid.NewGuid)
+        _generator.Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, inRegion, b)), [byRegion], _ => null, _ => null, [], Tenant, Guid.NewGuid)
             .Created.ShouldHaveSingleItem();
     }
 

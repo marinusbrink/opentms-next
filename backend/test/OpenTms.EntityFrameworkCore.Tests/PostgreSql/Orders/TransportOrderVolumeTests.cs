@@ -71,7 +71,7 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
         });
     }
 
-    private async Task InsertVolumeAsync(Fixture f)
+    private async Task InsertVolumeAsync(OpenTms.TransportRun.TransportRunWorld f)
     {
         var insert = Stopwatch.StartNew();
         var statuses = new[] { TransportOrderStatus.Open, TransportOrderStatus.Open, TransportOrderStatus.Draft, TransportOrderStatus.ReadyForInvoicing, TransportOrderStatus.Invoiced, TransportOrderStatus.Archived };

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenTms.Financial;
+using OpenTms.Financial.Invoicing;
 using OpenTms.Financial.Published;
 using OpenTms.Financial.Tariffs;
 using OpenTms.Financial.Tariffs.Published;
@@ -156,6 +157,44 @@ public class PricePreviewAndLookupTests : FinancialAppServiceTestBase
             (await _lookup.GetPriceListsAsync([listId])).ShouldBeEmpty();
             (await _lookup.GetDiscountsOrSurchargesAsync([fuel])).ShouldBeEmpty();
             (await _lookup.GetAdditionalServicesAsync([service])).ShouldBeEmpty();
+        }
+    }
+
+    [Fact]
+    public async Task The_lookup_returns_the_relations_financial_defaults_with_the_surcharges_valid_on_the_date_for_the_tenant_only()
+    {
+        Guid customer;
+        using (InTenantA())
+        {
+            var (listId, _, _, fuel) = await SeedAsync();
+            customer = await RelationAsync("CUST");
+            var winter = (await GetRequiredService<IDiscountOrSurchargeAppService>().CreateAsync(new DiscountOrSurchargeCreateDto
+            {
+                Code = "WINTER", Name = "Winter", ValueKind = DiscountOrSurchargeValueKind.Percentage, Values = [new DiscountOrSurchargeValueInputDto { ValidFrom = new DateOnly(2026, 1, 1), Value = 2m }]
+            })).Id;
+            await GetRequiredService<IRelationFinancialSettingsAppService>().UpsertByRelationAsync(customer, new RelationFinancialSettingsUpsertDto
+            {
+                RevenuePriceListIds = [listId], RevenueMultipleMatches = MultipleMatches.LowestWins, PaymentTermDays = 14, CurrencyCode = "EUR", ChargeFixedPriceByDefault = true, SendFreightDocumentsWithInvoice = true,
+                DiscountsOrSurcharges =
+                [
+                    new RelationDiscountOrSurchargeInputDto { DiscountOrSurchargeId = fuel, ValidFrom = new DateOnly(2026, 1, 1) },
+                    new RelationDiscountOrSurchargeInputDto { DiscountOrSurchargeId = winter, ValidFrom = new DateOnly(2026, 11, 1), ValidTill = new DateOnly(2027, 2, 28) }
+                ]
+            });
+
+            var october = (await _lookup.GetRelationFinancialSettingsAsync(customer, new DateOnly(2026, 10, 26))).ShouldNotBeNull();
+            (october.RelationId, october.RevenueMultipleMatches, october.PaymentTermDays, october.CurrencyCode, october.ChargeFixedPriceByDefault, october.SendFreightDocumentsWithInvoice)
+                .ShouldBe((customer, MultipleMatches.LowestWins, 14, "EUR", true, true));
+            october.RevenuePriceListIds.ShouldBe([listId]);
+            october.VatPercentageId.ShouldBeNull();
+            october.DiscountOrSurchargeIds.ShouldBe([fuel], "the winter surcharge is not valid yet");
+            (await _lookup.GetRelationFinancialSettingsAsync(customer, new DateOnly(2026, 12, 15)))!.DiscountOrSurchargeIds.ShouldBe([fuel, winter], ignoreOrder: true);
+            (await _lookup.GetRelationFinancialSettingsAsync(Guid.NewGuid(), new DateOnly(2026, 10, 26))).ShouldBeNull("a relation without settings has no defaults");
+        }
+
+        using (InTenantB())
+        {
+            (await _lookup.GetRelationFinancialSettingsAsync(customer, new DateOnly(2026, 10, 26))).ShouldBeNull();
         }
     }
 }

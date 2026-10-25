@@ -26,7 +26,7 @@ namespace OpenTms.PostgreSql.Orders;
 /// both tenants and the idempotent seed, tenant isolation of orders, templates, profiles, documents and the two published
 /// readers, the unique indexes as the truth, the gapless numbering on Confirm (a rolled-back confirm consumes nothing) and
 /// the period lock, and the outbox: a rolled-back confirm leaves no event, a committed one has its facts in the tenant's
-/// own outbox. Risk class: Critical.
+/// own outbox and is dispatched through the real dispatcher to Planning and Financial. Risk class: Critical.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
@@ -257,7 +257,7 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
         using (CurrentTenant.Change(TenantA))
         using (var unitOfWork = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = true }, requiresNew: true))
         {
-            var f = await FixtureAsync();
+            var f = await FixtureAsync(uniqueNames: true);
             committed = (await Orders.CreateAsync(CreateDto(f, confirm: true))).Id;
             await unitOfWork.CompleteAsync();
         }
@@ -270,22 +270,22 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
         }
         finally
         {
-            /* Drain the outbox so later tests find it empty. The dispatch runs inside an ambient unit of work: Platform's
-             * DerivedValuesRequestedHandler opens no unit of work of its own and fails from the dispatcher without one
-             * (reported to the PO with design 58's build notes; the Orders facts themselves have only the recording handler). */
-            using (CurrentTenant.Change(TenantA))
-            using (var drain = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions(), requiresNew: true))
+            /* Drain the outbox through the real dispatcher (its unit of work per event is what the handlers of Planning and
+             * Financial run in), until the facts the handlers raise in turn are gone too, so later tests find it empty. */
+            var dispatcher = GetRequiredService<IOutboxDispatcher>();
+            while (await dispatcher.DispatchAsync(TenantA) > 0)
             {
-                await GetRequiredService<IOutboxDispatcher>().DispatchAsync(TenantA);
-                await drain.CompleteAsync();
             }
 
             (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, "")).ShouldBe(0, "every fact of the committed order was dispatched");
-            GetRequiredService<OpenTms.Fakes.OrdersEventRecorder>().Of<OpenTms.Orders.Events.TransportOrderConfirmedEto>(committed).ShouldHaveSingleItem().ShouldNotBeNull();
+            GetRequiredService<OpenTms.TestDoubles.OrdersEventRecorder>().Of<OpenTms.Orders.Events.TransportOrderConfirmedEto>(committed).ShouldHaveSingleItem().ShouldNotBeNull();
 
             using (CurrentTenant.Change(TenantA))
             using (var cleanup = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = true }, requiresNew: true))
             {
+                /* Planning reacted to the dispatched facts: its legs of the order go with it. */
+                (await GetRequiredService<IRepository<OpenTms.PlanningExecution.Legs.Leg, Guid>>().GetListAsync(l => l.OrderId == committed)).ShouldNotBeEmpty("Planning generated the legs from the dispatched confirm");
+                await GetRequiredService<IRepository<OpenTms.PlanningExecution.Legs.Leg, Guid>>().HardDeleteAsync(l => l.OrderId == committed);
                 var order = await _orders.FindAsync(committed, includeDetails: true);
                 if (order != null)
                 {
