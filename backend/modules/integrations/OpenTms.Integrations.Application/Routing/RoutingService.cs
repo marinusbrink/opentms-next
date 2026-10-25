@@ -247,7 +247,9 @@ public class RoutingService : IRoutingService, ITransientDependency
 
     /// <summary>
     /// Writes the rows in a unit of work of their own: the caller's transaction (a calculation job) must not fail on a
-    /// cache write, and two jobs computing the same lane at once race on the unique key — the second loses quietly.
+    /// cache write, and two jobs computing the same lane at once race on the unique key — the second loses quietly. An
+    /// expired row with the same key (not purged yet) is refreshed in place, so the key stays unique and the lane is
+    /// served from the cache again at once.
     /// </summary>
     private async Task StoreAsync(IReadOnlyList<(string Key, string Provider, RouteResult Result)> rows, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -257,14 +259,33 @@ public class RoutingService : IRoutingService, ITransientDependency
         }
 
         var expiresAt = now.UtcDateTime + _options.CacheLifetime;
-        var entries = rows.Select(r => new RouteCacheEntry(
-            _guids.Create(), _currentTenant.Id, r.Key, r.Provider,
-            r.Result.DistanceM, r.Result.DurationS, r.Result.TollDistanceM, r.Result.TollAmount, r.Result.TollCurrencyCode, r.Result.Co2Kg,
-            r.Result.EncodedPolyline, now.UtcDateTime, expiresAt)).ToList();
         try
         {
             using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = false }, requiresNew: true);
-            await _cache.InsertManyAsync(entries, autoSave: true, cancellationToken);
+            var keys = rows.Select(r => r.Key).ToList();
+            var existing = (await _cache.GetListAsync(e => keys.Contains(e.Key), cancellationToken: cancellationToken)).ToDictionary(e => e.Key);
+            var inserts = new List<RouteCacheEntry>();
+            foreach (var (key, provider, result) in rows)
+            {
+                if (existing.TryGetValue(key, out var entry))
+                {
+                    entry.Refresh(provider, result.DistanceM, result.DurationS, result.TollDistanceM, result.TollAmount, result.TollCurrencyCode, result.Co2Kg, result.EncodedPolyline, now.UtcDateTime, expiresAt);
+                    await _cache.UpdateAsync(entry, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    inserts.Add(new RouteCacheEntry(
+                        _guids.Create(), _currentTenant.Id, key, provider,
+                        result.DistanceM, result.DurationS, result.TollDistanceM, result.TollAmount, result.TollCurrencyCode, result.Co2Kg,
+                        result.EncodedPolyline, now.UtcDateTime, expiresAt));
+                }
+            }
+
+            if (inserts.Count > 0)
+            {
+                await _cache.InsertManyAsync(inserts, cancellationToken: cancellationToken);
+            }
+
             await unitOfWork.CompleteAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

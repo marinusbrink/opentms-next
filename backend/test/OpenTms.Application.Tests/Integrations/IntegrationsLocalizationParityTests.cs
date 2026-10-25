@@ -57,4 +57,13 @@ public class IntegrationsLocalizationParityTests
 
         expected.Where(key => !texts.ContainsKey(key)).ShouldBeEmpty();
     }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("nl")]
+    public void The_routing_permission_has_a_text(string culture)
+    {
+        /* Design 60: the Integrations.Routing permission of the status endpoint. */
+        Read(culture).ShouldContainKey("Permission:Routing");
+    }
 }

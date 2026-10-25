@@ -74,4 +74,29 @@ public class RouteCacheEntry : Entity<Guid>, IMultiTenant
     }
 
     public bool IsExpired(DateTime now) => ExpiresAt <= now;
+
+    /// <summary>A fresh answer for the same key (the previous one expired): the row is reused, the key stays unique.</summary>
+    public void Refresh(
+        string provider,
+        int distanceM,
+        int durationS,
+        int? tollDistanceM,
+        decimal? tollAmount,
+        string? tollCurrencyCode,
+        decimal? co2Kg,
+        string? polyline,
+        DateTime createdAt,
+        DateTime expiresAt)
+    {
+        Provider = Check.NotNullOrWhiteSpace(provider, nameof(provider), RoutingConsts.MaxProviderLength);
+        DistanceM = distanceM;
+        DurationS = durationS;
+        TollDistanceM = tollDistanceM;
+        TollAmount = tollAmount;
+        TollCurrencyCode = Check.Length(tollCurrencyCode, nameof(tollCurrencyCode), RoutingConsts.MaxCurrencyCodeLength);
+        Co2Kg = co2Kg;
+        Polyline = polyline;
+        CreatedAt = createdAt;
+        ExpiresAt = expiresAt;
+    }
 }
