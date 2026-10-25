@@ -14,6 +14,7 @@ using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.Guids;
 using Volo.Abp.Uow;
 using Xunit;
@@ -269,8 +270,19 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
         }
         finally
         {
-            /* Drain the outbox (no handler of these facts runs in this process) and remove the committed order. */
-            await GetRequiredService<IOutboxDispatcher>().DispatchAsync(TenantA);
+            /* Drain the outbox so later tests find it empty. The dispatch runs inside an ambient unit of work: Platform's
+             * DerivedValuesRequestedHandler opens no unit of work of its own and fails from the dispatcher without one
+             * (reported to the PO with design 58's build notes; the Orders facts themselves have only the recording handler). */
+            using (CurrentTenant.Change(TenantA))
+            using (var drain = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions(), requiresNew: true))
+            {
+                await GetRequiredService<IOutboxDispatcher>().DispatchAsync(TenantA);
+                await drain.CompleteAsync();
+            }
+
+            (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, "")).ShouldBe(0, "every fact of the committed order was dispatched");
+            GetRequiredService<OpenTms.Fakes.OrdersEventRecorder>().Of<OpenTms.Orders.Events.TransportOrderConfirmedEto>(committed).ShouldHaveSingleItem().ShouldNotBeNull();
+
             using (CurrentTenant.Change(TenantA))
             using (var cleanup = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = true }, requiresNew: true))
             {

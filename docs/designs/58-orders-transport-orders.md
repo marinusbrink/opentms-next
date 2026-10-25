@@ -252,6 +252,12 @@ deviations, each small and reversible:
     OpenTms.EntityFrameworkCore.Tests/Fakes/OrdersFakes.cs` holds `Fake*` stand-ins (deleted at integration). SQLite runs
     without transactions, so the SQLite test module swaps the number-sequence generator and the derived-value scheduler for
     lenient/recording doubles; both rules are covered on PostgreSQL. The render-timeout path has no automated test (the budget is a constant).
+17. **Found in Platform, not fixed here (scope).** `DerivedValuesRequestedHandler` opens no unit of work; dispatched from the
+    outbox (`OutboxDispatcher` → `PublishFromOutboxAsync`) its state read throws "A DbContext can only be created inside a
+    unit of work", the event stays and blocks the tenant's outbox. The design-49 PostgreSQL tests hit this silently (their
+    draining dispatch returns 0); the Orders outbox test drains inside an ambient unit of work and asserts an empty outbox.
+    The production worker takes the same path, so the handler (or the dispatcher, per event) needs a unit of work — a
+    Platform fix for the PO to schedule.
 
 ## Security quickscan
 
