@@ -39,7 +39,7 @@ public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
             CurrencyCode = snapshot.CurrencyCode,
             AsOf = PricingLines.AsOfOf(snapshot, lines),
             Lines = lines,
-            PriceLists = await _loader.GetPriceListsAsync(snapshot.PriceListIds),
+            PriceLists = await _loader.GetPriceListsAsync(snapshot.PriceListIds, PricingDataLoader.LanesOf(lines)),
             MultipleMatches = snapshot.MultipleMatches,
             DiscountsOrSurcharges = await _loader.GetDiscountsOrSurchargesAsync(snapshot.DiscountOrSurchargeIds),
             Vat = await _loader.GetVatAsync(snapshot.VatPercentageId),

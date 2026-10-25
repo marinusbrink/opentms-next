@@ -169,7 +169,7 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_TariffsRateLines", x => x.Id);
-                    table.CheckConstraint("CK_TariffsRateLines_OneAnchor", "((\"OrderId\" IS NOT NULL)::int + (\"OrderLineId\" IS NOT NULL)::int + (\"LegId\" IS NOT NULL)::int + (\"StopId\" IS NOT NULL)::int + (\"TripId\" IS NOT NULL)::int) = 1");
+                    table.CheckConstraint("CK_TariffsRateLines_OneAnchor", "(CASE WHEN \"OrderId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"OrderLineId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"LegId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"StopId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"TripId\" IS NOT NULL THEN 1 ELSE 0 END) = 1");
                 });
 
             migrationBuilder.CreateTable(

@@ -259,7 +259,7 @@ public class PriceListAppService
     [Authorize(FinancialPermissions.PriceLists.Default)]
     public virtual async Task<GridResponse<PriceListRuleRowDto>> GetRulesAsync(Guid id, PriceListRuleListRequestDto input)
     {
-        await Repository.GetAsync(id);
+        await ColumnsOfAsync(id);
         var all = (await _rules.GetQueryableAsync()).Where(r => r.PriceListId == id);
         var filtered = input.Tier == null ? all : all.Where(r => ((r.TransportUnitId == null ? 0 : 1) + (r.ProductId == null ? 0 : 1) + (r.VehicleTypeId == null ? 0 : 1)) == input.Tier.Value);
 
@@ -306,15 +306,16 @@ public class PriceListAppService
     [Authorize(FinancialPermissions.PriceLists.Default)]
     public virtual async Task<PriceListRuleDto> GetRuleAsync(Guid id, Guid ruleId)
     {
-        var list = await Repository.GetAsync(id, includeDetails: true);
-        return await ToRuleDtoAsync(list, await RuleAsync(id, ruleId));
+        var columns = await ColumnsOfAsync(id);
+        return await ToRuleDtoAsync(columns, await RuleAsync(id, ruleId));
     }
 
     [RequiresFeature(AppFeatures.MasterData.Financial.Default, AppFeatures.MasterData.Financial.Pricing.Default, AppFeatures.MasterData.Financial.Pricing.PriceLists, RequiresAll = true)]
     [Authorize(FinancialPermissions.PriceLists.Update)]
     public virtual async Task<PriceListRuleDto> CreateRuleAsync(Guid id, PriceListRuleInputDto input)
     {
-        var list = await Repository.GetAsync(id, includeDetails: true);
+        /* The list is read as a projection, never tracked: a rule edit must not bump the header's concurrency stamp. */
+        var columns = await ColumnsOfAsync(id);
         var count = await _rules.CountAsync(r => r.PriceListId == id);
         if (count >= FinancialConsts.MaxPriceListRules)
         {
@@ -322,20 +323,20 @@ public class PriceListAppService
         }
 
         var rule = new PriceListRule(GuidGenerator.Create(), CurrentTenant.Id, id, count + 1);
-        await ApplyRuleAsync(list, rule, input);
+        await ApplyRuleAsync(columns.Count, rule, input);
         await _rules.InsertAsync(rule, autoSave: true);
-        return await ToRuleDtoAsync(list, rule);
+        return await ToRuleDtoAsync(columns, rule);
     }
 
     [RequiresFeature(AppFeatures.MasterData.Financial.Default, AppFeatures.MasterData.Financial.Pricing.Default, AppFeatures.MasterData.Financial.Pricing.PriceLists, RequiresAll = true)]
     [Authorize(FinancialPermissions.PriceLists.Update)]
     public virtual async Task<PriceListRuleDto> UpdateRuleAsync(Guid id, Guid ruleId, PriceListRuleInputDto input)
     {
-        var list = await Repository.GetAsync(id, includeDetails: true);
+        var columns = await ColumnsOfAsync(id);
         var rule = await RuleAsync(id, ruleId);
-        await ApplyRuleAsync(list, rule, input);
+        await ApplyRuleAsync(columns.Count, rule, input);
         await _rules.UpdateAsync(rule, autoSave: true);
-        return await ToRuleDtoAsync(list, rule);
+        return await ToRuleDtoAsync(columns, rule);
     }
 
     [RequiresFeature(AppFeatures.MasterData.Financial.Default, AppFeatures.MasterData.Financial.Pricing.Default, AppFeatures.MasterData.Financial.Pricing.PriceLists, RequiresAll = true)]
@@ -369,13 +370,22 @@ public class PriceListAppService
         return rule;
     }
 
-    private async Task ApplyRuleAsync(PriceList list, PriceListRule rule, PriceListRuleInputDto input)
+    /// <summary>The column positions of a list (a projection, so the header is not tracked); EntityNotFound for an unknown or foreign id.</summary>
+    private async Task<List<int>> ColumnsOfAsync(Guid id)
+    {
+        var columns = await AsyncExecuter.FirstOrDefaultAsync((await Repository.GetQueryableAsync())
+            .Where(p => p.Id == id)
+            .Select(p => p.Columns.OrderBy(c => c.Position).Select(c => c.Position).ToList()));
+        return columns ?? throw new Volo.Abp.Domain.Entities.EntityNotFoundException(typeof(PriceList), id);
+    }
+
+    private async Task ApplyRuleAsync(int columnCount, PriceListRule rule, PriceListRuleInputDto input)
     {
         rule.SetLane(input.FromRelationId, input.FromRegionId, input.ToRelationId, input.ToRegionId);
         rule.SetDimensions(input.TransportUnitId, input.ProductId, input.VehicleTypeId);
         rule.SetRowQuantity(input.RowQuantity);
         rule.SetMinMax(input.MinAmount, input.MaxAmount);
-        rule.SetBrackets(input.Brackets.Select(b => ((decimal?)b.UpperBound, (IReadOnlyList<decimal?>)b.UnitPrices)).ToList(), list.Columns.Count, GuidGenerator.Create);
+        rule.SetBrackets(input.Brackets.Select(b => ((decimal?)b.UpperBound, (IReadOnlyList<decimal?>)b.UnitPrices)).ToList(), columnCount, GuidGenerator.Create);
 
         /* Relations and regions are checked through the Master Data lookup; units, products and vehicle types have no published lookup yet (build note). */
         await _masterData.EnsureRelationsExistAsync(new[] { input.FromRelationId, input.ToRelationId }.Where(x => x != null).Select(x => x!.Value).ToList());
@@ -429,11 +439,10 @@ public class PriceListAppService
         return dto;
     }
 
-    private async Task<PriceListRuleDto> ToRuleDtoAsync(PriceList list, PriceListRule rule)
+    private async Task<PriceListRuleDto> ToRuleDtoAsync(List<int> columns, PriceListRule rule)
     {
         var names = await NamesAsync([rule]);
         var dto = Fill(new PriceListRuleDto(), rule, names, rule.Brackets.Count);
-        var columns = list.Columns.OrderBy(c => c.Position).Select(c => c.Position).ToList();
         dto.Brackets = rule.Brackets.OrderBy(b => b.Position).Select(b => new PriceListBracketDto
         {
             Id = b.Id,
@@ -517,7 +526,7 @@ public class PriceListAppService
         }
 
         FinancialValues.Defined(input.Rounding, "rounding");
-        await Repository.GetAsync(id);
+        await ColumnsOfAsync(id);
 
         var rules = await AsyncExecuter.ToListAsync((await _rules.WithDetailsAsync()).Where(r => r.PriceListId == id));
         var result = new PriceListAdjustResultDto();
@@ -645,7 +654,7 @@ public class PriceListAppService
     [Authorize(FinancialPermissions.PriceLists.Update)]
     public virtual async Task<PriceListImportResultDto> ImportAsync(Guid id, IRemoteStreamContent file)
     {
-        var list = await Repository.GetAsync(id, includeDetails: true);
+        var columnCount = (await ColumnsOfAsync(id)).Count;
         if (file.ContentLength is > FinancialConsts.MaxImportBytes)
         {
             throw new BusinessException(FinancialErrorCodes.ImportInvalid).WithData("row", 0).WithData("column", 0).WithData("problem", "TooLarge");
@@ -659,7 +668,7 @@ public class PriceListAppService
         }
 
         buffer.Position = 0;
-        var imported = PriceListWorkbook.Import(buffer, list.Columns.Count);
+        var imported = PriceListWorkbook.Import(buffer, columnCount);
         if (imported.Count > FinancialConsts.MaxPriceListRules)
         {
             throw new BusinessException(FinancialErrorCodes.TooManyRules).WithData("max", FinancialConsts.MaxPriceListRules);
@@ -674,7 +683,7 @@ public class PriceListAppService
             rule.SetDimensions(row.TransportUnitId, row.ProductId, row.VehicleTypeId);
             rule.SetRowQuantity(row.RowQuantity);
             rule.SetMinMax(row.MinAmount, row.MaxAmount);
-            rule.SetBrackets(row.Brackets.Select(b => (b.UpperBound, (IReadOnlyList<decimal?>)b.UnitPrices)).ToList(), list.Columns.Count, GuidGenerator.Create);
+            rule.SetBrackets(row.Brackets.Select(b => (b.UpperBound, (IReadOnlyList<decimal?>)b.UnitPrices)).ToList(), columnCount, GuidGenerator.Create);
             rules.Add(rule);
         }
 

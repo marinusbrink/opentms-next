@@ -64,10 +64,10 @@ public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDepende
         var segments = PricingLines.OfTrip(facts.Legs, orders, facts.TripDate);
 
         var carrierSettings = await _loader.GetSettingsAsync(facts.CarrierRelationId);
-        var priceLists = carrierSettings == null ? [] : await _loader.GetPriceListsAsync(carrierSettings.PriceListIdsFor(RateSide.Cost));
+        var priceLists = carrierSettings == null ? [] : await _loader.GetPriceListsAsync(carrierSettings.PriceListIdsFor(RateSide.Cost), PricingDataLoader.LanesOf(segments));
         var discounts = carrierSettings == null ? [] : await _loader.GetDiscountsOrSurchargesAsync(carrierSettings.DiscountOrSurchargeIdsOn(facts.TripDate));
         var currency = carrierSettings?.CurrencyCode ?? priceLists.FirstOrDefault()?.List.CurrencyCode ?? "EUR";
-        var existing = await _writer.GetTreeAsync(root, RateSide.Cost);
+        var tree = await _writer.GetTreeAsync(root, RateSide.Cost);
 
         var request = new PricingRequest
         {
@@ -78,7 +78,7 @@ public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDepende
             PriceLists = priceLists,
             MultipleMatches = carrierSettings?.CostMultipleMatches ?? MultipleMatches.All,
             DiscountsOrSurcharges = discounts,
-            KeptLines = existing.Where(l => l.IsManual || l.IsAdjusted).ToList(),
+            KeptLines = tree.Lines.Where(l => l.IsManual || l.IsAdjusted).ToList(),
             RootAnchor = root,
             LineAnchor = legId => RateLineAnchor.Leg(context.TargetId, legId),
             TenantId = _currentTenant.Id,
@@ -99,7 +99,7 @@ public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDepende
             Logger.LogDebug("Trip rate lines of {TripId} v{Version}: {Warning}.", context.TargetId, context.Version, warning);
         }
 
-        await _writer.ReplaceAsync(root, RateSide.Cost, existing, resolution, resolutionEmitsFixedPrice: false, context.Version);
+        await _writer.ReplaceAsync(root, RateSide.Cost, tree, resolution, resolutionEmitsFixedPrice: false, context.Version);
     }
 
     /// <summary>QP10: the own-fleet cost per kilometre × the trip's distance; without a price source only a warning (Assumption 5).</summary>

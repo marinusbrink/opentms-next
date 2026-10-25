@@ -58,10 +58,10 @@ public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDepend
         var root = RateLineAnchor.Order(context.TargetId);
         var legs = await _legs.GetByOrderAsync(context.TargetId, context.CancellationToken);
         var lines = PricingLines.OfOrder(snapshot, legs);
-        var priceLists = await _loader.GetPriceListsAsync(snapshot.PriceListIds);
+        var priceLists = await _loader.GetPriceListsAsync(snapshot.PriceListIds, PricingDataLoader.LanesOf(lines));
         var discounts = await _loader.GetDiscountsOrSurchargesAsync(snapshot.DiscountOrSurchargeIds);
         var vat = await _loader.GetVatAsync(snapshot.VatPercentageId);
-        var existing = await _writer.GetTreeAsync(root, RateSide.Revenue);
+        var tree = await _writer.GetTreeAsync(root, RateSide.Revenue);
         var emitsFixedPrice = snapshot.FixedPriceAmount != null;
 
         var request = new PricingRequest
@@ -75,7 +75,7 @@ public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDepend
             DiscountsOrSurcharges = discounts,
             Vat = vat,
             FixedPriceAmount = snapshot.FixedPriceAmount,
-            KeptLines = existing.Where(l => l.IsManual || l.IsAdjusted).ToList(),
+            KeptLines = tree.Lines.Where(l => l.IsManual || l.IsAdjusted).ToList(),
             RootAnchor = root,
             LineAnchor = lineId => RateLineAnchor.OrderLine(context.TargetId, lineId),
             TenantId = _currentTenant.Id,
@@ -90,6 +90,6 @@ public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDepend
             Logger.LogDebug("Order rate lines of {OrderId} v{Version}: {Warning}.", context.TargetId, context.Version, warning);
         }
 
-        await _writer.ReplaceAsync(root, RateSide.Revenue, existing, resolution, emitsFixedPrice, context.Version);
+        await _writer.ReplaceAsync(root, RateSide.Revenue, tree, resolution, emitsFixedPrice, context.Version);
     }
 }

@@ -238,6 +238,9 @@ public static class PriceResolver
 
     // ── the lane and the dimensions ────────────────────────────────────────────
 
+    /// <summary>Step 2 for a loader: true when the rule's lane matches the line under the list's stop matching.</summary>
+    public static bool LaneCanMatch(StopMatching matching, PriceListRule rule, PricingLine line) => LaneMatches(matching, rule, line, out _);
+
     /// <summary>
     /// Step 2: a rule's lane matches per the list's stop matching; an exact relation scores 2 per side, a region 1,
     /// an unset side 0 (for <see cref="StopMatching.Both"/> a one-sided rule is the fallback of a two-sided one).

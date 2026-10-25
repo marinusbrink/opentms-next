@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,9 @@ namespace OpenTms.Financial.Tariffs.Calculators;
 /// written and nothing is published: a repeated delivery or a round trip through Planning's trip calculator is one
 /// effect (rule 3), which also keeps the request chain finite.
 /// </summary>
+/// <summary>The stored lines of one root as loaded, and what they looked like then.</summary>
+public sealed record RateLineTree(List<RateLine> Lines, IReadOnlyList<string> Signatures);
+
 public class RateLineWriter : ITransientDependency
 {
     private readonly IRepository<RateLine, Guid> _lines;
@@ -33,11 +37,14 @@ public class RateLineWriter : ITransientDependency
         _eventBus = eventBus;
     }
 
-    /// <summary>The stored lines of a root tree on one side.</summary>
-    public Task<List<RateLine>> GetTreeAsync(RateLineAnchor root, RateSide side)
-        => root.Kind == RateLineAnchorKind.Order
-            ? _lines.GetListAsync(l => l.AnchorOrderId == root.Id && l.Side == side)
-            : _lines.GetListAsync(l => l.AnchorTripId == root.Id && l.Side == side);
+    /// <summary>The stored lines of a root tree on one side, with their signatures as stored (the resolver re-values kept lines in place).</summary>
+    public async Task<RateLineTree> GetTreeAsync(RateLineAnchor root, RateSide side)
+    {
+        var lines = root.Kind == RateLineAnchorKind.Order
+            ? await _lines.GetListAsync(l => l.AnchorOrderId == root.Id && l.Side == side)
+            : await _lines.GetListAsync(l => l.AnchorTripId == root.Id && l.Side == side);
+        return new RateLineTree(lines, lines.Select(Signature).OrderBy(s => s, StringComparer.Ordinal).ToList());
+    }
 
     /// <summary>The lines a calculation never replaces: typed, adjusted, and the overriding lines it does not emit itself.</summary>
     public static bool IsKept(RateLine line, bool resolutionEmitsFixedPrice)
@@ -47,8 +54,9 @@ public class RateLineWriter : ITransientDependency
         || (line.Kind == RateLineKind.FixedPrice && !resolutionEmitsFixedPrice);
 
     /// <summary>Replaces the tree with the resolution; returns true when something changed and the event was published.</summary>
-    public async Task<bool> ReplaceAsync(RateLineAnchor root, RateSide side, IReadOnlyList<RateLine> existing, PriceResolution resolution, bool resolutionEmitsFixedPrice, long version)
+    public async Task<bool> ReplaceAsync(RateLineAnchor root, RateSide side, RateLineTree tree, PriceResolution resolution, bool resolutionEmitsFixedPrice, long version)
     {
+        var existing = tree.Lines;
         var kept = existing.Where(l => IsKept(l, resolutionEmitsFixedPrice)).ToList();
         var replaced = existing.Except(kept).ToList();
         var untouched = kept.Where(l => !resolution.KeptLines.Contains(l)).ToList();
@@ -59,9 +67,8 @@ public class RateLineWriter : ITransientDependency
             throw new BusinessException(FinancialErrorCodes.TooManyRateLines).WithData("max", FinancialConsts.MaxRateLinesPerAnchor);
         }
 
-        var before = existing.Select(Signature).OrderBy(s => s, StringComparer.Ordinal).ToList();
         var after = next.Select(Signature).OrderBy(s => s, StringComparer.Ordinal).ToList();
-        if (before.SequenceEqual(after))
+        if (tree.Signatures.SequenceEqual(after))
         {
             Logger.LogDebug("Rate lines of {Root} v{Version}: unchanged ({Count} lines); nothing written.", root.Id, version, next.Count);
             return false;
@@ -90,10 +97,14 @@ public class RateLineWriter : ITransientDependency
         return true;
     }
 
-    /// <summary>What makes two line sets the same money: kind, anchor, numbers, flags and provenance; not ids or timestamps.</summary>
+    /// <summary>
+    /// What makes two line sets the same money: kind, anchor, numbers, flags and provenance; not ids or timestamps. Numbers
+    /// are written invariant at their column scale, so a stored 4.0000 equals a freshly computed 4.
+    /// </summary>
     private static string Signature(RateLine line) => string.Join("|",
         (int)line.Kind, (int)line.Side, (int)line.Anchor.Kind, line.Anchor.Id,
-        line.Quantity, (int)line.QuantitySource, line.UnitPrice, line.Amount, line.CurrencyCode,
+        line.Quantity.ToString("F4", CultureInfo.InvariantCulture), (int)line.QuantitySource,
+        line.UnitPrice.ToString("F4", CultureInfo.InvariantCulture), line.Amount.ToString("F2", CultureInfo.InvariantCulture), line.CurrencyCode,
         line.OverridesChildren, line.IsManual, line.IsAdjusted, line.AppliesAfterOthers,
         line.PriceListId, line.PriceListRuleId, line.PriceListBracketId, line.ColumnPosition,
         line.DiscountOrSurchargeId, line.DiscountOrSurchargeValueId, line.AdditionalServiceId,
