@@ -10,6 +10,7 @@ using OpenTms.Platform.DerivedValues;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Distributed;
+using Volo.Abp.Uow;
 using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
 
@@ -26,7 +27,8 @@ public class LegsGeneratedHandler : IDistributedEventHandler<LegsGeneratedEto>, 
 
     public LegsGeneratedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(LegsGeneratedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(LegsGeneratedEto eventData)
         => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, eventData.OrderId, "LegsGenerated");
 }
 
@@ -36,7 +38,8 @@ public class TransportTripLegsChangedHandler : IDistributedEventHandler<Transpor
 
     public TransportTripLegsChangedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public async Task HandleEventAsync(TransportTripLegsChangedEto eventData)
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(TransportTripLegsChangedEto eventData)
     {
         await _scheduler.RequestAsync(TripRateLineCalculator.TargetType, eventData.TripId, "TripLegsChanged");
         var orderIds = eventData.OrderIds.Distinct().ToList();
@@ -53,21 +56,29 @@ public class TransportTripChangedHandler : IDistributedEventHandler<TransportTri
 
     public TransportTripChangedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(TransportTripChangedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportTripChangedEto eventData)
         => eventData.Change is TripChangeKind.Carrier or TripChangeKind.Vehicles or TripChangeKind.Distance or TripChangeKind.Header or TripChangeKind.Stops
             ? _scheduler.RequestAsync(TripRateLineCalculator.TargetType, eventData.TripId, "Trip" + eventData.Change)
             : Task.CompletedTask;
 }
 
-/// <summary>The trip calculator stored new distances: the orders' per-kilometre lines may change (design 57).</summary>
+/// <summary>
+/// The trip calculator stored new distances: the orders' per-kilometre lines may change (design 57), and so may the
+/// trip's own cost lines (the own-fleet line is distance × cost per kilometre, the segments price on the legs' distances;
+/// design 56 "TransportTripChanged (… distance)"). The chain ends by itself: an unchanged set publishes no
+/// <c>RateLinesChanged</c> (build note 10), so the trip calculator is not asked again.
+/// </summary>
 public class TransportTripRecalculatedHandler : IDistributedEventHandler<TransportTripRecalculatedEto>, ITransientDependency
 {
     private readonly IDerivedValueScheduler _scheduler;
 
     public TransportTripRecalculatedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public async Task HandleEventAsync(TransportTripRecalculatedEto eventData)
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(TransportTripRecalculatedEto eventData)
     {
+        await _scheduler.RequestAsync(TripRateLineCalculator.TargetType, eventData.TripId, "TripRecalculated");
         var orderIds = eventData.OrderIds.Distinct().ToList();
         if (orderIds.Count > 0)
         {
@@ -98,7 +109,8 @@ public class TransportTripCreatedHandler : IDistributedEventHandler<TransportTri
         _currentTenant = currentTenant;
     }
 
-    public async Task HandleEventAsync(TransportTripCreatedEto eventData)
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(TransportTripCreatedEto eventData)
     {
         if (eventData.AgreedPurchaseAmount != null)
         {

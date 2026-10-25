@@ -4,6 +4,7 @@ using OpenTms.Orders.Events;
 using OpenTms.Platform.DerivedValues;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.EventBus.Distributed;
+using Volo.Abp.Uow;
 
 namespace OpenTms.Financial.Tariffs.Handlers;
 
@@ -11,7 +12,7 @@ namespace OpenTms.Financial.Tariffs.Handlers;
 /// Financial's reactions to Orders' facts (design 57 "OrderRateLineCalculator", design 56 flow 2): every change of an
 /// order's lines, stops or financial terms requests its revenue lines for a new version. Idempotent (rule 3): a
 /// repeated delivery requests once more and the calculator writes the same lines, which it reports as unchanged.
-/// Handlers run in the raising tenant's context inside the dispatcher's transaction.
+/// Handlers run in the raising tenant's context inside the dispatcher's unit of work per event (a direct call opens its own).
 /// </summary>
 public class TransportOrderConfirmedHandler : IDistributedEventHandler<TransportOrderConfirmedEto>, ITransientDependency
 {
@@ -19,7 +20,8 @@ public class TransportOrderConfirmedHandler : IDistributedEventHandler<Transport
 
     public TransportOrderConfirmedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(TransportOrderConfirmedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportOrderConfirmedEto eventData)
         => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, eventData.OrderId, "OrderConfirmed");
 }
 
@@ -29,7 +31,8 @@ public class TransportOrderLinesChangedHandler : IDistributedEventHandler<Transp
 
     public TransportOrderLinesChangedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(TransportOrderLinesChangedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportOrderLinesChangedEto eventData)
         => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, eventData.OrderId, "OrderLinesChanged");
 }
 
@@ -39,7 +42,8 @@ public class TransportOrderStopsChangedHandler : IDistributedEventHandler<Transp
 
     public TransportOrderStopsChangedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(TransportOrderStopsChangedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportOrderStopsChangedEto eventData)
         => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, eventData.OrderId, "OrderStopsChanged");
 }
 
@@ -49,6 +53,7 @@ public class TransportOrderFinancialTermsChangedHandler : IDistributedEventHandl
 
     public TransportOrderFinancialTermsChangedHandler(IDerivedValueScheduler scheduler) => _scheduler = scheduler;
 
-    public Task HandleEventAsync(TransportOrderFinancialTermsChangedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportOrderFinancialTermsChangedEto eventData)
         => _scheduler.RequestAsync(OrderRateLineCalculator.TargetType, eventData.OrderId, "OrderTermsChanged");
 }

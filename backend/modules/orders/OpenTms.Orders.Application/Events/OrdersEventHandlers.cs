@@ -19,7 +19,8 @@ namespace OpenTms.Orders.Events;
 /// The Orders side of the other modules' facts (design 58 "Events"): Planning's leg and trip events and Financial's rate
 /// lines ask the order summary calculator for a new version; TransportTripCreated records the trip on the order's trip
 /// request. Every handler is idempotent (at-least-once delivery, constitution rule 3): a request for a record is a version
-/// bump, a trip id is written once. Handlers run in the raising tenant's context inside their own transaction.
+/// bump, a trip id is written once. Handlers run in the raising tenant's context inside the dispatcher's unit of work per
+/// event (a direct call opens its own).
 /// </summary>
 public class OrdersEventHandlers :
     IDistributedEventHandler<LegAssignedEto>,
@@ -33,38 +34,42 @@ public class OrdersEventHandlers :
 {
     private readonly IRepository<TransportOrder, Guid> _orders;
     private readonly IDerivedValueScheduler _derivedValues;
-    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public ILogger<OrdersEventHandlers> Logger { get; set; } = NullLogger<OrdersEventHandlers>.Instance;
 
-    public OrdersEventHandlers(IRepository<TransportOrder, Guid> orders, IDerivedValueScheduler derivedValues, IUnitOfWorkManager unitOfWorkManager)
+    public OrdersEventHandlers(IRepository<TransportOrder, Guid> orders, IDerivedValueScheduler derivedValues)
     {
         _orders = orders;
         _derivedValues = derivedValues;
-        _unitOfWorkManager = unitOfWorkManager;
     }
 
-    public Task HandleEventAsync(LegAssignedEto eventData) => RequestAsync([eventData.OrderId], "LegAssigned");
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(LegAssignedEto eventData) => RequestAsync([eventData.OrderId], "LegAssigned");
 
-    public Task HandleEventAsync(LegUnassignedEto eventData) => RequestAsync([eventData.OrderId], "LegUnassigned");
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(LegUnassignedEto eventData) => RequestAsync([eventData.OrderId], "LegUnassigned");
 
-    public Task HandleEventAsync(LegsGeneratedEto eventData) => RequestAsync([eventData.OrderId], "LegsGenerated");
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(LegsGeneratedEto eventData) => RequestAsync([eventData.OrderId], "LegsGenerated");
 
-    public Task HandleEventAsync(TransportTripStatusChangedEto eventData) => RequestAsync(eventData.OrderIds, "TripStatusChanged");
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportTripStatusChangedEto eventData) => RequestAsync(eventData.OrderIds, "TripStatusChanged");
 
-    public Task HandleEventAsync(TransportTripRecalculatedEto eventData) => RequestAsync(eventData.OrderIds, "TripRecalculated");
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(TransportTripRecalculatedEto eventData) => RequestAsync(eventData.OrderIds, "TripRecalculated");
 
-    public Task HandleEventAsync(RateLinesChangedEto eventData)
+    [UnitOfWork]
+    public virtual Task HandleEventAsync(RateLinesChangedEto eventData)
         => eventData.OrderId == null ? Task.CompletedTask : RequestAsync([eventData.OrderId.Value], "RateLinesChanged");
 
-    public async Task HandleEventAsync(TransportTripCreatedEto eventData)
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(TransportTripCreatedEto eventData)
     {
         if (eventData.CreatedFromOrderId == null)
         {
             return;
         }
 
-        using var uow = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
         var order = await _orders.FindAsync(eventData.CreatedFromOrderId.Value, includeDetails: false);
         if (order != null && order.RecordTrip(eventData.TripId))
         {
@@ -72,8 +77,6 @@ public class OrdersEventHandlers :
             await _derivedValues.RequestAsync(OrdersConsts.OrderSummaryTargetType, order.Id, "TripCreated");
             Logger.LogInformation("Trip {TripId} recorded on the trip request of order {OrderId}.", eventData.TripId, order.Id);
         }
-
-        await uow.CompleteAsync();
     }
 
     private async Task RequestAsync(IReadOnlyCollection<Guid> orderIds, string reason)
@@ -84,14 +87,11 @@ public class OrdersEventHandlers :
             return;
         }
 
-        using var uow = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
         /* Only orders this tenant has: a stale id (a deleted order) requests nothing. */
         var existing = await _orders.GetListAsync(o => ids.Contains(o.Id), includeDetails: false);
         foreach (var order in existing)
         {
             await _derivedValues.RequestAsync(OrdersConsts.OrderSummaryTargetType, order.Id, reason);
         }
-
-        await uow.CompleteAsync();
     }
 }
