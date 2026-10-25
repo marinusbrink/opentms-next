@@ -36,7 +36,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import { RelationFinancialSettingsEditor } from "@/apps/master-data/editors/RelationFinancialSettingsEditor";
-import { editorDialog, fieldIn, ok, panel, submitEditor, tab, typeIn } from "./platform-test-helpers";
+import { editorDialog, fieldIn, panel, submitEditor, tab, typeIn } from "./platform-test-helpers";
+import { ok } from "./transport-test-mocks";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;
 const GET = apiClient.GET as unknown as Mock<ClientCall>;

@@ -1,4 +1,4 @@
-import type { ColDef, EditableCallbackParams, ValueFormatterParams, ValueGetterParams } from "ag-grid-community";
+import type { EditableCallbackParams, ValueFormatterParams, ValueGetterParams } from "ag-grid-community";
 
 import type { DatePickerProps } from "@/components/ui/date-picker";
 import type { EntityLookupProps } from "@/components/ui/entity-lookup";
