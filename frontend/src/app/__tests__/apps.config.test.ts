@@ -60,10 +60,49 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(APPS.find((a) => a.id === "editions")).toBeUndefined();
   });
 
-  it("every other app except Master data and Tenants has no views declared", () => {
-    APPS.filter((a) => a.id !== "admin" && a.id !== "master-data" && a.id !== "tenants").forEach((app) => {
+  it("every other app except Master data, Transport and Tenants has no views declared", () => {
+    APPS.filter((a) => !["admin", "master-data", "tenants", "transport"].includes(a.id)).forEach((app) => {
       expect(app.views).toBeUndefined();
     });
+  });
+
+  it("the Transport app has the views Orders, Templates, Trips and Documents and reads from four domains (design 61)", () => {
+    const transport = APPS.find((a) => a.id === "transport")!;
+    expect(transport.domains).toEqual(["Orders", "PlanningExecution", "Financial", "MasterData"]);
+    expect(transport.views!.map((v) => [v.nameKey, v.path, v.feature])).toEqual([
+      ["App:Transport.Orders", "/transport/orders", "Apps.Transport.Orders"],
+      ["App:Transport.Templates", "/transport/templates", "Apps.Transport.Orders.Templates"],
+      ["App:Transport.Trips", "/transport/trips", "Apps.Transport.Trips"],
+      ["App:Transport.Documents", "/transport/documents", "Apps.Transport.Documents"],
+    ]);
+    transport.views!.forEach((view) => expect(view.icon).toBeTruthy());
+    expect(findAppByPath("/transport/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6")?.id).toBe("transport");
+  });
+
+  it("the Orders and Trips views carry their saved filters as children routing to the list with ?filter= (UI-PAGE-004)", () => {
+    const transport = APPS.find((a) => a.id === "transport")!;
+    const [orders, templates, trips, documents] = transport.views!;
+    const filters = (view: AppView) => view.children!.map((c) => [c.nameKey, c.path, c.search?.filter]);
+    expect(filters(orders)).toEqual([
+      ["App:Transport.View.Today", "/transport/orders", "today"],
+      ["App:Transport.View.Tomorrow", "/transport/orders", "tomorrow"],
+      ["App:Transport.View.ThisWeek", "/transport/orders", "this-week"],
+      ["App:Transport.View.Open", "/transport/orders", "open"],
+      ["App:Transport.View.Drafts", "/transport/orders", "drafts"],
+      ["App:Transport.View.All", "/transport/orders", "all"],
+    ]);
+    expect(filters(trips)).toEqual([
+      ["App:Transport.View.Today", "/transport/trips", "today"],
+      ["App:Transport.View.ThisWeek", "/transport/trips", "this-week"],
+      ["App:Transport.View.Open", "/transport/trips", "open"],
+      ["App:Transport.View.All", "/transport/trips", "all"],
+    ]);
+    [...orders.children!, ...trips.children!].forEach((child) => {
+      expect(child.feature).toBeUndefined();
+      expect(child.icon).toBeTruthy();
+    });
+    expect(templates.children).toBeUndefined();
+    expect(documents.children).toBeUndefined();
   });
 
   it("the Master data app has two domain groups, General then Platform, and reads from both domains (design 49; PO 2026-10-16)", () => {
@@ -128,13 +167,19 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
     const [, orders, planning, financial] = masterData.views!;
     const lists = (group: AppView) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
+    /* Design 61 adds the Transport run's lists after each group's earlier ones. */
     expect(lists(orders)).toEqual([
       ["/master-data/transport-order-types", "Orders:TransportOrderTypes", "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes"],
       ["/master-data/waypoint-types", "Orders:WaypointTypes", "Apps.MasterData.Orders.TransportOrders.WaypointTypes"],
       ["/master-data/time-slots", "Orders:TimeSlots", "Apps.MasterData.Orders.TransportOrders.TimeSlots"],
+      ["/master-data/consignment-note-profiles", "Orders:ConsignmentNoteProfiles", "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles"],
+      ["/master-data/consignment-note-fixed-descriptions", "Orders:ConsignmentNoteFixedDescriptions", "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions"],
+      ["/master-data/order-attribute-definitions", "Orders:OrderAttributeDefinitions", "Apps.MasterData.Orders.TransportOrders.OrderAttributeDefinitions"],
     ]);
     expect(lists(planning)).toEqual([
       ["/master-data/transport-trip-types", "PlanningExecution:TransportTripTypes", "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes"],
+      ["/master-data/via-depot-rules", "PlanningExecution:ViaDepotRules", "Apps.MasterData.PlanningExecution.Trips.ViaDepotRules"],
+      ["/master-data/trip-attribute-definitions", "PlanningExecution:TripAttributeDefinitions", "Apps.MasterData.PlanningExecution.Trips.TripAttributeDefinitions"],
     ]);
     expect(lists(financial)).toEqual([
       ["/master-data/vat-percentages", "Financial:VatPercentages", "Apps.MasterData.Financial.Invoicing.VatPercentages"],
@@ -142,7 +187,10 @@ describe("apps.config – AppView extension (low risk)", () => {
       ["/master-data/inbound-invoice-types", "Financial:InboundInvoiceTypes", "Apps.MasterData.Financial.Invoicing.InboundInvoiceTypes"],
       ["/master-data/additional-services", "Financial:AdditionalServices", "Apps.MasterData.Financial.Pricing.AdditionalServices"],
       ["/master-data/discounts-or-surcharges", "Financial:DiscountsOrSurcharges", "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges"],
+      ["/master-data/price-lists", "Financial:PriceLists", "Apps.MasterData.Financial.Pricing.PriceLists"],
+      ["/master-data/relation-financial-settings", "Financial:RelationFinancialSettings", "Apps.MasterData.Financial.Pricing.RelationFinancialSettings"],
     ]);
+    [...lists(orders), ...lists(planning), ...lists(financial)].forEach(([path]) => expect(findAppByPath(path as string)?.id).toBe("master-data"));
   });
 
   it("findAppByPath returns admin app for /admin/users", () => {

@@ -20,23 +20,42 @@ interface NavEntryProps {
   onToggleCollapsed: () => void;
 }
 
+/** The current location as the pane needs it: the pathname and the parsed search (absent outside the router). */
+interface NavLocation {
+  pathname: string;
+  search?: Record<string, unknown>;
+}
+
 function matchesPath(path: string, pathname: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
+/** Whether this node is the current page: its path, and for a saved filter (UI-PAGE-004) its search too. */
+function matchesView(view: AppView, location: NavLocation): boolean {
+  if (!matchesPath(view.path, location.pathname)) return false;
+  if (view.search == null) return true;
+  const search = location.search ?? {};
+  return Object.entries(view.search).every(([key, value]) => search[key] === value);
+}
+
 /** Whether the current page is this node or lies anywhere below it. A list's path need not sit under its group's
  * path (Master data: /master-data/countries under the group /master-data/reference), so the tree decides. */
-function containsPath(view: AppView, pathname: string): boolean {
-  return matchesPath(view.path, pathname) || (view.children ?? []).some((child) => containsPath(child, pathname));
+function containsPath(view: AppView, location: NavLocation): boolean {
+  return matchesView(view, location) || (view.children ?? []).some((child) => containsPath(child, location));
+}
+
+/** A node's key among its siblings: saved filters share their list's path and differ in their search. */
+function navKey(view: AppView): string {
+  return view.search ? `${view.path}?${new URLSearchParams(view.search).toString()}` : view.path;
 }
 
 /* One node of the tree, at any depth (Master data has three levels: domain group, group, list; PO 2026-10-16). A
  * node's children are indented one step further than the node itself. */
 function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
   const { t } = useL();
-  const location = useLocation();
+  const location = useLocation() as NavLocation;
 
-  const isActive = containsPath(view, location.pathname);
+  const isActive = containsPath(view, location);
   /* A category that holds the current page starts open, and opens when navigation moves into it, so the active
    * entry is always visible; the user may still close it. (State adjusted during render, not in an effect.) */
   const [childrenOpen, setChildrenOpen] = useState(isActive);
@@ -82,6 +101,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
             ) : (
               <Link
                 to={view.path}
+                search={view.search}
                 aria-current={isActive ? "page" : undefined}
                 aria-label={label}
                 className={iconRailClassName}
@@ -127,6 +147,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
               render={
                 <Link
                   to={view.path}
+                  search={view.search}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex w-full items-center gap-3 rounded-md py-2 pl-3 pr-2 text-sm transition-colors",
@@ -147,7 +168,7 @@ function NavEntry({ view, collapsed, onToggleCollapsed }: NavEntryProps) {
       {hasChildren && childrenOpen && (
         <ul className="mt-0.5 space-y-0.5 pl-6">
           {view.children!.map((child) => (
-            <li key={child.path}>
+            <li key={navKey(child)}>
               <NavEntry
                 view={child}
                 collapsed={collapsed}
@@ -196,7 +217,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
       {/* The tree scrolls inside the pane; the collapse toggle above stays in view. */}
       <ul className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1">
         {views.map((view) => (
-          <li key={view.path}>
+          <li key={navKey(view)}>
             <NavEntry
               view={view}
               collapsed={effectiveCollapsed}

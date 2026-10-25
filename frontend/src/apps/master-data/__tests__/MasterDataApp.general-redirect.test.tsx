@@ -23,6 +23,9 @@ for (const view of [
   "VehiclesView", "VehicleCombinationsView", "ProductRelationCodesView",
   /* Design 49: the Platform domain's lists. */
   "EmailTemplatesView", "ReportDefinitionsView", "DocumentTypesView",
+  /* Design 61: the Transport run's lists. */
+  "ConsignmentNoteProfilesView", "ConsignmentNoteFixedDescriptionsView", "OrderAttributeDefinitionsView",
+  "ViaDepotRulesView", "TripAttributeDefinitionsView", "PriceListsView", "RelationFinancialSettingsView",
 ]) {
   vi.doMock(`@/apps/master-data/views/${view}`, () => ({ [view]: () => <div data-testid={view} /> }));
 }
@@ -130,6 +133,14 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
     ["/master-data/email-templates", "EmailTemplatesView"],
     ["/master-data/report-definitions", "ReportDefinitionsView"],
     ["/master-data/document-types", "DocumentTypesView"],
+    /* Design 61: the Transport run's lists under the existing Orders, Planning & Execution and Financial groups. */
+    ["/master-data/consignment-note-profiles", "ConsignmentNoteProfilesView"],
+    ["/master-data/consignment-note-fixed-descriptions", "ConsignmentNoteFixedDescriptionsView"],
+    ["/master-data/order-attribute-definitions", "OrderAttributeDefinitionsView"],
+    ["/master-data/via-depot-rules", "ViaDepotRulesView"],
+    ["/master-data/trip-attribute-definitions", "TripAttributeDefinitionsView"],
+    ["/master-data/price-lists", "PriceListsView"],
+    ["/master-data/relation-financial-settings", "RelationFinancialSettingsView"],
   ])("%s renders %s without navigating", (path, view) => {
     go(path);
     expect(document.querySelector(`[data-testid=${view}]`)).not.toBeNull();
@@ -144,8 +155,8 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
         walk(view.children);
       });
     walk(masterData.views);
-    /* Fifteen General lists (designs 41–48), nine of Orders, Planning & Execution and Financial (designs 51–53) and three of Platform (design 54). */
-    expect(paths).toHaveLength(27);
+    /* Fifteen General lists (designs 41–48), sixteen of Orders, Planning & Execution and Financial (designs 51–53, 61) and three of Platform (design 54). */
+    expect(paths).toHaveLength(34);
     expect(paths.every((p) => /^\/master-data\/[a-z-]+$/.test(p) && !p.startsWith("/master-data/general") && !p.startsWith("/master-data/platform"))).toBe(true);
   });
 });

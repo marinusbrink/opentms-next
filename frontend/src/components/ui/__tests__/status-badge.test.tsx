@@ -49,3 +49,27 @@ describe("StatusBadge", () => {
     expect(screen.getByText("t(Tenants:State.Failed)")).toHaveAttribute("data-tone", "danger");
   });
 });
+
+describe("StatusBadge – the Transport run's states (designs 58, 59, 61)", () => {
+  it.each([
+    ["Draft", "neutral"],
+    ["Open", "info"],
+    ["ReadyForInvoicing", "warning"],
+    ["Invoiced", "success"],
+    ["Archived", "neutral"],
+    ["Cancelled", "danger"],
+  ])("TransportOrder %s has the Orders label key and the %s tone", (state, tone) => {
+    render(<StatusBadge entity="TransportOrder" state={state} />);
+    expect(screen.getByText(`t(Orders:Status.${state})`)).toHaveAttribute("data-tone", tone);
+  });
+
+  it.each([
+    ["Planned", "neutral"],
+    ["InProgress", "info"],
+    ["Completed", "success"],
+    ["Cancelled", "danger"],
+  ])("TransportTrip %s has the Planning & Execution label key and the %s tone", (state, tone) => {
+    render(<StatusBadge entity="TransportTrip" state={state} />);
+    expect(screen.getByText(`t(PlanningExecution:Status.${state})`)).toHaveAttribute("data-tone", tone);
+  });
+});

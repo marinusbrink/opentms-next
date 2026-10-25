@@ -141,7 +141,8 @@ describe("WaffleLauncher – app features", () => {
     const masterDataLists = Object.keys(allFeaturesOn()).filter(
       (f) => (f.split(".").length === 5 && f.startsWith("Apps.MasterData.")) || (f.split(".").length === 4 && f.startsWith("Apps.MasterData.Platform.")),
     );
-    expect(masterDataLists).toHaveLength(27);
+    /* 27 up to design 54, plus the seven lists of the Transport run (design 61). */
+    expect(masterDataLists).toHaveLength(34);
     features = { ...allFeaturesOn(), ...Object.fromEntries(masterDataLists.map((f) => [f, "false"])) };
     render(<WaffleLauncher />);
     openLauncher();
