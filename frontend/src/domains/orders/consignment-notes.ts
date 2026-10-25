@@ -20,7 +20,7 @@ export type CmrPartySource = Schemas["OpenTms.Orders.ConsignmentNotes.CmrPartySo
 export type CmrGoodsColumn = Schemas["OpenTms.Orders.ConsignmentNotes.CmrGoodsColumn"];
 export type CmrInstructionItem = Schemas["OpenTms.Orders.ConsignmentNotes.CmrInstructionItem"];
 export type CmrRemarkItem = Schemas["OpenTms.Orders.ConsignmentNotes.CmrRemarkItem"];
-export type ProfileLookupItem = Schemas["OpenTms.Platform.ReferenceData.ReferenceDataLookupDto"];
+export type ConsignmentNoteProfileRow = Schemas["OpenTms.Orders.ConsignmentNotes.ConsignmentNoteProfileRowDto"];
 
 export const CMR_PARTY_SOURCES: { value: CmrPartySource; key: string }[] = [
   { value: 1, key: "Orders:CmrPartySource.Customer" },
@@ -50,7 +50,7 @@ export type CmrPartyBoxField = (typeof CMR_PARTY_BOXES)[number]["field"];
 export const consignmentNoteKeys = {
   all: ["orders", "consignmentNotes"] as const,
   list: () => ["orders", "consignmentNotes", "list"] as const,
-  profileLookup: () => ["orders", "consignmentNoteProfiles", "lookup"] as const,
+  profiles: () => ["orders", "consignmentNoteProfiles", "rows"] as const,
   profile: (id: string | undefined) => ["orders", "consignmentNoteProfiles", "detail", id?.toLowerCase()] as const,
 };
 
@@ -98,15 +98,16 @@ export function useConsignmentNotesOf(filters: ConsignmentNoteListFilters, enabl
   });
 }
 
-export function useConsignmentNoteProfileLookup(enabled = true) {
+/** The tenant's profiles with their default flag (the Print wizard preselects the default one). */
+export function useConsignmentNoteProfiles(enabled = true) {
   return useQuery({
-    queryKey: consignmentNoteKeys.profileLookup(),
+    queryKey: consignmentNoteKeys.profiles(),
     enabled,
     staleTime: 60 * 1000,
-    queryFn: async (): Promise<ProfileLookupItem[]> => {
-      const { data, error } = await apiClient.GET("/api/orders/consignment-note-profile/lookup", { params: { query: { take: 500 } } });
+    queryFn: async (): Promise<ConsignmentNoteProfileRow[]> => {
+      const { data, error } = await apiClient.GET("/api/orders/consignment-note-profile", { params: { query: { StartRow: 0, EndRow: 200, IncludeArchived: false } } });
       if (error) throw error;
-      return data ?? [];
+      return data?.rows ?? [];
     },
   });
 }

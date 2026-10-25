@@ -45,6 +45,7 @@ export type PricePreviewRequestDto = Schemas["OpenTms.Orders.TransportOrders.Pri
 export type PricePreviewDto = Schemas["OpenTms.Financial.Tariffs.Published.PricePreviewDto"];
 export type OrderAttributeDefinitionRow = Schemas["OpenTms.Orders.TransportOrders.OrderAttributeDefinitionRowDto"];
 export type OrderAttributeTarget = Schemas["OpenTms.Orders.TransportOrders.OrderAttributeTarget"];
+export type TransportOrderTypeRow = Schemas["OpenTms.Orders.TransportOrders.TransportOrderTypeRowDto"];
 
 /** The derived-value target type the order's screens watch (design 56). */
 export const TRANSPORT_ORDER_TARGET_TYPE = "Orders.TransportOrder";
@@ -111,6 +112,7 @@ export const transportOrderKeys = {
   detail: (id: string | undefined) => ["orders", "transportOrders", "detail", id?.toLowerCase()] as const,
   summary: (id: string | undefined) => ["orders", "transportOrders", "summary", id?.toLowerCase()] as const,
   attributeDefinitions: (target: OrderAttributeTarget) => ["orders", "orderAttributeDefinitions", target] as const,
+  orderTypes: () => ["orders", "transportOrderTypes", "rows"] as const,
 };
 
 /** The query keys the push refetches for one order: its detail and summary (the list refreshes itself). */
@@ -206,6 +208,20 @@ export function useOrderAttributeDefinitions(target: OrderAttributeTarget, enabl
       const { data, error } = await apiClient.GET("/api/orders/order-attribute-definition", {
         params: { query: { Target: target, StartRow: 0, EndRow: 200, SortBy: "position", SortDir: "asc" } },
       });
+      if (error) throw error;
+      return data?.rows ?? [];
+    },
+  });
+}
+
+/** The tenant's order types with their default flag (New order per type; the default preselected). */
+export function useTransportOrderTypeRows(enabled = true) {
+  return useQuery({
+    queryKey: transportOrderKeys.orderTypes(),
+    enabled,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<TransportOrderTypeRow[]> => {
+      const { data, error } = await apiClient.GET("/api/orders/transport-order-type", { params: { query: { StartRow: 0, EndRow: 200, IncludeArchived: false } } });
       if (error) throw error;
       return data?.rows ?? [];
     },
