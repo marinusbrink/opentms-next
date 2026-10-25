@@ -8,6 +8,7 @@ using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.ReferenceData;
 using OpenTms.TransportRun;
+using Volo.Abp.SettingManagement;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Data;
@@ -186,6 +187,9 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
     {
         using var _ = InTenantA();
         var f = await FixtureAsync();
+        /* The rule is off by default (OrdersSettings.DefaultActiveApprovalRules): this tenant switches it on. */
+        await GetRequiredService<ISettingManager>().SetForTenantAsync(TenantA, OrdersSettings.ActiveApprovalRules,
+            OrdersSettings.DefaultActiveApprovalRules + "," + nameof(ApprovalRule.FinancialDefaultsMismatch));
         /* The fixture's customer settings: the revenue list, the VAT, 30 days, EUR — what CreateDto posts. */
         var agreeing = await Orders.CreateAsync(CreateDto(f, confirm: true));
         await Run.StoreRevenueAsync(agreeing, 100m);

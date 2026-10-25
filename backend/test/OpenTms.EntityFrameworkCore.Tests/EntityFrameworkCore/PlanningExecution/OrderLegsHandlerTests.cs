@@ -41,6 +41,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
             LineOf(10, 1000, StopAt(a, Load, Day), StopAt(b, Unload, Day), StopAt(c, Unload, Day.AddDays(1))),
             LineOf(2, 200, StopAt(a, Load, Day), StopAt(c, Unload, Day)));
         var firstLineId = order.Lines.Single(l => l.Position == 1).Id!.Value;
+        (await LegsOfOrderAsync(order.Id)).ShouldBeEmpty("a Draft has no legs: its line saves generate nothing (design 59)");
 
         var orderId = await ConfirmOrderAsync(order);
 
@@ -251,6 +252,27 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         await Run.RecordTripAsync(another.Id, Guid.NewGuid());
         await ConfirmOrderAsync(another);
         (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == another.Id)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_trip_request_Planning_cannot_resolve_is_not_honoured_and_the_legs_stay_unplanned_instead_of_failing_the_event()
+    {
+        using var _ = InTenantA();
+        await TripTypeAsync();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var request = new TransportOrderTripRequestInputDto
+        {
+            TransportTripTypeId = Guid.NewGuid(), DepartureRelationId = depot.RelationId, DepartureAddressId = depot.AddressId,
+            ArrivalRelationId = depot.RelationId, ArrivalAddressId = depot.AddressId, PlannedDeparture = At(6)
+        };
+        var order = await OrderAsync(a.RelationId, request, Line(depot, a));
+
+        var orderId = await ConfirmOrderAsync(order);
+
+        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldBeEmpty();
+        (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem().TripId.ShouldBeNull("the leg is generated and stays unplanned");
+        (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull().TripId.ShouldBeNull();
     }
 
     [Fact]

@@ -46,7 +46,7 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
         References = [new TransportOrderReferenceEntryDto { Type = "PO", Value = "W-1" }],
         TripRequest = new TemplateTripRequestInputDto
         {
-            TransportTripTypeId = Guid.NewGuid(), DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
+            TransportTripTypeId = f.TripTypeId, DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
             DepartureDayOffset = 0, DepartureTime = new TimeOnly(6, 0), CarrierRelationId = f.CarrierId
         },
         Schedule = schedule ?? new TemplateScheduleDto { Recurrence = TemplateRecurrence.Weekly, Interval = 1, DaysOfWeek = (RecurrenceDays)127, HorizonDays = 3, ValidFrom = new DateOnly(2026, 1, 1) }

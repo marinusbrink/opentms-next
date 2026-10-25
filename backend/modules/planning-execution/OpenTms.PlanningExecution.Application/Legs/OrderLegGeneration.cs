@@ -120,7 +120,9 @@ public class OrderLegGeneration : ITransientDependency
     {
         OrderId = snapshot.OrderId ?? Guid.Empty,
         CustomerRelationId = snapshot.CustomerRelationId,
-        IsCancelled = snapshot.Status == (int)TransportOrderStatus.Cancelled,
+        /* Legs belong to confirmed orders (design 59 "Generation"): a Draft has none, like a cancelled order, so a Draft's
+         * line saves (TransportOrderLinesChanged) generate nothing and the Confirm creates them. */
+        IsCancelled = snapshot.Status is (int)TransportOrderStatus.Cancelled or (int)TransportOrderStatus.Draft,
         Lines = snapshot.Lines
             .Where(l => l.LineId != null)
             .OrderBy(l => l.Position)

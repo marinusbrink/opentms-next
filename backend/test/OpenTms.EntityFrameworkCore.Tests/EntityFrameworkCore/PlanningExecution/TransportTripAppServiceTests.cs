@@ -175,8 +175,9 @@ public class TransportTripAppServiceTests : PlanningAppServiceTestBase
     {
         using var _ = InTenantA();
         var (type, depot, a, b, _) = await FixturesAsync();
-        var order1 = await ConfirmOrderAsync(a.Item1, Line(depot, a), Line(depot, b, toHour: 14));
-        var order2 = await ConfirmOrderAsync(b.Item1, Line(depot, b, quantity: 4, toHour: 15));
+        /* The legs to B load an hour later than the leg to A, so the composed stop order (by origin time) is A, then B. */
+        var order1 = await ConfirmOrderAsync(a.Item1, Line(depot, a), Line(depot, b, fromHour: 9, toHour: 14));
+        var order2 = await ConfirmOrderAsync(b.Item1, Line(depot, b, quantity: 4, fromHour: 9, toHour: 15));
         var legs1 = await LegIdsOfOrderAsync(order1);
         var legs2 = await LegIdsOfOrderAsync(order2);
         var trip = await CreateTripAsync(type, At(6), At(18));

@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Orders.Events;
 using OpenTms.Orders.Published;
 using OpenTms.PlanningExecution.TransportTrips;
+using OpenTms.Platform.ReferenceData;
+using Volo.Abp;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Distributed;
@@ -73,7 +75,10 @@ public class OrderLegsHandler :
             return;
         }
 
-        var trip = await _tripOperations.CreateAsync(new TransportTripCreateDto
+        TransportTrip trip;
+        try
+        {
+            trip = await _tripOperations.CreateAsync(new TransportTripCreateDto
         {
             TransportTripTypeId = request.TransportTripTypeId,
             TripDate = DateOnly.FromDateTime(request.PlannedDeparture.Date),
@@ -90,6 +95,16 @@ public class OrderLegsHandler :
             DriverIds = request.DriverIds.ToList(),
             Execution = request.CarrierRelationId == null ? null : TripExecution.Subcontracted
         }, orderId, request.AgreedPurchaseAmount, request.AgreedPurchaseCurrencyCode);
+        }
+        catch (BusinessException ex) when (ex.Code == ReferenceDataErrorCodes.ReferenceNotFound)
+        {
+            /* Orders stores the request's ids unchecked against Planning (design 58 build note 8): a trip type, relation,
+             * vehicle or driver that does not resolve here is a request Planning cannot honour. TripOperations validates
+             * before it writes, so nothing is left behind; the legs stay unplanned. Failing instead would make the
+             * at-least-once delivery retry the event for ever and block the tenant's outbox. */
+            Logger.LogWarning("Trip request of order {OrderId} not honoured: {Field} does not resolve; the legs stay unplanned.", orderId, ex.Data["field"]);
+            return;
+        }
 
         var legs = await _legs.GetListAsync(l => l.OrderId == orderId && l.TripId == null);
         if (legs.Count > 0)

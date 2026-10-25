@@ -18,6 +18,7 @@ using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.Timing;
+using Volo.Abp.Uow;
 using MasterDataNames = OpenTms.MasterData.LocalizedNameDto;
 using ReferenceNames = OpenTms.Platform.ReferenceData.LocalizedNameDto;
 
@@ -99,6 +100,7 @@ public class TransportRunFixture : ITransientDependency
     private readonly IRepository<Country, Guid> _countryRepository;
     private readonly IRepository<Currency, Guid> _currencyRepository;
     private readonly IRelationAppService _relations;
+    private readonly IRepository<Relation, Guid> _relationRepository;
     private readonly ITransportUnitAppService _units;
     private readonly IRepository<TransportUnit, Guid> _unitRepository;
     private readonly IProductAppService _products;
@@ -124,6 +126,7 @@ public class TransportRunFixture : ITransientDependency
     private readonly IRepository<TransportTrip, Guid> _tripRepository;
     private readonly IRepository<RateLine, Guid> _rateLines;
     private readonly OrdersClock _ordersClock;
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public TransportRunFixture(
         ICurrentTenant currentTenant,
@@ -134,6 +137,7 @@ public class TransportRunFixture : ITransientDependency
         IRepository<Country, Guid> countryRepository,
         IRepository<Currency, Guid> currencyRepository,
         IRelationAppService relations,
+        IRepository<Relation, Guid> relationRepository,
         ITransportUnitAppService units,
         IRepository<TransportUnit, Guid> unitRepository,
         IProductAppService products,
@@ -158,7 +162,8 @@ public class TransportRunFixture : ITransientDependency
         IRepository<Leg, Guid> legs,
         IRepository<TransportTrip, Guid> tripRepository,
         IRepository<RateLine, Guid> rateLines,
-        OrdersClock ordersClock)
+        OrdersClock ordersClock,
+        IUnitOfWorkManager unitOfWorkManager)
     {
         _currentTenant = currentTenant;
         _guids = guids;
@@ -168,6 +173,7 @@ public class TransportRunFixture : ITransientDependency
         _countryRepository = countryRepository;
         _currencyRepository = currencyRepository;
         _relations = relations;
+        _relationRepository = relationRepository;
         _units = units;
         _unitRepository = unitRepository;
         _products = products;
@@ -193,6 +199,18 @@ public class TransportRunFixture : ITransientDependency
         _tripRepository = tripRepository;
         _rateLines = rateLines;
         _ordersClock = ordersClock;
+        _unitOfWorkManager = unitOfWorkManager;
+    }
+
+    /// <summary>
+    /// Read-modify-write of an aggregate in one context: joins the caller's unit of work (PostgreSQL tests), opens one on
+    /// SQLite, where every repository call would otherwise run in a context of its own and an owned part's change is lost.
+    /// </summary>
+    private async Task InUnitOfWorkAsync(Func<Task> action)
+    {
+        using var uow = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(), requiresNew: false);
+        await action();
+        await uow.CompleteAsync();
     }
 
     /// <summary>Today in the tenant's time zone, the date the Orders services use.</summary>
@@ -217,7 +235,10 @@ public class TransportRunFixture : ITransientDependency
         var ownCompanyId = Guid.Empty;
         if (options.WithOwnCompany)
         {
-            ownCompanyId = (await PlaceAsync("ME" + suffix, "Voorbeeld Transport", RelationRoles.OwnCompany | RelationRoles.Carrier, Rotterdam.Lat, Rotterdam.Lon, "Rotterdam", "Waalhaven", "45", "3089 JH", countryId)).RelationId;
+            /* A tenant has one own company (Master Data's rule): a second world in a tenant whose rows commit reuses it. */
+            var existing = (await _relationRepository.GetListAsync(r => (r.Roles & RelationRoles.OwnCompany) != 0)).FirstOrDefault();
+            ownCompanyId = existing?.Id
+                ?? (await PlaceAsync("ME" + suffix, "Voorbeeld Transport", RelationRoles.OwnCompany | RelationRoles.Carrier, Rotterdam.Lat, Rotterdam.Lon, "Rotterdam", "Waalhaven", "45", "3089 JH", countryId)).RelationId;
         }
 
         var unit = await _units.CreateAsync(new TransportUnitCreateDto { Name = options.UniqueNames ? "Europallet " + suffix : "Europallet" });
@@ -483,27 +504,31 @@ public class TransportRunFixture : ITransientDependency
         => _orders.CreateAsync(CreateDto(w, confirm, lines, customerReference, orderDate));
 
     /// <summary>Cancels the order as a fact in Orders' table without the command's events (the window before Planning reacts).</summary>
-    public async Task CancelWithoutEventsAsync(Guid orderId)
+    public Task CancelWithoutEventsAsync(Guid orderId) => InUnitOfWorkAsync(async () =>
     {
         var order = await _orderRepository.GetAsync(orderId, includeDetails: false);
         order.Cancel();
         await _orderRepository.UpdateAsync(order, autoSave: true);
-    }
+    });
 
     /// <summary>Removes the order row (soft delete) without the command's events: the published readers then know it no longer.</summary>
-    public async Task RemoveWithoutEventsAsync(Guid orderId)
+    public Task RemoveWithoutEventsAsync(Guid orderId) => InUnitOfWorkAsync(async () =>
     {
         var order = await _orderRepository.GetAsync(orderId, includeDetails: false);
         await _orderRepository.DeleteAsync(order, autoSave: true);
-    }
+    });
 
     /// <summary>Marks the order's trip request as handled with the given trip id, as Orders does on TransportTripCreated.</summary>
-    public async Task RecordTripAsync(Guid orderId, Guid tripId)
+    public Task RecordTripAsync(Guid orderId, Guid tripId) => InUnitOfWorkAsync(async () =>
     {
         var order = await _orderRepository.GetAsync(orderId, includeDetails: false);
-        order.RecordTrip(tripId);
+        if (!order.RecordTrip(tripId))
+        {
+            throw new InvalidOperationException($"Order {orderId} has no trip request to record a trip on.");
+        }
+
         await _orderRepository.UpdateAsync(order, autoSave: true);
-    }
+    });
 
     // ── planning ───────────────────────────────────────────────────────────────
 
@@ -546,7 +571,10 @@ public class TransportRunFixture : ITransientDependency
     }
 
     /// <summary>Writes the stored values of a leg the calculators would (route, CO₂, allocation), straight into Planning's table.</summary>
-    public async Task SetLegValuesAsync(Guid legId, int? distanceM = null, decimal? co2Kg = null, decimal? allocatedCost = null, decimal? allocatedRevenue = null, long version = 1)
+    public Task SetLegValuesAsync(Guid legId, int? distanceM = null, decimal? co2Kg = null, decimal? allocatedCost = null, decimal? allocatedRevenue = null, long version = 1)
+        => InUnitOfWorkAsync(() => SetLegValuesCoreAsync(legId, distanceM, co2Kg, allocatedCost, allocatedRevenue, version));
+
+    private async Task SetLegValuesCoreAsync(Guid legId, int? distanceM, decimal? co2Kg, decimal? allocatedCost, decimal? allocatedRevenue, long version)
     {
         var leg = await _legs.GetAsync(legId);
         if (distanceM != null)

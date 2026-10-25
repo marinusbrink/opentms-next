@@ -108,6 +108,7 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
 
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
+            await OrdersMasterDataAsync();
             var trip = await CreateTripAsync(await SeededTripTypeAsync());
             var a = trip.AddManualStop(Guid.NewGuid(), null, Load, Guid.NewGuid(), null, "A", null, 52, 5, null, null, null);
             var b = trip.AddManualStop(Guid.NewGuid(), null, Load, Guid.NewGuid(), null, "B", null, 52, 5, null, null, null);

@@ -68,8 +68,10 @@ public class OrdersEventsAndCalculatorTests : TransportOrderTestBase<OpenTmsEnti
         };
 
         /* "Tevens trip" (Q9): Planning creates the trip on the confirm and tells Orders, which records it on the request. */
-        var order = await Orders.CreateAsync(dto);
-        var trip = (await GetRequiredService<IRepository<TransportTrip, Guid>>().GetListAsync(t => t.CreatedFromOrderId == order.Id)).ShouldHaveSingleItem();
+        var created = await Orders.CreateAsync(dto);
+        var trip = (await GetRequiredService<IRepository<TransportTrip, Guid>>().GetListAsync(t => t.CreatedFromOrderId == created.Id)).ShouldHaveSingleItem();
+        /* The facts are delivered when the create's unit of work completes: the order is read again afterwards. */
+        var order = await Orders.GetAsync(created.Id);
         order.TripRequest.ShouldNotBeNull().TripId.ShouldBe(trip.Id);
         (await Run.LegsOfAsync(order.Id)).ShouldAllBe(l => l.TripId == trip.Id, "the order's legs ride on the requested trip");
         SummaryReasons(order.Id).ShouldContain("TripCreated");
