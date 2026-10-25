@@ -44,6 +44,12 @@ vi.mock("@/apps/master-data/editors/VehicleEditor", async () => ({ VehicleEditor
 vi.mock("@/apps/master-data/editors/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
 vi.mock("@/apps/master-data/editors/WaypointTypeEditor", async () => ({ WaypointTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("WaypointType") }));
 vi.mock("@/apps/master-data/editors/VatPercentageEditor", async () => ({ VatPercentageEditor: (await import("./create-in-place-test-mocks")).stubEditor("VatPercentage") }));
+vi.mock("@/apps/master-data/editors/PriceListEditor", async () => ({ PriceListEditor: (await import("./create-in-place-test-mocks")).stubEditor("PriceList") }));
+vi.mock("@/apps/master-data/editors/DiscountOrSurchargeEditor", async () => ({ DiscountOrSurchargeEditor: (await import("./create-in-place-test-mocks")).stubEditor("DiscountOrSurcharge") }));
+vi.mock("@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor", async () => ({
+  ConsignmentNoteFixedDescriptionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ConsignmentNoteFixedDescription"),
+}));
+vi.mock("@/apps/master-data/editors/ReportDefinitionEditor", async () => ({ ReportDefinitionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ReportDefinition") }));
 vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", async () => ({ OrganizationUnitFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("OrganizationUnit") }));
 vi.mock("@/domains/platform/components/UserFormDialog", async () => ({ UserFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("User") }));
 
@@ -122,6 +128,23 @@ const CASES: Case[] = [
     record: { id: "new-waypoint-type", code: "DEPOT", name: "Depot stop" },
     cacheKey: masterDataQueryKey(waypointTypes.entity, "lookup"),
   },
+  /* Design 61: the Transport run's pickers (a relation's price lists and discounts, a CMR profile's fixed texts and report definition). */
+  { entity: "PriceList", permission: "Financial.PriceLists.Create", labelKey: "Financial:AddNewPriceList", record: { id: "new-price-list", code: "PL1", name: "Benelux 2026" }, cacheKey: null },
+  {
+    entity: "DiscountOrSurcharge",
+    permission: "Financial.DiscountsOrSurcharges.Create",
+    labelKey: "Financial:AddNewDiscountOrSurcharge",
+    record: { id: "new-discount", code: "FUEL", name: "Fuel surcharge" },
+    cacheKey: masterDataQueryKey("discountsOrSurcharges", "lookup"),
+  },
+  {
+    entity: "ConsignmentNoteFixedDescription",
+    permission: "Orders.ConsignmentNoteFixedDescriptions.Create",
+    labelKey: "Orders:AddNewConsignmentNoteFixedDescription",
+    record: { id: "new-fixed-text", code: null, name: "Fragile" },
+    cacheKey: masterDataQueryKey("consignmentNoteFixedDescriptions", "lookup"),
+  },
+  { entity: "ReportDefinition", permission: "Platform.ReportDefinitions.Create", labelKey: "Platform:AddNewReportDefinition", record: { id: "new-report", code: null, name: "CMR (nl)" }, cacheKey: null },
   {
     entity: "OrganizationUnit",
     permission: "Platform.Administration.OrganizationUnits.Create",

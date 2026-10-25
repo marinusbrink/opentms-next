@@ -317,8 +317,30 @@ export const REPORT_PURPOSES = enumOptions<ReportPurpose>("ReportPurpose", [
   "Invoice",
   "PurchaseOrder",
   "TransportUnitBalance",
+  /* Design 58 (CMR): ReportPurpose.ConsignmentNote = 6. */
+  "ConsignmentNote",
 ]);
 export const reportPurposeKey = keyOf(REPORT_PURPOSES);
+export const CONSIGNMENT_NOTE_PURPOSE: ReportPurpose = 6;
+
+/**
+ * The active definitions of one purpose as picker options (a CMR profile names its definition, design 58): the lookup
+ * carries no purpose, so the list is read with its purpose filter, bounded like a lookup.
+ */
+export function useReportDefinitionsOfPurpose(purpose: ReportPurpose, enabled = true) {
+  return useQuery({
+    queryKey: platformMasterDataQueryKey(reportDefinitions.entity, "byPurpose", purpose),
+    enabled,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<ReportDefinitionRow[]> => {
+      const { data, error } = await apiClient.GET("/api/platform/report-definition", {
+        params: { query: { Purpose: purpose, IncludeArchived: false, StartRow: 0, EndRow: PLATFORM_LOOKUP_TAKE, SortBy: "name", SortDir: "asc" } },
+      });
+      if (error) throw error;
+      return (data?.rows ?? []) as ReportDefinitionRow[];
+    },
+  });
+}
 
 export const REPORT_RENDERING_PROVIDERS = enumOptions<ReportRenderingProvider>("ReportRenderingProvider", ["PdfGeneratorApi"]);
 export const reportRenderingProviderKey = keyOf(REPORT_RENDERING_PROVIDERS);

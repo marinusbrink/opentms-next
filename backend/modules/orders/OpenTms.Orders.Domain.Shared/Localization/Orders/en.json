@@ -453,6 +453,14 @@
     "OpenTms.Orders:ConsignmentNoteTemplateMissing": "No consignment note template: pick a report definition of purpose 'Consignment note' in the Master data app first.",
     "OpenTms.Orders:RenderTimedOut": "The document was not rendered within {seconds} seconds; try again.",
     "OpenTms.Orders:NothingToPrint": "Nothing to print: select lines of an order or a trip.",
-    "OpenTms.Orders:InvalidCopies": "The number of copies is {min} to {max}."
+    "OpenTms.Orders:InvalidCopies": "The number of copies is {min} to {max}.",
+    "Orders:AllTargets": "Order and lines",
+    "Orders:AttributeKeyHint": "The stable identifier integrations use; at most 32 characters.",
+    "Orders:Boxes": "Boxes",
+    "Orders:PartyBoxes": "Parties",
+    "Orders:ContentBoxes": "Contents",
+    "Orders:CopiesHint": "1 to 5 copies per print.",
+    "Orders:FixedDescriptionsHint": "Printed in boxes 6 and 13.",
+    "Orders:ReportDefinitionDefaultHint": "Empty: the default consignment note definition in the user's language."
   }
 }

@@ -35,6 +35,8 @@ export interface MasterDataListViewProps<TRow extends { id?: string }> {
   resource?: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;
+  /** The policy New needs when it is not `<permission>.Create` (settings created on first edit carry only Update, design 57). */
+  createPermission?: string;
   gridId: string;
   columnDefs: ColDef<TRow>[];
   fetchRows: (request: GridRequest) => Promise<GridResponse<TRow>>;
@@ -60,6 +62,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
   entityKey,
   resource = "MasterData",
   permission,
+  createPermission,
   gridId,
   columnDefs,
   fetchRows,
@@ -73,7 +76,7 @@ export function MasterDataListView<TRow extends { id?: string }>({
 }: MasterDataListViewProps<TRow>) {
   const { t } = useL();
   const canView = useIsGranted(permission);
-  const canCreate = useIsGranted(`${permission}.Create`);
+  const canCreate = useIsGranted(createPermission ?? `${permission}.Create`);
   const canUpdate = useIsGranted(`${permission}.Update`);
   const canDelete = useIsGranted(`${permission}.Delete`);
 

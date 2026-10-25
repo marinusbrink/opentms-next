@@ -1111,6 +1111,7 @@
     "OpenTms.Platform:DerivedValues.RequiresTransaction": "A recalculation can only be requested inside a transaction.",
     "Platform:DerivedValues.Calculating": "Calculating…",
     "Platform:DerivedValues.Failed": "Calculation failed",
-    "Platform:DerivedValues.FailedDetail": "The last calculation failed ({0}); it is retried automatically. The values shown are the previous ones."
+    "Platform:DerivedValues.FailedDetail": "The last calculation failed ({0}); it is retried automatically. The values shown are the previous ones.",
+    "Platform:AddNewReportDefinition": "Add new report definition…"
   }
 }

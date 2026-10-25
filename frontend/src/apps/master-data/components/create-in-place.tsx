@@ -6,13 +6,17 @@ import { useAppFeatures } from "@/app/app-features";
 import { OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
+import { ConsignmentNoteFixedDescriptionEditor } from "@/apps/master-data/editors/ConsignmentNoteFixedDescriptionEditor";
 import { CountryEditor } from "@/apps/master-data/editors/CountryEditor";
 import { CurrencyEditor } from "@/apps/master-data/editors/CurrencyEditor";
+import { DiscountOrSurchargeEditor } from "@/apps/master-data/editors/DiscountOrSurchargeEditor";
 import { DriverEditor } from "@/apps/master-data/editors/DriverEditor";
 import { GeographicalRegionEditor } from "@/apps/master-data/editors/GeographicalRegionEditor";
+import { PriceListEditor } from "@/apps/master-data/editors/PriceListEditor";
 import { ProductEditor } from "@/apps/master-data/editors/ProductEditor";
 import { RelationCategoryEditor } from "@/apps/master-data/editors/RelationCategoryEditor";
 import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
+import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
 import { TemperatureEditor } from "@/apps/master-data/editors/TemperatureEditor";
 import { TransportCharacteristicsEditor } from "@/apps/master-data/editors/TransportCharacteristicsEditor";
 import { TransportUnitEditor } from "@/apps/master-data/editors/TransportUnitEditor";
@@ -23,6 +27,7 @@ import { WaypointTypeEditor } from "@/apps/master-data/editors/WaypointTypeEdito
 import { resolveLocalizedName } from "@/domains/master-data/localized-name";
 import { masterDataQueryKey, type LookupItem, type LocalizedNameMap } from "@/domains/master-data/shared";
 import type { OrganizationUnitRow } from "@/domains/platform/administration-organization-units";
+import { platformMasterDataQueryKey, reportDefinitions } from "@/domains/platform/master-data";
 import { useIsGrantedChecker } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -226,6 +231,42 @@ const ENTITIES = {
     render: masterDataEditor(() => VatPercentageEditor),
     toRecord: localized((d) => d.code),
     insert: intoLookup("vatPercentages"),
+  },
+  /* Financial (design 57): a relation's price lists and default discounts or surcharges. The price-list lookups are
+   * per side ("lookup", side): the save's invalidation of the entity refetches them, so nothing is inserted here. */
+  PriceList: {
+    permission: "Financial.PriceLists.Create",
+    feature: "Apps.MasterData.Financial.Pricing.PriceLists",
+    labelKey: "Financial:AddNewPriceList",
+    render: masterDataEditor(() => PriceListEditor),
+    toRecord: named,
+    insert: () => undefined,
+  },
+  DiscountOrSurcharge: {
+    permission: "Financial.DiscountsOrSurcharges.Create",
+    feature: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges",
+    labelKey: "Financial:AddNewDiscountOrSurcharge",
+    render: masterDataEditor(() => DiscountOrSurchargeEditor),
+    toRecord: named,
+    insert: intoLookup("discountsOrSurcharges"),
+  },
+  /* Orders (design 58): the fixed texts of a CMR profile. */
+  ConsignmentNoteFixedDescription: {
+    permission: "Orders.ConsignmentNoteFixedDescriptions.Create",
+    feature: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions",
+    labelKey: "Orders:AddNewConsignmentNoteFixedDescription",
+    render: masterDataEditor(() => ConsignmentNoteFixedDescriptionEditor),
+    toRecord: named,
+    insert: intoLookup("consignmentNoteFixedDescriptions"),
+  },
+  /* Platform (design 55): the report definition a CMR profile renders with; its options are read per purpose. */
+  ReportDefinition: {
+    permission: "Platform.ReportDefinitions.Create",
+    feature: "Apps.MasterData.Platform.ReportDefinitions",
+    labelKey: "Platform:AddNewReportDefinition",
+    render: masterDataEditor(() => ReportDefinitionEditor),
+    toRecord: named,
+    insert: (queryClient) => void queryClient.invalidateQueries({ queryKey: platformMasterDataQueryKey(reportDefinitions.entity) }),
   },
   /* Platform records picked in master-data forms: the Administration app's own editors open on top. */
   OrganizationUnit: {

@@ -203,6 +203,10 @@
     "OpenTms.PlanningExecution:LegDateOutsideStopWindow": "The planned date {value} lies outside the stop's time window",
     "OpenTms.PlanningExecution:InvalidViaDepotScope": "Scope {scope} needs exactly its relation or region",
     "OpenTms.PlanningExecution:ArrivalBeforeDeparture": "The planned arrival lies before the planned departure",
-    "OpenTms.PlanningExecution:SameTrip": "Choose another trip as the target"
+    "OpenTms.PlanningExecution:SameTrip": "Choose another trip as the target",
+    "PlanningExecution:AttributeKeyShapeHint": "A letter, then letters, digits or underscores; at most 32 characters.",
+    "PlanningExecution:DepartureWaypointTypeHint": "Empty: the arrival activity.",
+    "PlanningExecution:DepotAddressHint": "Choose the depot first.",
+    "PlanningExecution:ViaDepotPositionHint": "The first matching rule in position order applies."
   }
 }

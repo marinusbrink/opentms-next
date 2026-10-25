@@ -453,6 +453,14 @@
     "OpenTms.Orders:ConsignmentNoteTemplateMissing": "Geen vrachtbriefsjabloon: kies eerst een bestandlayout met doel 'Vrachtbrief' in de app Stamgegevens.",
     "OpenTms.Orders:RenderTimedOut": "Het document is niet binnen {seconds} seconden gegenereerd; probeer het opnieuw.",
     "OpenTms.Orders:NothingToPrint": "Niets om af te drukken: selecteer regels van een order of een rit.",
-    "OpenTms.Orders:InvalidCopies": "Het aantal exemplaren is {min} tot {max}."
+    "OpenTms.Orders:InvalidCopies": "Het aantal exemplaren is {min} tot {max}.",
+    "Orders:AllTargets": "Order en regels",
+    "Orders:AttributeKeyHint": "Het vaste kenmerk dat koppelingen gebruiken; maximaal 32 tekens.",
+    "Orders:Boxes": "Vakken",
+    "Orders:PartyBoxes": "Partijen",
+    "Orders:ContentBoxes": "Inhoud",
+    "Orders:CopiesHint": "1 tot 5 exemplaren per afdruk.",
+    "Orders:FixedDescriptionsHint": "Afgedrukt in de vakken 6 en 13.",
+    "Orders:ReportDefinitionDefaultHint": "Leeg: de standaarddefinitie voor de vrachtbrief in de taal van de gebruiker."
   }
 }

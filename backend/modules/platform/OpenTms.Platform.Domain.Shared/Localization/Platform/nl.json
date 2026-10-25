@@ -1111,6 +1111,7 @@
     "OpenTms.Platform:DerivedValues.RequiresTransaction": "Een herberekening kan alleen binnen een transactie worden aangevraagd.",
     "Platform:DerivedValues.Calculating": "Wordt berekend…",
     "Platform:DerivedValues.Failed": "Berekening mislukt",
-    "Platform:DerivedValues.FailedDetail": "De laatste berekening is mislukt ({0}); er wordt automatisch opnieuw gerekend. De getoonde waarden zijn de vorige."
+    "Platform:DerivedValues.FailedDetail": "De laatste berekening is mislukt ({0}); er wordt automatisch opnieuw gerekend. De getoonde waarden zijn de vorige.",
+    "Platform:AddNewReportDefinition": "Nieuwe rapportdefinitie toevoegen…"
   }
 }

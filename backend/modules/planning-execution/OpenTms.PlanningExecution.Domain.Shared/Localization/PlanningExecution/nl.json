@@ -203,6 +203,10 @@
     "OpenTms.PlanningExecution:LegDateOutsideStopWindow": "De geplande datum {value} valt buiten het tijdvenster van de stop",
     "OpenTms.PlanningExecution:InvalidViaDepotScope": "Bereik {scope} vraagt precies zijn relatie of regio",
     "OpenTms.PlanningExecution:ArrivalBeforeDeparture": "De geplande aankomst ligt vóór het geplande vertrek",
-    "OpenTms.PlanningExecution:SameTrip": "Kies een andere rit als doel"
+    "OpenTms.PlanningExecution:SameTrip": "Kies een andere rit als doel",
+    "PlanningExecution:AttributeKeyShapeHint": "Een letter, daarna letters, cijfers of liggende streepjes; maximaal 32 tekens.",
+    "PlanningExecution:DepartureWaypointTypeHint": "Leeg: de activiteit bij aankomst.",
+    "PlanningExecution:DepotAddressHint": "Kies eerst het depot.",
+    "PlanningExecution:ViaDepotPositionHint": "De eerste passende regel in positievolgorde geldt."
   }
 }
