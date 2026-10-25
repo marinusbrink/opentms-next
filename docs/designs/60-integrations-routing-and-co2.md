@@ -144,3 +144,5 @@ What was built as designed, and where the implementation had to choose:
 
 Permission `Integrations.Routing` (read); outbound HTTPS only; keys from configuration/secret store; the status endpoint
 never returns keys or full URLs; cache rows carry coordinates only (rounded), no relation ids; tenant-scoped.
+
+- **2026-10-25, integration:** the route-function vehicle block was verified against the legacy `TransportFileRouteCalculator.cs:455-464` and `RouteVehicleSpecMapper.cs`: weight in tonnes, Euro class `EURO_0`…`EURO_VI`, fuel as the GLEC names `Diesel`/`Petrol`/`Electric`/`CNG` (others omitted), dimensions in metres, consumption in litres per kilometre. The adapter was corrected accordingly (open question 1 of the build notes is closed).

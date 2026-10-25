@@ -49,13 +49,13 @@ public class ValhallaFunctionProviderTests
         waypoints.GetArrayLength().ShouldBe(1);
         waypoints[0].GetProperty("lon").GetDouble().ShouldBe(5.1214);
         var vehicle = body.GetProperty("vehicle");
-        vehicle.GetProperty("weight").GetInt32().ShouldBe(18_000);
-        vehicle.GetProperty("euroClass").GetInt32().ShouldBe(5);
+        vehicle.GetProperty("weight").GetDouble().ShouldBe(18.0, "tonnes, as the legacy route calculator sends them");
+        vehicle.GetProperty("euroClass").GetString().ShouldBe("EURO_V");
         vehicle.GetProperty("height").GetDouble().ShouldBe(4.0);
         vehicle.GetProperty("width").GetDouble().ShouldBe(2.55);
         vehicle.GetProperty("length").GetDouble().ShouldBe(16.5);
-        vehicle.GetProperty("fuelType").GetString().ShouldBe("lng");
-        vehicle.GetProperty("fuelConsumption").GetDouble().ShouldBe(28.5);
+        vehicle.TryGetProperty("fuelType", out _).ShouldBeFalse("LNG has no GLEC name at the route function: left out");
+        vehicle.GetProperty("fuelConsumption").GetDouble().ShouldBe(0.285, "litres per kilometre");
         request.Headers.ShouldNotContainKey("X-API-Key", "no key configured, no header");
     }
 
@@ -67,9 +67,9 @@ public class ValhallaFunctionProviderTests
         await Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None);
 
         var vehicle = _handler.Requests.ShouldHaveSingleItem().Json.GetProperty("vehicle");
-        vehicle.GetProperty("weight").GetInt32().ShouldBe(40_000, "OpenTMS's toll default: 40 t");
-        vehicle.GetProperty("euroClass").GetInt32().ShouldBe(6);
-        vehicle.GetProperty("fuelType").GetString().ShouldBe("diesel");
+        vehicle.GetProperty("weight").GetDouble().ShouldBe(40.0, "OpenTMS's toll default: 40 t");
+        vehicle.GetProperty("euroClass").GetString().ShouldBe("EURO_VI");
+        vehicle.GetProperty("fuelType").GetString().ShouldBe("Diesel");
         vehicle.TryGetProperty("fuelConsumption", out _).ShouldBeFalse("null properties are left out");
         vehicle.TryGetProperty("height", out _).ShouldBeFalse();
         _handler.Requests[0].Json.GetProperty("waypoints").GetArrayLength().ShouldBe(0);
@@ -210,13 +210,25 @@ public class ValhallaFunctionProviderTests
     }
 
     [Theory]
-    [InlineData(EuroClass.Euro0, 0)]
-    [InlineData(EuroClass.Euro3, 3)]
-    [InlineData(EuroClass.Euro6, 6)]
-    [InlineData(EuroClass.Eev, 5)]
-    [InlineData(EuroClass.ZeroEmission, 6)]
-    public void The_euro_class_travels_as_its_number(EuroClass euroClass, int expected)
+    [InlineData(EuroClass.Euro0, "EURO_0")]
+    [InlineData(EuroClass.Euro3, "EURO_III")]
+    [InlineData(EuroClass.Euro6, "EURO_VI")]
+    [InlineData(EuroClass.Eev, "EURO_V")]
+    [InlineData(EuroClass.ZeroEmission, "EURO_VI")]
+    public void The_euro_class_travels_as_the_route_functions_name(EuroClass euroClass, string expected)
     {
-        ValhallaFunctionProvider.RouteFunctionVehicle.EuroClassNumber(euroClass).ShouldBe(expected);
+        ValhallaFunctionProvider.RouteFunctionVehicle.EuroClassName(euroClass).ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData(FuelType.Diesel, "Diesel")]
+    [InlineData(FuelType.Petrol, "Petrol")]
+    [InlineData(FuelType.Electric, "Electric")]
+    [InlineData(FuelType.Cng, "CNG")]
+    [InlineData(FuelType.Lng, null)]
+    [InlineData(FuelType.Hydrogen, null)]
+    public void Only_the_GLEC_fuel_names_travel(FuelType fuelType, string? expected)
+    {
+        ValhallaFunctionProvider.RouteFunctionVehicle.FuelTypeName(fuelType).ShouldBe(expected);
     }
 }

@@ -239,30 +239,43 @@ public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
     }
 
     /// <summary>
-    /// The vehicle block: weight in kilograms, the Euro class as its number (EEV counts as Euro V, zero emission as
-    /// Euro VI), dimensions in metres, the fuel as its lower-case name, consumption in litres per 100 km when known.
+    /// The vehicle block as the legacy <c>TransportFileRouteCalculator</c> sends it (verified against
+    /// <c>RouteVehicleSpecMapper.cs</c> on 2026-10-25): weight in <b>tonnes</b>, the Euro class as <c>EURO_0</c>…<c>EURO_VI</c>
+    /// (EEV counts as Euro V, zero emission as Euro VI), dimensions in metres, the fuel as one of the GLEC names
+    /// <c>Diesel</c>, <c>Petrol</c>, <c>Electric</c>, <c>CNG</c> (left out when not confidently mappable), consumption in
+    /// litres per kilometre when known.
     /// </summary>
-    public sealed record RouteFunctionVehicle(int Weight, int EuroClass, double? Height, double? Width, double? Length, string FuelType, double? FuelConsumption)
+    public sealed record RouteFunctionVehicle(double Weight, string EuroClass, double? Height, double? Width, double? Length, string? FuelType, double? FuelConsumption)
     {
         public static RouteFunctionVehicle From(VehicleSpec vehicle) => new(
-            vehicle.GrossWeightKg,
-            EuroClassNumber(vehicle.EuroClass ?? MasterData.Fleet.EuroClass.Euro6),
+            Math.Round(vehicle.GrossWeightKg / 1000d, 3),
+            EuroClassName(vehicle.EuroClass ?? MasterData.Fleet.EuroClass.Euro6),
             vehicle.HeightCm is { } h ? h / 100d : null,
             vehicle.WidthCm is { } w ? w / 100d : null,
             vehicle.LengthCm is { } l ? l / 100d : null,
-            (vehicle.FuelType ?? MasterData.Fleet.FuelType.Diesel).ToString().ToLowerInvariant(),
-            vehicle.FuelConsumptionLPer100Km);
+            FuelTypeName(vehicle.FuelType ?? MasterData.Fleet.FuelType.Diesel),
+            vehicle.FuelConsumptionLPer100Km is { } c and > 0 ? Math.Round(c / 100d, 4) : null);
 
-        public static int EuroClassNumber(EuroClass euroClass) => euroClass switch
+        public static string EuroClassName(EuroClass euroClass) => euroClass switch
         {
-            MasterData.Fleet.EuroClass.Euro0 => 0,
-            MasterData.Fleet.EuroClass.Euro1 => 1,
-            MasterData.Fleet.EuroClass.Euro2 => 2,
-            MasterData.Fleet.EuroClass.Euro3 => 3,
-            MasterData.Fleet.EuroClass.Euro4 => 4,
-            MasterData.Fleet.EuroClass.Euro5 => 5,
-            MasterData.Fleet.EuroClass.Eev => 5,
-            _ => 6
+            MasterData.Fleet.EuroClass.Euro0 => "EURO_0",
+            MasterData.Fleet.EuroClass.Euro1 => "EURO_I",
+            MasterData.Fleet.EuroClass.Euro2 => "EURO_II",
+            MasterData.Fleet.EuroClass.Euro3 => "EURO_III",
+            MasterData.Fleet.EuroClass.Euro4 => "EURO_IV",
+            MasterData.Fleet.EuroClass.Euro5 => "EURO_V",
+            MasterData.Fleet.EuroClass.Eev => "EURO_V",
+            _ => "EURO_VI"
+        };
+
+        /// <summary>The GLEC fuel names the route function knows; other fuels are left out so the function applies its default.</summary>
+        public static string? FuelTypeName(FuelType fuelType) => fuelType switch
+        {
+            MasterData.Fleet.FuelType.Diesel => "Diesel",
+            MasterData.Fleet.FuelType.Petrol => "Petrol",
+            MasterData.Fleet.FuelType.Electric => "Electric",
+            MasterData.Fleet.FuelType.Cng => "CNG",
+            _ => null
         };
     }
 }
