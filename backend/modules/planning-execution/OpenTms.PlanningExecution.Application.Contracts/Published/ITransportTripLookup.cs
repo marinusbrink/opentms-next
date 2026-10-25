@@ -42,4 +42,21 @@ public class TransportTripReferenceDto
     public List<string> DriverNames { get; set; } = new();
 
     public DateTimeOffset PlannedDeparture { get; set; }
+
+    /// <summary>Own fleet, subcontracted or a carrier's trip (design 59); Financial prices the own-fleet line on it (QP10).</summary>
+    public TripExecution Execution { get; set; }
+
+    /// <summary>The trip calculator's stored planned distance in metres, null before the first calculation.</summary>
+    public int? PlannedDistanceM { get; set; }
+
+    public Guid? VehicleCombinationId { get; set; }
+
+    /// <summary>The vehicles on the trip in position order: the combination's members, else the vehicles set directly.</summary>
+    public List<Guid> VehicleIds { get; set; } = new();
+
+    /// <summary>
+    /// QP10: the sum over the trip's vehicles of their effective cost price per kilometre (the vehicle's own, else its
+    /// type's, from Master Data); null when no vehicle on the trip has one. Financial falls back to the tenant setting.
+    /// </summary>
+    public decimal? OwnFleetCostPerKm { get; set; }
 }

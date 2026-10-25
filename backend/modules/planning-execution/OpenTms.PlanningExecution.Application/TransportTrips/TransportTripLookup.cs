@@ -10,7 +10,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace OpenTms.PlanningExecution.TransportTrips;
 
-/// <summary>See <see cref="ITransportTripLookup"/>: one query for the trips with their vehicles and drivers, one Master Data lookup per kind of name.</summary>
+/// <summary>See <see cref="ITransportTripLookup"/>: one query for the trips with their vehicles and drivers, one Master Data lookup per kind of name; the vehicles' cost price per kilometre summed for Financial (QP10).</summary>
 [RemoteService(IsEnabled = false)]
 [Authorize]
 public class TransportTripLookup : PlanningExecutionAppServiceBase, ITransportTripLookup
@@ -51,6 +51,7 @@ public class TransportTripLookup : PlanningExecutionAppServiceBase, ITransportTr
                 ? combination.VehicleIds
                 : t.Vehicles.OrderBy(v => v.Position).Select(v => v.VehicleId).ToList();
             var tripVehicles = tripVehicleIds.Select(id => vehicles.GetValueOrDefault(id)).Where(v => v != null).ToList();
+            var costPrices = tripVehicles.Where(v => v!.CostPricePerKm != null).Select(v => v!.CostPricePerKm!.Value).ToList();
             return new TransportTripReferenceDto
             {
                 Id = t.Id,
@@ -64,7 +65,13 @@ public class TransportTripLookup : PlanningExecutionAppServiceBase, ITransportTr
                 VehicleNames = tripVehicles.Select(v => v!.Name).ToList(),
                 LicencePlates = tripVehicles.Where(v => v!.LicencePlate != null).Select(v => v!.LicencePlate!).ToList(),
                 DriverNames = t.Drivers.OrderBy(d => d.Position).Select(d => drivers.GetValueOrDefault(d.DriverId)).Where(n => n != null).Select(n => n!).ToList(),
-                PlannedDeparture = t.PlannedDeparture
+                PlannedDeparture = t.PlannedDeparture,
+                Execution = t.Execution,
+                PlannedDistanceM = t.PlannedDistanceM,
+                VehicleCombinationId = t.VehicleCombinationId,
+                VehicleIds = tripVehicleIds.ToList(),
+                /* QP10: the vehicle → vehicle type cascade is Master Data's (the lookup's CostPricePerKm); the sum over the trip's vehicles is the trip's. */
+                OwnFleetCostPerKm = costPrices.Count == 0 ? null : costPrices.Sum()
             };
         }).ToList();
     }

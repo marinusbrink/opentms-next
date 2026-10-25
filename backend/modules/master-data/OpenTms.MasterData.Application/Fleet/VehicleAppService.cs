@@ -124,6 +124,7 @@ public class VehicleAppService
             GrossVehicleWeightKg = type.DefaultGrossVehicleWeightKg,
             MaxEpq = type.MaxEpq,
             MaxLoadingMeters = type.MaxLoadingMeters,
+            CostPricePerKm = type.CostPricePerKm,
             Characteristics = await CharacteristicsAsync(type.Characteristics.Select(c => c.TransportCharacteristicsId).ToList(), [])
         };
     }
@@ -300,6 +301,7 @@ public class VehicleAppService
             MaxEpq = v.MaxEpq,
             MaxLoadingMeters = v.MaxLoadingMeters,
             MaxPayloadKg = v.MaxPayloadKg,
+            CostPricePerKm = v.CostPricePerKm,
             FuelType = v.FuelType,
             EuroClass = v.EuroClass,
             IsArchived = v.IsArchived,
@@ -342,6 +344,7 @@ public class VehicleAppService
             input.MaxEpq ?? type.MaxEpq,
             input.MaxLoadingMeters ?? type.MaxLoadingMeters,
             input.MaxPayloadKg));
+        ApplyCostPrice(vehicle, input);
 
         await ApplyAsync(vehicle, input);
         return vehicle;
@@ -364,9 +367,13 @@ public class VehicleAppService
         vehicle.SetDimensions(new VehicleDimensions(
             input.LengthCm, input.WidthCm, input.HeightCm, input.GrossVehicleWeightKg,
             input.EmptyWeightKg, input.MaxEpq, input.MaxLoadingMeters, input.MaxPayloadKg));
+        ApplyCostPrice(vehicle, input);
 
         await ApplyAsync(vehicle, input);
     }
+
+    /// <summary>QP10: the vehicle's own cost price stays its own (null = the type's); the cascade is resolved on read, never copied.</summary>
+    private static void ApplyCostPrice(Vehicle vehicle, VehicleCreateDto input) => vehicle.SetCostPricePerKm(input.CostPricePerKm);
 
     private async Task<VehicleType> FindTypeAsync(Guid vehicleTypeId)
         => await _vehicleTypes.FindAsync(vehicleTypeId)

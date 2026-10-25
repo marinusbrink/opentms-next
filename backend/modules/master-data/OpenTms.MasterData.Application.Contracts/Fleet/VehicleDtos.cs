@@ -83,6 +83,8 @@ public class VehicleDto : MasterDataDetailDtoBase
     public double? MaxEpq { get; set; }
     public double? MaxLoadingMeters { get; set; }
     public double? MaxPayloadKg { get; set; }
+    /// <summary>QP10: the vehicle's own cost price per kilometre; null = the type's applies.</summary>
+    public decimal? CostPricePerKm { get; set; }
     public FuelType? FuelType { get; set; }
     public EuroClass? EuroClass { get; set; }
     public bool IsArchived { get; set; }
@@ -125,6 +127,10 @@ public class VehicleCreateDto
     public double? MaxEpq { get; set; }
     public double? MaxLoadingMeters { get; set; }
     public double? MaxPayloadKg { get; set; }
+
+    /// <summary>QP10: the vehicle's own cost price per kilometre (4 decimals); empty = the type's applies.</summary>
+    [Range(0, 999_999_999_999.9999)]
+    public decimal? CostPricePerKm { get; set; }
 
     [EnumDataType(typeof(FuelType))]
     public FuelType? FuelType { get; set; }
@@ -197,6 +203,7 @@ public class VehicleTypeDefaultsDto
     public double? GrossVehicleWeightKg { get; set; }
     public double? MaxEpq { get; set; }
     public double? MaxLoadingMeters { get; set; }
+    public decimal? CostPricePerKm { get; set; }
     public List<VehicleCharacteristicDto> Characteristics { get; set; } = new();
 }
 

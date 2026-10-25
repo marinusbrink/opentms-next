@@ -529,6 +529,7 @@
     "MasterData:GrossVehicleWeightKg": "Gross weight (kg)",
     "MasterData:EmptyWeightKg": "Empty weight (kg)",
     "MasterData:MaxPayloadKg": "Max payload (kg)",
+    "MasterData:CostPricePerKm": "Cost price per km",
     "MasterData:DimensionsAndCapacity": "Dimensions and capacity",
     "MasterData:Engine": "Engine",
     "MasterData:DriversAndIdentification": "Drivers and identification",

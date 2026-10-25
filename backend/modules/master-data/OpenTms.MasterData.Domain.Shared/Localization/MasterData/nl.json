@@ -529,6 +529,7 @@
     "MasterData:GrossVehicleWeightKg": "Toegestaan totaalgewicht (kg)",
     "MasterData:EmptyWeightKg": "Leeggewicht (kg)",
     "MasterData:MaxPayloadKg": "Max. laadvermogen (kg)",
+    "MasterData:CostPricePerKm": "Kostprijs per km",
     "MasterData:DimensionsAndCapacity": "Afmetingen en capaciteit",
     "MasterData:Engine": "Aandrijving",
     "MasterData:DriversAndIdentification": "Chauffeurs en identificatie",

@@ -18,8 +18,9 @@ namespace OpenTms.Financial.Tariffs.Calculators;
 /// <summary>
 /// The calculator of <c>Financial.TripRateLines</c> (design 57, QP7, QP10): per segment (one order line on the trip)
 /// the carrier's cost lists and default discounts over the segment, anchored to the segment's first leg; the own-fleet
-/// distance line on the trip when it has no carrier (unit price from the tenant setting, quantity the summed leg
-/// distance); the agreed price line untouched. Publishes <c>RateLinesChanged { TripId }</c> when anything changed.
+/// distance line on the trip when its execution is the own fleet (unit price: the trip's vehicles' cost price per
+/// kilometre, else the tenant setting; quantity the summed leg distance); the agreed price line untouched. Publishes
+/// <c>RateLinesChanged { TripId }</c> when anything changed.
 /// </summary>
 public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDependency
 {
@@ -102,7 +103,10 @@ public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDepende
         await _writer.ReplaceAsync(root, RateSide.Cost, tree, resolution, resolutionEmitsFixedPrice: false, context.Version);
     }
 
-    /// <summary>QP10: the own-fleet cost per kilometre × the trip's distance; without a price source only a warning (Assumption 5).</summary>
+    /// <summary>
+    /// QP10: the own-fleet cost per kilometre × the trip's distance. The cascade: the trip's vehicles (the vehicle's own
+    /// price, else its type's, summed by Planning), else the tenant setting; without either only a warning (Assumption 5).
+    /// </summary>
     private async Task AddOwnFleetLineAsync(DerivedValueCalculationContext context, TripCostFacts facts, RateLineAnchor root, string currency, PriceResolution resolution)
     {
         var distanceM = facts.Legs.Sum(l => l.DistanceM ?? 0);
@@ -111,19 +115,25 @@ public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDepende
             return;
         }
 
-        var setting = await _settings.GetOrNullAsync(FinancialSettings.OwnFleetCostPerKm);
-        if (!decimal.TryParse(setting, NumberStyles.Number, CultureInfo.InvariantCulture, out var costPerKm) || costPerKm <= 0)
+        var costPerKm = facts.OwnFleetCostPerKm ?? await TenantCostPerKmAsync();
+        if (costPerKm is not > 0)
         {
             resolution.Warnings.Add(FinancialErrorCodes.NoCostPriceSourceWarning);
             return;
         }
 
         var quantity = RateLine.Round4(distanceM / 1000m);
-        var unitPrice = RateLine.Round4(costPerKm);
+        var unitPrice = RateLine.Round4(costPerKm.Value);
         var line = RateLine.Calculated(_guids.Create(), _currentTenant.Id, RateSide.Cost, root, RateLineKind.OwnFleetDistance, currency,
             OwnFleetDescriptionKey, quantity, QuantitySource.TripDistanceKm, unitPrice, RateLine.Round2(quantity * unitPrice));
         line.SetCalculation(_clock.Now, context.Version);
         line.Position = resolution.AllLines.Count() + 1;
         resolution.NewLines.Add(line);
+    }
+
+    private async Task<decimal?> TenantCostPerKmAsync()
+    {
+        var setting = await _settings.GetOrNullAsync(FinancialSettings.OwnFleetCostPerKm);
+        return decimal.TryParse(setting, NumberStyles.Number, CultureInfo.InvariantCulture, out var costPerKm) ? costPerKm : null;
     }
 }

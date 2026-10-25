@@ -148,6 +148,9 @@ public class MasterDataVehicleReferenceDto
 
     public double? MaxPayloadKg { get; set; }
 
+    /// <summary>QP10: the vehicle's own cost price per kilometre, else its type's; null when neither has one.</summary>
+    public decimal? CostPricePerKm { get; set; }
+
     /// <summary>The union of the type's and the vehicle's own characteristics.</summary>
     public List<Guid> TransportCharacteristicIds { get; set; } = new();
 

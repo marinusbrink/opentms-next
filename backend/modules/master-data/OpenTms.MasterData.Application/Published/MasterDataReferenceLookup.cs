@@ -283,6 +283,7 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
                 MaxEpq = v.MaxEpq ?? type?.MaxEpq,
                 MaxLoadingMeters = v.MaxLoadingMeters ?? type?.MaxLoadingMeters,
                 MaxPayloadKg = v.MaxPayloadKg,
+                CostPricePerKm = v.CostPricePerKm ?? type?.CostPricePerKm,
                 TransportCharacteristicIds = v.TransportCharacteristics.Select(c => c.TransportCharacteristicsId)
                     .Concat(type?.Characteristics.Select(c => c.TransportCharacteristicsId) ?? [])
                     .Distinct()
