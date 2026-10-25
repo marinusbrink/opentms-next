@@ -252,12 +252,19 @@ deviations, each small and reversible:
     OpenTms.EntityFrameworkCore.Tests/Fakes/OrdersFakes.cs` holds `Fake*` stand-ins (deleted at integration). SQLite runs
     without transactions, so the SQLite test module swaps the number-sequence generator and the derived-value scheduler for
     lenient/recording doubles; both rules are covered on PostgreSQL. The render-timeout path has no automated test (the budget is a constant).
-17. **Found in Platform, not fixed here (scope).** `DerivedValuesRequestedHandler` opens no unit of work; dispatched from the
-    outbox (`OutboxDispatcher` → `PublishFromOutboxAsync`) its state read throws "A DbContext can only be created inside a
-    unit of work", the event stays and blocks the tenant's outbox. The design-49 PostgreSQL tests hit this silently (their
-    draining dispatch returns 0); the Orders outbox test drains inside an ambient unit of work and asserts an empty outbox.
-    The production worker takes the same path, so the handler (or the dispatcher, per event) needs a unit of work — a
-    Platform fix for the PO to schedule.
+17. **Found in Platform, fixed at integration (2026-10-25).** `DerivedValuesRequestedHandler` opened no unit of work; dispatched
+    from the outbox its state read threw "A DbContext can only be created inside a unit of work" and the event blocked the
+    tenant's outbox. The `OutboxDispatcher` now runs every event's handlers inside a transactional unit of work of its own
+    (committed before the row is deleted; at least once holds), the handler carries `[UnitOfWork]` too, and
+    `DerivedValuesPostgreSqlTests` dispatches a request through the real path and asserts the job enqueued and the row gone.
+    Orders' handlers join that unit of work (`[UnitOfWork]`) instead of opening their own.
+18. **2026-10-25, integration.** Build note 7 is closed: `Create` and a customer change on the header copy the customer's
+    defaults from Financial's `GetRelationFinancialSettingsAsync` when the request carries no terms (`TransportOrderUpdateDto.FinancialTerms`
+    is new and optional); posted terms are kept; `FinancialDefaultsMismatch` warns with the fields that differ. The internal
+    reference DTO is `TransportOrderReferenceEntryDto` (it clashed with the published `TransportOrderReferenceDto`).
+    `ITransportOrderLookup.GetWaypointTypesAsync(ids)` publishes activity, successor and default stay for Planning's via-depot
+    departure. The fakes of build note 16 are deleted; the tests run on Planning's and Financial's real rows
+    (`TransportRunFixture`), and `TransportRunChainTests` drives the whole chain through the real dispatcher and jobs.
 
 ## Security quickscan
 

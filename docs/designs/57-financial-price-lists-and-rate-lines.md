@@ -257,6 +257,16 @@ What the implementer decided where this document left a detail open, and where i
     `RecalculateAsync` needs `Platform.DerivedValues.Recalculate`, as the design's bulk re-run.
 18. **Scenarios 63–69** (actual carrier invoices, allocation over legs, grid cost columns) are the purchasing run's and
     Planning's (AD-20) and have no test here; 70–80 are approval's and invoicing's.
+19. **2026-10-25, integration.** QP10 closed: `TripCostFactsReader` reads "own fleet" from the trip's `Execution` and the
+    vehicles' summed cost price per kilometre from Planning's `TransportTripReferenceDto.OwnFleetCostPerKm` (vehicle → vehicle
+    type on Master Data's side); the tenant setting `Financial:OwnFleetCostPerKm` is the last step of the cascade, the
+    `NoCostPriceSource` warning stays when both are absent. `IFinancialReferenceLookup.GetRelationFinancialSettingsAsync(relationId, asOf)`
+    publishes the relation's defaults (lists in order, multiple-matches, default D&S valid on the date, VAT, payment term,
+    fixed-price and documents flags, currency) for Orders. `TransportTripRecalculatedHandler` also requests the trip's own cost
+    lines (the own-fleet line and the segments price on the legs' distances the recalculation stored; design 56
+    "TransportTripChanged (… distance)"); the chain ends because an unchanged set publishes nothing. Every handler carries
+    `[UnitOfWork]` and runs inside the outbox dispatcher's unit of work per event. The calculator tests run on real Orders and
+    Planning rows (the fakes are gone); `TransportRunChainTests` covers the whole chain.
 
 ## Security quickscan
 

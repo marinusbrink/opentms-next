@@ -197,8 +197,9 @@ Decisions the build had to take where this design left room, reported for the re
    is still unassigned with `LegChangedAfterPlanning`). A quantity-only change updates an assigned leg in place and requests
    its trip; only a changed origin or destination takes the leg off the trip. `TransportOrderCancelled` removes every leg as
    a fact, whatever the reader still shows.
-4. **Depot departure type:** Orders publishes no waypoint-type lookup, so the onward leg departs the depot with the rule's
-   `DepartureWaypointTypeId`, else the arrival type itself (not the arrival type's successor). Open for integration.
+4. **Depot departure type:** closed at integration (2026-10-25). Orders publishes `ITransportOrderLookup.GetWaypointTypesAsync`;
+   the onward leg departs the depot with the rule's `DepartureWaypointTypeId`, else the arrival type's successive waypoint
+   type, else the arrival type itself (`LegGenerator.Generate(…, successorOf, …)`).
 5. **TripStop** carries `Latitude/Longitude/TimeZoneId` and `PlannedDurationMin` (the matrix call and the stay need them);
    **TransportTrip** carries `PlannedDepartureUtc`/`PlannedArrivalUtc` (`timestamp`, the sortable form the lists use) and a
    lower-cased `SearchKey` (number, name, carrier, combination, vehicles, customers, order numbers, stop cities) with a
@@ -216,6 +217,13 @@ Decisions the build had to take where this design left room, reported for the re
 11. **Master Data lookup additions** (the one allowed exception): `GetRelationAddressesAsync`, `GetAddressesOfRelationsAsync`,
     `GetVehiclesAsync`, `GetVehicleCombinationsAsync`, `GetDriversAsync`, `GetIncompatibilitiesAsync` on
     `IMasterDataReferenceLookup`.
+12. **2026-10-25, integration.** `TransportTripReferenceDto` gained `Execution`, `PlannedDistanceM`, `VehicleCombinationId`,
+    `VehicleIds` and `OwnFleetCostPerKm` (QP10: the sum over the trip's vehicles of Master Data's effective cost price per
+    kilometre — `CostPricePerKm` on `Vehicle`, else on `VehicleType`, migration `MasterDataCostPricePerKm` — null when none has one);
+    Financial prices the own-fleet line from it before the tenant setting. The trip list's "today" and "this week" use the
+    tenant time zone (`PlanningExecutionClock`, `NumberSequenceOptions.TimeZone`) instead of UTC. The Planning tests run on
+    real Orders rows and real rate lines; routing and CO₂ come from `TestRoutingWorld` (registered by the Planning test
+    modules only); the fake world is gone.
 
 ## Security quickscan
 
