@@ -284,7 +284,8 @@ function TermsSection({ form, order }: { form: FormContext<OrderValues>; order: 
     values: terms,
     set: (field: string, value: unknown) => setTerms({ [field]: value }),
     update: () => undefined,
-    error: () => form.error("terms"),
+/* The section shows its one message above the fields (UI-FB-004: exactly once), not under each field. */
+    error: () => undefined,
     blur: () => form.blur("terms"),
     readOnly: form.readOnly,
     id: (field: string) => form.id(`terms-${field}`),
@@ -292,6 +293,7 @@ function TermsSection({ form, order }: { form: FormContext<OrderValues>; order: 
 
   return (
     <FormSection title={t("Orders:FinancialTerms")}>
+      {form.error("terms") && <p className="mb-2 text-label text-destructive">{form.error("terms")}</p>}
       <div className="grid grid-cols-4 gap-x-4 gap-y-3">
         <TextField form={termsForm} field="currencyCode" labelKey="Orders:CurrencyCode" required maxLength={3} upper />
         <ComboField form={termsForm} field="vatPercentageId" labelKey="Orders:VatPercentage" options={vatOptions} />

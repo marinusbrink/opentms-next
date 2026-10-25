@@ -141,8 +141,9 @@ export function useTransportTrip(id: string | undefined) {
     queryKey: transportTripKeys.detail(id),
     enabled: id != null,
     queryFn: async (): Promise<TransportTripDto> => {
-      const { data, error } = await apiClient.GET("/api/planning/transport-trip/{id}", { params: { path: { id: id! } } });
-      if (error) throw error;
+      const { data, error, response } = await apiClient.GET("/api/planning/transport-trip/{id}", { params: { path: { id: id! } } });
+      /* The ABP error body carries no status; the page tells "not found" from it (recordLoadState). */
+      if (error) throw { ...(error as object), status: response.status };
       return data!;
     },
   });

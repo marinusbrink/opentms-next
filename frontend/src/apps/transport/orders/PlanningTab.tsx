@@ -204,7 +204,8 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
     values: request,
     set: (field: string, value: unknown) => set({ [field]: value }),
     update: () => undefined,
-    error: () => form.error("tripRequest"),
+/* The section shows its one message above the fields (UI-FB-004: exactly once), not under each field. */
+    error: () => undefined,
     blur: () => form.blur("tripRequest"),
     readOnly,
     id: (field: string) => form.id(`trip-${field}`),

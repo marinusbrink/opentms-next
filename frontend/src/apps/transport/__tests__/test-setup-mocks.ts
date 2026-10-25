@@ -1,5 +1,4 @@
 import type { Mock } from "vitest";
-import { vi } from "vitest";
 
 import { apiClient } from "@/lib/api/client";
 import { ok } from "./transport-test-mocks";
@@ -30,15 +29,10 @@ export function resetClient() {
         const result = handler(init);
         return result && typeof result === "object" && "response" in (result as object) ? result : ok(result);
       }
-      return ok(method === "GET" ? (path.endsWith("/lookup") || path.endsWith("/all") || path.endsWith("/states") ? [] : EMPTY_PAGE) : undefined);
+      return ok(method === "GET" ? (/\/(lookup|all|states|addresses)$/.test(path) ? [] : EMPTY_PAGE) : undefined);
     });
   }
 }
 
 export const calls = (mock: Mock<ClientCall>, path: string) => mock.mock.calls.filter(([p]) => p === path);
 export const lastCall = (mock: Mock<ClientCall>, path: string) => calls(mock, path).at(-1)?.[1];
-
-/** The common module mocks every Transport screen test needs; call at module scope before importing the screen. */
-export function mockTransportModules() {
-  vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
-}

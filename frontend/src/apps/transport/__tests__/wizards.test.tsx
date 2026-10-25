@@ -27,6 +27,8 @@ import { POST, calls, resetClient, routes } from "./test-setup-mocks";
 
 beforeAll(stubGlobals);
 beforeEach(() => {
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
   resetClient();
   routes.GET["/api/orders/consignment-note-profile"] = () => ({ rows: [{ id: "p-other", name: "Minimal", isDefault: false }, { id: "p-default", name: "Standard", isDefault: true }], totalCount: 2, filteredCount: 2 });
   routes.GET["/api/orders/consignment-note-profile/{id}"] = (init) => ({ id: init?.params?.path?.id, name: "Standard", copies: 4, showBorders: true, showQrCode: false, groupByLeg: false, box1Sender: 1, box2Consignee: 3, box16Carrier: 5 });
@@ -145,7 +147,7 @@ describe("MaterialiseWizard", () => {
     const dialog = await screen.findByRole("dialog");
     expect(footerButton("Wizard:Next")).toBeDisabled();
     await waitFor(() => expect(within(dialog).getByText("Weekly Acme")).toBeInTheDocument());
-    fireEvent.change(within(dialog).getByLabelText(/^Orders:TransportOrderTemplate/), { target: { value: "tpl-1" } });
+    fireEvent.change(dialog.querySelector("#materialise-template")!, { target: { value: "tpl-1" } });
     expect(footerButton("Wizard:Next")).toBeEnabled();
   });
 });

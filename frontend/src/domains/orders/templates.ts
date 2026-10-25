@@ -90,8 +90,9 @@ export function useTemplate(id: string | undefined) {
     queryKey: templateKeys.detail(id),
     enabled: id != null,
     queryFn: async (): Promise<TemplateDto> => {
-      const { data, error } = await apiClient.GET("/api/orders/transport-order-template/{id}", { params: { path: { id: id! } } });
-      if (error) throw error;
+      const { data, error, response } = await apiClient.GET("/api/orders/transport-order-template/{id}", { params: { path: { id: id! } } });
+      /* The ABP error body carries no status; the page tells "not found" from it (recordLoadState). */
+      if (error) throw { ...(error as object), status: response.status };
       return data!;
     },
   });

@@ -39,12 +39,12 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { TripPage } from "@/apps/transport/pages/TripPage";
 import { TripsView } from "@/apps/transport/views/TripsView";
 import { toast } from "sonner";
-import { gridRows, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
+import { barButton, gridRows, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "PlanningExecution.TransportTrips";
-const ALL = { [VIEW]: true, "PlanningExecution.TransportTrips.Update": true, "PlanningExecution.TransportTrips.Start": true, "PlanningExecution.TransportTrips.Complete": true, "PlanningExecution.TransportTrips.Cancel": true, "PlanningExecution.TransportTrips.Archive": true, "PlanningExecution.TransportTrips.AssignLegs": true, "PlanningExecution.TransportTrips.ManageStops": true, "PlanningExecution.Legs.Update": true, "Orders.TransportOrders.Print": true, "Financial.RateLines.Update": true };
-const FEATURES = { "Apps.Transport": "true", "Apps.Transport.Trips": "true" };
+const ALL = { [VIEW]: true, "Orders.TransportOrders": true, "PlanningExecution.TransportTrips.Update": true, "PlanningExecution.TransportTrips.Start": true, "PlanningExecution.TransportTrips.Complete": true, "PlanningExecution.TransportTrips.Cancel": true, "PlanningExecution.TransportTrips.Archive": true, "PlanningExecution.TransportTrips.AssignLegs": true, "PlanningExecution.TransportTrips.ManageStops": true, "PlanningExecution.Legs.Update": true, "Orders.TransportOrders.Print": true, "Financial.RateLines.Update": true };
+const FEATURES = { "Apps.Transport": "true", "Apps.Transport.Trips": "true", "Apps.Transport.Orders": "true" };
 
 const tripRows = [
   { id: "t1", number: "TR-1", status: 1, tripDate: "2026-10-25", name: "Morning", carrierName: null, vehicles: ["DAF 1"], drivers: ["Jan"], stopCount: 3, legCount: 2, customers: ["Acme"], orderNumbers: ["TO-1"], plannedDistanceM: 120000, loadFactor: 0.5, warnings: [{ code: 11 }] },
@@ -140,10 +140,10 @@ describe("TripsView", () => {
     renderWith(<TripsView filter="today" />);
     await screen.findByTestId("mock-grid");
     expect(screen.queryByText(/NewTransportTrip/)).toBeNull();
-    expect(screen.getByText("PlanningExecution:ArchiveTrips").closest("button")).toHaveAttribute("aria-disabled", "true");
+    expect(barButton("PlanningExecution:ArchiveTrips")).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByText("select-first"));
-    expect(screen.getByText("PlanningExecution:Complete").closest("button")).not.toHaveAttribute("aria-disabled");
-    fireEvent.click(screen.getByText("PlanningExecution:ArchiveTrips"));
+    expect(barButton("PlanningExecution:Complete")).not.toHaveAttribute("aria-disabled");
+    fireEvent.click(barButton("PlanningExecution:ArchiveTrips"));
     expect(screen.getByTestId("archive-wizard")).toHaveAttribute("data-count", "1");
   });
 
@@ -153,7 +153,7 @@ describe("TripsView", () => {
     renderWith(<TripsView filter="today" />);
     await screen.findByTestId("mock-grid");
     fireEvent.click(screen.getByText("select-first"));
-    fireEvent.click(screen.getByText("PlanningExecution:Complete").closest("button")!);
+    fireEvent.click(barButton("PlanningExecution:Complete"));
     const confirm = await screen.findByRole("alertdialog");
     await click(within(confirm).getByRole("button", { name: "PlanningExecution:Complete" }));
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/complete", expect.objectContaining({ params: { path: { id: "t1" } } })));

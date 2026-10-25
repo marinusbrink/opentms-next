@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { ColDef, ValueFormatterParams, ValueGetterParams } from "ag-grid-community";
 import { vi } from "vitest";
 
@@ -39,10 +39,20 @@ function cellText<TRow>(col: ColDef<TRow>, row: TRow, raw: unknown): ReactNode {
 }
 
 export function MockOpenTmsGrid<TRow>({ gridId, columnDefs, fetchRows, rowActions, filters, onSelectionChange, onOpen }: OpenTmsGridProps<TRow>) {
+  /* The rows the last fetch returned, as the real grid shows; a test may also preset gridRows. */
+  const [fetched, setFetched] = useState<TRow[] | null>(null);
   useEffect(() => {
-    void fetchRows(GRID_REQUEST).catch(() => undefined);
+    let cancelled = false;
+    void fetchRows(GRID_REQUEST)
+      .then((page) => {
+        if (!cancelled) setFetched(page.rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [fetchRows]);
-  const rows = gridRows.current as TRow[];
+  const rows = fetched && fetched.length > 0 ? fetched : (gridRows.current as TRow[]);
   return (
     <div data-testid="mock-grid" data-grid-id={gridId}>
       {filters}
@@ -291,6 +301,15 @@ export function stubGlobals() {
 /** The ribbon buttons of a RecordPage / EntityDialog by their label text. */
 export const ribbonButton = (label: string) => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=ribbon-button]")).find((b) => b.textContent?.trim() === label) ?? null;
 export const ribbonLabels = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=ribbon-button]")).map((b) => b.textContent?.trim());
+
+/** A button outside the grids and the command bar's hidden measuring copy (command-bar and ribbon commands). */
+export function barButton(label: string): HTMLElement {
+  const found = Array.from(document.querySelectorAll<HTMLElement>("button")).find(
+    (b) => !b.closest("[data-testid=mock-grid]") && !b.closest("[aria-hidden=true]") && b.textContent?.trim() === label,
+  );
+  if (!found) throw new Error(`no command ${label}`);
+  return found;
+}
 
 /** A tab panel of a RecordPage by its tab label. */
 export function panel(label: string): HTMLElement {

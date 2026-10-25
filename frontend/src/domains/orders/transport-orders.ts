@@ -174,8 +174,9 @@ export function useTransportOrder(id: string | undefined) {
     queryKey: transportOrderKeys.detail(id),
     enabled: id != null,
     queryFn: async (): Promise<TransportOrderDto> => {
-      const { data, error } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id: id! } } });
-      if (error) throw error;
+      const { data, error, response } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id: id! } } });
+      /* The ABP error body carries no status; the page tells "not found" from it (recordLoadState). */
+      if (error) throw { ...(error as object), status: response.status };
       return data!;
     },
   });

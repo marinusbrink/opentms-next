@@ -14,7 +14,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string
 
 let grants: Record<string, boolean> = {};
 vi.mock("@/lib/abp/queries", () => ({
-  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true" } } } }),
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Trips": "true" } } } }),
 }));
 vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("@/lib/realtime/record-updates", () => ({
@@ -42,7 +42,7 @@ import { fail, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlo
 import { GET, POST, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "Orders.TransportOrders";
-const ALL = { [VIEW]: true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Confirm": true, "Orders.TransportOrders.Cancel": true, "Orders.TransportOrders.Approve": true, "Orders.TransportOrders.Revise": true, "Orders.TransportOrders.Archive": true, "Orders.TransportOrders.Print": true, "Orders.TransportOrders.Delete": true, "Financial.RateLines.Update": true };
+const ALL = { [VIEW]: true, "PlanningExecution.TransportTrips": true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Confirm": true, "Orders.TransportOrders.Cancel": true, "Orders.TransportOrders.Approve": true, "Orders.TransportOrders.Revise": true, "Orders.TransportOrders.Archive": true, "Orders.TransportOrders.Print": true, "Orders.TransportOrders.Delete": true, "Financial.RateLines.Update": true };
 
 const order = (status: number, extra: Record<string, unknown> = {}) => ({
   id: "o1",
@@ -58,8 +58,8 @@ const order = (status: number, extra: Record<string, unknown> = {}) => ({
   creationTime: "2026-10-25T08:00:00Z",
   requiredFields: 1 | 64,
   defaultStops: [
-    { waypointTypeId: "wp-load", waypointTypeName: "Load", dayOffset: 0, position: 1 },
-    { waypointTypeId: "wp-unload", waypointTypeName: "Unload", dayOffset: 0, position: 2 },
+    { waypointTypeId: "wp-load", waypointTypeName: "Load", relationId: "rel-1", relationName: "Acme", relationAddressId: "adr-1", dayOffset: 0, position: 1 },
+    { waypointTypeId: "wp-unload", waypointTypeName: "Unload", relationId: "rel-2", relationName: "Beta", relationAddressId: "adr-2", dayOffset: 0, position: 2 },
   ],
   lines: [
     {
@@ -166,7 +166,7 @@ describe("OrderPage – ribbon per status (UI-ACT-002, UI-PERM-003)", () => {
     grants = { ...ALL, "Orders.TransportOrderTemplates.Create": false };
     routes.GET["/api/orders/transport-order/{id}"] = () => order(status);
     renderPage();
-    await screen.findByText(/Orders:TransportOrder/);
+    await screen.findByRole("heading", { level: 1 });
     await waitFor(() => expect(ribbonLabels()).toEqual(expected));
   });
 
@@ -238,7 +238,7 @@ describe("OrderPage – saving", () => {
     routes.GET["/api/orders/transport-order/{id}"] = () => order(1);
     routes.POST["/api/orders/transport-order/{id}/confirm"] = () => fail("The order type requires Customer reference.");
     renderPage();
-    await screen.findByText(/Orders:TransportOrder/);
+    await screen.findByRole("heading", { level: 1 });
     await click(ribbonButton("Orders:Confirm")!);
     expect(await screen.findByText("The order type requires Customer reference.")).toBeInTheDocument();
     expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/{id}/confirm", { params: { path: { id: "o1" } } });
@@ -249,7 +249,7 @@ describe("OrderPage – saving", () => {
     routes.PUT["/api/orders/transport-order/{id}"] = () => order(1, { customerReference: "X", concurrencyStamp: "stamp-2" });
     routes.POST["/api/orders/transport-order/{id}/confirm"] = () => order(2, { concurrencyStamp: "stamp-3" });
     renderPage();
-    await screen.findByText(/Orders:TransportOrder/);
+    await screen.findByRole("heading", { level: 1 });
     fireEvent.change(within(panel("General")).getByLabelText(/^Orders:CustomerReference/), { target: { value: "X" } });
     await click(ribbonButton("Orders:Confirm")!);
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/{id}/confirm", expect.anything()));
@@ -293,7 +293,8 @@ describe("OrderPage – pricing tab", () => {
     expect(body.customerRelationId).toBe("rel-1");
     tab("Orders:Pricing");
     await waitFor(() => expect(panel("Orders:Pricing").querySelector("[data-slot=price-preview]")).not.toBeNull());
-    expect(within(panel("Orders:Pricing").querySelector("[data-slot=totals-block]") as HTMLElement).getByText("300.00")).toBeInTheDocument();
+    /* The preview's lines and its grand total: both 300 here. */
+    expect(within(panel("Orders:Pricing").querySelector("[data-slot=totals-block]") as HTMLElement).getAllByText("300.00")).toHaveLength(2);
     vi.useRealTimers();
   });
 
@@ -313,7 +314,7 @@ describe("OrderPage – planning tab (Tevens trip, Q9)", () => {
     routes.PUT["/api/orders/transport-order/{id}/trip-request"] = () => order(1, { concurrencyStamp: "stamp-2" });
     lookupItems.current = { [`${document.body ? "" : ""}`]: [] };
     renderPage();
-    await screen.findByText(/Orders:TransportOrder/);
+    await screen.findByRole("heading", { level: 1 });
     tab("Orders:Planning");
     const planning = panel("Orders:Planning");
     expect(planning.querySelector("[data-slot=trip-request-fields]")).toBeNull();
@@ -337,7 +338,8 @@ describe("OrderPage – planning tab (Tevens trip, Q9)", () => {
     const link = within(planning).getByRole("button", { name: /Orders:Trip TR-9/ });
     fireEvent.click(link);
     expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/trips/trip-9" }));
-    expect(within(planning).getByRole("checkbox", { name: "Orders:TripRequestHint" })).toBeDisabled();
+    /* The Base UI checkbox is a span: disabled shows as data-disabled. */
+    expect(within(planning).getByRole("checkbox", { name: "Orders:TripRequestHint" })).toHaveAttribute("data-disabled");
   });
 });
 

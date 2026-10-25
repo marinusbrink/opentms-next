@@ -34,7 +34,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import { OrdersView } from "@/apps/transport/views/OrdersView";
 import { toast } from "sonner";
-import { gridRows, stubGlobals } from "./transport-test-mocks";
+import { barButton, gridRows, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ALL_ON = { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true" };
@@ -147,20 +147,19 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     renderView();
     await screen.findByTestId("mock-grid");
     expect(screen.queryByText("Orders:NewTransportOrder")).toBeNull();
-    const approve = screen.getByText("Orders:Approve").closest("button")!;
-    expect(approve).toHaveAttribute("aria-disabled", "true");
+    expect(barButton("Orders:Approve")).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByText("select-first"));
-    expect(screen.getByText("Orders:Approve").closest("button")).not.toHaveAttribute("aria-disabled");
-    expect(screen.getByText("Orders:PrintConsignmentNote").closest("button")).not.toHaveAttribute("aria-disabled");
+    expect(barButton("Orders:Approve")).not.toHaveAttribute("aria-disabled");
+    expect(barButton("Orders:PrintConsignmentNote")).not.toHaveAttribute("aria-disabled");
   });
 
   it("New per type: the dropdown lists every type when there is more than one; New from template needs the templates permission", async () => {
     grants = { [VIEW]: true, "Orders.TransportOrders.Create": true, "Orders.TransportOrderTemplates": true };
     renderView();
     await screen.findByTestId("mock-grid");
-    await waitFor(() => expect(screen.getByText("Express")).toBeInTheDocument());
-    expect(screen.getByText("Standard")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Orders:NewFromTemplate"));
+    await waitFor(() => expect(barButton("Express")).toBeInTheDocument());
+    expect(barButton("Standard")).toBeInTheDocument();
+    fireEvent.click(barButton("Orders:NewFromTemplate"));
     expect(screen.getByTestId("materialise-wizard")).toHaveAttribute("data-kind", "template");
   });
 
@@ -170,7 +169,7 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     renderView();
     await screen.findByTestId("mock-grid");
     fireEvent.click(screen.getByText("select-all"));
-    fireEvent.click(screen.getByText("Orders:DeleteN"));
+    fireEvent.click(barButton("Orders:DeleteN"));
     const confirm = await screen.findByRole("alertdialog");
     await act(async () => {
       fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
@@ -183,6 +182,7 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
   it("row actions: Print opens the wizard for the row, Cancel is disabled for an order that is not Draft or Open", async () => {
     grants = { [VIEW]: true, "Orders.TransportOrders.Print": true, "Orders.TransportOrders.Cancel": true };
     gridRows.current = [{ ...rows[0], status: 4 }];
+    routes.GET["/api/orders/transport-order"] = () => ({ rows: gridRows.current, totalCount: 1, filteredCount: 1 });
     routes.GET["/api/orders/transport-order/{id}"] = () => ({ ...rows[0], lines: [{ id: "l1", position: 1 }] });
     renderView();
     await screen.findByTestId("mock-grid");
