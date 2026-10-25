@@ -31,6 +31,11 @@ export const CREATE_NODE_FEATURES = {
   VehicleType: "Apps.MasterData.General.Fleet.VehicleTypes",
   WaypointType: "Apps.MasterData.Orders.TransportOrders.WaypointTypes",
   VatPercentage: "Apps.MasterData.Financial.Invoicing.VatPercentages",
+  /* Design 61 (the Transport run's Master data lists). */
+  PriceList: "Apps.MasterData.Financial.Pricing.PriceLists",
+  DiscountOrSurcharge: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges",
+  ConsignmentNoteFixedDescription: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions",
+  ReportDefinition: "Apps.MasterData.Platform.ReportDefinitions",
   OrganizationUnit: "Apps.Administration.OrganizationUnits",
   User: "Apps.Administration.Users",
 } as const;
@@ -177,6 +182,10 @@ export function resetSavedDtos() {
     VehicleType: { id: "new-type", code: null, name: "Low loader" },
     WaypointType: { id: "new-waypoint-type", code: "DEPOT", names: { en: "Depot stop", nl: "Depotstop" } },
     VatPercentage: { id: "new-vat", code: "HIGH", names: { en: "High", nl: "Hoog" } },
+    PriceList: { id: "new-price-list", code: "PL1", name: "Benelux 2026" },
+    DiscountOrSurcharge: { id: "new-discount", code: "FUEL", name: "Fuel surcharge" },
+    ConsignmentNoteFixedDescription: { id: "new-fixed-text", code: null, name: "Fragile" },
+    ReportDefinition: { id: "new-report", code: null, name: "CMR (nl)" },
     OrganizationUnit: { id: "new-ou", code: "00009", displayName: "Depot Venlo", parentId: null },
     User: { id: "new-user", userName: "jdoe", name: "Jane", surname: "Doe", email: "jane@example.test" },
     Edition: { id: "new-edition", displayName: "Platinum" },

@@ -520,6 +520,14 @@
     "Orders:DatesSelected": "{0} datums geselecteerd",
     "Orders:MaterialiseDetailsHint": "Elke order neemt de referentie, aantallen en gewichten van de bron over; pas ze aan op de aangemaakte orders.",
     "Orders:NewFromTemplateIntro": "Maakt bevestigde transportorders aan vanuit een sjabloon voor de gekozen datums. Datums die al een order van dit sjabloon hebben worden overgeslagen.",
-    "Orders:CopyOrderIntro": "Kopieert {0} naar de gekozen datums, als nieuwe bevestigde transportorders."
+    "Orders:CopyOrderIntro": "Kopieert {0} naar de gekozen datums, als nieuwe bevestigde transportorders.",
+    "Orders:AllTargets": "Order en regels",
+    "Orders:AttributeKeyHint": "Het vaste kenmerk dat koppelingen gebruiken; maximaal 32 tekens.",
+    "Orders:Boxes": "Vakken",
+    "Orders:PartyBoxes": "Partijen",
+    "Orders:ContentBoxes": "Inhoud",
+    "Orders:CopiesHint": "1 tot 5 exemplaren per afdruk.",
+    "Orders:FixedDescriptionsHint": "Afgedrukt in de vakken 6 en 13.",
+    "Orders:ReportDefinitionDefaultHint": "Leeg: de standaarddefinitie voor de vrachtbrief in de taal van de gebruiker."
   }
 }

@@ -254,6 +254,10 @@
     "PlanningExecution:TransportTripUnarchived": "Rit gedearchiveerd",
     "PlanningExecution:SelectOneTrip": "Selecteer één rit",
     "PlanningExecution:SelectTrips": "Selecteer ritten",
-    "PlanningExecution:SelectOneOpenTrip": "Selecteer één geplande of lopende rit"
+    "PlanningExecution:SelectOneOpenTrip": "Selecteer één geplande of lopende rit",
+    "PlanningExecution:AttributeKeyShapeHint": "Een letter, daarna letters, cijfers of liggende streepjes; maximaal 32 tekens.",
+    "PlanningExecution:DepartureWaypointTypeHint": "Leeg: de activiteit bij aankomst.",
+    "PlanningExecution:DepotAddressHint": "Kies eerst het depot.",
+    "PlanningExecution:ViaDepotPositionHint": "De eerste passende regel in positievolgorde geldt."
   }
 }

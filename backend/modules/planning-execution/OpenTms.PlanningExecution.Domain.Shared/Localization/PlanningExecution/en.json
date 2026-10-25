@@ -254,6 +254,10 @@
     "PlanningExecution:TransportTripUnarchived": "Trip unarchived",
     "PlanningExecution:SelectOneTrip": "Select one trip",
     "PlanningExecution:SelectTrips": "Select trips",
-    "PlanningExecution:SelectOneOpenTrip": "Select one planned or running trip"
+    "PlanningExecution:SelectOneOpenTrip": "Select one planned or running trip",
+    "PlanningExecution:AttributeKeyShapeHint": "A letter, then letters, digits or underscores; at most 32 characters.",
+    "PlanningExecution:DepartureWaypointTypeHint": "Empty: the arrival activity.",
+    "PlanningExecution:DepotAddressHint": "Choose the depot first.",
+    "PlanningExecution:ViaDepotPositionHint": "The first matching rule in position order applies."
   }
 }

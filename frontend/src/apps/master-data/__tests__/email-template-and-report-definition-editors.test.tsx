@@ -951,6 +951,7 @@ describe("ReportDefinitionEditor — fields and defaults", () => {
       "Platform:ReportPurpose.Invoice",
       "Platform:ReportPurpose.PurchaseOrder",
       "Platform:ReportPurpose.TransportUnitBalance",
+      "Platform:ReportPurpose.ConsignmentNote",
     ]);
     expect(options("Platform:Culture")).toEqual([EN, NL]);
     expect(options("Platform:Provider")).toEqual(["Platform:ReportRenderingProvider.PdfGeneratorApi"]);

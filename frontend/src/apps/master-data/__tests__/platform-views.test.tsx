@@ -256,6 +256,7 @@ describe("ReportDefinitionsView", () => {
       "Platform:ReportPurpose.Invoice",
       "Platform:ReportPurpose.PurchaseOrder",
       "Platform:ReportPurpose.TransportUnitBalance",
+      "Platform:ReportPurpose.ConsignmentNote",
     ]);
     fireEvent.change(purpose, { target: { value: "3" } });
     await waitFor(() => expect(lastListQuery("/api/platform/report-definition").purpose).toBe(3));

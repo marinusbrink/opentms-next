@@ -3,6 +3,7 @@ import type { Ref } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { FormContext } from "@/apps/master-data/components/MasterDataEditor";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -106,6 +107,54 @@ export function CheckboxField<TValues extends object>({ form, field, labelKey, c
       />
       {t(labelKey)}
     </label>
+  );
+}
+
+interface EnumSelectProps<TValues extends object, T extends number> {
+  form: FormContext<TValues>;
+  field: keyof TValues & string;
+  labelKey: string;
+  /** The options, already localized ({ value, label }). */
+  items: { value: T; label: string }[];
+  required?: boolean;
+  className?: string;
+  /** A business-state block on top of read-only (UI-PERM-005). */
+  disabled?: boolean;
+  /** Optional enums keep a "none" row; the key of its text (the value is then null). */
+  noneKey?: string;
+  /** A fixed option is cleared to this value instead of null (the first item by default). */
+  fallback?: T;
+}
+
+/** A `Select` over a fixed enum (UI-LOOK-001: up to 15 items) inside a FormField; the value is the enum number or null. */
+export function EnumSelectField<TValues extends object, T extends number>({ form, field, labelKey, items, required, className, disabled, noneKey, fallback }: EnumSelectProps<TValues, T>) {
+  const { t } = useL();
+  const value = (form.values[field] as unknown as T | null | undefined) ?? null;
+  const options = noneKey ? [{ value: null as T | null, label: t(noneKey) }, ...items] : items;
+  return (
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} className={className} floating="always">
+      <Select
+        items={options}
+        value={value}
+        onValueChange={(next) => {
+          const picked = (next as T | null) ?? (noneKey ? null : (fallback ?? items[0]?.value ?? null));
+          form.set(field, picked as unknown as TValues[typeof field]);
+          form.blur(field);
+        }}
+        disabled={form.readOnly || disabled}
+      >
+        <SelectTrigger id={form.id(field)} className="h-10 w-full bg-background" aria-invalid={form.error(field) != null}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((item) => (
+            <SelectItem key={item.value ?? "none"} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
   );
 }
 
