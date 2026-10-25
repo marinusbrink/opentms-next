@@ -252,7 +252,9 @@ public class ConsignmentNoteAppService : OrdersAppServiceBase, IConsignmentNoteA
 
         var relations = await _references.RelationsAsync(relationIds, require: false);
         var addresses = await _references.AddressesAsync(stops.Select(s => s.Details.RelationAddressId).OfType<Guid>(), require: false);
-        var parties = relations.Values.ToDictionary(r => r.Id, r => new CmrParty(r.Id, r.Name, null));
+        var defaults = await _references.DefaultAddressesAsync(relationIds);
+        var parties = relations.Values.ToDictionary(r => r.Id, r => new CmrParty(r.Id, r.Name,
+            defaults.TryGetValue(r.Id, out var home) ? new CmrAddress(home.Street, home.HouseNumber, home.PostalCode, home.City, home.CountryCode) : null));
 
         CmrParty? Party(Guid? relationId) => relationId != null && parties.TryGetValue(relationId.Value, out var p) ? p : null;
         var units = await _references.NamesAsync(MasterDataReferenceKind.TransportUnit, lines.Select(l => l.Freight.TransportUnitId), require: false, "transportUnitId");

@@ -37,6 +37,12 @@ public interface IMasterDataReferenceLookup : IApplicationService
     /// </summary>
     Task<List<MasterDataAddressReferenceDto>> GetRelationAddressesAsync(IReadOnlyCollection<Guid> ids);
 
+    /// <summary>
+    /// The address a relation is shown with (the visiting address by kind, else the default address, else the first by
+    /// city: the rule of the relation list), one per relation that has any; for the parties of a consignment note.
+    /// </summary>
+    Task<List<MasterDataAddressReferenceDto>> GetRelationDefaultAddressesAsync(IReadOnlyCollection<Guid> relationIds);
+
     /// <summary>Id and name of the Master Data rows of one kind (transport units, products, vehicles, …).</summary>
     Task<List<MasterDataReferenceDto>> GetReferencesAsync(MasterDataReferenceKind kind, IReadOnlyCollection<Guid> ids);
 

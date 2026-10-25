@@ -129,6 +129,37 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         }
 
         var addresses = await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationAddress, Guid>>().GetListAsync(a => keys.Contains(a.Id));
+        return await DescribeAsync(addresses);
+    }
+
+    [Authorize]
+    public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationDefaultAddressesAsync(IReadOnlyCollection<Guid> relationIds)
+    {
+        var keys = Bound(relationIds);
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationAddress, Guid>>().GetListAsync(a => keys.Contains(a.RelationId));
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        /* The relation list's rule (RelationPlaces): the visiting address by kind, else the default, else the first by city. */
+        var visiting = (await LazyServiceProvider.LazyGetRequiredService<IRepository<AddressType, Guid>>().GetListAsync(t => t.Kind == AddressTypeKind.Visiting)).Select(t => t.Id).ToHashSet();
+        var chosen = rows
+            .GroupBy(a => a.RelationId)
+            .Select(g => g.FirstOrDefault(a => a.AddressTypeId != null && visiting.Contains(a.AddressTypeId.Value))
+                         ?? g.FirstOrDefault(a => a.AddressTypeId == null)
+                         ?? g.OrderBy(a => a.City).First())
+            .ToList();
+        return await DescribeAsync(chosen);
+    }
+
+    private async Task<List<MasterDataAddressReferenceDto>> DescribeAsync(List<RelationAddress> addresses)
+    {
         if (addresses.Count == 0)
         {
             return [];

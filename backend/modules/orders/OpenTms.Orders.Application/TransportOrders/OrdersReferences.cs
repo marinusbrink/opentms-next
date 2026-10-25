@@ -137,6 +137,14 @@ public class OrdersReferences : ITransientDependency
         return addresses;
     }
 
+    /// <summary>The address a relation is shown with, by relation id (the consignment note's parties).</summary>
+    public async Task<Dictionary<Guid, MasterDataAddressReferenceDto>> DefaultAddressesAsync(IEnumerable<Guid> relationIds)
+    {
+        var keys = Keys(relationIds);
+        var found = keys.Count == 0 ? [] : await _masterData.GetRelationDefaultAddressesAsync(keys);
+        return found.ToDictionary(a => a.RelationId);
+    }
+
     public async Task<Dictionary<Guid, string>> NamesAsync(MasterDataReferenceKind kind, IEnumerable<Guid> ids, bool require, string field)
     {
         var keys = Keys(ids);
