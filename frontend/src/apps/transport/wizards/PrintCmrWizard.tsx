@@ -190,6 +190,7 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
               <FormSection title={t("Orders:Profile")}>
                 <div className="grid grid-cols-4 gap-x-4 gap-y-3">
                   <FormField label={t("Orders:ConsignmentNoteProfile")} htmlFor="cmr-profile" required floating="always" className="col-span-2">
+                    {/* DEVIATION(UI-LOOK-004): no "Add new profile…": the CMR profile editor lives in the Master data app (apps never import apps); approved in design 61 build notes. */}
                     <ReferenceCombobox id="cmr-profile" value={profileId} onChange={setProfileId} options={profileOptions} required />
                   </FormField>
                   <FormField label={t("Orders:Copies")} htmlFor="cmr-copies">

@@ -251,6 +251,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
               <ContactPersonField id={form.id("trip-carrierContact")} labelKey="PlanningExecution:CarrierContactPerson" relationId={request.carrierRelation?.id} value={request.carrierContactPersonId} onChange={(next) => set({ carrierContactPersonId: next })} disabled={readOnly} />
               <ComboField form={requestForm} field="vehicleCombinationId" labelKey="Orders:VehicleCombination" options={combinationOptions} disabled={request.vehicleIds.length > 0} />
               <FormField label={t("Orders:Vehicles")} htmlFor={form.id("trip-vehicles")} floating="always">
+                {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
                 <EntityLookup<VehicleOption>
                   id={form.id("trip-vehicles")}
                   multiple
@@ -265,6 +266,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
                 />
               </FormField>
               <FormField label={t("Orders:Drivers")} htmlFor={form.id("trip-drivers")} floating="always">
+                {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
                 <EntityLookup<DriverOption>
                   id={form.id("trip-drivers")}
                   multiple

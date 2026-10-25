@@ -33,6 +33,7 @@ export function RelationField({ id, label, value, onChange, roles, required, dis
   const fetchPage = useMemo(() => relationLookupPage(roles), [roles]);
   return (
     <FormField label={label} htmlFor={id} required={required} error={error} className={className} floating="always">
+      {/* DEVIATION(UI-LOOK-004): no "Add new relation…" (nor address / contact person): the relation editor lives in the Master data app (apps never import apps); approved in design 61 build notes, open question for the PO. */}
       <EntityLookup<RelationOption>
         id={id}
         value={value}
@@ -83,6 +84,7 @@ export function AddressField({ id, label, relationId, value, onChange, required,
   const options = useMemo(() => (addresses.data ?? []).map((a) => ({ value: a.id ?? "", label: addressLabel(a) })), [addresses.data]);
   return (
     <FormField label={label} htmlFor={id} required={required} error={error} className={className} floating="always">
+      {/* DEVIATION(UI-LOOK-004): no "Add new relation…" (nor address / contact person): the relation editor lives in the Master data app (apps never import apps); approved in design 61 build notes, open question for the PO. */}
       <ReferenceCombobox id={id} value={value} onChange={onChange} options={options} required={required} disabled={disabled || !relationId} aria-invalid={error != null} />
     </FormField>
   );
@@ -107,6 +109,7 @@ export function ContactPersonField({ id, relationId, value, onChange, disabled, 
   );
   return (
     <FormField label={t(labelKey)} htmlFor={id} className={className} floating="always">
+      {/* DEVIATION(UI-LOOK-004): no "Add new relation…" (nor address / contact person): the relation editor lives in the Master data app (apps never import apps); approved in design 61 build notes, open question for the PO. */}
       <ReferenceCombobox id={id} value={value} onChange={onChange} options={options} disabled={disabled || !relationId} />
     </FormField>
   );

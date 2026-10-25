@@ -51,6 +51,11 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     token: "overflow-y-auto",
     reason: "the tags list: a min-h-0 flex-1 region under the fixed caption, hint and filter of the Tags panel",
   },
+  {
+    file: "apps/transport/orders/LinesTab.tsx",
+    token: "overflow-y-auto",
+    reason: "the selected line's side panel: a min-h-0 flex-1 region under the fixed lines grid of the Lines tab (design 61: no nested modal)",
+  },
 ];
 
 interface Occurrence {

@@ -117,6 +117,7 @@ export function StopsEditor({
         flex: 1,
         minWidth: 140,
         editable: !readOnly,
+        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
         ...referenceCellEditorColDef<Row>({ options: waypointTypeOptions }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(waypointTypeOptions, p.value ?? null),
       },
@@ -129,6 +130,7 @@ export function StopsEditor({
         headerName: t("Orders:TimeSlot"),
         minWidth: 130,
         editable: !readOnly,
+        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
         ...referenceCellEditorColDef<Row>({ options: timeSlotOptions }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(timeSlotOptions, p.value ?? null),
       },

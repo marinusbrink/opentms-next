@@ -309,6 +309,14 @@
     "OpenTms.Financial:AnchorRequired": "Een tariefregel hangt aan precies één order, orderregel, stop, rit of traject.",
     "OpenTms.Financial:TooManyRateLines": "Een order of rit bevat maximaal {max} tariefregels.",
     "OpenTms.Financial:InvalidValidity": "Het einde van de geldigheid ({validTill}) ligt voor het begin ({validFrom}).",
-    "OpenTms.Financial:AdjustmentRequired": "Geef een percentage of een bedrag op om mee aan te passen."
+    "OpenTms.Financial:AdjustmentRequired": "Geef een percentage of een bedrag op om mee aan te passen.",
+    "Financial:AddAdditionalService": "Extra dienst toevoegen",
+    "Financial:AddLine": "Regel toevoegen",
+    "Financial:Adjusted": "Eenheidsprijs handmatig aangepast",
+    "Financial:DiscountsAndSurcharges": "Kortingen en toeslagen",
+    "Financial:LinesAmount": "Regels",
+    "Financial:NoRateLines": "Nog geen tariefregels",
+    "Financial:RemoveFixedPrice": "Vaste prijs verwijderen",
+    "Financial:SetFixedPrice": "Vaste prijs instellen"
   }
 }

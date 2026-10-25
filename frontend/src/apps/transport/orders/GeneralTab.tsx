@@ -74,6 +74,7 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
             <ContactPersonField id={form.id("customerContactPersonId")} relationId={form.values.customer?.id} value={form.values.customerContactPersonId} onChange={(next) => form.set("customerContactPersonId", next)} disabled={form.readOnly} />
             <TextField form={form} field="customerReference" labelKey="Orders:CustomerReference" required={hasFlag(flags, REQUIRED_FLAG.CustomerReference)} maxLength={128} />
             <FormField label={t("Orders:OrganizationUnit")} htmlFor={form.id("organizationUnitId")} floating="always">
+              {/* DEVIATION(UI-LOOK-004): no "Add new organisation unit…": creating Platform units in place is the Master data app's pickers' role (PO 2026-10-16); approved in design 61 build notes. */}
               <TreeSelect id={form.id("organizationUnitId")} nodes={unitTree} value={form.values.organizationUnitId} onChange={(next) => form.set("organizationUnitId", next)} disabled={form.readOnly} />
             </FormField>
             {mode === "template" && <TextAreaField form={form} field="description" labelKey="MasterData:Remarks" maxLength={2500} className="col-span-2" />}

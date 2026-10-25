@@ -298,9 +298,11 @@ function TermsSection({ form, order }: { form: FormContext<OrderValues>; order: 
         <NumberField form={termsForm} field="paymentTermDays" labelKey="Orders:PaymentTermDays" />
         <SelectField form={termsForm} field="multipleMatches" labelKey="Orders:MultipleMatches" items={MULTIPLE_MATCHES.map((m) => ({ value: m.value, label: t(m.key) }))} />
         <FormField label={t("Orders:PriceLists")} htmlFor={form.id("terms-priceListIds")} floating="always" className="col-span-2">
+          {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
           <MultiSelect id={form.id("terms-priceListIds")} value={terms.priceListIds} onChange={(next) => setTerms({ priceListIds: next })} options={priceListOptions} disabled={form.readOnly} />
         </FormField>
         <FormField label={t("Orders:DiscountsOrSurcharges")} htmlFor={form.id("terms-ds")} floating="always" className="col-span-2">
+          {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
           <MultiSelect
             id={form.id("terms-ds")}
             value={terms.discountsOrSurcharges.map((d) => d.discountOrSurchargeId)}
@@ -405,11 +407,13 @@ function RateLineDialog({ kind, orderId, currency, lines, onClose }: RateLineDia
         )}
         {kind !== "fixed" && (
           <FormField label={t("Orders:Line")} htmlFor="rate-line-line" floating="always">
+            {/* DEVIATION(UI-LOOK-004): the order's own lines, nothing to create here (a line is added on the Lines tab); approved in design 61 build notes. */}
             <ReferenceCombobox id="rate-line-line" value={lineId} onChange={setLineId} options={[{ value: "", label: t("Orders:OrderLevel") }, ...lines.filter((l) => l.id).map((l) => ({ value: l.id!, label: l.label }))]} />
           </FormField>
         )}
         {kind === "service" && (
           <FormField label={t("Financial:AdditionalService")} htmlFor="rate-line-service" required error={serviceError} floating="always">
+            {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
             <ReferenceCombobox id="rate-line-service" value={serviceId} onChange={setServiceId} options={serviceOptions} required aria-invalid={serviceError != null} />
           </FormField>
         )}

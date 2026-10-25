@@ -131,6 +131,7 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
               ) : (
                 <FormSection title={t("Orders:TransportOrderTemplate")}>
                   <FormField label={t("Orders:TransportOrderTemplate")} htmlFor="materialise-template" required floating="always" className="max-w-md">
+                    {/* DEVIATION(UI-LOOK-004): a template is a whole record page (the order editor in template mode), not a dialog to open on top of a wizard; approved in design 61 build notes. */}
                     <ReferenceCombobox id="materialise-template" value={templateId} onChange={setTemplateId} options={templateOptions} required />
                   </FormField>
                 </FormSection>

@@ -35,6 +35,8 @@ const TOOLBAR_FILTER_VIEWS: Record<string, string> = {
   "apps/master-data/views/GeographicalRegionsView.tsx": "country filter in the list toolbar",
   "apps/master-data/views/RelationsView.tsx": "category filter in the list toolbar",
   "apps/master-data/views/VehiclesView.tsx": "owner filter in the list toolbar",
+  "apps/transport/views/OrdersView.tsx": "status, customer and organisation unit filters in the list toolbar (design 61)",
+  "apps/transport/views/TripsView.tsx": "status, carrier and organisation unit filters in the list toolbar (design 61)",
 };
 
 /** Pickers in forms over lists with nothing to create, keyed by file and the id expression the usage passes. */

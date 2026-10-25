@@ -64,6 +64,9 @@ import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
  * changed sections' commands one after the other with the latest concurrency stamp and returns at once; the derived
  * values arrive by push (flow 2). Document commands save first (UI-ACT-008). */
 
+/** The tab that shows a field's error (UI-FORM-006: submit switches to the first tab with an error). */
+const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general" };
+
 const DRAFT = 1;
 const OPEN = 2;
 const READY_FOR_INVOICING = 3;
@@ -143,8 +146,6 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
 
   const isSaving = header.isPending || defaultStops.isPending || lines.isPending || references.isPending || terms.isPending || tripRequest.isPending || attributes.isPending || updateTemplate.isPending;
   const isBusy = isSaving || confirm.isPending || cancel.isPending || archive.isPending || remove.isPending || saveAsTemplate.isPending || removeTemplate.isPending;
-
-  const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general" };
 
   /** Validates, then runs the changed sections' commands; returns the saved record or null (UI-FORM-006 on failure). */
   const save = useCallback(async (): Promise<boolean> => {

@@ -309,6 +309,14 @@
     "OpenTms.Financial:AnchorRequired": "A rate line hangs on exactly one order, order line, stop, trip or leg.",
     "OpenTms.Financial:TooManyRateLines": "An order or trip holds at most {max} rate lines.",
     "OpenTms.Financial:InvalidValidity": "The end of the validity ({validTill}) lies before its start ({validFrom}).",
-    "OpenTms.Financial:AdjustmentRequired": "Give either a percentage or an amount to adjust by."
+    "OpenTms.Financial:AdjustmentRequired": "Give either a percentage or an amount to adjust by.",
+    "Financial:AddAdditionalService": "Add additional service",
+    "Financial:AddLine": "Add line",
+    "Financial:Adjusted": "Unit price adjusted by hand",
+    "Financial:DiscountsAndSurcharges": "Discounts and surcharges",
+    "Financial:LinesAmount": "Lines",
+    "Financial:NoRateLines": "No rate lines yet",
+    "Financial:RemoveFixedPrice": "Remove fixed price",
+    "Financial:SetFixedPrice": "Set fixed price"
   }
 }

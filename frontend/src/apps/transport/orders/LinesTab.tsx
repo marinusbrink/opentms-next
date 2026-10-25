@@ -94,6 +94,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
         flex: 1,
         minWidth: 140,
         editable: !form.readOnly,
+        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
         ...referenceCellEditorColDef<Row>({ options: unitOptions }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(unitOptions, p.value ?? null),
       },
@@ -103,6 +104,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
         flex: 1,
         minWidth: 140,
         editable: !form.readOnly,
+        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
         ...referenceCellEditorColDef<Row>({ options: productOptions }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(productOptions, p.value ?? null),
       },
@@ -233,6 +235,7 @@ function LineDetail({ line, form, mode, flags, onChange, onClose, options, defin
             <TextField form={lineForm} field="barcode" labelKey="Orders:Barcode" maxLength={64} />
             <NumberField form={lineForm} field="loadFactor" labelKey="Orders:LoadFactor" />
             <FormField label={t("Orders:RequiredTransportCharacteristics")} htmlFor={lineForm.id("characteristics")} floating="always" className="col-span-2">
+              {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
               <EntityLookup<TransportCharacteristicOption>
                 id={lineForm.id("characteristics")}
                 multiple

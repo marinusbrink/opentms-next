@@ -200,13 +200,13 @@ export function OrdersView({ filter }: OrdersViewProps) {
             <>
               {view === ORDER_VIEWS.all && (
                 <>
-                  <DatePicker id="orders-date-from" value={dateFrom} onChange={setDateFrom} placeholder={t("Financial:From")} className="w-36" />
-                  <DatePicker id="orders-date-to" value={dateTo} onChange={setDateTo} placeholder={t("Financial:To")} className="w-36" />
+                  <DatePicker id="orders-date-from-filter" value={dateFrom} onChange={setDateFrom} placeholder={t("Financial:From")} className="w-36" />
+                  <DatePicker id="orders-date-to-filter" value={dateTo} onChange={setDateTo} placeholder={t("Financial:To")} className="w-36" />
                 </>
               )}
-              <MultiSelect id="orders-status" value={statuses.map(String)} onChange={(next) => setStatuses(next.map(Number) as TransportOrderStatus[])} options={TRANSPORT_ORDER_STATUSES.map((s) => ({ id: String(s.value), label: t(s.key) }))} className="w-44" />
-              <EntityLookup<RelationOption> id="orders-customer" value={customer} onChange={setCustomer} fetchPage={customerPage} getLabel={(r) => r.name} placeholder={t("Orders:Customer")} className="w-56" />
-              <TreeSelect id="orders-unit" nodes={unitTree} value={unitId} onChange={setUnitId} noneLabel={t("Orders:OrganizationUnit")} className="w-48" />
+              <MultiSelect id="orders-status-filter" value={statuses.map(String)} onChange={(next) => setStatuses(next.map(Number) as TransportOrderStatus[])} options={TRANSPORT_ORDER_STATUSES.map((s) => ({ id: String(s.value), label: t(s.key) }))} className="w-44" />
+              <EntityLookup<RelationOption> id="orders-customer-filter" value={customer} onChange={setCustomer} fetchPage={customerPage} getLabel={(r) => r.name} placeholder={t("Orders:Customer")} className="w-56" />
+              <TreeSelect id="orders-unit-filter" nodes={unitTree} value={unitId} onChange={setUnitId} noneLabel={t("Orders:OrganizationUnit")} className="w-48" />
             </>
           }
         />
