@@ -53,7 +53,7 @@ Money lives in rate lines; facts live on the order line, leg, stop or trip.
 The physical shape (one table with one nullable reference per anchor and a check that
 exactly one is set) is **PROPOSED** (AP-07).
 
-### Tension with the module boundaries (OPEN, AO-11)
+### Tension with the module boundaries (DECIDED, AD-20; was AO-11)
 
 The sessions spoke of "a rate line with a foreign key to the leg" and "cost stored on the
 leg". In this repository rate lines belong to Financial, legs to Planning & Execution and
@@ -61,8 +61,9 @@ order lines to Orders, and rule 1 of `/CLAUDE.md` forbids cross-schema keys and 
 
 So an anchor is an **id without a database constraint**, and "a grid reads one table" needs
 a decision: either Planning & Execution keeps a copy of the allocated values on its legs,
-updated from a Financial event, or the grid reads a read model. That is not decided. A design
-that touches it reports it instead of choosing.
+updated from a Financial event, or the grid reads a read model. **Decided on 2026-10-25 (AD-20): Planning &
+Execution stores the allocated values on its legs, written by its calculator from Financial's published rate-line
+contract (design 56).**
 
 ### Query discipline
 
