@@ -195,6 +195,69 @@ preview p95 < 500 ms; no external calls (toll km come from Planning's legs, stor
 5. `Financial:OwnFleetCostPerKm` is an ABP setting (tenant), editable in the Finance app later; this run seeds no value
    (no own-fleet line without a price source; a warning on the trip instead).
 
+### Build notes (backend, 2026-10-25)
+
+What the implementer decided where this document left a detail open, and where it deviates and why:
+
+1. **Table names carry the submodule prefix** (`backend/modules/financial/README.md`, binding over this document's
+   unprefixed names): `financial."TariffsPriceLists"`, `"TariffsPriceListColumns"`, `"TariffsPriceListRules"`,
+   `"TariffsPriceListBrackets"`, `"TariffsPriceListCells"`, `"TariffsRateLines"`, `"InvoicingRelationFinancialSettings"`,
+   `"InvoicingRelationPriceLists"`, `"InvoicingRelationDiscountsOrSurcharges"`. The anchor check constraint is
+   `CK_TariffsRateLines_OneAnchor`, written with `CASE WHEN` so SQLite runs it too.
+2. **`DiscountOrSurcharge` gained four columns** the two-pass and per-kilometre behaviour of step 7 needs and design 52's
+   entity lacked: `AppliesAfterOthers`, `KilometreBasis { Distance, TollDistance }`, `BillableKilometrePercentage`
+   (`numeric(5,2)`, default 100) and `RoundTrip`. Additive on the design-52 DTOs and migration (`AddColumn` with defaults).
+3. **The rules are not part of the list's detail** (`GET /{id}` returns the header, columns and `RuleCount`); they are paged
+   through `GET /{id}/rules` and read one at a time through `GET /{id}/rules/{ruleId}` (brackets and cells). Rule commands
+   read the list as a projection, never as a tracked entity, so a rule edit does not bump the header's concurrency
+   stamp (ABP updates an aggregate root's stamp when a child row is inserted while it is tracked).
+4. **Rule search** takes an id (relation, region, unit, product, vehicle type) or a position: rule names live in Master
+   Data and `IMasterDataReferenceLookup` has no name search. Rows carry relation and region names (looked up per page);
+   transport unit, product and vehicle type ids are returned as ids (no published lookup yet) and are not validated on
+   save. The `rulecount` sort of the list is not offered (`UnknownSortColumn`).
+5. **Lane fallback under `StopMatching.Both`**: a one-sided rule is a candidate when its set side matches (lane score 2
+   for a relation, 1 for a region, 0 for an unset side); two-sided rules outrank it. Within a tier the order is lane
+   score, then `Position`; OpenTMS's dimension order is not reproduced.
+6. **Column value**: a missing value (no weight on a weight-graduated list) selects the first column (OpenTMS's
+   behaviour); a missing *row* value or *basis* value produces no line and the warning `Financial:QuantityMissing`.
+7. **Discounts and surcharges**: the order-level as-of date is the earliest line date, else the order date; a
+   percentage of the second pass without regions applies over the lines plus the first pass, with regions over the
+   matching lines only; a fixed amount is added once (once per order when any line matches its regions); a
+   non-toll per-kilometre surcharge is skipped when a list with basis `DistanceKm` applies (scenario 19); a percentage
+   line stores `Quantity` = the base amount and `UnitPrice` = percentage / 100 (4 decimals), the amount from the exact
+   percentage. Names are never stored on calculated lines; the screen names them through `DiscountOrSurchargeId`.
+8. **Fixed price**: the snapshot's `FixedPriceAmount` is the source when set (the calculator rewrites the overriding
+   line); when null an existing fixed-price line set through `POST /fixed-price` is kept. Per AD-08 the total is the
+   overriding line; the discount lines are computed over the breakdown and stay as the breakdown.
+9. **Every rate-line command requests a recalculation** (manual add/update/delete, adjust, fixed price set/remove), so
+   the discounts follow and `RateLinesChanged` travels with the new version; the commands publish no event themselves.
+10. **Unchanged recalculations publish nothing**: `RateLineWriter` compares the stored set (kind, anchor, numbers,
+    flags, provenance) with the new one and writes and publishes only on a difference. This makes a repeated delivery
+    one effect and ends the chain `TransportTripRecalculated → OrderRateLines → RateLinesChanged → TripCalculator`.
+11. **Cost segments**: one cost line per (order line, trip), anchored to the segment's first leg on the trip, with the
+    legs' summed distances (the leg's own distance is what Planning stores; no allocation of a trip distance here);
+    rule dimensions come from the order's snapshot (`IOrderPricingReader.GetSnapshotsAsync`), stop regions from the
+    snapshot's stops matched by `StopId`.
+12. **Trip facts** come through a Financial port `ITripCostFactsReader`, by default composed from
+    `ITransportTripLookup` (date, carrier) and `ILegReader`. "Own fleet" is a trip without a carrier relation (design 59:
+    null = own company). The vehicle → vehicle type cost-per-kilometre cascade (QP10) has no published source yet
+    (`TransportTripReferenceDto` carries no vehicle ids and Master Data publishes no cost price): the own-fleet line
+    prices from the tenant setting only, and without it logs `Financial:NoCostPriceSource` and writes no line.
+13. **Rate lines are soft-deleted** on replacement (money history, §4.4); the calculator loads its inputs without change
+    tracking and loads only the rules whose lane can match one of the order's lines (two bounded queries).
+14. **xlsx** through ClosedXML (new package reference in `OpenTms.Financial.Application`): sheet `Rules` (one row per
+    bracket, `Price1..n` per column) plus a reference sheet `Columns`; import replaces the whole rule set and reports
+    `Financial:ImportInvalid` with `row`, `column`, `problem`; files above 5 MB are refused.
+15. **Relation settings list search** by relation name resolves names through the lookup in chunks of 500 and filters in
+    memory; without a term only the page is named.
+16. **Extra error codes** beyond the list above: `Financial:AnchorRequired`, `Financial:TooManyRateLines`,
+    `Financial:InvalidValidity`, `Financial:AdjustmentRequired`, `Financial:RateLineConflict` (409). Warning codes:
+    `Financial:QuantityMissing`, `Financial:CurrencyMismatch`, `Financial:NoCostPriceSource`.
+17. **`RateLineAppService`** is gated by `Apps.Transport` (the app, not a node): both editors of design 61 read it.
+    `RecalculateAsync` needs `Platform.DerivedValues.Recalculate`, as the design's bulk re-run.
+18. **Scenarios 63–69** (actual carrier invoices, allocation over legs, grid cost columns) are the purchasing run's and
+    Planning's (AD-20) and have no test here; 70–80 are approval's and invoicing's.
+
 ## Security quickscan
 
 Permissions as named; input bounded (≤ 50 columns, ≤ 30 brackets, ≤ 10,000 rules, ≤ 500 rate lines per anchor, decimal
