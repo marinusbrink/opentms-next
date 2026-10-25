@@ -185,7 +185,7 @@ public class RoutingStatusAndServiceTests : OpenTmsTestBase<RoutingTestModule>
             _handler.Requests.Count.ShouldBe(2);
             _handler.Requests[0].PathAndQuery.ShouldContain("overview=full");
             _handler.Requests[1].Method.ShouldBe(HttpMethod.Post);
-            _handler.Requests[1].Json.GetProperty("vehicle").GetProperty("weight").GetInt32().ShouldBe(40_000, "the default truck when no vehicle is known");
+            _handler.Requests[1].Json.GetProperty("vehicle").GetProperty("weight").GetDouble().ShouldBe(40.0, "the default truck when no vehicle is known, in tonnes");
 
             var distanceOnly = await _routing.GetRouteAsync(A, B, null, RoutingOptions.DistanceOnly);
             distanceOnly.ShouldNotBeNull().FromCache.ShouldBeFalse("a different question is a different row");
