@@ -224,6 +224,12 @@ Decisions the build had to take where this design left room, reported for the re
     tenant time zone (`PlanningExecutionClock`, `NumberSequenceOptions.TimeZone`) instead of UTC. The Planning tests run on
     real Orders rows and real rate lines; routing and CO₂ come from `TestRoutingWorld` (registered by the Planning test
     modules only); the fake world is gone.
+13. **2026-10-25, integration (found by the real readers).** A Draft order has no legs: its line saves publish
+    `TransportOrderLinesChanged`, and the generator now treats a Draft like a cancelled order (the Confirm creates the legs).
+    A "Tevens trip" request whose trip type, relations, vehicles or drivers do not resolve in Planning is logged (ids only)
+    and not honoured — the legs stay unplanned — instead of failing the confirm handler on every delivery and blocking
+    the tenant's outbox (Orders stores those ids unchecked, design 58 build note 8). Only `ReferenceNotFound` is caught;
+    `TripOperations.CreateAsync` validates before it writes.
 
 ## Security quickscan
 
