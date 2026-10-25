@@ -11,6 +11,7 @@ public class IntegrationsPermissionDefinitionProvider : PermissionDefinitionProv
     {
         var group = context.AddGroup(IntegrationsPermissions.GroupName, L("Permission:Integrations"));
         group.AddPermission(IntegrationsPermissions.AddressLookup, L("Permission:AddressLookup"), MultiTenancySides.Both);
+        group.AddPermission(IntegrationsPermissions.Routing, L("Permission:Routing"), MultiTenancySides.Both);
     }
 
     private static LocalizableString L(string name)
