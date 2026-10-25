@@ -12,20 +12,32 @@ public class OrdersPermissionDefinitionProvider : PermissionDefinitionProvider
         var group = context.AddGroup(OrdersPermissions.GroupName, L("Permission:Orders"));
 
         /* Both sides (assessment §3.11, §4: host-level reference data is parked but must stay possible). */
-        var orderTypes = group.AddPermission(OrdersPermissions.TransportOrderTypes.Default, L("Permission:TransportOrderTypes"), MultiTenancySides.Both);
-        orderTypes.AddChild(OrdersPermissions.TransportOrderTypes.Create, L("Permission:TransportOrderTypes.Create"), MultiTenancySides.Both);
-        orderTypes.AddChild(OrdersPermissions.TransportOrderTypes.Update, L("Permission:TransportOrderTypes.Update"), MultiTenancySides.Both);
-        orderTypes.AddChild(OrdersPermissions.TransportOrderTypes.Delete, L("Permission:TransportOrderTypes.Delete"), MultiTenancySides.Both);
+        Crud(group, OrdersPermissions.TransportOrderTypes.Default, "TransportOrderTypes");
+        Crud(group, OrdersPermissions.WaypointTypes.Default, "WaypointTypes");
+        Crud(group, OrdersPermissions.TimeSlots.Default, "TimeSlots");
 
-        var waypointTypes = group.AddPermission(OrdersPermissions.WaypointTypes.Default, L("Permission:WaypointTypes"), MultiTenancySides.Both);
-        waypointTypes.AddChild(OrdersPermissions.WaypointTypes.Create, L("Permission:WaypointTypes.Create"), MultiTenancySides.Both);
-        waypointTypes.AddChild(OrdersPermissions.WaypointTypes.Update, L("Permission:WaypointTypes.Update"), MultiTenancySides.Both);
-        waypointTypes.AddChild(OrdersPermissions.WaypointTypes.Delete, L("Permission:WaypointTypes.Delete"), MultiTenancySides.Both);
+        /* Design 56/58 (Q14): one permission per action on the transport order. */
+        var orders = Crud(group, OrdersPermissions.TransportOrders.Default, "TransportOrders");
+        orders.AddChild(OrdersPermissions.TransportOrders.Confirm, L("Permission:TransportOrders.Confirm"), MultiTenancySides.Both);
+        orders.AddChild(OrdersPermissions.TransportOrders.Cancel, L("Permission:TransportOrders.Cancel"), MultiTenancySides.Both);
+        orders.AddChild(OrdersPermissions.TransportOrders.Approve, L("Permission:TransportOrders.Approve"), MultiTenancySides.Both);
+        orders.AddChild(OrdersPermissions.TransportOrders.Revise, L("Permission:TransportOrders.Revise"), MultiTenancySides.Both);
+        orders.AddChild(OrdersPermissions.TransportOrders.Archive, L("Permission:TransportOrders.Archive"), MultiTenancySides.Both);
+        orders.AddChild(OrdersPermissions.TransportOrders.Print, L("Permission:TransportOrders.Print"), MultiTenancySides.Both);
 
-        var timeSlots = group.AddPermission(OrdersPermissions.TimeSlots.Default, L("Permission:TimeSlots"), MultiTenancySides.Both);
-        timeSlots.AddChild(OrdersPermissions.TimeSlots.Create, L("Permission:TimeSlots.Create"), MultiTenancySides.Both);
-        timeSlots.AddChild(OrdersPermissions.TimeSlots.Update, L("Permission:TimeSlots.Update"), MultiTenancySides.Both);
-        timeSlots.AddChild(OrdersPermissions.TimeSlots.Delete, L("Permission:TimeSlots.Delete"), MultiTenancySides.Both);
+        Crud(group, OrdersPermissions.TransportOrderTemplates.Default, "TransportOrderTemplates");
+        Crud(group, OrdersPermissions.ConsignmentNoteProfiles.Default, "ConsignmentNoteProfiles");
+        Crud(group, OrdersPermissions.ConsignmentNoteFixedDescriptions.Default, "ConsignmentNoteFixedDescriptions");
+        Crud(group, OrdersPermissions.OrderAttributeDefinitions.Default, "OrderAttributeDefinitions");
+    }
+
+    private static PermissionDefinition Crud(PermissionGroupDefinition group, string name, string entity)
+    {
+        var permission = group.AddPermission(name, L("Permission:" + entity), MultiTenancySides.Both);
+        permission.AddChild(name + ".Create", L($"Permission:{entity}.Create"), MultiTenancySides.Both);
+        permission.AddChild(name + ".Update", L($"Permission:{entity}.Update"), MultiTenancySides.Both);
+        permission.AddChild(name + ".Delete", L($"Permission:{entity}.Delete"), MultiTenancySides.Both);
+        return permission;
     }
 
     private static LocalizableString L(string name)

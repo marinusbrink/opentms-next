@@ -15,6 +15,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain\OpenTms.Platform.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+    <!-- Design 58: the financial terms store Financial's MultipleMatches (module boundary rule 2: Domain.Shared only). -->
+    <ProjectReference Include="..\..\financial\OpenTms.Financial.Domain.Shared\OpenTms.Financial.Domain.Shared.csproj" />
   </ItemGroup>
 
 </Project>

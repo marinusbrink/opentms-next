@@ -12,7 +12,8 @@ namespace OpenTms.MasterData.Published;
 /// returns only the id or code and the display name of rows of the caller's own tenant, so an Orders or Financial
 /// administrator needs no Master Data permission to save a type that refers to a relation or a country. Inputs are
 /// bounded to <see cref="MaxKeys"/>; unknown keys are simply absent from the result. Soft-deleted rows are absent too.
-/// Design 59 adds the fleet, driver, address and incompatibility reads Planning's trip calculator needs.
+/// Design 59 adds the fleet, driver, address and incompatibility reads Planning's trip calculator needs; design 58 the default
+/// address of a relation, the generic reference read for the Master Data rows an order line names, and the own company.
 /// </summary>
 public interface IMasterDataReferenceLookup : IApplicationService
 {
@@ -49,6 +50,18 @@ public interface IMasterDataReferenceLookup : IApplicationService
 
     /// <summary>The "do not combine" pairs among the given temperatures, products and transport units (both sides within the input).</summary>
     Task<MasterDataIncompatibilitiesDto> GetIncompatibilitiesAsync(IReadOnlyCollection<Guid> temperatureIds, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Guid> transportUnitIds);
+
+    /// <summary>
+    /// The address a relation is shown with (the visiting address by kind, else the default address, else the first by
+    /// city: the rule of the relation list), one per relation that has any; for the parties of a consignment note.
+    /// </summary>
+    Task<List<MasterDataAddressReferenceDto>> GetRelationDefaultAddressesAsync(IReadOnlyCollection<Guid> relationIds);
+
+    /// <summary>Id and name of the Master Data rows of one kind (transport units, products, vehicles, …).</summary>
+    Task<List<MasterDataReferenceDto>> GetReferencesAsync(MasterDataReferenceKind kind, IReadOnlyCollection<Guid> ids);
+
+    /// <summary>The relation marked as the own company, or null when the tenant has none.</summary>
+    Task<MasterDataReferenceDto?> GetOwnCompanyAsync();
 }
 
 public class MasterDataReferenceDto
@@ -98,6 +111,8 @@ public class MasterDataAddressReferenceDto
     public double? Longitude { get; set; }
 
     public string? TimeZoneId { get; set; }
+
+    public List<Guid> GeographicalRegionIds { get; set; } = new();
 }
 
 public class MasterDataVehicleReferenceDto
@@ -165,4 +180,19 @@ public class MasterDataIncompatiblePairDto
     public Guid LeftId { get; set; }
 
     public Guid RightId { get; set; }
+}
+
+/// <summary>The Master Data rows other modules reference by id and need named or checked (design 58).</summary>
+public enum MasterDataReferenceKind
+{
+    TransportUnit = 1,
+    Product = 2,
+    ProductRelationCode = 3,
+    Temperature = 4,
+    VehicleType = 5,
+    TransportCharacteristic = 6,
+    Vehicle = 7,
+    VehicleCombination = 8,
+    Driver = 9,
+    ContactPerson = 10
 }

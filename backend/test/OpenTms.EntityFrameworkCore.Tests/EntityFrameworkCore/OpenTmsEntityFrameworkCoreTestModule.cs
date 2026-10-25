@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using OpenTms.Fakes;
 using OpenTms.Financial.EntityFrameworkCore;
 using OpenTms.MasterData.EntityFrameworkCore;
 using OpenTms.Orders.EntityFrameworkCore;
@@ -11,6 +13,7 @@ using OpenTms.Platform.EntityFrameworkCore;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using OpenTms.DerivedValues;
 using OpenTms.Platform.DerivedValues;
+using OpenTms.Platform.NumberSequences;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -73,6 +76,11 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
         Configure<DerivedValueOptions>(DerivedValueProbe.Register);
 
+        /* Design 58 (Fakes/OrdersFakes.cs): SQLite runs without transactions, which the number sequences and the
+         * derived-value scheduler require by design; both rules are covered on PostgreSQL. */
+        context.Services.Replace(ServiceDescriptor.Transient<INumberSequenceGenerator, LenientNumberSequenceGenerator>());
+        context.Services.Replace(ServiceDescriptor.Singleton<RecordingDerivedValueScheduler, RecordingDerivedValueScheduler>());
+        context.Services.Replace(ServiceDescriptor.Singleton<IDerivedValueScheduler>(sp => sp.GetRequiredService<RecordingDerivedValueScheduler>()));
     }
 
     private void ConfigureInMemorySqlite(IServiceCollection services)

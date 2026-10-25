@@ -186,6 +186,7 @@ public class ReportFileNameComposerTests
     [InlineData(ReportPurpose.Invoice)]
     [InlineData(ReportPurpose.PurchaseOrder)]
     [InlineData(ReportPurpose.TransportUnitBalance)]
+    [InlineData(ReportPurpose.ConsignmentNote)]
     public void Every_purposes_catalogue_payload_gives_the_file_name_its_number(ReportPurpose purpose)
     {
         /* The renderer fills {{ number }} from Entity.EntityNumber, for the transport-unit balance (no entity number) from

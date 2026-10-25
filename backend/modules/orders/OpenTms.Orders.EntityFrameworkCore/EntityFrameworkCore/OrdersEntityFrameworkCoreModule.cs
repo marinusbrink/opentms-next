@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Orders.ConsignmentNotes;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Volo.Abp.EntityFrameworkCore;
@@ -23,6 +24,26 @@ public class OrdersEntityFrameworkCoreModule : AbpModule
             /* includeDetails: the aggregates with children load them with GetAsync(id, includeDetails: true). */
             options.Entity<TransportOrderType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.DefaultWaypoints));
             options.Entity<WaypointType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.FleetManagementCodes));
+
+            /* Design 58: the order and the template with every child collection; split queries, as Master Data's relation. */
+            options.Entity<TransportOrder>(e => e.DefaultWithDetailsFunc = q => q
+                .AsSplitQuery()
+                .Include(o => o.Lines).ThenInclude(l => l.Stops)
+                .Include(o => o.Lines).ThenInclude(l => l.Measurements)
+                .Include(o => o.Lines).ThenInclude(l => l.RequiredTransportCharacteristics)
+                .Include(o => o.DefaultStops)
+                .Include(o => o.References)
+                .Include(o => o.PriceLists)
+                .Include(o => o.DiscountsOrSurcharges)
+                .Include(o => o.Remarks));
+            options.Entity<TransportOrderTemplate>(e => e.DefaultWithDetailsFunc = q => q
+                .AsSplitQuery()
+                .Include(t => t.Lines).ThenInclude(l => l.Stops)
+                .Include(t => t.DefaultStops)
+                .Include(t => t.References)
+                .Include(t => t.PriceLists)
+                .Include(t => t.DiscountsOrSurcharges));
+            options.Entity<ConsignmentNoteDocument>(e => e.DefaultWithDetailsFunc = q => q.Include(d => d.Lines));
         });
 
         Configure<AbpDbContextOptions>(options =>

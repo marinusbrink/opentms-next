@@ -23,7 +23,7 @@ public class ReportDataCatalogueTests
     public static TheoryData<ReportPurpose> Purposes => new()
     {
         ReportPurpose.TransportOrderConfirmation, ReportPurpose.TransportFile, ReportPurpose.Invoice,
-        ReportPurpose.PurchaseOrder, ReportPurpose.TransportUnitBalance
+        ReportPurpose.PurchaseOrder, ReportPurpose.TransportUnitBalance, ReportPurpose.ConsignmentNote
     };
 
     private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-NL");
@@ -158,6 +158,7 @@ public class ReportDataCatalogueTests
     [InlineData(ReportPurpose.Invoice, 874)]
     [InlineData(ReportPurpose.PurchaseOrder, 309)]
     [InlineData(ReportPurpose.TransportUnitBalance, 611)]
+    [InlineData(ReportPurpose.ConsignmentNote, 232)]
     public void The_field_counts_are_the_designs(ReportPurpose purpose, int count)
     {
         ReportDataCatalogue.FieldsFor(purpose).Count.ShouldBe(count);
@@ -198,6 +199,8 @@ public class ReportDataCatalogueTests
         ReportDataCatalogue.EntityTypeOf(ReportPurpose.Invoice).ShouldBe("Invoice");
         ReportDataCatalogue.EntityTypeOf(ReportPurpose.PurchaseOrder).ShouldBe("PurchaseOrder");
         ReportDataCatalogue.EntityTypeOf(ReportPurpose.TransportUnitBalance).ShouldBe("GetSingleOutput`1");
+        /* Design 56/58: the consignment note is new, so its entity type is its own name. */
+        ReportDataCatalogue.EntityTypeOf(ReportPurpose.ConsignmentNote).ShouldBe("ConsignmentNote");
     }
 
     [Fact]

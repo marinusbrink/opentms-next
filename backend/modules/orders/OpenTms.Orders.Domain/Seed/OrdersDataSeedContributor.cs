@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using OpenTms.Orders.ConsignmentNotes;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.Localization;
 using OpenTms.Platform.NumberSequences;
@@ -17,16 +18,18 @@ using Volo.Abp.Uow;
 namespace OpenTms.Orders.Seed;
 
 /// <summary>
-/// Seeds the Orders master data per tenant database (design 51, Migration strategy), run by the DbMigrator and the
-/// provisioning job through ABP's data seeder: the waypoint types first, then the time slots, then the default
-/// transport order type with its default stops. Idempotent on the code: an existing or soft-deleted row is never
-/// touched. Skips the host (host-level master data is parked, assessment §4). Logs tenant id and counts only.
+/// Seeds the Orders master data per tenant database (design 51, Migration strategy; design 58: the default consignment
+/// note profile), run by the DbMigrator and the provisioning job through ABP's data seeder: the waypoint types first,
+/// then the time slots, then the default transport order type with its default stops, then the "Standaard" CMR profile.
+/// Idempotent on the code or name: an existing or soft-deleted row is never touched. Skips the host (host-level master
+/// data is parked, assessment §4). Logs tenant id and counts only.
 /// </summary>
 public class OrdersDataSeedContributor : IDataSeedContributor, ITransientDependency
 {
     private readonly IRepository<WaypointType, Guid> _waypointTypes;
     private readonly IRepository<TimeSlot, Guid> _timeSlots;
     private readonly IRepository<TransportOrderType, Guid> _orderTypes;
+    private readonly IRepository<ConsignmentNoteProfile, Guid> _profiles;
     private readonly ICurrentTenant _currentTenant;
     private readonly IDataFilter _dataFilter;
     private readonly IGuidGenerator _guidGenerator;
@@ -36,6 +39,7 @@ public class OrdersDataSeedContributor : IDataSeedContributor, ITransientDepende
         IRepository<WaypointType, Guid> waypointTypes,
         IRepository<TimeSlot, Guid> timeSlots,
         IRepository<TransportOrderType, Guid> orderTypes,
+        IRepository<ConsignmentNoteProfile, Guid> profiles,
         ICurrentTenant currentTenant,
         IDataFilter dataFilter,
         IGuidGenerator guidGenerator,
@@ -44,6 +48,7 @@ public class OrdersDataSeedContributor : IDataSeedContributor, ITransientDepende
         _waypointTypes = waypointTypes;
         _timeSlots = timeSlots;
         _orderTypes = orderTypes;
+        _profiles = profiles;
         _currentTenant = currentTenant;
         _dataFilter = dataFilter;
         _guidGenerator = guidGenerator;
@@ -85,11 +90,12 @@ public class OrdersDataSeedContributor : IDataSeedContributor, ITransientDepende
             var waypointTypes = await SeedWaypointTypesAsync(context.TenantId.Value);
             var timeSlots = await SeedTimeSlotsAsync(context.TenantId.Value);
             var orderTypes = await SeedOrderTypeAsync(context.TenantId.Value);
-            if (waypointTypes + timeSlots + orderTypes > 0)
+            var profiles = await SeedConsignmentNoteProfileAsync(context.TenantId.Value);
+            if (waypointTypes + timeSlots + orderTypes + profiles > 0)
             {
                 _logger.LogInformation(
-                    "Orders seed for tenant {TenantId}: {WaypointTypes} waypoint types, {TimeSlots} time slots, {OrderTypes} transport order types inserted.",
-                    context.TenantId, waypointTypes, timeSlots, orderTypes);
+                    "Orders seed for tenant {TenantId}: {WaypointTypes} waypoint types, {TimeSlots} time slots, {OrderTypes} transport order types, {Profiles} consignment note profiles inserted.",
+                    context.TenantId, waypointTypes, timeSlots, orderTypes, profiles);
             }
         }
     }
@@ -180,6 +186,36 @@ public class OrdersDataSeedContributor : IDataSeedContributor, ITransientDepende
         standard.SetDefaultWaypoints(stops);
 
         await _orderTypes.InsertAsync(standard);
+        return 1;
+    }
+
+    /// <summary>The default CMR profile (design 58 "Migration strategy"): "Standaard", 4 copies, borders, QR, the OpenTMS box defaults of appendix §3.2.</summary>
+    public const string DefaultProfileName = "Standaard";
+
+    private async Task<int> SeedConsignmentNoteProfileAsync(Guid tenantId)
+    {
+        List<ConsignmentNoteProfile> existing;
+        using (_dataFilter.Disable<ISoftDelete>())
+        {
+            existing = await _profiles.GetListAsync();
+        }
+
+        if (existing.Any(p => p.NormalizedName == DefaultProfileName.ToUpperInvariant()))
+        {
+            return 0;
+        }
+
+        var standard = new ConsignmentNoteProfile(_guidGenerator.Create(), tenantId, DefaultProfileName);
+        standard.SetLayout(ConsignmentNoteConsts.DefaultCopies, showBorders: true, showQrCode: true, groupByLeg: false);
+        standard.SetPartySources(
+            CmrPartySource.Customer, CmrPartySource.DestinationAddress, CmrPartySource.DestinationAddress, CmrPartySource.OriginAddress,
+            CmrPartySource.Carrier, CmrPartySource.Empty, CmrPartySource.OwnCompany);
+        if (!existing.Any(p => p.IsDefault && !p.IsDeleted))
+        {
+            standard.SetDefault(true);
+        }
+
+        await _profiles.InsertAsync(standard);
         return 1;
     }
 }

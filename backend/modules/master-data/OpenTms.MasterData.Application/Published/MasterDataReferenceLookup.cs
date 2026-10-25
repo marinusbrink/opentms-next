@@ -10,6 +10,7 @@ using OpenTms.MasterData.Incompatibilities;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
 using OpenTms.MasterData.Relations;
+using OpenTms.MasterData.Transport;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 
@@ -17,7 +18,8 @@ namespace OpenTms.MasterData.Published;
 
 /// <summary>
 /// See <see cref="IMasterDataReferenceLookup"/>. In-process only (<c>RemoteService(IsEnabled = false)</c>); one
-/// <c>IN</c> query per call (two for the fleet reads that join the type); the tenant filter scopes every read.
+/// <c>IN</c> query per call (two for the fleet reads that join the type; the address reads add one per distinct country and
+/// postcode for the region match); the tenant filter scopes every read.
 /// </summary>
 [RemoteService(IsEnabled = false)]
 [Authorize]
@@ -143,16 +145,18 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
     }
 
     [Authorize]
-    public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationAddressesAsync(IReadOnlyCollection<Guid> addressIds)
+    public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationAddressesAsync(IReadOnlyCollection<Guid> ids)
     {
-        var keys = Bound(addressIds);
+        var keys = Bound(ids);
         if (keys.Count == 0)
         {
             return [];
         }
 
-        return await AddressesAsync(await _addresses.GetQueryableAsync(), a => keys.Contains(a.Id));
+        var addresses = await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationAddress, Guid>>().GetListAsync(a => keys.Contains(a.Id));
+        return await DescribeAsync(addresses);
     }
+
 
     [Authorize]
     public virtual async Task<List<MasterDataAddressReferenceDto>> GetAddressesOfRelationsAsync(IReadOnlyCollection<Guid> relationIds)
@@ -163,33 +167,84 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             return [];
         }
 
-        return await AddressesAsync(await _addresses.GetQueryableAsync(), a => keys.Contains(a.RelationId));
+        var rows = await _addresses.GetListAsync(a => keys.Contains(a.RelationId));
+        return (await DescribeAsync(rows)).OrderBy(a => a.RelationId).ThenBy(a => a.Id).ToList();
     }
 
-    private async Task<List<MasterDataAddressReferenceDto>> AddressesAsync(IQueryable<RelationAddress> addresses, System.Linq.Expressions.Expression<Func<RelationAddress, bool>> filter)
+    [Authorize]
+    public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationDefaultAddressesAsync(IReadOnlyCollection<Guid> relationIds)
     {
-        var relations = await _relations.GetQueryableAsync();
-        var countries = await _countries.GetQueryableAsync();
-        var query = addresses.Where(filter)
-            .Join(relations, a => a.RelationId, r => r.Id, (a, r) => new { Address = a, Relation = r })
-            .GroupJoin(countries, x => x.Address.CountryId, c => c.Id, (x, cs) => new { x.Address, x.Relation, Countries = cs })
-            .SelectMany(x => x.Countries.DefaultIfEmpty(), (x, c) => new MasterDataAddressReferenceDto
+        var keys = Bound(relationIds);
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationAddress, Guid>>().GetListAsync(a => keys.Contains(a.RelationId));
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        /* The relation list's rule (RelationPlaces): the visiting address by kind, else the default, else the first by city. */
+        var visiting = (await LazyServiceProvider.LazyGetRequiredService<IRepository<AddressType, Guid>>().GetListAsync(t => t.Kind == AddressTypeKind.Visiting)).Select(t => t.Id).ToHashSet();
+        var chosen = rows
+            .GroupBy(a => a.RelationId)
+            .Select(g => g.FirstOrDefault(a => a.AddressTypeId != null && visiting.Contains(a.AddressTypeId.Value))
+                         ?? g.FirstOrDefault(a => a.AddressTypeId == null)
+                         ?? g.OrderBy(a => a.City).First())
+            .ToList();
+        return await DescribeAsync(chosen);
+    }
+
+    private async Task<List<MasterDataAddressReferenceDto>> DescribeAsync(List<RelationAddress> addresses)
+    {
+        if (addresses.Count == 0)
+        {
+            return [];
+        }
+
+        var relationIds = addresses.Select(a => a.RelationId).Distinct().ToList();
+        var relations = (await _relations.GetListAsync(r => relationIds.Contains(r.Id))).ToDictionary(r => r.Id);
+        var countryIds = addresses.Select(a => a.CountryId).Distinct().ToList();
+        var countries = (await _countries.GetListAsync(c => countryIds.Contains(c.Id))).ToDictionary(c => c.Id);
+        var relationRegions = (await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationGeographicalRegion>>().GetListAsync(r => relationIds.Contains(r.RelationId)))
+            .ToLookup(r => r.RelationId, r => r.GeographicalRegionId);
+
+        /* The region match of design 41: one query per distinct (country, postcode) with the candidate ranges, matched in memory. */
+        var ranges = LazyServiceProvider.LazyGetRequiredService<IRepository<GeographicalRegionPostalCodeRange, Guid>>();
+        var matched = new Dictionary<(Guid CountryId, string PostalKey), List<Guid>>();
+        foreach (var (countryId, postalKey) in addresses.Select(a => (a.CountryId, a.PostalCodeKey)).Distinct())
+        {
+            var leading = PostalCodeRangeMatcher.LeadingNumber(postalKey);
+            var candidates = await ranges.GetListAsync(r => r.CountryId == countryId && (r.Prefix != null || (leading != null && r.FromNumeric <= leading && r.TillNumeric >= leading)));
+            matched[(countryId, postalKey)] = candidates.Where(r => PostalCodeRangeMatcher.Matches(r, postalKey)).Select(r => r.GeographicalRegionId).Distinct().ToList();
+        }
+
+        return addresses
+            .Where(a => relations.ContainsKey(a.RelationId))
+            .Select(a =>
             {
-                Id = x.Address.Id,
-                RelationId = x.Address.RelationId,
-                RelationName = x.Relation.Name,
-                AddressTypeId = x.Address.AddressTypeId,
-                Street = x.Address.Street,
-                HouseNumber = x.Address.HouseNumber,
-                PostalCode = x.Address.PostalCode,
-                City = x.Address.City,
-                CountryCode = c != null ? c.IsoAlpha2 : null,
-                Latitude = x.Address.Latitude,
-                Longitude = x.Address.Longitude,
-                TimeZoneId = x.Address.TimeZoneId
+                var relation = relations[a.RelationId];
+                countries.TryGetValue(a.CountryId, out var country);
+                return new MasterDataAddressReferenceDto
+                {
+                    Id = a.Id,
+                    RelationId = a.RelationId,
+                    RelationName = relation.Name,
+                    AddressTypeId = a.AddressTypeId,
+                    Street = a.Street,
+                    HouseNumber = string.IsNullOrEmpty(a.HouseNumber) ? a.HouseNumberSuffix : a.HouseNumber + a.HouseNumberSuffix,
+                    PostalCode = a.PostalCode,
+                    City = a.City,
+                    CountryCode = country?.IsoAlpha2 ?? string.Empty,
+                    Latitude = a.Latitude,
+                    Longitude = a.Longitude,
+                    TimeZoneId = a.TimeZoneId ?? country?.PrimaryTimeZoneId,
+                    GeographicalRegionIds = relationRegions[a.RelationId].Concat(matched[(a.CountryId, a.PostalCodeKey)]).Distinct().ToList()
+                };
             })
-            .OrderBy(a => a.RelationId).ThenBy(a => a.Id);
-        return await AsyncExecuter.ToListAsync(query);
+            .ToList();
     }
 
     [Authorize]
@@ -294,6 +349,56 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             .Where(p => keys.Contains(p.LeftId) && keys.Contains(p.RightId))
             .Select(p => new MasterDataIncompatiblePairDto { LeftId = p.LeftId, RightId = p.RightId });
         return await AsyncExecuter.ToListAsync(query);
+    }
+
+    [Authorize]
+    public virtual async Task<List<MasterDataReferenceDto>> GetReferencesAsync(MasterDataReferenceKind kind, IReadOnlyCollection<Guid> ids)
+    {
+        var keys = Bound(ids);
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        switch (kind)
+        {
+            case MasterDataReferenceKind.TransportUnit:
+                return await ReadAsync<TransportUnit>(keys, u => new MasterDataReferenceDto { Id = u.Id, Name = u.Name, IsArchived = u.IsArchived });
+            case MasterDataReferenceKind.Product:
+                return await ReadAsync<Product>(keys, p => new MasterDataReferenceDto { Id = p.Id, Name = p.Name, IsArchived = p.IsArchived });
+            case MasterDataReferenceKind.ProductRelationCode:
+                return await ReadAsync<ProductRelationCode>(keys, c => new MasterDataReferenceDto { Id = c.Id, Name = c.Code, IsArchived = c.IsArchived });
+            case MasterDataReferenceKind.Temperature:
+                return await ReadAsync<Temperature>(keys, t => new MasterDataReferenceDto { Id = t.Id, Name = t.Name, IsArchived = t.IsArchived });
+            case MasterDataReferenceKind.VehicleType:
+                return await ReadAsync<VehicleType>(keys, v => new MasterDataReferenceDto { Id = v.Id, Name = v.Name });
+            case MasterDataReferenceKind.TransportCharacteristic:
+                return await ReadAsync<TransportCharacteristics>(keys, c => new MasterDataReferenceDto { Id = c.Id, Name = c.Name });
+            case MasterDataReferenceKind.Vehicle:
+                return await ReadAsync<Vehicle>(keys, v => new MasterDataReferenceDto { Id = v.Id, Name = v.LicencePlate == null ? v.Name : v.Name + " (" + v.LicencePlate + ")", IsArchived = v.IsArchived });
+            case MasterDataReferenceKind.VehicleCombination:
+                return await ReadAsync<VehicleCombination>(keys, c => new MasterDataReferenceDto { Id = c.Id, Name = c.Name, IsArchived = c.IsArchived });
+            case MasterDataReferenceKind.Driver:
+                return await ReadAsync<Driver>(keys, d => new MasterDataReferenceDto { Id = d.Id, Name = d.FullName, IsArchived = d.IsArchived });
+            case MasterDataReferenceKind.ContactPerson:
+                return await ReadAsync<RelationContactPerson>(keys, p => new MasterDataReferenceDto { Id = p.Id, Name = string.Join(" ", new[] { p.FirstName, p.MiddleName, p.LastName }.Where(part => !string.IsNullOrEmpty(part))) });
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown reference kind.");
+        }
+    }
+
+    [Authorize]
+    public virtual async Task<MasterDataReferenceDto?> GetOwnCompanyAsync()
+    {
+        var own = (await _relations.GetListAsync(r => (r.Roles & RelationRoles.OwnCompany) == RelationRoles.OwnCompany && !r.IsArchived)).FirstOrDefault();
+        return own == null ? null : new MasterDataReferenceDto { Id = own.Id, Name = own.Name, IsArchived = own.IsArchived };
+    }
+
+    private async Task<List<MasterDataReferenceDto>> ReadAsync<TEntity>(List<Guid> keys, Func<TEntity, MasterDataReferenceDto> map)
+        where TEntity : class, Volo.Abp.Domain.Entities.IEntity<Guid>
+    {
+        var rows = await LazyServiceProvider.LazyGetRequiredService<IRepository<TEntity, Guid>>().GetListAsync(e => keys.Contains(e.Id));
+        return rows.Select(map).ToList();
     }
 
     private static List<Guid> Bound(IReadOnlyCollection<Guid> ids)

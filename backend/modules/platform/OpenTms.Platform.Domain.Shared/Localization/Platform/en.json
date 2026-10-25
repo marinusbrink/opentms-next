@@ -787,6 +787,7 @@
     "Platform:ReportPurpose.Invoice": "Invoice",
     "Platform:ReportPurpose.PurchaseOrder": "Purchase order",
     "Platform:ReportPurpose.TransportUnitBalance": "Transport unit balance",
+    "Platform:ReportPurpose.ConsignmentNote": "Consignment note (CMR)",
     "Platform:ReportRenderingProvider.PdfGeneratorApi": "PDF Generator API",
     "Platform:DocumentTransformationKind.ImageToPdf": "Image to PDF",
     "Platform:DocumentTransformationKind.LinkByFileName": "Link by file name",

@@ -920,6 +920,154 @@ public static partial class ReportDataCatalogue
             Obj("Entity", PeriodOverview, "The period overview. OpenTMS kept its GetSingleOutput wrapper, so templates read "
                 + "Entity.Entity.…"));
 
+        // ------------------------------------------------------------------ ConsignmentNote (design 56/58)
+
+        /* The CMR payload Orders composes (OpenTms.Orders.ConsignmentNotes.ConsignmentNoteComposer): the boxes of
+         * docs/input/transport-assessment/routing-co2-cmr.md §3.2 as fields. Parties are resolved per box source
+         * (customer, origin/destination address, own company, carrier, shipper, trip departure/arrival, empty); the
+         * goods rows carry every column a profile may show. Box numbers are in the descriptions. */
+
+        private static readonly CatalogueFragment CmrAddress = F("CmrAddress",
+            Str("Street", "Street.", "Celsiusweg"),
+            Str("HouseNumber", "House number with its suffix.", "12"),
+            Str("PostalCode", "Postal code.", "5928 PR"),
+            Str("City", "City.", "Venlo"),
+            Str("CountryCode", "ISO 3166-1 alpha-2 country code.", "NL"),
+            Str("Line", "The address on one line: street and number, postal code and city, country.", "Celsiusweg 12, 5928 PR Venlo, NL"));
+
+        private static readonly CatalogueFragment CmrParty = F("CmrParty",
+            Id("RelationId", "Id of the Master Data relation; null for a party without relation (a carrier known by name only).", "91c3e5a7-0b2d-4f48-a6e1-7d9c3b5f2e10"),
+            Str("Name", "Name of the party.", "DC Venlo Klant Foods"),
+            Obj("Address", CmrAddress, "The address the box shows; null when the party has none."),
+            Str("Source", "Which source filled the box (CmrPartySource name: Customer, OriginAddress, DestinationAddress, OwnCompany, "
+                + "Carrier, Shipper, TripDeparture, TripArrival).", "OriginAddress"));
+
+        private static readonly SampleSet CmrCustomer = new()
+        {
+            ["RelationId"] = "6d2b7e1a-3c4f-4a8e-9b71-2f5e8c0d4a11", ["Name"] = "Klant Foods B.V.", ["Source"] = "Customer",
+            ["Address"] = new SampleSet { ["Street"] = "Dierensteinweg", ["HouseNumber"] = "30A", ["PostalCode"] = "2991 XJ", ["City"] = "Barendrecht", ["CountryCode"] = "NL", ["Line"] = "Dierensteinweg 30A, 2991 XJ Barendrecht, NL" }
+        };
+
+        private static readonly SampleSet CmrConsignee = new()
+        {
+            ["RelationId"] = "a8d4f6b2-1c3e-4a59-b7f2-8e0d4c6a3f21", ["Name"] = "Supermarkt Centrum Utrecht", ["Source"] = "DestinationAddress",
+            ["Address"] = new SampleSet { ["Street"] = "Vredenburg", ["HouseNumber"] = "40", ["PostalCode"] = "3511 BD", ["City"] = "Utrecht", ["CountryCode"] = "NL", ["Line"] = "Vredenburg 40, 3511 BD Utrecht, NL" }
+        };
+
+        private static readonly SampleSet CmrCarrier = new()
+        {
+            ["RelationId"] = "5e9a7c3b-2d1f-4e60-8b94-1f3e5a7c9d32", ["Name"] = "Charter Transport Venlo B.V.", ["Source"] = "Carrier",
+            ["Address"] = new SampleSet { ["Street"] = "Edisonstraat", ["HouseNumber"] = "8", ["PostalCode"] = "5928 PG", ["City"] = "Venlo", ["CountryCode"] = "NL", ["Line"] = "Edisonstraat 8, 5928 PG Venlo, NL" }
+        };
+
+        private static readonly CatalogueFragment CmrPlace = F("CmrPlace",
+            Str("Name", "Name of the relation at the place.", "DC Venlo Klant Foods"),
+            Str("City", "City.", "Venlo"),
+            Str("CountryCode", "ISO 3166-1 alpha-2 country code.", "NL"),
+            Str("Address", "The full address on one line.", "Celsiusweg 12, 5928 PR Venlo, NL"),
+            Day("Date", "The date of the box (box 4: the first stop's date; box 21: the print date); null for box 3.", "2026-10-20"),
+            Str("Source", "Which source filled the box (CmrPartySource name).", "OriginAddress"));
+
+        private static readonly CatalogueFragment CmrSignature = F("CmrSignature",
+            Str("Name", "Name of the signing party.", "Klant Foods B.V."),
+            Str("Place", "Place of signing (the party's city).", "Barendrecht"),
+            Day("Date", "Date of signing; null until the signed flow fills it.", null));
+
+        private static readonly CatalogueFragment CmrGoodsRow = F("CmrGoodsRow",
+            Id("OrderLineId", "Id of the order line the row prints.", "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"),
+            Int("Position", "Line position on the order.", 1),
+            Str("ContainerNumber", "Container number.", "MSKU1234565"),
+            Str("PinCode", "Container pin code.", "4711"),
+            Str("SizeOrIso", "Container size or ISO code.", "45G1"),
+            Dec("Quantity", "Quantity (OpenTMS Amount).", 26.0),
+            Str("TransportUnit", "Transport unit name.", "Europallet"),
+            Str("ProductCode", "The customer's product code.", "KF-ZUIVEL"),
+            Str("Product", "Product name.", "Zuivelproducten"),
+            Dec("Colli", "Colli.", 520.0),
+            Dec("WeightKg", "Weight (kg).", 12480.0),
+            Str("Dimensions", "Length × width × height (cm).", "120 × 80 × 180 cm"),
+            Dec("VolumeM3", "Volume (m³).", 44.9),
+            Str("Barcode", "Barcode of the line.", "8712345678906"),
+            Dec("Positions", "Pallet positions.", 26.0),
+            Str("Temperature", "Temperature range name.", "Gekoeld 2-7 °C"),
+            Str("InvoiceReference", "Invoice reference of the line.", "INV-2026-0912"),
+            Str("Description", "Description (the line's remarks).", "Gekoeld houden"));
+
+        private static readonly SampleSet SecondGoodsRow = new()
+        {
+            ["OrderLineId"] = "8b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e", ["Position"] = 2, ["ContainerNumber"] = null, ["PinCode"] = null, ["SizeOrIso"] = null,
+            ["Quantity"] = 4.0, ["TransportUnit"] = "Rolcontainer", ["ProductCode"] = "KF-AGF", ["Product"] = "Aardappelen, groente en fruit", ["Colli"] = 48.0,
+            ["WeightKg"] = 960.0, ["Dimensions"] = null, ["VolumeM3"] = 3.2, ["Barcode"] = null, ["Positions"] = 2.0, ["Temperature"] = "Gekoeld 2-7 °C",
+            ["InvoiceReference"] = null, ["Description"] = null
+        };
+
+        private static readonly CatalogueFragment CmrGoodsTotals = F("CmrGoodsTotals",
+            Dec("Quantity", "Sum of the rows' quantities.", 30.0),
+            Dec("Colli", "Sum of the rows' colli.", 568.0),
+            Dec("WeightKg", "Sum of the rows' weights (kg).", 13440.0),
+            Dec("VolumeM3", "Sum of the rows' volumes (m³).", 48.1),
+            Dec("Positions", "Sum of the rows' pallet positions.", 28.0));
+
+        private static readonly CatalogueFragment CmrTextItem = F("CmrTextItem",
+            Str("Item", "The item the text came from (CmrInstructionItem or CmrRemarkItem name).", "ShipperInstructions"),
+            Str("Text", "The text.", "Niet stapelen"));
+
+        private static readonly CatalogueFragment CmrOrder = F("CmrOrder",
+            Id("Id", "Id of the transport order.", OrderId),
+            Str("Number", "Order number.", OrderNumber),
+            Str("CustomerReference", "Customer reference.", OrderReference),
+            Day("OrderDate", "Order date.", "2026-10-16"),
+            Str("CustomerName", "Customer name.", "Klant Foods B.V."));
+
+        private static readonly CatalogueFragment CmrTrip = F("CmrTrip",
+            Id("Id", "Id of the transport trip.", FileId),
+            Str("Number", "Trip number.", FileNumber),
+            Day("TripDate", "Trip date.", "2026-10-20"),
+            Str("CarrierName", "Carrier name.", "Charter Transport Venlo B.V."),
+            Values("VehicleNames", ReportDataFieldType.String, "Names of the trip's vehicles.", "Truck 12", "Trailer 7"),
+            Values("LicencePlates", ReportDataFieldType.String, "Licence plates of the trip's vehicles.", "12-BXL-3", "OT-45-PQ"),
+            Values("DriverNames", ReportDataFieldType.String, "Names of the trip's drivers.", "Jan de Vries"));
+
+        private static readonly CatalogueFragment ConsignmentNote = F("ConsignmentNote",
+            Str("EntityNumber", "The consignment note number (used in file names).", "CMR-2026-000123"),
+            Str("Number", "The consignment note number, drawn from Orders.ConsignmentNote on print.", "CMR-2026-000123"),
+            Str("Barcode", "The barcode content (the number).", "CMR-2026-000123"),
+            Int("Copies", "Copies to print (1–5).", 4),
+            Bool("ShowBorders", "Print the box borders and static texts.", true),
+            Bool("ShowQrCode", "Print the QR code of the barcode.", true),
+            Bool("GroupByLeg", "Lines sharing the parties are grouped on one note.", false),
+            Str("ProfileName", "Name of the profile used.", "Standaard"),
+            Obj("Sender", CmrParty, "Box 1: sender.", CmrCustomer),
+            Obj("Consignee", CmrParty, "Box 2: consignee.", CmrConsignee),
+            Obj("DeliveryPlace", CmrPlace, "Box 3: place of delivery.", new SampleSet { ["Name"] = "Supermarkt Centrum Utrecht", ["City"] = "Utrecht", ["Address"] = "Vredenburg 40, 3511 BD Utrecht, NL", ["Date"] = null, ["Source"] = "DestinationAddress" }),
+            Obj("TakingOverPlace", CmrPlace, "Box 4: place and date of taking over."),
+            Str("AttachedDocuments", "Box 5: documents attached.", "Paklijst, CMR"),
+            Values("GoodsColumns", ReportDataFieldType.String, "The goods columns the profile shows (CmrGoodsColumn names).", "Quantity", "TransportUnit", "Product", "WeightKg", "VolumeM3", "ColumnNames", "Totals"),
+            Bool("ShowColumnNames", "Print the column headings of the goods table.", true),
+            Bool("ShowTotals", "Print the totals row of the goods table.", true),
+            List("Goods", CmrGoodsRow, "Boxes 6–12: one row per order line.").WithItems(null, SecondGoodsRow),
+            Str("GoodsDescription", "The fixed descriptions chosen for the goods (box 6).", "Breekbaar"),
+            Obj("Totals", CmrGoodsTotals, "The totals of the goods rows."),
+            List("SenderInstructionItems", CmrTextItem, "Box 13 as items: what each text came from.").WithItems(null, new SampleSet { ["Item"] = "FixedDescriptions", ["Text"] = "Breekbaar" }),
+            Str("SenderInstructions", "Box 13: sender's instructions, the items joined by newlines.", "Niet stapelen\nBreekbaar"),
+            Str("PaymentInstruction", "Box 14: franking (PaymentInstruction name: Free, NotFree); null when not set.", "Free"),
+            Obj("Carrier", CmrParty, "Box 16: carrier.", CmrCarrier),
+            Obj("SuccessiveCarrier", CmrParty, "Box 17: successive carrier; null for the Empty source.", new SampleSet { ["RelationId"] = null, ["Name"] = "", ["Source"] = "Empty" }),
+            List("CarrierRemarkItems", CmrTextItem, "Box 18 as items: what each text came from.").WithItems(
+                new SampleSet { ["Item"] = "OrderNumber", ["Text"] = OrderNumber },
+                new SampleSet { ["Item"] = "Vehicles", ["Text"] = "Truck 12 (12-BXL-3)\nTrailer 7 (OT-45-PQ)" }),
+            Str("CarrierRemarks", "Box 18: carrier's remarks, the items joined by newlines.", OrderNumber + "\nTruck 12 (12-BXL-3)\nTrailer 7 (OT-45-PQ)"),
+            Str("SpecialAgreements", "Box 19: special agreements.", "Levering voor 10:00"),
+            Obj("EstablishedIn", CmrPlace, "Box 21: established in / on (the print date).", new SampleSet { ["Name"] = "Voorbeeld Transport B.V.", ["City"] = "Rotterdam", ["Address"] = "Waalhaven Zuidzijde 45B, 3089 JH Rotterdam, NL", ["Date"] = "2026-10-19", ["Source"] = "OwnCompany" }),
+            Obj("SenderSignature", CmrSignature, "Box 22: signature of the sender."),
+            Obj("CarrierSignature", CmrSignature, "Box 23: signature of the carrier.", new SampleSet { ["Name"] = "Charter Transport Venlo B.V.", ["Place"] = "Venlo" }),
+            Obj("ConsigneeSignature", CmrSignature, "Box 24: signature of the consignee.", new SampleSet { ["Name"] = "Supermarkt Centrum Utrecht", ["Place"] = "Utrecht" }),
+            Obj("Order", CmrOrder, "The order the note belongs to."),
+            Obj("Trip", CmrTrip, "The trip the lines ride on; null when not planned yet."),
+            Values("OrderLineIds", ReportDataFieldType.Guid, "Ids of the order lines on the note.", "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", "8b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e"),
+            Moment("PrintedAt", "When the note was printed.", "2026-10-19T15:40:02"),
+            Str("PrintedBy", "User name of the printer.", "m.jansen"));
+
         // ------------------------------------------------------------------ envelope
 
         public static CatalogueFragment EnvelopeFor(ReportPurpose purpose, string entityType)
@@ -931,6 +1079,7 @@ public static partial class ReportDataCatalogue
                 ReportPurpose.Invoice => (Invoice, "The invoice."),
                 ReportPurpose.PurchaseOrder => (PurchaseOrder, "The purchase order."),
                 ReportPurpose.TransportUnitBalance => (BalanceWrapper, "Wrapper around the transport-unit period overview (Entity.Entity)."),
+                ReportPurpose.ConsignmentNote => (ConsignmentNote, "The consignment note (CMR) of one order's lines (design 58)."),
                 _ => throw new ArgumentOutOfRangeException(nameof(purpose), purpose, "No report data catalogue for this purpose.")
             };
 

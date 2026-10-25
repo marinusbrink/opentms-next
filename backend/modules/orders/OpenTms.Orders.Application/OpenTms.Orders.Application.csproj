@@ -10,11 +10,16 @@
 
   <ItemGroup>
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
+    <!-- Design 58: the consignment-note blobs (AD-09) and the hourly template materialisation worker. -->
+    <PackageReference Include="Volo.Abp.BlobStoring" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.BackgroundWorkers" Version="10.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
     <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
+    <!-- Design 56/58: Planning's published readers and events (ILegReader, ITransportTripLookup; rule 2: Application.Contracts and Domain.Shared only). -->
+    <ProjectReference Include="..\..\planning-execution\OpenTms.PlanningExecution.Application.Contracts\OpenTms.PlanningExecution.Application.Contracts.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Domain\OpenTms.Orders.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
   </ItemGroup>
