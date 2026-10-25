@@ -1,12 +1,16 @@
 using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
+using OpenTms.Integrations.Routing;
 using OpenTms.Platform;
 using OpenTms.Platform.DocumentRendering;
+using Volo.Abp;
 using Volo.Abp.Application;
+using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.Caching;
 using Volo.Abp.Modularity;
 
@@ -17,7 +21,8 @@ namespace OpenTms.Integrations;
     typeof(IntegrationsApplicationContractsModule),
     typeof(PlatformApplicationContractsModule),
     typeof(AbpDddApplicationModule),
-    typeof(AbpCachingModule)
+    typeof(AbpCachingModule),
+    typeof(AbpBackgroundWorkersModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {
@@ -34,6 +39,13 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddTransient<IAddressSuggestionProvider, PdokAddressLookupProvider>();
 
         ConfigurePdfGeneratorApi(context);
+        ConfigureRouting(context);
+    }
+
+    public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
+    {
+        /* Design 60: the daily purge of expired route-cache rows. The DbMigrator does not load this module. */
+        await context.AddBackgroundWorkerAsync<RouteCachePurgeWorker>();
     }
 
     /* Design 55: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from
@@ -54,5 +66,36 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddTransient<IReportRenderingProvider, PdfGeneratorApiRenderingProvider>();
         context.Services.AddHealthChecks()
             .AddCheck<PdfGeneratorApiHealthCheck>(PdfGeneratorApiHealthCheck.Name, tags: [PdfGeneratorApiHealthCheck.Tag]);
+    }
+
+    /* Design 60: the routing and carbon-footprint adapters. Both engines are typed HttpClients whose hosts come from
+     * "Integrations:Routing" only (an unset base URL means "not configured": every routing call answers null); the
+     * providers are registered by name here and chosen by Integrations:Routing:Provider — no factories, no reflection.
+     * The function's key comes from the secret store. The health check is tagged "external" like the pdfgeneratorapi one. */
+    private static void ConfigureRouting(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        context.Services.Configure<RoutingIntegrationOptions>(configuration.GetSection(RoutingIntegrationOptions.SectionName));
+        context.Services.Configure<CarbonFootprintOptions>(configuration.GetSection(CarbonFootprintOptions.SectionName));
+        context.Services.AddHttpClient<OsrmRoutingProvider>((services, client) =>
+        {
+            var options = services.GetRequiredService<IOptions<RoutingIntegrationOptions>>().Value;
+            if (options.Osrm.IsConfigured)
+            {
+                var baseUrl = options.Osrm.BaseUrl!;
+                client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+            }
+
+            client.Timeout = options.Timeout;
+        });
+        context.Services.AddHttpClient<ValhallaFunctionProvider>((services, client) =>
+        {
+            client.Timeout = services.GetRequiredService<IOptions<RoutingIntegrationOptions>>().Value.Timeout;
+        });
+        context.Services.AddTransient<IRouteProvider>(services => services.GetRequiredService<OsrmRoutingProvider>());
+        context.Services.AddTransient<IRouteProvider>(services => services.GetRequiredService<ValhallaFunctionProvider>());
+        context.Services.AddTransient<IRouteFunction>(services => services.GetRequiredService<ValhallaFunctionProvider>());
+        context.Services.AddHealthChecks()
+            .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
     }
 }

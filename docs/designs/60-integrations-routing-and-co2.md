@@ -104,6 +104,42 @@ recurring lanes; every call from a job, never a request.
 2. The Valhalla function's response contract is the one `TransportFileRouteCalculator.cs:581-640` consumes today.
 3. PTV and VROOM are out of this run.
 
+### Build notes (implementation of 2026-10-25)
+
+What was built as designed, and where the implementation had to choose:
+
+- **Configuration keys** (bound in `IntegrationsApplicationModule`, no literal host anywhere; the architecture test
+  `IntegrationsConfigurationTests` greps the module for `opentms.nl` / `cloudfunctions.net`, allowing only the
+  `@opentms.nl` workspace account names of design 55): `Integrations:Routing:Provider` (`Osrm`; or `RouteFunction`),
+  `Integrations:Routing:Osrm:BaseUrl`, `Integrations:Routing:RouteFunction:BaseUrl`, `Integrations:Routing:RouteFunction:ApiKey`
+  (secret store), `Integrations:Routing:RouteFunction:ApiKeyHeader` (`X-API-Key`), `Integrations:Routing:CacheDays` (30),
+  `Integrations:Routing:TimeoutSeconds` (10), `Integrations:CarbonFootprint:CpiGramPerTonneKm` (62).
+- **Route-function request shape** (assumption 2 made concrete; verify against the legacy mapper): coordinates as
+  `{ lat, lon }` objects; `vehicle.weight` in kilograms; `vehicle.euroClass` as its number (Euro 0–6; EEV sent as 5,
+  zero emission as 6); `height`/`width`/`length` in metres; `fuelType` as the lower-case enum name (`diesel`, `lng`, …);
+  `fuelConsumption` in l/100 km, left out when unknown. The retry without the vehicle fires on HTTP 442 or on a 4xx whose
+  body contains "no path".
+- **Status endpoint route**: the service is `RoutingAppService.GetStatusAsync`, which the conventional controller exposes
+  as `GET /api/integrations/routing/status` (a class named `RoutingStatusAppService` would have become
+  `/routing-status/status`). The hit ratio of the last hour is not in the status (the contract has no field for it; the
+  cache row count and the probe are). The probe is cached for 60 s in process.
+- **Purge**: an ABP periodic worker (`RouteCachePurgeWorker`, every 24 h, first run one period after start) registered by
+  the Integrations application module, not a Hangfire job; it visits the host and then every tenant of the tenant store
+  under `ICurrentTenant.Change`, so the tenant filter scopes each delete and no filter is disabled (a tenant with its own
+  database is visited there, a shared-tier tenant inside the host database). A failing tenant is logged and skipped. The
+  host may later move the registration behind a flag like `Outbox:DispatchEnabled`.
+- **Cache rows**: `CreatedAt`/`ExpiresAt` are UTC `DateTime`s (as Platform's technical tables), not `DateTimeOffset`, so
+  the expiry comparison also runs on the SQLite test provider. An expired row that the purge has not removed yet is
+  refreshed in place by the next answer (the unique key stays). Rows are written in a unit of work of their own: a
+  calculation job's transaction never fails on a cache write; two jobs racing on one lane lose the second write quietly.
+  A row is written only when every asked part is in hand: a function outage does not pin "no toll" for 30 days.
+- **CO₂ fallback without a weight**: a leg without a weight counts as one tonne (CPI × kilometres), so the figure is
+  never silently zero; with weights known, a weightless leg gets no share of the function's total by tonne-km, and equal
+  shares apply only when no leg has a weight. The route function is asked with `VehicleSpec.Default` when the trip has no
+  vehicle. `FactorSet` reads `GLEC v3 / ISO 14083` or `CPI <value> g/tkm`.
+- **Error codes**: `IntegrationsErrorCodes` exists with empty `ConflictCodes`/`BadRequestCodes` (the routing service
+  answers null, never throws); the host mapping is wired at integration.
+
 ## Security quickscan
 
 Permission `Integrations.Routing` (read); outbound HTTPS only; keys from configuration/secret store; the status endpoint
