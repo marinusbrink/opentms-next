@@ -22,6 +22,7 @@ import { ArchiveTripsWizard } from "@/apps/transport/wizards/ArchiveTripsWizard"
 import { MaterialiseWizard } from "@/apps/transport/wizards/MaterialiseWizard";
 import { PrintCmrWizard } from "@/apps/transport/wizards/PrintCmrWizard";
 import { toast } from "sonner";
+import type { TransportTripRow } from "@/domains/planning-execution/trips";
 import { stubGlobals } from "./transport-test-mocks";
 import { POST, calls, resetClient, routes } from "./test-setup-mocks";
 
@@ -155,7 +156,7 @@ describe("MaterialiseWizard", () => {
 describe("ArchiveTripsWizard", () => {
   it("skips open trips, names them, and archives the rest one by one", async () => {
     routes.POST["/api/planning/transport-trip/{id}/archive"] = (init) => ({ id: init?.params?.path?.id, isArchived: true });
-    const trips = [
+    const trips: TransportTripRow[] = [
       { id: "t1", number: "TR-1", status: 3 },
       { id: "t2", number: "TR-2", status: 1 },
       { id: "t3", number: "TR-3", status: 4 },
