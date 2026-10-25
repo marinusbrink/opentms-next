@@ -304,7 +304,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_ConsignmentNoteDocumentLines", x => new { x.DocumentId, x.LineId });
                     table.ForeignKey(
-                        name: "FK_ConsignmentNoteDocumentLines_ConsignmentNoteDocuments_Docum~",
+                        name: "FK_ConsignmentNoteDocumentLines_Document",
                         column: x => x.DocumentId,
                         principalSchema: "orders",
                         principalTable: "ConsignmentNoteDocuments",
@@ -360,7 +360,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderDiscountsOrSurcharges", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TransportOrderDiscountsOrSurcharges_TransportOrders_OrderId",
+                        name: "FK_TransportOrderDiscountsOrSurcharges_Order",
                         column: x => x.OrderId,
                         principalSchema: "orders",
                         principalTable: "TransportOrders",
@@ -521,7 +521,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderTemplateDefaultStops", x => new { x.TemplateId, x.Position });
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplateDefaultStops_TransportOrderTemplates_~",
+                        name: "FK_TransportOrderTemplateDefaultStops_Template",
                         column: x => x.TemplateId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplates",
@@ -545,7 +545,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderTemplateDiscountsOrSurcharges", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplateDiscountsOrSurcharges_TransportOrderT~",
+                        name: "FK_TransportOrderTemplateDiscountsOrSurcharges_Template",
                         column: x => x.TemplateId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplates",
@@ -600,7 +600,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                     table.PrimaryKey("PK_TransportOrderTemplateLines", x => x.Id);
                     table.CheckConstraint("CK_TransportOrderTemplateLines_Position", "\"Position\" >= 1");
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplateLines_TransportOrderTemplates_Templat~",
+                        name: "FK_TransportOrderTemplateLines_Template",
                         column: x => x.TemplateId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplates",
@@ -623,7 +623,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderTemplatePriceLists", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplatePriceLists_TransportOrderTemplates_Te~",
+                        name: "FK_TransportOrderTemplatePriceLists_Template",
                         column: x => x.TemplateId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplates",
@@ -648,7 +648,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderTemplateReferences", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplateReferences_TransportOrderTemplates_Te~",
+                        name: "FK_TransportOrderTemplateReferences_Template",
                         column: x => x.TemplateId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplates",
@@ -669,7 +669,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderLineCharacteristics", x => new { x.LineId, x.TransportCharacteristicId });
                     table.ForeignKey(
-                        name: "FK_TransportOrderLineCharacteristics_TransportOrderLines_LineId",
+                        name: "FK_TransportOrderLineCharacteristics_Line",
                         column: x => x.LineId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderLines",
@@ -693,7 +693,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                     table.PrimaryKey("PK_TransportOrderLineMeasurements", x => new { x.LineId, x.Kind, x.Position });
                     table.CheckConstraint("CK_TransportOrderLineMeasurements_Position", "\"Position\" BETWEEN 1 AND 3");
                     table.ForeignKey(
-                        name: "FK_TransportOrderLineMeasurements_TransportOrderLines_LineId",
+                        name: "FK_TransportOrderLineMeasurements_Line",
                         column: x => x.LineId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderLines",
@@ -727,7 +727,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                     table.PrimaryKey("PK_TransportOrderStops", x => x.Id);
                     table.CheckConstraint("CK_TransportOrderStops_Position", "\"Position\" >= 1");
                     table.ForeignKey(
-                        name: "FK_TransportOrderStops_TransportOrderLines_LineId",
+                        name: "FK_TransportOrderStops_Line",
                         column: x => x.LineId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderLines",
@@ -759,7 +759,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 {
                     table.PrimaryKey("PK_TransportOrderTemplateStops", x => new { x.LineId, x.Position });
                     table.ForeignKey(
-                        name: "FK_TransportOrderTemplateStops_TransportOrderTemplateLines_Lin~",
+                        name: "FK_TransportOrderTemplateStops_Line",
                         column: x => x.LineId,
                         principalSchema: "orders",
                         principalTable: "TransportOrderTemplateLines",
@@ -867,7 +867,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 column: "TenantId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_TransportOrderDiscountsOrSurcharges_OrderId_DiscountOrSurch~",
+                name: "IX_TransportOrderDiscountsOrSurcharges_Order_Ds",
                 schema: "orders",
                 table: "TransportOrderDiscountsOrSurcharges",
                 columns: new[] { "OrderId", "DiscountOrSurchargeId" },
@@ -1008,19 +1008,19 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 columns: new[] { "TenantId", "OrderDate" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_TransportOrders_TenantId_SourceTemplateId_OrderDate_CopyInd~",
+                name: "IX_TransportOrders_TenantId_Status_OrderDate",
+                schema: "orders",
+                table: "TransportOrders",
+                columns: new[] { "TenantId", "Status", "OrderDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TransportOrders_TenantId_Template_Date_Copy",
                 schema: "orders",
                 table: "TransportOrders",
                 columns: new[] { "TenantId", "SourceTemplateId", "OrderDate", "CopyIndex" },
                 unique: true,
                 filter: "\"SourceTemplateId\" IS NOT NULL AND \"IsDeleted\" = false")
                 .Annotation("Npgsql:NullsDistinct", false);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_TransportOrders_TenantId_Status_OrderDate",
-                schema: "orders",
-                table: "TransportOrders",
-                columns: new[] { "TenantId", "Status", "OrderDate" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_TransportOrders_TransportOrderTypeId",
@@ -1047,7 +1047,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                 column: "TenantId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_TransportOrderTemplateDiscountsOrSurcharges_TemplateId_Disc~",
+                name: "IX_TransportOrderTemplateDiscountsOrSurcharges_Template_Ds",
                 schema: "orders",
                 table: "TransportOrderTemplateDiscountsOrSurcharges",
                 columns: new[] { "TemplateId", "DiscountOrSurchargeId" },

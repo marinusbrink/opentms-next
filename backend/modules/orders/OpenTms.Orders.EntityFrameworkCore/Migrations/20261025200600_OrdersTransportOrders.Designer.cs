@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(OrdersDbContext))]
-    [Migration("20261025192020_OrdersTransportOrders")]
+    [Migration("20261025200600_OrdersTransportOrders")]
     partial class OrdersTransportOrders
     {
         /// <inheritdoc />
@@ -756,12 +756,6 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TenantId", "Status", "OrderDate");
 
-                    b.HasIndex("TenantId", "SourceTemplateId", "OrderDate", "CopyIndex")
-                        .IsUnique()
-                        .HasFilter("\"SourceTemplateId\" IS NOT NULL AND \"IsDeleted\" = false");
-
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "SourceTemplateId", "OrderDate", "CopyIndex"), false);
-
                     b.HasIndex(new[] { "CustomerName" }, "IX_TransportOrders_CustomerName_Trigram");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "CustomerName" }, "IX_TransportOrders_CustomerName_Trigram"), "gin");
@@ -786,6 +780,12 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Number" }, "IX_TransportOrders_Number_Trigram"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Number" }, "IX_TransportOrders_Number_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "TenantId", "SourceTemplateId", "OrderDate", "CopyIndex" }, "IX_TransportOrders_TenantId_Template_Date_Copy")
+                        .IsUnique()
+                        .HasFilter("\"SourceTemplateId\" IS NOT NULL AND \"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex(new[] { "TenantId", "SourceTemplateId", "OrderDate", "CopyIndex" }, "IX_TransportOrders_TenantId_Template_Date_Copy"), false);
 
                     b.ToTable("TransportOrders", "orders", t =>
                         {
@@ -842,7 +842,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("OrderId", "DiscountOrSurchargeId")
+                    b.HasIndex(new[] { "OrderId", "DiscountOrSurchargeId" }, "IX_TransportOrderDiscountsOrSurcharges_Order_Ds")
                         .IsUnique();
 
                     b.ToTable("TransportOrderDiscountsOrSurcharges", "orders");
@@ -1238,7 +1238,7 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("TemplateId", "DiscountOrSurchargeId")
+                    b.HasIndex(new[] { "TemplateId", "DiscountOrSurchargeId" }, "IX_TransportOrderTemplateDiscountsOrSurcharges_Template_Ds")
                         .IsUnique();
 
                     b.ToTable("TransportOrderTemplateDiscountsOrSurcharges", "orders");
@@ -1622,7 +1622,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("Lines")
                         .HasForeignKey("DocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_ConsignmentNoteDocumentLines_Document");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrder", b =>
@@ -1801,7 +1802,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("DiscountsOrSurcharges")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderDiscountsOrSurcharges_Order");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderLine", b =>
@@ -1936,7 +1938,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("RequiredTransportCharacteristics")
                         .HasForeignKey("LineId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderLineCharacteristics_Line");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderLineMeasurement", b =>
@@ -1945,7 +1948,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("Measurements")
                         .HasForeignKey("LineId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderLineMeasurements_Line");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderPriceList", b =>
@@ -1981,7 +1985,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("Stops")
                         .HasForeignKey("LineId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderStops_Line");
 
                     b.OwnsOne("OpenTms.Orders.TransportOrders.StopDetails", "Details", b1 =>
                         {
@@ -2195,7 +2200,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("DefaultStops")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplateDefaultStops_Template");
 
                     b.OwnsOne("OpenTms.Orders.TransportOrders.StopDetails", "Details", b1 =>
                         {
@@ -2255,7 +2261,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("DiscountsOrSurcharges")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplateDiscountsOrSurcharges_Template");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderTemplateLine", b =>
@@ -2264,7 +2271,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("Lines")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplateLines_Template");
 
                     b.OwnsOne("OpenTms.Orders.TransportOrders.FreightDetails", "Freight", b1 =>
                         {
@@ -2390,7 +2398,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("PriceLists")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplatePriceLists_Template");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderTemplateReference", b =>
@@ -2399,7 +2408,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("References")
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplateReferences_Template");
                 });
 
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.TransportOrderTemplateStop", b =>
@@ -2408,7 +2418,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .WithMany("Stops")
                         .HasForeignKey("LineId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("FK_TransportOrderTemplateStops_Line");
 
                     b.OwnsOne("OpenTms.Orders.TransportOrders.StopDetails", "Details", b1 =>
                         {

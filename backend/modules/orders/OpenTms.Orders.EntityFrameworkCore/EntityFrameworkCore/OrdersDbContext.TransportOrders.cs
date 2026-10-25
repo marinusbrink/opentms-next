@@ -66,7 +66,7 @@ public partial class OrdersDbContext
             b.HasMany(o => o.DefaultStops).WithOne().HasForeignKey(s => s.OrderId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(o => o.References).WithOne().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(o => o.PriceLists).WithOne().HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(o => o.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.OrderId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(o => o.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.OrderId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderDiscountsOrSurcharges_Order");
             b.HasMany(o => o.Remarks).WithOne().HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Cascade);
 
             b.HasIndex(o => o.TenantId);
@@ -75,7 +75,8 @@ public partial class OrdersDbContext
             b.HasIndex(o => new { o.TenantId, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.CustomerRelationId });
             b.HasIndex(o => o.TransportOrderTypeId);
-            b.HasIndex(o => new { o.TenantId, o.SourceTemplateId, o.OrderDate, o.CopyIndex }).IsUnique().AreNullsDistinct(false).HasFilter("\"SourceTemplateId\" IS NOT NULL AND " + NotDeleted);
+            /* Named short: the conventional name passes PostgreSQL's 63-character limit and would be truncated. */
+            b.HasIndex(o => new { o.TenantId, o.SourceTemplateId, o.OrderDate, o.CopyIndex }, "IX_TransportOrders_TenantId_Template_Date_Copy").IsUnique().AreNullsDistinct(false).HasFilter("\"SourceTemplateId\" IS NOT NULL AND " + NotDeleted);
             /* The list's wildcard search (design 58): trigram indexes, PostgreSQL only (SQLite ignores the method). */
             b.HasIndex(o => o.Number, "IX_TransportOrders_Number_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
             b.HasIndex(o => o.CustomerReference, "IX_TransportOrders_CustomerReference_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
@@ -92,9 +93,10 @@ public partial class OrdersDbContext
             b.Navigation(l => l.Freight).IsRequired();
             b.Property(l => l.Attributes).HasJsonbDictionary();
             b.Property(l => l.Co2Kg).HasPrecision(MoneyPrecision, Co2Scale);
-            b.HasMany(l => l.Measurements).WithOne().HasForeignKey(m => m.LineId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(l => l.RequiredTransportCharacteristics).WithOne().HasForeignKey(c => c.LineId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(l => l.Stops).WithOne().HasForeignKey(s => s.LineId).OnDelete(DeleteBehavior.Cascade);
+            /* Constraint names kept under PostgreSQL's 63 characters (the provider would truncate them with "~"). */
+            b.HasMany(l => l.Measurements).WithOne().HasForeignKey(m => m.LineId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderLineMeasurements_Line");
+            b.HasMany(l => l.RequiredTransportCharacteristics).WithOne().HasForeignKey(c => c.LineId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderLineCharacteristics_Line");
+            b.HasMany(l => l.Stops).WithOne().HasForeignKey(s => s.LineId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderStops_Line");
             b.HasIndex(l => l.TenantId);
             b.HasIndex(l => new { l.OrderId, l.Position });
         });
@@ -159,7 +161,7 @@ public partial class OrdersDbContext
             b.ToTable("TransportOrderDiscountsOrSurcharges", OrdersDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.HasIndex(d => d.TenantId);
-            b.HasIndex(d => new { d.OrderId, d.DiscountOrSurchargeId }).IsUnique();
+            b.HasIndex(d => new { d.OrderId, d.DiscountOrSurchargeId }, "IX_TransportOrderDiscountsOrSurcharges_Order_Ds").IsUnique();
         });
 
         builder.Entity<TransportOrderRemark>(b =>
@@ -205,11 +207,11 @@ public partial class OrdersDbContext
                 s.Property(x => x.ValidTill).HasColumnName("ValidTill");
             });
             b.Navigation(t => t.Schedule).IsRequired();
-            b.HasMany(t => t.Lines).WithOne().HasForeignKey(l => l.TemplateId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(t => t.DefaultStops).WithOne().HasForeignKey(s => s.TemplateId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(t => t.References).WithOne().HasForeignKey(r => r.TemplateId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(t => t.PriceLists).WithOne().HasForeignKey(p => p.TemplateId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(t => t.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.TemplateId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(t => t.Lines).WithOne().HasForeignKey(l => l.TemplateId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplateLines_Template");
+            b.HasMany(t => t.DefaultStops).WithOne().HasForeignKey(s => s.TemplateId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplateDefaultStops_Template");
+            b.HasMany(t => t.References).WithOne().HasForeignKey(r => r.TemplateId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplateReferences_Template");
+            b.HasMany(t => t.PriceLists).WithOne().HasForeignKey(p => p.TemplateId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplatePriceLists_Template");
+            b.HasMany(t => t.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.TemplateId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplateDiscountsOrSurcharges_Template");
             b.HasIndex(t => t.TenantId);
             b.HasIndex(t => new { t.TenantId, t.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(t => new { t.TenantId, t.IsActive });
@@ -225,7 +227,7 @@ public partial class OrdersDbContext
             b.Property(l => l.Attributes).HasJsonbDictionary();
             b.Property(l => l.Measurements).HasJsonbList();
             b.Property(l => l.RequiredTransportCharacteristicIds).HasJsonbList();
-            b.HasMany(l => l.Stops).WithOne().HasForeignKey(s => s.LineId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(l => l.Stops).WithOne().HasForeignKey(s => s.LineId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_TransportOrderTemplateStops_Line");
             b.HasIndex(l => l.TenantId);
             b.HasIndex(l => new { l.TemplateId, l.Position });
         });
@@ -274,7 +276,7 @@ public partial class OrdersDbContext
             b.ToTable("TransportOrderTemplateDiscountsOrSurcharges", OrdersDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.HasIndex(d => d.TenantId);
-            b.HasIndex(d => new { d.TemplateId, d.DiscountOrSurchargeId }).IsUnique();
+            b.HasIndex(d => new { d.TemplateId, d.DiscountOrSurchargeId }, "IX_TransportOrderTemplateDiscountsOrSurcharges_Template_Ds").IsUnique();
         });
 
         // ── consignment notes ──────────────────────────────────────────────────
@@ -317,7 +319,7 @@ public partial class OrdersDbContext
             b.Property(d => d.FileName).HasMaxLength(ReferenceDataConsts.MaxDescriptionLength).IsRequired();
             b.Property(d => d.Sha256).HasMaxLength(ConsignmentNoteConsts.Sha256Length).IsRequired();
             b.Property(d => d.DataSnapshot).HasColumnType("jsonb").IsRequired();
-            b.HasMany(d => d.Lines).WithOne().HasForeignKey(l => l.DocumentId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(d => d.Lines).WithOne().HasForeignKey(l => l.DocumentId).OnDelete(DeleteBehavior.Cascade).HasConstraintName("FK_ConsignmentNoteDocumentLines_Document");
             b.HasIndex(d => d.TenantId);
             b.HasIndex(d => new { d.TenantId, d.Number }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(d => new { d.TenantId, d.OrderId });
