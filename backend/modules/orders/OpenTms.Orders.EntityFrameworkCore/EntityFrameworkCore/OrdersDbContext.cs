@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Orders.ConsignmentNotes;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using OpenTms.Platform.NumberSequences;
@@ -10,7 +11,7 @@ using Volo.Abp.EntityFrameworkCore.Modeling;
 namespace OpenTms.Orders.EntityFrameworkCore;
 
 [ConnectionStringName(OrdersDbProperties.ConnectionStringName)]
-public class OrdersDbContext : AbpDbContext<OrdersDbContext>
+public partial class OrdersDbContext : AbpDbContext<OrdersDbContext>
 {
     /* Design 51: the Orders master data. */
     public DbSet<TransportOrderType> TransportOrderTypes { get; set; } = default!;
@@ -18,6 +19,30 @@ public class OrdersDbContext : AbpDbContext<OrdersDbContext>
     public DbSet<WaypointType> WaypointTypes { get; set; } = default!;
     public DbSet<WaypointTypeFleetManagementCode> WaypointTypeFleetManagementCodes { get; set; } = default!;
     public DbSet<TimeSlot> TimeSlots { get; set; } = default!;
+
+    /* Design 58: the transport order, templates, consignment notes and attribute definitions. */
+    public DbSet<TransportOrder> TransportOrders { get; set; } = default!;
+    public DbSet<TransportOrderLine> TransportOrderLines { get; set; } = default!;
+    public DbSet<TransportOrderLineMeasurement> TransportOrderLineMeasurements { get; set; } = default!;
+    public DbSet<TransportOrderLineCharacteristic> TransportOrderLineCharacteristics { get; set; } = default!;
+    public DbSet<TransportOrderStop> TransportOrderStops { get; set; } = default!;
+    public DbSet<TransportOrderDefaultStop> TransportOrderDefaultStops { get; set; } = default!;
+    public DbSet<TransportOrderReference> TransportOrderReferences { get; set; } = default!;
+    public DbSet<TransportOrderPriceList> TransportOrderPriceLists { get; set; } = default!;
+    public DbSet<TransportOrderDiscountOrSurcharge> TransportOrderDiscountsOrSurcharges { get; set; } = default!;
+    public DbSet<TransportOrderRemark> TransportOrderRemarks { get; set; } = default!;
+    public DbSet<TransportOrderTemplate> TransportOrderTemplates { get; set; } = default!;
+    public DbSet<TransportOrderTemplateLine> TransportOrderTemplateLines { get; set; } = default!;
+    public DbSet<TransportOrderTemplateStop> TransportOrderTemplateStops { get; set; } = default!;
+    public DbSet<TransportOrderTemplateDefaultStop> TransportOrderTemplateDefaultStops { get; set; } = default!;
+    public DbSet<TransportOrderTemplateReference> TransportOrderTemplateReferences { get; set; } = default!;
+    public DbSet<TransportOrderTemplatePriceList> TransportOrderTemplatePriceLists { get; set; } = default!;
+    public DbSet<TransportOrderTemplateDiscountOrSurcharge> TransportOrderTemplateDiscountsOrSurcharges { get; set; } = default!;
+    public DbSet<ConsignmentNoteProfile> ConsignmentNoteProfiles { get; set; } = default!;
+    public DbSet<ConsignmentNoteFixedDescription> ConsignmentNoteFixedDescriptions { get; set; } = default!;
+    public DbSet<ConsignmentNoteDocument> ConsignmentNoteDocuments { get; set; } = default!;
+    public DbSet<ConsignmentNoteDocumentLine> ConsignmentNoteDocumentLines { get; set; } = default!;
+    public DbSet<OrderAttributeDefinition> OrderAttributeDefinitions { get; set; } = default!;
 
     public OrdersDbContext(DbContextOptions<OrdersDbContext> options)
         : base(options)
@@ -34,6 +59,8 @@ public class OrdersDbContext : AbpDbContext<OrdersDbContext>
         /* Every table of this module lives in its own schema ("orders").
          * Never map an entity of another module into this context. */
         builder.HasDefaultSchema(OrdersDbProperties.DbSchema);
+        /* The list's trigram search of design 58 (as Master Data since design 43). */
+        builder.HasPostgresExtension("pg_trgm");
 
         builder.Entity<WaypointType>(b =>
         {
@@ -99,5 +126,7 @@ public class OrdersDbContext : AbpDbContext<OrdersDbContext>
             b.HasIndex(w => w.WaypointTypeId);
             b.HasIndex(w => w.TenantId);
         });
+
+        ConfigureTransportOrders(builder);
     }
 }
