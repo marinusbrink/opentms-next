@@ -34,6 +34,20 @@ public class DiscountOrSurcharge : ReferenceDataAggregateRoot
 
     public bool IsArchived { get; set; }
 
+    /* Design 57 (the calculation, step 7): the second pass and the per-kilometre modifiers OpenTMS carried on its D&S. */
+
+    /// <summary>A percentage of the second pass applies over the lines plus the first pass (scenario 41).</summary>
+    public bool AppliesAfterOthers { get; set; }
+
+    /// <summary>For a per-kilometre value: the route's kilometres or only the tolled ones (scenarios 49–51).</summary>
+    public KilometreBasis KilometreBasis { get; private set; } = KilometreBasis.Distance;
+
+    /// <summary><c>numeric(5,2)</c>, 0–100: the billable share of the kilometres (scenario 47).</summary>
+    public decimal BillableKilometrePercentage { get; private set; } = 100m;
+
+    /// <summary>The kilometres count twice (scenario 48).</summary>
+    public bool RoundTrip { get; private set; }
+
     public virtual ICollection<DiscountOrSurchargeValue> Values { get; private set; } = new List<DiscountOrSurchargeValue>();
 
     public virtual ICollection<DiscountOrSurchargeRegion> Regions { get; private set; } = new List<DiscountOrSurchargeRegion>();
@@ -79,6 +93,43 @@ public class DiscountOrSurcharge : ReferenceDataAggregateRoot
     }
 
     public void SetLedgerAccount(string? account) => LedgerAccount = FinancialValues.LedgerAccount(account, "ledgerAccount");
+
+    /// <summary>The per-kilometre modifiers; meaningful for <see cref="DiscountOrSurchargeValueKind.PerKilometre"/>, stored for every kind.</summary>
+    public void SetKilometreRule(KilometreBasis basis, decimal billablePercentage, bool roundTrip)
+    {
+        KilometreBasis = FinancialValues.Defined(basis, "kilometreBasis");
+        if (billablePercentage < 0 || billablePercentage > FinancialConsts.MaxBillableKilometrePercentage || !FinancialValues.HasScale(billablePercentage, FinancialConsts.VatPercentageScale))
+        {
+            throw new BusinessException(FinancialErrorCodes.PercentageOutOfRange)
+                .WithData("value", billablePercentage)
+                .WithData("max", FinancialConsts.MaxBillableKilometrePercentage)
+                .WithData("decimals", FinancialConsts.VatPercentageScale);
+        }
+
+        BillableKilometrePercentage = billablePercentage;
+        RoundTrip = roundTrip;
+    }
+
+    /// <summary>True when the discount or surcharge applies on a weekday of <paramref name="date"/> (scenario 43).</summary>
+    public bool AppliesOn(DateOnly date)
+    {
+        var flag = date.DayOfWeek switch
+        {
+            DayOfWeek.Monday => DaysOfWeek.Monday,
+            DayOfWeek.Tuesday => DaysOfWeek.Tuesday,
+            DayOfWeek.Wednesday => DaysOfWeek.Wednesday,
+            DayOfWeek.Thursday => DaysOfWeek.Thursday,
+            DayOfWeek.Friday => DaysOfWeek.Friday,
+            DayOfWeek.Saturday => DaysOfWeek.Saturday,
+            _ => DaysOfWeek.Sunday
+        };
+        return (DaysOfWeek & flag) != 0;
+    }
+
+    /// <summary>True when the discount or surcharge applies to lines of <paramref name="side"/>.</summary>
+    public bool AppliesTo(RateSide side) => Side == DiscountOrSurchargeSide.Both
+        || (side == RateSide.Revenue && Side == DiscountOrSurchargeSide.Revenue)
+        || (side == RateSide.Cost && Side == DiscountOrSurchargeSide.Cost);
 
     /// <summary>True when a currency belongs on the values: fixed amounts and amounts per kilometre (assessment §5).</summary>
     public static bool NeedsCurrency(DiscountOrSurchargeValueKind kind) => kind != DiscountOrSurchargeValueKind.Percentage;

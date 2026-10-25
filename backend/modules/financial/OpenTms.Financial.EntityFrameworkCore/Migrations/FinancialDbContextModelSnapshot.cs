@@ -205,6 +205,163 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                     b.ToTable("InvoicingOutboundInvoiceTypes", "financial");
                 });
 
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationDiscountOrSurcharge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DiscountOrSurchargeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RelationFinancialSettingsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidTill")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscountOrSurchargeId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex(new[] { "RelationFinancialSettingsId", "DiscountOrSurchargeId" }, "IX_InvoicingRelationDiscountsOrSurcharges_Settings_Item")
+                        .IsUnique();
+
+                    b.ToTable("InvoicingRelationDiscountsOrSurcharges", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationFinancialSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ChargeFixedPriceByDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<int>("CostMultipleMatches")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<int?>("PaymentTermDays")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RevenueMultipleMatches")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SendFreightDocumentsWithInvoice")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("VatPercentageId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VatPercentageId");
+
+                    b.HasIndex("TenantId", "RelationId")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "RelationId"), false);
+
+                    b.ToTable("InvoicingRelationFinancialSettings", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationPriceList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RelationFinancialSettingsId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceListId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex(new[] { "RelationFinancialSettingsId", "Side", "PriceListId" }, "IX_InvoicingRelationPriceLists_Settings_Side_PriceList")
+                        .IsUnique();
+
+                    b.ToTable("InvoicingRelationPriceLists", "financial");
+                });
+
             modelBuilder.Entity("OpenTms.Financial.Invoicing.VatPercentage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -441,6 +598,15 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AppliesAfterOthers")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("BillableKilometrePercentage")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasDefaultValue(100m);
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -493,6 +659,11 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("IsDeleted");
 
+                    b.Property<int>("KilometreBasis")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("LastModificationTime");
@@ -509,6 +680,9 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("RoundTrip")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Side")
                         .HasColumnType("integer");
@@ -599,6 +773,420 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                     b.ToTable("TariffsDiscountOrSurchargeValues", "financial");
                 });
 
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Basis")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("ColumnQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2500)
+                        .HasColumnType("character varying(2500)");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<int>("Multiplier")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StopMatching")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal>("UnitConversionFactor")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidTill")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Code"), false);
+
+                    b.ToTable("TariffsPriceLists", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListBracket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PriceListRuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal?>("UpperBound")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex(new[] { "PriceListRuleId", "Position" }, "IX_TariffsPriceListBrackets_RuleId_Position")
+                        .IsUnique();
+
+                    b.ToTable("TariffsPriceListBrackets", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListCell", b =>
+                {
+                    b.Property<Guid>("PriceListBracketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ColumnPosition")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("PriceListBracketId", "ColumnPosition");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("TariffsPriceListCells", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListColumn", b =>
+                {
+                    b.Property<Guid>("PriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<decimal?>("UpperBound")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("PriceListId", "Position");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("TariffsPriceListColumns", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FromRegionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FromRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("MaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("MinAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RowQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("ToRegionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ToRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TransportUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VehicleTypeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex(new[] { "PriceListId", "Position" }, "IX_TariffsPriceListRules_PriceListId_Position");
+
+                    b.ToTable("TariffsPriceListRules", "financial");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.RateLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AdditionalServiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("AnchorOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AnchorTripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AppliesAfterOthers")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("CalculatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CalculationVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ColumnPosition")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("DescriptionKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("DiscountOrSurchargeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DiscountOrSurchargeValueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<bool>("IsAdjusted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<bool>("IsManual")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<Guid?>("LegId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("OverridesChildren")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PriceListBracketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PriceListRuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("QuantitySource")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StopId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("TripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("VatPercentageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("VatPercentageRateId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceListId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex(new[] { "TenantId", "AnchorOrderId" }, "IX_TariffsRateLines_TenantId_AnchorOrderId");
+
+                    b.HasIndex(new[] { "TenantId", "AnchorTripId" }, "IX_TariffsRateLines_TenantId_AnchorTripId");
+
+                    b.HasIndex(new[] { "TenantId", "LegId" }, "IX_TariffsRateLines_TenantId_LegId");
+
+                    b.ToTable("TariffsRateLines", "financial", t =>
+                        {
+                            t.HasCheckConstraint("CK_TariffsRateLines_OneAnchor", "(CASE WHEN \"OrderId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"OrderLineId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"LegId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"StopId\" IS NOT NULL THEN 1 ELSE 0 END) + (CASE WHEN \"TripId\" IS NOT NULL THEN 1 ELSE 0 END) = 1");
+                        });
+                });
+
             modelBuilder.Entity("OpenTms.Financial.Invoicing.OutboundInvoiceType", b =>
                 {
                     b.OwnsOne("OpenTms.Platform.NumberSequences.NumberSequenceFormat", "Numbering", b1 =>
@@ -638,6 +1226,44 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         });
 
                     b.Navigation("Numbering")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationDiscountOrSurcharge", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.DiscountOrSurcharge", null)
+                        .WithMany()
+                        .HasForeignKey("DiscountOrSurchargeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.Financial.Invoicing.RelationFinancialSettings", null)
+                        .WithMany("DiscountsOrSurcharges")
+                        .HasForeignKey("RelationFinancialSettingsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationFinancialSettings", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Invoicing.VatPercentage", null)
+                        .WithMany()
+                        .HasForeignKey("VatPercentageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationPriceList", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.PriceList", null)
+                        .WithMany()
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenTms.Financial.Invoicing.RelationFinancialSettings", null)
+                        .WithMany("PriceLists")
+                        .HasForeignKey("RelationFinancialSettingsId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -684,6 +1310,49 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListBracket", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.PriceListRule", null)
+                        .WithMany("Brackets")
+                        .HasForeignKey("PriceListRuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListCell", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.PriceListBracket", null)
+                        .WithMany("Cells")
+                        .HasForeignKey("PriceListBracketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListColumn", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.PriceList", null)
+                        .WithMany("Columns")
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListRule", b =>
+                {
+                    b.HasOne("OpenTms.Financial.Tariffs.PriceList", null)
+                        .WithMany()
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Invoicing.RelationFinancialSettings", b =>
+                {
+                    b.Navigation("DiscountsOrSurcharges");
+
+                    b.Navigation("PriceLists");
+                });
+
             modelBuilder.Entity("OpenTms.Financial.Invoicing.VatPercentage", b =>
                 {
                     b.Navigation("Rates");
@@ -694,6 +1363,21 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                     b.Navigation("Regions");
 
                     b.Navigation("Values");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceList", b =>
+                {
+                    b.Navigation("Columns");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListBracket", b =>
+                {
+                    b.Navigation("Cells");
+                });
+
+            modelBuilder.Entity("OpenTms.Financial.Tariffs.PriceListRule", b =>
+                {
+                    b.Navigation("Brackets");
                 });
 #pragma warning restore 612, 618
         }

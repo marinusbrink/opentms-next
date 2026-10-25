@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
   </ItemGroup>
 
@@ -17,6 +18,10 @@
     <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
     <ProjectReference Include="..\OpenTms.Financial.Domain\OpenTms.Financial.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Financial.Application.Contracts\OpenTms.Financial.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\planning-execution\OpenTms.PlanningExecution.Domain.Shared\OpenTms.PlanningExecution.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\planning-execution\OpenTms.PlanningExecution.Application.Contracts\OpenTms.PlanningExecution.Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
