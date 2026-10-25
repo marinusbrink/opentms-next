@@ -56,9 +56,11 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
 {
     private static readonly AbpUnitOfWorkOptions Transactional = new() { IsTransactional = true };
 
-    private static Guid TenantA => PostgreSqlTestDatabases.TenantAId;
+    /// <summary>The committing tests' tenant with its own database (rows commit; tenant A stays rolled-back only).</summary>
+    private static Guid TenantA => PostgreSqlTestDatabases.TransportTenantAId;
 
-    private static Guid TenantB => PostgreSqlTestDatabases.SharedTenantId;
+    /// <summary>The committing tests' shared-tier tenant in the host database.</summary>
+    private static Guid TenantB => PostgreSqlTestDatabases.TransportSharedTenantId;
 
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWorkManager _uow;
@@ -260,7 +262,7 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
         _events.Of<DerivedValuesRecalculatedEto>(TenantA).Select(e => e.TargetType).Distinct().ShouldBe(
             [OrdersConsts.OrderSummaryTargetType, OrderRateLineCalculator.TargetType, TripRateLineCalculator.TargetType, PlanningExecutionApplicationModule.LegTargetType, PlanningExecutionApplicationModule.TripTargetType], ignoreOrder: true);
         _events.All.ShouldAllBe(e => e.TenantId == TenantA, "every handler ran in the raising tenant's context");
-        (await OutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase)).ShouldBe(0);
+        (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
         (await OutboxRowsAsync(PostgreSqlTestDatabases.HostDatabase)).ShouldBe(0);
 
         /* The preview path (design 56, Assumption 3): Financial's pure preview over the stored order equals the stored lines. */
@@ -288,7 +290,7 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
             (await GetRequiredService<ILegReader>().GetByOrderAsync(orderId)).ShouldBeEmpty();
             (await GetRequiredService<IRateLineReader>().GetOrderTotalsAsync(orderId)).CalculationVersion.ShouldBeNull();
         }, transactional: false);
-        (await OutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase)).ShouldBe(0);
+        (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
         (await OutboxRowsAsync(PostgreSqlTestDatabases.HostDatabase)).ShouldBe(0);
 
         /* A CMR print (design 55's fake provider) stores one numbered document for the order's line, on its trip. */
@@ -365,7 +367,7 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
         (await InTenantAsync(TenantA, () => rateLines.GetAsync(new RateLineGetRequestDto { OrderId = orderId }), transactional: false)).Lines.ShouldHaveSingleItem();
         (await InTenantAsync(TenantA, () => Orders.GetAsync(orderId), transactional: false)).Status.ShouldBe(TransportOrderStatus.Cancelled);
         _events.Of<TransportOrderCancelledEto>(TenantA).ShouldContain(e => e.OrderId == orderId);
-        (await OutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase)).ShouldBe(0);
+        (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
 
         /* A second print draws the next number: the sequence is one per tenant (design 56 "Numbers"). */
         var other = await InTenantAsync(TenantA, () => Orders.CreateAsync(Run.CreateDto(s.World, confirm: true)));
@@ -378,7 +380,7 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
         var first = long.Parse(Regex.Match(document.Number, @"\d{6}$").Value);
         long.Parse(Regex.Match(again.Single().Number, @"\d{6}$").Value).ShouldBe(first + 1);
         await DriveAsync(TenantA);
-        (await OutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase)).ShouldBe(0);
+        (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
     }
 }
 

@@ -28,6 +28,9 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
 {
     private static readonly AbpUnitOfWorkOptions Transactional = new() { IsTransactional = true };
 
+    /// <summary>The rows of these tests commit: they live in the committing tests' own tenant, never in tenant A (whose counts other tests rely on).</summary>
+    private static new Guid TenantA => PostgreSqlTestDatabases.TransportTenantAId;
+
     private DerivedValueCalculationJob Job => GetRequiredService<DerivedValueCalculationJob>();
 
     private IDerivedValueStateStore States => GetRequiredService<IDerivedValueStateStore>();
@@ -172,7 +175,7 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
         trip.CalculatedAt.ShouldNotBeNull();
         World.MatrixCalls.ShouldContain(c => c.TenantId == TenantA && c.Points == 3);
 
-        (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, setup.TripId.ToString())).ShouldBeGreaterThan(0, "the recalculated fact sits in the tenant's outbox");
+        (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase, setup.TripId.ToString())).ShouldBeGreaterThan(0, "the recalculated fact sits in the tenant's outbox");
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.HostDatabase, setup.TripId.ToString())).ShouldBe(0);
         await DrainOutboxAsync();
     }

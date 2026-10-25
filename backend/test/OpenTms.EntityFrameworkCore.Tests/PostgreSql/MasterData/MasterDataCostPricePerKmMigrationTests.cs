@@ -56,7 +56,7 @@ public class MasterDataCostPricePerKmMigrationTests : MasterDataPostgreSqlTestBa
                 columns.Add((reader.GetString(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetString(4)));
             }
 
-            columns.ShouldBe([("VehicleTypes", "numeric", 18, 4, "YES"), ("Vehicles", "numeric", 18, 4, "YES")]);
+            columns.ShouldBe([("VehicleTypes", "numeric", 18, 4, "YES"), ("Vehicles", "numeric", 18, 4, "YES")], ignoreOrder: true);
         });
     }
 

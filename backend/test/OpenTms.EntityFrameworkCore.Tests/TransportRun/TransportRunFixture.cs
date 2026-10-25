@@ -266,7 +266,7 @@ public class TransportRunFixture : ITransientDependency
     /// <summary>The Netherlands: the seeded row (PostgreSQL) or a new one (SQLite).</summary>
     public async Task<Guid> CountryAsync()
     {
-        var existing = await _countryRepository.FirstOrDefaultAsync(c => c.IsoAlpha2 == "NL");
+        var existing = await _countryRepository.FindAsync(c => c.IsoAlpha2 == "NL");
         if (existing != null)
         {
             return existing.Id;
@@ -280,7 +280,7 @@ public class TransportRunFixture : ITransientDependency
 
     public async Task CurrencyAsync(string isoCode)
     {
-        if (await _currencyRepository.AnyAsync(c => c.IsoCode == isoCode))
+        if (await _currencyRepository.FindAsync(c => c.IsoCode == isoCode) != null)
         {
             return;
         }
@@ -311,7 +311,7 @@ public class TransportRunFixture : ITransientDependency
     /// <summary>The transport unit with this name: the existing row or a new one.</summary>
     public async Task<Guid> TransportUnitAsync(string name)
     {
-        var existing = await _unitRepository.FirstOrDefaultAsync(u => u.Name == name);
+        var existing = await _unitRepository.FindAsync(u => u.Name == name);
         return existing?.Id ?? (await _units.CreateAsync(new TransportUnitCreateDto { Name = name })).Id;
     }
 
@@ -337,7 +337,7 @@ public class TransportRunFixture : ITransientDependency
     /// <summary>The waypoint type with this code: the seeded row (PostgreSQL) or a new one (SQLite).</summary>
     public async Task<Guid> WaypointTypeAsync(string code, string en, string nl, WaypointActivity activity, int? durationMinutes = null, Guid? successorId = null)
     {
-        var existing = await _waypointTypeRepository.FirstOrDefaultAsync(w => w.Code == code);
+        var existing = await _waypointTypeRepository.FindAsync(w => w.Code == code);
         if (existing != null)
         {
             return existing.Id;
@@ -351,7 +351,7 @@ public class TransportRunFixture : ITransientDependency
 
     public async Task<Guid> TimeSlotAsync(string code = "MORNING")
     {
-        var existing = await _timeSlotRepository.FirstOrDefaultAsync(t => t.Code == code);
+        var existing = await _timeSlotRepository.FindAsync(t => t.Code == code);
         if (existing != null)
         {
             return existing.Id;
@@ -365,7 +365,7 @@ public class TransportRunFixture : ITransientDependency
     {
         if (required == TransportOrderRequiredFields.None)
         {
-            var standard = await _orderTypeRepository.FirstOrDefaultAsync(t => t.Code == "STD");
+            var standard = await _orderTypeRepository.FindAsync(t => t.Code == "STD");
             if (standard != null)
             {
                 return standard.Id;
@@ -386,7 +386,7 @@ public class TransportRunFixture : ITransientDependency
     /// <summary>The trip type STD: the seeded default (PostgreSQL) or a new one (SQLite).</summary>
     public async Task<Guid> TripTypeAsync(string code = "STD", TripExecution execution = TripExecution.OwnFleet)
     {
-        var existing = await _tripTypeRepository.FirstOrDefaultAsync(t => t.Code == code);
+        var existing = await _tripTypeRepository.FindAsync(t => t.Code == code);
         if (existing != null)
         {
             return existing.Id;

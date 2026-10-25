@@ -253,8 +253,9 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
         });
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, rolledBack.ToString())).ShouldBe(0);
 
+        /* The committed part runs in the committing tests' own tenant (own database), so tenant A keeps no rows. */
         Guid committed;
-        using (CurrentTenant.Change(TenantA))
+        using (CurrentTenant.Change(PostgreSqlTestDatabases.TransportTenantAId))
         using (var unitOfWork = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = true }, requiresNew: true))
         {
             var f = await FixtureAsync(uniqueNames: true);
@@ -264,7 +265,7 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
 
         try
         {
-            var rows = await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, committed.ToString());
+            var rows = await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase, committed.ToString());
             rows.ShouldBeGreaterThanOrEqualTo(3, "Confirmed, LinesChanged and StopsChanged (plus the derived-value request)");
             (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.HostDatabase, committed.ToString())).ShouldBe(0, "the tenant's own database, not the host's");
         }
@@ -273,14 +274,14 @@ public class TransportOrdersPostgreSqlTests : TransportOrdersPostgreSqlTestBase
             /* Drain the outbox through the real dispatcher (its unit of work per event is what the handlers of Planning and
              * Financial run in), until the facts the handlers raise in turn are gone too, so later tests find it empty. */
             var dispatcher = GetRequiredService<IOutboxDispatcher>();
-            while (await dispatcher.DispatchAsync(TenantA) > 0)
+            while (await dispatcher.DispatchAsync(PostgreSqlTestDatabases.TransportTenantAId) > 0)
             {
             }
 
-            (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, "")).ShouldBe(0, "every fact of the committed order was dispatched");
+            (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase, "")).ShouldBe(0, "every fact of the committed order was dispatched");
             GetRequiredService<OpenTms.TestDoubles.OrdersEventRecorder>().Of<OpenTms.Orders.Events.TransportOrderConfirmedEto>(committed).ShouldHaveSingleItem().ShouldNotBeNull();
 
-            using (CurrentTenant.Change(TenantA))
+            using (CurrentTenant.Change(PostgreSqlTestDatabases.TransportTenantAId))
             using (var cleanup = UnitOfWorkManager.Begin(new AbpUnitOfWorkOptions { IsTransactional = true }, requiresNew: true))
             {
                 /* Planning reacted to the dispatched facts: its legs of the order go with it. */

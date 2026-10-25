@@ -55,7 +55,8 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsTestBase<TransportRunPos
     private readonly IGuidGenerator _guids;
     private readonly IOutboxDispatcher _dispatcher;
 
-    private static Guid TenantA => PostgreSqlTestDatabases.TenantAId;
+    /// <summary>The rows commit: the committing tests' own tenant with its own database, never tenant A.</summary>
+    private static Guid TenantA => PostgreSqlTestDatabases.TransportTenantAId;
 
     private TransportRunFixture Run => GetRequiredService<TransportRunFixture>();
 
@@ -193,7 +194,7 @@ public class RateLineCalculatorPostgreSqlTests : OpenTmsTestBase<TransportRunPos
     private Task<DerivedValueState?> StateAsync(string targetType, Guid id)
         => InTenantAsync(TenantA, () => _states.FindAsync(targetType, id), transactional: false);
 
-    private static Task<long> OutboxRowsAsync(Guid id) => PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, id.ToString());
+    private static Task<long> OutboxRowsAsync(Guid id) => PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase, id.ToString());
 
     private async Task DrainOutboxAsync()
     {
