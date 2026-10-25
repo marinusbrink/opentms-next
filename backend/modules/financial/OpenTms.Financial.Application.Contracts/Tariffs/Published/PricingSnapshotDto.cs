@@ -33,6 +33,9 @@ public class PricingSnapshotDto
     public decimal? FixedPriceAmount { get; set; }
 
     public List<PricingLineDto> Lines { get; set; } = new();
+
+    /// <summary>The order's status as an integer of <c>TransportOrderStatus</c> (Orders' enum), so Planning can refuse work on cancelled orders without referencing Orders here.</summary>
+    public int Status { get; set; }
 }
 
 public class PricingLineDto
@@ -70,6 +73,10 @@ public class PricingLineDto
 
     public int? DurationS { get; set; }
 
+    public Guid? TemperatureId { get; set; }
+
+    public List<Guid> RequiredTransportCharacteristicIds { get; set; } = new();
+
     /// <summary>The stops of the line in position order; the first and the last define the lane.</summary>
     public List<PricingStopDto> Stops { get; set; } = new();
 }
@@ -92,4 +99,32 @@ public class PricingStopDto
     public List<Guid> GeographicalRegionIds { get; set; } = new();
 
     public DateOnly Date { get; set; }
+
+    /* The facts Planning's leg generator needs beyond pricing (design 59): the activity, the window, the planned stay. */
+
+    public Guid WaypointTypeId { get; set; }
+
+    public Guid? ContactPersonId { get; set; }
+
+    public Guid? TimeSlotId { get; set; }
+
+    public DateTimeOffset? WindowFrom { get; set; }
+
+    public DateTimeOffset? WindowTill { get; set; }
+
+    public string? Reference { get; set; }
+
+    public string? Remarks { get; set; }
+
+    public int? PlannedDurationMin { get; set; }
+
+    public double? Latitude { get; set; }
+
+    public double? Longitude { get; set; }
+
+    public string? TimeZoneId { get; set; }
+
+    public string? AddressName { get; set; }
+
+    public string? City { get; set; }
 }

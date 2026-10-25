@@ -14,7 +14,46 @@ public interface ITransportOrderLookup
 {
     Task<IReadOnlyList<TransportOrderReferenceDto>> GetAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default);
 
+    /// <summary>The order's "Tevens trip" request (design 58, PO decision Q9), or null when it has none; read by Planning on <c>TransportOrderConfirmed</c>.</summary>
+    Task<TripRequestDto?> GetTripRequestAsync(Guid orderId, CancellationToken cancellationToken = default);
+
     const int MaxKeys = 500;
+}
+
+public class TripRequestDto
+{
+    public Guid OrderId { get; set; }
+
+    public Guid TransportTripTypeId { get; set; }
+
+    public Guid DepartureRelationId { get; set; }
+
+    public Guid DepartureAddressId { get; set; }
+
+    public Guid ArrivalRelationId { get; set; }
+
+    public Guid ArrivalAddressId { get; set; }
+
+    public DateTimeOffset PlannedDeparture { get; set; }
+
+    public DateTimeOffset? PlannedArrival { get; set; }
+
+    public Guid? CarrierRelationId { get; set; }
+
+    public Guid? CarrierContactPersonId { get; set; }
+
+    public Guid? VehicleCombinationId { get; set; }
+
+    public List<Guid> VehicleIds { get; set; } = new();
+
+    public List<Guid> DriverIds { get; set; } = new();
+
+    public decimal? AgreedPurchaseAmount { get; set; }
+
+    public string? AgreedPurchaseCurrencyCode { get; set; }
+
+    /// <summary>Set by Orders once Planning reported the created trip.</summary>
+    public Guid? TripId { get; set; }
 }
 
 public class TransportOrderReferenceDto
