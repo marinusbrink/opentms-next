@@ -28,6 +28,14 @@ public class FinancialEntityFrameworkCoreModule : AbpModule
                 .AsSplitQuery()
                 .Include(d => d.Values)
                 .Include(d => d.Regions));
+
+            /* Design 57. The rules carry their ladder (brackets x cells); the list carries only its columns. */
+            options.Entity<PriceList>(e => e.DefaultWithDetailsFunc = q => q.Include(p => p.Columns));
+            options.Entity<PriceListRule>(e => e.DefaultWithDetailsFunc = q => q.Include(r => r.Brackets).ThenInclude(b => b.Cells));
+            options.Entity<RelationFinancialSettings>(e => e.DefaultWithDetailsFunc = q => q
+                .AsSplitQuery()
+                .Include(s => s.PriceLists)
+                .Include(s => s.DiscountsOrSurcharges));
         });
 
         Configure<AbpDbContextOptions>(options =>

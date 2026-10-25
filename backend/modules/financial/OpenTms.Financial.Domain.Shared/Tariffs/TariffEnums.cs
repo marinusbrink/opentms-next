@@ -35,6 +35,13 @@ public enum DiscountOrSurchargeSide
     Both = 3
 }
 
+/// <summary>Which kilometres a per-kilometre discount or surcharge counts (design 57, scenarios 46–51): the route's or only the tolled ones.</summary>
+public enum KilometreBasis
+{
+    Distance = 1,
+    TollDistance = 2
+}
+
 /// <summary>Where the address must lie in a region of a discount or surcharge (design 52, Assumption 4).</summary>
 public enum RegionAppliesAt
 {

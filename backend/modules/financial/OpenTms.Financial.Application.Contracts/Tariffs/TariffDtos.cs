@@ -137,6 +137,10 @@ public class DiscountOrSurchargeDto : ReferenceDataDetailDtoBase
     public Guid? VatPercentageId { get; set; }
     public string? VatPercentageName { get; set; }
     public string? LedgerAccount { get; set; }
+    public bool AppliesAfterOthers { get; set; }
+    public KilometreBasis KilometreBasis { get; set; } = KilometreBasis.Distance;
+    public decimal BillableKilometrePercentage { get; set; } = 100m;
+    public bool RoundTrip { get; set; }
     /// <summary>Ordered by date.</summary>
     public List<DiscountOrSurchargeValueDto> Values { get; set; } = new();
     public List<DiscountOrSurchargeRegionDto> Regions { get; set; } = new();
@@ -167,6 +171,19 @@ public class DiscountOrSurchargeCreateDto
 
     [MaxLength(ReferenceDataConsts.MaxLedgerAccountLength)]
     public string? LedgerAccount { get; set; }
+
+    /* Design 57: the second pass and the per-kilometre modifiers (scenarios 41, 47–51). */
+
+    /// <summary>A percentage of the second pass applies over the lines plus the first pass.</summary>
+    public bool AppliesAfterOthers { get; set; }
+
+    /// <summary>For a per-kilometre value: the route's kilometres or only the tolled ones.</summary>
+    public KilometreBasis KilometreBasis { get; set; } = KilometreBasis.Distance;
+
+    /// <summary>0–100, two decimals: the billable share of the kilometres.</summary>
+    public decimal BillableKilometrePercentage { get; set; } = 100m;
+
+    public bool RoundTrip { get; set; }
 
     /// <summary>At least one, at most 200, one per date.</summary>
     [Required]

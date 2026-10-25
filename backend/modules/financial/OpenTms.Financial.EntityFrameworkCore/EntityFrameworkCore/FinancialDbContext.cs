@@ -25,6 +25,19 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
     public DbSet<DiscountOrSurchargeValue> DiscountOrSurchargeValues { get; set; } = default!;
     public DbSet<DiscountOrSurchargeRegion> DiscountOrSurchargeRegions { get; set; } = default!;
 
+    /* Tariffs (design 57): price lists, rate lines. */
+    public DbSet<PriceList> PriceLists { get; set; } = default!;
+    public DbSet<PriceListColumn> PriceListColumns { get; set; } = default!;
+    public DbSet<PriceListRule> PriceListRules { get; set; } = default!;
+    public DbSet<PriceListBracket> PriceListBrackets { get; set; } = default!;
+    public DbSet<PriceListCell> PriceListCells { get; set; } = default!;
+    public DbSet<RateLine> RateLines { get; set; } = default!;
+
+    /* Invoicing (design 57): relation financial settings. */
+    public DbSet<RelationFinancialSettings> RelationFinancialSettings { get; set; } = default!;
+    public DbSet<RelationPriceList> RelationPriceLists { get; set; } = default!;
+    public DbSet<RelationDiscountOrSurcharge> RelationDiscountsOrSurcharges { get; set; } = default!;
+
     public FinancialDbContext(DbContextOptions<FinancialDbContext> options)
         : base(options)
     {
@@ -47,6 +60,9 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
 
         ConfigureInvoicing(builder);
         ConfigureTariffs(builder);
+        ConfigurePriceLists(builder);
+        ConfigureRateLines(builder);
+        ConfigureRelationFinancialSettings(builder);
     }
 
     private static void ConfigureInvoicing(ModelBuilder builder)
@@ -130,6 +146,9 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
             b.Property(d => d.Name).HasMaxLength(ReferenceDataConsts.MaxNameLength).IsRequired();
             b.Property(d => d.Description).HasMaxLength(ReferenceDataConsts.MaxDescriptionLength);
             b.Property(d => d.LedgerAccount).HasMaxLength(ReferenceDataConsts.MaxLedgerAccountLength);
+            /* Design 57: the second pass and the per-kilometre modifiers. */
+            b.Property(d => d.BillableKilometrePercentage).HasPrecision(FinancialConsts.VatPercentagePrecision, FinancialConsts.VatPercentageScale).HasDefaultValue(100m);
+            b.Property(d => d.KilometreBasis).HasDefaultValue(KilometreBasis.Distance);
             b.HasOne<VatPercentage>().WithMany().HasForeignKey(d => d.VatPercentageId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(d => d.Values).WithOne().HasForeignKey(v => v.DiscountOrSurchargeId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(d => d.Regions).WithOne().HasForeignKey(r => r.DiscountOrSurchargeId).OnDelete(DeleteBehavior.Cascade);
@@ -155,6 +174,130 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
             b.HasIndex(r => r.TenantId);
             /* Each region once per discount or surcharge; GeographicalRegionId is a Master Data id (no cross-schema FK). */
             b.HasIndex(r => new { r.DiscountOrSurchargeId, r.GeographicalRegionId }, "IX_TariffsDiscountOrSurchargeRegions_Parent_Region").IsUnique();
+        });
+    }
+
+    /* Design 57: a list with its columns; the rules as their own rows (10,000 per list) with brackets and cells beneath. */
+    private static void ConfigurePriceLists(ModelBuilder builder)
+    {
+        builder.Entity<PriceList>(b =>
+        {
+            b.ToTable(Tariffs + "PriceLists", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(p => p.Code).HasMaxLength(ReferenceDataConsts.MaxCodeLength).IsRequired();
+            b.Property(p => p.Name).HasMaxLength(ReferenceDataConsts.MaxNameLength).IsRequired();
+            b.Property(p => p.Description).HasMaxLength(ReferenceDataConsts.MaxDescriptionLength);
+            b.Property(p => p.CurrencyCode).HasMaxLength(ReferenceDataConsts.IsoCurrencyCodeLength).IsRequired();
+            b.Property(p => p.UnitConversionFactor).HasPrecision(FinancialConsts.FactorPrecision, FinancialConsts.FactorScale);
+            b.Ignore(p => p.ColumnCount);
+            b.HasMany(p => p.Columns).WithOne().HasForeignKey(c => c.PriceListId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(p => p.TenantId);
+            b.HasIndex(p => new { p.TenantId, p.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+        });
+
+        builder.Entity<PriceListColumn>(b =>
+        {
+            b.ToTable(Tariffs + "PriceListColumns", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(c => new { c.PriceListId, c.Position });
+            b.Property(c => c.UpperBound).HasPrecision(FinancialConsts.ValuePrecision, FinancialConsts.ValueScale);
+            b.HasIndex(c => c.TenantId);
+        });
+
+        builder.Entity<PriceListRule>(b =>
+        {
+            b.ToTable(Tariffs + "PriceListRules", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(r => r.MinAmount).HasPrecision(FinancialConsts.AmountPrecision, FinancialConsts.AmountScale);
+            b.Property(r => r.MaxAmount).HasPrecision(FinancialConsts.AmountPrecision, FinancialConsts.AmountScale);
+            b.Ignore(r => r.Tier);
+            b.Ignore(r => r.HasFromSide);
+            b.Ignore(r => r.HasToSide);
+            b.Ignore(r => r.OpenBracket);
+            b.HasOne<PriceList>().WithMany().HasForeignKey(r => r.PriceListId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(r => r.Brackets).WithOne().HasForeignKey(k => k.PriceListRuleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(r => r.TenantId);
+            /* The rule page and the resolver read a list's rules in position order. */
+            b.HasIndex(r => new { r.PriceListId, r.Position }, "IX_TariffsPriceListRules_PriceListId_Position");
+        });
+
+        builder.Entity<PriceListBracket>(b =>
+        {
+            b.ToTable(Tariffs + "PriceListBrackets", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(k => k.UpperBound).HasPrecision(FinancialConsts.ValuePrecision, FinancialConsts.ValueScale);
+            b.HasMany(k => k.Cells).WithOne().HasForeignKey(c => c.PriceListBracketId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(k => k.TenantId);
+            b.HasIndex(k => new { k.PriceListRuleId, k.Position }, "IX_TariffsPriceListBrackets_RuleId_Position").IsUnique();
+        });
+
+        builder.Entity<PriceListCell>(b =>
+        {
+            b.ToTable(Tariffs + "PriceListCells", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(c => new { c.PriceListBracketId, c.ColumnPosition });
+            b.Property(c => c.UnitPrice).HasPrecision(FinancialConsts.ValuePrecision, FinancialConsts.ValueScale);
+            b.HasIndex(c => c.TenantId);
+        });
+    }
+
+    /* Design 57, AD-08, AP-07: one table for both sides, exactly one anchor (check constraint), ids without cross-module keys. */
+    private static void ConfigureRateLines(ModelBuilder builder)
+    {
+        builder.Entity<RateLine>(b =>
+        {
+            b.ToTable(Tariffs + "RateLines", FinancialDbProperties.DbSchema, t => t.HasCheckConstraint(
+                "CK_TariffsRateLines_OneAnchor",
+                "((\"OrderId\" IS NOT NULL)::int + (\"OrderLineId\" IS NOT NULL)::int + (\"LegId\" IS NOT NULL)::int + (\"StopId\" IS NOT NULL)::int + (\"TripId\" IS NOT NULL)::int) = 1"));
+            b.ConfigureByConvention();
+            b.Property(l => l.DescriptionKey).HasMaxLength(FinancialConsts.MaxDescriptionKeyLength);
+            b.Property(l => l.Description).HasMaxLength(FinancialConsts.MaxRateLineDescriptionLength);
+            b.Property(l => l.Quantity).HasPrecision(FinancialConsts.ValuePrecision, FinancialConsts.ValueScale);
+            b.Property(l => l.UnitPrice).HasPrecision(FinancialConsts.ValuePrecision, FinancialConsts.ValueScale);
+            b.Property(l => l.Amount).HasPrecision(FinancialConsts.AmountPrecision, FinancialConsts.AmountScale);
+            b.Property(l => l.CurrencyCode).HasMaxLength(ReferenceDataConsts.IsoCurrencyCodeLength).IsRequired();
+            b.Ignore(l => l.Anchor);
+            b.HasIndex(l => l.TenantId);
+            b.HasIndex(l => new { l.TenantId, l.AnchorOrderId }, "IX_TariffsRateLines_TenantId_AnchorOrderId");
+            b.HasIndex(l => new { l.TenantId, l.AnchorTripId }, "IX_TariffsRateLines_TenantId_AnchorTripId");
+            b.HasIndex(l => new { l.TenantId, l.LegId }, "IX_TariffsRateLines_TenantId_LegId");
+            /* The in-use check of a price list delete. */
+            b.HasIndex(l => l.PriceListId);
+        });
+    }
+
+    /* Design 57: the financial defaults of a relation, keyed by the Master Data relation id. */
+    private static void ConfigureRelationFinancialSettings(ModelBuilder builder)
+    {
+        builder.Entity<RelationFinancialSettings>(b =>
+        {
+            b.ToTable(Invoicing + "RelationFinancialSettings", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(s => s.CurrencyCode).HasMaxLength(ReferenceDataConsts.IsoCurrencyCodeLength);
+            b.HasOne<VatPercentage>().WithMany().HasForeignKey(s => s.VatPercentageId).OnDelete(DeleteBehavior.Restrict);
+            b.HasMany(s => s.PriceLists).WithOne().HasForeignKey(p => p.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);
+            b.HasMany(s => s.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(s => s.TenantId);
+            b.HasIndex(s => new { s.TenantId, s.RelationId }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+        });
+
+        builder.Entity<RelationPriceList>(b =>
+        {
+            b.ToTable(Invoicing + "RelationPriceLists", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            /* Restrict: a list in use by a relation is refused by the service first (PriceListInUse); the FK index serves that check. */
+            b.HasOne<PriceList>().WithMany().HasForeignKey(p => p.PriceListId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(p => p.TenantId);
+            b.HasIndex(p => new { p.RelationFinancialSettingsId, p.Side, p.PriceListId }, "IX_InvoicingRelationPriceLists_Settings_Side_PriceList").IsUnique();
+        });
+
+        builder.Entity<RelationDiscountOrSurcharge>(b =>
+        {
+            b.ToTable(Invoicing + "RelationDiscountsOrSurcharges", FinancialDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.HasOne<DiscountOrSurcharge>().WithMany().HasForeignKey(d => d.DiscountOrSurchargeId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(d => d.TenantId);
+            b.HasIndex(d => new { d.RelationFinancialSettingsId, d.DiscountOrSurchargeId }, "IX_InvoicingRelationDiscountsOrSurcharges_Settings_Item").IsUnique();
         });
     }
 }

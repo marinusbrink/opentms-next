@@ -145,6 +145,10 @@ public class DiscountOrSurchargeAppService
             VatPercentageId = d.VatPercentageId,
             VatPercentageName = d.VatPercentageId != null && vatNames.TryGetValue(d.VatPercentageId.Value, out var vatName) ? vatName : null,
             LedgerAccount = d.LedgerAccount,
+            AppliesAfterOthers = d.AppliesAfterOthers,
+            KilometreBasis = d.KilometreBasis,
+            BillableKilometrePercentage = d.BillableKilometrePercentage,
+            RoundTrip = d.RoundTrip,
             Values = d.Values.OrderBy(v => v.ValidFrom)
                 .Select(v => new DiscountOrSurchargeValueDto { ValidFrom = v.ValidFrom, Value = v.Value, CurrencyCode = v.CurrencyCode, IsFixed = v.ValidFrom <= today })
                 .ToList(),
@@ -203,6 +207,8 @@ public class DiscountOrSurchargeAppService
         }
 
         item.SetLedgerAccount(input.LedgerAccount);
+        item.AppliesAfterOthers = input.AppliesAfterOthers;
+        item.SetKilometreRule(input.KilometreBasis, input.BillableKilometrePercentage, input.RoundTrip);
         item.SetDescription(input.Description);
 
         var values = (input.Values ?? []).Select(v => (v.ValidFrom, v.Value, CurrencyCode: string.IsNullOrWhiteSpace(v.CurrencyCode) ? null : v.CurrencyCode.Trim().ToUpperInvariant())).ToList();
