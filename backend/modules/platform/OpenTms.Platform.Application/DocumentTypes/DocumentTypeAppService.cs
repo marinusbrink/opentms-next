@@ -12,7 +12,7 @@ using Volo.Abp.Features;
 
 namespace OpenTms.Platform.DocumentTypes;
 
-/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 49). */
+/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 54). */
 [RequiresFeature(AppFeatures.MasterData.Default)]
 public class DocumentTypeAppService
     : PlatformCrudAppServiceBase<DocumentType, DocumentTypeRowDto, DocumentTypeDto, DocumentTypeCreateDto, DocumentTypeUpdateDto, DocumentTypeListRequestDto>,

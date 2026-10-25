@@ -39,7 +39,7 @@ public class PlatformApplicationModule : AbpModule
             options.ProviderPolicies[EditionConsts.FeatureProviderName] = PlatformPermissions.Editions.ManageFeatures;
         });
 
-        /* Design 50: the interactive command budget of the report definition service ("Platform:DocumentRendering"). */
+        /* Design 55: the interactive command budget of the report definition service ("Platform:DocumentRendering"). */
         context.Services.Configure<DocumentRenderingOptions>(context.Services.GetConfiguration().GetSection(DocumentRenderingOptions.SectionName));
     }
 }

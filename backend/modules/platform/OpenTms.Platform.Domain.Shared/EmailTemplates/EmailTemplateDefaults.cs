@@ -9,7 +9,7 @@ using System.Reflection;
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// The default content of a new e-mail template per purpose and language (design 49, "Tags and default content": the
+/// The default content of a new e-mail template per purpose and language (design 54, "Tags and default content": the
 /// OpenTMS seed texts converted to Scriban). The texts are data, not code: the HTML bodies are the embedded resources
 /// <c>EmailTemplates/Defaults/&lt;Purpose&gt;.&lt;culture&gt;.html</c> of this assembly, the subjects the localization
 /// texts <c>Platform:DefaultSubject.&lt;Purpose&gt;</c>. Only catalogued tags are used

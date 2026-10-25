@@ -26,7 +26,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The Report definitions list (design 49, UI design): Name, Purpose, Language, Provider, Default; Archived hidden.
+/* The Report definitions list (design 54, UI design): Name, Purpose, Language, Provider, Default; Archived hidden.
  * Purpose (the API contract's `purpose`, as the Kind filter on the vehicles list) and Show archived are the filters;
  * Archive / Unarchive are confirmed row actions, as the archivable Master Data lists. */
 

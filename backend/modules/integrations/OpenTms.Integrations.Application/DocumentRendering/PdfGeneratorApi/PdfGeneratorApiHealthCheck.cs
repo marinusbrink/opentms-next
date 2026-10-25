@@ -9,7 +9,7 @@ using Volo.Abp;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The connection test of pdfgeneratorapi.com (design 50): <c>GET templates?per_page=1</c> in the default workspace,
+/// The connection test of pdfgeneratorapi.com (design 55): <c>GET templates?per_page=1</c> in the default workspace,
 /// one interactive attempt (an operator waits on it). Tagged <see cref="Tag"/>: not part of <c>/health/ready</c> or <c>/health-status</c>; it runs on demand
 /// in the host's Maintenance → Health tab. Without key and secret it reports Degraded ("not configured"), not Unhealthy.
 /// </summary>

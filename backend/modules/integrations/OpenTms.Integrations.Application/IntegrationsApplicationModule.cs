@@ -36,7 +36,7 @@ public class IntegrationsApplicationModule : AbpModule
         ConfigurePdfGeneratorApi(context);
     }
 
-    /* Design 50: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from
+    /* Design 55: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from
      * the deployment's secret store into "Integrations:PdfGeneratorApi"; the typed client carries the base URL and the
      * 30-second timeout, the ceiling of one attempt (the client times each call per request: 15 s interactive, 30 s
      * background). The health check is tagged "external": the host keeps it out of its probes. */

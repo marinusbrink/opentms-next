@@ -101,7 +101,7 @@ public class ReportDefinitionBulkDeleteRequestDto : PlatformMasterDataBulkDelete
 }
 
 /// <summary>
-/// What the report definition editor needs to enable its template commands (design 50): whether the deployment holds
+/// What the report definition editor needs to enable its template commands (design 55): whether the deployment holds
 /// the provider's configuration, whether the feature is on, and the template as the provider knows it. The template is
 /// only looked up when both are true.
 /// </summary>
@@ -151,7 +151,7 @@ public interface IReportDefinitionAppService : IApplicationService
     Task ArchiveAsync(Guid id);
     Task UnarchiveAsync(Guid id);
 
-    /// <summary>GET /api/platform/report-definition/{id}/rendering-status (design 50).</summary>
+    /// <summary>GET /api/platform/report-definition/{id}/rendering-status (design 55).</summary>
     Task<ReportRenderingStatusDto> GetRenderingStatusAsync(Guid id);
 
     /// <summary>POST /api/platform/report-definition/{id}/template-editor: refuses a template the workspace does not own.</summary>

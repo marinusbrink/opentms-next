@@ -3,10 +3,9 @@
 De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en facturen naar
 verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
 app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
-eerst een groep per domein, daaronder de groepen met de lijsten. Nu zijn er twee domeingroepen:
-**Algemeen** (de stamgegevens van het domein Stamgegevens zelf) en **Platform** (sjablonen,
-documentsoorten en nummerreeksen, zie [Platform](#platform)); de groepen van andere domeinen, zoals
-Orders of Financieel, verschijnen zodra hun eerste lijst er is.
+eerst een groep per domein, daaronder de groepen met de lijsten. De domeingroepen zijn **Algemeen** (de
+stamgegevens van het domein Stamgegevens zelf), **Orders**, **Planning & Uitvoering**, **Financieel** en
+**Platform** (e-mailsjablonen, rapportdefinities en documentsoorten, zie [Platform](#platform)).
 
 Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 
@@ -152,9 +151,10 @@ Met het landfilter boven de lijst ziet u alleen regio's met een bereik in dat la
 
 ## Platform
 
-De domeingroep **Platform** bevat vier lijsten die het systeem zelf gebruikt bij het versturen van
-e-mail, het maken van documenten, het archiveren van bestanden en het nummeren van orders, ritten,
-facturen en inkooporders. Elke lijst is een eigen functie en staat standaard uit.
+De domeingroep **Platform** bevat drie lijsten die het systeem zelf gebruikt bij het versturen van
+e-mail, het maken van documenten en het archiveren van bestanden. Elke lijst is een eigen functie en staat
+standaard uit. (De nummering van orders, ritten en facturen staat op de soort zelf: zie de ordersoorten,
+ritsoorten en factuursoorten.)
 
 ### E-mailsjablonen
 
@@ -253,19 +253,3 @@ document); deze mag u aanpassen.
   expressie.
 - Een **gearchiveerde** documentsoort verschijnt niet meer in keuzelijsten; met *Toon gearchiveerd*
   blijft hij in de lijst zichtbaar en kunt u hem weer activeren.
-
-### Nummerreeksen
-
-Een nummerreeks bepaalt hoe nummers van orders, ritten, facturen en inkooporders worden opgebouwd.
-Ordersoorten, ritsoorten, factuursoorten en inkoopordersoorten kiezen straks elk een nummerreeks;
-zolang die soorten er nog niet zijn, legt u hier alleen de reeksen vast.
-
-- **Schema** kiest de opbouw: viercijferig of tweecijferig jaar, jaar en maand, of alleen een
-  volgnummer. Bij een jaar begint de teller elk jaar opnieuw bij 1, bij jaar en maand elke maand.
-- **Voorvoegsel**, **voor/na jaar** en **voor/na maand** zijn vaste teksten in het nummer.
-  **Minimum aantal cijfers** vult het volgnummer aan met nullen.
-- Het scherm toont meteen hoe het volgende nummer eruitziet, bijvoorbeeld `O-26-0001`.
-- Zodra er een nummer uit de reeks is uitgegeven, liggen de opbouwvelden vast en kan de reeks niet
-  meer worden verwijderd (**Verwijderen** is dan uitgeschakeld); naam en omschrijving kunt u nog wijzigen. Zo ontstaan nooit dubbele
-  nummers.
-- Elk nummer wordt maar één keer uitgegeven, ook als twee gebruikers tegelijk een order aanmaken.

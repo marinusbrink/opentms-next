@@ -4,9 +4,9 @@ using System.Net;
 namespace OpenTms.Platform;
 
 /// <summary>
-/// Business error codes of the Platform master-data lists (docs/designs/49-platform-master-data.md, API contract). The
+/// Business error codes of the Platform master-data lists (docs/designs/54-platform-master-data.md, API contract). The
 /// namespace prefix maps to the Platform localization resource (PlatformDomainSharedModule); OpenTms.HttpApi maps the
-/// conflict codes to HTTP 409 and the request-shape codes to HTTP 400. The document-rendering codes (design 50) carry
+/// conflict codes to HTTP 409 and the request-shape codes to HTTP 400. The document-rendering codes (design 55) carry
 /// their own status in <see cref="DocumentRenderingCodes"/>.
 /// </summary>
 public static class PlatformErrorCodes
@@ -20,13 +20,12 @@ public static class PlatformErrorCodes
     public const string InvalidRegex = Namespace + ":InvalidRegex";
     public const string TransformationArgumentRequired = Namespace + ":TransformationArgumentRequired";
     public const string DuplicateTransformation = Namespace + ":DuplicateTransformation";
-    public const string NumberSequenceInUse = Namespace + ":NumberSequenceInUse";
     public const string UnknownSortColumn = Namespace + ":UnknownSortColumn";
     public const string TooManyRows = Namespace + ":TooManyRows";
     public const string NameRequired = Namespace + ":NameRequired";
     public const string FileNamePatternUnknownField = Namespace + ":FileNamePatternUnknownField";
 
-    /* Document rendering (docs/designs/50-report-rendering.md). */
+    /* Document rendering (docs/designs/55-report-rendering.md). */
     public const string RenderingNotConfigured = Namespace + ":RenderingNotConfigured";
     public const string RenderingProviderUnavailable = Namespace + ":RenderingProviderUnavailable";
     public const string TemplateNotOwned = Namespace + ":TemplateNotOwned";
@@ -37,7 +36,7 @@ public static class PlatformErrorCodes
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
-        DuplicateKey, InUse, NumberSequenceInUse
+        DuplicateKey, InUse
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>

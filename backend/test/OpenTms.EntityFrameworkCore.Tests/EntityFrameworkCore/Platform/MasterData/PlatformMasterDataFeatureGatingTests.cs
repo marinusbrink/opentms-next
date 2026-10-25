@@ -12,7 +12,6 @@ using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.EmailTemplates;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Localization;
-using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
 using Volo.Abp.Authorization;
@@ -27,11 +26,11 @@ namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
 /// The feature chain of the Platform master data through the production interceptor and feature checker
-/// (docs/designs/49-platform-master-data.md, "Feature flags and permissions": each list's endpoints require app →
-/// Apps.MasterData.Platform → its leaf; GetLookupAsync needs only Apps.MasterData; INumberGenerator is not gated). Every
+/// (docs/designs/54-platform-master-data.md, "Feature flags and permissions": each list's endpoints require app →
+/// Apps.MasterData.Platform → its leaf; GetLookupAsync needs only Apps.MasterData). Every
 /// interface method is invoked by reflection, so a method added later without the chain fails here. Also the definition
 /// of the Platform group (parent, default, children) and its display names in both languages, and a stored tenant value
-/// that applies to that tenant only. The report definitions' three template commands (design 50) need
+/// that applies to that tenant only. The report definitions' three template commands (design 55) need
 /// Platform.DocumentRendering on top of the chain, a feature outside the app tree that defaults off: these theories switch
 /// it on, so "everything on" means everything, and pin that it alone refuses the three commands but not the status. Risk class: High in the design ("Permissions and feature chain on every method");
 /// Critical in the department matrix (feature gating is authorization, feature values are per tenant).
@@ -44,12 +43,11 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
         (typeof(IEmailTemplateAppService), AppFeatures.MasterData.Platform.EmailTemplates),
         (typeof(IReportDefinitionAppService), AppFeatures.MasterData.Platform.ReportDefinitions),
         (typeof(IDocumentTypeAppService), AppFeatures.MasterData.Platform.DocumentTypes),
-        (typeof(INumberSequenceAppService), AppFeatures.MasterData.Platform.NumberSequences),
     ];
 
     private static bool IsPicker(MethodInfo method) => method.Name == "GetLookupAsync";
 
-    /// <summary>The template commands of design 50: the screen's chain plus Platform.DocumentRendering.</summary>
+    /// <summary>The template commands of design 55: the screen's chain plus Platform.DocumentRendering.</summary>
     private static readonly string[] RenderingCommands = ["OpenTemplateEditorAsync", "CopyTemplateAsync", "TestRenderAsync"];
 
     /// <summary>
@@ -201,7 +199,7 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
     [InlineData("GetRenderingStatusAsync", false)]
     public async Task With_the_chain_on_Platform_DocumentRendering_off_refuses_the_three_template_commands_but_not_the_status(string methodName, bool refused)
     {
-        /* Design 50: "the three commands also require Platform.DocumentRendering. The status needs only the screen's chain
+        /* Design 55: "the three commands also require Platform.DocumentRendering. The status needs only the screen's chain
          * so it can report 'feature off' as a reason". Default value, no override: off. */
         RenderingCommands.Contains(methodName).ShouldBe(refused);
         var (service, _, method) = Find(nameof(IReportDefinitionAppService), methodName);
@@ -217,25 +215,10 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
         }
     }
 
-    [Fact]
-    public async Task The_number_generator_is_not_behind_any_feature()
-    {
-        /* With the whole app off the generator still reaches its own transaction check: no feature gate stops it. On
-         * PostgreSQL (NumberGeneratorPostgreSqlTests) it draws a number in that state. */
-        using var _ = InTenantA();
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Default, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Platform.Default, "false"))
-        using (TestFeatureValueProvider.Override(AppFeatures.MasterData.Platform.NumberSequences, "false"))
-        {
-            await Should.ThrowAsync<NumberGenerationRequiresTransactionException>(() =>
-                GetRequiredService<INumberGenerator>().GetNextAsync(Guid.NewGuid(), new DateOnly(2026, 10, 17)));
-        }
-    }
-
     // ── Definition, defaults, display names ──────────────────────────────────
 
     [Fact]
-    public async Task The_Platform_group_sits_under_the_app_on_by_default_with_its_four_lists_off()
+    public async Task The_Platform_group_sits_under_the_app_on_by_default_with_its_three_lists_off()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var platform = await manager.GetAsync(AppFeatures.MasterData.Platform.Default);
@@ -245,7 +228,7 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
         platform.Children.Select(c => c.Name).ShouldBe(
         [
             AppFeatures.MasterData.Platform.EmailTemplates, AppFeatures.MasterData.Platform.ReportDefinitions,
-            AppFeatures.MasterData.Platform.DocumentTypes, AppFeatures.MasterData.Platform.NumberSequences,
+            AppFeatures.MasterData.Platform.DocumentTypes,
         ], ignoreOrder: true);
         platform.Children.ShouldAllBe(list => list.DefaultValue == "false" && list.Children.Count == 0 && list.ValueType is ToggleStringValueType);
     }
@@ -273,19 +256,19 @@ public class PlatformMasterDataFeatureGatingTests : PlatformMasterDataAppService
         await WithUnitOfWorkAsync(() => GetRequiredService<IFeatureManagementStore>()
             .SetAsync(AppFeatures.MasterData.Platform.Default, "false", TenantFeatureValueProvider.ProviderName, TenantA.ToString()));
 
-        var sequences = GetRequiredService<INumberSequenceAppService>();
+        var templates = GetRequiredService<IEmailTemplateAppService>();
 
         using (InTenantA())
         {
             (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Platform.Default)).ShouldBeFalse();
-            await Should.ThrowAsync<AbpAuthorizationException>(() => sequences.GetListAsync(new OpenTms.Platform.PlatformMasterDataListRequestDto()));
-            (await sequences.GetLookupAsync()).ShouldBeEmpty();
+            await Should.ThrowAsync<AbpAuthorizationException>(() => templates.GetListAsync(new EmailTemplateListRequestDto()));
+            (await templates.GetLookupAsync()).ShouldBeEmpty();
         }
 
         using (InTenantB())
         {
             (await GetRequiredService<IFeatureChecker>().IsEnabledAsync(AppFeatures.MasterData.Platform.Default)).ShouldBeTrue();
-            (await sequences.GetListAsync(new OpenTms.Platform.PlatformMasterDataListRequestDto())).TotalCount.ShouldBe(0);
+            (await templates.GetListAsync(new EmailTemplateListRequestDto())).TotalCount.ShouldBe(0);
         }
     }
 

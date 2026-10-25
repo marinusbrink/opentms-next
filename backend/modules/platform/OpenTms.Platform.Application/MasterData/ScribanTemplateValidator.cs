@@ -7,7 +7,7 @@ using Volo.Abp;
 namespace OpenTms.Platform;
 
 /// <summary>
-/// Parses a Scriban text on save (design 49, assessment §3.10): a syntax error is refused with TemplateSyntaxError naming
+/// Parses a Scriban text on save (design 54, assessment §3.10): a syntax error is refused with TemplateSyntaxError naming
 /// the field, the language and the line. Only <c>Template.Parse</c>: a template is never rendered here. The template text
 /// itself never goes into the exception (it may hold addresses).
 /// </summary>

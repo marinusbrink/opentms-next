@@ -55,50 +55,41 @@ describe("WaffleLauncher – the General domain group", () => {
     expect(tileNames()).toContain(masterData.nameKey);
   });
 
-  it("hides the Master data tile when General and Platform are off", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" };
+  it("hides the Master data tile when General is off and nothing else is on", () => {
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
-  });
-
-  it("keeps the Master data tile when General is off but Platform has a list on (design 49)", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false" };
-    render(<WaffleLauncher />);
-    openLauncher();
-    expect(tileNames()).toContain(masterData.nameKey);
   });
 
   it("keeps the Master data tile when only one Platform list is on", () => {
     features = {
       "Apps.MasterData": "true",
       "Apps.MasterData.General": "false",
+      "Apps.MasterData.Orders": "false",
+      "Apps.MasterData.PlanningExecution": "false",
+      "Apps.MasterData.Financial": "false",
       "Apps.MasterData.Platform": "true",
-      "Apps.MasterData.Platform.NumberSequences": "true",
+      "Apps.MasterData.Platform.DocumentTypes": "true",
     };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).toEqual([masterData.nameKey]);
   });
 
-  it("hides the Master data tile when every list below General and Platform is off", () => {
-    /* General's lists sit at depth 5 (Apps.MasterData.General.<Group>.<List>), Platform's at depth 4. */
+  it("hides the Master data tile when every list below the domain groups is off", () => {
+    /* General's and the other domains' lists sit at depth 5 (Apps.MasterData.<Domain>.<Group>.<List>), Platform's at depth 4. */
     const isList = (k: string) => k.split(".").length === 5 || (k.startsWith("Apps.MasterData.Platform.") && k.split(".").length === 4);
     features = Object.fromEntries(Object.entries(masterDataOn()).map(([k, v]) => [k, isList(k) ? "false" : v]));
-    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(19);
+    /* Fifteen under General, nine in Orders, Planning & Execution and Financial (designs 41–53), three under Platform (design 54). */
+    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(27);
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
   });
 
-  it("keeps the other apps' tiles when General and Platform are off", () => {
-    features = {
-      ...masterDataOn(),
-      "Apps.MasterData.General": "false",
-      "Apps.MasterData.Platform": "false",
-      "Apps.Administration": "true",
-      "Apps.Administration.Users": "true",
-    };
+  it("keeps the other apps' tiles when General is off", () => {
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false", "Apps.Administration": "true", "Apps.Administration.Users": "true" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);

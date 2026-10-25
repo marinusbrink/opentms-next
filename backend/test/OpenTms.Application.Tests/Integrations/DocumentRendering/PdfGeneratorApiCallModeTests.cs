@@ -20,7 +20,7 @@ using Xunit;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The two call modes of the pdfgeneratorapi client (docs/designs/50-report-rendering.md, "Resilience", PO 2026-10-23),
+/// The two call modes of the pdfgeneratorapi client (docs/designs/55-report-rendering.md, "Resilience", PO 2026-10-23),
 /// on a fake transport and a clock whose timers fire only when the test moves it, so the 15 s and 30 s limits are
 /// asserted without real waits. <b>Interactive</b> (editor URL, copy, template lookup, owner list, template data,
 /// health check, a render whose request says so): one attempt, a 15 s timer, a 429 is "busy" at once, a 5xx the

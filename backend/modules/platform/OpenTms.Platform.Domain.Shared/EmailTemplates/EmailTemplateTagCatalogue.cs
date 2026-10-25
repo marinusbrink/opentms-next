@@ -5,7 +5,7 @@ using System.Linq;
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// A catalogued Scriban tag (design 49, "Tags and default content"). <see cref="Path"/> is the full path the sender's
+/// A catalogued Scriban tag (design 54, "Tags and default content"). <see cref="Path"/> is the full path the sender's
 /// typed model exposes ("company.email", "freight.product"); <see cref="Snippet"/> is the text the editor inserts: for
 /// a value <c>{{ path }}</c>, for a child of a collection <c>{{ item.field }}</c> and for the collection itself the loop
 /// block with every child field. Labels and descriptions are localized under <see cref="LabelKey"/> and
@@ -47,7 +47,7 @@ public sealed class EmailTemplateTagGroup
 }
 
 /// <summary>
-/// The one tag catalogue of the e-mail templates (design 49, "Tags and default content", PO 2026-10-20): the groups and
+/// The one tag catalogue of the e-mail templates (design 54, "Tags and default content", PO 2026-10-20): the groups and
 /// tags of the design table, as data. A group is a row of that table; a collection row ("freight", "invoice.lines",
 /// "trips", "proforma.orders") is a group with one collection tag whose children are the row's fields. Paths are Scriban
 /// member paths in snake_case. The module that sends the mail of a purpose exposes every path of

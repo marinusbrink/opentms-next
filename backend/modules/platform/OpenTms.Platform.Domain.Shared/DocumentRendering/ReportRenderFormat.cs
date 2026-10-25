@@ -1,6 +1,6 @@
 namespace OpenTms.Platform.DocumentRendering;
 
-/// <summary>The output format of a rendered document (design 50). Starts at 1 so a missing value fails validation.</summary>
+/// <summary>The output format of a rendered document (design 55). Starts at 1 so a missing value fails validation.</summary>
 public enum ReportRenderFormat
 {
     Pdf = 1,

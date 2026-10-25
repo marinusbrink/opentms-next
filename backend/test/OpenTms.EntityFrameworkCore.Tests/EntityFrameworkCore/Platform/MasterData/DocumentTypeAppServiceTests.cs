@@ -14,7 +14,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// DocumentTypeAppService on SQLite (docs/designs/49-platform-master-data.md, test risk analysis "Scriban/regex validation",
+/// DocumentTypeAppService on SQLite (docs/designs/54-platform-master-data.md, test risk analysis "Scriban/regex validation",
 /// High, table-driven): the code upper-cased and unique per tenant, the name per language with English required, the
 /// typed transformation pipeline (each kind once, at most four rows, the argument required for the two kinds that take
 /// one, a regex argument that compiles, positions renumbered 1, 2, …), archive, the list (search over code, name and

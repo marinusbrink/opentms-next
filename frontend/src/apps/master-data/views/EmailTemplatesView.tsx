@@ -8,7 +8,7 @@ import { MasterDataListView } from "@/apps/master-data/components/MasterDataList
 import { EMAIL_TEMPLATE_PURPOSES, cultureKey, emailTemplatePurposeKey, emailTemplates, type EmailTemplatePurpose, type EmailTemplateRow } from "@/domains/platform/master-data";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The E-mail templates list (design 49, UI design): Name, Purpose, Language (one template per language, PO
+/* The E-mail templates list (design 54, UI design): Name, Purpose, Language (one template per language, PO
  * 2026-10-18; an empty language is "All languages"), Default. The wildcard searches name and description; every
  * column is in the server's sort whitelist. Purpose is the toolbar filter (the API contract's `purpose`), as the Kind
  * filter on the vehicles list. */

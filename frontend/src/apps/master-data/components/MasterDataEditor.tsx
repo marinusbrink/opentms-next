@@ -42,7 +42,7 @@ export interface EditorTab<TValues extends object> {
 
 export interface MasterDataEditorProps<TValues extends object, TDto extends { id?: string; concurrencyStamp?: string | null; creationTime?: string; lastModificationTime?: string | null }> {
   entityKey: string;
-  /** The resource prefix of the entity's keys: "MasterData" (default), "Platform" for Platform's lists (design 49). */
+  /** The resource of the entity's own texts: "MasterData" (default), the owning domain's ("Orders", "Financial"; designs 51–53) or "Platform" (design 54). */
   resource?: string;
   /** The query-key entity of the hooks (detail and lookup caches are invalidated after a save). */
   queryEntity: string;

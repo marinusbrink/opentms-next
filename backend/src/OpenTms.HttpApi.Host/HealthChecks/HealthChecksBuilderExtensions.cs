@@ -72,7 +72,7 @@ public static class HealthChecksBuilderExtensions
                     new HealthCheckOptions
                     {
                         /* The health UI polls this endpoint: checks of external services (tag "external", e.g.
-                         * pdfgeneratorapi, design 50) run only on demand in Maintenance → Health. */
+                         * pdfgeneratorapi, design 55) run only on demand in Maintenance → Health. */
                         Predicate = registration => !registration.Tags.Contains("external"),
                         ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
                         AllowCachingResponses = false,

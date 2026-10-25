@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The Tags panel of the e-mail template editor (design 49, "Tags and default content", PO 2026-10-20). Covered: the
+/* The Tags panel of the e-mail template editor (design 54, "Tags and default content", PO 2026-10-20). Covered: the
  * groups and tags of `GET /api/platform/email-template/tags?purpose=` rendered with their labels and monospace paths
  * (children indented); the filter (label, path, description; a matching child keeps its collection; a filter opens
  * every group); the group and panel collapse, the panel's state remembered in localStorage and harmless when the

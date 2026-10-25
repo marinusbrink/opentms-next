@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using OpenTms.Platform;
 using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.EmailTemplates;
-using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
 using Volo.Abp.Domain.Entities;
@@ -15,7 +14,7 @@ namespace OpenTms.PostgreSql.Platform;
 
 /// <summary>
 /// Tenant isolation of the four Platform master-data lists and their counters against real PostgreSQL
-/// (docs/designs/49-platform-master-data.md, test risk analysis "Tenant isolation of all four lists and of the counters",
+/// (docs/designs/54-platform-master-data.md, test risk analysis "Tenant isolation of all four lists and of the counters",
 /// Critical; constitution rule 1): rows written by tenant A (own database) are unreachable from the shared-tier tenant and
 /// from the host through every operation (list with and without search, lookup, detail, update, delete, archive,
 /// unarchive, both bulk deletes, drawing a number) and their child rows (transformations, counters) are
@@ -29,12 +28,9 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
     private IEmailTemplateAppService Templates => GetRequiredService<IEmailTemplateAppService>();
     private IReportDefinitionAppService Definitions => GetRequiredService<IReportDefinitionAppService>();
     private IDocumentTypeAppService Types => GetRequiredService<IDocumentTypeAppService>();
-    private INumberSequenceAppService Sequences => GetRequiredService<INumberSequenceAppService>();
-    private INumberGenerator Generator => GetRequiredService<INumberGenerator>();
 
-    private sealed record Probe(EmailTemplateDto Template, ReportDefinitionDto Definition, DocumentTypeDto Type, NumberSequenceDto Sequence, string FirstNumber);
+    private sealed record Probe(EmailTemplateDto Template, ReportDefinitionDto Definition, DocumentTypeDto Type);
 
-    private static readonly DateOnly Date = new(2026, 10, 17);
 
     /// <summary>The same names, codes and defaults in whichever tenant is current.</summary>
     private async Task<Probe> WriteProbeAsync()
@@ -53,10 +49,8 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
             Code = "QQISO", Names = PlatformNames("QQ isolation document", "QQ isolatiedocument"),
             Transformations = [new() { Kind = DocumentTransformationKind.SplitPdfByReferencePattern, Position = 1, Argument = "^QQ" }]
         });
-        var sequence = await Sequences.CreateAsync(new NumberSequenceCreateDto { Name = "QQ isolation numbers", Scheme = NumberSequenceScheme.TwoDigitYear, Prefix = "Q-", YearSuffix = "-", MinimumDigits = 4 });
-        var first = await Generator.GetNextAsync(sequence.Id, Date);
         await FlushAsync();
-        return new Probe(template, definition, type, sequence, first);
+        return new Probe(template, definition, type);
     }
 
     [Fact]
@@ -65,7 +59,6 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
             var a = await WriteProbeAsync();
-            a.FirstNumber.ShouldBe("Q-26-0001");
 
             foreach (var other in new Guid?[] { SharedTenant, null })
             {
@@ -120,19 +113,6 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
                     (await Types.BulkDeleteAsync(new DocumentTypeBulkDeleteRequestDto { Selection = FilterBased("isolation"), IncludeArchived = true })).DeletedCount.ShouldBe(0, who);
                     (await GetRequiredService<IRepository<DocumentTypeTransformation>>().CountAsync(t => t.DocumentTypeId == a.Type.Id)).ShouldBe(0, who);
 
-                    /* Number sequences and their counters. */
-                    (await Sequences.GetListAsync(PlatformList<PlatformMasterDataListRequestDto>())).TotalCount.ShouldBe(0, who);
-                    (await Sequences.GetLookupAsync()).ShouldBeEmpty(who);
-                    await Should.ThrowAsync<EntityNotFoundException>(() => Sequences.GetAsync(a.Sequence.Id));
-                    await Should.ThrowAsync<EntityNotFoundException>(() => Sequences.UpdateAsync(a.Sequence.Id, new NumberSequenceUpdateDto
-                    {
-                        Name = "Stolen", Scheme = NumberSequenceScheme.CounterOnly, MinimumDigits = 4, ConcurrencyStamp = a.Sequence.ConcurrencyStamp
-                    }));
-                    await Should.ThrowAsync<EntityNotFoundException>(() => Sequences.DeleteAsync(a.Sequence.Id));
-                    (await Sequences.BulkDeleteAsync(new PlatformMasterDataBulkDeleteRequestDto { Selection = Explicit(a.Sequence.Id) })).DeletedCount.ShouldBe(0, who);
-                    (await Sequences.BulkDeleteAsync(new PlatformMasterDataBulkDeleteRequestDto { Selection = FilterBased() })).DeletedCount.ShouldBe(0, who);
-                    await Should.ThrowAsync<EntityNotFoundException>(() => Generator.GetNextAsync(a.Sequence.Id, Date));
-                    (await GetRequiredService<IRepository<NumberSequenceCounter>>().CountAsync(c => c.NumberSequenceId == a.Sequence.Id)).ShouldBe(0, who);
 
                     await FlushAsync();
                 }
@@ -143,24 +123,20 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
             using (CurrentTenant.Change(SharedTenant))
             {
                 shared = await WriteProbeAsync();
-                shared.FirstNumber.ShouldBe("Q-26-0001", "the shared tenant's counter is its own");
                 shared.Template.Id.ShouldNotBe(a.Template.Id);
                 shared.Template.IsDefault.ShouldBeTrue();
             }
 
-            /* The host shares the host database with the shared tenant: it sees none of its rows, and its own default and
-             * counter leave the shared tenant's alone. */
+            /* The host shares the host database with the shared tenant: it sees none of its rows, and its own default
+             * leaves the shared tenant's alone. */
             using (CurrentTenant.Change(null))
             {
                 (await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>("isolation"))).Rows.ShouldBeEmpty();
                 (await Definitions.GetListAsync(new ReportDefinitionListRequestDto { WildcardSearch = "isolation", IncludeArchived = true })).Rows.ShouldBeEmpty();
                 (await Types.GetListAsync(new DocumentTypeListRequestDto { IncludeArchived = true })).TotalCount.ShouldBe(0, "the host has no document types (the seed skips it)");
-                (await Sequences.GetLookupAsync()).ShouldBeEmpty();
                 await Should.ThrowAsync<EntityNotFoundException>(() => Templates.GetAsync(shared.Template.Id));
-                await Should.ThrowAsync<EntityNotFoundException>(() => Generator.GetNextAsync(shared.Sequence.Id, Date));
 
                 var host = await WriteProbeAsync();
-                host.FirstNumber.ShouldBe("Q-26-0001");
                 host.Template.IsDefault.ShouldBeTrue();
                 (await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>("isolation"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(host.Template.Id);
             }
@@ -169,7 +145,6 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
             {
                 (await Templates.GetAsync(shared.Template.Id)).IsDefault.ShouldBeTrue("the host's default did not clear the shared tenant's");
                 (await Definitions.GetAsync(shared.Definition.Id)).IsDefault.ShouldBeTrue();
-                (await Generator.GetNextAsync(shared.Sequence.Id, Date)).ShouldBe("Q-26-0002");
                 (await Templates.GetListAsync(PlatformList<EmailTemplateListRequestDto>("isolation"))).Rows.ShouldHaveSingleItem().Id.ShouldBe(shared.Template.Id);
                 await FlushAsync();
             }
@@ -181,33 +156,25 @@ public class PlatformMasterDataTenantIsolationTests : PlatformMasterDataPostgreS
             var definition = await Definitions.GetAsync(a.Definition.Id);
             (definition.IsDefault, definition.IsArchived).ShouldBe((true, false));
             (await Types.GetAsync(a.Type.Id)).Transformations.ShouldHaveSingleItem().Argument.ShouldBe("^QQ");
-            (await Sequences.GetAsync(a.Sequence.Id)).IsInUse.ShouldBeTrue();
-            (await Generator.GetNextAsync(a.Sequence.Id, Date)).ShouldBe("Q-26-0002", "tenant A's counter continues where it was");
             (await Types.GetListAsync(new DocumentTypeListRequestDto { IncludeArchived = true })).Rows.Select(r => r.Code).ShouldBe(["FREIGHT", "GENERAL", "QQISO"], ignoreOrder: true);
         });
     }
 
     [Fact]
-    public async Task The_friendly_duplicate_check_and_the_in_use_check_read_only_the_current_tenants_rows()
+    public async Task The_friendly_duplicate_check_reads_only_the_current_tenants_rows()
     {
         await InRolledBackTransactionAsync(SharedTenant, async () =>
         {
-            /* The host writes a sequence with drawn numbers and a template in the host database. */
-            Guid hostSequence;
+            /* The host writes a template in the host database. */
             using (CurrentTenant.Change(null))
             {
-                hostSequence = (await Sequences.CreateAsync(new NumberSequenceCreateDto { Name = "QQ same name", Scheme = NumberSequenceScheme.CounterOnly, MinimumDigits = 4 })).Id;
-                await Generator.GetNextAsync(hostSequence, Date);
                 await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ same name", Purpose = EmailTemplatePurpose.Invoice, Culture = "en", Subject = "s", HtmlBody = "b" });
                 await FlushAsync();
             }
 
-            /* The shared tenant, same database: the same names are free, and its own sequence is not in use. */
-            var mine = await Sequences.CreateAsync(new NumberSequenceCreateDto { Name = "qq SAME name", Scheme = NumberSequenceScheme.CounterOnly, MinimumDigits = 4 });
-            mine.IsInUse.ShouldBeFalse();
+            /* The shared tenant, same database: the same name is free. */
             (await Templates.CreateAsync(new EmailTemplateCreateDto { Name = "QQ SAME NAME", Purpose = EmailTemplatePurpose.Invoice, Culture = "en", Subject = "s", HtmlBody = "b" }))
                 .Name.ShouldBe("QQ SAME NAME");
-            await Sequences.DeleteAsync(mine.Id);
         });
     }
 }

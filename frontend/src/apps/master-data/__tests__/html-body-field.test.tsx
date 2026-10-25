@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-/* HtmlBodyField (design 49, the e-mail template's HTML body): the RichTextEditor, lazily loaded (Tiptap is its own
+/* HtmlBodyField (design 54, the e-mail template's HTML body): the RichTextEditor, lazily loaded (Tiptap is its own
  * chunk), in a FormField. Covered: the skeleton while the chunk loads, then the editor; the label, required, error and
  * maxLength wiring; the guard against silent layout loss (preserveUnsupportedMarkup) is on; read-only reaches the
  * editor; and Scriban typed in the visual view reaches onChange un-escaped inside {{ }} only (transformOutput =

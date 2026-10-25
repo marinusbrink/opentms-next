@@ -1,4 +1,4 @@
-/* Scriban inside HTML typed in the visual editor (design 49, the e-mail template body; PO 2026-10-18).
+/* Scriban inside HTML typed in the visual editor (design 54, the e-mail template body; PO 2026-10-18).
  * The editor serialises text HTML-escaped, so `{{ if a > b }}` typed visually would reach Scriban as
  * `{{ if a &gt; b }}` and fail to parse. Inside every `{{ … }}` region the entities the serialiser writes are turned
  * back into plain characters; text outside the regions stays escaped. One pass, so `&amp;gt;` becomes `&gt;` and is not

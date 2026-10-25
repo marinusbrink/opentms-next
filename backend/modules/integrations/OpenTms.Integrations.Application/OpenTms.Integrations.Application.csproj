@@ -12,14 +12,14 @@
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
     <PackageReference Include="Volo.Abp.Caching" Version="10.6.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
-    <!-- The pdfgeneratorapi connection test (design 50). -->
+    <!-- The pdfgeneratorapi connection test (design 55). -->
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OpenTms.Integrations.Domain\OpenTms.Integrations.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.Integrations.Application.Contracts\OpenTms.Integrations.Application.Contracts.csproj" />
-    <!-- Platform's published surface: the rendering-provider abstraction the pdfgeneratorapi adapter implements (design 50). -->
+    <!-- Platform's published surface: the rendering-provider abstraction the pdfgeneratorapi adapter implements (design 55). -->
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
   </ItemGroup>
 

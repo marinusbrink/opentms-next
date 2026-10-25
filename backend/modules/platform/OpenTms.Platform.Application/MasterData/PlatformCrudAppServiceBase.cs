@@ -13,7 +13,7 @@ using Volo.Abp.Domain.Repositories;
 namespace OpenTms.Platform;
 
 /// <summary>
-/// The template behind every Platform master-data application service (design 49), the Platform counterpart of Master
+/// The template behind every Platform master-data application service (design 54), the Platform counterpart of Master
 /// Data's MasterDataCrudAppServiceBase (Platform references no domain module): paged and sorted lists with one wildcard
 /// search over a defined column set, lookups bounded by MaxLookupTake, explicit mapping, uniqueness checks before the
 /// database enforces them, and a bulk delete over a grid selection. The concrete service declares the public methods

@@ -6,7 +6,7 @@ using OpenTms.Platform.ReportDefinitions;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// A rendering provider behind report definitions (design 50, "Provider abstraction"). Platform finds the
+/// A rendering provider behind report definitions (design 55, "Provider abstraction"). Platform finds the
 /// implementations through dependency injection: the pdfgeneratorapi.com adapter lives in Integrations, a later
 /// in-house renderer implements the same interface. The provider chooses the workspace from the current tenant; a
 /// caller never passes one. Implementations never log or return their credentials or the payload.

@@ -16,7 +16,7 @@ using Volo.Abp.Tracing;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The fakes of design 50's adapter tests: no request ever leaves the process (the pdfgeneratorapi account is FiLogic's
+/// The fakes of design 55's adapter tests: no request ever leaves the process (the pdfgeneratorapi account is FiLogic's
 /// production account). The handler records every request as values and answers from a script; the clock and the retry
 /// delay are manual, so the backoff schedule is asserted without real waits.
 /// </summary>

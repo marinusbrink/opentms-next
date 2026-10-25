@@ -8,7 +8,7 @@ using Xunit;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The file name of a rendered document (docs/designs/50-report-rendering.md, "IDocumentRenderer": the definition's
+/// The file name of a rendered document (docs/designs/55-report-rendering.md, "IDocumentRenderer": the definition's
 /// Scriban <c>FileNamePattern</c> rendered with the payload's number): <c>{{ number }}</c> from <c>Entity.EntityNumber</c>,
 /// for the transport-unit balance the period's name <c>Entity.Entity.Period.Name</c> (PO 2026-10-23; the old
 /// <c>Entity.Entity.EntityNumber</c> fallback is gone), ".pdf" replaced by the format's extension,
@@ -57,7 +57,7 @@ public class ReportFileNameComposerTests
     [Fact]
     public void The_balance_number_is_the_periods_name_and_Entity_EntityNumber_wins_when_present()
     {
-        /* Design 50, "File name" (PO 2026-10-23): the balance payload (GetSingleOutput<TransportUnitTransactionPeriodOverview>)
+        /* Design 55, "File name" (PO 2026-10-23): the balance payload (GetSingleOutput<TransportUnitTransactionPeriodOverview>)
          * has no entity number; its number is Entity.Entity.Period.Name. Entity.EntityNumber wins wherever it exists. */
         var balance = Payload("""{"Entity":{"Period":{"Name":"Oktober 2026","Code":"P-10"}}}""");
         ReportFileNameComposer.NumberOf(balance).ShouldBe("Oktober 2026");
@@ -178,7 +178,7 @@ public class ReportFileNameComposerTests
         ReportFileNameComposer.ContentTypeOf(format).ShouldBe(contentType);
     }
 
-    // ── The composer against the catalogue (design 50: the modules produce exactly the catalogue's shape) ──
+    // ── The composer against the catalogue (design 55: the modules produce exactly the catalogue's shape) ──
 
     [Theory]
     [InlineData(ReportPurpose.TransportOrderConfirmation)]
@@ -189,7 +189,7 @@ public class ReportFileNameComposerTests
     public void Every_purposes_catalogue_payload_gives_the_file_name_its_number(ReportPurpose purpose)
     {
         /* The renderer fills {{ number }} from Entity.EntityNumber, for the transport-unit balance (no entity number) from
-         * the period's name Entity.Entity.Period.Name (design 50, "File name"). The catalogue is the contract the printing
+         * the period's name Entity.Entity.Period.Name (design 55, "File name"). The catalogue is the contract the printing
          * modules produce; a number path the catalogue does not define can never be filled by a conforming payload. */
         var sample = JsonSerializer.SerializeToElement(ReportDataCatalogue.SampleFor(purpose));
         var paths = ReportDataCatalogue.FieldsFor(purpose).Select(f => f.Path).ToHashSet();
@@ -206,7 +206,7 @@ public class ReportFileNameComposerTests
         ReportFileNameComposer.NumberOf(sample).ShouldBe(expected, $"{purpose}: the sample gives the file name the value at {numberPath}");
     }
 
-    // ── The save-time field check (design 49 FileNamePattern row, design 50 "File name"; High) ──
+    // ── The save-time field check (design 54 FileNamePattern row, design 55 "File name"; High) ──
 
     [Theory]
     [InlineData("factuur-{{ invoice.number }}.pdf", "invoice.number")]
@@ -244,14 +244,14 @@ public class ReportFileNameComposerTests
     public void A_syntax_error_or_a_render_limit_is_not_an_unknown_field(string pattern)
     {
         /* A pattern that does not parse is TemplateSyntaxError's on save; a loop beyond the limit is the render-time
-         * fallback's (design 50: "any other render failure is left to the render-time fallback"). */
+         * fallback's (design 55: "any other render failure is left to the render-time fallback"). */
         ReportFileNameComposer.FindUnknownField(pattern).ShouldBeNull();
     }
 
     [Fact]
     public void A_stored_pattern_that_fails_at_render_time_gives_a_random_name_and_says_so()
     {
-        /* A row saved before the field check (design 50): the renderer logs a warning when patternFailed is set. */
+        /* A row saved before the field check (design 55): the renderer logs a warning when patternFailed is set. */
         var name = ReportFileNameComposer.Compose("factuur-{{ invoice.number }}.pdf", Invoice, ReportRenderFormat.Pdf, out var failed);
 
         failed.ShouldBeTrue();

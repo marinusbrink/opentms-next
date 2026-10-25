@@ -1,9 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTms.Platform.DocumentTypes;
-using OpenTms.Platform.EntityFrameworkCore.NumberSequences;
 using OpenTms.Platform.Events;
-using OpenTms.Platform.NumberSequences;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
 using Volo.Abp.EntityFrameworkCore.PostgreSql;
@@ -23,9 +21,6 @@ public class PlatformEntityFrameworkCoreModule : AbpModule
         context.Services.AddAbpDbContext<PlatformDbContext>(options =>
         {
             options.AddDefaultRepositories(includeAllEntities: true);
-
-            /* The atomic counter upsert of the number generator (design 49). */
-            options.AddRepository<NumberSequenceCounter, EfCoreNumberSequenceCounterRepository>();
 
             /* includeDetails: the master-data aggregates with children load them with GetAsync(id, includeDetails: true). */
             options.Entity<DocumentType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.Transformations));

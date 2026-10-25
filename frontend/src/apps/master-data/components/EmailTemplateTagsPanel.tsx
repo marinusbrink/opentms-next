@@ -18,7 +18,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
-/* The Tags panel of the e-mail template editor (design 49, "Tags and default content", PO 2026-10-20): the localized
+/* The Tags panel of the e-mail template editor (design 54, "Tags and default content", PO 2026-10-20): the localized
  * tag groups of the chosen purpose, each tag a button that inserts its snippet where the cursor is (`{{ company.email }}`
  * for a value, the `{{ for … }} … {{ end }}` block for a collection, `{{ line.product }}` for a collection's child,
  * shown indented). The editor decides where the text goes (the field last focused, by default the body); the panel

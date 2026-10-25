@@ -15,7 +15,7 @@ using Xunit;
 namespace OpenTms.PostgreSql.Platform;
 
 /// <summary>
-/// Tenant isolation of report rendering against real PostgreSQL (docs/designs/50-report-rendering.md, security
+/// Tenant isolation of report rendering against real PostgreSQL (docs/designs/55-report-rendering.md, security
 /// quickscan: "a definition of another tenant is not found before any provider call"; constitution rule 1): a definition
 /// of tenant A (own database) or of the shared-tier tenant (host database) is not found by the published renderer nor by
 /// the four report-definition operations from any other tenant or the host. The production adapter is registered but

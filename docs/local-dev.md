@@ -56,7 +56,7 @@ works-on-my-machine antidote: facts, not preferences.
 
 ## Report rendering (pdfgeneratorapi.com)
 
-The report definition commands (edit template, copy template, test document; design 50) call
+The report definition commands (edit template, copy template, test document; design 55) call
 pdfgeneratorapi.com with FiLogic's account. `appsettings.json` of the host holds only the base URL and the workspace
 names (`Integrations:PdfGeneratorApi`); the key and the secret never go into an appsettings file, the database or the
 repository. Without them the commands are disabled ("not configured") and the `pdfgeneratorapi` check in Maintenance →

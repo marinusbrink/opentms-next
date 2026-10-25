@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { APPS, findAppByPath } from "@/app/apps.config";
+import { APPS, findAppByPath, type AppView } from "@/app/apps.config";
 
 describe("apps.config – AppView extension (low risk)", () => {
   const adminApp = APPS.find((a) => a.id === "admin")!;
@@ -68,13 +68,13 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app has two domain groups, General then Platform, and reads from both domains (design 49; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "Platform:Nav.Platform"]);
-    expect(masterData.domains).toEqual(["MasterData", "Platform"]);
+    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "Platform:Nav.Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
   });
 
-  it("the Platform domain group holds its four lists directly under it, no sub-groups (design 49, Assumption 4)", () => {
+  it("the Platform domain group holds its three lists directly under it, no sub-groups (design 54, Assumption 4)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    const platform = masterData.views![1];
+    const platform = masterData.views![4];
     expect(platform.path).toBe("/master-data/platform");
     expect(platform.feature).toBe("Apps.MasterData.Platform");
     expect(platform.icon).toBeTruthy();
@@ -82,18 +82,17 @@ describe("apps.config – AppView extension (low risk)", () => {
       ["Platform:EmailTemplates", "/master-data/email-templates", "Apps.MasterData.Platform.EmailTemplates"],
       ["Platform:ReportDefinitions", "/master-data/report-definitions", "Apps.MasterData.Platform.ReportDefinitions"],
       ["Platform:DocumentTypes", "/master-data/document-types", "Apps.MasterData.Platform.DocumentTypes"],
-      ["Platform:NumberSequences", "/master-data/number-sequences", "Apps.MasterData.Platform.NumberSequences"],
     ]);
     platform.children!.forEach((child) => {
       expect(child.children).toBeUndefined();
       expect(child.icon).toBeTruthy();
     });
-    expect(findAppByPath("/master-data/number-sequences")?.id).toBe("master-data");
+    expect(findAppByPath("/master-data/document-types")?.id).toBe("master-data");
   });
 
   it("the Master data app lists its fifteen General lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views).toHaveLength(2);
+    expect(masterData.views).toHaveLength(5);
     const general = masterData.views![0];
     expect(general.nameKey).toBe("MasterData:Nav.General");
     expect(general.icon).toBeTruthy();
@@ -122,6 +121,28 @@ describe("apps.config – AppView extension (low risk)", () => {
       expect(group.icon).toBeTruthy();
       group.children!.forEach((child) => expect(child.icon).toBeTruthy());
     });
+  });
+
+  it("the Master data app holds the Orders, Planning & Execution and Financial domain groups after General (designs 51–53)", () => {
+    const masterData = APPS.find((a) => a.id === "master-data")!;
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
+    const [, orders, planning, financial] = masterData.views!;
+    const lists = (group: AppView) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
+    expect(lists(orders)).toEqual([
+      ["/master-data/transport-order-types", "Orders:TransportOrderTypes", "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes"],
+      ["/master-data/waypoint-types", "Orders:WaypointTypes", "Apps.MasterData.Orders.TransportOrders.WaypointTypes"],
+      ["/master-data/time-slots", "Orders:TimeSlots", "Apps.MasterData.Orders.TransportOrders.TimeSlots"],
+    ]);
+    expect(lists(planning)).toEqual([
+      ["/master-data/transport-trip-types", "PlanningExecution:TransportTripTypes", "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes"],
+    ]);
+    expect(lists(financial)).toEqual([
+      ["/master-data/vat-percentages", "Financial:VatPercentages", "Apps.MasterData.Financial.Invoicing.VatPercentages"],
+      ["/master-data/outbound-invoice-types", "Financial:OutboundInvoiceTypes", "Apps.MasterData.Financial.Invoicing.OutboundInvoiceTypes"],
+      ["/master-data/inbound-invoice-types", "Financial:InboundInvoiceTypes", "Apps.MasterData.Financial.Invoicing.InboundInvoiceTypes"],
+      ["/master-data/additional-services", "Financial:AdditionalServices", "Apps.MasterData.Financial.Pricing.AdditionalServices"],
+      ["/master-data/discounts-or-surcharges", "Financial:DiscountsOrSurcharges", "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges"],
+    ]);
   });
 
   it("findAppByPath returns admin app for /admin/users", () => {

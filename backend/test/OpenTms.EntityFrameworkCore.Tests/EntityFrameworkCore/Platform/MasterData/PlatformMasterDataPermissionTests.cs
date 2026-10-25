@@ -17,10 +17,10 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// The seventeen Platform master-data permissions through the real definition manager and the admin seed
-/// (docs/designs/49-platform-master-data.md, "Feature flags and permissions": both sides, Create/Update/Delete children of
+/// The thirteen Platform master-data permissions through the real definition manager and the admin seed
+/// (docs/designs/54-platform-master-data.md, "Feature flags and permissions": both sides, Create/Update/Delete children of
 /// each list's view permission, "Seeded for the admin role on both sides by AdministrationPermissionDataSeedContributor";
-/// docs/designs/50-report-rendering.md: a fourth child of the report definitions, EditTemplate, "both sides, seeded for
+/// docs/designs/55-report-rendering.md: a fourth child of the report definitions, EditTemplate, "both sides, seeded for
 /// admin"). Risk class: Critical (authorization).
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
@@ -32,16 +32,16 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
         PlatformPermissions.MasterData.ReportDefinitions.EditTemplate,
     ];
 
-    /// <summary>The children of a list's view permission: Create/Update/Delete, plus EditTemplate for the report definitions (design 50).</summary>
+    /// <summary>The children of a list's view permission: Create/Update/Delete, plus EditTemplate for the report definitions (design 55).</summary>
     private static string[] ChildrenOf(string view, string create, string update, string delete) =>
         view == PlatformPermissions.MasterData.ReportDefinitions.Default
             ? [create, update, delete, PlatformPermissions.MasterData.ReportDefinitions.EditTemplate]
             : [create, update, delete];
 
     [Fact]
-    public async Task Seventeen_permissions_on_both_sides_each_list_with_its_three_children_and_the_report_definitions_with_EditTemplate_as_fourth()
+    public async Task Thirteen_permissions_on_both_sides_each_list_with_its_three_children_and_the_report_definitions_with_EditTemplate_as_fourth()
     {
-        All.Length.ShouldBe(17);
+        All.Length.ShouldBe(13);
         PlatformPermissions.MasterData.ReportDefinitions.EditTemplate.ShouldBe("Platform.ReportDefinitions.EditTemplate");
         var manager = GetRequiredService<IPermissionDefinitionManager>();
 
@@ -75,7 +75,7 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
     }
 
     [Fact]
-    public async Task The_seed_grants_all_seventeen_to_the_admin_role_of_the_host_and_of_a_tenant_and_a_second_run_changes_nothing()
+    public async Task The_seed_grants_all_thirteen_to_the_admin_role_of_the_host_and_of_a_tenant_and_a_second_run_changes_nothing()
     {
         var tenantId = await WithUnitOfWorkAsync(async () =>
         {
@@ -112,7 +112,7 @@ public class PlatformMasterDataPermissionTests : OpenTmsEntityFrameworkCoreTestB
                     }
 
                     var list = await grants.GetListAsync(RolePermissionValueProvider.ProviderName, "admin");
-                    list.Where(g => All.Contains(g.Name)).Count().ShouldBe(17, "one grant per permission after two runs");
+                    list.Where(g => All.Contains(g.Name)).Count().ShouldBe(13, "one grant per permission after two runs");
                 }
             }
         });

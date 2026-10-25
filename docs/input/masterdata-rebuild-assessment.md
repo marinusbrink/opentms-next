@@ -26,7 +26,7 @@ opentms-next's PO-owned domain map defines Master Data as *relations, addresses,
 | 2 | **Financial** | Vat, DiscountAndSurcharge, AdditionalService, InvoiceType, IncomingInvoiceType, PurchaseOrderType, InvoiceReminderProfile, CurrencyDayRate, TransportUnit balances/transactions, **RelationFinancialSettings** (per RelationId) | Ledger accounts, numbering, pricing rules, dunning; consumed only by invoicing, pricing and payables |
 | 3 | **Orders** | TransportOrderType, WaypointType, TimeSlot, **RelationOrderSettings** | Numbering, intake mailbox, default stops, required fields, stop-activity semantics, delivery-window templates |
 | 4 | **Planning & Execution** | TransportFileType, Questionnaire, default via-waypoints per region, **RelationPlanningSettings** (dock, time slots) | Route optimisation, stop creation, FMS sync, planboard grouping, driver-app forms |
-| 5 | **Platform** | OutboundEMailMessageTemplate, ReportDefinition, BinaryObjectType (document type), number sequences (list + number-sequence service) | Mail, document generation, document categories, cross-module services. Built in design 49 (`docs/designs/49-platform-master-data.md`) |
+| 5 | **Platform** | OutboundEMailMessageTemplate, ReportDefinition, BinaryObjectType (document type), number sequences (list + number-sequence service) | Mail, document generation, document categories, cross-module services. Built in design 54 (`docs/designs/54-platform-master-data.md`) |
 | 5a | **Transport domain** (PO decision 2026-10-16; the module, Orders or Planning & Execution, is chosen in that run's design) | ConsignmentNoteFixedDescription (vaste CMR-teksten), ConsignmentNoteProfile (CMR print profile, "Vrachtbriefprofiel"), TransportProfile (transportprofielen, section 4) | CMR printing and transport set-up are transport concerns, not Platform. **Not built with Platform; every transport-domain design must take these in** (see section 2.3) |
 | 6 | **Integrations** | CredentialStore, ExchangeGateway, FleetManagementSystemDevice (vendor binding), inbound mailboxes | External systems and secrets |
 
@@ -84,11 +84,11 @@ Rules every task inherits:
 
 ### 2.3 Transport-domain items moved out of Platform (PO decision 2026-10-16)
 
-When the Platform master data was built (design 49), the PO decided that **fixed CMR texts
+When the Platform master data was built (design 54), the PO decided that **fixed CMR texts
 (`ConsignmentNoteFixedDescription`, "vaste CMR-teksten") and transport profiles (`TransportProfile`,
 "transportprofielen", section 4) belong to the transport domain**, not to Platform. The CMR print profile
 (`ConsignmentNoteProfile`, "Vrachtbriefprofiel") goes with them: it selects the fixed texts per CMR field. They were
-deliberately left out of design 49.
+deliberately left out of design 54.
 
 Rules for the run that builds the transport domain (the first Orders or Planning & Execution design that touches CMR
 printing or transport set-up):

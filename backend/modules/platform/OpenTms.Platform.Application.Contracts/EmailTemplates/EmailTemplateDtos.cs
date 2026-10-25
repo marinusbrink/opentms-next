@@ -112,7 +112,7 @@ public interface IEmailTemplateAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<PlatformMasterDataBulkDeleteResultDto> BulkDeleteAsync(EmailTemplateBulkDeleteRequestDto input);
 
-    /// <summary>The tag catalogue of a purpose, localized in the UI language (design 49, "Tags and default content").</summary>
+    /// <summary>The tag catalogue of a purpose, localized in the UI language (design 54, "Tags and default content").</summary>
     Task<List<EmailTemplateTagGroupDto>> GetTagsAsync(EmailTemplatePurpose purpose);
 
     /// <summary>

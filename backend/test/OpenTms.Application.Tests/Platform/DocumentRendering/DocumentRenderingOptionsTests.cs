@@ -11,7 +11,7 @@ using Xunit;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The interactive command budget's configuration (docs/designs/50-report-rendering.md, "Command budget"):
+/// The interactive command budget's configuration (docs/designs/55-report-rendering.md, "Command budget"):
 /// <c>Platform:DocumentRendering:InteractiveCommandBudget</c>, default 20 s, bound by PlatformApplicationModule. The
 /// service's handling of a zero or negative value is exercised in ReportDefinitionCommandBudgetTests. Risk class: High
 /// (part of the design's resilience row).

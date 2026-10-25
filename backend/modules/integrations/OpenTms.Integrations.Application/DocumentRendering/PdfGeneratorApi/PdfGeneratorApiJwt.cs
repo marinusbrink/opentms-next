@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The JWT pdfgeneratorapi.com expects on every request (design 50): HS256, <c>iss</c> = the API key, <c>sub</c> = the
+/// The JWT pdfgeneratorapi.com expects on every request (design 55): HS256, <c>iss</c> = the API key, <c>sub</c> = the
 /// workspace, <c>exp</c> = now + 60 seconds; header, payload and signature Base64Url-encoded as JWT requires (OpenTMS
 /// used standard Base64 for the signature and 15 minutes). A token is never logged.
 /// </summary>

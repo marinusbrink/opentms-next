@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// Renders a document from a report definition (design 50), published for the modules that print records (Orders,
+/// Renders a document from a report definition (design 55), published for the modules that print records (Orders,
 /// Planning, Financial). Not an application service: it has no HTTP endpoint. It reads the definition in the current
 /// tenant (another tenant's is not found), refuses an archived one, checks the feature
 /// <see cref="Features.PlatformFeatures.DocumentRendering"/>, picks the provider, composes the file name from the

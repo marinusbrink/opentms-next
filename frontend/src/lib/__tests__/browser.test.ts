@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fallbackFileName, fileNameFromContentDisposition, openPendingTab, saveBlob } from "@/lib/browser";
 
-/* The browser helpers for commands that leave the SPA (design 50: Test document downloads a file, Edit template opens
+/* The browser helpers for commands that leave the SPA (design 55: Test document downloads a file, Edit template opens
  * the provider's editor in a new tab). Risk class: Medium (UI flow). openPendingTab carries a security property: the
  * provider's page must not reach the SPA through window.opener. */
 

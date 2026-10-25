@@ -26,7 +26,7 @@ import {
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The document type editor (design 49, UI design): `md`; tab General (Code upper-cased, the Name in the user's
+/* The document type editor (design 54, UI design): `md`; tab General (Code upper-cased, the Name in the user's
  * language as the other LocalizedName editors (PO 2026-10-11), the three switches, Archived, Description) and tab
  * Transformations: a LinesGrid whose order is the position, a kind and an argument per row. Each kind at most once,
  * so at most four rows; RenameByParentProperty and SplitPdfByReferencePattern need an argument. The server checks the

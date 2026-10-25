@@ -22,7 +22,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 
 /// <summary>
-/// The interactive command budget of docs/designs/50-report-rendering.md ("Command budget", PO 2026-10-23): each
+/// The interactive command budget of docs/designs/55-report-rendering.md ("Command budget", PO 2026-10-23): each
 /// interactive command of the report definition service (rendering status, open editor, copy template, test render)
 /// shares ONE budget across all its provider calls, configured here as 200 ms through
 /// <c>services.Configure&lt;DocumentRenderingOptions&gt;</c>. Running out fails as DocumentRenderingFailed with "did not
@@ -233,7 +233,7 @@ public class ReportDefinitionCommandBudgetTests : ReportRenderingTestBase<Report
 }
 
 /// <summary>
-/// The SQLite test application of design 50 with a 200 ms interactive command budget and the provider replaced by
+/// The SQLite test application of design 55 with a 200 ms interactive command budget and the provider replaced by
 /// <see cref="StallingReportRenderingProvider"/>.
 /// </summary>
 [DependsOn(typeof(ReportRenderingTestModule))]

@@ -8,7 +8,6 @@ using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.EmailTemplates;
 using OpenTms.Platform.EntityFrameworkCore;
 using OpenTms.Platform.Localization;
-using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -20,7 +19,7 @@ namespace OpenTms.PostgreSql.Platform;
 /// <summary>
 /// The unique, partial unique and check constraints of the PlatformMasterData migration, exercised through the
 /// repositories (and plain SQL for the child keys) so the services' friendly checks are bypassed
-/// (docs/designs/49-platform-master-data.md, test risk analysis "Unique and default indexes, migration", High): names
+/// (docs/designs/54-platform-master-data.md, test risk analysis "Unique and default indexes, migration", High): names
 /// unique per tenant regardless of case and freed by a soft delete, the document-type code unique, one default per purpose
 /// (templates, regardless of their language) and per purpose and language (report definitions), unique (type, kind) and
 /// (sequence, year, month), NULLS NOT DISTINCT so host rows are unique too, two tenants of one database each with their
@@ -37,7 +36,6 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     private IRepository<EmailTemplate, Guid> Templates => GetRequiredService<IRepository<EmailTemplate, Guid>>();
     private IRepository<ReportDefinition, Guid> Definitions => GetRequiredService<IRepository<ReportDefinition, Guid>>();
     private IRepository<DocumentType, Guid> Types => GetRequiredService<IRepository<DocumentType, Guid>>();
-    private IRepository<NumberSequence, Guid> Sequences => GetRequiredService<IRepository<NumberSequence, Guid>>();
 
     private static EmailTemplate Template(Guid? tenant, string name, EmailTemplatePurpose purpose = EmailTemplatePurpose.Invoice, bool isDefault = false, string? culture = "en")
     {
@@ -55,16 +53,12 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
 
     private static DocumentType Type(Guid? tenant, string code) => new(Guid.NewGuid(), tenant, code, LocalizedName.Create("en", "QQ " + code));
 
-    private static NumberSequence Sequence(Guid? tenant, string name)
-        => new(Guid.NewGuid(), tenant, name, new NumberSequenceFormat(NumberSequenceScheme.CounterOnly, null, null, null, null, null, 4));
-
     private async Task InsertAsync(Guid? tenant, string kind, string key)
     {
         switch (kind)
         {
             case "template": await Templates.InsertAsync(Template(tenant, key), autoSave: true); break;
             case "definition": await Definitions.InsertAsync(Definition(tenant, key), autoSave: true); break;
-            case "sequence": await Sequences.InsertAsync(Sequence(tenant, key), autoSave: true); break;
             case "type": await Types.InsertAsync(Type(tenant, key), autoSave: true); break;
             default: throw new ArgumentOutOfRangeException(nameof(kind));
         }
@@ -76,7 +70,6 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
         {
             case "template": await Templates.DeleteAsync(t => t.Name == key, autoSave: true); break;
             case "definition": await Definitions.DeleteAsync(d => d.Name == key, autoSave: true); break;
-            case "sequence": await Sequences.DeleteAsync(s => s.Name == key, autoSave: true); break;
             case "type": await Types.DeleteAsync(t => t.Code == key, autoSave: true); break;
             default: throw new ArgumentOutOfRangeException(nameof(kind));
         }
@@ -101,7 +94,6 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     [Theory]
     [InlineData("template", "IX_EmailTemplates_TenantId_NormalizedName")]
     [InlineData("definition", "IX_ReportDefinitions_TenantId_NormalizedName")]
-    [InlineData("sequence", "IX_NumberSequences_TenantId_NormalizedName")]
     public async Task A_name_is_unique_per_tenant_regardless_of_case_and_freed_by_a_soft_delete(string kind, string index)
     {
         await InRolledBackTransactionAsync(TenantA, async () =>
@@ -151,7 +143,6 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     [Theory]
     [InlineData("template", "IX_EmailTemplates_TenantId_NormalizedName")]
     [InlineData("definition", "IX_ReportDefinitions_TenantId_NormalizedName")]
-    [InlineData("sequence", "IX_NumberSequences_TenantId_NormalizedName")]
     [InlineData("type", "IX_DocumentTypes_TenantId_Code")]
     public async Task Host_rows_are_unique_too_and_the_host_and_the_shared_tenant_have_their_own_key_space(string kind, string index)
     {
@@ -197,7 +188,7 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
         });
 
         /* One template per language, but one default per purpose: a Dutch and an all-languages default collide with the
-         * English one (design 49: at most one default per purpose). */
+         * English one (design 54: at most one default per purpose). */
         foreach (var culture in new[] { "nl", null })
         {
             await InRolledBackTransactionAsync(TenantA, async () =>
@@ -346,40 +337,6 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
     }
 
     [Fact]
-    public async Task One_counter_row_per_sequence_and_period_and_minimum_digits_between_1_and_12()
-    {
-        await InRolledBackTransactionAsync(TenantA, async () =>
-        {
-            var sequence = Sequence(TenantA, "QQ counters");
-            await Sequences.InsertAsync(sequence, autoSave: true);
-            await SqlAsync("INSERT INTO platform.\"NumberSequenceCounters\" (\"NumberSequenceId\", \"PeriodYear\", \"PeriodMonth\", \"TenantId\", \"LastValue\") VALUES ({0}, 2026, 0, {1}, 1)", sequence.Id, TenantA);
-            await SqlAsync("INSERT INTO platform.\"NumberSequenceCounters\" (\"NumberSequenceId\", \"PeriodYear\", \"PeriodMonth\", \"TenantId\", \"LastValue\") VALUES ({0}, 2026, 1, {1}, 1)", sequence.Id, TenantA);
-            await ShouldViolateAsync(() => SqlAsync(
-                "INSERT INTO platform.\"NumberSequenceCounters\" (\"NumberSequenceId\", \"PeriodYear\", \"PeriodMonth\", \"TenantId\", \"LastValue\") VALUES ({0}, 2026, 0, {1}, 7)",
-                sequence.Id, TenantA), "PK_NumberSequenceCounters");
-        });
-
-        foreach (var digits in new[] { 0, 13 })
-        {
-            await InRolledBackTransactionAsync(TenantA, async () =>
-            {
-                var sequence = Sequence(TenantA, "QQ digits");
-                await Sequences.InsertAsync(sequence, autoSave: true);
-                await ShouldViolateAsync(() => SqlAsync("UPDATE platform.\"NumberSequences\" SET \"MinimumDigits\" = {0} WHERE \"Id\" = {1}", digits, sequence.Id),
-                    "CK_NumberSequences_MinimumDigits", PostgresErrorCodes.CheckViolation);
-            });
-        }
-
-        /* A counter without its sequence is refused by the foreign key. */
-        await InRolledBackTransactionAsync(TenantA, async () =>
-        {
-            await ShouldViolateAsync(() => SqlAsync(
-                "INSERT INTO platform.\"NumberSequenceCounters\" (\"NumberSequenceId\", \"PeriodYear\", \"PeriodMonth\", \"TenantId\", \"LastValue\") VALUES ({0}, 0, 0, {1}, 1)",
-                Guid.NewGuid(), TenantA), "FK_NumberSequenceCounters_NumberSequences_NumberSequenceId", PostgresErrorCodes.ForeignKeyViolation);
-        });
-    }
-
-    [Fact]
     public async Task A_refused_email_template_update_changes_nothing_on_the_production_stack()
     {
         /* Every call in its own transactional unit of work, as a request: the refusal (UnsupportedCulture, raised after the
@@ -429,15 +386,10 @@ public class PlatformMasterDataUniqueIndexTests : PlatformMasterDataPostgreSqlTe
             var type = Type(TenantA, "QQCASCADE");
             type.SetTransformations([(DocumentTransformationKind.ImageToPdf, null), (DocumentTransformationKind.LinkByFileName, null)]);
             await Types.InsertAsync(type, autoSave: true);
-            var sequence = Sequence(TenantA, "QQ cascade");
-            await Sequences.InsertAsync(sequence, autoSave: true);
-            await GetRequiredService<INumberGenerator>().GetNextAsync(sequence.Id, new DateOnly(2026, 1, 1));
 
             await SqlAsync("DELETE FROM platform.\"DocumentTypes\" WHERE \"Id\" = {0}", type.Id);
-            await SqlAsync("DELETE FROM platform.\"NumberSequences\" WHERE \"Id\" = {0}", sequence.Id);
 
             (await GetRequiredService<IRepository<DocumentTypeTransformation>>().CountAsync(t => t.DocumentTypeId == type.Id)).ShouldBe(0);
-            (await GetRequiredService<IRepository<NumberSequenceCounter>>().CountAsync(c => c.NumberSequenceId == sequence.Id)).ShouldBe(0);
         });
     }
 }

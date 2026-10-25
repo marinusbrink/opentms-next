@@ -61,7 +61,7 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.Administration.Maintenance.Default,
             PlatformPermissions.Administration.Maintenance.Outbox,
             PlatformPermissions.Administration.Maintenance.OutboxDispatch,
-            /* The Platform master-data lists (design 49). */
+            /* The Platform master-data lists (design 54). */
             PlatformPermissions.MasterData.EmailTemplates.Default,
             PlatformPermissions.MasterData.EmailTemplates.Create,
             PlatformPermissions.MasterData.EmailTemplates.Update,
@@ -75,10 +75,6 @@ public class AdministrationPermissionDataSeedContributor : IDataSeedContributor,
             PlatformPermissions.MasterData.DocumentTypes.Create,
             PlatformPermissions.MasterData.DocumentTypes.Update,
             PlatformPermissions.MasterData.DocumentTypes.Delete,
-            PlatformPermissions.MasterData.NumberSequences.Default,
-            PlatformPermissions.MasterData.NumberSequences.Create,
-            PlatformPermissions.MasterData.NumberSequences.Update,
-            PlatformPermissions.MasterData.NumberSequences.Delete,
         ];
 
         /* Host-only permissions cannot be granted inside a tenant (ABP rejects the side mismatch),

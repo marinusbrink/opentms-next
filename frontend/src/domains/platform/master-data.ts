@@ -5,10 +5,9 @@ import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/u
 import { apiClient } from "@/lib/api/client";
 import { fallbackFileName, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import type { components } from "@/lib/api/generated/schema";
-import type { NumberSequenceScheme } from "@/domains/platform/number-sequence-format";
 
-/* Platform's master-data lists (docs/designs/49-platform-master-data.md): e-mail templates, report definitions,
- * document types and number sequences, shown in the Master data app's Platform group. The hooks mirror the Master
+/* Platform's master-data lists (docs/designs/54-platform-master-data.md): e-mail templates, report definitions and
+ * document types, shown in the Master data app's Platform group. The hooks mirror the Master
  * Data domain's entity-hook factory (design-41 list contract: one paged list with the flat query, a detail read, a
  * bounded lookup, create, update with the concurrency stamp, delete and bulk delete), without importing it:
  * Platform is the floor and depends on no domain module. Every call goes through the generated client. */
@@ -38,8 +37,7 @@ export function platformMasterDataQueryKey(entity: string, ...rest: unknown[]) {
 export type PlatformMasterDataPath =
   | "/api/platform/email-template"
   | "/api/platform/report-definition"
-  | "/api/platform/document-type"
-  | "/api/platform/number-sequence";
+  | "/api/platform/document-type";
 
 type ListExtra = Record<string, string | number | boolean | null | undefined>;
 
@@ -262,7 +260,7 @@ export const EMAIL_TEMPLATE_TAG_KIND_COLLECTION: EmailTemplateTagKind = 2;
  * a long staleTime, and their own query root so a save's invalidation of the list does not refetch them. */
 const EMAIL_TEMPLATE_CATALOGUE_STALE_TIME = 60 * 60 * 1000;
 
-/** The localized tag groups of a purpose (design 49, "Tags and default content"), shown in the editor's Tags panel. */
+/** The localized tag groups of a purpose (design 54, "Tags and default content"), shown in the editor's Tags panel. */
 export function useEmailTemplateTags(purpose: EmailTemplatePurpose, enabled = true) {
   return useQuery({
     queryKey: ["platform", "emailTemplateTags", purpose] as const,
@@ -348,7 +346,7 @@ export function useUnarchiveReportDefinition() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Report definitions: template commands (design 50, "Report-definition operations")
+// Report definitions: template commands (design 55, "Report-definition operations")
 
 export type ReportRenderingStatus = Schemas["OpenTms.Platform.ReportDefinitions.ReportRenderingStatusDto"];
 
@@ -502,31 +500,6 @@ export function useUnarchiveDocumentType() {
   });
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Number sequences
-
-export type NumberSequenceRow = Schemas["OpenTms.Platform.NumberSequences.NumberSequenceRowDto"];
-export type NumberSequenceDto = Schemas["OpenTms.Platform.NumberSequences.NumberSequenceDto"];
-export type NumberSequenceCreateDto = Schemas["OpenTms.Platform.NumberSequences.NumberSequenceCreateDto"];
-export type NumberSequenceUpdateDto = Schemas["OpenTms.Platform.NumberSequences.NumberSequenceUpdateDto"];
-export type { NumberSequenceScheme };
-
-export const numberSequences = createPlatformMasterDataHooks<
-  NumberSequenceRow,
-  NumberSequenceDto,
-  NumberSequenceCreateDto,
-  NumberSequenceUpdateDto
->("numberSequences", "/api/platform/number-sequence");
-
-export const NUMBER_SEQUENCE_SCHEMES = enumOptions<NumberSequenceScheme>("NumberSequenceScheme", [
-  "FourDigitYear",
-  "TwoDigitYear",
-  "FourDigitYearMonth",
-  "TwoDigitYearMonth",
-  "CounterOnly",
-]);
-export const numberSequenceSchemeKey = keyOf(NUMBER_SEQUENCE_SCHEMES);
-
-/** PlatformMasterDataConsts.MaxNameLength / MaxDescriptionLength, shared by the four lists. */
+/** PlatformMasterDataConsts.MaxNameLength / MaxDescriptionLength, shared by the three lists. */
 export const MAX_PLATFORM_NAME_LENGTH = 128;
 export const MAX_PLATFORM_DESCRIPTION_LENGTH = 2500;

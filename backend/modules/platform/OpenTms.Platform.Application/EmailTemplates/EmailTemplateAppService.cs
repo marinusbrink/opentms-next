@@ -15,7 +15,7 @@ using Volo.Abp.Validation;
 
 namespace OpenTms.Platform.EmailTemplates;
 
-/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 49). */
+/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 54). */
 [RequiresFeature(AppFeatures.MasterData.Default)]
 public class EmailTemplateAppService
     : PlatformCrudAppServiceBase<EmailTemplate, EmailTemplateRowDto, EmailTemplateDto, EmailTemplateCreateDto, EmailTemplateUpdateDto, EmailTemplateListRequestDto>,
@@ -59,7 +59,7 @@ public class EmailTemplateAppService
     public Task<PlatformMasterDataBulkDeleteResultDto> BulkDeleteAsync(EmailTemplateBulkDeleteRequestDto input)
         => BulkDeleteInternalAsync(input.Selection, q => ApplyFilters(q, input.Purpose));
 
-    // ── editor support: tags and defaults (design 49, "Tags and default content") ──
+    // ── editor support: tags and defaults (design 54, "Tags and default content") ──
 
     [RequiresFeature(AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.EmailTemplates, RequiresAll = true)]
     [Authorize(PlatformPermissions.MasterData.EmailTemplates.Default)]
@@ -260,7 +260,7 @@ public class EmailTemplateAppService
     }
 
     /// <summary>
-    /// Every Scriban field parses (design 49); the error names the field as the screen labels it, and the line. The
+    /// Every Scriban field parses (design 54); the error names the field as the screen labels it, and the line. The
     /// template is one language, so no field carries a language suffix.
     /// </summary>
     private void Validate(EmailTemplateCreateDto input)

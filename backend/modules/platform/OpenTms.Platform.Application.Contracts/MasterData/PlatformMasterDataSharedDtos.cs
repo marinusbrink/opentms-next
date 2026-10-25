@@ -6,7 +6,7 @@ using OpenTms.Platform.Grid;
 namespace OpenTms.Platform;
 
 /// <summary>
-/// The explicit list contract of every Platform master-data list (design 49; the design-41 list shape of Master Data):
+/// The explicit list contract of every Platform master-data list (design 54; the design-41 list shape of Master Data):
 /// paging, one wildcard search over a defined column set, one sort column from the row DTO. Bound from the query string.
 /// </summary>
 public class PlatformMasterDataListRequestDto : IValidatableObject

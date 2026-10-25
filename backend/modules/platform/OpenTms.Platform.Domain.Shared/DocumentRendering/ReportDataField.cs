@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The JSON kind of a report data field (design 50, "Report data catalogue"), in the serialization OpenTMS used
+/// The JSON kind of a report data field (design 55, "Report data catalogue"), in the serialization OpenTMS used
 /// (Newtonsoft defaults).
 /// </summary>
 public enum ReportDataFieldType
@@ -43,7 +43,7 @@ public enum ReportDataFieldType
 }
 
 /// <summary>
-/// One field of the JSON a template receives (design 50, "Report data catalogue").
+/// One field of the JSON a template receives (design 55, "Report data catalogue").
 /// </summary>
 /// <param name="Path">
 /// Dot path from the envelope root; array elements are marked with <c>[]</c>, e.g. <c>Entity.InvoiceLines[].Price</c>.

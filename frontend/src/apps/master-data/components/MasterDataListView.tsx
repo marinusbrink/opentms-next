@@ -31,7 +31,7 @@ export interface EditorState {
 export interface MasterDataListViewProps<TRow extends { id?: string }> {
   /** The localization stem: "Currency" → MasterData:NewCurrency, MasterData:DeleteCurrencyQuestion, … */
   entityKey: string;
-  /** The resource prefix of the entity's keys: "MasterData" (default), "Platform" for Platform's lists (design 49). */
+  /** The resource of the entity's own texts: "MasterData" (default), the owning domain's ("Orders", "Financial"; designs 51–53) or "Platform" (design 54). */
   resource?: string;
   /** The view permission; Create/Update/Delete are its children. */
   permission: string;

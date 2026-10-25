@@ -1,8 +1,12 @@
 ﻿using Localization.Resources.AbpUi;
 using System.Net;
+using OpenTms.Financial;
 using OpenTms.Localization;
 using OpenTms.MasterData;
+using OpenTms.Orders;
 using OpenTms.Platform;
+using OpenTms.Platform.DerivedValues;
+using OpenTms.Platform.ReferenceData;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Account;
@@ -67,8 +71,14 @@ public class OpenTmsHttpApiModule : AbpModule
                 options.Map(code, HttpStatusCode.BadRequest);
             }
 
-            /* The Platform master-data lists follow the same split (docs/designs/49-platform-master-data.md). */
+            /* The Platform master-data lists follow the same split (docs/designs/54-platform-master-data.md). */
             foreach (var code in PlatformErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            /* The reference-data base of Orders, Financial and Planning & Execution (design 50); their own codes below. */
+            foreach (var code in ReferenceDataErrorCodes.ConflictCodes)
             {
                 options.Map(code, HttpStatusCode.Conflict);
             }
@@ -78,10 +88,43 @@ public class OpenTmsHttpApiModule : AbpModule
                 options.Map(code, HttpStatusCode.BadRequest);
             }
 
-            /* Document rendering (docs/designs/50-report-rendering.md): each code carries its own status. */
+            foreach (var code in ReferenceDataErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Document rendering (docs/designs/55-report-rendering.md): each code carries its own status. */
             foreach (var (code, status) in PlatformErrorCodes.DocumentRenderingCodes)
             {
                 options.Map(code, status);
+            }
+
+            /* Design 49. */
+            foreach (var code in DerivedValueErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Orders' own codes (design 51). */
+            foreach (var code in OrdersErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in OrdersErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Financial master data (design 52): validity rows, currencies, days of the week. */
+            foreach (var code in FinancialErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in FinancialErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
             }
         });
     }

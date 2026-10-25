@@ -13,7 +13,7 @@ using Volo.Abp;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The pdfgeneratorapi.com adapter behind Platform's rendering abstraction (design 50), API v4 throughout:
+/// The pdfgeneratorapi.com adapter behind Platform's rendering abstraction (design 55), API v4 throughout:
 /// <c>POST documents/generate</c> and <c>documents/generate/batch</c> (<c>output: base64</c>, <c>testing</c> for test
 /// renders), <c>POST templates/{id}/editor</c>, <c>POST templates/{id}/copy</c>, <c>GET templates/{id}</c>,
 /// <c>GET templates/{id}/data</c>. The workspace follows the current tenant (<see cref="PdfGeneratorApiClient"/>).

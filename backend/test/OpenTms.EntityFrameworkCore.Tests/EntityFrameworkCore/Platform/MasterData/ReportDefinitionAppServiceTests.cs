@@ -13,7 +13,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// ReportDefinitionAppService on SQLite (docs/designs/49-platform-master-data.md, test risk analysis "Scriban/regex
+/// ReportDefinitionAppService on SQLite (docs/designs/54-platform-master-data.md, test risk analysis "Scriban/regex
 /// validation, guards when in use, default switching", High): the round trip (language normalized, ".pdf" added to the
 /// Scriban file-name pattern), configured languages only, the file-name pattern parsed on save, the name unique regardless
 /// of case, one default per purpose and language (a new default clears the previous one of that purpose and language
@@ -209,7 +209,7 @@ public class ReportDefinitionAppServiceTests : PlatformMasterDataAppServiceTestB
     [Fact]
     public async Task An_archived_definition_may_stay_the_default_and_a_default_may_be_deleted()
     {
-        /* Design 49, assumption 7 (open for the PO). */
+        /* Design 54, assumption 7 (open for the PO). */
         using var _ = InTenantA();
         var a = await _service.CreateAsync(Dto("A", isDefault: true));
         await _service.ArchiveAsync(a.Id);

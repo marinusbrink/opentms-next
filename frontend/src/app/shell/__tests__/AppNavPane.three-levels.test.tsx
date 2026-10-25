@@ -79,10 +79,16 @@ beforeEach(() => {
 });
 
 describe("AppNavPane – the Master data tree at three levels", () => {
-  it("apps.config holds General and Platform as the domain groups, General with the four groups below it", () => {
-    expect(masterData.views!.map((v) => v.feature)).toEqual(["Apps.MasterData.General", "Apps.MasterData.Platform"]);
+  it("apps.config holds General first, then Orders, Planning & Execution, Financial and Platform, with General's four groups", () => {
+    expect(masterData.views!.map((v) => v.feature)).toEqual([
+      "Apps.MasterData.General",
+      "Apps.MasterData.Orders",
+      "Apps.MasterData.PlanningExecution",
+      "Apps.MasterData.Financial",
+      "Apps.MasterData.Platform",
+    ]);
     expect(masterData.views![0].path).toBe("/master-data/general");
-    expect(masterData.views![1].path).toBe("/master-data/platform");
+    expect(masterData.views![4].path).toBe("/master-data/platform");
     expect(masterData.views![0].children!.map((v) => v.feature)).toEqual([
       "Apps.MasterData.General.Relations",
       "Apps.MasterData.General.Transport",
@@ -177,14 +183,14 @@ describe("AppNavPane – the Master data tree at three levels", () => {
     expect(listLink("MasterData:GeographicalRegions")).toHaveAttribute("aria-current", "page");
   });
 
-  it("with General off hides General's whole subtree even though its groups and lists are on; Platform stays", () => {
-    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false" };
+  it("with General off hides the whole subtree even though its groups and lists are on", () => {
+    /* The other domain groups off too, so only General's own subtree is under test. */
+    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     render(<AppNavPane app={masterData} collapsed={false} onToggleCollapsed={() => {}} />);
 
     expect(screen.queryByText("MasterData:Nav.General")).toBeNull();
     expect(screen.queryByText("MasterData:Nav.Reference")).toBeNull();
     expect(screen.queryByText("MasterData:Countries")).toBeNull();
-    expect(groupButton("Platform:Nav.Platform")).toBeInTheDocument();
   });
 
   it("with Platform off hides the Platform group and its lists; General stays", () => {
@@ -198,21 +204,20 @@ describe("AppNavPane – the Master data tree at three levels", () => {
   });
 
   it("shows the Platform lists one level below the Platform group and opens it for an active Platform list", () => {
-    pathname = "/master-data/number-sequences";
+    pathname = "/master-data/document-types";
     render(<AppNavPane app={masterData} collapsed={false} onToggleCollapsed={() => {}} />);
 
     expect(indentLevel(groupButton("Platform:Nav.Platform"))).toBe(0);
-    expect(listLink("Platform:NumberSequences")).toHaveAttribute("aria-current", "page");
-    expect(indentLevel(listLink("Platform:NumberSequences"))).toBe(1);
+    expect(listLink("Platform:DocumentTypes")).toHaveAttribute("aria-current", "page");
+    expect(indentLevel(listLink("Platform:DocumentTypes"))).toBe(1);
     expect(listLink("Platform:EmailTemplates")).toBeInTheDocument();
     expect(listLink("Platform:ReportDefinitions")).toBeInTheDocument();
-    expect(listLink("Platform:DocumentTypes")).toBeInTheDocument();
     /* General's groups are shown, closed. */
     expect(queryGroupButton("MasterData:Nav.Reference")).toBeNull();
   });
 
-  it("with General and Platform off shows nothing", () => {
-    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" };
+  it("with every domain group off shows nothing", () => {
+    values = { ...allMasterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     render(<AppNavPane app={masterData} collapsed={false} onToggleCollapsed={() => {}} />);
 
     expect(within(nav()).queryAllByRole("listitem")).toHaveLength(0);

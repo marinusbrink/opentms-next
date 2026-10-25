@@ -7,7 +7,7 @@ using Volo.Abp;
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// An e-mail template (design 49; OpenTMS <c>OutboundEMailMessageTemplate</c>, PO 2026-10-18): one template per language
+/// An e-mail template (design 54; OpenTMS <c>OutboundEMailMessageTemplate</c>, PO 2026-10-18): one template per language
 /// with the mail fields on the template itself. A null <see cref="Culture"/> serves all languages. Every text field may
 /// hold Scriban expressions; the service parses them on save (never renders). At most one default per purpose (partial
 /// unique index); the service clears the previous default in the same transaction. A sender picks the template of the

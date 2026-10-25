@@ -15,7 +15,7 @@ using Volo.Abp.Uow;
 namespace OpenTms.Platform.DocumentTypes;
 
 /// <summary>
-/// Seeds the two standard document types per tenant database (design 49, "Seed"), run through ABP's data seeder by the
+/// Seeds the two standard document types per tenant database (design 54, "Seed"), run through ABP's data seeder by the
 /// DbMigrator and by the tenant-provisioning job. Upserts on the code and never overwrites a tenant's edits: a missing
 /// code is inserted, an existing one is left as the tenant keeps it, a soft-deleted one stays deleted (the read of
 /// existing codes disables the soft-delete filter only; the tenant filter stays on, constitution rule 1). The code never
@@ -59,7 +59,7 @@ public class DocumentTypeDataSeedContributor : IDataSeedContributor, ITransientD
             List<string> existingCodes;
             using (_dataFilter.Disable<ISoftDelete>())
             {
-                /* At most a hundred rows per tenant (design 49, expected volumes). */
+                /* At most a hundred rows per tenant (design 54, expected volumes). */
                 existingCodes = (await _documentTypes.GetListAsync(includeDetails: false)).Select(t => t.Code).ToList();
             }
 

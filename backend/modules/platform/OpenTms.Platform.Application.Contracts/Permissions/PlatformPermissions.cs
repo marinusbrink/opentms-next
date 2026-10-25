@@ -21,6 +21,13 @@ public static class PlatformPermissions
         public const string Impersonation = Default + ".Impersonation";
     }
 
+    /// <summary>Derived values recalculated in the background (docs/designs/49-derived-values-and-live-updates.md).</summary>
+    public static class DerivedValues
+    {
+        /// <summary>Re-run the calculation of a set of records (the bulk re-run of flow 2).</summary>
+        public const string Recalculate = GroupName + ".DerivedValues.Recalculate";
+    }
+
     /// <summary>The Editions app (host only): docs/designs/tenants-and-editions.md.</summary>
     public static class Editions
     {
@@ -32,7 +39,7 @@ public static class PlatformPermissions
     }
 
     /// <summary>
-    /// The Platform master-data lists in the Master data app (design 49): one view permission per list with Create,
+    /// The Platform master-data lists in the Master data app (design 54): one view permission per list with Create,
     /// Update and Delete children, both sides.
     /// </summary>
     public static class MasterData
@@ -52,7 +59,7 @@ public static class PlatformPermissions
             public const string Update = Default + ".Update";
             public const string Delete = Default + ".Delete";
 
-            /// <summary>Open the provider's template editor and copy a template (design 50).</summary>
+            /// <summary>Open the provider's template editor and copy a template (design 55).</summary>
             public const string EditTemplate = Default + ".EditTemplate";
         }
 
@@ -64,21 +71,12 @@ public static class PlatformPermissions
             public const string Delete = Default + ".Delete";
         }
 
-        public static class NumberSequences
-        {
-            public const string Default = GroupName + ".NumberSequences";
-            public const string Create = Default + ".Create";
-            public const string Update = Default + ".Update";
-            public const string Delete = Default + ".Delete";
-        }
-
         /// <summary>(entity, view, create, update, delete) of every list: the definition provider and the admin seed iterate it.</summary>
         public static readonly (string Entity, string Default, string Create, string Update, string Delete)[] All =
         [
             ("EmailTemplates", EmailTemplates.Default, EmailTemplates.Create, EmailTemplates.Update, EmailTemplates.Delete),
             ("ReportDefinitions", ReportDefinitions.Default, ReportDefinitions.Create, ReportDefinitions.Update, ReportDefinitions.Delete),
             ("DocumentTypes", DocumentTypes.Default, DocumentTypes.Create, DocumentTypes.Update, DocumentTypes.Delete),
-            ("NumberSequences", NumberSequences.Default, NumberSequences.Create, NumberSequences.Update, NumberSequences.Delete),
         ];
     }
 

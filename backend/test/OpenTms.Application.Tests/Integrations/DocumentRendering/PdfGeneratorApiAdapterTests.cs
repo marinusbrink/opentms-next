@@ -18,7 +18,7 @@ using Xunit;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The pdfgeneratorapi.com adapter of docs/designs/50-report-rendering.md on a fake transport, a manual clock and a
+/// The pdfgeneratorapi.com adapter of docs/designs/55-report-rendering.md on a fake transport, a manual clock and a
 /// recording retry delay: no live call (the account is FiLogic's production account). Risk classes from the design's
 /// test risk analysis: Critical for the JWT (claims, HS256, Base64Url), the workspace per tenant and host, never editing
 /// an organization template (owner unknown is not owned) and secrets never returned or logged; High for the endpoints'
@@ -67,7 +67,7 @@ public class PdfGeneratorApiAdapterTests
         payload.GetProperty("iss").GetString().ShouldBe(PdfHarness.Key);
         payload.GetProperty("sub").GetString().ShouldBe("workspace-tenant-x@opentms.nl");
         payload.GetProperty("exp").GetInt64().ShouldBe(PdfHarness.Start.AddSeconds(60).ToUnixTimeSeconds());
-        PdfGeneratorApiJwt.Lifetime.ShouldBe(TimeSpan.FromSeconds(60), "design 50: now + 60 s (OpenTMS used 15 minutes)");
+        PdfGeneratorApiJwt.Lifetime.ShouldBe(TimeSpan.FromSeconds(60), "design 55: now + 60 s (OpenTMS used 15 minutes)");
     }
 
     [Fact]
@@ -703,7 +703,7 @@ public class PdfGeneratorApiAdapterTests
             }
         }
 
-        /* What the logs do carry: the operation, the template id and the tenant id (design 50, "Privacy note"). */
+        /* What the logs do carry: the operation, the template id and the tenant id (design 55, "Privacy note"). */
         entries.Where(e => e.Level >= LogLevel.Warning).ShouldAllBe(e => e.Message.Contains(tenant.ToString()) && e.Message.Contains("123456"));
     }
 

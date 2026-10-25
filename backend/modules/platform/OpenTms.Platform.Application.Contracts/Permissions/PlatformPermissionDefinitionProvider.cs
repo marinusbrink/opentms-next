@@ -19,6 +19,9 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         /* Tenants and editions are host data: a tenant can never be granted these
          * (docs/designs/tenants-and-editions.md). */
         var host = MultiTenancySides.Host;
+        /* Design 49: tenant administrators re-run calculations of their own records; the host for shared-tier work. */
+        group.AddPermission(PlatformPermissions.DerivedValues.Recalculate, L("Permission:DerivedValues.Recalculate"), MultiTenancySides.Both);
+
         var tenants = group.AddPermission(PlatformPermissions.Tenants.Default, L("Permission:Tenants"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Create, L("Permission:Tenants.Create"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Update, L("Permission:Tenants.Update"), host);
@@ -33,7 +36,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
 
         var bothSides = MultiTenancySides.Host | MultiTenancySides.Tenant;
 
-        /* The Platform master-data lists (design 49): a view permission per list with Create, Update and Delete. */
+        /* The Platform master-data lists (design 54): a view permission per list with Create, Update and Delete. */
         foreach (var (entity, view, create, update, delete) in PlatformPermissions.MasterData.All)
         {
             var list = group.AddPermission(view, L($"Permission:{entity}"), bothSides);
@@ -42,7 +45,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
             list.AddChild(delete, L($"Permission:{entity}.Delete"), bothSides);
         }
 
-        /* Report templates at the rendering provider (design 50): open the editor, copy a template. */
+        /* Report templates at the rendering provider (design 55): open the editor, copy a template. */
         context.GetPermissionOrNull(PlatformPermissions.MasterData.ReportDefinitions.Default)!
             .AddChild(PlatformPermissions.MasterData.ReportDefinitions.EditTemplate, L("Permission:ReportDefinitions.EditTemplate"), bothSides);
 

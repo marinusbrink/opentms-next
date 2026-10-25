@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-/* reportTemplateCommandBlock (design 50, UI design; UI-PERM-005): why a template command of the report definition
+/* reportTemplateCommandBlock (design 55, UI design; UI-PERM-005): why a template command of the report definition
  * editor cannot run, as a localization key. The reasons have a fixed precedence: feature off, provider unavailable
  * (also when the provider failed to answer: the status carries a message), not configured, archived, the provider
  * does not support the command, template not found, not owned (Edit template only), and unsaved changes last.

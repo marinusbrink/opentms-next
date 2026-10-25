@@ -18,7 +18,7 @@ public class RenderRequest
     public bool IsTest { get; init; }
 
     /// <summary>
-    /// How patient the provider call may be (design 50, "Resilience"): <see cref="RenderCallMode.Background"/> for the
+    /// How patient the provider call may be (design 55, "Resilience"): <see cref="RenderCallMode.Background"/> for the
     /// renders of jobs (the default, <see cref="IDocumentRenderer"/>), <see cref="RenderCallMode.Interactive"/> when a
     /// user waits for the answer (the test render). Set explicitly; never inferred from <see cref="IsTest"/>.
     /// </summary>
@@ -26,7 +26,7 @@ public class RenderRequest
 }
 
 /// <summary>
-/// The patience of a provider call (design 50, "Resilience"). A provider's template operations (editor URL, copy,
+/// The patience of a provider call (design 55, "Resilience"). A provider's template operations (editor URL, copy,
 /// template lookup, template data) are always interactive; only a render carries the mode in its request.
 /// </summary>
 public enum RenderCallMode

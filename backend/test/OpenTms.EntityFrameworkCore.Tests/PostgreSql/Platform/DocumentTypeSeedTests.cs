@@ -12,7 +12,7 @@ using Xunit;
 namespace OpenTms.PostgreSql.Platform;
 
 /// <summary>
-/// The document-type seed against real PostgreSQL (docs/designs/49-platform-master-data.md, "Seed": FREIGHT and GENERAL in
+/// The document-type seed against real PostgreSQL (docs/designs/54-platform-master-data.md, "Seed": FREIGHT and GENERAL in
 /// every tenant, upsert on Code, never overwriting tenant edits, the code never matched on the name; test risk analysis
 /// "Seed", Medium: idempotent re-run, tenant edits kept). The DbMigrator that created the test databases ran the
 /// contributor for tenant A (own database) and the shared tenant (host database). Also: a soft-deleted code stays deleted,

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { Mock } from "vitest";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The four lists of the Platform domain group (design 49, UI design and API contract): the view permission, the grid
+/* The four lists of the Platform domain group (design 54, UI design and API contract): the view permission, the grid
  * id and the designed columns (hidden ones after the visible, the computed ones not sortable), the filters as list
  * request parameters (`purpose` on templates and report definitions, `includeArchived` on report definitions and
  * document types), the row actions per permission (Edit with Update, Archive/Unarchive with Update and confirmed,
@@ -51,7 +51,6 @@ const { editorProps, editorMock } = vi.hoisted(() => {
 vi.mock("@/apps/master-data/editors/EmailTemplateEditor", () => ({ EmailTemplateEditor: editorMock("email-template-editor") }));
 vi.mock("@/apps/master-data/editors/ReportDefinitionEditor", () => ({ ReportDefinitionEditor: editorMock("report-definition-editor") }));
 vi.mock("@/apps/master-data/editors/DocumentTypeEditor", () => ({ DocumentTypeEditor: editorMock("document-type-editor") }));
-vi.mock("@/apps/master-data/editors/NumberSequenceEditor", () => ({ NumberSequenceEditor: editorMock("number-sequence-editor") }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
@@ -61,7 +60,6 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
 import { DocumentTypesView } from "@/apps/master-data/views/DocumentTypesView";
 import { EmailTemplatesView } from "@/apps/master-data/views/EmailTemplatesView";
-import { NumberSequencesView } from "@/apps/master-data/views/NumberSequencesView";
 import { ReportDefinitionsView } from "@/apps/master-data/views/ReportDefinitionsView";
 import { gridRows } from "./run2-test-mocks";
 
@@ -119,7 +117,6 @@ const PERMISSION_CASES = [
   ["EmailTemplatesView", () => <EmailTemplatesView />, "Platform.EmailTemplates", "/api/platform/email-template", "EmailTemplate"],
   ["ReportDefinitionsView", () => <ReportDefinitionsView />, "Platform.ReportDefinitions", "/api/platform/report-definition", "ReportDefinition"],
   ["DocumentTypesView", () => <DocumentTypesView />, "Platform.DocumentTypes", "/api/platform/document-type", "DocumentType"],
-  ["NumberSequencesView", () => <NumberSequencesView />, "Platform.NumberSequences", "/api/platform/number-sequence", "NumberSequence"],
 ] as const;
 
 describe("the four Platform lists — permissions", () => {
@@ -353,63 +350,5 @@ describe("DocumentTypesView", () => {
     await screen.findByTestId("mock-grid");
     fireEvent.click(rowButton(0, "Delete"));
     expect(within(alertDialog()).getByText(/Platform:DeleteDocumentTypeQuestion FREIGHT/)).toBeInTheDocument();
-  });
-});
-
-describe("NumberSequencesView", () => {
-  it("renders platform.numberSequences with Name, Scheme, Example number and In use, the computed two not sortable; no filters", async () => {
-    grants = { "Platform.NumberSequences": true };
-    renderView(<NumberSequencesView />);
-    expect((await screen.findByTestId("mock-grid")).getAttribute("data-grid-id")).toBe("platform.numberSequences");
-    expect(columns()).toEqual(["name", "scheme", "exampleNumber", "isInUse"]);
-    expect(unsortable()).toEqual(["exampleNumber", "isInUse"]);
-    expect(formatted("scheme", 4)).toBe("Platform:NumberSequenceScheme.TwoDigitYearMonth");
-    await waitFor(() => expect(listCalls("/api/platform/number-sequence")).toHaveLength(1));
-    expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-  });
-
-  it("disables Delete with the in-use reason for a sequence in use, and deletes one that is not after confirmation", async () => {
-    grants = { "Platform.NumberSequences": true, "Platform.NumberSequences.Delete": true };
-    gridRows.current = [
-      { id: "n1", name: "Invoices", scheme: 2, exampleNumber: "F26-0001", isInUse: true },
-      { id: "n2", name: "Spare", scheme: 5, exampleNumber: "0001", isInUse: false },
-    ];
-    renderView(<NumberSequencesView />);
-    await screen.findByTestId("mock-grid");
-
-    const blocked = rowButton(0, "Delete");
-    expect(blocked).toBeDisabled();
-    expect(blocked).toHaveAttribute("title", "Platform:NumberSequenceInUseCannotDelete");
-    fireEvent.click(blocked);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-
-    const free = rowButton(1, "Delete");
-    expect(free).toBeEnabled();
-    fireEvent.click(free);
-    expect(within(alertDialog()).getByText(/Platform:DeleteNumberSequenceQuestion Spare/)).toBeInTheDocument();
-    fireEvent.click(within(alertDialog()).getByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(DELETE).toHaveBeenCalledWith("/api/platform/number-sequence/{id}", { params: { path: { id: "n2" } } }));
-    expect(DELETE).toHaveBeenCalledTimes(1);
-  });
-
-  it("a bulk delete goes to the server, which skips sequences in use", async () => {
-    grants = { "Platform.NumberSequences": true, "Platform.NumberSequences.Delete": true };
-    gridRows.current = [
-      { id: "n1", name: "Invoices", isInUse: true },
-      { id: "n2", name: "Spare", isInUse: false },
-    ];
-    POST.mockImplementation(async () => ok({ deletedCount: 1, skippedRows: [{ id: "n1", name: "Invoices", reason: "In use" }] }));
-    renderView(<NumberSequencesView />);
-    await screen.findByTestId("mock-grid");
-    fireEvent.click(screen.getByText("select-all"));
-    fireEvent.click(await screen.findByRole("button", { name: /DeleteNSelected/ }));
-    fireEvent.click(within(alertDialog()).getByRole("button", { name: "Delete" }));
-    await waitFor(() =>
-      expect(POST).toHaveBeenCalledWith("/api/platform/number-sequence/bulk-delete", {
-        body: { selection: { mode: "Explicit", explicitIds: ["n1", "n2"], excludedIds: [], filterRequest: undefined } },
-      }),
-    );
-    await waitFor(() => expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining("Invoices: In use")));
   });
 });

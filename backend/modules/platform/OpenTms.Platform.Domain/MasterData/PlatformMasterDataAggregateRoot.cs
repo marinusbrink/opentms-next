@@ -6,7 +6,7 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.Platform;
 
 /// <summary>
-/// The base of every Platform master-data aggregate (design 49), the Platform counterpart of Master Data's
+/// The base of every Platform master-data aggregate (design 54), the Platform counterpart of Master Data's
 /// MasterDataAggregateRoot (Platform references no domain module): audit, soft delete and the concurrency stamp from
 /// ABP, a nullable tenant (host rows are parked but must stay possible) and the shared description field. Never
 /// defaults the tenant; the ABP data filter scopes every query.

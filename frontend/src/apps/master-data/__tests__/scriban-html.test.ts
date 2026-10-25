@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { unescapeScribanRegions } from "@/apps/master-data/components/scriban-html";
 
-/* Scriban typed in the visual editor (design 49, the e-mail template body; PO 2026-10-18). The editor serialises text
+/* Scriban typed in the visual editor (design 54, the e-mail template body; PO 2026-10-18). The editor serialises text
  * HTML-escaped, so `{{ if a > b }}` would reach Scriban as `{{ if a &gt; b }}` and fail to parse on the server.
  * unescapeScribanRegions decodes the entities the serialiser writes, only inside `{{ … }}`, in one pass; a
  * non-breaking space (entity or character) becomes a plain space there. Text outside the regions and unbalanced

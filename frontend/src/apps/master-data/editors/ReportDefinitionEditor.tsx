@@ -37,18 +37,18 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { openPendingTab } from "@/lib/browser";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The report definition editor (design 49, UI design): `md`; Name, Purpose, Language, Provider, Provider template id,
+/* The report definition editor (design 54, UI design): `md`; Name, Purpose, Language, Provider, Provider template id,
  * File name pattern (Scriban, ".pdf" added by the server when missing), Default, Archived, Available in customer
  * portal, Description. The server parses the pattern and keeps one default per purpose and language.
  *
- * The ribbon group Template (design 50, UI design), edit mode only: Edit template (the provider's editor in a new
+ * The ribbon group Template (design 55, UI design), edit mode only: Edit template (the provider's editor in a new
  * tab), Copy template (confirmed; opens the new definition) and Test document (downloads the test PDF). Each needs its
  * permission (hidden without it, UI-PERM-002: EditTemplate; EditTemplate + Create; the view permission) and is
  * disabled with the reason from the rendering status (UI-PERM-005). They do not change this record, so they show in
  * read-only mode too. Under Provider template id the template's name at the provider, or "not found".
  *
  * DEVIATION(UI-PERM-006): feature Platform.DocumentRendering off disables the commands with the reason "feature off"
- * instead of hiding them, approved in docs/designs/50-report-rendering.md (UI design: "disabled with its reason ...
+ * instead of hiding them, approved in docs/designs/55-report-rendering.md (UI design: "disabled with its reason ...
  * feature off"; Report-definition operations: the status reports the feature "so it can report 'feature off' as a
  * reason"). */
 
@@ -103,7 +103,7 @@ export function ReportDefinitionEditor({ mode, id, readOnly, open, onClose, onSa
   const remove = reportDefinitions.useDelete();
   const canDelete = useIsGranted("Platform.ReportDefinitions.Delete");
 
-  /* ── Template commands (design 50) ── */
+  /* ── Template commands (design 55) ── */
   const isEdit = mode === "edit" && id != null;
   const canView = useIsGranted("Platform.ReportDefinitions");
   const canCreate = useIsGranted("Platform.ReportDefinitions.Create");

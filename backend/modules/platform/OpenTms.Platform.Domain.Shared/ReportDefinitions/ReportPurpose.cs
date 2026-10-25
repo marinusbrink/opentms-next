@@ -1,6 +1,6 @@
 namespace OpenTms.Platform.ReportDefinitions;
 
-/// <summary>The document a report definition renders (design 49; OpenTMS resolved an entity type name by reflection).</summary>
+/// <summary>The document a report definition renders (design 54; OpenTMS resolved an entity type name by reflection).</summary>
 public enum ReportPurpose
 {
     TransportOrderConfirmation = 1,

@@ -1,10 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Financial.EntityFrameworkCore;
 using OpenTms.MasterData.EntityFrameworkCore;
+using OpenTms.Orders.EntityFrameworkCore;
+using OpenTms.PlanningExecution.EntityFrameworkCore;
 using OpenTms.Platform.EntityFrameworkCore;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
+using OpenTms.DerivedValues;
+using OpenTms.Platform.DerivedValues;
 using Volo.Abp;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -64,6 +70,9 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
 
         ConfigureInMemorySqlite(context.Services);
 
+        /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
+        Configure<DerivedValueOptions>(DerivedValueProbe.Register);
+
     }
 
     private void ConfigureInMemorySqlite(IServiceCollection services)
@@ -83,6 +92,11 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
         {
             masterData.GetService<IRelationalDatabaseCreator>().CreateTables();
         }
+
+        /* Designs 51–53: the Orders, Financial and Planning & Execution reference data. */
+        CreateModuleTables(new OrdersDbContext(new DbContextOptionsBuilder<OrdersDbContext>().UseSqlite(_database.ConnectionString).UseLocalizedNameTranslation().Options));
+        CreateModuleTables(new FinancialDbContext(new DbContextOptionsBuilder<FinancialDbContext>().UseSqlite(_database.ConnectionString).UseLocalizedNameTranslation().Options));
+        CreateModuleTables(new PlanningExecutionDbContext(new DbContextOptionsBuilder<PlanningExecutionDbContext>().UseSqlite(_database.ConnectionString).UseLocalizedNameTranslation().Options));
 
         services.Configure<AbpDbConnectionOptions>(options =>
         {
@@ -107,7 +121,33 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
                 context.UseSqlite();
                 context.DbContextOptions.UseLocalizedNameTranslation();
             });
+            options.Configure<OrdersDbContext>(context =>
+            {
+                context.UseSqlite();
+                context.DbContextOptions.UseLocalizedNameTranslation();
+            });
+            options.Configure<FinancialDbContext>(context =>
+            {
+                context.UseSqlite();
+                context.DbContextOptions.UseLocalizedNameTranslation();
+            });
+            options.Configure<PlanningExecutionDbContext>(context =>
+            {
+                context.UseSqlite();
+                context.DbContextOptions.UseLocalizedNameTranslation();
+            });
         });
+    }
+
+    private static void CreateModuleTables(DbContext context)
+    {
+        using (context)
+        {
+            if (context.Model.GetEntityTypes().Any())
+            {
+                context.GetService<IRelationalDatabaseCreator>().CreateTables();
+            }
+        }
     }
 
     public override void OnApplicationShutdown(ApplicationShutdownContext context)

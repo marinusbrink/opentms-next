@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace OpenTms.Platform.EmailTemplates;
 
-/// <summary>A group of the tag catalogue for a purpose (design 49, "Tags and default content"), localized.</summary>
+/// <summary>A group of the tag catalogue for a purpose (design 54, "Tags and default content"), localized.</summary>
 public class EmailTemplateTagGroupDto
 {
     /// <summary>The group key of the catalogue ("company", "freight", "invoice.lines").</summary>

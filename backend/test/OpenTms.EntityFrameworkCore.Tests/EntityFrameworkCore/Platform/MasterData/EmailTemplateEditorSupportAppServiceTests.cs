@@ -11,7 +11,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// The editor support of EmailTemplateAppService on SQLite (docs/designs/49-platform-master-data.md, "Tags and default
+/// The editor support of EmailTemplateAppService on SQLite (docs/designs/54-platform-master-data.md, "Tags and default
 /// content", PO 2026-10-20): GetTagsAsync serves the catalogue's groups of a purpose with labels and descriptions in
 /// the UI language, kinds, snippets and the children of a collection; GetDefaultsAsync serves the sender address per
 /// purpose, the subject in the template's language (not the UI's) and the embedded body; an undefined purpose is a

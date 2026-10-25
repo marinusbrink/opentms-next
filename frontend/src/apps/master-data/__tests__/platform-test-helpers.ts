@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import { expect } from "vitest";
 
-/* Shared DOM helpers for the Platform master-data editor tests (design 49). The editors render inside the real
+/* Shared DOM helpers for the Platform master-data editor tests (design 54). The editors render inside the real
  * EntityDialog, which keeps every tab panel mounted (UI-DLG-015), so field lookups are scoped to one panel: the
  * e-mail template's language tabs carry the same labels. Not a test file: vitest's include pattern matches *.test.*
  * only. */

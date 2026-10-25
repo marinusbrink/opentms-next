@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain\OpenTms.Platform.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.PlanningExecution.Domain.Shared\OpenTms.PlanningExecution.Domain.Shared.csproj" />
   </ItemGroup>
 

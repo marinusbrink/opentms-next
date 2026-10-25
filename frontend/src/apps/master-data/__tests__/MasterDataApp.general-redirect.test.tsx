@@ -22,7 +22,7 @@ for (const view of [
   "RelationCategoriesView", "RelationsView", "TemperaturesView", "TransportCharacteristicsView", "TransportUnitsView", "VehicleTypesView",
   "VehiclesView", "VehicleCombinationsView", "ProductRelationCodesView",
   /* Design 49: the Platform domain's lists. */
-  "EmailTemplatesView", "ReportDefinitionsView", "DocumentTypesView", "NumberSequencesView",
+  "EmailTemplatesView", "ReportDefinitionsView", "DocumentTypesView",
 ]) {
   vi.doMock(`@/apps/master-data/views/${view}`, () => ({ [view]: () => <div data-testid={view} /> }));
 }
@@ -53,7 +53,7 @@ const go = (path: string) => {
   render(<MasterDataApp />);
 };
 
-describe("MasterDataApp – the domain group paths (General; Platform, design 49)", () => {
+describe("MasterDataApp – the domain group paths (General; Orders, Planning & Execution, Financial; Platform, design 54)", () => {
   it("/master-data/general goes to the first list that is on", () => {
     go("/master-data/general");
     expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/relations", replace: true });
@@ -91,14 +91,8 @@ describe("MasterDataApp – the domain group paths (General; Platform, design 49
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("the bare app path goes to the first Platform list when General is off (design 49)", () => {
-    values = { ...allOn(), "Apps.MasterData.General": "false" };
-    go("/master-data");
-    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/email-templates", replace: true });
-  });
-
-  it("the bare app path does not navigate when General and Platform are off", () => {
-    values = { ...allOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" };
+  it("the bare app path does not navigate when every domain group is off", () => {
+    values = { ...allOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     go("/master-data");
     expect(navigateMock).not.toHaveBeenCalled();
   });
@@ -136,7 +130,6 @@ describe("MasterDataApp – the domain group paths (General; Platform, design 49
     ["/master-data/email-templates", "EmailTemplatesView"],
     ["/master-data/report-definitions", "ReportDefinitionsView"],
     ["/master-data/document-types", "DocumentTypesView"],
-    ["/master-data/number-sequences", "NumberSequencesView"],
   ])("%s renders %s without navigating", (path, view) => {
     go(path);
     expect(document.querySelector(`[data-testid=${view}]`)).not.toBeNull();
@@ -151,7 +144,8 @@ describe("MasterDataApp – the domain group paths (General; Platform, design 49
         walk(view.children);
       });
     walk(masterData.views);
-    expect(paths).toHaveLength(19);
+    /* Fifteen General lists (designs 41–48), nine of Orders, Planning & Execution and Financial (designs 51–53) and three of Platform (design 54). */
+    expect(paths).toHaveLength(27);
     expect(paths.every((p) => /^\/master-data\/[a-z-]+$/.test(p) && !p.startsWith("/master-data/general") && !p.startsWith("/master-data/platform"))).toBe(true);
   });
 });

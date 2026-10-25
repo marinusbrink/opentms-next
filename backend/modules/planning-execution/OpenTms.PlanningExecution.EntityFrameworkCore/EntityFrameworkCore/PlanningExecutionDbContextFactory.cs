@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -9,6 +10,10 @@ public class PlanningExecutionDbContextFactory : IDesignTimeDbContextFactory<Pla
 {
     public PlanningExecutionDbContext CreateDbContext(string[] args)
     {
+        /* Same timestamp mapping as the runtime (OpenTmsEntityFrameworkCoreModule) and the Platform
+         * factory, so the scaffolded migration matches the model the host runs with. */
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
         var builder = new DbContextOptionsBuilder<PlanningExecutionDbContext>()
             .UseNpgsql(
                 "Host=localhost;Port=5432;Database=OpenTms_Design;Username=postgres;Password=postgres",

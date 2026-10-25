@@ -20,7 +20,7 @@ using Volo.Abp.Tracing;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The typed HTTP client of pdfgeneratorapi.com API v4 (design 50, "Resilience"). One host, TLS validation on (the
+/// The typed HTTP client of pdfgeneratorapi.com API v4 (design 55, "Resilience"). One host, TLS validation on (the
 /// handler's default), a fresh JWT per attempt in the current tenant's workspace, the correlation id on every request.
 /// Two call modes (<see cref="RenderCallMode"/>), timed per request with a token linked to the caller's, because one
 /// HttpClient serves both: <b>Interactive</b> (a user waits: editor URL, copy, template lookup, template data, health,

@@ -10,7 +10,7 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.Platform.DocumentTypes;
 
 /// <summary>
-/// A kind of document the digital archive files under (design 49; OpenTMS <c>BinaryObjectType</c>, UI "Soort digitale
+/// A kind of document the digital archive files under (design 54; OpenTMS <c>BinaryObjectType</c>, UI "Soort digitale
 /// documenten"). The upper-case code is the natural key the seed upserts on; the name is per language. The
 /// transformations are a typed pipeline (each kind at most once) that the attachments run executes (GAP-05).
 /// </summary>

@@ -18,7 +18,7 @@ using Xunit;
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The pdfgeneratorapi connection test (docs/designs/50-report-rendering.md, "Health check": <c>GET templates?per_page=1</c>
+/// The pdfgeneratorapi connection test (docs/designs/55-report-rendering.md, "Health check": <c>GET templates?per_page=1</c>
 /// in the default workspace, tag <c>external</c>, not part of <c>/health/ready</c>) and the adapter's registration in
 /// IntegrationsApplicationModule (typed client: base URL, 30-second timeout; the provider behind Platform's abstraction).
 /// The host's endpoint predicates are exercised in OpenTms.HttpApi.Host.Tests (HealthCheckEndpointTests). Risk class:

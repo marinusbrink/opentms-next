@@ -5,21 +5,19 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.Platform.NumberSequences;
 
 /// <summary>
-/// The last number drawn from a sequence in one period; key (sequence, year, month), with 0 for "no year" or "no month"
-/// instead of NULL so the upsert's conflict target works on every provider (design 49). Written only by
-/// <see cref="INumberSequenceCounterRepository.IncrementAsync"/>; its existence makes the sequence "in use".
+/// The last issued counter of one sequence in one period (design 50): platform."NumberSequenceCounters", unique per
+/// (tenant, sequence key, period). Written only by <see cref="INumberSequenceGenerator"/> through one atomic upsert,
+/// in the transaction of the fact that takes the number.
 /// </summary>
-public class NumberSequenceCounter : Entity, IMultiTenant
+public class NumberSequenceCounter : Entity<Guid>, IMultiTenant
 {
+    public const int MaxSequenceKeyLength = 128;
+
     public Guid? TenantId { get; private set; }
 
-    public Guid NumberSequenceId { get; private set; }
+    public string SequenceKey { get; private set; } = default!;
 
-    /// <summary>The year of the period, or 0 for a sequence that never restarts.</summary>
-    public int PeriodYear { get; private set; }
-
-    /// <summary>The month of the period, or 0 for a sequence that restarts per year or never.</summary>
-    public int PeriodMonth { get; private set; }
+    public string Period { get; private set; } = default!;
 
     public long LastValue { get; private set; }
 
@@ -27,14 +25,12 @@ public class NumberSequenceCounter : Entity, IMultiTenant
     {
     }
 
-    public NumberSequenceCounter(Guid? tenantId, Guid numberSequenceId, int periodYear, int periodMonth, long lastValue)
+    public NumberSequenceCounter(Guid id, Guid? tenantId, string sequenceKey, string period, long lastValue)
+        : base(id)
     {
         TenantId = tenantId;
-        NumberSequenceId = numberSequenceId;
-        PeriodYear = periodYear;
-        PeriodMonth = periodMonth;
+        SequenceKey = sequenceKey;
+        Period = period;
         LastValue = lastValue;
     }
-
-    public override object[] GetKeys() => [NumberSequenceId, PeriodYear, PeriodMonth];
 }

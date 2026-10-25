@@ -11,7 +11,7 @@ using Xunit;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The report data catalogue (docs/designs/50-report-rendering.md, "Report data catalogue"): per purpose the OpenTMS
+/// The report data catalogue (docs/designs/55-report-rendering.md, "Report data catalogue"): per purpose the OpenTMS
 /// payload a template receives. Every sample conforms to its own catalogue; every catalogued path occurs in the sample;
 /// the contract check reports unknown fields, wrong JSON kinds and formats and a wrong EntityType while allowing nulls and
 /// missing fields; the invoice money follows OpenTMS (NetPrice = TotalPrice + VatPrice) and every Formatted*/

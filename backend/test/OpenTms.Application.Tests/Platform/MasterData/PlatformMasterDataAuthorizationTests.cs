@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.EmailTemplates;
 using OpenTms.Platform.Features;
-using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.Permissions;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
@@ -22,7 +21,7 @@ namespace OpenTms.Platform.PlatformMasterData;
 
 /// <summary>
 /// The permission and feature attributes of the four Platform master-data services and of the number generator, read by
-/// reflection (docs/designs/49-platform-master-data.md, "Feature flags and permissions" and the security quickscan:
+/// reflection (docs/designs/54-platform-master-data.md, "Feature flags and permissions" and the security quickscan:
 /// sixteen permissions, every public method attributed, the screen methods behind the Platform group and their leaf, the
 /// pickers behind the app feature only, the generator behind neither). Also the error-code → HTTP status mapping that
 /// OpenTmsHttpApiModule configures (409 for the conflict codes, 400 for the rest). Risk class: High (design: "Permissions
@@ -51,7 +50,7 @@ public class PlatformMasterDataAuthorizationTests
 
             if (service == typeof(ReportDefinitionAppService))
             {
-                /* Report rendering (docs/designs/50-report-rendering.md, "Report-definition operations"): the status and the
+                /* Report rendering (docs/designs/55-report-rendering.md, "Report-definition operations"): the status and the
                  * test render are viewing; the editor and the copy need EditTemplate (the copy checks Create inside the
                  * body as well, exercised at runtime in ReportDefinitionRenderingOperationsTests). */
                 yield return [service.Name, "GetRenderingStatusAsync", view];
@@ -62,7 +61,7 @@ public class PlatformMasterDataAuthorizationTests
 
             if (service == typeof(EmailTemplateAppService))
             {
-                /* Editor support (design 49, "Tags and default content", PO 2026-10-20): reading the catalogue and the
+                /* Editor support (design 54, "Tags and default content", PO 2026-10-20): reading the catalogue and the
                  * defaults is viewing the list; both sit behind the Platform group and the EmailTemplates leaf (the
                  * reflection theory below pins the chain, PlatformMasterDataFeatureGatingTests exercises it). */
                 yield return [service.Name, "GetTagsAsync", view];
@@ -100,8 +99,6 @@ public class PlatformMasterDataAuthorizationTests
             PlatformPermissions.MasterData.ReportDefinitions.Update, PlatformPermissions.MasterData.ReportDefinitions.Delete, AppFeatures.MasterData.Platform.ReportDefinitions),
         (typeof(DocumentTypeAppService), PlatformPermissions.MasterData.DocumentTypes.Default, PlatformPermissions.MasterData.DocumentTypes.Create,
             PlatformPermissions.MasterData.DocumentTypes.Update, PlatformPermissions.MasterData.DocumentTypes.Delete, AppFeatures.MasterData.Platform.DocumentTypes),
-        (typeof(NumberSequenceAppService), PlatformPermissions.MasterData.NumberSequences.Default, PlatformPermissions.MasterData.NumberSequences.Create,
-            PlatformPermissions.MasterData.NumberSequences.Update, PlatformPermissions.MasterData.NumberSequences.Delete, AppFeatures.MasterData.Platform.NumberSequences),
     ];
 
     private static Type ServiceNamed(string name) => Services.Single(s => s.Service.Name == name).Service;
@@ -135,7 +132,6 @@ public class PlatformMasterDataAuthorizationTests
     [InlineData(typeof(EmailTemplateAppService))]
     [InlineData(typeof(ReportDefinitionAppService))]
     [InlineData(typeof(DocumentTypeAppService))]
-    [InlineData(typeof(NumberSequenceAppService))]
     public void No_public_method_is_without_a_permission_and_every_service_sits_behind_the_Master_data_app_feature(Type service)
     {
         PublicMethods(service)
@@ -152,7 +148,6 @@ public class PlatformMasterDataAuthorizationTests
     [InlineData(typeof(EmailTemplateAppService))]
     [InlineData(typeof(ReportDefinitionAppService))]
     [InlineData(typeof(DocumentTypeAppService))]
-    [InlineData(typeof(NumberSequenceAppService))]
     public void The_screen_methods_need_the_Platform_group_and_their_leaf_and_the_lookup_only_the_app(Type service)
     {
         var leaf = Services.Single(s => s.Service == service).Leaf;
@@ -172,36 +167,23 @@ public class PlatformMasterDataAuthorizationTests
     }
 
     [Fact]
-    public void The_number_generator_is_neither_feature_gated_nor_an_application_service()
-    {
-        /* Design 49: "INumberGenerator is not feature-gated: it is called by other modules' services", no HTTP endpoint. */
-        typeof(NumberGenerator).GetCustomAttribute<RequiresFeatureAttribute>().ShouldBeNull();
-        typeof(NumberGenerator).GetMethod(nameof(NumberGenerator.GetNextAsync))!.GetCustomAttribute<RequiresFeatureAttribute>().ShouldBeNull();
-        typeof(Volo.Abp.Application.Services.IApplicationService).IsAssignableFrom(typeof(NumberGenerator)).ShouldBeFalse();
-        typeof(Volo.Abp.Application.Services.IApplicationService).IsAssignableFrom(typeof(INumberGenerator)).ShouldBeFalse();
-        typeof(INumberGenerator).IsAssignableFrom(typeof(NumberGenerator)).ShouldBeTrue();
-    }
-
-    [Fact]
-    public void The_sixteen_permission_names_are_the_designed_ones()
+    public void The_twelve_permission_names_are_the_designed_ones()
     {
         PlatformPermissions.MasterData.All.SelectMany(p => new[] { p.Default, p.Create, p.Update, p.Delete }).ShouldBe(
         [
             "Platform.EmailTemplates", "Platform.EmailTemplates.Create", "Platform.EmailTemplates.Update", "Platform.EmailTemplates.Delete",
             "Platform.ReportDefinitions", "Platform.ReportDefinitions.Create", "Platform.ReportDefinitions.Update", "Platform.ReportDefinitions.Delete",
             "Platform.DocumentTypes", "Platform.DocumentTypes.Create", "Platform.DocumentTypes.Update", "Platform.DocumentTypes.Delete",
-            "Platform.NumberSequences", "Platform.NumberSequences.Create", "Platform.NumberSequences.Update", "Platform.NumberSequences.Delete",
         ]);
     }
 
     [Fact]
-    public void The_five_features_are_the_designed_ones()
+    public void The_four_features_are_the_designed_ones()
     {
         AppFeatures.MasterData.Platform.Default.ShouldBe("Apps.MasterData.Platform");
         AppFeatures.MasterData.Platform.EmailTemplates.ShouldBe("Apps.MasterData.Platform.EmailTemplates");
         AppFeatures.MasterData.Platform.ReportDefinitions.ShouldBe("Apps.MasterData.Platform.ReportDefinitions");
         AppFeatures.MasterData.Platform.DocumentTypes.ShouldBe("Apps.MasterData.Platform.DocumentTypes");
-        AppFeatures.MasterData.Platform.NumberSequences.ShouldBe("Apps.MasterData.Platform.NumberSequences");
     }
 
     [Fact]
@@ -217,7 +199,7 @@ public class PlatformMasterDataAuthorizationTests
     [InlineData("TestRenderAsync")]
     public void The_template_commands_hold_no_database_transaction_across_the_provider_call(string method)
     {
-        /* Design 50 calls the provider from these three; the service pins [UnitOfWork(isTransactional: false)] so a slow
+        /* Design 55 calls the provider from these three; the service pins [UnitOfWork(isTransactional: false)] so a slow
          * provider (30 s timeout, retries up to 45 s) never holds a database transaction open. */
         var info = typeof(ReportDefinitionAppService).GetMethod(method, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)!;
         var unitOfWork = info.GetCustomAttribute<Volo.Abp.Uow.UnitOfWorkAttribute>();
@@ -230,7 +212,7 @@ public class PlatformMasterDataAuthorizationTests
     [Fact]
     public void The_HttpApi_module_maps_the_document_rendering_codes_to_their_designed_status()
     {
-        /* Design 50: RenderingNotConfigured, RenderingProviderUnavailable, TemplateNotOwned, TemplateNotFound,
+        /* Design 55: RenderingNotConfigured, RenderingProviderUnavailable, TemplateNotOwned, TemplateNotFound,
          * DocumentRenderingFailed and ReportDefinitionArchived travel as 409, 503, 409, 404, 502 and 409. */
         var expected = new Dictionary<string, HttpStatusCode>
         {
@@ -269,13 +251,13 @@ public class PlatformMasterDataAuthorizationTests
             .Where(code => code.StartsWith(PlatformErrorCodes.Namespace + ":", StringComparison.Ordinal))
             .ToList();
 
-        /* The eleven codes of the API contract (the Platform module had OutboxTenantNotFound before design 49). DefaultLanguageContentRequired
+        /* The ten codes of the API contract (the Platform module had OutboxTenantNotFound before design 54). DefaultLanguageContentRequired
          * left with the per-language content rows (PO 2026-10-18: one template per language). */
         foreach (var code in new[]
                  {
                      PlatformErrorCodes.DuplicateKey, PlatformErrorCodes.InUse, PlatformErrorCodes.TemplateSyntaxError,
                      PlatformErrorCodes.UnsupportedCulture, PlatformErrorCodes.InvalidRegex,
-                     PlatformErrorCodes.TransformationArgumentRequired, PlatformErrorCodes.DuplicateTransformation, PlatformErrorCodes.NumberSequenceInUse,
+                     PlatformErrorCodes.TransformationArgumentRequired, PlatformErrorCodes.DuplicateTransformation,
                      PlatformErrorCodes.UnknownSortColumn, PlatformErrorCodes.TooManyRows, PlatformErrorCodes.NameRequired
                  })
         {
@@ -286,14 +268,14 @@ public class PlatformMasterDataAuthorizationTests
         all.ShouldNotContain(PlatformErrorCodes.Namespace + ":DefaultLanguageContentRequired");
         PlatformErrorCodes.BadRequestCodes.ShouldNotContain(PlatformErrorCodes.Namespace + ":DefaultLanguageContentRequired");
 
-        PlatformErrorCodes.ConflictCodes.ShouldBe([PlatformErrorCodes.DuplicateKey, PlatformErrorCodes.InUse, PlatformErrorCodes.NumberSequenceInUse], ignoreOrder: true);
+        PlatformErrorCodes.ConflictCodes.ShouldBe([PlatformErrorCodes.DuplicateKey, PlatformErrorCodes.InUse], ignoreOrder: true);
         PlatformErrorCodes.ConflictCodes.Intersect(PlatformErrorCodes.BadRequestCodes).ShouldBeEmpty();
     }
 
     [Fact]
     public void FileNamePatternUnknownField_is_a_bad_request_and_travels_as_400()
     {
-        /* Design 49 FileNamePattern row and design 50 "File name" (PO 2026-10-23): HTTP 400, not ABP's default 403. */
+        /* Design 54 FileNamePattern row and design 55 "File name" (PO 2026-10-23): HTTP 400, not ABP's default 403. */
         PlatformErrorCodes.FileNamePatternUnknownField.ShouldBe("OpenTms.Platform:FileNamePatternUnknownField");
         PlatformErrorCodes.BadRequestCodes.ShouldContain(PlatformErrorCodes.FileNamePatternUnknownField);
         PlatformErrorCodes.ConflictCodes.ShouldNotContain(PlatformErrorCodes.FileNamePatternUnknownField);
@@ -337,7 +319,6 @@ public class PlatformMasterDataAuthorizationTests
 
         mappings[PlatformErrorCodes.DuplicateKey].ShouldBe(HttpStatusCode.Conflict);
         mappings[PlatformErrorCodes.InUse].ShouldBe(HttpStatusCode.Conflict);
-        mappings[PlatformErrorCodes.NumberSequenceInUse].ShouldBe(HttpStatusCode.Conflict);
         mappings[PlatformErrorCodes.TemplateSyntaxError].ShouldBe(HttpStatusCode.BadRequest);
         mappings[PlatformErrorCodes.InvalidRegex].ShouldBe(HttpStatusCode.BadRequest);
     }

@@ -13,7 +13,7 @@ using OpenTms.Platform.ReportDefinitions;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The report data catalogue (design 50, "Report data catalogue"): per <see cref="ReportPurpose"/> the JSON a template
+/// The report data catalogue (design 55, "Report data catalogue"): per <see cref="ReportPurpose"/> the JSON a template
 /// receives, in the OpenTMS envelope <c>{ CompanyLogo, Me, Entity, EntityType }</c> so FiLogic's existing templates
 /// render unchanged. The catalogue is data: each OpenTMS payload class is defined once as a fragment
 /// (<c>ReportDataCatalogue.Fragments.cs</c>) and composed per purpose; the field list, the sample payload and the

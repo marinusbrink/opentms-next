@@ -18,7 +18,7 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// The published renderer (design 50). Reads the definition through the tenant filter, so another tenant's definition
+/// The published renderer (design 55). Reads the definition through the tenant filter, so another tenant's definition
 /// is not found before any provider call; refuses an archived one; checks <see cref="PlatformFeatures.DocumentRendering"/>;
 /// picks the provider by the definition's <c>Provider</c>; composes the file name; calls the provider. The report
 /// definition service uses the same steps for its test render. Logs ids only, never the payload or the document.
@@ -58,7 +58,7 @@ public class DocumentRenderer : IDocumentRenderer, ITransientDependency
         await _featureChecker.CheckEnabledAsync(PlatformFeatures.DocumentRendering);
         var definition = await _definitions.FindAsync(reportDefinitionId, cancellationToken: cancellationToken)
                          ?? throw new EntityNotFoundException(typeof(ReportDefinition), reportDefinitionId);
-        /* Real renders run in jobs (design 50): nobody waits on them, so they keep the retry schedule. */
+        /* Real renders run in jobs (design 55): nobody waits on them, so they keep the retry schedule. */
         return await RenderDefinitionAsync(definition, data, format, isTest: false, RenderCallMode.Background, cancellationToken);
     }
 

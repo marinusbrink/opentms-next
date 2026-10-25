@@ -6,7 +6,6 @@ using System.Text.Json;
 using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.EmailTemplates;
 using OpenTms.Platform.Features;
-using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.Permissions;
 using OpenTms.Platform.ReportDefinitions;
 using Shouldly;
@@ -16,7 +15,7 @@ namespace OpenTms.Platform.PlatformMasterData;
 
 /// <summary>
 /// Key parity of the Platform localization resource (nl, en) and the texts the Platform master data needs
-/// (docs/designs/49-platform-master-data.md, "Errors (PlatformErrorCodes, localized nl/en)", the sixteen permissions, the
+/// (docs/designs/54-platform-master-data.md, "Errors (PlatformErrorCodes, localized nl/en)", the sixteen permissions, the
 /// five features, the enum labels the editors show, the in-use reason). Risk class: Low (texts).
 /// </summary>
 public class PlatformLocalizationParityTests
@@ -61,7 +60,6 @@ public class PlatformLocalizationParityTests
 
         var expected = new List<string>(PlatformErrorCodes.ConflictCodes.Concat(PlatformErrorCodes.BadRequestCodes))
         {
-            "Platform:InUseByNumbers",
             "Feature:" + AppFeatures.MasterData.Platform.Default,
             "Platform:Nav.Platform",
         };
@@ -76,7 +74,7 @@ public class PlatformLocalizationParityTests
         foreach (var feature in new[]
                  {
                      AppFeatures.MasterData.Platform.Default, AppFeatures.MasterData.Platform.EmailTemplates, AppFeatures.MasterData.Platform.ReportDefinitions,
-                     AppFeatures.MasterData.Platform.DocumentTypes, AppFeatures.MasterData.Platform.NumberSequences
+                     AppFeatures.MasterData.Platform.DocumentTypes
                  })
         {
             expected.Add("Feature:" + feature);
@@ -87,7 +85,6 @@ public class PlatformLocalizationParityTests
         expected.AddRange(Enum.GetValues<ReportPurpose>().Select(v => $"Platform:ReportPurpose.{v}"));
         expected.AddRange(Enum.GetValues<ReportRenderingProvider>().Select(v => $"Platform:ReportRenderingProvider.{v}"));
         expected.AddRange(Enum.GetValues<DocumentTransformationKind>().Select(v => $"Platform:DocumentTransformationKind.{v}"));
-        expected.AddRange(Enum.GetValues<NumberSequenceScheme>().Select(v => $"Platform:NumberSequenceScheme.{v}"));
 
         expected.Where(key => !texts.ContainsKey(key)).ShouldBeEmpty($"{culture}.json");
     }
@@ -113,7 +110,7 @@ public class PlatformLocalizationParityTests
         texts[PlatformErrorCodes.TooManyRows].ShouldContain("{max}");
     }
 
-    // ── e-mail template tag catalogue and default content (design 49, "Tags and default content", PO 2026-10-20) ──
+    // ── e-mail template tag catalogue and default content (design 54, "Tags and default content", PO 2026-10-20) ──
 
     [Theory]
     [InlineData("en")]
@@ -180,7 +177,7 @@ public class PlatformLocalizationParityTests
     [InlineData("nl", "Van", "Stuur mij een kopie", "Alle talen")]
     public void The_email_template_editor_has_its_labels_and_the_per_language_content_keys_are_gone(string culture, string from, string sendMeACopy, string allLanguages)
     {
-        /* PO 2026-10-18: one template per language, one mail-shaped dialog (design 49, "EmailTemplate"). */
+        /* PO 2026-10-18: one template per language, one mail-shaped dialog (design 54, "EmailTemplate"). */
         var texts = Read(culture);
         texts["Platform:From"].ShouldBe(from);
         texts["Platform:SendMeACopy"].ShouldBe(sendMeACopy);

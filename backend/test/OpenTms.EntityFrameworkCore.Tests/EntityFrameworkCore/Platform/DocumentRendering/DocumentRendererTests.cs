@@ -13,7 +13,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 
 /// <summary>
-/// The published renderer of docs/designs/50-report-rendering.md ("IDocumentRenderer"): it reads the definition in the
+/// The published renderer of docs/designs/55-report-rendering.md ("IDocumentRenderer"): it reads the definition in the
 /// current tenant, refuses an archived one, checks Platform.DocumentRendering, picks the provider by the definition's
 /// Provider, composes the file name and calls the provider. Another tenant's definition is not found before any provider
 /// call (tenant isolation, constitution rule 1; the PostgreSQL counterpart is DocumentRenderingTenantIsolationPostgreSqlTests).

@@ -21,7 +21,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 
 /// <summary>
-/// The four report-definition operations of docs/designs/50-report-rendering.md ("Report-definition operations") on
+/// The four report-definition operations of docs/designs/55-report-rendering.md ("Report-definition operations") on
 /// SQLite with the fake provider: the rendering status per situation (with the feature off it never asks the provider
 /// about the template), the template editor (refused for a template the workspace does not own; the template's sample
 /// data else the catalogue sample; the definition's language), the copy ("(copy)", "(copy 2)", Dutch "(kopie)"; a new
@@ -374,7 +374,7 @@ public class ReportDefinitionRenderingOperationsTests : ReportRenderingTestBase<
         var file = await Definitions.TestRenderAsync(definition.Id);
 
         var request = _provider.LastRender.ShouldNotBeNull();
-        request.IsTest.ShouldBeTrue("design 50: testing, not billed");
+        request.IsTest.ShouldBeTrue("design 55: testing, not billed");
         request.Format.ShouldBe(ReportRenderFormat.Pdf);
         request.Templates.ShouldHaveSingleItem().TemplateId.ShouldBe("123456");
         request.Templates[0].Data.GetRawText().ShouldBe(CatalogueSample(ReportPurpose.Invoice));

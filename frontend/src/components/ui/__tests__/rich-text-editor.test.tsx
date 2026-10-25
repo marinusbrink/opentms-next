@@ -3,7 +3,7 @@ import { StrictMode, Suspense, createRef, lazy, useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 /* RichTextEditor (component map GAP-08, PO 2026-10-18: Tiptap), the HTML body control of the e-mail template
- * (design 49). The real editor runs in jsdom (Tiptap 3 / ProseMirror; the layout stubs are in rich-text-test-helpers);
+ * (design 54). The real editor runs in jsdom (Tiptap 3 / ProseMirror; the layout stubs are in rich-text-test-helpers);
  * a "typed" edit is a ProseMirror text-input transaction. Covered: the toolbar (labels, tooltips, aria-pressed), HTML
  * out (bold, the empty document as ""), a value from outside (no onChange, no undo step), own edits not resetting the
  * editor, the source view (raw HTML, emitted as typed), the unsupported-markup guard (lossy values open in the source

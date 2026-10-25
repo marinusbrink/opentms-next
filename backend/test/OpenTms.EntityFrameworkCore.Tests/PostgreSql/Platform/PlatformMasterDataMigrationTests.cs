@@ -14,25 +14,25 @@ using Xunit;
 namespace OpenTms.PostgreSql.Platform;
 
 /// <summary>
-/// The PlatformMasterData migration on the databases the real DbMigrator created (docs/designs/49-platform-master-data.md,
+/// The PlatformMasterData migration on the databases the real DbMigrator created (docs/designs/54-platform-master-data.md,
 /// "Migration strategy"; test risk analysis "Unique and default indexes, migration", High): applied on the host and on a
-/// tenant database after AddDataProtectionKeys, nothing pending, the model snapshot current, the replaced migration
+/// tenant database after AddDerivedValueStates (the last Platform migration of main when this branch merged), nothing pending, the model snapshot current, the replaced migration
 /// 20261016213354 never applied; expand only (new tables and indexes, so the previous application version keeps working on
-/// the migrated schema) and Down drops exactly its six tables (no EmailTemplateContents since PO 2026-10-18: one template
+/// the migrated schema) and Down drops exactly its four tables (no EmailTemplateContents since PO 2026-10-18: one template
 /// per language, Culture, Subject and HtmlBody on EmailTemplates, no SenderName); every per-tenant unique index (NULLS NOT DISTINCT, soft-delete filter), the two partial default indexes, the
-/// natural-key primary keys of the children, the position and minimum-digits checks, the cascading foreign keys and the
+/// natural-key primary key of the children, the position check, the cascading foreign key and the
 /// column types and lengths.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTestBase
 {
-    private const string Migration = "20261018195256_PlatformMasterData";
+    private const string Migration = "20261025154657_PlatformMasterData";
     private const string ReplacedMigration = "20261016213354_PlatformMasterData";
-    private const string PreviousMigration = "20261015093744_AddDataProtectionKeys";
+    private const string PreviousMigration = "20261022234332_AddDerivedValueStates";
 
     private static readonly string[] Tables =
     [
-        "EmailTemplates", "ReportDefinitions", "DocumentTypes", "DocumentTypeTransformations", "NumberSequences", "NumberSequenceCounters"
+        "EmailTemplates", "ReportDefinitions", "DocumentTypes", "DocumentTypeTransformations"
     ];
 
     [Theory]
@@ -93,7 +93,6 @@ public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTest
                  {
                      ("IX_EmailTemplates_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", "(\"IsDeleted\" = false)"),
                      ("IX_ReportDefinitions_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", "(\"IsDeleted\" = false)"),
-                     ("IX_NumberSequences_TenantId_NormalizedName", "(\"TenantId\", \"NormalizedName\")", "(\"IsDeleted\" = false)"),
                      ("IX_DocumentTypes_TenantId_Code", "(\"TenantId\", \"Code\")", "(\"IsDeleted\" = false)"),
                      ("IX_EmailTemplates_TenantId_Purpose_Default", "(\"TenantId\", \"Purpose\")", "\"IsDefault\" = true"),
                      ("IX_ReportDefinitions_TenantId_Purpose_Culture_Default", "(\"TenantId\", \"Purpose\", \"Culture\")", "\"IsDefault\" = true"),
@@ -110,24 +109,19 @@ public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTest
         indexes.ShouldNotContain(i => i.Contains("EmailTemplateContents", StringComparison.Ordinal));
         One(indexes, "PK_EmailTemplates :: ").ShouldContain("(\"Id\")");
         One(indexes, "PK_DocumentTypeTransformations :: ").ShouldContain("(\"DocumentTypeId\", \"Kind\")");
-        One(indexes, "PK_NumberSequenceCounters :: ").ShouldContain("(\"NumberSequenceId\", \"PeriodYear\", \"PeriodMonth\")");
 
         var checks = await QueryAsync(connection, "SELECT conname || ' :: ' || pg_get_constraintdef(oid) FROM pg_constraint WHERE contype = 'c' AND connamespace = 'platform'::regnamespace");
         var position = One(checks, "CK_DocumentTypeTransformations_Position :: ");
         position.ShouldContain("\"Position\" >= 1");
         position.ShouldContain("\"Position\" <= 4");
-        var digits = One(checks, "CK_NumberSequences_MinimumDigits :: ");
-        digits.ShouldContain("\"MinimumDigits\" >= 1");
-        digits.ShouldContain("\"MinimumDigits\" <= 12");
 
         var foreignKeys = await QueryAsync(connection, "SELECT conname || ' :: ' || confdeltype::text FROM pg_constraint WHERE contype = 'f' AND connamespace = 'platform'::regnamespace");
         foreignKeys.ShouldNotContain(f => f.Contains("EmailTemplate", StringComparison.Ordinal), "an e-mail template has no child table");
         foreignKeys.ShouldContain("FK_DocumentTypeTransformations_DocumentTypes_DocumentTypeId :: c");
-        foreignKeys.ShouldContain("FK_NumberSequenceCounters_NumberSequences_NumberSequenceId :: c");
 
         var columns = await QueryAsync(connection,
             "SELECT table_name || '.' || column_name || ' :: ' || data_type || '(' || COALESCE(character_maximum_length::text, '-') || ') :: ' || is_nullable " +
-            "FROM information_schema.columns WHERE table_schema = 'platform' AND table_name IN ('EmailTemplates', 'ReportDefinitions', 'DocumentTypes', 'DocumentTypeTransformations', 'NumberSequences', 'NumberSequenceCounters')");
+            "FROM information_schema.columns WHERE table_schema = 'platform' AND table_name IN ('EmailTemplates', 'ReportDefinitions', 'DocumentTypes', 'DocumentTypeTransformations')");
         foreach (var expected in new[]
                  {
                      "EmailTemplates.Name :: character varying(128) :: NO",
@@ -151,20 +145,13 @@ public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTest
                      "DocumentTypes.Code :: character varying(32) :: NO",
                      "DocumentTypes.Name :: jsonb(-) :: NO",
                      "DocumentTypeTransformations.Argument :: character varying(255) :: YES",
-                     "NumberSequences.Prefix :: character varying(16) :: YES",
-                     "NumberSequences.MonthSuffix :: character varying(16) :: YES",
-                     "NumberSequences.MinimumDigits :: integer(-) :: NO",
-                     "NumberSequenceCounters.PeriodYear :: integer(-) :: NO",
-                     "NumberSequenceCounters.PeriodMonth :: integer(-) :: NO",
-                     "NumberSequenceCounters.LastValue :: bigint(-) :: NO",
-                     "NumberSequenceCounters.TenantId :: uuid(-) :: YES",
                  })
         {
             columns.ShouldContain(expected);
         }
 
         /* The e-mail template's exact column set: the mail fields on the template, no sender name (OpenTMS's
-         * SenderDisplayName had no input; dropped, design 49 "Deliberate differences"). */
+         * SenderDisplayName had no input; dropped, design 54 "Deliberate differences"). */
         columns.Where(c => c.StartsWith("EmailTemplates.", StringComparison.Ordinal)).Select(c => c.Split(" :: ")[0]["EmailTemplates.".Length..]).ShouldBe(
         [
             "Id", "Name", "NormalizedName", "Purpose", "Culture", "IsDefault", "SenderAddress", "ReplyTo", "To", "Cc", "Bcc", "SendCopyToSender",

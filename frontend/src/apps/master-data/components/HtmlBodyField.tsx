@@ -5,7 +5,7 @@ import type { RichTextEditorHandle } from "@/components/ui/rich-text-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { unescapeScribanRegions } from "@/apps/master-data/components/scriban-html";
 
-/* The one place an HTML body is edited (design 49, the e-mail template): the RichTextEditor (Tiptap, GAP-08, PO
+/* The one place an HTML body is edited (design 54, the e-mail template): the RichTextEditor (Tiptap, GAP-08, PO
  * 2026-10-18) in a FormField (UI-FORM-001). The visual view is the preview; the source view keeps raw HTML and Scriban
  * blocks editable, and a body the visual view cannot hold without loss opens there (preserveUnsupportedMarkup).
  * Scriban expressions typed in the visual view reach the server un-escaped (scriban-html.ts).

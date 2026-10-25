@@ -13,7 +13,7 @@ using Xunit;
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// EmailTemplateDefaults (docs/designs/49-platform-master-data.md, "Tags and default content", PO 2026-10-20): the
+/// EmailTemplateDefaults (docs/designs/54-platform-master-data.md, "Tags and default content", PO 2026-10-20): the
 /// eighteen default bodies are embedded in the Domain.Shared assembly itself (WithCulture=false, no satellite
 /// assembly), non-empty, parse with Scriban, use only catalogued tags of their purpose (loop variables mapped to their
 /// collection) and render with Scriban against a stub model built from the catalogue; the subjects (localization texts)

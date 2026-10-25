@@ -76,7 +76,7 @@ public class PdfGeneratorApiPipelineTests : ReportRenderingTestBase<PdfGenerator
     [InlineData("nl", "de opmaakdienst is bezet, probeer het zo nog eens.")]
     public async Task The_test_render_is_interactive_so_a_429_fails_at_once_with_the_busy_text_without_a_retry(string culture, string busy)
     {
-        /* Design 50, "Resilience" (PO 2026-10-23): the test render is interactive, one attempt, no backoff; a 429 says the
+        /* Design 55, "Resilience" (PO 2026-10-23): the test render is interactive, one attempt, no backoff; a 429 says the
          * service is busy in the user's language. */
         using var _ = InTenantA();
         using var on = RenderingOn();

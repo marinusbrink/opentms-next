@@ -19,7 +19,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The Document types list (design 49, UI design): Code, Name (in the user's language), Freight document, Include with
+/* The Document types list (design 54, UI design): Code, Name (in the user's language), Freight document, Include with
  * invoice; Archived hidden. The wildcard searches code, name and description. Show archived as the filter; Archive /
  * Unarchive as confirmed row actions, as the archivable Master Data lists. */
 

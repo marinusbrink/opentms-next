@@ -13,3 +13,5 @@ Rules:
 - Apps (`src/apps/`) are views: they COMPOSE from domain folders and never own domain
   logic. Which apps read from this domain is defined in `src/app/apps.config.ts`.
 - Cross-domain composition happens in apps, not by importing between domain folders.
+
+`reference-data.ts` holds the hooks of this module's master data that the Master data app shows (design 52).

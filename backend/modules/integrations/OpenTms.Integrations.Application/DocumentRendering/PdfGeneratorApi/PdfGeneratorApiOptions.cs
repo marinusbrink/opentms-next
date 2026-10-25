@@ -1,7 +1,7 @@
 namespace OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 
 /// <summary>
-/// The pdfgeneratorapi.com account (design 50), configuration section <c>Integrations:PdfGeneratorApi</c>. One FiLogic
+/// The pdfgeneratorapi.com account (design 55), configuration section <c>Integrations:PdfGeneratorApi</c>. One FiLogic
 /// account for all tenants (PO 2026-10-21): host configuration, not tenant data. <see cref="Key"/> and
 /// <see cref="Secret"/> come from the deployment's secret store (environment variables from Secret Manager;
 /// <c>dotnet user-secrets</c> locally): never in a database or an appsettings file, never returned, never logged.

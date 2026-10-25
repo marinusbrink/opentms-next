@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { Mock } from "vitest";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The report definition editor's ribbon group Template (design 50, UI design): Edit template (the provider's editor
+/* The report definition editor's ribbon group Template (design 55, UI design): Edit template (the provider's editor
  * in a new tab), Copy template (confirmed; opens the new definition) and Test document (downloads the test PDF).
  * Edit mode only; each command hidden without its permission (UI-PERM-002: EditTemplate; EditTemplate + Create; the
  * view permission), shown in read-only editors too, and disabled with the reason from the rendering status as its

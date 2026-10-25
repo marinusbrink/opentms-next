@@ -8,7 +8,7 @@ using Xunit;
 namespace OpenTms.Platform.EmailTemplates;
 
 /// <summary>
-/// EmailTemplateTagCatalogue against the design table (docs/designs/49-platform-master-data.md, "Tags and default
+/// EmailTemplateTagCatalogue against the design table (docs/designs/54-platform-master-data.md, "Tags and default
 /// content", PO 2026-10-20): the sixteen rows written out as the expected set (group, purposes, tags; the four
 /// collections with their children), GroupsFor/TagsFor per purpose, unique snake_case paths, the inserted snippets, the
 /// localization keys the parity test checks, and the rule that a collection's loop variable is never a group key of

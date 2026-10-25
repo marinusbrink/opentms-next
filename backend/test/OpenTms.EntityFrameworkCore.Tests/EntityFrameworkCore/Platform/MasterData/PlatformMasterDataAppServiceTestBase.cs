@@ -9,10 +9,9 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// Shared plumbing for the Platform master-data application-service tests on SQLite (design 49): two tenants (tests run
+/// Shared plumbing for the Platform master-data application-service tests on SQLite (design 54): two tenants (tests run
 /// inside tenant A; tenant B is the other tenant), list and selection builders and the business-error assertion. Every
-/// test gets its own in-memory database (one ABP application per test). The SQLite module runs without transactions, so
-/// INumberGenerator refuses to run here (design 49, assumption 8); the generator is covered on PostgreSQL.
+/// test gets its own in-memory database (one ABP application per test). The SQLite module runs without transactions.
 /// </summary>
 public abstract class PlatformMasterDataAppServiceTestBase : OpenTmsEntityFrameworkCoreTestBase
 {

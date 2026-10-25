@@ -2,7 +2,7 @@ using System;
 
 namespace OpenTms.Platform;
 
-/// <summary>Field lengths and bounds of the Platform master-data lists (docs/designs/49-platform-master-data.md).</summary>
+/// <summary>Field lengths and bounds of the Platform master-data lists (docs/designs/54-platform-master-data.md).</summary>
 public static class PlatformMasterDataConsts
 {
     public const int MaxNameLength = 128;

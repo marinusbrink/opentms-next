@@ -19,7 +19,7 @@ interface TextProps<TValues extends object> {
   className?: string;
   /** Upper-cases while typing (codes). */
   upper?: boolean;
-  /** A business-state block on top of read-only (UI-PERM-005), e.g. a number sequence in use (design 49). */
+  /** A business-state block on top of read-only (UI-PERM-005), e.g. a number sequence in use (design 54). */
   disabled?: boolean;
   /** Localization key of a muted help text under the control. */
   hintKey?: string;

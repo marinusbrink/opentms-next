@@ -13,7 +13,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.MasterData;
 
 /// <summary>
-/// EmailTemplateAppService on SQLite (docs/designs/49-platform-master-data.md, "EmailTemplate", PO 2026-10-18: one
+/// EmailTemplateAppService on SQLite (docs/designs/54-platform-master-data.md, "EmailTemplate", PO 2026-10-18: one
 /// template per language; test risk analysis "Scriban/regex validation, guards when in use, default switching", High,
 /// table-driven): the CRUD round trip with the language, the mail fields, subject and body on the template; culture null
 /// or blank = all languages, nl/en accepted (trimmed, any case), anything else UnsupportedCulture; subject and body
@@ -112,7 +112,7 @@ public class EmailTemplateAppServiceTests : PlatformMasterDataAppServiceTestBase
     [Fact]
     public void The_list_row_carries_exactly_id_name_purpose_culture_and_isDefault()
     {
-        /* API contract (design 49, "Rows"): no subject, no body, no addresses on a row. */
+        /* API contract (design 54, "Rows"): no subject, no body, no addresses on a row. */
         typeof(EmailTemplateRowDto).GetProperties().Select(p => p.Name)
             .ShouldBe(["Id", "Name", "Purpose", "Culture", "IsDefault"], ignoreOrder: true);
     }
@@ -191,7 +191,7 @@ public class EmailTemplateAppServiceTests : PlatformMasterDataAppServiceTestBase
         using var _ = InTenantA();
         await _service.CreateAsync(Dto("Invoice mail", culture: "en"));
 
-        /* Design 49: Name unique per tenant regardless of case; the language is not part of the key. */
+        /* Design 54: Name unique per tenant regardless of case; the language is not part of the key. */
         await ShouldFailAsync(() => _service.CreateAsync(Dto("Invoice mail", culture: "nl")), PlatformErrorCodes.DuplicateKey);
         await ShouldFailAsync(() => _service.CreateAsync(Dto("INVOICE MAIL", culture: null)), PlatformErrorCodes.DuplicateKey);
         (await _service.CreateAsync(Dto("Factuurmail", culture: "nl"))).Culture.ShouldBe("nl");

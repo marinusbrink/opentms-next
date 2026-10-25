@@ -23,7 +23,7 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 
 /// <summary>
-/// The SQLite test application of design 50 with the rendering provider replaced by <see cref="FakeReportRenderingProvider"/>
+/// The SQLite test application of design 55 with the rendering provider replaced by <see cref="FakeReportRenderingProvider"/>
 /// (the pdfgeneratorapi adapter is removed, so nothing can reach the provider) and an authorization service that refuses
 /// the policies a test names (the base test module allows everything). Everything else is the production wiring: the
 /// feature interceptor and checker, the tenant filter, the localization.

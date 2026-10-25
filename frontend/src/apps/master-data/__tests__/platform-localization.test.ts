@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import {
   DOCUMENT_TRANSFORMATION_KINDS,
   EMAIL_TEMPLATE_PURPOSES,
-  NUMBER_SEQUENCE_SCHEMES,
   PLATFORM_CULTURES,
   REPORT_PURPOSES,
   REPORT_RENDERING_PROVIDERS,
@@ -27,11 +26,9 @@ const FILES = [
   "apps/master-data/editors/EmailTemplateEditor.tsx",
   "apps/master-data/editors/ReportDefinitionEditor.tsx",
   "apps/master-data/editors/DocumentTypeEditor.tsx",
-  "apps/master-data/editors/NumberSequenceEditor.tsx",
   "apps/master-data/views/EmailTemplatesView.tsx",
   "apps/master-data/views/ReportDefinitionsView.tsx",
   "apps/master-data/views/DocumentTypesView.tsx",
-  "apps/master-data/views/NumberSequencesView.tsx",
   "apps/master-data/components/HtmlBodyField.tsx",
   /* The Tags panel of the e-mail template editor (PO 2026-10-20). */
   "apps/master-data/components/EmailTemplateTagsPanel.tsx",
@@ -52,7 +49,7 @@ const TAGS_AND_DEFAULTS_KEYS = [
   "Platform:EmailTemplateDefaultsFailed",
 ];
 
-const ENTITIES = ["EmailTemplate", "ReportDefinition", "DocumentType", "NumberSequence"];
+const ENTITIES = ["EmailTemplate", "ReportDefinition", "DocumentType"];
 
 function texts(lang: string): Record<string, string> {
   const path = resolve(REPO, `backend/modules/platform/OpenTms.Platform.Domain.Shared/Localization/Platform/${lang}.json`);
@@ -70,17 +67,16 @@ function literalKeys(): string[] {
 
 const derivedKeys = (): string[] => [
   ...ENTITIES.flatMap((e) => [`Platform:${e}`, `Platform:${e}s`, `Platform:New${e}`, `Platform:${e}Saved`, `Platform:${e}Deleted`, `Platform:Delete${e}`, `Platform:Delete${e}Question`]),
-  ...[EMAIL_TEMPLATE_PURPOSES, REPORT_PURPOSES, REPORT_RENDERING_PROVIDERS, DOCUMENT_TRANSFORMATION_KINDS, NUMBER_SEQUENCE_SCHEMES].flatMap((options) => options.map((o) => o.key)),
+  ...[EMAIL_TEMPLATE_PURPOSES, REPORT_PURPOSES, REPORT_RENDERING_PROVIDERS, DOCUMENT_TRANSFORMATION_KINDS].flatMap((options) => options.map((o) => o.key)),
   ...PLATFORM_CULTURES.map((c) => cultureKey(c)),
 ];
 
-describe("Platform master-data localization (design 49)", () => {
+describe("Platform master-data localization (design 54)", () => {
   const keys = [...new Set([...literalKeys(), ...derivedKeys()])].sort();
 
   it("finds the keys (the scan itself works)", () => {
     expect(keys.length).toBeGreaterThan(60);
     expect(keys).toContain("Platform:Nav.Platform");
-    expect(keys).toContain("Platform:NumberSequenceInUseCannotDelete");
     expect(keys).toContain("RichText:UnsupportedMarkupNotice");
     expect(keys).toContain("RichText:SourceView");
     for (const key of TAGS_AND_DEFAULTS_KEYS) expect(keys).toContain(key);
@@ -100,18 +96,17 @@ describe("Platform master-data localization (design 49)", () => {
 
   it.each(["en", "nl"])("the texts that take a value have the {0} placeholder in %s.json", (lang) => {
     const resource = texts(lang);
-    const withValue = [...ENTITIES.map((e) => `Platform:Delete${e}Question`), "Platform:ExampleLabel", "Platform:EmailTemplateDefaultsFailed"];
+    const withValue = [...ENTITIES.map((e) => `Platform:Delete${e}Question`), "Platform:EmailTemplateDefaultsFailed"];
     for (const key of withValue) expect(resource[key], key).toContain("{0}");
   });
 
   it("the Dutch nav texts are the design's", () => {
     const nl = texts("nl");
-    expect(["Platform:Nav.Platform", "Platform:EmailTemplates", "Platform:ReportDefinitions", "Platform:DocumentTypes", "Platform:NumberSequences"].map((k) => nl[k])).toEqual([
+    expect(["Platform:Nav.Platform", "Platform:EmailTemplates", "Platform:ReportDefinitions", "Platform:DocumentTypes"].map((k) => nl[k])).toEqual([
       "Platform",
       "E-mailsjablonen",
       "Rapportdefinities",
       "Documentsoorten",
-      "Nummerreeksen",
     ]);
   });
 });

@@ -3,7 +3,7 @@ using System;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// Platform's document-rendering settings (design 50, "Resilience"), configuration section
+/// Platform's document-rendering settings (design 55, "Resilience"), configuration section
 /// <c>Platform:DocumentRendering</c>. Host configuration, not tenant data.
 /// </summary>
 public class DocumentRenderingOptions

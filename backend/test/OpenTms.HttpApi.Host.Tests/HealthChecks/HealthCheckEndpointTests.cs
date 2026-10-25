@@ -16,7 +16,7 @@ using Xunit;
 namespace OpenTms.HealthChecks;
 
 /// <summary>
-/// The host's health endpoints as AddOpenTmsHealthChecks maps them (docs/designs/50-report-rendering.md, "Health check":
+/// The host's health endpoints as AddOpenTmsHealthChecks maps them (docs/designs/55-report-rendering.md, "Health check":
 /// the pdfgeneratorapi check is tagged "external" and is "not part of /health/ready"; the host also keeps it out of the
 /// polled /health-status). The real endpoint configuration actions run on a bare WebApplication and each endpoint's
 /// request delegate is invoked; probe checks record which of them ran. The registration of the pdfgeneratorapi check with

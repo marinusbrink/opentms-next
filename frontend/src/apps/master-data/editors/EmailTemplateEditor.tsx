@@ -30,7 +30,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The e-mail template editor (design 49, PO 2026-10-18: as the OpenTMS template, "as it is a mail template"): `lg`, one
+/* The e-mail template editor (design 54, PO 2026-10-18: as the OpenTMS template, "as it is a mail template"): `lg`, one
  * tab General laid out like an e-mail, in the OpenTMS order: Name | Default; Purpose; Language (All languages or one
  * configured language); a divider; From | Reply-to; To; Cc; Bcc | Send me a copy; Subject; HTML body. One template is
  * one language, so there are no language tabs. The body is edited in HtmlBodyField (the RichTextEditor, Tiptap,

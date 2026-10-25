@@ -1,7 +1,7 @@
 namespace OpenTms.Platform.DocumentTypes;
 
 /// <summary>
-/// A step of a document type's typed transformation pipeline (design 49, assessment §5): an enum, never a class name
+/// A step of a document type's typed transformation pipeline (design 54, assessment §5): an enum, never a class name
 /// resolved by reflection. Executed by the attachments run (GAP-05), not by Platform.
 /// </summary>
 public enum DocumentTransformationKind

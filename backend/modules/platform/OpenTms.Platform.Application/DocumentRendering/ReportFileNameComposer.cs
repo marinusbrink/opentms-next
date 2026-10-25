@@ -11,7 +11,7 @@ using Scriban.Syntax;
 namespace OpenTms.Platform.DocumentRendering;
 
 /// <summary>
-/// Composes a document's file name from a report definition's <c>FileNamePattern</c> (design 49: Scriban, e.g.
+/// Composes a document's file name from a report definition's <c>FileNamePattern</c> (design 54: Scriban, e.g.
 /// <c>factuur-{{ number }}.pdf</c>, always ending in ".pdf"), as OpenTMS's ComposeFileName did: the pattern is rendered
 /// with <c>number</c> = the payload's <c>Entity.EntityNumber</c> (for the transport-unit balance the period's name,
 /// <c>Entity.Entity.Period.Name</c>), the ".pdf" is dropped and the format's extension added. <c>number</c> is the only
@@ -75,7 +75,7 @@ public static class ReportFileNameComposer
 
     /// <summary>
     /// <c>Entity.EntityNumber</c> of the catalogue payload. The transport-unit balance has no entity number (OpenTMS's
-    /// <c>GetSingleOutput&lt;TransportUnitTransactionPeriodOverview&gt;</c>, design 50): its number is the period's name,
+    /// <c>GetSingleOutput&lt;TransportUnitTransactionPeriodOverview&gt;</c>, design 55): its number is the period's name,
     /// <c>Entity.Entity.Period.Name</c>. <c>Entity.EntityNumber</c> wins when both exist.
     /// </summary>
     public static string? NumberOf(JsonElement? data)
@@ -98,7 +98,7 @@ public static class ReportFileNameComposer
     }
 
     /// <summary>
-    /// The save-time check of a pattern (design 49/50): renders it against a model holding only <c>number</c>
+    /// The save-time check of a pattern (design 54/50): renders it against a model holding only <c>number</c>
     /// (<see cref="SampleNumber"/>) with strict variables and strict member access, under the render limits. Returns the
     /// first name the pattern uses that does not exist (<c>invoice.number</c>, <c>number.foo</c>), or null when every
     /// name exists. A pattern that does not parse is TemplateSyntaxError's (null here); any other render failure (a loop

@@ -18,7 +18,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Platform.DocumentRendering;
 
 /// <summary>
-/// The file-name pattern rule of docs/designs/50-report-rendering.md ("File name") and design 49's FileNamePattern row
+/// The file-name pattern rule of docs/designs/55-report-rendering.md ("File name") and design 54's FileNamePattern row
 /// (PO 2026-10-23): a pattern may use only <c>{{ number }}</c>; any other name is refused on create and on update with
 /// FileNamePatternUnknownField (data field = fileNamePattern, name = the dotted name), whose localized text keeps
 /// <c>{{ number }}</c> literally; Scriban's built-ins stay available; a row saved before the check whose pattern fails at
@@ -159,7 +159,7 @@ public class ReportFileNamePatternTests : ReportRenderingTestBase<ReportRenderin
         using var _ = InTenantA();
         using var on = RenderingOn();
         var id = Guid.NewGuid();
-        /* Inserted directly: the row predates the save-time check (design 50, "File name"). */
+        /* Inserted directly: the row predates the save-time check (design 55, "File name"). */
         await WithUnitOfWorkAsync(() => GetRequiredService<IRepository<ReportDefinition, Guid>>().InsertAsync(
             new ReportDefinition(id, TenantA, "Legacy", ReportPurpose.Invoice, "nl", ["nl", "en"], ReportRenderingProvider.PdfGeneratorApi, "tpl-1", pattern),
             autoSave: true));

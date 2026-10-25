@@ -7,7 +7,7 @@ using Volo.Abp;
 namespace OpenTms.Platform.ReportDefinitions;
 
 /// <summary>
-/// A report definition (design 49; OpenTMS <c>ReportDefinition</c>, UI "Bestandlayouts"): which provider template renders
+/// A report definition (design 54; OpenTMS <c>ReportDefinition</c>, UI "Bestandlayouts"): which provider template renders
 /// a document of a purpose in a language, and the Scriban pattern of its file name. At most one default per purpose and
 /// language (partial unique index); the service clears the previous default in the same transaction. Archived
 /// definitions are hidden from pickers and from automatic selection. Generated documents are stored (AD-09), so a

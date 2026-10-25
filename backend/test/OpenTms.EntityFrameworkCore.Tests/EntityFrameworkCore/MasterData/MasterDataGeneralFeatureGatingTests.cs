@@ -291,9 +291,15 @@ public class MasterDataGeneralFeatureGatingTests : MasterDataAppServiceTestBase
         general.Children.SelectMany(group => group.Children).Count().ShouldBe(15);
         general.Children.SelectMany(group => group.Children).ShouldAllBe(list => list.DefaultValue == "false" && list.Children.Count == 0);
 
-        /* One group per domain under the app (PO 2026-10-16): General and, since design 49, Platform. */
+        /* General first; the other domains' groups follow with their first lists (designs 51–53), then the Platform group (design 54). */
         (await manager.GetAsync(AppFeatures.MasterData.Default)).Children.Select(c => c.Name).ShouldBe(
-            [AppFeatures.MasterData.General.Default, AppFeatures.MasterData.Platform.Default], ignoreOrder: true);
+        [
+            AppFeatures.MasterData.General.Default,
+            AppFeatures.MasterData.Orders.Default,
+            AppFeatures.MasterData.PlanningExecution.Default,
+            AppFeatures.MasterData.Financial.Default,
+            AppFeatures.MasterData.Platform.Default,
+        ]);
     }
 
     [Theory]

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import type { Mock } from "vitest";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The e-mail template editor and the report definition editor (design 49, UI design). E-mail template (PO 2026-10-18:
+/* The e-mail template editor and the report definition editor (design 54, UI design). E-mail template (PO 2026-10-18:
  * as the OpenTMS template): one tab General in the OpenTMS order (Name | Default; Purpose; Language; a divider;
  * From | Reply-to; To; Cc; Bcc | Send me a copy; Subject; HTML body); Name, Purpose, Subject and HTML body required;
  * Language "All languages" is the null culture; the POST/PUT body carries every mail field (empty addresses as null),

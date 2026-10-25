@@ -22,7 +22,7 @@ using Volo.Abp.Uow;
 
 namespace OpenTms.Platform.ReportDefinitions;
 
-/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 49). */
+/* Pickers need only the app feature; the list's own screen needs its group and node (PO 2026-10-14, design 54). */
 [RequiresFeature(AppFeatures.MasterData.Default)]
 public class ReportDefinitionAppService
     : PlatformCrudAppServiceBase<ReportDefinition, ReportDefinitionRowDto, ReportDefinitionDto, ReportDefinitionCreateDto, ReportDefinitionUpdateDto, ReportDefinitionListRequestDto>,
@@ -36,7 +36,7 @@ public class ReportDefinitionAppService
 
     /// <summary>
     /// The one budget every interactive command (editor, copy, test render, rendering status) shares across all its
-    /// provider calls (design 50, "Resilience"; <see cref="DocumentRenderingOptions.InteractiveCommandBudget"/>, 20 s
+    /// provider calls (design 55, "Resilience"; <see cref="DocumentRenderingOptions.InteractiveCommandBudget"/>, 20 s
     /// by default): each call keeps its own 15 s limit inside it.
     /// </summary>
     private readonly TimeSpan _interactiveCommandBudget;
@@ -102,7 +102,7 @@ public class ReportDefinitionAppService
         await Repository.UpdateAsync(definition, autoSave: true);
     }
 
-    // ── rendering (design 50) ─────────────────────────────────────────────────
+    // ── rendering (design 55) ─────────────────────────────────────────────────
 
     /// <summary>
     /// Drives the template commands' enabled state and reasons. Needs only the screen's feature chain: with
@@ -241,7 +241,7 @@ public class ReportDefinitionAppService
         {
             var provider = await _renderer.GetConfiguredProviderAsync(definition.Provider, ct);
             var sample = await SampleDataAsync(provider, definition, ct);
-            /* A user waits for the download: one attempt with the interactive timeout, no retries (design 50, "Resilience"). */
+            /* A user waits for the download: one attempt with the interactive timeout, no retries (design 55, "Resilience"). */
             return await _renderer.RenderDefinitionAsync(definition, [sample], ReportRenderFormat.Pdf, isTest: true, RenderCallMode.Interactive, ct);
         });
         return new RemoteStreamContent(new MemoryStream(document.Content), document.FileName, document.ContentType);
@@ -418,7 +418,7 @@ public class ReportDefinitionAppService
     }
 
     /// <summary>
-    /// A file-name pattern may use only <c>{{ number }}</c> (design 49/50): one that names another field
+    /// A file-name pattern may use only <c>{{ number }}</c> (design 54/50): one that names another field
     /// (<c>{{ invoice.number }}</c>) parses but would give every document a wrong or random name, so it is refused on
     /// save with FileNamePatternUnknownField naming the field. Only this service's create and update call it; the
     /// e-mail templates keep the syntax check alone.

@@ -1,6 +1,6 @@
 import type { EmailTemplateDefaults, EmailTemplateTagGroup } from "@/domains/platform/master-data";
 
-/* Fixtures for the e-mail template editor's Tags panel and default content (design 49, "Tags and default content",
+/* Fixtures for the e-mail template editor's Tags panel and default content (design 54, "Tags and default content",
  * PO 2026-10-20): the shapes `GET /api/platform/email-template/tags` and `/defaults` return, as the generated client
  * types them. Not a test file: vitest's include pattern matches *.test.* only. */
 

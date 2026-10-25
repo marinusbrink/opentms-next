@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OpenTms.Platform.DataProtection;
+using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.EmailTemplates;
@@ -50,13 +51,24 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// </summary>
     public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
 
-    // Platform master data (docs/designs/49-platform-master-data.md)
+    // Platform master data (docs/designs/54-platform-master-data.md)
     public DbSet<EmailTemplate> EmailTemplates { get; set; } = default!;
     public DbSet<ReportDefinition> ReportDefinitions { get; set; } = default!;
     public DbSet<DocumentType> DocumentTypes { get; set; } = default!;
     public DbSet<DocumentTypeTransformation> DocumentTypeTransformations { get; set; } = default!;
-    public DbSet<NumberSequence> NumberSequences { get; set; } = default!;
+
+    /// <summary>
+    /// Number-sequence counters: platform."NumberSequenceCounters", one row per (tenant, sequence, period), written
+    /// only by the atomic upsert of <see cref="EfCoreNumberSequenceCounterStore"/> inside the numbered fact's
+    /// transaction (docs/designs/50-platform-reference-data-and-number-sequences.md).
+    /// </summary>
     public DbSet<NumberSequenceCounter> NumberSequenceCounters { get; set; } = default!;
+
+    /// <summary>
+    /// Derived-value states: platform."DerivedValueStates", one row per (tenant, target type, target id), written only by
+    /// the atomic statements of <see cref="EfCoreDerivedValueStateStore"/> (docs/designs/49-derived-values-and-live-updates.md).
+    /// </summary>
+    public DbSet<DerivedValueState> DerivedValueStates { get; set; } = default!;
 
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
@@ -133,10 +145,32 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.Property(k => k.Xml).IsRequired();
         });
 
+        builder.Entity<NumberSequenceCounter>(b =>
+        {
+            b.ToTable("NumberSequenceCounters", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.SequenceKey).IsRequired().HasMaxLength(NumberSequenceCounter.MaxSequenceKeyLength);
+            b.Property(c => c.Period).IsRequired().HasMaxLength(NumberSequenceFormat.MaxPeriodLength);
+            /* The conflict target of the upsert. NULLS NOT DISTINCT so host-level counters are unique too. */
+            b.HasIndex(c => new { c.TenantId, c.SequenceKey, c.Period }).IsUnique().AreNullsDistinct(false);
+        });
+
+        builder.Entity<DerivedValueState>(b =>
+        {
+            b.ToTable("DerivedValueStates", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(s => s.TargetType).IsRequired().HasMaxLength(DerivedValueConsts.MaxTargetTypeLength);
+            b.Property(s => s.LastErrorCode).HasMaxLength(DerivedValueConsts.MaxErrorCodeLength);
+            /* The conflict target of the request upsert. NULLS NOT DISTINCT so host-level records are unique too. */
+            b.HasIndex(s => new { s.TenantId, s.TargetType, s.TargetId }).IsUnique().AreNullsDistinct(false);
+            /* "What is still pending or failed" for maintenance and bulk re-runs. */
+            b.HasIndex(s => new { s.TenantId, s.TargetType, s.Status });
+        });
+
         ConfigureMasterData(builder);
     }
 
-    /* Platform master data (docs/designs/49-platform-master-data.md, "Migration strategy"). */
+    /* Platform master data (docs/designs/54-platform-master-data.md, "Migration strategy"). */
     private static void ConfigureMasterData(ModelBuilder builder)
     {
         builder.Entity<EmailTemplate>(b =>
@@ -198,33 +232,6 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             /* Each kind at most once per document type. */
             b.HasKey(x => new { x.DocumentTypeId, x.Kind });
             b.Property(x => x.Argument).HasMaxLength(PlatformMasterDataConsts.MaxTransformationArgumentLength);
-        });
-
-        builder.Entity<NumberSequence>(b =>
-        {
-            b.ToTable("NumberSequences", PlatformDbProperties.DbSchema, t => t.HasCheckConstraint(
-                "CK_NumberSequences_MinimumDigits",
-                "\"MinimumDigits\" >= " + PlatformMasterDataConsts.MinMinimumDigits + " AND \"MinimumDigits\" <= " + PlatformMasterDataConsts.MaxMinimumDigits));
-            b.ConfigureByConvention();
-            b.Property(s => s.Name).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
-            b.Property(s => s.NormalizedName).HasMaxLength(PlatformMasterDataConsts.MaxNameLength).IsRequired();
-            b.Property(s => s.Prefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
-            b.Property(s => s.YearPrefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
-            b.Property(s => s.YearSuffix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
-            b.Property(s => s.MonthPrefix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
-            b.Property(s => s.MonthSuffix).HasMaxLength(PlatformMasterDataConsts.MaxAffixLength);
-            b.Property(s => s.Description).HasMaxLength(PlatformMasterDataConsts.MaxDescriptionLength);
-            b.HasIndex(s => new { s.TenantId, s.NormalizedName }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
-        });
-
-        builder.Entity<NumberSequenceCounter>(b =>
-        {
-            b.ToTable("NumberSequenceCounters", PlatformDbProperties.DbSchema);
-            b.ConfigureByConvention();
-            /* The upsert's conflict target (EfCoreNumberSequenceCounterRepository): one row per sequence and period,
-             * 0 for "no year" or "no month". */
-            b.HasKey(c => new { c.NumberSequenceId, c.PeriodYear, c.PeriodMonth });
-            b.HasOne<NumberSequence>().WithMany().HasForeignKey(c => c.NumberSequenceId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

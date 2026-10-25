@@ -46,6 +46,57 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.ToTable("DataProtectionKeys", "platform");
                 });
 
+            modelBuilder.Entity("OpenTms.Platform.DerivedValues.DerivedValueState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CalculatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("CalculatedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("RequestedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "TargetType", "Status");
+
+                    b.HasIndex("TenantId", "TargetType", "TargetId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "TargetType", "TargetId"), false);
+
+                    b.ToTable("DerivedValueStates", "platform");
+                });
+
             modelBuilder.Entity("OpenTms.Platform.DocumentTypes.DocumentType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -477,130 +528,34 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.ToTable("ApplicationInstances", "platform");
                 });
 
-            modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequence", b =>
+            modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequenceCounter", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("ConcurrencyStamp");
-
-                    b.Property<DateTime>("CreationTime")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("CreationTime");
-
-                    b.Property<Guid?>("CreatorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("CreatorId");
-
-                    b.Property<Guid?>("DeleterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("DeleterId");
-
-                    b.Property<DateTime?>("DeletionTime")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("DeletionTime");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2500)
-                        .HasColumnType("character varying(2500)");
-
-                    b.Property<string>("ExtraProperties")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("ExtraProperties");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("IsDeleted");
-
-                    b.Property<DateTime?>("LastModificationTime")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("LastModificationTime");
-
-                    b.Property<Guid?>("LastModifierId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("LastModifierId");
-
-                    b.Property<int>("MinimumDigits")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("MonthPrefix")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("MonthSuffix")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("Prefix")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<int>("Scheme")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid?>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("TenantId");
-
-                    b.Property<string>("YearPrefix")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.Property<string>("YearSuffix")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "NormalizedName")
-                        .IsUnique()
-                        .HasFilter("\"IsDeleted\" = false");
-
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "NormalizedName"), false);
-
-                    b.ToTable("NumberSequences", "platform", t =>
-                        {
-                            t.HasCheckConstraint("CK_NumberSequences_MinimumDigits", "\"MinimumDigits\" >= 1 AND \"MinimumDigits\" <= 12");
-                        });
-                });
-
-            modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequenceCounter", b =>
-                {
-                    b.Property<Guid>("NumberSequenceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("PeriodYear")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("PeriodMonth")
-                        .HasColumnType("integer");
-
                     b.Property<long>("LastValue")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<string>("SequenceKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
 
-                    b.HasKey("NumberSequenceId", "PeriodYear", "PeriodMonth");
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "SequenceKey", "Period")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "SequenceKey", "Period"), false);
 
                     b.ToTable("NumberSequenceCounters", "platform");
                 });
@@ -752,15 +707,6 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.HasOne("OpenTms.Platform.DocumentTypes.DocumentType", null)
                         .WithMany("Transformations")
                         .HasForeignKey("DocumentTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("OpenTms.Platform.NumberSequences.NumberSequenceCounter", b =>
-                {
-                    b.HasOne("OpenTms.Platform.NumberSequences.NumberSequence", null)
-                        .WithMany()
-                        .HasForeignKey("NumberSequenceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

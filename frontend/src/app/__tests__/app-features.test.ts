@@ -114,16 +114,16 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 40 features as the backend's AppFeatures", () => {
+  it("names the same 55 features as the backend's AppFeatures", () => {
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(40);
-    expect(new Set(names).size).toBe(40);
+    expect(names).toHaveLength(55);
+    expect(new Set(names).size).toBe(55);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(40);
+    expect(backend).toHaveLength(55);
     expect([...names].sort()).toEqual([...backend].sort());
   });
 
-  it("carries design 49's Platform domain group and its four lists directly under it", () => {
+  it("carries design 54's Platform domain group and its three lists directly under it", () => {
     const names = Object.keys(allOn(masterData));
     expect(names).toEqual(
       expect.arrayContaining([
@@ -131,10 +131,9 @@ describe("apps.config – every app and node has its tree feature", () => {
         "Apps.MasterData.Platform.EmailTemplates",
         "Apps.MasterData.Platform.ReportDefinitions",
         "Apps.MasterData.Platform.DocumentTypes",
-        "Apps.MasterData.Platform.NumberSequences",
       ]),
     );
-    expect(names.filter((n) => n.startsWith("Apps.MasterData.Platform"))).toHaveLength(5);
+    expect(names.filter((n) => n.startsWith("Apps.MasterData.Platform"))).toHaveLength(4);
   });
 
   it("carries design 48's three nodes under their groups", () => {
@@ -158,16 +157,16 @@ describe("createAppFeatureChecker – tenant side", () => {
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    /* Two domain groups: General (without Reference) and Platform. */
-    expect(visible).toHaveLength(2);
+    /* General, Orders, Planning & Execution, Financial (designs 51–53) and Platform (design 54). */
+    expect(visible).toHaveLength(5);
     expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
-    expect(checker.visibleViews(masterData)[1].path).toBe("/master-data/platform");
+    expect(checker.visibleViews(masterData)[4].path).toBe("/master-data/platform");
   });
 
-  it("the Platform group off hides its four lists, even with the lists on; General stays", () => {
+  it("the Platform group off hides its three lists, even with the lists on; the other groups stay", () => {
     const checker = tenant({ ...allOn(masterData), "Apps.MasterData.Platform": "false" });
-    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general"]);
-    for (const path of ["/master-data/email-templates", "/master-data/report-definitions", "/master-data/document-types", "/master-data/number-sequences"]) {
+    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general", "/master-data/orders", "/master-data/planning", "/master-data/financial"]);
+    for (const path of ["/master-data/email-templates", "/master-data/report-definitions", "/master-data/document-types"]) {
       expect(checker.isPathEnabled(masterData, path), path).toBe(false);
     }
     expect(checker.isPathEnabled(masterData, "/master-data/countries")).toBe(true);
@@ -277,16 +276,16 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
     expect(checker.firstEnabledPath(masterData, "/master-data/reference")).toBe("/master-data/countries");
   });
 
-  it("under the Platform group path returns its first enabled list; with General off the app's first list is a Platform one", () => {
+  it("under the Platform group path returns its first enabled list; with General off the app's first list is the next group's", () => {
     const checker = tenant(allOn(masterData));
     expect(checker.firstEnabledPath(masterData, "/master-data/platform")).toBe("/master-data/email-templates");
     expect(
       tenant({ ...allOn(masterData), "Apps.MasterData.Platform.EmailTemplates": "false" }).firstEnabledPath(masterData, "/master-data/platform"),
     ).toBe("/master-data/report-definitions");
-    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General": "false" }).firstEnabledPath(masterData)).toBe("/master-data/email-templates");
-    expect(
-      tenant({ ...allOn(masterData), "Apps.MasterData.General": "false", "Apps.MasterData.Platform": "false" }).firstEnabledPath(masterData),
-    ).toBeUndefined();
+    expect(tenant({ ...allOn(masterData), "Apps.MasterData.General": "false" }).firstEnabledPath(masterData)).toBe("/master-data/transport-order-types");
+    const othersOff = { "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false" };
+    expect(tenant({ ...allOn(masterData), ...othersOff }).firstEnabledPath(masterData)).toBe("/master-data/email-templates");
+    expect(tenant({ ...allOn(masterData), ...othersOff, "Apps.MasterData.Platform": "false" }).firstEnabledPath(masterData)).toBeUndefined();
   });
 
   it("is undefined when nothing is on", () => {
@@ -341,7 +340,6 @@ describe("createAppFeatureChecker – isPathEnabled", () => {
     ["/master-data/email-templates", "Apps.MasterData.Platform.EmailTemplates"],
     ["/master-data/report-definitions", "Apps.MasterData.Platform.ReportDefinitions"],
     ["/master-data/document-types", "Apps.MasterData.Platform.DocumentTypes"],
-    ["/master-data/number-sequences", "Apps.MasterData.Platform.NumberSequences"],
   ])("a Master data list outside its group's path (%s) is off when its node is off", (path, node) => {
     /* The lists of a group do not live under the group's path (/master-data/countries is in the group
      * /master-data/reference), so a direct link must still be refused when the node is off. */
