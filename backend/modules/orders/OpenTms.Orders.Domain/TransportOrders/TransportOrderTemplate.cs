@@ -58,7 +58,7 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
 
     public virtual ICollection<TransportOrderTemplateLine> Lines { get; private set; } = new List<TransportOrderTemplateLine>();
 
-    public virtual ICollection<TransportOrderTemplateStop> DefaultStops { get; private set; } = new List<TransportOrderTemplateStop>();
+    public virtual ICollection<TransportOrderTemplateDefaultStop> DefaultStops { get; private set; } = new List<TransportOrderTemplateDefaultStop>();
 
     public virtual ICollection<TransportOrderTemplateReference> References { get; private set; } = new List<TransportOrderTemplateReference>();
 
@@ -169,7 +169,7 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         foreach (var s in stops)
         {
             var details = StopDetails.Create(s.WaypointTypeId, s.RelationId, s.RelationAddressId, s.ContactPersonId, s.TimeSlotId, s.WindowFrom, s.WindowTill, null, null, s.PlannedDurationMin, position);
-            DefaultStops.Add(new TransportOrderTemplateStop(TenantId, Id, null, position++, details, s.DayOffset));
+            DefaultStops.Add(new TransportOrderTemplateDefaultStop(TenantId, Id, position++, details, s.DayOffset));
         }
     }
 
@@ -245,12 +245,10 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
     }
 }
 
-/// <summary>A stop of a template line or of its pattern (line id null), dated as an offset from the order date.</summary>
+/// <summary>A stop of a template line, dated as an offset from the order date; key (line, position).</summary>
 public class TransportOrderTemplateStop : Entity, IMultiTenant
 {
     public Guid? TenantId { get; private set; }
-    public Guid TemplateId { get; private set; }
-    /// <summary>Guid.Empty for the template's pattern (default stops); the line's id for a line's stops (part of the key).</summary>
     public Guid LineId { get; private set; }
     public int Position { get; private set; }
     public StopDetails Details { get; private set; } = default!;
@@ -260,17 +258,41 @@ public class TransportOrderTemplateStop : Entity, IMultiTenant
     {
     }
 
-    public TransportOrderTemplateStop(Guid? tenantId, Guid templateId, Guid? lineId, int position, StopDetails details, int dayOffset)
+    public TransportOrderTemplateStop(Guid? tenantId, Guid lineId, int position, StopDetails details, int dayOffset)
     {
         TenantId = tenantId;
-        TemplateId = templateId;
-        LineId = lineId ?? Guid.Empty;
+        LineId = lineId;
         Position = position;
         Details = Check.NotNull(details, nameof(details));
         DayOffset = dayOffset;
     }
 
-    public override object[] GetKeys() => [TemplateId, LineId, Position];
+    public override object[] GetKeys() => [LineId, Position];
+}
+
+/// <summary>A stop of the template's pattern (the waypoint strip a new line starts with); key (template, position).</summary>
+public class TransportOrderTemplateDefaultStop : Entity, IMultiTenant
+{
+    public Guid? TenantId { get; private set; }
+    public Guid TemplateId { get; private set; }
+    public int Position { get; private set; }
+    public StopDetails Details { get; private set; } = default!;
+    public int DayOffset { get; private set; }
+
+    protected TransportOrderTemplateDefaultStop()
+    {
+    }
+
+    public TransportOrderTemplateDefaultStop(Guid? tenantId, Guid templateId, int position, StopDetails details, int dayOffset)
+    {
+        TenantId = tenantId;
+        TemplateId = templateId;
+        Position = position;
+        Details = Check.NotNull(details, nameof(details));
+        DayOffset = dayOffset;
+    }
+
+    public override object[] GetKeys() => [TemplateId, Position];
 }
 
 public sealed record TemplateStopInput(
@@ -316,7 +338,7 @@ public class TransportOrderTemplateLine : Entity<Guid>, IMultiTenant
         foreach (var s in input.Stops)
         {
             var details = StopDetails.Create(s.WaypointTypeId, s.RelationId, s.RelationAddressId, s.ContactPersonId, s.TimeSlotId, s.WindowFrom, s.WindowTill, s.Reference, s.Remarks, s.PlannedDurationMin, stopPosition);
-            Stops.Add(new TransportOrderTemplateStop(tenantId, templateId, Id, stopPosition++, details, s.DayOffset));
+            Stops.Add(new TransportOrderTemplateStop(tenantId, Id, stopPosition++, details, s.DayOffset));
         }
     }
 }

@@ -787,6 +787,7 @@
     "Platform:ReportPurpose.Invoice": "Factuur",
     "Platform:ReportPurpose.PurchaseOrder": "Inkooporder",
     "Platform:ReportPurpose.TransportUnitBalance": "Emballagesaldo",
+    "Platform:ReportPurpose.ConsignmentNote": "Vrachtbrief (CMR)",
     "Platform:ReportRenderingProvider.PdfGeneratorApi": "PDF Generator API",
     "Platform:DocumentTransformationKind.ImageToPdf": "Afbeelding naar PDF",
     "Platform:DocumentTransformationKind.LinkByFileName": "Koppelen op bestandsnaam",

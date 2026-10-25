@@ -79,6 +79,7 @@ public static partial class ReportDataCatalogue
         ReportPurpose.Invoice => "Invoice",
         ReportPurpose.PurchaseOrder => "PurchaseOrder",
         ReportPurpose.TransportUnitBalance => "GetSingleOutput`1",
+        ReportPurpose.ConsignmentNote => "ConsignmentNote",
         _ => purpose.ToString()
     };
 
