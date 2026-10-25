@@ -96,12 +96,12 @@ public class PlanningFakeWorld : ISingletonDependency
     }
 }
 
-public class FakeOrderPricingReader : IOrderPricingReader, ITransientDependency
+public class PlanningFakeOrderPricingReader : IOrderPricingReader, ITransientDependency
 {
     private readonly PlanningFakeWorld _world;
     private readonly ICurrentTenant _currentTenant;
 
-    public FakeOrderPricingReader(PlanningFakeWorld world, ICurrentTenant currentTenant)
+    public PlanningFakeOrderPricingReader(PlanningFakeWorld world, ICurrentTenant currentTenant)
     {
         _world = world;
         _currentTenant = currentTenant;

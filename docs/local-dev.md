@@ -111,3 +111,13 @@ lives in the host database); it stops with a message when the admin user, the NL
 Visiting/Postal address types or EUR are missing (DbMigrator seed not run), and when the tenant already
 has any relation: it fills an empty tenant only. On any error during the load nothing stays. The backend
 caches feature values: restart the API host to see the Master Data app.
+
+## Routing and CO₂ (design 60)
+
+The routing adapter reads `Integrations:Routing` (`Provider` `Osrm` or `RouteFunction`, `Osrm:BaseUrl`,
+`RouteFunction:BaseUrl`, `RouteFunction:ApiKey` (user secrets, never in a file), `RouteFunction:ApiKeyHeader`
+`X-API-Key`, `CacheDays` 30, `TimeoutSeconds` 10) and `Integrations:CarbonFootprint:CpiGramPerTonneKm` (62). With the
+URLs empty every routing call returns null: legs keep no distance and trips show the warning *Routing not configured*.
+For a local run point `Osrm:BaseUrl` at the OSRM instance OpenTMS uses and `RouteFunction:BaseUrl` at the Valhalla
+route function (both URLs are in the OpenTMS configuration, never in this repository). `GET /api/integrations/routing/status`
+and the health check `routing` show whether the provider answers.
