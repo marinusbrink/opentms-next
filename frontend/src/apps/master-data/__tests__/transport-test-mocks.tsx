@@ -1,4 +1,5 @@
 import type { EditableCallbackParams, ValueFormatterParams, ValueGetterParams } from "ag-grid-community";
+import { useEffect, useState } from "react";
 
 import type { DatePickerProps } from "@/components/ui/date-picker";
 import type { EntityLookupProps } from "@/components/ui/entity-lookup";
@@ -6,7 +7,8 @@ import type { LinesGridProps } from "@/components/ui/lines-grid";
 
 /* Native stand-ins for the design-61 Master data editor tests (the Transport run's lists), next to run2-test-mocks:
  * a LinesGrid that honours editable callbacks, number editors and value getters (the bracket ladder and the column
- * list need them), an EntityLookup that picks from a fixed relation set, and a DatePicker as a plain text input.
+ * list need them), an EntityLookup that picks from a fixed relation set (or, with `lookupFromFetchPage`, from the first
+ * page its own fetchPage returns), and a DatePicker as a plain text input.
  * Not a test file: vitest's include pattern matches *.test.* only. */
 
 type Row = Record<string, unknown>;
@@ -68,8 +70,16 @@ export const lookupRelations: { current: { id: string; code: string; name: strin
   ],
 };
 
+/** When on, the mocked EntityLookup lists the first page of its own `fetchPage` (the generated client is the test's mock). */
+export const lookupFromFetchPage = { current: false };
+
 export function MockEntityLookup<T extends { id: string }>(props: EntityLookupProps<T>) {
-  const items = lookupRelations.current as unknown as T[];
+  const [fetched, setFetched] = useState<T[] | null>(null);
+  const { fetchPage } = props;
+  useEffect(() => {
+    if (lookupFromFetchPage.current) void fetchPage({ term: "", skip: 0, take: 25 }).then((page) => setFetched(page.items));
+  }, [fetchPage]);
+  const items = fetched ?? (lookupFromFetchPage.current ? [] : (lookupRelations.current as unknown as T[]));
   const value = props.value as T | null;
   return (
     <span data-picker={props.id}>

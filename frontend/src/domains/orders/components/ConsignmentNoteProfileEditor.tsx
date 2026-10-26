@@ -9,7 +9,7 @@ import type { RibbonCommand } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { EntityLookup } from "@/components/ui/entity-lookup";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { CheckboxField, EnumSelectField, NumberField, TextAreaField, TextField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
@@ -33,7 +33,7 @@ import {
   type CmrRemarkItem,
   type ConsignmentNoteProfileDto,
 } from "@/domains/orders/consignment-note-profiles";
-import { CONSIGNMENT_NOTE_PURPOSE, useReportDefinitionsOfPurpose } from "@/domains/platform/master-data";
+import { CONSIGNMENT_NOTE_PURPOSE, reportDefinitionLookupPage, type ReportDefinitionDto, type ReportDefinitionOption } from "@/domains/platform/master-data";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -49,7 +49,7 @@ interface Values {
   showBorders: boolean;
   showQrCode: boolean;
   groupByLeg: boolean;
-  reportDefinitionId: string | null;
+  reportDefinition: ReportDefinitionOption | null;
   isArchived: boolean;
   description: string;
   box1Sender: CmrPartySource;
@@ -73,7 +73,7 @@ const initialValuesFor = (initialName: string | undefined) => (dto: ConsignmentN
   showBorders: dto?.showBorders ?? true,
   showQrCode: dto?.showQrCode ?? true,
   groupByLeg: dto?.groupByLeg ?? false,
-  reportDefinitionId: dto?.reportDefinitionId ?? null,
+  reportDefinition: dto?.reportDefinitionId ? { id: dto.reportDefinitionId, name: dto.reportDefinitionName ?? "" } : null,
   isArchived: dto?.isArchived ?? false,
   description: dto?.description ?? "",
   box1Sender: dto?.box1Sender ?? 1,
@@ -111,7 +111,7 @@ export function ConsignmentNoteProfileEditor({ mode, id, readOnly, open, onClose
   const [commandError, setCommandError] = useState<string | null>(null);
 
   const fixedLookup = consignmentNoteFixedDescriptions.useLookup(open);
-  const definitions = useReportDefinitionsOfPurpose(CONSIGNMENT_NOTE_PURPOSE, open);
+  const definitionPage = useMemo(() => reportDefinitionLookupPage(CONSIGNMENT_NOTE_PURPOSE), []);
 
   const fixedOptions = useMemo(() => {
     const options = (fixedLookup.data ?? []).map((f) => ({ id: f.id ?? "", label: f.name ?? "" }));
@@ -121,12 +121,6 @@ export function ConsignmentNoteProfileEditor({ mode, id, readOnly, open, onClose
     });
     return options;
   }, [fixedLookup.data, detail.data]);
-  const definitionOptions = useMemo(() => {
-    const options = (definitions.data ?? []).map((d) => ({ value: d.id ?? "", label: d.name ?? "" }));
-    const current = detail.data;
-    if (current?.reportDefinitionId && !options.some((o) => o.value === current.reportDefinitionId)) options.push({ value: current.reportDefinitionId, label: current.reportDefinitionName ?? "" });
-    return options;
-  }, [definitions.data, detail.data]);
 
   const sourceItems = useMemo(() => CMR_PARTY_SOURCES.map((s) => ({ value: s.value, label: t(s.key) })), [t]);
   const goodsOptions = useMemo(() => CMR_GOODS_COLUMNS.map((c) => ({ id: String(c.value), label: t(c.key) })), [t]);
@@ -153,7 +147,7 @@ export function ConsignmentNoteProfileEditor({ mode, id, readOnly, open, onClose
         box13Items: v.box13Items.map(Number) as CmrInstructionItem[],
         box18Items: v.box18Items.map(Number) as CmrRemarkItem[],
         fixedDescriptionIds: v.fixedDescriptionIds,
-        reportDefinitionId: v.reportDefinitionId,
+        reportDefinitionId: v.reportDefinition?.id ?? null,
         isArchived: v.isArchived,
       };
       return mode === "create" ? await create.mutateAsync(body) : await update.mutateAsync({ id: id!, dto: { ...body, concurrencyStamp: dto?.concurrencyStamp ?? "" } });
@@ -194,21 +188,24 @@ export function ConsignmentNoteProfileEditor({ mode, id, readOnly, open, onClose
     {
       value: "general",
       labelKey: "General",
-      fields: ["name", "copies", "showBorders", "showQrCode", "groupByLeg", "reportDefinitionId", "isArchived"],
+      fields: ["name", "copies", "showBorders", "showQrCode", "groupByLeg", "reportDefinition", "isArchived"],
       render: (form) => (
         <FormSection title={t("Orders:ConsignmentNoteProfile")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} />
             <NumberField form={form} field="copies" labelKey="Orders:Copies" required hintKey="Orders:CopiesHint" />
-            <FormField label={t("Orders:ReportDefinition")} htmlFor={form.id("reportDefinitionId")} floating="always" hint={t("Orders:ReportDefinitionDefaultHint")}>
-              {/* DEVIATION(UI-LOOK-001): report definitions are a ReferenceCombobox over the definitions of this purpose (a handful per tenant, no lookup-page endpoint), as the Platform editors of design 54. */}
-              <ReferenceCombobox
-                id={form.id("reportDefinitionId")}
-                value={form.values.reportDefinitionId}
-                onChange={(next) => form.set("reportDefinitionId", next)}
-                options={definitionOptions}
+            <FormField label={t("Orders:ReportDefinition")} htmlFor={form.id("reportDefinition")} floating="always" hint={t("Orders:ReportDefinitionDefaultHint")}>
+              <EntityLookup<ReportDefinitionOption>
+                id={form.id("reportDefinition")}
+                value={form.values.reportDefinition}
+                onChange={(next) => form.set("reportDefinition", next)}
+                fetchPage={definitionPage}
+                getLabel={(d) => d.name}
                 disabled={form.readOnly}
-                {...inPlace.offer("ReportDefinition", form.readOnly, (r) => form.set("reportDefinitionId", r.id))}
+                {...inPlace.offer<ReportDefinitionDto>("ReportDefinition", form.readOnly, (r) => {
+                  /* A definition of another purpose cannot render a CMR: it is created, not picked. */
+                  if (r.dto.purpose === CONSIGNMENT_NOTE_PURPOSE) form.set("reportDefinition", { id: r.id, name: r.name });
+                })}
               />
             </FormField>
             <div className="flex flex-wrap gap-x-6">

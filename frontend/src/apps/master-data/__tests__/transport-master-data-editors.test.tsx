@@ -40,6 +40,7 @@ import { OrderAttributeDefinitionEditor } from "@/apps/master-data/editors/Order
 import { TripAttributeDefinitionEditor } from "@/apps/master-data/editors/TripAttributeDefinitionEditor";
 import { ViaDepotRuleEditor } from "@/apps/master-data/editors/ViaDepotRuleEditor";
 import { editorDialog, fieldIn, ok, panel, queryFieldIn, ribbonButton, submitEditor, tab, typeIn } from "./platform-test-helpers";
+import { lookupFromFetchPage } from "./transport-test-mocks";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;
 const GET = apiClient.GET as unknown as Mock<ClientCall>;
@@ -224,6 +225,13 @@ describe("ViaDepotRuleEditor", () => {
 
 describe("ConsignmentNoteProfileEditor", () => {
   const BOXES = "Orders:Boxes";
+  /* The report definition is an EntityLookup over its own server pages (UI-LOOK-001), not the fixed relation set. */
+  beforeEach(() => {
+    lookupFromFetchPage.current = true;
+  });
+  afterEach(() => {
+    lookupFromFetchPage.current = false;
+  });
 
   it("creates with the boxes as enum numbers, the checkbox groups, the fixed texts and the report definition", async () => {
     renderWith(<ConsignmentNoteProfileEditor mode="create" readOnly={false} open onClose={noop} onSaved={noop} />);
@@ -231,7 +239,8 @@ describe("ConsignmentNoteProfileEditor", () => {
     typeIn(GENERAL, "Orders:Copies", "4");
     await waitFor(() => expect(within(editorDialog()).getByRole("option", { name: "CMR en" })).toBeInTheDocument());
     fireEvent.change(fieldIn(GENERAL, "Orders:ReportDefinition"), { target: { value: "rd-2" } });
-    expect(GET).toHaveBeenCalledWith("/api/platform/report-definition", expect.objectContaining({ params: { query: expect.objectContaining({ Purpose: 6, IncludeArchived: false }) } }));
+    /* UI-LOOK-001: an EntityLookup searched on the server over the definitions of purpose ConsignmentNote. */
+    expect(GET).toHaveBeenCalledWith("/api/platform/report-definition", expect.objectContaining({ params: { query: expect.objectContaining({ Purpose: 6, IncludeArchived: false, StartRow: 0, EndRow: 25 }) } }));
 
     tab(BOXES);
     fireEvent.change(fieldIn(BOXES, "Orders:Box1Sender"), { target: { value: "6" } });

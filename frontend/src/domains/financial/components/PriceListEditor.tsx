@@ -226,7 +226,7 @@ export function PriceListEditor({ mode, id, readOnly, open, onClose, onSaved, in
               <TextField form={form} field="name" labelKey="MasterData:Name" required maxLength={128} className="col-span-2" />
               <EnumSelectField form={form} field="side" labelKey="Financial:RateSide" items={sideItems} required />
               <FormField label={t("Financial:Currency")} htmlFor={form.id("currencyCode")} required error={form.error("currencyCode")} floating="always">
-                {/* DEVIATION(UI-LOOK-001): currencies are a ReferenceCombobox over the active currencies (ISO codes, design 52). */}
+                {/* UI-LOOK-001: currencies are the rule's static list of more than 15 items, so a client-searched Combobox (ReferenceCombobox) over the active currencies by ISO code; "Add new currency…" per UI-LOOK-004. */}
                 <ReferenceCombobox
                   id={form.id("currencyCode")}
                   value={form.values.currencyCode}
