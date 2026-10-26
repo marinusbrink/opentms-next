@@ -79,7 +79,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api/client";
-import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
+import { RelationEditor, contactFromTerm } from "@/domains/master-data/components/RelationEditor";
 import { FORM_SECTION_CAPTION } from "@/components/ui/form-section";
 import type { RelationDto, RelationRoles } from "@/domains/master-data/entities";
 
@@ -835,6 +835,47 @@ describe("RelationEditor — validation", () => {
     renderEditor({ initialName: "Zeeland Transport" });
     await waitForEditor();
     expect(field(editorDialog(), "MasterData:Name").value).toBe("Zeeland Transport");
+  });
+});
+
+/* A picker's "Add new …" (UI-LOOK-004) from the Transport app: a customer picker's new relation starts with the
+ * Customer role; a contact-person picker opens the picked relation on Contact persons with the dialog prefilled. */
+describe("RelationEditor — opened by a picker", () => {
+  it("a new relation starts with the picker's roles (initialRoles) and posts them", async () => {
+    renderEditor({ initialName: "Zeeland Transport", initialRoles: 1 });
+    await waitForLookups();
+    expect(roleBox("Customer")).toBeChecked();
+    expect(roleBox("Carrier")).not.toBeChecked();
+    typeInto(editorDialog(), "MasterData:Code", "ZT");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody()).toEqual(expect.objectContaining({ code: "ZT", name: "Zeeland Transport", roles: 1 }));
+  });
+
+  it("opens on the tab it is given (initialTab)", async () => {
+    renderEditor({ mode: "edit", id: "r1", initialTab: "contactPersons" });
+    await waitFor(() => expect(screen.getByText("MasterData:NewContactPerson")).toBeVisible());
+  });
+
+  it("newContactPersonName: once the relation loaded, the contact person dialog opens with the typed name; the relation's save posts it", async () => {
+    renderEditor({ mode: "edit", id: "r1", initialTab: "contactPersons", newContactPersonName: "Piet de Vries" });
+    await waitFor(() => expect(dialogs()).toHaveLength(2));
+    const child = childDialog();
+    expect(field(child, "MasterData:FirstName").value).toBe("Piet");
+    expect(field(child, "MasterData:LastName").value).toBe("de Vries");
+    fireEvent.click(within(child).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(dialogs()).toHaveLength(1));
+    expect(lines().some((line) => line.textContent?.includes("Piet de Vries"))).toBe(true);
+
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(putBody().contactPersons).toEqual(expect.arrayContaining([expect.objectContaining({ id: null, firstName: "Piet", lastName: "de Vries" })]));
+  });
+
+  it("contactFromTerm: the first word the first name, the rest the last name; one word is the last name", () => {
+    expect(contactFromTerm(" Jan  van Dijk ")).toEqual({ firstName: "Jan", lastName: "van Dijk" });
+    expect(contactFromTerm("Jansen")).toEqual({ firstName: "", lastName: "Jansen" });
+    expect(contactFromTerm("")).toEqual({ firstName: "", lastName: "" });
   });
 });
 

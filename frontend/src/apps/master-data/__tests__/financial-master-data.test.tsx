@@ -138,9 +138,9 @@ beforeEach(() => {
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { validityError } from "@/apps/master-data/components/validity-rows";
-import { DiscountOrSurchargeEditor } from "@/apps/master-data/editors/DiscountOrSurchargeEditor";
-import { VatPercentageEditor } from "@/apps/master-data/editors/VatPercentageEditor";
+import { validityError } from "@/components/record-editor/validity-rows";
+import { DiscountOrSurchargeEditor } from "@/domains/financial/components/DiscountOrSurchargeEditor";
+import { VatPercentageEditor } from "@/domains/financial/components/VatPercentageEditor";
 import { formatDiscountOrSurchargeValue } from "@/domains/financial/reference-data";
 import { createFormatter } from "@/lib/format";
 

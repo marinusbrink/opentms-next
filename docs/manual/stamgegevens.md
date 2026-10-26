@@ -53,6 +53,14 @@ niet te verlaten (en uw wijzigingen niet kwijt te raken) als het record dat u zo
   zonder opslaan laat de keuzelijst zoals hij was.
 - Dat geldt ook voor de keuzelijsten in een tabel in het scherm, zoals het land van een
   postcodebereik of het voertuigtype van een beladingsfactor: het nieuwe record komt in die regel.
+- Een adres en een contactpersoon horen bij een relatie. *Nieuw adres toevoegen…* en *Nieuwe
+  contactpersoon toevoegen…* openen daarom het scherm van de gekozen relatie (een contactpersoon met het
+  venster voor de nieuwe contactpersoon al open en de getypte naam erin). Na **Opslaan** van de relatie
+  is het nieuwe adres of de nieuwe contactpersoon gekozen. Zonder gekozen relatie staat de regel er niet;
+  u hebt het recht nodig om relaties te wijzigen.
+- Een nieuwe relatie vanuit een keuzelijst die alleen klanten (of alleen vervoerders) toont, krijgt die
+  rol al mee, zodat de keuzelijst haar daarna terugvindt.
+- Dit werkt in elke app, ook in **Transport**: het scherm dat opent is hetzelfde als in Stamgegevens.
 - De regel staat er alleen als u het recht hebt om zo'n record aan te maken én het onderdeel van
   dat record voor uw organisatie aanstaat (bijvoorbeeld *Stamgegevens › Referentie › Landen* voor
   een land), en niet in een scherm dat alleen-lezen is geopend.
@@ -148,6 +156,125 @@ Een regio bestaat uit postcodebereiken per land. Een bereik is óf numeriek (*va
   `SW` matcht `SW1A 1AA`.
 
 Met het landfilter boven de lijst ziet u alleen regio's met een bereik in dat land.
+
+## Orders
+
+Onder **Orders › Transportorders** staan, naast de ordersoorten, waypointsoorten en tijdvakken, drie lijsten
+voor de vrachtbrief (CMR) en de eigen kenmerken van een order.
+
+### Vrachtbriefprofielen
+
+Een vrachtbriefprofiel bepaalt hoe een CMR wordt afgedrukt. Eén profiel is de **standaard**: dat gebruikt het
+systeem als bij het afdrukken geen ander profiel wordt gekozen. Met **Als standaard instellen** (rechtsklikken in
+de lijst, of bovenin het scherm van een opgeslagen profiel) maakt u een ander profiel de standaard; de vorige
+vervalt. Het standaardprofiel kunt u niet verwijderen en een gearchiveerd profiel kan geen standaard zijn.
+
+- **Algemeen**: de naam, het aantal **Exemplaren** (1 tot 5), **Kaders tonen**, de QR-code, **Groeperen per
+  traject** en de **Bestandlayout**: de rapportdefinitie met het doel *Vrachtbrief (CMR)* die de opmaak levert.
+  Laat u die leeg, dan geldt de standaarddefinitie voor de vrachtbrief in de taal van de gebruiker.
+- **Vakken**: per partijvak (vak 1 afzender, 2 geadresseerde, 3 plaats van aflevering, 4 plaats van inontvangstneming,
+  16 vervoerder, 17 opvolgende vervoerder, 21 opgemaakt te) kiest u waar de gegevens vandaan komen: de klant, het
+  laad- of losadres, het eigen bedrijf, de vervoerder, de verlader, het vertrek- of aankomstpunt van de rit, of
+  leeg. Met de vinkjes kiest u de goederenkolommen van vak 6–12, de instructies van vak 13 en de opmerkingen van
+  vak 18. **Vaste teksten** voegt teksten uit de lijst hieronder toe aan de vakken 6 en 13.
+
+### Vaste teksten
+
+Een vaste tekst (bijvoorbeeld *Breekbaar, niet stapelen*) staat op de vrachtbrief als een profiel hem kiest. Een
+tekst heeft een naam en de tekst zelf (maximaal 2000 tekens). Een tekst die een profiel gebruikt, kunt u niet
+verwijderen; archiveer hem dan: hij verdwijnt uit de keuzelijsten, het profiel houdt hem.
+
+### Orderkenmerken
+
+Orderkenmerken zijn de eigen velden van uw organisatie op een order of op een orderregel (bijvoorbeeld een
+zegelnummer). Een kenmerk heeft een **Geldt voor** (order of regel), een **Sleutel** (het vaste kenmerk dat
+koppelingen gebruiken, maximaal 32 tekens, uniek per *Geldt voor*), een naam en een positie (de volgorde in het
+orderscherm). Met het filter boven de lijst ziet u alleen de kenmerken van de order of van de regels. Een
+gearchiveerd kenmerk kan niet meer worden ingevuld; de waarden die al op orders staan blijven leesbaar.
+
+## Planning & uitvoering
+
+Onder **Planning & uitvoering › Ritten** staan, naast de ritsoorten, de via-depotregels en de ritkenmerken.
+
+### Via-depotregels
+
+Een via-depotregel laat de trajecten van een order via een depot lopen in plaats van rechtstreeks: het eerste
+traject eindigt op het depot, het volgende vertrekt daar.
+
+- **Bereik** zegt voor welke orders de regel geldt: een **Relatie** (een laad- of losadres van die relatie), een
+  **Klant** (alle orders van die klant) of een **Regio** (een adres in die geografische regio). Bij relatie en klant
+  kiest u de relatie, bij regio de regio.
+- **Depot** is de relatie van het depot, **Depotadres** een van de adressen van die relatie (kies eerst het depot).
+  Een nieuw adres voegt u toe in het scherm van de relatie.
+- **Activiteit bij aankomst op het depot** is verplicht; **Activiteit bij vertrek van het depot** is optioneel
+  (leeg: dezelfde als bij aankomst). **Overnachting op het depot** betekent dat de goederen een nacht op het depot
+  blijven.
+- **Positie**: passen meerdere regels, dan geldt de eerste in positievolgorde.
+
+### Ritkenmerken
+
+Ritkenmerken zijn de eigen velden van uw organisatie op een rit. Een kenmerk heeft een **Sleutel** (een letter,
+daarna letters, cijfers of liggende streepjes; maximaal 32 tekens), een naam en een positie.
+
+## Financieel
+
+Onder **Financieel › Prijzen** staan, naast de aanvullende diensten en de kortingen en toeslagen, de prijslijsten
+en de financiële instellingen per relatie.
+
+### Prijslijsten
+
+Een prijslijst rekent een prijs uit voor een orderregel (omzet) of voor een traject van een vervoerder (kosten).
+De lijst toont code, naam, soort, valuta, basis, geldigheid en het aantal regels; met het filter boven de lijst
+ziet u alleen omzet- of kostenlijsten. Een lijst die een relatie of een berekende prijsregel gebruikt, kunt u niet
+verwijderen; archiveer hem dan. Het scherm van een prijslijst vult het hele venster.
+
+- **Algemeen**: code, naam, **Soort** (omzet of kosten), valuta, geldigheid (*Geldig vanaf* en *Geldig tot*; buiten
+  die periode rekent een order de lijst niet) en de berekening: de **Basis** (waarover de prijs per eenheid gaat,
+  bijvoorbeeld het gewicht of de kilometers), de **Vermenigvuldiging**, de **Kolomhoeveelheid** (welke hoeveelheid
+  de kolom kiest), de **Stopvergelijking** (of de eerste, de laatste of beide stops moeten passen) en de
+  **Omrekenfactor eenheid** (de hoeveelheid wordt door deze factor gedeeld, bijvoorbeeld 1000 voor kg naar ton).
+- **Kolommen**: de horizontale staffels. Elke kolom geldt tot en met zijn grens; de grenzen lopen op en de laatste
+  kolom is open (*Daarboven*). Maximaal 50 kolommen.
+- **Regels**: links de regels van de lijst, rechts de gekozen regel. Een regel beschrijft een **laan** (aan de
+  *Van*- en *Naar*-kant een relatie of een regio, minstens aan één kant) en optioneel een transporteenheid, product
+  en voertuigtype (*Alle* als u niets kiest). Het **Niveau** is het aantal gekozen kenmerken (0 tot 3): de meest
+  specifieke regel wint; met het filter toont u alleen **Uitzonderingen** (niveau 1–3), **Standaard** (niveau 0) of
+  één niveau. Onder de regel staan de **Staffels**: per rij een grens op de **Rijhoeveelheid** en per kolom van de
+  lijst een prijs per eenheid (leeg = geen prijs in die cel); de laatste rij is open. Met *Ingevoerd* als
+  rijhoeveelheid heeft de regel alleen die open rij. **Minimumbedrag** en **Maximumbedrag** begrenzen het bedrag van
+  de regel. Een regel slaat u op met **Regel opslaan**, los van de lijst; wijzigt u de kolommen, sla de lijst dan
+  eerst op.
+- **Simuleren** (met het recht daarvoor): beschrijf één orderregel (de relaties en regio's van van en naar, de
+  transporteenheid, de hoeveelheden en een peildatum) en kies **Simuleren**. U ziet welke regel wint, welke kolom
+  die kiest, de prijs per eenheid en het bedrag, en de andere kandidaten met de reden waarom ze niet wonnen. Er wordt
+  niets opgeslagen.
+
+Bovenin het scherm van een opgeslagen lijst staan vier knoppen; met niet-opgeslagen wijzigingen zijn ze uitgeschakeld:
+
+- **Kopiëren** maakt een nieuwe lijst met dezelfde kolommen en regels, met een eigen code, naam en geldigheid, en
+  opent die.
+- **Aanpassen** wijzigt alle prijzen van de lijst met een percentage of een bedrag, afgerond naar keuze (op de cent,
+  5 cent, 25 cent, 50 cent of hele eenheden). Met **Voorbeeld** ziet u eerst hoeveel cellen veranderen en een paar
+  voorbeelden; daarna kiest u **Toepassen**. De aanpassing is niet ongedaan te maken.
+- **Exporteren** downloadt de regels, staffels en prijzen als Excel-bestand.
+- **Importeren** vervangt alle regels van de lijst door die uit een Excel-bestand in de vorm van de export (maximaal
+  5 MB). Een fout in het bestand wordt gemeld met de rij en de kolom; dan verandert er niets.
+
+### Financiële instellingen relatie
+
+Per relatie legt u vast hoe orders van die relatie worden geprijsd en gefactureerd. De lijst toont per relatie het
+aantal prijslijsten, de btw, de betaaltermijn, de vaste prijs en de valuta; zoeken werkt op de naam van de relatie.
+De instellingen ontstaan bij de eerste keer opslaan (daarvoor is het recht om te wijzigen nodig) en worden niet
+verwijderd. Kiest u bij **Nieuw** een relatie die al instellingen heeft, dan bewerkt u die.
+
+- **Algemeen**: de relatie (vast zodra de instellingen bestaan), de **Btw** (leeg: de standaard btw), de
+  **Betaaltermijn (dagen)**, de valuta (leeg: de valuta van de relatie), **Standaard vaste prijs** en
+  **Vrachtdocumenten met de factuur meesturen**.
+- **Prijslijsten**: de **Prijslijsten omzet** en de **Prijslijsten kosten**, elk in volgorde en elke lijst één keer
+  per kant (maximaal 20). Per kant bepaalt **Meerdere passende lijsten** wat er gebeurt als meer dan één lijst een
+  prijs geeft: **Alle toepassen**, **Hoogste wint** of **Laagste wint**.
+- **Standaard kortingen en toeslagen**: elke nieuwe order van deze relatie begint met deze kortingen en toeslagen,
+  binnen hun geldigheid (*Geldig vanaf* verplicht, *Geldig tot* optioneel).
 
 ## Platform
 

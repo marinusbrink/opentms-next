@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, PercentCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { VatPercentageEditor } from "@/apps/master-data/editors/VatPercentageEditor";
+import { VatPercentageEditor } from "@/domains/financial/components/VatPercentageEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { VAT_KINDS, keyOf, useSetDefaultVatPercentage, vatPercentages, type VatPercentageRow } from "@/domains/financial/reference-data";
 import { getApiErrorMessage } from "@/lib/api/errors";

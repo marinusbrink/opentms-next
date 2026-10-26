@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { numberError, parseInteger, parseNumber } from "@/apps/master-data/components/fields";
-import { isValidRange } from "@/apps/master-data/editors/GeographicalRegionEditor";
+import { numberError, parseInteger, parseNumber } from "@/components/record-editor/fields";
+import { isValidRange } from "@/domains/master-data/components/GeographicalRegionEditor";
 import { localizedNameFromMap, localizedNameToMap, resolveLocalizedName, validateLocalizedName, withTextForCulture } from "@/domains/master-data/localized-name";
 
 /* Pure helpers of the Master data app. Risk class: Low. */

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { TransportTripTypeEditor } from "@/apps/master-data/editors/TransportTripTypeEditor";
+import { TransportTripTypeEditor } from "@/domains/planning-execution/components/TransportTripTypeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   TRIP_EXECUTIONS,

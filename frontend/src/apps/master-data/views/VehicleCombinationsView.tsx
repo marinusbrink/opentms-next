@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoolCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { VehicleCombinationEditor } from "@/apps/master-data/editors/VehicleCombinationEditor";
+import { VehicleCombinationEditor } from "@/domains/master-data/components/VehicleCombinationEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   useArchiveVehicleCombination,

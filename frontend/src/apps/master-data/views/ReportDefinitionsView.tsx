@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BoolCell } from "@/components/ui/grid-cells";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
+import { ReportDefinitionEditor } from "@/domains/platform/components/ReportDefinitionEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   REPORT_PURPOSES,

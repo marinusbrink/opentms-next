@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { ColDef } from "ag-grid-community";
 
 import { NumberCell } from "@/components/ui/grid-cells";
-import { VehicleTypeEditor } from "@/apps/master-data/editors/VehicleTypeEditor";
+import { VehicleTypeEditor } from "@/domains/master-data/components/VehicleTypeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { vehicleTypeKindKey, vehicleTypes, type VehicleTypeRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

@@ -61,6 +61,8 @@ export interface WizardProps {
   tasks?: WizardTask[];
   /** Overrides the "every task finished" rule, e.g. for a run that reports its end separately. */
   isFinished?: boolean;
+  /** Rendered under the TaskList while the run shows (design 61, Print CMR: the Download / Print buttons per document). */
+  runContent?: ReactNode;
   /** The wizard has input the user would lose (UI-WIZ-001): closing asks first. Defaults to "past the first step". */
   isDirty?: boolean;
   /** Controlled step index; omit to let the wizard manage it. */
@@ -79,6 +81,7 @@ export function Wizard({
   destructive = false,
   tasks,
   isFinished,
+  runContent,
   isDirty,
   step,
   onStepChange,
@@ -173,7 +176,10 @@ export function Wizard({
       <div className="flex h-full flex-col gap-4" data-slot="wizard">
         <WizardStepHeader steps={steps} current={current} running={running} onSelect={goTo} />
         {running ? (
-          <TaskList tasks={tasks} />
+          <>
+            <TaskList tasks={tasks} />
+            {runContent}
+          </>
         ) : (
           <form id={formId(title)} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col" data-slot="wizard-step" data-step={currentStep?.id}>
             {currentStep?.content}

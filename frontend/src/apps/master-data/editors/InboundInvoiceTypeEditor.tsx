@@ -2,9 +2,9 @@ import { useCallback, useMemo } from "react";
 
 import { FormField } from "@/components/ui/form-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
-import { CheckboxField, TextAreaField, TextField } from "@/apps/master-data/components/fields";
-import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/apps/master-data/components/MasterDataEditor";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { CheckboxField, TextAreaField, TextField } from "@/components/record-editor/fields";
+import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
 import {
   INBOUND_INVOICE_KINDS,
   inboundInvoiceTypes,

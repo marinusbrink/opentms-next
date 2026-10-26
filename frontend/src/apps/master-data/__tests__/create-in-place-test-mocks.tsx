@@ -2,7 +2,7 @@ import type { ColDef } from "ag-grid-community";
 import type { ComponentType, ReactNode } from "react";
 
 import { featureChain } from "@/app/app-features";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import type { EntityLookupProps } from "@/components/ui/entity-lookup";
 import type { LinesGridProps } from "@/components/ui/lines-grid";
 import type { MultiSelectProps } from "@/components/ui/multi-select";
@@ -31,8 +31,23 @@ export const CREATE_NODE_FEATURES = {
   VehicleType: "Apps.MasterData.General.Fleet.VehicleTypes",
   WaypointType: "Apps.MasterData.Orders.TransportOrders.WaypointTypes",
   VatPercentage: "Apps.MasterData.Financial.Invoicing.VatPercentages",
+  /* Design 61 (the Transport run's Master data lists). */
+  PriceList: "Apps.MasterData.Financial.Pricing.PriceLists",
+  DiscountOrSurcharge: "Apps.MasterData.Financial.Pricing.DiscountsOrSurcharges",
+  ConsignmentNoteFixedDescription: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions",
+  ReportDefinition: "Apps.MasterData.Platform.ReportDefinitions",
   OrganizationUnit: "Apps.Administration.OrganizationUnits",
   User: "Apps.Administration.Users",
+  /* The Transport app's pickers (design 61 follow-ups): every record picker there offers Add new too. */
+  RelationAddress: "Apps.MasterData.General.Relations.Relations",
+  RelationContactPerson: "Apps.MasterData.General.Relations.Relations",
+  VehicleCombination: "Apps.MasterData.General.Fleet.VehicleCombinations",
+  ProductRelationCode: "Apps.MasterData.General.Transport.ProductRelationCodes",
+  TransportOrderType: "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes",
+  TimeSlot: "Apps.MasterData.Orders.TransportOrders.TimeSlots",
+  ConsignmentNoteProfile: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles",
+  TransportTripType: "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes",
+  AdditionalService: "Apps.MasterData.Financial.Pricing.AdditionalServices",
 } as const;
 
 /** The feature values with each given node and all its ancestors on. */
@@ -177,16 +192,46 @@ export function resetSavedDtos() {
     VehicleType: { id: "new-type", code: null, name: "Low loader" },
     WaypointType: { id: "new-waypoint-type", code: "DEPOT", names: { en: "Depot stop", nl: "Depotstop" } },
     VatPercentage: { id: "new-vat", code: "HIGH", names: { en: "High", nl: "Hoog" } },
+    PriceList: { id: "new-price-list", code: "PL1", name: "Benelux 2026" },
+    DiscountOrSurcharge: { id: "new-discount", code: "FUEL", name: "Fuel surcharge" },
+    ConsignmentNoteFixedDescription: { id: "new-fixed-text", code: null, name: "Fragile" },
+    ReportDefinition: { id: "new-report", code: null, name: "CMR (nl)" },
     OrganizationUnit: { id: "new-ou", code: "00009", displayName: "Depot Venlo", parentId: null },
     User: { id: "new-user", userName: "jdoe", name: "Jane", surname: "Doe", email: "jane@example.test" },
     Edition: { id: "new-edition", displayName: "Platinum" },
+    VehicleCombination: { id: "new-combination", name: "Combi 1" },
+    ProductRelationCode: { id: "new-code", code: "C-1" },
+    TransportOrderType: { id: "new-order-type", code: "EXP", names: { en: "Express", nl: "Spoed" } },
+    TimeSlot: { id: "new-slot", code: "AM", names: { en: "Morning", nl: "Ochtend" } },
+    ConsignmentNoteProfile: { id: "new-profile", code: null, name: "Container" },
+    TransportTripType: { id: "new-trip-type", code: "OWN", names: { en: "Own fleet", nl: "Eigen vloot" } },
+    AdditionalService: { id: "new-service", code: "WAIT", names: { en: "Waiting time", nl: "Wachttijd" } },
   });
 }
 resetSavedDtos();
 
-function StubShell({ name, initialName, mode, onSave, onClose, children }: { name: string; initialName?: string; mode: string; onSave: () => void; onClose: () => void; children?: ReactNode }) {
+interface StubShellProps {
+  name: string;
+  initialName?: string;
+  mode: string;
+  onSave: () => void;
+  onClose: () => void;
+  children?: ReactNode;
+  /** The relation editor's extras (the record and tab a child record opens on, a new relation's roles). */
+  extra?: { id?: string; initialTab?: string; initialRoles?: number; newContactPersonName?: string };
+}
+
+function StubShell({ name, initialName, mode, onSave, onClose, children, extra }: StubShellProps) {
   return (
-    <div data-stub-editor={name} data-mode={mode} data-initial-name={initialName ?? ""}>
+    <div
+      data-stub-editor={name}
+      data-mode={mode}
+      data-initial-name={initialName ?? ""}
+      data-record-id={extra?.id ?? ""}
+      data-initial-tab={extra?.initialTab ?? ""}
+      data-initial-roles={extra?.initialRoles ?? ""}
+      data-new-contact-person={extra?.newContactPersonName ?? ""}
+    >
       <button type="button" onClick={onSave}>
         {`stub-save-${name}`}
       </button>
@@ -200,12 +245,13 @@ function StubShell({ name, initialName, mode, onSave, onClose, children }: { nam
 
 /** A master-data editor stub: on save it reports the DTO through onSaved and closes, as MasterDataEditor does. */
 export function stubEditor(name: string) {
-  return function StubEditor({ mode, initialName, onSaved, onClose }: EntityEditorProps) {
+  return function StubEditor({ mode, initialName, onSaved, onClose, ...extra }: EntityEditorProps & StubShellProps["extra"]) {
     return (
       <StubShell
         name={name}
         mode={mode}
         initialName={initialName}
+        extra={extra}
         onClose={onClose}
         onSave={() => {
           onSaved(savedDtos[name]);

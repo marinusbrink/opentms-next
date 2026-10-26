@@ -9,7 +9,7 @@ import { EntityLookup } from "@/components/ui/entity-lookup";
 import { BoolCell, LicencePlateCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { VehicleEditor } from "@/apps/master-data/editors/VehicleEditor";
+import { VehicleEditor } from "@/domains/master-data/components/VehicleEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   EMPLOYER_ROLES,

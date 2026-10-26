@@ -24,7 +24,7 @@ const REPO = resolve(SRC, "../..");
 const FILES = [
   "app/apps.config.ts",
   "apps/master-data/editors/EmailTemplateEditor.tsx",
-  "apps/master-data/editors/ReportDefinitionEditor.tsx",
+  "domains/platform/components/ReportDefinitionEditor.tsx",
   "apps/master-data/editors/DocumentTypeEditor.tsx",
   "apps/master-data/views/EmailTemplatesView.tsx",
   "apps/master-data/views/ReportDefinitionsView.tsx",

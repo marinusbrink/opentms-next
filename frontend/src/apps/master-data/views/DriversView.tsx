@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
-import { DriverEditor } from "@/apps/master-data/editors/DriverEditor";
+import { DriverEditor } from "@/domains/master-data/components/DriverEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   EMPLOYER_ROLES,

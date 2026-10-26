@@ -58,7 +58,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
-import { VehicleEditor } from "@/apps/master-data/editors/VehicleEditor";
+import { VehicleEditor } from "@/domains/master-data/components/VehicleEditor";
 import type { VehicleDto } from "@/domains/master-data/entities";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;

@@ -7,11 +7,11 @@ import { FormSection } from "@/components/ui/form-section";
 import type { RichTextEditorHandle } from "@/components/ui/rich-text-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import type { EntityEditorProps } from "@/apps/master-data/components/editor-props";
+import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { EmailTemplateTagsPanel } from "@/apps/master-data/components/EmailTemplateTagsPanel";
-import { CheckboxField, TextField } from "@/apps/master-data/components/fields";
+import { CheckboxField, TextField } from "@/components/record-editor/fields";
 import { HtmlBodyField } from "@/apps/master-data/components/HtmlBodyField";
-import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/apps/master-data/components/MasterDataEditor";
+import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
 import {
   EMAIL_TEMPLATE_PURPOSES,
   MAX_EMAIL_ADDRESS_FIELD_LENGTH,
