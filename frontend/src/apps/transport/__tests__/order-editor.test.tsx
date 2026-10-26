@@ -10,7 +10,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
-vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
+/* The save report's keys carry their {0}, so a test sees which section names were filled in. */
+vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => (k.startsWith("Orders:Sections") ? `${k} {0}` : k), culture: "en", isLoading: false }) }));
 
 let grants: Record<string, boolean> = {};
 vi.mock("@/lib/abp/queries", () => ({
@@ -255,6 +256,117 @@ describe("OrderPage – saving", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/{id}/confirm", expect.anything()));
     expect(PUT.mock.invocationCallOrder[0]).toBeLessThan(POST.mock.invocationCallOrder[0]);
     expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderConfirmed");
+  });
+});
+
+describe("OrderPage – one call for header and terms, and a save that stops part-way", () => {
+  const typeIn = (scope: HTMLElement, label: RegExp, value: string) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
+  const changeReference = (value: string) => typeIn(panel("General"), /^Orders:CustomerReference/, value);
+  const changePaymentTerm = (value: string) => {
+    tab("Orders:Pricing");
+    typeIn(panel("Orders:Pricing"), /^Orders:PaymentTermDays/, value);
+  };
+  const changeQuantity = async (value: string) => {
+    tab("Orders:Lines");
+    const lines = panel("Orders:Lines");
+    await waitFor(() => expect(within(lines).getAllByLabelText("Orders:Quantity").length).toBeGreaterThan(0));
+    fireEvent.change(within(lines).getAllByLabelText("Orders:Quantity")[0], { target: { value } });
+  };
+  const detailReads = () => calls(GET, "/api/orders/transport-order/{id}").length;
+
+  it("a header edit together with a terms edit is one header call that carries the terms", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    changePaymentTerm("45");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(
+      expect.objectContaining({ concurrencyStamp: "stamp-1", customerReference: "REF-2", financialTerms: expect.objectContaining({ currencyCode: "EUR", paymentTermDays: 45 }) }),
+    );
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved");
+  });
+
+  it("a terms-only edit keeps the terms command and sends no header", async () => {
+    routes.PUT["/api/orders/transport-order/{id}/financial-terms"] = () => order(2, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changePaymentTerm("45");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-1", paymentTermDays: 45 }));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(0);
+  });
+
+  it("stops at the first failure, names the saved and the unsaved sections, keeps the rest dirty and retries only those with the new stamp", async () => {
+    vi.mocked(toast.success).mockClear();
+    /* The server's state: the header call stores the new reference; the lines call fails once. */
+    let server = order(2);
+    routes.GET["/api/orders/transport-order/{id}"] = () => server;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (server = order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" }));
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => fail("Line 1 has no transport unit.");
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    await changeQuantity("3");
+    const readsBefore = detailReads();
+    await click(ribbonButton("Save")!);
+
+    expect(await screen.findByText("Line 1 has no transport unit.")).toBeInTheDocument();
+    const report = document.querySelector("[data-slot=save-report]") as HTMLElement;
+    expect(report).toHaveTextContent("Orders:SectionsSaved Orders:OrderDetails");
+    expect(report).toHaveTextContent("Orders:SectionsNotSaved Orders:Lines");
+    expect(report).not.toHaveTextContent("Orders:Attributes");
+    expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1);
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-2" }));
+    expect(toast.success).not.toHaveBeenCalled();
+    /* The record is read again (its current stamp), and the typed quantity is still there and dirty. */
+    await waitFor(() => expect(detailReads()).toBeGreaterThan(readsBefore));
+    expect((within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0] as HTMLInputElement).value).toBe("3");
+
+    /* Retry: only the lines go, with the stamp the header call returned; the header is not sent again. */
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => (server = order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-3" }));
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(2));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-2", lines: [expect.objectContaining({ id: "l1", quantity: 3 })] }));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
+    expect(document.querySelector("[data-slot=save-report]")).toBeNull();
+  });
+
+  it("a section left unsaved keeps the page dirty: Close asks first", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" });
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => fail("Refused.");
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    await changeQuantity("3");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("Refused.")).toBeInTheDocument();
+    await click(ribbonButton("Close")!);
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("UnsavedChanges");
+  });
+
+  it("a refused first call (a stale stamp) saves nothing, shows no section report and retries with the stamp read again", async () => {
+    let attempts = 0;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (++attempts === 1 ? fail("The order was changed by another user.", 409) : order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-10" }));
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-9" });
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("The order was changed by another user.")).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=save-report]")).toBeNull();
+    /* The page keeps the input while the record is read again. */
+    await waitFor(() => expect(calls(GET, "/api/orders/transport-order/{id}").length).toBeGreaterThan(1));
+    expect((within(panel("General")).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement).value).toBe("REF-2");
+
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(2));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-9", customerReference: "REF-2" }));
   });
 });
 

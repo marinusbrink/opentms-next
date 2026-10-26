@@ -85,6 +85,13 @@ alleen te bekijken. Met **Opslaan als sjabloon** maakt u van de order een sjablo
 om sjablonen aan te maken). Drukt u een vrachtbrief af terwijl er nog wijzigingen openstaan, dan slaat het
 systeem eerst op.
 
+**Opslaan** verstuurt de gewijzigde onderdelen van de order één voor één: de ordergegevens, het
+stoppatroon, de regels, de referenties, de financiële voorwaarden, de rit en de kenmerken. Weigert het
+systeem een onderdeel, dan stopt het opslaan daar. Bovenaan ziet u de melding en welke onderdelen wel en
+welke niet zijn opgeslagen. De onderdelen die niet zijn opgeslagen, blijven gewijzigd staan; pas ze zo
+nodig aan en kies opnieuw **Opslaan**: dan gaan alleen die onderdelen. Het systeem leest de order daarvoor
+opnieuw in, zodat een tweede poging ook lukt als iemand anders de order intussen heeft gewijzigd.
+
 - **Goedkeuren** controleert de order tegen de goedkeuringsregels van uw organisatie en toont per regel
   het resultaat (waarschuwing of fout) en de status die de order krijgt: *Gereed voor facturatie*, of
   *Gearchiveerd* als er niets te factureren valt. Alleen orders zonder fout worden goedgekeurd. Wijzigt er
@@ -111,8 +118,9 @@ standaardinstellingen van … overnemen?* Met **Overnemen** worden de valuta, bt
 prijslijsten en kortingen en toeslagen van de nieuwe klant de financiële voorwaarden van de order (zoals
 bij een nieuwe order: de prijslijsten in hun volgorde en alleen de kortingen en toeslagen die op de
 orderdatum gelden; een klant zonder financiële instellingen geeft euro zonder prijslijsten). Met
-**Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat;
-op het tabblad Prijzen ziet u ze vooraf.
+**Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat:
+de nieuwe klant en de voorwaarden worden in één keer opgeslagen, dus nooit de klant zonder zijn
+voorwaarden. Op het tabblad Prijzen ziet u ze vooraf.
 
 ### Tabblad Regels
 
@@ -148,7 +156,8 @@ Onder de tabel staan de totalen (regels, kortingen en toeslagen, extra diensten,
 na een ogenblik een **voorbeeld** van de nieuwe prijzen, met een melding dat het om een voorbeeld gaat.
 Na **Opslaan** komen de opgeslagen, opnieuw berekende prijzen terug.
 
-Onderaan staan de **financiële voorwaarden**: valuta, btw, betaaltermijn, prijslijsten, wat er gebeurt
+Onderaan staan de **financiële voorwaarden**: valuta (een keuzelijst van de valuta's uit Stamgegevens;
+een ontbrekende voegt u toe met *Nieuwe valuta toevoegen…*), btw, betaaltermijn, prijslijsten, wat er gebeurt
 als meerdere prijslijsten passen, kortingen en toeslagen (die van de klant zijn gemarkeerd als
 *standaard klant*), een vaste prijs en of de vrachtdocumenten met de factuur meegaan.
 

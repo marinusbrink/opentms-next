@@ -699,6 +699,65 @@ export function changedSections(values: OrderValues, initial: OrderValues): Chan
   };
 }
 
+export type SectionKey = keyof ChangedSections;
+
+/** The order in which a save runs the section commands. */
+export const SECTION_ORDER: SectionKey[] = ["header", "defaultStops", "lines", "references", "terms", "tripRequest", "attributes"];
+
+/** The form fields each section command writes. */
+export const SECTION_FIELDS: Record<SectionKey, (keyof OrderValues)[]> = {
+  header: ["transportOrderTypeId", "customer", "customerContactPersonId", "orderDate", "customerReference", "organizationUnitId", "internalRemarks", "invoicingRemarks"],
+  defaultStops: ["defaultStops"],
+  lines: ["lines"],
+  references: ["references"],
+  terms: ["terms"],
+  tripRequest: ["tripRequest"],
+  attributes: ["attributes"],
+};
+
+/** The section names a save report shows (UI-FB-007: the subject named). */
+export const SECTION_LABEL_KEYS: Record<SectionKey, string> = {
+  header: "Orders:OrderDetails",
+  defaultStops: "Orders:DefaultStops",
+  lines: "Orders:Lines",
+  references: "Orders:References",
+  terms: "Orders:FinancialTerms",
+  tripRequest: "Orders:TripRequest",
+  attributes: "Orders:Attributes",
+};
+
+/** One call of a save: the section command it runs and the sections it writes (the header call may carry the terms). */
+export interface SaveStep {
+  command: SectionKey;
+  sections: SectionKey[];
+}
+
+/**
+ * The calls a save of a stored order runs, in order. The terms travel inside the header call when the header changed
+ * and the terms must be sent with it (a terms edit, or a customer change: the defaults the clerk took over or the terms
+ * kept; design 58 build note 7), so one failure cannot leave half of that change saved; a terms-only change keeps its
+ * own command.
+ */
+export function savePlan(changed: ChangedSections, customerChange: boolean): SaveStep[] {
+  const sendTerms = changed.terms || (changed.header && customerChange);
+  return SECTION_ORDER.flatMap((section): SaveStep[] => {
+    if (section === "header") return changed.header ? [{ command: "header", sections: sendTerms ? ["header", "terms"] : ["header"] }] : [];
+    if (section === "terms") return sendTerms && !changed.header ? [{ command: "terms", sections: ["terms"] }] : [];
+    return changed[section] ? [{ command: section, sections: [section] }] : [];
+  });
+}
+
+/**
+ * The form after a save that stopped part-way: the saved sections take the server's values (new lines got their ids,
+ * so a retry does not send them again as new), the other sections keep what the user typed and stay dirty against the
+ * server's state, which becomes the baseline.
+ */
+export function mergeSavedSections(typed: OrderValues, server: OrderValues, saved: SectionKey[]): OrderValues {
+  const merged = { ...typed } as Record<keyof OrderValues, unknown>;
+  for (const section of saved) for (const field of SECTION_FIELDS[section]) merged[field] = server[field];
+  return merged as unknown as OrderValues;
+}
+
 /* ── Validation ──────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The required-field flags of the order type (design 51) the editor marks (UI-FORM-002). */

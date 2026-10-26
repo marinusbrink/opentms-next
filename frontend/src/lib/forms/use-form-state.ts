@@ -48,8 +48,9 @@ export interface FormState<TValues extends object> {
   /** The first invalid field, for the caller that switches to its tab (UI-FORM-006). */
   firstErrorField: () => (keyof TValues & string) | undefined;
   setValues: Dispatch<SetStateAction<TValues>>;
-  /** Replaces the values and the baseline (after a save or a load), so the form is clean again. */
-  reset: (values: TValues) => void;
+  /** Replaces the values and the baseline (after a save or a load), so the form is clean again. A separate baseline
+   *  keeps the form dirty where the values differ from it (a save that stopped part-way). */
+  reset: (values: TValues, baseline?: TValues) => void;
 }
 
 export function useFormState<TValues extends object>(initial: TValues, validate: (values: TValues) => FieldErrors<TValues>, readOnly: boolean): FormState<TValues> {
@@ -86,9 +87,9 @@ export function useFormState<TValues extends object>(initial: TValues, validate:
     return values;
   };
 
-  const reset = useCallback((next: TValues) => {
+  const reset = useCallback((next: TValues, nextBaseline?: TValues) => {
     setValues(next);
-    setBaseline(next);
+    setBaseline(nextBaseline ?? next);
     setTouched(new Set());
     setSubmitted(false);
   }, []);

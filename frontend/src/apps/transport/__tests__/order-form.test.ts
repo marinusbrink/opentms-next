@@ -5,8 +5,10 @@ import {
   changedSections,
   joinDateTime,
   lineInputOf,
+  mergeSavedSections,
   newLine,
   orderValuesOf,
+  savePlan,
   splitDateTime,
   stopValuesOf,
   templateLineInputOf,
@@ -150,5 +152,29 @@ describe("date helpers", () => {
     expect(splitDateTime(iso)).toEqual({ date: "2026-10-25", time: "14:30" });
     expect(joinDateTime(null, "14:30")).toBeNull();
     expect(splitDateTime(null)).toEqual({ date: null, time: "" });
+  });
+});
+
+describe("savePlan / mergeSavedSections (one call for header and terms; a save that stops part-way)", () => {
+  const none = { header: false, defaultStops: false, lines: false, references: false, terms: false, tripRequest: false, attributes: false };
+
+  it("puts the terms into the header call when both change or the customer changed, and keeps the terms command for a terms-only change", () => {
+    expect(savePlan({ ...none, header: true, terms: true }, false)).toEqual([{ command: "header", sections: ["header", "terms"] }]);
+    expect(savePlan({ ...none, header: true }, true)).toEqual([{ command: "header", sections: ["header", "terms"] }]);
+    expect(savePlan({ ...none, header: true }, false)).toEqual([{ command: "header", sections: ["header"] }]);
+    expect(savePlan({ ...none, terms: true }, false)).toEqual([{ command: "terms", sections: ["terms"] }]);
+    expect(savePlan({ ...none, lines: true, attributes: true, header: true, tripRequest: true }, false).map((s) => s.command)).toEqual(["header", "lines", "tripRequest", "attributes"]);
+    expect(savePlan(none, true)).toEqual([]);
+  });
+
+  it("takes the saved sections from the server and keeps the others as typed", () => {
+    const server = orderValuesOf(stored);
+    const typed: OrderValues = { ...server, customerReference: "TYPED", lines: [{ ...server.lines[0], id: null, quantity: "9" }], attributes: { a: "1" } };
+    const fromServer: OrderValues = { ...server, customerReference: "REF-SERVER", lines: [{ ...server.lines[0], id: "l-new", quantity: "9" }] };
+    const merged = mergeSavedSections(typed, fromServer, ["header", "lines"]);
+    expect(merged.customerReference).toBe("REF-SERVER");
+    expect(merged.lines[0].id).toBe("l-new");
+    expect(merged.attributes).toEqual({ a: "1" });
+    expect(changedSections(merged, fromServer)).toEqual({ ...none, attributes: true });
   });
 });

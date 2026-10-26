@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Archive, CheckCheck, CirclePlay, CircleX, LayoutTemplate, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,8 +18,11 @@ import {
   customerChanged,
   defaultStopInputOf,
   lineInputOf,
+  mergeSavedSections,
   orderValuesOf,
   referencesInputOf,
+  savePlan,
+  SECTION_LABEL_KEYS,
   templateLineInputOf,
   templateTripRequestInputOf,
   templateValuesOf,
@@ -27,6 +31,7 @@ import {
   validateOrder,
   type EditorMode,
   type OrderValues,
+  type SectionKey,
 } from "@/apps/transport/orders/order-form";
 import { PlanningTab } from "@/apps/transport/orders/PlanningTab";
 import { PricingTab } from "@/apps/transport/orders/PricingTab";
@@ -38,6 +43,7 @@ import { transportOrderTypes } from "@/domains/orders/reference-data";
 import { useCreateTemplateFromOrder, useDeleteTemplate, useUpdateTemplate, type TemplateDto } from "@/domains/orders/templates";
 import {
   orderStatusName,
+  transportOrderKeys,
   useArchiveTransportOrder,
   useCancelTransportOrder,
   useConfirmTransportOrder,
@@ -63,7 +69,11 @@ import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
  * Print CMR, Save as template, Delete) with the dirty guard, and the same editor in template mode (Name instead of
  * number, the Schedule section, stops as day offsets; ribbon Save, Create orders, Delete). A save of an order runs the
  * changed sections' commands one after the other with the latest concurrency stamp and returns at once; the derived
- * values arrive by push (flow 2). Document commands save first (UI-ACT-008). */
+ * values arrive by push (flow 2). A header change that brings terms with it sends them in the header call (one call, so
+ * a failure cannot save half of it). The API has no transaction over the section commands: a save stops at the first
+ * failure, the sections saved so far take the server's values, the rest stay dirty, the page names both (UI-FB-004),
+ * and the record is read again so a retry runs with its current concurrency stamp. Document commands save first
+ * (UI-ACT-008). */
 
 /** The tab that shows a field's error (UI-FORM-006: submit switches to the first tab with an error). */
 const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general", references: "general" };
@@ -89,6 +99,13 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   const formRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState("general");
   const [serverError, setServerError] = useState<string | null>(null);
+  /** After a save that stopped part-way: the sections that were saved and the ones that were not (UI-FB-004). */
+  const [saveReport, setSaveReport] = useState<{ saved: SectionKey[]; notSaved: SectionKey[] } | null>(null);
+  const queryClient = useQueryClient();
+  const clearServerError = () => {
+    setServerError(null);
+    setSaveReport(null);
+  };
   const [dialog, setDialog] = useState<"approve" | "revise" | "print" | "cancel" | "delete" | "materialise" | null>(null);
 
   const status = order?.status ?? DRAFT;
@@ -148,24 +165,16 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   const isSaving = header.isPending || defaultStops.isPending || lines.isPending || references.isPending || terms.isPending || tripRequest.isPending || attributes.isPending || updateTemplate.isPending;
   const isBusy = isSaving || confirm.isPending || cancel.isPending || archive.isPending || remove.isPending || saveAsTemplate.isPending || removeTemplate.isPending;
 
-  /** Validates, then runs the changed sections' commands; returns the saved record or null (UI-FORM-006 on failure). */
-  const save = useCallback(async (): Promise<boolean> => {
-    if (formReadOnly) return true;
-    setServerError(null);
-    const values = submit(formRef.current);
-    if (!values) {
-      const field = firstErrorField();
-      if (field) setActiveTab(TAB_OF_FIELD[field] ?? "general");
-      return false;
-    }
-    try {
-      if (mode === "order" && order?.id) {
-        let current = order;
-        const changed = changedSections(values, initial);
-        const stamp = () => current.concurrencyStamp ?? "";
-        if (changed.header) {
-          current = await header.mutateAsync({
-            id: order.id,
+  /** Runs the save plan of a stored order (see the header comment); true when every call succeeded. */
+  const saveOrder = async (stored: TransportOrderDto, values: OrderValues): Promise<boolean> => {
+    const orderId = stored.id!;
+    let current = stored;
+    const stamp = () => current.concurrencyStamp ?? "";
+    const run = (command: SectionKey, withTerms: boolean): Promise<TransportOrderDto> => {
+      switch (command) {
+        case "header":
+          return header.mutateAsync({
+            id: orderId,
             dto: {
               concurrencyStamp: stamp(),
               transportOrderTypeId: values.transportOrderTypeId!,
@@ -176,21 +185,66 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
               organizationUnitId: values.organizationUnitId,
               internalRemarks: values.internalRemarks.trim() || null,
               invoicingRemarks: values.invoicingRemarks.trim() || null,
+              /* A customer change with the defaults the clerk took over (or the terms kept), or a terms edit together
+               * with a header edit: the terms ride along, so the server keeps them as posted (design 58). */
+              financialTerms: withTerms ? termsInputOf(values.terms) : undefined,
             },
           });
+        case "defaultStops":
+          return defaultStops.mutateAsync({ id: orderId, concurrencyStamp: stamp(), defaultStops: values.defaultStops.map(defaultStopInputOf) });
+        case "lines":
+          return lines.mutateAsync({ id: orderId, concurrencyStamp: stamp(), lines: values.lines.map(lineInputOf) });
+        case "references":
+          return references.mutateAsync({ id: orderId, concurrencyStamp: stamp(), references: referencesInputOf(values.references) });
+        case "terms":
+          return terms.mutateAsync({ id: orderId, concurrencyStamp: stamp(), terms: termsInputOf(values.terms) });
+        case "tripRequest":
+          return tripRequest.mutateAsync({ id: orderId, concurrencyStamp: stamp(), tripRequest: tripRequestInputOf(values.tripRequest) });
+        case "attributes":
+          return attributes.mutateAsync({ id: orderId, concurrencyStamp: stamp(), attributes: values.attributes });
+      }
+    };
+
+    const steps = savePlan(changedSections(values, initial), customerChanged(values, initial));
+    const saved: SectionKey[] = [];
+    for (const [index, step] of steps.entries()) {
+      try {
+        current = await run(step.command, step.sections.includes("terms"));
+        saved.push(...step.sections);
+      } catch (err) {
+        setServerError(getApiErrorMessage(err, t));
+        if (steps.length > 1) setSaveReport({ saved, notSaved: steps.slice(index).flatMap((s) => s.sections) });
+        if (saved.length > 0) {
+          /* The saved sections are clean with the server's values; the others keep the input and stay dirty. */
+          const server = orderValuesOf(current);
+          lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
+          reset(mergeSavedSections(values, server, saved), server);
         }
-        if (changed.defaultStops) current = await defaultStops.mutateAsync({ id: order.id, concurrencyStamp: stamp(), defaultStops: values.defaultStops.map(defaultStopInputOf) });
-        if (changed.lines) current = await lines.mutateAsync({ id: order.id, concurrencyStamp: stamp(), lines: values.lines.map(lineInputOf) });
-        if (changed.references) current = await references.mutateAsync({ id: order.id, concurrencyStamp: stamp(), references: referencesInputOf(values.references) });
-        /* A customer change sends the terms too (design 58, build note 7): the defaults the clerk took over, or the
-         * current terms kept; after the header, so they win over a server that copies the defaults on its own. */
-        if (changed.terms || (changed.header && customerChanged(values, initial))) current = await terms.mutateAsync({ id: order.id, concurrencyStamp: stamp(), terms: termsInputOf(values.terms) });
-        if (changed.tripRequest) current = await tripRequest.mutateAsync({ id: order.id, concurrencyStamp: stamp(), tripRequest: tripRequestInputOf(values.tripRequest) });
-        if (changed.attributes) current = await attributes.mutateAsync({ id: order.id, concurrencyStamp: stamp(), attributes: values.attributes });
-        lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
-        reset(orderValuesOf(current));
-        toast.success(t("Orders:TransportOrderSaved"));
-      } else if (mode === "template" && template?.id) {
+        /* Read the record again: a retry then runs with its current concurrency stamp (a failed first call may have
+         * been a stale one), and the dirty sections are compared with what the server now holds. */
+        void queryClient.invalidateQueries({ queryKey: transportOrderKeys.detail(orderId) });
+        return false;
+      }
+    }
+    lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
+    reset(orderValuesOf(current));
+    toast.success(t("Orders:TransportOrderSaved"));
+    return true;
+  };
+
+  /** Validates, then runs the changed sections' commands; returns the saved record or null (UI-FORM-006 on failure). */
+  const save = async (): Promise<boolean> => {
+    if (formReadOnly) return true;
+    clearServerError();
+    const values = submit(formRef.current);
+    if (!values) {
+      const field = firstErrorField();
+      if (field) setActiveTab(TAB_OF_FIELD[field] ?? "general");
+      return false;
+    }
+    if (mode === "order" && order?.id) return saveOrder(order, values);
+    try {
+      if (mode === "template" && template?.id) {
         const saved = await updateTemplate.mutateAsync({
           id: template.id,
           dto: {
@@ -231,13 +285,13 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
       setServerError(getApiErrorMessage(err, t));
       return false;
     }
-  }, [formReadOnly, submit, firstErrorField, mode, order, initial, header, defaultStops, lines, references, terms, tripRequest, attributes, reset, t, template, updateTemplate]);
+  };
 
   /** Document and state commands save first when the form is dirty (UI-ACT-008). */
-  const saveIfDirty = useCallback(async () => (isDirty ? save() : true), [isDirty, save]);
+  const saveIfDirty = async () => (isDirty ? save() : true);
 
   const runCommand = async (run: () => Promise<unknown>, successKey: string, closeAfter = false) => {
-    setServerError(null);
+    clearServerError();
     if (!(await saveIfDirty())) return;
     try {
       await run();
@@ -276,7 +330,15 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
     <div className="flex h-full min-h-0 flex-col gap-4">
       {serverError && activeTab === tab && (
         <Alert variant="destructive">
-          <AlertDescription>{serverError}</AlertDescription>
+          <AlertDescription>
+            <p>{serverError}</p>
+            {saveReport && (
+              <p data-slot="save-report">
+                {saveReport.saved.length > 0 && `${t("Orders:SectionsSaved").replace("{0}", saveReport.saved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))} `}
+                {t("Orders:SectionsNotSaved").replace("{0}", saveReport.notSaved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))}
+              </p>
+            )}
+          </AlertDescription>
         </Alert>
       )}
       {content}
@@ -334,7 +396,7 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
             destructive
             onConfirm={async () => {
               setDialog(null);
-              setServerError(null);
+              clearServerError();
               try {
                 await remove.mutateAsync(order.id!);
                 toast.success(t("Orders:TransportOrderDeleted"));
@@ -358,7 +420,7 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
             destructive
             onConfirm={async () => {
               setDialog(null);
-              setServerError(null);
+              clearServerError();
               try {
                 await removeTemplate.mutateAsync(template.id!);
                 toast.success(t("Orders:TransportOrderTemplateDeleted"));
