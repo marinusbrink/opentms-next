@@ -75,7 +75,9 @@ export function RecordPage({ title, badges, commands, tabs, activeTab, onActiveT
             <X className="size-5" />
           </Button>
         </div>
-        <div data-slot="record-page-ribbon" className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2">
+        {/* The row wraps: when the ribbon and the tab strip do not fit side by side (a record page with many commands and
+         * tabs, 1440 px), the strip moves to its own line under the ribbon, still end-aligned; nothing is clipped. */}
+        <div data-slot="record-page-ribbon" className="flex shrink-0 flex-wrap items-end gap-x-2 border-b bg-background px-3 pt-2">
           <Ribbon commands={ribbonCommands} t={t} />
           <EditorTabStrip tabs={tabs} t={t} />
         </div>

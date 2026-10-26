@@ -202,7 +202,7 @@ export function EntityDialog({
           </div>
           <div
             data-slot="entity-dialog-ribbon"
-            className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2"
+            className="flex shrink-0 flex-wrap items-end gap-x-2 border-b bg-background px-3 pt-2"
           >
             {editorCommands && editorCommands.length > 0 && <Ribbon commands={editorCommands} t={t} />}
             {hasTabs && <EditorTabStrip tabs={tabs!} t={t} />}
@@ -407,7 +407,7 @@ export function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: 
     "h-10 flex-none rounded-none border-0 px-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
   return (
     <TooltipProvider>
-      <TabsList variant="line" className="ml-auto h-auto gap-0 self-end rounded-none p-0">
+      <TabsList variant="line" data-editor-tab-strip="" className="ml-auto h-auto max-w-full flex-wrap justify-end gap-0 self-end rounded-none p-0">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const trigger = (
