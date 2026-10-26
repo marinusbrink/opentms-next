@@ -51,11 +51,11 @@ export function TextField<TValues extends object>({ form, field, labelKey, requi
   );
 }
 
-export function NumberField<TValues extends object>({ form, field, labelKey, required, className, disabled, hintKey }: TextProps<TValues>) {
+export function NumberField<TValues extends object>({ form, field, labelKey, required, className, disabled, hintKey, hint }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
-    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hintKey ? t(hintKey) : undefined} className={className}>
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hint ?? (hintKey ? t(hintKey) : undefined)} className={className}>
       <Input
         id={form.id(field)}
         inputMode="decimal"

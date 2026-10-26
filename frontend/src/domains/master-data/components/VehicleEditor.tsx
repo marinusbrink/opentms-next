@@ -56,7 +56,7 @@ import { masterDataQueryKey } from "@/domains/master-data/shared";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
-import { formatLicencePlate, isLicencePlateShape } from "@/lib/format";
+import { formatLicencePlate, isLicencePlateShape, useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The vehicle editor (design 48, UI design): `lg`, five tabs. General with the sections Vehicle (name, type,
@@ -114,6 +114,8 @@ interface Values {
   maxPayloadKg: string;
   maxEpq: string;
   maxLoadingMeters: string;
+  /** QP10: the vehicle's own cost price per kilometre; empty = its type's (the server's cascade). */
+  costPricePerKm: string;
   fuelType: FuelType | null;
   euroClass: EuroClass | null;
   /** The vehicle's own characteristics; the type's are shown beside them, not stored here. */
@@ -122,7 +124,7 @@ interface Values {
   externalIdentifiers: ExternalIdRow[];
 }
 
-const NUMBER_FIELDS = ["lengthCm", "widthCm", "heightCm", "emptyWeightKg", "grossVehicleWeightKg", "maxPayloadKg", "maxEpq", "maxLoadingMeters"] as const;
+const NUMBER_FIELDS = ["lengthCm", "widthCm", "heightCm", "emptyWeightKg", "grossVehicleWeightKg", "maxPayloadKg", "maxEpq", "maxLoadingMeters", "costPricePerKm"] as const;
 type NumberFieldName = (typeof NUMBER_FIELDS)[number];
 
 /** The dimension fields a type fills on a new vehicle (design 48): the type has no empty weight or payload. */
@@ -161,6 +163,7 @@ const initialValuesFor =
     maxPayloadKg: numberToText(dto?.maxPayloadKg),
     maxEpq: numberToText(dto?.maxEpq),
     maxLoadingMeters: numberToText(dto?.maxLoadingMeters),
+    costPricePerKm: numberToText(dto?.costPricePerKm),
     fuelType: dto?.fuelType ?? null,
     euroClass: dto?.euroClass ?? null,
     ownCharacteristics: (dto?.characteristics ?? []).filter((c) => c.origin === ORIGIN_VEHICLE).map(toCharacteristicRow),
@@ -304,6 +307,7 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, init
         maxEpq: parseNumber(v.maxEpq),
         maxLoadingMeters: parseNumber(v.maxLoadingMeters),
         maxPayloadKg: parseNumber(v.maxPayloadKg),
+        costPricePerKm: parseNumber(v.costPricePerKm),
         /* The generated client drops the nullability of enum references; an absent value is null on the server. */
         fuelType: v.fuelType ?? undefined,
         euroClass: v.euroClass ?? undefined,
@@ -506,12 +510,17 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, init
               <NumberField form={form} field="maxLoadingMeters" labelKey="MasterData:MaxLoadingMeters" />
             </div>
           </FormSection>
-          <FormSection title={t("MasterData:Engine")}>
-            <div className="grid grid-cols-1 gap-3">
-              {enumSelect(form, "fuelType", "MasterData:FuelType", fuelItems)}
-              {enumSelect(form, "euroClass", "MasterData:EuroClass", euroItems)}
-            </div>
-          </FormSection>
+          <div className="flex flex-col gap-4">
+            <FormSection title={t("MasterData:Engine")}>
+              <div className="grid grid-cols-1 gap-3">
+                {enumSelect(form, "fuelType", "MasterData:FuelType", fuelItems)}
+                {enumSelect(form, "euroClass", "MasterData:EuroClass", euroItems)}
+              </div>
+            </FormSection>
+            <FormSection title={t("MasterData:Financial")}>
+              <CostPricePerKmField form={form} />
+            </FormSection>
+          </div>
         </div>
       ),
     },
@@ -733,6 +742,23 @@ function PlateInput({ form, countryCode }: { form: FormContext<Values>; countryC
       }}
     />
   );
+}
+
+/** QP10: the vehicle's own cost price per kilometre. The server uses it, else the type's: while the field is empty,
+ *  the hint names the selected type's value (UI-FORM-003: a hint, not a placeholder that repeats a value). */
+function CostPricePerKmField({ form }: { form: FormContext<Values> }) {
+  const { t } = useL();
+  const f = useFormat();
+  const defaults = useVehicleTypeDefaults(form.values.vehicleTypeId);
+  const typeValue = defaults.data?.costPricePerKm;
+  const hint = form.values.costPricePerKm.trim()
+    ? undefined
+    : typeValue != null
+      ? t("MasterData:CostPricePerKmFromTypeHint").replace("{0}", f.unitPrice(typeValue))
+      : form.values.vehicleTypeId && defaults.isSuccess
+        ? t("MasterData:CostPricePerKmNoTypeValueHint")
+        : undefined;
+  return <NumberField form={form} field="costPricePerKm" labelKey="MasterData:CostPricePerKm" hint={hint} />;
 }
 
 /** One grid: the type's characteristics (read-only, "from type") and the vehicle's own (removable, picked above). */

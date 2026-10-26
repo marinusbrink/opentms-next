@@ -139,7 +139,9 @@ product, de verpakking en het afleveradres.
 ## Voertuigtypen en transportkenmerken
 
 Een voertuigtype heeft een soort (trekker, oplegger, bakwagen, bestelwagen), maximale EPQ en
-laadmeters, standaardafmetingen en brutogewicht, en een set transportkenmerken. Een
+laadmeters, standaardafmetingen en brutogewicht, een **kostprijs per km** (voor ritten met eigen
+materieel; een voertuig zonder eigen kostprijs gebruikt die van zijn type, en de lijst toont de kolom)
+en een set transportkenmerken. Een
 transportkenmerk heeft een unieke code. Een nieuw [voertuig](voertuigen.md) neemt de afmetingen van
 zijn type één keer over; de transportkenmerken van het type gelden altijd voor elk voertuig van dat
 type.
