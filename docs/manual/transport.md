@@ -172,7 +172,10 @@ bevestigen.
 Daaronder het onderdeel **Rit** ("Tevens rit"): zet het vinkje *Maak bij het bevestigen direct een rit aan
 voor deze order* aan en vul het rittype, het vertrek en de aankomst (relatie en adres) en de geplande
 vertrekdatum en -tijd in. Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een
-combinatie, de chauffeurs en een afgesproken inkoopprijs. Bij **Bevestigen** maakt het systeem de rit
+combinatie, de chauffeurs en een afgesproken inkoopprijs met valuta. Met een vervoerder wordt de rit
+uitbesteed aan die vervoerder; de afgesproken inkoopprijs hoort daarbij en is pas in te vullen als er een
+vervoerder is gekozen (haalt u de vervoerder weg, dan vervalt ook de prijs). Zonder vervoerder rijdt de rit
+met eigen materieel en komen de kosten uit de kostprijs per km. Bij **Bevestigen** maakt het systeem de rit
 één keer aan en zet alle legs van de order erop. Daarna is dit onderdeel alleen te bekijken en staat er
 een knop naar de aangemaakte rit; latere wijzigingen aan de order veranderen de rit niet.
 
@@ -253,7 +256,9 @@ tijden met de geplande. Bij annuleren gaan de legs van de rit af.
   de regel voor eerste en laatste stop; vertrek en aankomst met geplande en werkelijke tijden; afstanden
   (gepland, werkelijk), geplande duur en beladingsgraad; opmerkingen, chauffeursinstructies en kenmerken.
   Vervoerder, voertuigen en chauffeurs worden op het Planbord gekozen en staan hier ter informatie, met
-  een knop naar het Planbord. Alleen bij een geplande rit die vanuit een order is aangemaakt, wijzigt u
+  een knop naar het Planbord. Bij een rit met eigen materieel staat als vervoerder *Eigen bedrijf*; bij een
+  uitbestede rit de vervoerder (of *Nog geen vervoerder gekozen*) en, als die is afgesproken, de
+  afgesproken inkoopprijs. Alleen bij een geplande rit die vanuit een order is aangemaakt, wijzigt u
   ze hier met het potlood.
 - **Legs**: de legs op de rit met order, klant, herkomst en bestemming, datum, tijdvenster, referenties,
   aantal, gewicht, afstand en de toegerekende kosten en opbrengst. Dubbelklik opent de order.

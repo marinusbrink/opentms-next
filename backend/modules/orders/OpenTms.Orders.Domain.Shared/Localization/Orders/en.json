@@ -217,6 +217,7 @@
     "Orders:Vehicles": "Vehicles",
     "Orders:Drivers": "Drivers",
     "Orders:AgreedPurchaseAmount": "Agreed purchase price",
+    "Orders:AgreedPurchaseNeedsCarrier": "Choose a carrier first: without one the trip runs on the own fleet and its cost comes from the cost price per km.",
     "Orders:Trip": "Trip",
     "Orders:Attributes": "Attributes",
     "Orders:AttributeKey": "Key",

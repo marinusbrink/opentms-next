@@ -215,6 +215,42 @@ describe("TripPage – ribbon and header", () => {
   });
 });
 
+describe("TripPage – carrier and agreed price per execution (own fleet vs outsourced)", () => {
+  const agreedLines = { currencyCode: "EUR", lines: [{ id: "a1", tripId: "t1", kind: 6, quantity: 1, unitPrice: 400, amount: 400, currencyCode: "EUR", position: 1, concurrencyStamp: "a1s" }], totals: { total: 400 }, state: { status: 2 } };
+  const carrierText = () => panel("General").querySelector("[data-slot=trip-carrier]")?.textContent;
+  const agreedText = () => panel("General").querySelector("[data-slot=trip-agreed-price]")?.textContent ?? null;
+
+  it("an outsourced trip shows its carrier and the agreed purchase price from its cost lines", async () => {
+    routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1, { execution: 2, carrierRelationId: "car-1", carrierName: "Charter BV" });
+    routes.GET["/api/financial/rate-line"] = () => agreedLines;
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("Charter BV");
+    await waitFor(() => expect(agreedText()).toBe("400.00 EUR"));
+  });
+
+  it("an outsourced trip without a carrier says none is chosen yet, never the own company", async () => {
+    routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1, { execution: 2, carrierRelationId: null, carrierName: null });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("PlanningExecution:NoCarrierChosen");
+  });
+
+  it("an own-fleet trip shows the own company and no agreed price row; switching the execution follows the form", async () => {
+    routes.GET["/api/financial/rate-line"] = () => agreedLines;
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("PlanningExecution:OwnCompany");
+    /* The cost lines hold an agreed price, but an own-fleet trip shows no agreed price row. */
+    await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/financial/rate-line", expect.anything()));
+    expect(agreedText()).toBeNull();
+
+    fireEvent.change(within(panel("General")).getByLabelText(/^PlanningExecution:Execution/), { target: { value: "2" } });
+    expect(carrierText()).toBe("PlanningExecution:NoCarrierChosen");
+    await waitFor(() => expect(agreedText()).toBe("400.00 EUR"));
+  });
+});
+
 describe("TripPage – stops, legs, cost", () => {
   it("lists the stops with their warnings; Remove only for a manual stop, move blocked by actuals; Record actuals posts", async () => {
     routes.POST["/api/planning/transport-trip/{id}/record-stop-actuals/{stopId}"] = () => trip(1, { concurrencyStamp: "ts-2" });

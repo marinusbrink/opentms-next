@@ -441,6 +441,37 @@ describe("OrderPage – planning tab (Tevens trip, Q9)", () => {
     expect(within(planning).getByText("Orders:TripRequestIncomplete")).toBeInTheDocument();
   });
 
+  it("the agreed purchase price belongs to an outsourced trip: it waits for a carrier and is cleared with it", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () =>
+      order(1, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureRelationName: "Acme", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalRelationName: "Beta", arrivalAddressId: "adr-2", plannedDeparture: "2026-10-25T06:00:00Z", carrierRelationId: "car-1", carrierRelationName: "Charter", agreedPurchaseAmount: 400, agreedPurchaseCurrencyCode: "EUR", vehicleIds: [], driverIds: [] } });
+    routes.PUT["/api/orders/transport-order/{id}/trip-request"] = () => order(1, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByRole("heading", { level: 1 });
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    const amount = () => within(planning).getByLabelText(/^Orders:AgreedPurchaseAmount/) as HTMLInputElement;
+    const currency = () => planning.querySelector<HTMLSelectElement>("select[id$='-trip-agreedPurchaseCurrencyCode']")!;
+    const carrier = planning.querySelector<HTMLSelectElement>("select[id$='-trip-carrier']")!;
+    expect(amount().value).toBe("400");
+    expect(amount()).toBeEnabled();
+    expect(within(planning).queryByText("Orders:AgreedPurchaseNeedsCarrier")).toBeNull();
+
+    /* No carrier: an own-fleet trip; the price is cleared and waits, with the reason under it. */
+    lookupItems.current = { [carrier.id]: [{ id: "car-1", name: "Charter" }] };
+    fireEvent.change(carrier, { target: { value: "" } });
+    expect(amount().value).toBe("");
+    expect(amount()).toBeDisabled();
+    expect(currency()).toBeDisabled();
+    expect(within(planning).getByText("Orders:AgreedPurchaseNeedsCarrier")).toBeInTheDocument();
+
+    fireEvent.change(carrier, { target: { value: "car-1" } });
+    expect(amount()).toBeEnabled();
+    fireEvent.change(amount(), { target: { value: "350" } });
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/trip-request")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/trip-request")!.body).toEqual(expect.objectContaining({ tripRequest: expect.objectContaining({ carrierRelationId: "car-1", agreedPurchaseAmount: 350, agreedPurchaseCurrencyCode: null }) }));
+  });
+
   it("shows the created trip as a link and no editable fields once the order is confirmed", async () => {
     routes.GET["/api/orders/transport-order/{id}"] = () =>
       order(2, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalAddressId: "adr-2", plannedDeparture: "2026-10-25T06:00:00Z", tripId: "trip-9", tripNumber: "TR-9" } });

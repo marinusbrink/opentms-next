@@ -17,6 +17,7 @@ import { DateField, NumberField, SelectField, TextAreaField, TextField, toOption
 import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
 import type { TripValues } from "@/apps/transport/trips/trip-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { RATE_LINE_KIND, useTripRateLines } from "@/domains/financial/rate-lines";
 import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type RelationOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { TRIP_EXECUTIONS } from "@/domains/planning-execution/reference-data";
@@ -33,6 +34,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 
 const CARRIER_ROLE = 2;
 const PLANNED = 1;
+/** TripExecution.Subcontracted (design 59): the trip is outsourced to its carrier. */
+const SUBCONTRACTED = 2;
 
 export interface TripGeneralTabProps {
   form: FormContext<TripValues>;
@@ -51,6 +54,14 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
   /* Resources are the Planboard's (design 61); the Tevens-trip path edits them here while the trip is Planned. */
   const resourcesEditable = !readOnly && trip.createdFromOrderId != null && trip.status === PLANNED && !trip.isArchived;
   const inPlace = useCreateInPlace();
+  /* Own fleet vs outsourced (the execution as edited here): an own-fleet trip without a carrier is the own company's;
+   * an outsourced one without a carrier has none chosen yet (never "own company"). The agreed purchase price of a
+   * Tevens trip is a cost rate line of the trip (Financial, design 59 note 4): shown beside the carrier of an
+   * outsourced trip. */
+  const outsourced = form.values.execution === SUBCONTRACTED;
+  const rateLines = useTripRateLines(outsourced ? trip.id : undefined);
+  const agreedPrice = outsourced ? (rateLines.data?.lines ?? []).find((line) => line.kind === RATE_LINE_KIND.AgreedPrice) : undefined;
+  const carrierText = trip.carrierName ?? (outsourced ? t("PlanningExecution:NoCarrierChosen") : t("PlanningExecution:OwnCompany"));
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,8 +94,17 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
         <FormSection title={t("PlanningExecution:Resources")}>
           <dl className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 text-sm">
             <dt className="text-label text-muted-foreground">{t("PlanningExecution:Carrier")}</dt>
-            <dd>{trip.carrierName ?? t("PlanningExecution:OwnCompany")}</dd>
+            <dd data-slot="trip-carrier" className={trip.carrierName == null && outsourced ? "text-muted-foreground" : undefined}>
+              {carrierText}
+            </dd>
             <dd>{resourcesEditable && <EditButton label={t("PlanningExecution:Carrier")} onClick={() => setResourceDialog("carrier")} />}</dd>
+            {agreedPrice && (
+              <>
+                <dt className="text-label text-muted-foreground">{t("Orders:AgreedPurchaseAmount")}</dt>
+                <dd data-slot="trip-agreed-price" className="tabular-nums">{`${f.amount(agreedPrice.amount)} ${agreedPrice.currencyCode ?? rateLines.data?.currencyCode ?? ""}`.trim()}</dd>
+                <dd />
+              </>
+            )}
             <dt className="text-label text-muted-foreground">{t("PlanningExecution:Vehicles")}</dt>
             <dd>{trip.vehicleCombinationName ?? (trip.vehicles ?? []).map((v) => [v.name, v.licencePlate].filter(Boolean).join(" ")).join(", ")}</dd>
             <dd>{resourcesEditable && <EditButton label={t("PlanningExecution:Vehicles")} onClick={() => setResourceDialog("vehicles")} />}</dd>

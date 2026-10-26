@@ -217,6 +217,7 @@
     "Orders:Vehicles": "Voertuigen",
     "Orders:Drivers": "Chauffeurs",
     "Orders:AgreedPurchaseAmount": "Afgesproken inkoopprijs",
+    "Orders:AgreedPurchaseNeedsCarrier": "Kies eerst een vervoerder: zonder vervoerder rijdt de rit met eigen materieel en komen de kosten uit de kostprijs per km.",
     "Orders:Trip": "Rit",
     "Orders:Attributes": "Kenmerken",
     "Orders:AttributeKey": "Sleutel",

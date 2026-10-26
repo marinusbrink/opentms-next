@@ -214,6 +214,7 @@
     "PlanningExecution:AllocationPerLeg": "Allocation per leg",
     "PlanningExecution:Resources": "Resources",
     "PlanningExecution:OwnCompany": "Own company",
+    "PlanningExecution:NoCarrierChosen": "No carrier chosen yet",
     "PlanningExecution:OpenPlanboard": "Open the Planboard",
     "PlanningExecution:OpenOrder": "Open transport order",
     "PlanningExecution:OpenTrip": "Open trip",

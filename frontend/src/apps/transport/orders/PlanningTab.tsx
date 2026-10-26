@@ -190,6 +190,12 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
   const locked = mode === "order" && order != null && order.status !== 1;
   const readOnly = form.readOnly || locked;
   const [advanced, setAdvanced] = useState(request.carrierRelation != null || request.vehicleIds.length > 0 || request.driverIds.length > 0 || !!request.agreedPurchaseAmount);
+  /* The trip is outsourced when the request names a carrier (the server then creates it Subcontracted); without one it
+   * runs on the own fleet with the type's execution, and its cost comes from the cost price per km (QP10). An agreed
+   * purchase price is the carrier's price (the old screen's rule: only with a carrier that is not the own company), so
+   * it waits for a carrier; a stored price without one stays editable so it can be cleared. */
+  const outsourced = request.carrierRelation != null;
+  const priceBlocked = !outsourced && !request.agreedPurchaseAmount.trim() && !request.agreedPurchaseCurrencyCode.trim();
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const typeLookup = transportTripTypes.useLookup();
@@ -261,7 +267,14 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
           </div>
           {advanced && (
             <>
-              <RelationField id={form.id("trip-carrier")} label={t("Orders:Carrier")} value={request.carrierRelation} onChange={(next) => set({ carrierRelation: next, carrierContactPersonId: null })} roles={CARRIER_ROLE} disabled={readOnly} />
+              <RelationField
+                id={form.id("trip-carrier")}
+                label={t("Orders:Carrier")}
+                value={request.carrierRelation}
+                onChange={(next) => set({ carrierRelation: next, carrierContactPersonId: null, ...(next ? {} : { agreedPurchaseAmount: "", agreedPurchaseCurrencyCode: "" }) })}
+                roles={CARRIER_ROLE}
+                disabled={readOnly}
+              />
               <ContactPersonField id={form.id("trip-carrierContact")} labelKey="PlanningExecution:CarrierContactPerson" relationId={request.carrierRelation?.id} value={request.carrierContactPersonId} onChange={(next) => set({ carrierContactPersonId: next })} disabled={readOnly} />
               <ComboField
                 form={requestForm}
@@ -307,8 +320,14 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
                   })}
                 />
               </FormField>
-              <NumberField form={requestForm} field="agreedPurchaseAmount" labelKey="Orders:AgreedPurchaseAmount" />
-              <CurrencyField id={form.id("trip-agreedPurchaseCurrencyCode")} label={t("Orders:CurrencyCode")} value={request.agreedPurchaseCurrencyCode} onChange={(next) => set({ agreedPurchaseCurrencyCode: next ?? "" })} disabled={readOnly} />
+              <NumberField
+                form={requestForm}
+                field="agreedPurchaseAmount"
+                labelKey="Orders:AgreedPurchaseAmount"
+                disabled={priceBlocked}
+                hint={outsourced ? undefined : t("Orders:AgreedPurchaseNeedsCarrier")}
+              />
+              <CurrencyField id={form.id("trip-agreedPurchaseCurrencyCode")} label={t("Orders:CurrencyCode")} value={request.agreedPurchaseCurrencyCode} onChange={(next) => set({ agreedPurchaseCurrencyCode: next ?? "" })} disabled={readOnly || priceBlocked} />
             </>
           )}
         </div>

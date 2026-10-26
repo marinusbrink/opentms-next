@@ -214,6 +214,7 @@
     "PlanningExecution:AllocationPerLeg": "Verdeling per traject",
     "PlanningExecution:Resources": "Middelen",
     "PlanningExecution:OwnCompany": "Eigen bedrijf",
+    "PlanningExecution:NoCarrierChosen": "Nog geen vervoerder gekozen",
     "PlanningExecution:OpenPlanboard": "Open het Planbord",
     "PlanningExecution:OpenOrder": "Transportorder openen",
     "PlanningExecution:OpenTrip": "Rit openen",
