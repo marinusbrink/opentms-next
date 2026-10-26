@@ -26,6 +26,7 @@ export type TemplateTripRequestInputDto = Schemas["OpenTms.Orders.TransportOrder
 export type TemplateRecurrence = Schemas["OpenTms.Orders.TransportOrders.TemplateRecurrence"];
 export type RecurrenceDays = Schemas["OpenTms.Orders.TransportOrders.RecurrenceDays"];
 export type MaterialisationResultDto = Schemas["OpenTms.Orders.TransportOrders.MaterialisationResultDto"];
+export type MaterialisationOverrideDto = Schemas["OpenTms.Orders.TransportOrders.MaterialisationOverrideDto"];
 export type TemplateLookupItem = Schemas["OpenTms.Platform.ReferenceData.ReferenceDataLookupDto"];
 
 export const TEMPLATE_RECURRENCES: { value: TemplateRecurrence; key: string }[] = [
@@ -158,14 +159,19 @@ export function useCreateTemplateFromOrder() {
   });
 }
 
-/** Creates the orders of the given dates from a template (the wizard "New from template"). */
-export async function materialiseTemplate(id: string, dates: string[], copies: number): Promise<MaterialisationResultDto> {
-  return unwrap(await apiClient.POST("/api/orders/transport-order-template/{id}/materialise", { params: { path: { id } }, body: { dates, copies } }));
+/** The body of materialise / copy-order: `overrides` (the wizard's per-order details) only when there are any. */
+const materialiseBody = (dates: string[], copies: number, overrides?: MaterialisationOverrideDto[]) => (overrides && overrides.length > 0 ? { dates, copies, overrides } : { dates, copies });
+
+/** Creates the orders of the given dates from a template (the wizard "New from template"); `overrides` are the
+ * per-order details (customer reference, line quantity and weight) that differ from the template. */
+export async function materialiseTemplate(id: string, dates: string[], copies: number, overrides?: MaterialisationOverrideDto[]): Promise<MaterialisationResultDto> {
+  return unwrap(await apiClient.POST("/api/orders/transport-order-template/{id}/materialise", { params: { path: { id } }, body: materialiseBody(dates, copies, overrides) }));
 }
 
-/** Copies an order onto the given dates through a transient template (the wizard "Copy order"). */
-export async function copyOrder(orderId: string, dates: string[], copies: number): Promise<MaterialisationResultDto> {
-  return unwrap(await apiClient.POST("/api/orders/transport-order-template/copy-order/{orderId}", { params: { path: { orderId } }, body: { dates, copies } }));
+/** Copies an order onto the given dates through a transient template (the wizard "Copy order"); the overrides name
+ * the copied order's line ids. */
+export async function copyOrder(orderId: string, dates: string[], copies: number, overrides?: MaterialisationOverrideDto[]): Promise<MaterialisationResultDto> {
+  return unwrap(await apiClient.POST("/api/orders/transport-order-template/copy-order/{orderId}", { params: { path: { orderId } }, body: materialiseBody(dates, copies, overrides) }));
 }
 
 /** Both wizards end in orders: the Orders list must refresh afterwards. */
