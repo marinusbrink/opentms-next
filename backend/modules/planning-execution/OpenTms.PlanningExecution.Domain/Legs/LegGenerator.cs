@@ -218,6 +218,36 @@ public class LegGenerator : DomainService
     }
 
     /// <summary>A reshaped line: the planner's legs stay; ends that still point at an order stop follow the stop's facts.</summary>
+    /// <summary>
+    /// A return leg (design 59 note 10, trips.md 22) mirrors the original: its ends follow the order stops' places and dates,
+    /// but keep their swapped activities, and it never arrives before it departs. The stored source keys stay the order
+    /// stops' keys, so the same facts again change nothing.
+    /// </summary>
+    /// <param name="originSource">The order stop the origin follows, changed or not (the key of a leg stored before source keys).</param>
+    private static void RefreshReturnLeg(Leg leg, LegEndSnapshot? origin, LegEndSnapshot? destination, LegEndSnapshot? originSource, LegEndSnapshot? destinationSource)
+    {
+        var originKey = leg.OriginSourceKey ?? (originSource != null ? Leg.SourceKey(originSource) : null);
+        var destinationKey = leg.DestinationSourceKey ?? (destinationSource != null ? Leg.SourceKey(destinationSource) : null);
+
+        if (origin != null)
+        {
+            leg.SetOrigin(origin with { WaypointTypeId = leg.OriginWaypointTypeId });
+            originKey = Leg.SourceKey(origin);
+        }
+
+        var target = destination != null ? destination with { WaypointTypeId = leg.DestinationWaypointTypeId } : leg.Destination;
+        if (destination != null || target.PlannedDate < leg.OriginPlannedDate)
+        {
+            leg.SetDestination(target.PlannedDate < leg.OriginPlannedDate ? target with { PlannedDate = leg.OriginPlannedDate } : target);
+            if (destination != null)
+            {
+                destinationKey = Leg.SourceKey(destination);
+            }
+        }
+
+        leg.InheritSourceKeys(originKey, destinationKey);
+    }
+
     private static void RefreshReshapedLine(LegGenerationLine line, List<Leg> current, LegGenerationResult result)
     {
         var stops = line.Stops.ToDictionary(s => s.Snapshot.StopId, s => s.Snapshot);
@@ -232,14 +262,21 @@ public class LegGenerator : DomainService
                 continue;
             }
 
-            if (originChanged)
+            if (leg.Source == LegSource.Return)
             {
-                leg.SetOrigin(o!);
+                RefreshReturnLeg(leg, originChanged ? o : null, destinationChanged ? d : null, o, d);
             }
-
-            if (destinationChanged)
+            else
             {
-                leg.SetDestination(d!);
+                if (originChanged)
+                {
+                    leg.SetOrigin(o!);
+                }
+
+                if (destinationChanged)
+                {
+                    leg.SetDestination(d!);
+                }
             }
 
             if (leg.TripId is { } tripId)

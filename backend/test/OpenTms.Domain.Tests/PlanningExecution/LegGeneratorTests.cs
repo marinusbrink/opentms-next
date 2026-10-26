@@ -307,6 +307,50 @@ public class LegGeneratorTests
     }
 
     [Fact]
+    public void A_return_leg_follows_a_changed_order_stop_but_keeps_its_swapped_activities_and_its_date_order()
+    {
+        var day = new DateOnly(2026, 10, 26);
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", day);
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day.AddDays(1));
+        var lineId = Guid.NewGuid();
+        var order = Order(Guid.NewGuid(), Line(lineId, 10, a, b));
+        var original = Generate(order, []).Created.Single();
+        var returnLeg = new LegAssignmentService(new TripStopComposer()).CreateReturnLeg(original, null, [], [original], Guid.NewGuid);
+
+        /* trips.md 22: loaded where the original unloads (B), unloaded where it loaded (A), on or after B's date. */
+        (returnLeg.OriginStopId, returnLeg.OriginWaypointTypeId, returnLeg.DestinationStopId, returnLeg.DestinationWaypointTypeId)
+            .ShouldBe((b.Snapshot.StopId, Load, a.Snapshot.StopId, Unload));
+        returnLeg.DestinationPlannedDate.ShouldBe(day.AddDays(1));
+        var tripId = Guid.NewGuid();
+        returnLeg.AssignTo(tripId, 2);
+
+        /* Unchanged facts: the return leg stays as it is, on its trip. */
+        var same = Generate(order, [original, returnLeg]);
+        same.Unchanged.ShouldContain(returnLeg);
+        same.Unassigned.ShouldBeEmpty();
+
+        /* The order really moves B (the return leg's origin): the place and date follow, the activity stays "load",
+         * and the destination date (A) is kept on or after the new origin date. */
+        var moved = new LegGenerationStop { Snapshot = b.Snapshot with { Name = "B moved", PlannedDate = day.AddDays(3) }, RegionIds = b.RegionIds };
+        var changedOrder = Order(order.OrderId, Line(lineId, 10, a, moved));
+        var changed = Generate(changedOrder, [original, returnLeg]);
+        changed.Updated.ShouldContain(returnLeg);
+        changed.Unassigned.ShouldContain(u => u.Leg == returnLeg);
+        returnLeg.OriginName.ShouldBe("B moved");
+        returnLeg.OriginPlannedDate.ShouldBe(day.AddDays(3));
+        returnLeg.OriginWaypointTypeId.ShouldBe(Load, "the return leg loads where the original unloads");
+        returnLeg.DestinationWaypointTypeId.ShouldBe(Unload, "the return leg unloads where the original loaded");
+        returnLeg.DestinationPlannedDate.ShouldBe(day.AddDays(3), "a return leg never arrives before it departs");
+
+        /* The same moved facts again: nothing changes any more (the stored source key is the order stop's). */
+        returnLeg.AssignTo(tripId, 2);
+        var again = Generate(changedOrder, [original, returnLeg]);
+        again.Unchanged.ShouldContain(returnLeg);
+        again.Unassigned.ShouldBeEmpty();
+        returnLeg.TripId.ShouldBe(tripId);
+    }
+
+    [Fact]
     public void Synthetic_stop_ids_are_deterministic_and_distinct_per_kind()
     {
         var x = Guid.NewGuid();

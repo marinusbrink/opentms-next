@@ -246,9 +246,10 @@ Decisions the build had to take where this design left room, reported for the re
     refreshes only the end that changed. Before, any edit of a reference, date or window made the next save of the line
     unassign the leg with `LegChangedAfterPlanning`. Rows without a key compare their values as before; a return or hub leg
     inherits the keys of the ends it copies. *Build note 13*: the refused request now publishes
-    `TransportTripRequestNotHonouredEto { OrderId, Field, Reason }`; Orders shows it on the order. Found, not changed: when
-    the order changes the stop a return leg's origin points at, regeneration copies that stop (with its activity) onto the
-    return leg, losing the swapped activity of note 10.
+    `TransportTripRequestNotHonouredEto { OrderId, Field, Reason }`; Orders shows it on the order. When the order changes a stop a
+    return leg's end points at, regeneration takes over the stop's place and date but keeps the return leg's swapped
+    activities (note 10), keeps its arrival on or after its departure, and stores the order stop's source key, so the same
+    facts again leave the leg on its trip (`LegGenerator.RefreshReturnLeg`).
 
 ## Security quickscan
 
