@@ -6,14 +6,17 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using OpenTms.Financial.Tariffs.Published;
+using OpenTms.Orders.Export;
 using OpenTms.Orders.Permissions;
 using OpenTms.Orders.TransportOrders.Approval;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
+using Volo.Abp.Content;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using Volo.Abp.Settings;
 
 namespace OpenTms.Orders.TransportOrders;
 
@@ -70,6 +73,58 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
         var page = await AsyncExecuter.ToListAsync(ApplySort(searched, input.SortBy, input.Descending).Skip(input.StartRow).Take(input.EndRow - input.StartRow));
 
         return new GridResponse<TransportOrderRowDto> { Rows = await _mapper.ToRowsAsync(page), TotalCount = totalCount, FilteredCount = filteredCount };
+    }
+
+    /// <summary>
+    /// UI-GRID-013: the list as an xlsx file — the same filters, view, search and sort as <see cref="GetListAsync"/> (or
+    /// every order with <see cref="TransportOrderExportRequestDto.AllRows"/>), the requested columns in their order. Read
+    /// page by page with one batch of lookups per page; refused above the tenant's row cap before anything is read.
+    /// </summary>
+    [RequiresFeature(AppFeatures.TransportApp.Orders)]
+    [Authorize(OrdersPermissions.TransportOrders.Default)]
+    public virtual async Task<IRemoteStreamContent> ExportAsync(TransportOrderExportRequestDto input)
+    {
+        var columns = TransportOrderExportColumns.Resolve(input.Columns, L);
+        var query = await _orders.GetQueryableAsync();
+        if (!input.AllRows)
+        {
+            query = ApplyFilters(query, input.Status, input.View, input.DateFrom, input.DateTo, input.CustomerRelationId, input.OrganizationUnitId, input.SourceTemplateId);
+            var term = input.WildcardSearch?.Trim().ToLowerInvariant();
+            if (!string.IsNullOrEmpty(term))
+            {
+                query = ApplySearch(query, term);
+            }
+        }
+
+        var count = await AsyncExecuter.LongCountAsync(query);
+        var max = await SettingProvider.GetAsync(OrdersSettings.ExportMaxRows, OrdersConsts.DefaultExportMaxRows);
+        if (count > max)
+        {
+            throw new BusinessException(OrdersErrorCodes.ExportTooManyRows).WithData("max", max).WithData("count", count);
+        }
+
+        /* The id makes the order total, so the pages neither skip nor repeat a row. */
+        var sorted = ApplySort(query, input.SortBy, input.Descending).ThenBy(o => o.Id);
+        var stream = await XlsxTableWriter.WriteAsync(L["Orders:ExportSheetName"], columns.Select(c => c.Column).ToList(), ExportRowsAsync(sorted, columns, (int)count));
+        Logger.LogInformation("Exported {Count} transport orders in {Columns} columns.", count, columns.Count);
+        return new RemoteStreamContent(stream, $"transport-orders-{_clock.Today():yyyy-MM-dd}.xlsx", XlsxTableWriter.ContentType);
+    }
+
+    private async IAsyncEnumerable<IReadOnlyList<object?>> ExportRowsAsync(IQueryable<TransportOrder> sorted, IReadOnlyList<TransportOrderExportColumns.Chosen> columns, int count)
+    {
+        for (var start = 0; start < count; start += OrdersConsts.ExportPageSize)
+        {
+            var page = await AsyncExecuter.ToListAsync(sorted.Skip(start).Take(OrdersConsts.ExportPageSize));
+            if (page.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var row in await _mapper.ToRowsAsync(page))
+            {
+                yield return columns.Select(c => c.Value(row)).ToList();
+            }
+        }
     }
 
     [RequiresFeature(AppFeatures.TransportApp.Orders)]

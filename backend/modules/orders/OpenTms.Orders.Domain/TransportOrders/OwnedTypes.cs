@@ -252,11 +252,19 @@ public class TransportOrderTripRequest
     public string? AgreedPurchaseCurrencyCode { get; private set; }
     public Guid? TripId { get; private set; }
 
+    /// <summary>Planning could not honour the request on Confirm (design 59 build note 13): the warning code, else null.</summary>
+    public string? WarningCode { get; private set; }
+
+    /// <summary>The request field that did not resolve in Planning.</summary>
+    public string? WarningField { get; private set; }
+
+    public DateTimeOffset? WarningAt { get; private set; }
+
     protected TransportOrderTripRequest()
     {
     }
 
-    public static TransportOrderTripRequest From(TripRequestInput input, Guid? keepTripId)
+    public static TransportOrderTripRequest From(TripRequestInput input, Guid? keepTripId, TransportOrderTripRequest? previous = null)
     {
         Check.NotNull(input, nameof(input));
         foreach (var (id, field) in new[] { (input.TransportTripTypeId, "transportTripTypeId"), (input.DepartureRelationId, "departureRelationId"), (input.DepartureAddressId, "departureAddressId"), (input.ArrivalRelationId, "arrivalRelationId"), (input.ArrivalAddressId, "arrivalAddressId") })
@@ -301,12 +309,42 @@ public class TransportOrderTripRequest
             DriverIds = drivers,
             AgreedPurchaseAmount = input.AgreedPurchaseAmount,
             AgreedPurchaseCurrencyCode = input.AgreedPurchaseAmount == null ? null : OrderValues.CurrencyCode(input.AgreedPurchaseCurrencyCode ?? "EUR"),
-            TripId = keepTripId
+            TripId = keepTripId,
+            /* The request is honoured once, on Confirm: a refusal stays the fact of that confirm until a trip exists. */
+            WarningCode = keepTripId == null ? previous?.WarningCode : null,
+            WarningField = keepTripId == null ? previous?.WarningField : null,
+            WarningAt = keepTripId == null ? previous?.WarningAt : null
         };
     }
 
     /// <summary>Planning reported the trip it created from this request (idempotent: the same id again changes nothing).</summary>
-    public void SetTrip(Guid tripId) => TripId = tripId;
+    public void SetTrip(Guid tripId)
+    {
+        TripId = tripId;
+        WarningCode = null;
+        WarningField = null;
+        WarningAt = null;
+    }
+
+    /// <summary>Planning reported it could not honour the request; true when this changed the stored warning (idempotent).</summary>
+    public bool SetNotHonoured(string code, string? field, DateTimeOffset at)
+    {
+        var trimmedField = string.IsNullOrWhiteSpace(field) ? null : field.Trim();
+        if (trimmedField is { Length: > OrdersConsts.MaxTripRequestWarningLength })
+        {
+            trimmedField = trimmedField[..OrdersConsts.MaxTripRequestWarningLength];
+        }
+
+        if (TripId != null || (WarningCode == code && WarningField == trimmedField))
+        {
+            return false;
+        }
+
+        WarningCode = code;
+        WarningField = trimmedField;
+        WarningAt = at;
+        return true;
+    }
 
     public TripRequestInput ToInput() => new(
         TransportTripTypeId, DepartureRelationId, DepartureAddressId, ArrivalRelationId, ArrivalAddressId, PlannedDeparture, PlannedArrival,

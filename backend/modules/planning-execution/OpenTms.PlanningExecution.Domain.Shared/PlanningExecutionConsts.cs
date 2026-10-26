@@ -5,6 +5,19 @@ public static class PlanningExecutionConsts
 {
     public const int MaxVehiclesPerTrip = 3;
 
+    /// <summary>UI-GRID-013: the default row cap of a list export (setting <c>Planning:Export:MaxRows</c>).</summary>
+    public const int DefaultExportMaxRows = 50_000;
+
+    /// <summary>The columns one export may name.</summary>
+    public const int MaxExportColumns = 100;
+
+    /// <summary>The export reads the list in pages of this size (one batch of lookups per page).</summary>
+    public const int ExportPageSize = 500;
+
+    public const int MaxExportFieldLength = 64;
+
+    public const int MaxExportHeaderLength = 128;
+
     public const int MaxDriversPerTrip = 3;
 
     public const int MaxStopsPerTrip = 100;

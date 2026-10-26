@@ -262,6 +262,16 @@ public class PriceListAppService
         await ColumnsOfAsync(id);
         var all = (await _rules.GetQueryableAsync()).Where(r => r.PriceListId == id);
         var filtered = input.Tier == null ? all : all.Where(r => ((r.TransportUnitId == null ? 0 : 1) + (r.ProductId == null ? 0 : 1) + (r.VehicleTypeId == null ? 0 : 1)) == input.Tier.Value);
+        var tiers = (input.Tiers ?? []).Distinct().ToList();
+        if (tiers.Any(t => t is < 0 or > 3))
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.InvalidCode).WithData("field", "tiers").WithData("value", string.Join(",", tiers));
+        }
+
+        if (tiers.Count > 0)
+        {
+            filtered = filtered.Where(r => tiers.Contains((r.TransportUnitId == null ? 0 : 1) + (r.ProductId == null ? 0 : 1) + (r.VehicleTypeId == null ? 0 : 1)));
+        }
 
         /* The rule's names live in Master Data: the search takes an id (relation, region, unit, product, vehicle type). */
         var searched = filtered;
@@ -604,7 +614,8 @@ public class PriceListAppService
         {
             AnchorId = PricingLines.SyntheticId(1),
             Position = 1,
-            TransportUnitId = input.TransportUnitId,
+            /* No unit: Guid.Empty never equals a rule's unit, so only the rules for "any unit" match. */
+            TransportUnitId = input.TransportUnitId ?? Guid.Empty,
             ProductId = input.ProductId,
             VehicleTypeId = input.VehicleTypeId,
             Quantity = input.Quantity,

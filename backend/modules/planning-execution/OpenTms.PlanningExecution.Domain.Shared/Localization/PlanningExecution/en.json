@@ -259,6 +259,12 @@
     "PlanningExecution:AttributeKeyShapeHint": "A letter, then letters, digits or underscores; at most 32 characters.",
     "PlanningExecution:DepartureWaypointTypeHint": "Empty: the arrival activity.",
     "PlanningExecution:DepotAddressHint": "Choose the depot first.",
-    "PlanningExecution:ViaDepotPositionHint": "The first matching rule in position order applies."
+    "PlanningExecution:ViaDepotPositionHint": "The first matching rule in position order applies.",
+    "PlanningExecution:ExportSheetName": "Trips",
+    "PlanningExecution:Name": "Name",
+    "PlanningExecution:IsArchived": "Archived",
+    "OpenTms.PlanningExecution:InvalidLegWindow": "The time window ends before it starts ({field}).",
+    "OpenTms.PlanningExecution:ExportTooManyRows": "The export would hold {count} rows; at most {max} are allowed. Filter the list first.",
+    "OpenTms.PlanningExecution:ExportUnknownColumn": "The list has no column \"{field}\" to export."
   }
 }

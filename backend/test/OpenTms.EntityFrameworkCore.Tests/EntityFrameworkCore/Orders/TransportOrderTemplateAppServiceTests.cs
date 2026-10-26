@@ -230,4 +230,100 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
             (await GetRequiredService<TemplateMaterialisationRunner>().RunForCurrentTenantAsync()).ShouldBe(0);
         }
     }
+
+    [Fact]
+    public async Task Materialise_applies_the_wizards_details_per_generated_order_and_leaves_the_others_as_the_template()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var template = await Templates.CreateAsync(TemplateDto(f));
+        var lineId = template.Lines.Single().Id!.Value;
+        var monday = new DateOnly(2026, 11, 2);
+
+        var result = await Templates.MaterialiseAsync(template.Id, new MaterialiseTemplateDto
+        {
+            Dates = [monday, monday.AddDays(1)],
+            Copies = 2,
+            Overrides =
+            [
+                new MaterialisationOverrideDto { Date = monday, CopyIndex = 1, CustomerReference = "  PO-MON-2  ", Lines = [new MaterialisationLineOverrideDto { LineId = lineId, Quantity = 7, WeightKg = 650 }] },
+                new MaterialisationOverrideDto { Date = monday.AddDays(1), CopyIndex = 0, CustomerReference = "", Lines = [new MaterialisationLineOverrideDto { LineId = lineId, WeightKg = 80 }] }
+            ]
+        });
+
+        var orders = new List<TransportOrderDto>();
+        foreach (var id in result.CreatedOrderIds)
+        {
+            orders.Add(await Orders.GetAsync(id));
+        }
+
+        var changed = orders.Single(o => o.OrderDate == monday && o.CopyIndex == 1);
+        changed.CustomerReference.ShouldBe("PO-MON-2");
+        changed.Lines.Single().Quantity.ShouldBe(7);
+        changed.Lines.Single().WeightKg.ShouldBe(650);
+
+        var cleared = orders.Single(o => o.OrderDate == monday.AddDays(1) && o.CopyIndex == 0);
+        cleared.CustomerReference.ShouldBeNull("an empty reference clears the template's");
+        cleared.Lines.Single().Quantity.ShouldBe(3, "a quantity not given keeps the template's");
+        cleared.Lines.Single().WeightKg.ShouldBe(80);
+
+        foreach (var untouched in orders.Where(o => o.Id != changed.Id && o.Id != cleared.Id))
+        {
+            untouched.CustomerReference.ShouldBe("WEEKLY");
+            untouched.Lines.Single().Quantity.ShouldBe(3);
+            untouched.Lines.Single().WeightKg.ShouldBe(120);
+        }
+    }
+
+    [Fact]
+    public async Task Copy_order_takes_the_details_by_the_copied_orders_own_line_ids()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var original = await Orders.CreateAsync(CreateDto(f, confirm: true, lines: 2, customerReference: "ORIG"));
+        var second = original.Lines.OrderBy(l => l.Position).Last();
+        var date = Today.AddDays(7);
+
+        var copies = await Templates.CopyOrderAsync(original.Id, new MaterialiseTemplateDto
+        {
+            Dates = [date],
+            Overrides = [new MaterialisationOverrideDto { Date = date, CustomerReference = "COPY-1", Lines = [new MaterialisationLineOverrideDto { LineId = second.Id!.Value, Quantity = 9 }] }]
+        });
+
+        var copy = await Orders.GetAsync(copies.CreatedOrderIds.Single());
+        copy.CustomerReference.ShouldBe("COPY-1");
+        copy.Lines.OrderBy(l => l.Position).Select(l => l.Quantity).ShouldBe([original.Lines.OrderBy(l => l.Position).First().Quantity, 9m]);
+        (await Orders.GetAsync(original.Id)).CustomerReference.ShouldBe("ORIG", "the source order is untouched");
+    }
+
+    [Fact]
+    public async Task Details_for_an_unknown_line_or_a_date_or_copy_not_being_created_are_refused_and_nothing_is_created()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var template = await Templates.CreateAsync(TemplateDto(f));
+        var lineId = template.Lines.Single().Id!.Value;
+        var monday = new DateOnly(2026, 11, 2);
+
+        async Task<BusinessException> Refused(params MaterialisationOverrideDto[] overrides)
+            => await Should.ThrowAsync<BusinessException>(() => Templates.MaterialiseAsync(template.Id, new MaterialiseTemplateDto { Dates = [monday], Copies = 2, Overrides = overrides.ToList() }));
+
+        var unknown = await Refused(new MaterialisationOverrideDto { Date = monday, Lines = [new MaterialisationLineOverrideDto { LineId = Guid.NewGuid(), Quantity = 1 }] });
+        unknown.Code.ShouldBe(OrdersErrorCodes.MaterialisationLineUnknown);
+        (await Refused(new MaterialisationOverrideDto { Date = monday.AddDays(1) })).Code.ShouldBe(OrdersErrorCodes.MaterialisationOverrideInvalid, "a date not being created");
+        (await Refused(new MaterialisationOverrideDto { Date = monday, CopyIndex = 2 })).Code.ShouldBe(OrdersErrorCodes.MaterialisationOverrideInvalid, "copy 2 of two copies (0-based)");
+        (await Refused(new MaterialisationOverrideDto { Date = monday }, new MaterialisationOverrideDto { Date = monday })).Code.ShouldBe(OrdersErrorCodes.MaterialisationOverrideInvalid, "one order twice");
+        (await Refused(new MaterialisationOverrideDto
+        {
+            Date = monday,
+            Lines = [new MaterialisationLineOverrideDto { LineId = lineId, Quantity = 1 }, new MaterialisationLineOverrideDto { LineId = lineId, WeightKg = 1 }]
+        })).Code.ShouldBe(OrdersErrorCodes.MaterialisationOverrideInvalid, "one line twice");
+        await Should.ThrowAsync<Volo.Abp.Validation.AbpValidationException>(() => Templates.MaterialiseAsync(template.Id, new MaterialiseTemplateDto
+        {
+            Dates = [monday],
+            Overrides = [new MaterialisationOverrideDto { Date = monday, Lines = [new MaterialisationLineOverrideDto { LineId = lineId, Quantity = -1 }] }]
+        }));
+
+        (await Orders.GetListAsync(new TransportOrderListRequestDto { SourceTemplateId = template.Id })).TotalCount.ShouldBe(0, "a refused request creates nothing");
+    }
 }

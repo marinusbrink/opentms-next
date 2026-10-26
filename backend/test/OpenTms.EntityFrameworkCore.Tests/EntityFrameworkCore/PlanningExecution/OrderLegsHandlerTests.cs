@@ -272,7 +272,43 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
 
         (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldBeEmpty();
         (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem().TripId.ShouldBeNull("the leg is generated and stays unplanned");
-        (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull().TripId.ShouldBeNull();
+        var tripRequest = (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull();
+        tripRequest.TripId.ShouldBeNull();
+
+        /* Not silent: Planning's fact reached Orders, and the order carries a warning the screens show (design 59 build note 13). */
+        tripRequest.WarningCode.ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+        tripRequest.WarningField.ShouldBe("transportTripTypeId");
+        tripRequest.WarningAt.ShouldNotBeNull();
+        (await Orders.GetListAsync(new TransportOrderListRequestDto())).Rows.Single(r => r.Id == orderId).TripRequestWarningCode
+            .ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+
+        /* Delivered again: still one warning, still no trip; the order's later edits of the request keep the confirm's warning. */
+        await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
+        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldBeEmpty();
+        var again = (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull();
+        again.WarningCode.ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+        again.WarningAt.ShouldBe(tripRequest.WarningAt);
+    }
+
+    [Fact]
+    public async Task An_honoured_trip_request_carries_no_warning()
+    {
+        using var _ = InTenantA();
+        var type = await TripTypeAsync();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var order = await OrderAsync(a.RelationId, new TransportOrderTripRequestInputDto
+        {
+            TransportTripTypeId = type, DepartureRelationId = depot.RelationId, DepartureAddressId = depot.AddressId,
+            ArrivalRelationId = depot.RelationId, ArrivalAddressId = depot.AddressId, PlannedDeparture = At(6)
+        }, Line(depot, a));
+
+        var orderId = await ConfirmOrderAsync(order);
+
+        var tripRequest = (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull();
+        tripRequest.TripId.ShouldNotBeNull();
+        tripRequest.WarningCode.ShouldBeNull();
+        tripRequest.WarningField.ShouldBeNull();
     }
 
     [Fact]

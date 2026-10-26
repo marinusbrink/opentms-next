@@ -146,8 +146,25 @@ public class LegUpdateDto
 
     public DateOnly? DestinationPlannedDate { get; set; }
 
+    /// <summary>
+    /// The origin's planned time window (design 59 leg snapshot <c>WindowFrom/Till</c>; OpenTMS's leg-grid time slots).
+    /// Null leaves it unchanged; a window with both ends null clears it (the whole day). The planned date must lie within it.
+    /// </summary>
+    public LegTimeWindowDto? OriginWindow { get; set; }
+
+    /// <summary>The destination's planned time window; as <see cref="OriginWindow"/>.</summary>
+    public LegTimeWindowDto? DestinationWindow { get; set; }
+
     [Required]
     public string ConcurrencyStamp { get; set; } = string.Empty;
+}
+
+/// <summary>A planned time window of a leg's end: instants with their offset; <see cref="Till"/> not before <see cref="From"/>.</summary>
+public class LegTimeWindowDto
+{
+    public DateTimeOffset? From { get; set; }
+
+    public DateTimeOffset? Till { get; set; }
 }
 
 /// <summary>

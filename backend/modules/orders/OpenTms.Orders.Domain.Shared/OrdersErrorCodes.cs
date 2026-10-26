@@ -75,6 +75,25 @@ public static class OrdersErrorCodes
     /// <summary>Materialisation needs at least one date and 1..{max} copies.</summary>
     public const string MaterialisationInputInvalid = Namespace + ":MaterialisationInputInvalid";
 
+    /// <summary>A materialisation override names a line the template (or the copied order) does not have ({lineId}).</summary>
+    public const string MaterialisationLineUnknown = Namespace + ":MaterialisationLineUnknown";
+
+    /// <summary>A materialisation override names a date or copy that is not generated, or names one twice ({date}, {copyIndex}).</summary>
+    public const string MaterialisationOverrideInvalid = Namespace + ":MaterialisationOverrideInvalid";
+
+    /* UI-GRID-013: the list export. */
+
+    /// <summary>The export would hold {count} rows; at most {max} are allowed: filter the list first.</summary>
+    public const string ExportTooManyRows = Namespace + ":ExportTooManyRows";
+
+    /// <summary>The export names a column the list does not have ({field}).</summary>
+    public const string ExportUnknownColumn = Namespace + ":ExportUnknownColumn";
+
+    /* Design 59 build note 13: a trip request Planning could not honour (a warning on the order, not an error). */
+
+    /// <summary>The order's trip request was not honoured: {field} does not resolve in Planning; the legs stay unplanned.</summary>
+    public const string TripRequestNotHonoured = Namespace + ":TripRequestNotHonoured";
+
     /// <summary>A schedule's interval, days or day of month are out of range ({field}).</summary>
     public const string InvalidSchedule = Namespace + ":InvalidSchedule";
 
@@ -104,6 +123,7 @@ public static class OrdersErrorCodes
     [
         SuccessorIsSelf, EmptyTimeSlot, RequiredFieldMissing, LineRequired, LineNeedsTwoStops, StopWindowAmbiguous,
         StopAddressMismatch, RevisionReasonRequired, InvalidAttributes, TooManyTripRequestMembers, MaterialisationInputInvalid,
-        InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies
+        InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies, MaterialisationLineUnknown,
+        MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn
     ];
 }

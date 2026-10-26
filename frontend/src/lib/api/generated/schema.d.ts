@@ -6530,6 +6530,7 @@ export interface paths {
             parameters: {
                 query?: {
                     Tier?: number;
+                    Tiers?: number[];
                     StartRow?: number;
                     EndRow?: number;
                     WildcardSearch?: string;
@@ -27651,6 +27652,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/transport-order/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                        "text/json": string;
+                        "text/plain": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/transport-order/validate-approval": {
         parameters: {
             query?: never;
@@ -32874,6 +32984,229 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planning/transport-trip/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                        "text/json": string;
+                        "text/plain": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planning/transport-trip/picker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    Status?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"][];
+                    DateFrom?: string;
+                    DateTo?: string;
+                    ExcludeTripId?: string;
+                    StartRow?: number;
+                    EndRow?: number;
+                    WildcardSearch?: string;
+                    SortBy?: string;
+                    SortDir?: string;
+                    Descending?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -44577,7 +44910,7 @@ export interface components {
             /** Format: double */
             tollDistanceKm?: number | null;
             /** Format: uuid */
-            transportUnitId?: string;
+            transportUnitId?: string | null;
             /** Format: uuid */
             vehicleTypeId?: string | null;
             /** Format: double */
@@ -46552,6 +46885,26 @@ export interface components {
          * @enum {integer}
          */
         "OpenTms.Orders.TransportOrders.ExecutionProgress": 1 | 2 | 3 | 4 | 5;
+        "OpenTms.Orders.TransportOrders.ExportColumnDto": {
+            field: string;
+            header?: string | null;
+        };
+        "OpenTms.Orders.TransportOrders.MaterialisationLineOverrideDto": {
+            /** Format: uuid */
+            lineId: string;
+            /** Format: double */
+            quantity?: number | null;
+            /** Format: double */
+            weightKg?: number | null;
+        };
+        "OpenTms.Orders.TransportOrders.MaterialisationOverrideDto": {
+            /** Format: int32 */
+            copyIndex?: number;
+            customerReference?: string | null;
+            /** Format: date */
+            date: string;
+            lines?: components["schemas"]["OpenTms.Orders.TransportOrders.MaterialisationLineOverrideDto"][] | null;
+        };
         "OpenTms.Orders.TransportOrders.MaterialisationResultDto": {
             createdOrderIds?: string[] | null;
             /** Format: int32 */
@@ -46561,6 +46914,7 @@ export interface components {
             /** Format: int32 */
             copies?: number;
             dates: string[];
+            overrides?: components["schemas"]["OpenTms.Orders.TransportOrders.MaterialisationOverrideDto"][] | null;
         };
         /**
          * Format: int32
@@ -47097,6 +47451,30 @@ export interface components {
             transportOrderTypeName?: string | null;
             tripRequest?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderTripRequestDto"];
         };
+        "OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto": {
+            allRows?: boolean;
+            columns?: components["schemas"]["OpenTms.Orders.TransportOrders.ExportColumnDto"][] | null;
+            /** Format: uuid */
+            customerRelationId?: string | null;
+            /** Format: date */
+            dateFrom?: string | null;
+            /** Format: date */
+            dateTo?: string | null;
+            readonly descending?: boolean;
+            /** Format: int32 */
+            endRow?: number;
+            /** Format: uuid */
+            organizationUnitId?: string | null;
+            sortBy?: string | null;
+            sortDir?: string | null;
+            /** Format: uuid */
+            sourceTemplateId?: string | null;
+            /** Format: int32 */
+            startRow?: number;
+            status?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderStatus"][] | null;
+            view?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderView"];
+            wildcardSearch?: string | null;
+        };
         "OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsDto": {
             currencyCode: string;
             discountsOrSurcharges?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderDiscountOrSurchargeDto"][] | null;
@@ -47349,6 +47727,7 @@ export interface components {
             transportOrderTypeId?: string;
             transportOrderTypeName?: string | null;
             tripNumbers?: string | null;
+            tripRequestWarningCode?: string | null;
         };
         /**
          * Format: int32
@@ -47598,6 +47977,10 @@ export interface components {
             /** Format: uuid */
             vehicleCombinationId?: string | null;
             vehicleIds?: string[] | null;
+            /** Format: date-time */
+            warningAt?: string | null;
+            warningCode?: string | null;
+            warningField?: string | null;
         };
         "OpenTms.Orders.TransportOrders.TransportOrderTripRequestInputDto": {
             /** Format: double */
@@ -47920,14 +48303,22 @@ export interface components {
          * @enum {integer}
          */
         "OpenTms.PlanningExecution.Legs.LegSource": 1 | 2 | 3 | 4 | 5;
+        "OpenTms.PlanningExecution.Legs.LegTimeWindowDto": {
+            /** Format: date-time */
+            from?: string | null;
+            /** Format: date-time */
+            till?: string | null;
+        };
         "OpenTms.PlanningExecution.Legs.LegUpdateDto": {
             concurrencyStamp: string;
             /** Format: date */
             destinationPlannedDate?: string | null;
             destinationReference?: string | null;
+            destinationWindow?: components["schemas"]["OpenTms.PlanningExecution.Legs.LegTimeWindowDto"];
             /** Format: date */
             originPlannedDate?: string | null;
             originReference?: string | null;
+            originWindow?: components["schemas"]["OpenTms.PlanningExecution.Legs.LegTimeWindowDto"];
             remarks?: string | null;
         };
         /**
@@ -47958,6 +48349,10 @@ export interface components {
             afterStopId?: string | null;
             allowOutsideWindow?: boolean;
             legIds: string[];
+        };
+        "OpenTms.PlanningExecution.TransportTrips.ExportColumnDto": {
+            field: string;
+            header?: string | null;
         };
         /**
          * Format: int32
@@ -48125,6 +48520,48 @@ export interface components {
             vehicleCombinationName?: string | null;
             vehicles?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripVehicleDto"][] | null;
             warnings?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripWarningDto"][] | null;
+        };
+        "OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto": {
+            allRows?: boolean;
+            /** Format: uuid */
+            carrierRelationId?: string | null;
+            columns?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.ExportColumnDto"][] | null;
+            /** Format: date */
+            dateFrom?: string | null;
+            /** Format: date */
+            dateTo?: string | null;
+            readonly descending?: boolean;
+            /** Format: int32 */
+            endRow?: number;
+            /** Format: date-time */
+            executionFrom?: string | null;
+            /** Format: date-time */
+            executionTo?: string | null;
+            hideEmpty?: boolean;
+            isArchived?: boolean | null;
+            /** Format: uuid */
+            organizationUnitId?: string | null;
+            sortBy?: string | null;
+            sortDir?: string | null;
+            /** Format: int32 */
+            startRow?: number;
+            status?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"][] | null;
+            view?: string | null;
+            wildcardSearch?: string | null;
+        };
+        "OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto": {
+            carrierName?: string | null;
+            /** Format: uuid */
+            carrierRelationId?: string | null;
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+            number?: string | null;
+            /** Format: date-time */
+            plannedDeparture?: string;
+            status?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"];
+            /** Format: date */
+            tripDate?: string;
         };
         "OpenTms.PlanningExecution.TransportTrips.TransportTripRowDto": {
             /** Format: date-time */
@@ -49655,6 +50092,13 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

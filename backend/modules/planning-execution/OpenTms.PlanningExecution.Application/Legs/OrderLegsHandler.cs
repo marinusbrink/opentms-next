@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Orders.Events;
 using OpenTms.Orders.Published;
+using OpenTms.PlanningExecution.Events;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
@@ -34,14 +35,17 @@ public class OrderLegsHandler :
     private readonly IRepository<TransportTrip, Guid> _trips;
     private readonly IRepository<Leg, Guid> _legs;
     private readonly TripOperations _tripOperations;
+    private readonly IDistributedEventBus _events;
 
-    public OrderLegsHandler(OrderLegGeneration generation, ITransportOrderLookup orders, IRepository<TransportTrip, Guid> trips, IRepository<Leg, Guid> legs, TripOperations tripOperations)
+    public OrderLegsHandler(OrderLegGeneration generation, ITransportOrderLookup orders, IRepository<TransportTrip, Guid> trips, IRepository<Leg, Guid> legs, TripOperations tripOperations,
+        IDistributedEventBus events)
     {
         _generation = generation;
         _orders = orders;
         _trips = trips;
         _legs = legs;
         _tripOperations = tripOperations;
+        _events = events;
     }
 
     [UnitOfWork]
@@ -102,7 +106,10 @@ public class OrderLegsHandler :
              * vehicle or driver that does not resolve here is a request Planning cannot honour. TripOperations validates
              * before it writes, so nothing is left behind; the legs stay unplanned. Failing instead would make the
              * at-least-once delivery retry the event for ever and block the tenant's outbox. */
-            Logger.LogWarning("Trip request of order {OrderId} not honoured: {Field} does not resolve; the legs stay unplanned.", orderId, ex.Data["field"]);
+            var field = ex.Data["field"]?.ToString();
+            Logger.LogWarning("Trip request of order {OrderId} not honoured: {Field} does not resolve; the legs stay unplanned.", orderId, field);
+            /* The order shows the refusal (a warning code, not a failure): the fact goes to Orders through the outbox. */
+            await _events.PublishAsync(new TransportTripRequestNotHonouredEto { OrderId = orderId, Field = field, Reason = ex.Code! });
             return;
         }
 

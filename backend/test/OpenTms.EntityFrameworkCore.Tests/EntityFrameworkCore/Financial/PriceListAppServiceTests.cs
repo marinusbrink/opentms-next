@@ -313,6 +313,55 @@ public class PriceListAppServiceTests : FinancialAppServiceTestBase
     }
 
     [Fact]
+    public async Task Simulate_without_a_transport_unit_matches_only_the_rules_for_any_unit()
+    {
+        using var _ = InTenantA();
+        await CurrencyAsync("EUR");
+        var list = await CreateListAsync(columns: [null]);
+        var ams = await RelationAsync("AMS");
+        var bru = await RelationAsync("BRU");
+        var pallet = Guid.NewGuid();
+        var byUnit = await _service.CreateRuleAsync(list.Id, RuleInput(from: ams, to: bru, unit: pallet, brackets: [Bracket(null, 26m)]));
+        var anyUnit = await _service.CreateRuleAsync(list.Id, RuleInput(from: ams, to: bru, brackets: [Bracket(null, 28m)]));
+
+        var result = await _service.SimulateAsync(list.Id, new PriceListSimulateDto { FromRelationId = ams, ToRelationId = bru, Quantity = 2m, AsOf = new DateOnly(2026, 6, 1) });
+
+        result.WinningRuleId.ShouldBe(anyUnit.Id, "a rule that names no unit matches every line, also one without a unit");
+        result.Candidates.Single(c => c.RuleId == byUnit.Id).Reason.ShouldBe("Dimensions");
+        result.UnitPrice.ShouldBe(28m);
+        result.Amount.ShouldBe(56m);
+
+        /* With the unit the more specific rule wins again. */
+        (await _service.SimulateAsync(list.Id, new PriceListSimulateDto { FromRelationId = ams, ToRelationId = bru, TransportUnitId = pallet, AsOf = new DateOnly(2026, 6, 1) }))
+            .WinningRuleId.ShouldBe(byUnit.Id);
+    }
+
+    [Fact]
+    public async Task The_rules_list_filters_on_several_tiers_at_once_for_the_overrides_view_and_keeps_the_single_tier_filter()
+    {
+        using var _ = InTenantA();
+        await CurrencyAsync("EUR");
+        var list = await CreateListAsync(columns: [null]);
+        var ams = await RelationAsync("AMS");
+        var bru = await RelationAsync("BRU");
+        Guid unit = Guid.NewGuid(), product = Guid.NewGuid();
+        var tier0 = await _service.CreateRuleAsync(list.Id, RuleInput(from: ams, to: bru));
+        var tier1 = await _service.CreateRuleAsync(list.Id, RuleInput(from: ams, to: bru, unit: unit));
+        var tier2 = await _service.CreateRuleAsync(list.Id, RuleInput(from: ams, to: bru, unit: unit, product: product));
+
+        PriceListRuleListRequestDto Request(int? tier = null, params int[] tiers) => new() { StartRow = 0, EndRow = 100, Tier = tier, Tiers = tiers.ToList() };
+
+        (await _service.GetRulesAsync(list.Id, Request(null, 1, 2, 3))).Rows.Select(r => r.Id).ShouldBe([tier1.Id, tier2.Id], "Overrides = tiers 1–3");
+        var defaults = await _service.GetRulesAsync(list.Id, Request(null, 0));
+        defaults.Rows.Select(r => r.Id).ShouldBe([tier0.Id], "Defaults = tier 0");
+        defaults.TotalCount.ShouldBe(1, "the tier filter is part of the list, not of the search");
+        (await _service.GetRulesAsync(list.Id, Request(2))).Rows.Select(r => r.Id).ShouldBe([tier2.Id], "the single tier still works");
+        (await _service.GetRulesAsync(list.Id, Request(1, 1, 2))).Rows.Select(r => r.Id).ShouldBe([tier1.Id], "both given: a rule matches both");
+        (await _service.GetRulesAsync(list.Id, Request())).Rows.Count.ShouldBe(3);
+        (await Should.ThrowAsync<BusinessException>(() => _service.GetRulesAsync(list.Id, Request(null, 4)))).Code.ShouldBe(ReferenceDataErrorCodes.InvalidCode);
+    }
+
+    [Fact]
     public async Task Export_and_import_round_trip_the_rules_and_the_import_replaces_and_validates()
     {
         using var _ = InTenantA();

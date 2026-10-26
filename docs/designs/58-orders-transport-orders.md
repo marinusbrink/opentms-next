@@ -265,6 +265,23 @@ deviations, each small and reversible:
     `ITransportOrderLookup.GetWaypointTypesAsync(ids)` publishes activity, successor and default stay for Planning's via-depot
     departure. The fakes of build note 16 are deleted; the tests run on Planning's and Financial's real rows
     (`TransportRunFixture`), and `TransportRunChainTests` drives the whole chain through the real dispatcher and jobs.
+19. **2026-10-26, follow-ups.** *Export* (UI-GRID-013): `POST /api/orders/transport-order/export` takes the list's own request
+    plus `columns[] { field, header? }` (the grid's column ids in display order; empty = every exportable column) and
+    `allRows` (every order of the tenant, ignoring filters, view and search; the sort applies) and answers an xlsx file. The
+    client sends the headers it shows; a missing one is localized on the server in the UI culture. Read in pages of 1,000
+    with one batch of lookups each, written forward-only into a self-deleting temporary file; above the tenant setting
+    `Orders:Export:MaxRows` (default 50,000) `Orders:ExportTooManyRows`, an unknown column `Orders:ExportUnknownColumn`
+    (both 400). The organisation unit is exported as its id (Platform publishes no name lookup). *Wizard details*:
+    `materialise` and `copy-order` take `overrides[] { date, copyIndex, customerReference?, lines[] { lineId, quantity?,
+    weightKg? } }` per generated order; the line ids are the template's (its DTO's lines now carry `id`; a template update
+    replaces them) or the copied order's; unknown lines `Orders:MaterialisationLineUnknown`, a date or copy not being created,
+    a duplicate or a negative value `Orders:MaterialisationOverrideInvalid` (400), checked before anything is created. *Trip
+    request warning*: Planning's `TransportTripRequestNotHonouredEto` (design 59 build note 14) sets
+    `TripRequest.WarningCode` (`OpenTms.Orders:TripRequestNotHonoured`), `WarningField` and `WarningAt` (migration
+    `OrdersTripRequestWarning`); the row DTO carries `tripRequestWarningCode`; recording a trip clears it, request edits keep
+    it (the request is honoured once, on Confirm). *Approval*: `FinancialDefaultsMismatch` stays out of the default active
+    rules — it is a user validator in OpenTMS (`orders.md` §5) and Q6 / Assumption 3 make the four system rules the
+    default; a tenant switches it on in `Orders:ActiveApprovalRules`.
 
 ## Security quickscan
 

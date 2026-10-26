@@ -544,6 +544,14 @@
     "Orders:ContentBoxes": "Contents",
     "Orders:CopiesHint": "1 to 5 copies per print.",
     "Orders:FixedDescriptionsHint": "Printed in boxes 6 and 13.",
-    "Orders:ReportDefinitionDefaultHint": "Empty: the default consignment note definition in the user's language."
+    "Orders:ReportDefinitionDefaultHint": "Empty: the default consignment note definition in the user's language.",
+    "Orders:Setting.ExportMaxRows": "Export row limit",
+    "Orders:Setting.ExportMaxRowsDescription": "The most rows one Excel export of the order list may hold.",
+    "Orders:ExportSheetName": "Transport orders",
+    "OpenTms.Orders:MaterialisationLineUnknown": "The details name a line ({lineId}) the source does not have.",
+    "OpenTms.Orders:MaterialisationOverrideInvalid": "The details of {date}, copy {copyIndex} do not match the dates and copies being created, or name a line twice.",
+    "OpenTms.Orders:ExportTooManyRows": "The export would hold {count} rows; at most {max} are allowed. Filter the list first.",
+    "OpenTms.Orders:ExportUnknownColumn": "The list has no column \"{field}\" to export.",
+    "OpenTms.Orders:TripRequestNotHonoured": "The trip of this order was not created: {field} is not known to Planning. The legs are unplanned; plan them on the Planboard."
   }
 }

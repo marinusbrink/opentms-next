@@ -175,7 +175,10 @@ public class LegGenerator : DomainService
             }
 
             remaining.Remove(match);
-            var endsChanged = match.EndsDifferFrom(plan.Origin, plan.Destination);
+            /* Compared with the stops the leg was last generated from: the planner's own edits are not an order change. */
+            var originChanged = match.OriginDiffersFrom(plan.Origin);
+            var destinationChanged = match.DestinationDiffersFrom(plan.Destination);
+            var endsChanged = originChanged || destinationChanged;
             var quantitiesChanged = match.Quantities != line.Quantities;
             var positionChanged = match.Position != position;
             if (!endsChanged && !quantitiesChanged && !positionChanged)
@@ -186,8 +189,16 @@ public class LegGenerator : DomainService
 
             if (endsChanged)
             {
-                match.SetOrigin(plan.Origin);
-                match.SetDestination(plan.Destination);
+                if (originChanged)
+                {
+                    match.SetOrigin(plan.Origin);
+                }
+
+                if (destinationChanged)
+                {
+                    match.SetDestination(plan.Destination);
+                }
+
                 if (match.TripId is { } tripId)
                 {
                     result.Unassigned.Add((match, tripId));
@@ -212,16 +223,25 @@ public class LegGenerator : DomainService
         var stops = line.Stops.ToDictionary(s => s.Snapshot.StopId, s => s.Snapshot);
         foreach (var leg in current)
         {
-            var origin = stops.TryGetValue(leg.OriginStopId, out var o) ? o : leg.Origin;
-            var destination = stops.TryGetValue(leg.DestinationStopId, out var d) ? d : leg.Destination;
-            if (!leg.EndsDifferFrom(origin, destination))
+            /* Only an end that still points at an order stop follows it; the planner's ends (synthetic stops) stay as they are. */
+            var originChanged = stops.TryGetValue(leg.OriginStopId, out var o) && leg.OriginDiffersFrom(o);
+            var destinationChanged = stops.TryGetValue(leg.DestinationStopId, out var d) && leg.DestinationDiffersFrom(d);
+            if (!originChanged && !destinationChanged)
             {
                 result.Unchanged.Add(leg);
                 continue;
             }
 
-            leg.SetOrigin(origin);
-            leg.SetDestination(destination);
+            if (originChanged)
+            {
+                leg.SetOrigin(o!);
+            }
+
+            if (destinationChanged)
+            {
+                leg.SetDestination(d!);
+            }
+
             if (leg.TripId is { } tripId)
             {
                 result.Unassigned.Add((leg, tripId));

@@ -79,6 +79,7 @@ public class TransportOrderDtoMapper : ITransientDependency
             ExecutionProgress = o.ExecutionProgress,
             TripNumbers = o.TripNumbers,
             HasTripRequest = o.TripRequest != null,
+            TripRequestWarningCode = o.TripRequest?.WarningCode,
             CreationTime = o.CreationTime,
             LastModificationTime = o.LastModificationTime
         }).ToList();
@@ -153,7 +154,10 @@ public class TransportOrderDtoMapper : ITransientDependency
                 ArrivalRelationName = RelationName(o.TripRequest.ArrivalRelationId),
                 CarrierRelationName = o.TripRequest.CarrierRelationId == null ? null : RelationName(o.TripRequest.CarrierRelationId),
                 TripId = o.TripRequest.TripId,
-                TripNumber = tripNumber
+                TripNumber = tripNumber,
+                WarningCode = o.TripRequest.WarningCode,
+                WarningField = o.TripRequest.WarningField,
+                WarningAt = o.TripRequest.WarningAt
             },
             DefaultStops = o.DefaultStops.OrderBy(s => s.Position).Select(s => new TransportOrderDefaultStopDto
             {

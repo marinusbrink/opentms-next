@@ -176,4 +176,27 @@ public static class TemplateMaterialiser
 
         return new TransportOrderDraft(template.HeaderFor(orderDate), template.FinancialTermsInput(), defaultStops, lines, references, trip, template.Attributes);
     }
+
+    /// <summary>
+    /// The wizard's details of one generated order (design 61 "Details"): the customer reference (null keeps the
+    /// template's, empty clears it) and per line, by the line's index in position order, the quantity and weight.
+    /// </summary>
+    public static TransportOrderDraft WithDetails(TransportOrderDraft draft, MaterialisationDetails details)
+    {
+        Check.NotNull(draft, nameof(draft));
+        Check.NotNull(details, nameof(details));
+        var header = details.CustomerReference == null
+            ? draft.Header
+            : draft.Header with { CustomerReference = string.IsNullOrWhiteSpace(details.CustomerReference) ? null : details.CustomerReference.Trim() };
+        var lines = draft.Lines.Select((line, index) => details.Lines.TryGetValue(index, out var values)
+            ? line with { Freight = line.Freight with { Quantity = values.Quantity ?? line.Freight.Quantity, WeightKg = values.WeightKg ?? line.Freight.WeightKg } }
+            : line).ToList();
+        return draft with { Header = header, Lines = lines };
+    }
 }
+
+/// <summary>The quantity and weight of one line of a generated order; null keeps the source's.</summary>
+public sealed record MaterialisationLineDetails(decimal? Quantity, double? WeightKg);
+
+/// <summary>The details of one generated order (design 61 wizard "Details"); lines keyed by their index in position order.</summary>
+public sealed record MaterialisationDetails(string? CustomerReference, IReadOnlyDictionary<int, MaterialisationLineDetails> Lines);

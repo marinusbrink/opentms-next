@@ -32,6 +32,33 @@ public class TransportOrderListRequestDto : ReferenceDataListRequestDto
     public TransportOrderView View { get; set; } = TransportOrderView.All;
 }
 
+/// <summary>
+/// One column of a list export (UI-GRID-013): the grid's column id (<c>field</c> or <c>colId</c>, e.g. "number",
+/// "firstStop") and the header text the user sees. A missing header is localized on the server in the UI culture.
+/// </summary>
+public class ExportColumnDto
+{
+    [Required, MaxLength(OrdersConsts.MaxExportFieldLength)]
+    public string Field { get; set; } = string.Empty;
+
+    [MaxLength(OrdersConsts.MaxExportHeaderLength)]
+    public string? Header { get; set; }
+}
+
+/// <summary>
+/// The order list's export (UI-GRID-013, design 61): the list's own request (filters, view, search, sort; paging is
+/// ignored) plus the columns in display order (empty = every exportable column) and <see cref="AllRows"/> (true = every
+/// order of the tenant, the list's TotalCount, ignoring filters, view and search; the sort still applies). The answer is
+/// an xlsx file; more rows than the setting <c>Orders:Export:MaxRows</c> (default 50,000) are refused.
+/// </summary>
+public class TransportOrderExportRequestDto : TransportOrderListRequestDto
+{
+    [MaxLength(OrdersConsts.MaxExportColumns)]
+    public List<ExportColumnDto> Columns { get; set; } = new();
+
+    public bool AllRows { get; set; }
+}
+
 public class TransportOrderRowDto
 {
     public Guid Id { get; set; }
@@ -62,6 +89,8 @@ public class TransportOrderRowDto
     public ExecutionProgress ExecutionProgress { get; set; }
     public string? TripNumbers { get; set; }
     public bool HasTripRequest { get; set; }
+    /// <summary>Set when Planning could not honour the order's trip request ("Orders:TripRequestNotHonoured"); the legs stay unplanned.</summary>
+    public string? TripRequestWarningCode { get; set; }
     public DateTime CreationTime { get; set; }
     public DateTime? LastModificationTime { get; set; }
 }
@@ -306,6 +335,15 @@ public class TransportOrderTripRequestDto : TransportOrderTripRequestInputDto
     /// <summary>Set once Planning reported the trip it created from this request.</summary>
     public Guid? TripId { get; set; }
     public string? TripNumber { get; set; }
+    /// <summary>
+    /// Set when Planning could not honour the request on Confirm (design 59 build note 13): the error code
+    /// "OpenTms.Orders:TripRequestNotHonoured", localized by the client like any error code with <see cref="WarningField"/>
+    /// as {field}. The legs stay unplanned; the planner plans them on the Planboard.
+    /// </summary>
+    public string? WarningCode { get; set; }
+    /// <summary>The request field that did not resolve (transportTripTypeId, departureRelationId, vehicleIds, driverIds, …).</summary>
+    public string? WarningField { get; set; }
+    public DateTimeOffset? WarningAt { get; set; }
 }
 
 public class TransportOrderRemarkDto
@@ -537,6 +575,7 @@ public class PricePreviewRequestDto
 public interface ITransportOrderAppService : IApplicationService
 {
     Task<GridResponse<TransportOrderRowDto>> GetListAsync(TransportOrderListRequestDto input);
+    Task<Volo.Abp.Content.IRemoteStreamContent> ExportAsync(TransportOrderExportRequestDto input);
     Task<TransportOrderDto> GetAsync(Guid id);
     Task<TransportOrderDto> CreateAsync(TransportOrderCreateDto input);
     Task<TransportOrderDto> UpdateAsync(Guid id, TransportOrderUpdateDto input);

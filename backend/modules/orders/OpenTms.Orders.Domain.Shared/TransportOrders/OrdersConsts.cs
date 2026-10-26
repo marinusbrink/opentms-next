@@ -96,6 +96,25 @@ public static class OrdersConsts
 
     public const int MaxMaterialisationCopies = 50;
 
+    /// <summary>Design 61 wizard "Details": at most one override per generated order (dates × copies).</summary>
+    public const int MaxMaterialisationOverrides = MaxMaterialisationDates * MaxMaterialisationCopies;
+
+    /// <summary>UI-GRID-013: the default row cap of a list export (setting <c>Orders:Export:MaxRows</c>).</summary>
+    public const int DefaultExportMaxRows = 50_000;
+
+    /// <summary>The columns one export may name.</summary>
+    public const int MaxExportColumns = 100;
+
+    /// <summary>The export reads the list in pages of this size (one batch of lookups per page).</summary>
+    public const int ExportPageSize = 1_000;
+
+    public const int MaxExportFieldLength = 64;
+
+    public const int MaxExportHeaderLength = 128;
+
+    /// <summary>Planning's reason when a trip request was not honoured (design 59 build note 13).</summary>
+    public const int MaxTripRequestWarningLength = 64;
+
     /// <summary>The target type of the order's stored derived values (design 56, flow 2).</summary>
     public const string OrderSummaryTargetType = "Orders.TransportOrder";
 }

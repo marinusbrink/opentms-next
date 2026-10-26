@@ -267,6 +267,11 @@ What the implementer decided where this document left a detail open, and where i
     "TransportTripChanged (… distance)"); the chain ends because an unchanged set publishes nothing. Every handler carries
     `[UnitOfWork]` and runs inside the outbox dispatcher's unit of work per event. The calculator tests run on real Orders and
     Planning rows (the fakes are gone); `TransportRunChainTests` covers the whole chain.
+20. **2026-10-26, follow-ups.** Simulate takes `transportUnitId` as optional: a rule's unit dimension left empty means "any
+    unit" (step 3), so a line without a unit is a meaningful question — only the rules for any unit can match (the resolver
+    gets an id no rule names). The rules list takes `tiers[]` (several tiers at once: the editor's "Overrides" = 1, 2, 3,
+    "Defaults" = 0) next to the single `tier`, which keeps working; both given, a rule must match both; a value outside 0–3
+    is `ReferenceData.InvalidCode`.
 
 ## Security quickscan
 

@@ -12,5 +12,10 @@ public class PlanningExecutionSettingDefinitionProvider : SettingDefinitionProvi
             PlanningExecutionSettings.SpeedCorrectionPercent,
             PlanningExecutionConsts.DefaultSpeedCorrectionPercent.ToString(),
             isVisibleToClients: false));
+
+        context.Add(new SettingDefinition(
+            PlanningExecutionSettings.ExportMaxRows,
+            PlanningExecutionConsts.DefaultExportMaxRows.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            isVisibleToClients: true));
     }
 }

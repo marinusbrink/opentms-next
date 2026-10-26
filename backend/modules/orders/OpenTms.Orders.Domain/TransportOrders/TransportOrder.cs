@@ -221,7 +221,7 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     /// <summary>Replaces the trip request; null removes it. The trip id Planning reported survives a change.</summary>
     public void SetTripRequest(TripRequestInput? input)
-        => TripRequest = input == null ? null : TransportOrderTripRequest.From(input, TripRequest?.TripId);
+        => TripRequest = input == null ? null : TransportOrderTripRequest.From(input, TripRequest?.TripId, TripRequest);
 
     /// <summary>Planning's TransportTripCreated handler: idempotent, and a request that was removed meanwhile is left alone.</summary>
     public bool RecordTrip(Guid tripId)
@@ -234,6 +234,13 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         TripRequest.SetTrip(tripId);
         return true;
     }
+
+    /// <summary>
+    /// Planning's TransportTripRequestNotHonoured handler (design 59 build note 13): the request's warning, shown on the
+    /// order. Idempotent; a request removed meanwhile or already honoured with a trip is left alone.
+    /// </summary>
+    public bool RecordTripRequestNotHonoured(string? field, DateTimeOffset at)
+        => TripRequest != null && TripRequest.SetNotHonoured(OrdersErrorCodes.TripRequestNotHonoured, field, at);
 
     // ── default stops (the pattern) ─────────────────────────────────────────────
 

@@ -4,14 +4,19 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.Orders.Published;
+using Microsoft.Extensions.Logging;
+using OpenTms.PlanningExecution.Export;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.Permissions;
+using OpenTms.PlanningExecution.Settings;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
+using Volo.Abp.Content;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
+using Volo.Abp.Settings;
 
 namespace OpenTms.PlanningExecution.TransportTrips;
 
@@ -69,8 +74,13 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var filtered = await AsyncExecuter.LongCountAsync(query);
 
         var sorted = Sort(query, input.SortBy, input.Descending);
-        var page = await AsyncExecuter.ToListAsync(sorted
-            .Skip(input.StartRow).Take(input.EndRow - input.StartRow)
+        var page = await PageAsync(sorted, input.StartRow, input.EndRow - input.StartRow);
+        return new GridResponse<TransportTripRowDto> { Rows = await ToRowsAsync(page), TotalCount = total, FilteredCount = filtered };
+    }
+
+    private async Task<List<RowSource>> PageAsync(IQueryable<TransportTrip> sorted, int skip, int take)
+        => await AsyncExecuter.ToListAsync(sorted
+            .Skip(skip).Take(take)
             .Select(t => new RowSource
             {
                 Trip = t,
@@ -79,7 +89,112 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
                 LastStopCity = t.Stops.OrderByDescending(s => s.Position).Select(s => s.City).FirstOrDefault()
             }));
 
-        return new GridResponse<TransportTripRowDto> { Rows = await ToRowsAsync(page), TotalCount = total, FilteredCount = filtered };
+    /// <summary>
+    /// UI-GRID-013: the trip list as an xlsx file — the same filters, view, search and sort as <see cref="GetListAsync"/>
+    /// (or, with <see cref="TransportTripExportRequestDto.AllRows"/>, every trip the list's TotalCount counts), the
+    /// requested columns in their order, times in the tenant's zone. Read page by page with one batch of lookups per
+    /// page; refused above the tenant's row cap before anything is read.
+    /// </summary>
+    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
+    public virtual async Task<IRemoteStreamContent> ExportAsync(TransportTripExportRequestDto input)
+    {
+        var columns = TransportTripExportColumns.Resolve(input.Columns, L, _clock.Zone);
+        var query = await _trips.GetQueryableAsync();
+        var archived = input.IsArchived ?? false;
+        query = query.Where(t => t.IsArchived == archived);
+        if (!input.AllRows)
+        {
+            query = ApplyFilters(query, input);
+        }
+
+        var count = await AsyncExecuter.LongCountAsync(query);
+        var max = await SettingProvider.GetAsync(PlanningExecutionSettings.ExportMaxRows, PlanningExecutionConsts.DefaultExportMaxRows);
+        if (count > max)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.ExportTooManyRows).WithData("max", max).WithData("count", count);
+        }
+
+        /* Sort ends on the number, unique per tenant: the pages neither skip nor repeat a row. */
+        var sorted = Sort(query, input.SortBy, input.Descending);
+        var stream = await XlsxTableWriter.WriteAsync(L["PlanningExecution:ExportSheetName"], columns.Select(c => c.Column).ToList(), ExportRowsAsync(sorted, columns, (int)count));
+        Logger.LogInformation("Exported {Count} transport trips in {Columns} columns.", count, columns.Count);
+        return new RemoteStreamContent(stream, $"transport-trips-{_clock.Today():yyyy-MM-dd}.xlsx", XlsxTableWriter.ContentType);
+    }
+
+    private async IAsyncEnumerable<IReadOnlyList<object?>> ExportRowsAsync(IQueryable<TransportTrip> sorted, IReadOnlyList<TransportTripExportColumns.Chosen> columns, int count)
+    {
+        for (var start = 0; start < count; start += PlanningExecutionConsts.ExportPageSize)
+        {
+            var page = await PageAsync(sorted, start, PlanningExecutionConsts.ExportPageSize);
+            if (page.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (var row in await ToRowsAsync(page))
+            {
+                yield return columns.Select(c => c.Value(row)).ToList();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The trip picker (design 61 "Outsource origin": the target trip): paged, not archived, the statuses asked for
+    /// (default Planned and InProgress), the trip date range, the search key, one trip left out; nearest departure first.
+    /// </summary>
+    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
+    public virtual async Task<GridResponse<TransportTripPickerDto>> GetPickerAsync(TransportTripPickerRequestDto input)
+    {
+        var statuses = input.Status is { Count: > 0 } ? input.Status.Distinct().ToList() : [TransportTripStatus.Planned, TransportTripStatus.InProgress];
+        var query = (await _trips.GetQueryableAsync()).Where(t => !t.IsArchived && statuses.Contains(t.Status));
+        var total = await AsyncExecuter.LongCountAsync(query);
+
+        if (input.DateFrom != null)
+        {
+            query = query.Where(t => t.TripDate >= input.DateFrom);
+        }
+
+        if (input.DateTo != null)
+        {
+            query = query.Where(t => t.TripDate <= input.DateTo);
+        }
+
+        if (input.ExcludeTripId != null)
+        {
+            query = query.Where(t => t.Id != input.ExcludeTripId);
+        }
+
+        var term = input.WildcardSearch?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(term))
+        {
+            query = query.Where(t => t.SearchKey.Contains(term));
+        }
+
+        var filtered = await AsyncExecuter.LongCountAsync(query);
+        var sorted = string.IsNullOrEmpty(input.SortBy)
+            ? query.OrderBy(t => t.TripDate).ThenBy(t => t.PlannedDepartureUtc).ThenBy(t => t.Number)
+            : Sort(query, input.SortBy, input.Descending);
+        var page = await AsyncExecuter.ToListAsync(sorted.Skip(input.StartRow).Take(input.EndRow - input.StartRow));
+        var carriers = await _masterData.RelationNamesAsync(page.Select(t => t.CarrierRelationId));
+
+        return new GridResponse<TransportTripPickerDto>
+        {
+            Rows = page.Select(t => new TransportTripPickerDto
+            {
+                Id = t.Id,
+                Number = t.Number,
+                Name = t.Name,
+                TripDate = t.TripDate,
+                Status = t.Status,
+                CarrierRelationId = t.CarrierRelationId,
+                CarrierName = t.CarrierRelationId != null ? carriers.GetValueOrDefault(t.CarrierRelationId.Value, NotFound) : null,
+                PlannedDeparture = t.PlannedDeparture
+            }).ToList(),
+            TotalCount = total,
+            FilteredCount = filtered
+        };
     }
 
     private sealed class RowSource

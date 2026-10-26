@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
   </ItemGroup>
 
