@@ -27,7 +27,7 @@ vi.mock("@/apps/transport/views/OrdersView", () => ({ OrdersView: ({ filter }: {
 vi.mock("@/apps/transport/views/TripsView", () => ({ TripsView: ({ filter }: { filter?: string }) => <div data-slot="trips-view" data-filter={filter} /> }));
 vi.mock("@/apps/transport/views/TemplatesView", () => ({ TemplatesView: () => <div data-slot="templates-view" /> }));
 vi.mock("@/apps/transport/views/DocumentsView", () => ({ DocumentsView: () => <div data-slot="documents-view" /> }));
-vi.mock("@/apps/transport/pages/OrderPage", () => ({ OrderPage: ({ id }: { id: string }) => <div data-slot="order-page" data-record-id={id} /> }));
+vi.mock("@/apps/transport/pages/OrderPage", () => ({ OrderPage: ({ id, typeId }: { id: string; typeId?: string }) => <div data-slot="order-page" data-record-id={id} data-type-id={typeId} /> }));
 vi.mock("@/apps/transport/pages/TemplatePage", () => ({ TemplatePage: ({ id }: { id: string }) => <div data-slot="template-page" data-record-id={id} /> }));
 vi.mock("@/apps/transport/pages/TripPage", () => ({ TripPage: ({ id }: { id: string }) => <div data-slot="trip-page" data-record-id={id} /> }));
 
@@ -122,6 +122,12 @@ describe("TransportApp – routing by pathname", () => {
   ])("%s renders the record page with the id", (path, name) => {
     go(path);
     expect(slot(name)).toHaveAttribute("data-record-id", ID);
+  });
+
+  it("/transport/orders/new renders the order page of a new order, with the type New per type named", () => {
+    go("/transport/orders/new", { filter: "today", type: "type-2" });
+    expect(slot("order-page")).toHaveAttribute("data-record-id", "new");
+    expect(slot("order-page")).toHaveAttribute("data-type-id", "type-2");
   });
 
   it.each([

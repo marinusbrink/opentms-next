@@ -409,9 +409,9 @@ function ItemPricing({ form, line, orderId, rateLines, preview, canEditRateLines
           <Alert variant="warning" data-slot="price-preview">
             <AlertDescription>{t("Orders:PricePreviewNotice")}</AlertDescription>
           </Alert>
-          <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm" data-slot="item-preview-lines">
+          <dl className="flex flex-col gap-1 text-sm" data-slot="item-preview-lines">
             {previewLines.map((r, index) => (
-              <div key={index} className="contents">
+              <div key={index} className="flex justify-between gap-6">
                 <dt className="text-muted-foreground">{r.descriptionKey ? t(r.descriptionKey) : t(RATE_LINE_KINDS.find((k) => k.value === r.kind)?.key ?? "")}</dt>
                 <dd className="text-right tabular-nums">{f.amount(r.amount)}</dd>
               </div>

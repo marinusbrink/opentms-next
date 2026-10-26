@@ -159,6 +159,17 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     await screen.findByTestId("mock-grid");
     await waitFor(() => expect(barButton("Express")).toBeInTheDocument());
     expect(barButton("Standard")).toBeInTheDocument();
+    /* New opens the order page directly (design 61 "Order page, revised" 5), keeping the list's filter; per type with it. */
+    fireEvent.click(barButton("Express"));
+    const perType = navigateMock.mock.calls.at(-1)![0] as { to: string; search: (previous: Record<string, unknown>) => Record<string, unknown> };
+    expect(perType.to).toBe("/transport/orders/new");
+    const expressId = (perType.search({ filter: "today" }) as { type: string }).type;
+    expect(perType.search({ filter: "today" })).toEqual({ filter: "today", type: expressId });
+    expect(expressId).toBeTruthy();
+    fireEvent.click(barButton("Orders:NewTransportOrder"));
+    const plain = navigateMock.mock.calls.at(-1)![0] as typeof perType;
+    expect(plain.to).toBe("/transport/orders/new");
+    expect(plain.search({ filter: "today", type: "old" })).toEqual({ filter: "today" });
     fireEvent.click(barButton("Orders:NewFromTemplate"));
     expect(screen.getByTestId("materialise-wizard")).toHaveAttribute("data-kind", "template");
   });
