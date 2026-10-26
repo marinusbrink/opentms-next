@@ -250,6 +250,11 @@ Decisions the build had to take where this design left room, reported for the re
     return leg's end points at, regeneration takes over the stop's place and date but keeps the return leg's swapped
     activities (note 10), keeps its arrival on or after its departure, and stores the order stop's source key, so the same
     facts again leave the leg on its trip (`LegGenerator.RefreshReturnLeg`).
+15. **2026-10-26, review M5: the xlsx package.** As Orders (design 58 build note 20): `DocumentFormat.OpenXml` 3.1.1,
+    forward-only streaming (`OpenXmlWriter`) in pages of 500, because ClosedXML keeps the whole workbook in memory; no
+    new assembly in the host (ClosedXML 0.105.1 resolves the same 3.1.1). `Export/XlsxTableWriter.cs` is a copy of
+    Orders' writer (namespace only differs): modules cannot share Application code, and a shared Platform helper needs
+    the design gate (Platform is critical); a later PBI may move it there.
 
 ## Security quickscan
 

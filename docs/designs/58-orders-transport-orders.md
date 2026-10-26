@@ -289,6 +289,13 @@ deviations, each small and reversible:
     it (the request is honoured once, on Confirm). *Approval*: `FinancialDefaultsMismatch` stays out of the default active
     rules — it is a user validator in OpenTMS (`orders.md` §5) and Q6 / Assumption 3 make the four system rules the
     default; a tenant switches it on in `Orders:ActiveApprovalRules`.
+20. **2026-10-26, review M5: the xlsx package.** The export writes with `DocumentFormat.OpenXml` 3.1.1
+    (`OpenXmlWriter`, forward-only SAX streaming into the temporary file) rather than ClosedXML, which Financial's price-list
+    import/export uses (design 57 build note 14): ClosedXML builds the whole workbook in memory, which for 50,000 rows ×
+    the grid's columns costs hundreds of MB per request; the streaming writer holds one page of 1,000 rows. It adds no
+    assembly to the host: 3.1.1 is the version ClosedXML 0.105.1 already resolves to. `Export/XlsxTableWriter.cs` is
+    duplicated in Planning (design 59 build note 15) because a module may not reference another module's Application
+    project; moving it to a Platform helper is a Platform change and passes the design gate first (left for a later PBI).
 
 ## Security quickscan
 

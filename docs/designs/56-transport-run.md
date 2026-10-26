@@ -99,6 +99,9 @@ never calls Planning or Financial synchronously except the stated exceptions bel
 | Financial calculators → Orders `IOrderPricingReader`, Planning `ILegReader`, Master Data lookups | the calculator reads facts to price them (inside its own job) | new |
 | Planning calculators → Financial `IRateLineReader` | allocation reads the stored rate lines | new |
 | Orders, Planning → Integrations `IRoutingService`, `ICarbonFootprintCalculator` | inside calculators (jobs), never in a request | new |
+| Orders → Planning `ILegReader` | the order's legs with their trip and status: the stop lock and the cancel refusal while a leg is on a trip in progress (or completed), the delete refusal for assigned legs, the approval rules on the order's legs, the order summary calculator (execution progress, trip numbers, CO₂), the pricing snapshot's distances per line, the CMR print of a trip's lines (review M1, 2026-10-26) | new |
+| Orders → Planning `ITransportTripLookup` | trip number of the order's trip request in the order DTO, the trip (number, carrier, vehicles) on a CMR | new |
+| Orders → Financial `IRateLineReader` | the order's stored revenue totals: approval on stored revenue (no price recalculation in the request) and the order summary calculator (revenue, cost of revenue, margin) | new |
 
 Everything else is an event through the outbox (AD-16) with idempotent handlers (rule 3).
 
@@ -148,7 +151,10 @@ status. `Invoiced` is written by the invoicing run only.
 - **Numbers**: `INumberSequenceGenerator` (design 50) with keys `Orders.TransportOrderType:<id>`,
   `PlanningExecution.TransportTripType:<id>` (existing) and `Orders.ConsignmentNote` (new, format `CMR`, year, `-`, 6
   digits, per tenant; no type).
-- **Events**: ids only; name per AP-06; handler idempotency through the derived-value version or a natural key.
+- **Events**: ids only; name per AP-06; handler idempotency through the derived-value version or a natural key. One
+  stated exception (review m1): `TransportTripCreatedEto` carries the agreed purchase amount and currency of a "Tevens
+  trip" (design 59 §Commands, assumption 4), because Planning stores no money and the amount exists nowhere else for
+  Financial to read; Financial turns it into the trip's cost line once (natural key on the trip).
 - **Logging**: ids, counts, versions; never names, addresses or amounts.
 
 ### Platform changes (critical by default; small)
