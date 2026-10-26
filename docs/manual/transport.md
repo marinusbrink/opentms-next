@@ -24,6 +24,13 @@ Een order of rit opent als eigen pagina met een eigen adres (bijvoorbeeld `/tran
 dat adres bewaren of doorsturen; met **Sluiten** keert u terug naar de lijst, met de filters zoals u ze
 had. Hebt u nog niet-opgeslagen wijzigingen, dan vraagt het systeem eerst of u die wilt weggooien.
 
+Elke keuzelijst in een order, sjabloon, rit of wizard die een record kiest (klant, relatie, adres,
+contactpersoon, ordertype, stoptype, tijdslot, transporteenheid, product, voertuig, chauffeur,
+prijslijst, vrachtbriefprofiel, sjabloon en zo verder) eindigt met **Nieuw … toevoegen…**: het scherm
+voor het nieuwe record opent bovenop de order en na het opslaan is het gekozen. Zie *Nieuw record vanuit
+een keuzelijst* bij Stamgegevens. Alleen de regel van een tariefregel (de regels van de order zelf) en de
+leg van een kostenregel (die volgen uit de orders) hebben de regel niet: daar valt niets nieuws te maken.
+
 ## Berekende waarden
 
 Opslaan gaat direct: het systeem berekent prijzen, afstanden, CO₂, kosten, marge en voortgang daarna
@@ -94,6 +101,19 @@ orders heeft gedefinieerd (in de app Stamgegevens, onder Orders). Onderaan staat
 de stops waarmee elke nieuwe regel begint. Een gewijzigd patroon geldt alleen voor regels die u daarna
 toevoegt.
 
+Onder **Referenties** staan de referenties van de order (type, waarde en omschrijving), bijvoorbeeld een
+inkoopordernummer van de klant. **Referentie toevoegen** voegt een regel toe; type en waarde zijn
+verplicht (een type heeft hoogstens 32 tekens, een waarde 128, een omschrijving 256; hoogstens 50
+referenties per order).
+
+Kiest u bij een opgeslagen order een **andere klant**, dan vraagt het systeem *De financiële
+standaardinstellingen van … overnemen?* Met **Overnemen** worden de valuta, btw, betaaltermijn,
+prijslijsten en kortingen en toeslagen van de nieuwe klant de financiële voorwaarden van de order (zoals
+bij een nieuwe order: de prijslijsten in hun volgorde en alleen de kortingen en toeslagen die op de
+orderdatum gelden; een klant zonder financiële instellingen geeft euro zonder prijslijsten). Met
+**Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat;
+op het tabblad Prijzen ziet u ze vooraf.
+
 ### Tabblad Regels
 
 De regels (vrachten) staan in een tabel: transporteenheid, product, aantal, posities, colli, gewicht,
@@ -103,7 +123,8 @@ stops van het stoppatroon (de datums volgen de orderdatum).
 
 Klik op het potlood (of dubbelklik) om een regel te openen. Onder de tabel verschijnen dan de
 onderdelen *Lading*, *Container*, *Teksten en documenten*, *Afmetingen*, *Kenmerken* en de **stops**
-van die regel. De stops past u in hun eigen tabel aan: stoptype, datum, tijdslot of tijdvenster
+van die regel. Onder *Afmetingen* staan naast lengte, breedte en hoogte drie **wegingen** (kg) en drie
+**volumes** (m³) per regel, bijvoorbeeld de gewogen gewichten per pallet; een leeg veld telt niet mee. De stops past u in hun eigen tabel aan: stoptype, datum, tijdslot of tijdvenster
 (van–tot, als UU:MM), referentie en opmerking. Een stop openen geeft de relatie, het adres van die
 relatie, de contactpersoon en de geplande duur; met de pijltjes verschuift u de stop. Velden die het
 ordertype verplicht stelt, hebben een sterretje in de kolomkop.

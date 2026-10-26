@@ -53,6 +53,14 @@ niet te verlaten (en uw wijzigingen niet kwijt te raken) als het record dat u zo
   zonder opslaan laat de keuzelijst zoals hij was.
 - Dat geldt ook voor de keuzelijsten in een tabel in het scherm, zoals het land van een
   postcodebereik of het voertuigtype van een beladingsfactor: het nieuwe record komt in die regel.
+- Een adres en een contactpersoon horen bij een relatie. *Nieuw adres toevoegen…* en *Nieuwe
+  contactpersoon toevoegen…* openen daarom het scherm van de gekozen relatie (een contactpersoon met het
+  venster voor de nieuwe contactpersoon al open en de getypte naam erin). Na **Opslaan** van de relatie
+  is het nieuwe adres of de nieuwe contactpersoon gekozen. Zonder gekozen relatie staat de regel er niet;
+  u hebt het recht nodig om relaties te wijzigen.
+- Een nieuwe relatie vanuit een keuzelijst die alleen klanten (of alleen vervoerders) toont, krijgt die
+  rol al mee, zodat de keuzelijst haar daarna terugvindt.
+- Dit werkt in elke app, ook in **Transport**: het scherm dat opent is hetzelfde als in Stamgegevens.
 - De regel staat er alleen als u het recht hebt om zo'n record aan te maken én het onderdeel van
   dat record voor uw organisatie aanstaat (bijvoorbeeld *Stamgegevens › Referentie › Landen* voor
   een land), en niet in een scherm dat alleen-lezen is geopend.
