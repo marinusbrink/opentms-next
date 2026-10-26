@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import type { EntityLookupPage, EntityLookupQuery } from "@/components/ui/entity-lookup";
 import type { GridExportChoice } from "@/components/ui/grid-export-dialog";
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
@@ -34,6 +35,7 @@ export type AddManualStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips
 export type UpdateStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips.UpdateStopDto"];
 export type StopActualsDto = Schemas["OpenTms.PlanningExecution.TransportTrips.StopActualsDto"];
 export type OutsourceOriginDto = Schemas["OpenTms.PlanningExecution.TransportTrips.OutsourceOriginDto"];
+export type TransportTripPickerDto = Schemas["OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto"];
 export type TripAttributeDefinitionRow = Schemas["OpenTms.PlanningExecution.TransportTrips.TripAttributeDefinitionRowDto"];
 
 export const TRANSPORT_TRIP_TARGET_TYPE = "PlanningExecution.TransportTrip";
@@ -158,6 +160,22 @@ export async function exportTransportTrips(request: GridRequest, filters: Transp
   const blob = data as unknown as Blob | undefined;
   if (!blob) throw new Error("The server returned no file.");
   saveBlob(blob, fileNameFromContentDisposition(response.headers.get("Content-Disposition")) ?? fallbackFileName(`transport-trips-${fileDateStamp()}`, response.headers.get("Content-Type") ?? blob.type, ".xlsx"));
+}
+
+/** A trip as the trip picker offers it (EntityLookup needs a string id). */
+export type TripPickerOption = TransportTripPickerDto & { id: string };
+
+/** The trip picker ("Outsource origin", design 59 build note 14): planned and running trips by default, searched over
+ * number, name, carrier, vehicles, customers and stop cities on the server, paged; `excludeTripId` leaves out the
+ * leg's own trip. */
+export function tripPickerPage(excludeTripId: string | undefined): (q: EntityLookupQuery) => Promise<EntityLookupPage<TripPickerOption>> {
+  return async ({ term, skip, take }) => {
+    const { data, error } = await apiClient.GET("/api/planning/transport-trip/picker", {
+      params: { query: { StartRow: skip, EndRow: skip + take, WildcardSearch: term || undefined, ExcludeTripId: excludeTripId } },
+    });
+    if (error) throw error;
+    return { items: (data?.rows ?? []).filter((row) => row.id != null).map((row) => ({ ...row, id: row.id! })), totalCount: Number(data?.totalCount ?? 0) };
+  };
 }
 
 export function useTransportTripsGridFetcher(filters: TransportTripListFilters) {

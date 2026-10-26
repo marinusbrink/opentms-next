@@ -39,7 +39,8 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { TripPage } from "@/apps/transport/pages/TripPage";
 import { TripsView } from "@/apps/transport/views/TripsView";
 import { toast } from "sonner";
-import { barButton, gridRows, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
+import { tripPickerPage } from "@/domains/planning-execution/trips";
+import { barButton, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "PlanningExecution.TransportTrips";
@@ -86,6 +87,7 @@ beforeEach(() => {
   grants = { ...ALL };
   features = { ...FEATURES };
   gridRows.current = [];
+  lookupItems.current = {};
   resetClient();
   routes.GET["/api/planning/transport-trip"] = () => ({ rows: tripRows, totalCount: 2, filteredCount: 2 });
   routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1);
@@ -322,6 +324,45 @@ describe("TripPage – stops, legs, cost", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/unassign-legs", { params: { path: { id: "t1" } }, body: { legIds: ["leg-1"] } }));
     fireEvent.click(within(legs).getByText("PlanningExecution:OpenOrder"));
     expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/orders/o1" }));
+  });
+
+  it("Outsource origin picks the target trip in a trip picker (not an id field) and posts its id", async () => {
+    routes.POST["/api/planning/transport-trip/{id}/outsource-origin"] = () => ({ id: "leg-9" });
+    lookupItems.current = { "outsource-hub": [{ id: "hub-1", name: "Hub Tilburg" }], "outsource-trip": [{ id: "t9", number: "TR-9", name: "Evening" } as never] };
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("PlanningExecution:OutsourceOrigin"));
+    const dialog = await screen.findByRole("dialog");
+    const picker = dialog.querySelector<HTMLSelectElement>("#outsource-trip")!;
+    expect(picker.tagName).toBe("SELECT");
+    expect(within(dialog).getByRole("option", { name: "TR-9 · Evening" })).toBeInTheDocument();
+    fireEvent.change(dialog.querySelector("#outsource-hub")!, { target: { value: "hub-1" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByText("MasterData:Required")).toBeInTheDocument();
+    expect(POST).not.toHaveBeenCalledWith("/api/planning/transport-trip/{id}/outsource-origin", expect.anything());
+    fireEvent.change(picker, { target: { value: "t9" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/outsource-origin", { params: { path: { id: "t1" } }, body: { legId: "leg-1", hubRelationId: "hub-1", hubAddressId: null, toTripId: "t9" } }),
+    );
+  });
+
+  it("the trip picker asks the picker endpoint with the search, the page and the leg's own trip excluded", async () => {
+    routes.GET["/api/planning/transport-trip/picker"] = () => ({ rows: [{ id: "t9", number: "TR-9", status: 1 }, { id: null, number: "broken" }], totalCount: 7, filteredCount: 7 });
+    const page = await tripPickerPage("t1")({ term: "eve", skip: 25, take: 25 });
+    expect(GET).toHaveBeenCalledWith("/api/planning/transport-trip/picker", { params: { query: { StartRow: 25, EndRow: 50, WildcardSearch: "eve", ExcludeTripId: "t1" } } });
+    expect(page).toEqual({ items: [{ id: "t9", number: "TR-9", status: 1 }], totalCount: 7 });
+    await tripPickerPage("t1")({ term: "", skip: 0, take: 25 });
+    expect(lastCall(GET, "/api/planning/transport-trip/picker")?.params?.query?.WildcardSearch).toBeUndefined();
   });
 
   it("the cost tab shows the cost lines, the totals and the allocation per leg", async () => {

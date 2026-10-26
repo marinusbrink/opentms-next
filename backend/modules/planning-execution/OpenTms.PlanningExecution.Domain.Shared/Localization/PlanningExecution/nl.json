@@ -233,7 +233,7 @@
     "PlanningExecution:AlreadySeparate": "Het traject wordt al apart uitgevoerd",
     "PlanningExecution:Hub": "Hub",
     "PlanningExecution:TargetTripId": "Doelrit",
-    "PlanningExecution:TargetTripHint": "Het id van de rit die de vertrekactiviteit overneemt.",
+    "PlanningExecution:TargetTripHint": "De rit die de vertrekactiviteit overneemt: een geplande of lopende rit, niet deze rit.",
     "PlanningExecution:StopAdded": "Stop toegevoegd",
     "PlanningExecution:StopRemoved": "Stop verwijderd",
     "PlanningExecution:ActualsRecorded": "Werkelijke tijden vastgelegd",

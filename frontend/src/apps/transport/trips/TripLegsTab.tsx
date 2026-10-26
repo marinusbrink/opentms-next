@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { AmountCell, BoolCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
+import { EntityLookup } from "@/components/ui/entity-lookup";
 import { Input } from "@/components/ui/input";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +16,7 @@ import { AddressField, RelationField } from "@/apps/transport/components/Relatio
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
 import type { RelationOption } from "@/domains/master-data/entities";
 import { fetchLegs, legEndLabel, useUpdateLeg, type LegDto } from "@/domains/planning-execution/legs";
-import { useCarryOutSeparately, useCreateReturnLeg, useOutsourceOrigin, useUnassignLegs, type TransportTripDto } from "@/domains/planning-execution/trips";
+import { tripPickerPage, TRANSPORT_TRIP_STATUSES, useCarryOutSeparately, useCreateReturnLeg, useOutsourceOrigin, useUnassignLegs, type TransportTripDto, type TripPickerOption } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -176,20 +177,23 @@ function LegEditDialog({ leg, onClose }: { leg: LegDto; onClose: () => void }) {
 /** Outsource the origin activity to a hub on another trip (design 59, trips.md 24). */
 function OutsourceDialog({ tripId, leg, onClose }: { tripId: string; leg: LegDto; onClose: () => void }) {
   const { t } = useL();
+  const f = useFormat();
   const outsource = useOutsourceOrigin();
   const [hub, setHub] = useState<RelationOption | null>(null);
   const [hubAddressId, setHubAddressId] = useState<string | null>(null);
-  const [toTripId, setToTripId] = useState("");
+  const [toTrip, setToTrip] = useState<TripPickerOption | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  /* The target is another planned or running trip: the picker leaves out the leg's own trip (design 59 build note 14). */
+  const tripPage = useMemo(() => tripPickerPage(tripId), [tripId]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    if (!hub || !toTripId.trim()) return;
+    if (!hub || !toTrip) return;
     setError(null);
     try {
-      await outsource.mutateAsync({ id: tripId, dto: { legId: leg.id!, hubRelationId: hub.id, hubAddressId, toTripId: toTripId.trim() } });
+      await outsource.mutateAsync({ id: tripId, dto: { legId: leg.id!, hubRelationId: hub.id, hubAddressId, toTripId: toTrip.id } });
       toast.success(t("PlanningExecution:TransportTripSaved"));
       onClose();
     } catch (err) {
@@ -226,8 +230,24 @@ function OutsourceDialog({ tripId, leg, onClose }: { tripId: string; leg: LegDto
         )}
         <RelationField id="outsource-hub" label={t("PlanningExecution:Hub")} value={hub} onChange={(next) => { setHub(next); setHubAddressId(null); }} required error={submitted && !hub ? t("MasterData:Required") : undefined} />
         <AddressField id="outsource-hub-address" label={t("Orders:Address")} relationId={hub?.id} value={hubAddressId} onChange={setHubAddressId} />
-        <FormField label={t("PlanningExecution:TargetTripId")} htmlFor="outsource-trip" required error={submitted && !toTripId.trim() ? t("MasterData:Required") : undefined} hint={t("PlanningExecution:TargetTripHint")}>
-          <Input id="outsource-trip" value={toTripId} onChange={(e) => setToTripId(e.target.value)} />
+        <FormField label={t("PlanningExecution:TargetTripId")} htmlFor="outsource-trip" required error={submitted && !toTrip ? t("MasterData:Required") : undefined} hint={t("PlanningExecution:TargetTripHint")}>
+          <EntityLookup<TripPickerOption>
+            id="outsource-trip"
+            value={toTrip}
+            onChange={setToTrip}
+            fetchPage={tripPage}
+            required
+            aria-invalid={submitted && !toTrip}
+            getLabel={(trip) => [trip.number, trip.name].filter(Boolean).join(" · ")}
+            renderOption={(trip) => (
+              <div className="flex flex-col">
+                <span className="font-medium">{[trip.number, trip.name].filter(Boolean).join(" · ")}</span>
+                <span className="text-label text-muted-foreground">
+                  {[f.date(trip.tripDate), t(TRANSPORT_TRIP_STATUSES.find((s) => s.value === trip.status)?.key ?? ""), trip.carrierName].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+            )}
+          />
         </FormField>
       </form>
     </EntityDialog>

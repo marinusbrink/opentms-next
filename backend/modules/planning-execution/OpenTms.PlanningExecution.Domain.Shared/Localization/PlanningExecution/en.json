@@ -233,7 +233,7 @@
     "PlanningExecution:AlreadySeparate": "The leg is already carried out separately",
     "PlanningExecution:Hub": "Hub",
     "PlanningExecution:TargetTripId": "Target trip",
-    "PlanningExecution:TargetTripHint": "The id of the trip that takes over the origin activity.",
+    "PlanningExecution:TargetTripHint": "The trip that takes over the origin activity: a planned or running trip other than this one.",
     "PlanningExecution:StopAdded": "Stop added",
     "PlanningExecution:StopRemoved": "Stop removed",
     "PlanningExecution:ActualsRecorded": "Actual times recorded",
