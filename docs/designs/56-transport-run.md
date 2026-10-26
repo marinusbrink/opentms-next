@@ -215,6 +215,17 @@ Platform changes (2). The edition/tenant Features tab can switch each off; off h
 (design 54 pattern: class attribute for the app, chain on the screen methods, lookups need only the app). Rollback: a
 feature off; tables stay. Health tenant → friendly tenants → all is the host's choice through editions.
 
+**Background paths (review B2, 2026-10-26).** A path without a user is gated by the feature of what it *originates*,
+checked through `IFeatureChecker` for the tenant it runs in; a path that only *reacts* to a fact is not gated, because
+the fact itself could only come from a gated command:
+
+| Path | Gated? | Why |
+|---|---|---|
+| Hourly template materialisation (`TemplateMaterialisationRunner.RunForCurrentTenantAsync`) | **yes**: `Apps.Transport` + `Apps.Transport.Orders` + `Apps.Transport.Orders.Templates`, all on | it creates new orders on its own; off stops new materialisation, the templates and the orders already made stay |
+| Planning's `OrderLegsHandler` (legs on confirm/stops/lines changed/cancel, the "also a trip" of the trip request) | no | it follows an order fact; an order confirmed while the feature was on still gets its legs and its requested trip when the event is dispatched after the switch-off |
+| Financial's rate-line handlers and calculators, Planning's leg/trip calculators, Orders' summary calculator and handlers | no | they keep stored money, distances and summaries of existing records correct (AD-07); switching them off would leave stale values, not hide a screen |
+| Route-cache purge, outbox dispatcher | no | infrastructure, no user-visible behaviour |
+
 ## Cost & SLO impact
 
 - **Cloud SQL**: orders 2,000/day × (1 order + 2.5 lines + 5 stops) rows ≈ 7 MB/day; legs and trips ≈ 3 MB/day; rate

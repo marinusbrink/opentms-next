@@ -245,6 +245,37 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
         }
     }
 
+    [Theory]
+    [InlineData(OpenTms.Platform.Features.AppFeatures.Transport)]
+    [InlineData(OpenTms.Platform.Features.AppFeatures.TransportApp.Orders)]
+    [InlineData(OpenTms.Platform.Features.AppFeatures.TransportApp.OrderTemplates)]
+    public async Task The_hourly_run_creates_nothing_while_a_transport_templates_feature_is_off_and_catches_up_once_it_is_on(string feature)
+    {
+        /* Review B2 (constitution rule 4): the worker runs without a user, so no attribute gates it; the runner checks the
+         * tenant's features itself. */
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var daily = await Templates.CreateAsync(TemplateDto(f, "Daily gated " + feature));
+
+        using (AsBackgroundProcess())
+        {
+            using (OpenTms.Features.TestFeatureValueProvider.Override(feature, "false"))
+            {
+                (await GetRequiredService<TemplateMaterialisationRunner>().RunForCurrentTenantAsync()).ShouldBe(0, feature + " off: no materialisation");
+            }
+        }
+
+        (await Orders.GetListAsync(new TransportOrderListRequestDto { SourceTemplateId = daily.Id })).TotalCount.ShouldBe(0);
+        (await Templates.GetAsync(daily.Id)).LastMaterialisedDate.ShouldBeNull("the template was not touched");
+
+        using (AsBackgroundProcess())
+        {
+            (await GetRequiredService<TemplateMaterialisationRunner>().RunForCurrentTenantAsync()).ShouldBe(3, "feature on: the horizon is created");
+        }
+
+        (await Orders.GetListAsync(new TransportOrderListRequestDto { SourceTemplateId = daily.Id })).TotalCount.ShouldBe(3);
+    }
+
     [Fact]
     public async Task Another_tenant_sees_no_templates()
     {
