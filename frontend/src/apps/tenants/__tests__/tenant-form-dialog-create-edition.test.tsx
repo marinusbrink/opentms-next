@@ -87,7 +87,7 @@ const openPicker = () => {
   fireEvent.click(picker());
 };
 const typeIn = (element: HTMLElement, value: string) => fireEvent.input(element, { target: { value }, inputType: "insertText" });
-const createRow = () => screen.queryByRole("button", { name: "Editions:AddNewEdition" });
+const createRow = () => screen.queryByRole("option", { name: "Editions:AddNewEdition" });
 const editionDialog = () => document.getElementById("ef-name")?.closest<HTMLElement>("[role=dialog]") ?? null;
 
 describe("TenantFormDialog — Add new edition", () => {
@@ -111,7 +111,7 @@ describe("TenantFormDialog — Add new edition", () => {
 
     openPicker();
     typeIn(picker(), "Platinum");
-    fireEvent.click(await screen.findByRole("button", { name: "Editions:AddNewEdition" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Editions:AddNewEdition" }));
 
     await waitFor(() => expect(editionDialog()).not.toBeNull());
     expect(document.getElementById("ef-name")).toHaveValue("Platinum");
@@ -137,7 +137,7 @@ describe("TenantFormDialog — Add new edition", () => {
 
     openPicker();
     typeIn(picker(), "Silver");
-    fireEvent.click(await screen.findByRole("button", { name: "Editions:AddNewEdition" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Editions:AddNewEdition" }));
     await waitFor(() => expect(editionDialog()).not.toBeNull());
     await act(async () => {
       fireEvent.submit(editionDialog()!.querySelector("form")!);
@@ -155,7 +155,7 @@ describe("TenantFormDialog — Add new edition", () => {
   it("a cancelled edition editor changes nothing", async () => {
     renderCreate({ canCreateEdition: true });
     openPicker();
-    fireEvent.click(await screen.findByRole("button", { name: "Editions:AddNewEdition" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Editions:AddNewEdition" }));
     await waitFor(() => expect(editionDialog()).not.toBeNull());
     /* Close without a change: the dialog's own Close command. */
     const dialog = editionDialog()!;

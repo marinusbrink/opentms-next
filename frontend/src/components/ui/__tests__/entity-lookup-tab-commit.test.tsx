@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 
 /* UI-KEY-004 "Tab-to-commit" for the entity picker (design 43): Base UI closes the popup on Tab
- * without selecting, so the lookup hands over the highlighted item, or the only match of a typed
- * term, before the popup closes. Risk class: Medium (UI flow; the rule requires a component test). */
+ * without selecting, so the lookup hands over the highlighted item (a typed term highlights its first
+ * match) before the popup closes. Risk class: Medium (UI flow; the rule requires a component test). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
@@ -87,7 +87,7 @@ describe("EntityLookup Tab-to-commit (UI-KEY-004)", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "2", name: "Rhine Logistics" }));
   });
 
-  it("commits nothing on Tab when several items match and none is highlighted, or when the popup is closed", async () => {
+  it("commits the first of several matches on Tab (auto-highlighted, design 61 fast entry); nothing on a closed popup", async () => {
     const onChange = vi.fn();
     const fetchPage = makeFetchPage();
     render(<EntityLookup id="rel" value={null} onChange={onChange} fetchPage={fetchPage} getLabel={(r) => r.name} />, { wrapper });
@@ -101,9 +101,10 @@ describe("EntityLookup Tab-to-commit (UI-KEY-004)", () => {
     await screen.findByText("Rotterdam Freight");
     expect(screen.getByText("Antwerp Cargo")).toBeInTheDocument();
     expect(screen.queryByText("Rhine Logistics")).toBeNull();
+    await waitFor(() => expect(document.querySelector("[role=option][data-highlighted]")?.textContent).toBe("Rotterdam Freight"));
 
     fireEvent.keyDown(input(), { key: "Tab" });
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "1", name: "Rotterdam Freight" }));
   });
 
   it("does not re-commit the value that is already selected", async () => {
