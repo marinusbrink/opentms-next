@@ -169,6 +169,7 @@ function OutsourceDialog({ tripId, leg, onClose }: { tripId: string; leg: LegDto
         <RelationField id="outsource-hub" label={t("PlanningExecution:Hub")} value={hub} onChange={(next) => { setHub(next); setHubAddressId(null); }} required error={submitted && !hub ? t("MasterData:Required") : undefined} />
         <AddressField id="outsource-hub-address" label={t("Orders:Address")} relationId={hub?.id} value={hubAddressId} onChange={setHubAddressId} />
         <FormField label={t("PlanningExecution:TargetTripId")} htmlFor="outsource-trip" required error={submitted && !toTrip ? t("MasterData:Required") : undefined} hint={t("PlanningExecution:TargetTripHint")}>
+          {/* DEVIATION(UI-LOOK-004): no "Add new …" in the trip picker: a trip is never created in the Transport app (no New, the Planboard creates trips, PO), approved in docs/designs/61-transport-app.md (Trips list and editor). */}
           <EntityLookup<TripPickerOption>
             id="outsource-trip"
             value={toTrip}
