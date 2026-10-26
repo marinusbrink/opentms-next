@@ -148,6 +148,22 @@ Bundle: lazy chunks per app view (as the Master data app); grids virtualised; no
 2. The order editor shows legs read from Planning and rate lines from Financial; it never computes totals itself.
 3. The Planboard app stays a placeholder in this run; links to it are plain routes.
 
+### Build notes (backend follow-ups, 2026-10-26)
+
+The endpoints the screens asked for, as the generated client names them (details in the build notes of designs 57–59):
+
+1. **Export** on the Orders and Trips lists: `POST /api/orders/transport-order/export` and `POST
+   /api/planning/transport-trip/export` with the list's request plus `columns[] { field, header }` (the grid's column ids
+   and headers, visible or all columns) and `allRows`; the answer is the xlsx file (`transport-orders-<date>.xlsx`,
+   `transport-trips-<date>.xlsx`). Refusals: `ExportTooManyRows { max, count }`, `ExportUnknownColumn { field }`.
+2. **Wizard "Details"**: `materialise` / `copy-order` take `overrides[]` per generated order (date, copy index, customer
+   reference, per line quantity and weight); template lines now carry their `id`.
+3. **Trip picker** for "Outsource origin": `GET /api/planning/transport-trip/picker` with `excludeTripId` = the leg's trip.
+4. **Leg time windows**: `PUT /api/planning/leg/{id}` takes `originWindow` / `destinationWindow { from, till }`.
+5. **Trip request warning**: `TransportOrderDto.tripRequest.warningCode / warningField / warningAt` and the row's
+   `tripRequestWarningCode`; the text is the localized error code with `{field}`.
+6. **Price lists**: the rules list takes `tiers[]` ("Overrides" = 1, 2, 3); Simulate's transport unit is optional.
+
 ## Security quickscan
 
 No new client-side secrets; downloads through authenticated endpoints; permissions checked with `useIsGranted` for
