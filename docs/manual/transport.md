@@ -27,9 +27,10 @@ had. Hebt u nog niet-opgeslagen wijzigingen, dan vraagt het systeem eerst of u d
 Elke keuzelijst in een order, sjabloon, rit of wizard die een record kiest (klant, relatie, adres,
 contactpersoon, ordertype, stoptype, tijdslot, transporteenheid, product, voertuig, chauffeur,
 prijslijst, vrachtbriefprofiel, sjabloon en zo verder) eindigt met **Nieuw … toevoegen…**: het scherm
-voor het nieuwe record opent bovenop de order en na het opslaan is het gekozen. Zie *Nieuw record vanuit
-een keuzelijst* bij Stamgegevens. Alleen de regel van een tariefregel (de regels van de order zelf) en de
-leg van een kostenregel (die volgen uit de orders) hebben de regel niet: daar valt niets nieuws te maken.
+voor het nieuwe record opent bovenop de order en na het opslaan is het gekozen. Met het toetsenbord: typ de
+naam en druk op Enter zolang de lijst *Geen resultaten* toont. Zie *Nieuw record vanuit een keuzelijst* bij
+Stamgegevens. Alleen de leg van een kostenregel (die volgen uit de orders) heeft de regel niet: daar valt
+niets nieuws te maken.
 
 ## Berekende waarden
 
@@ -49,37 +50,57 @@ berekening wordt automatisch opnieuw geprobeerd en tot die tijd blijven de vorig
 - De kolommen *Opbrengst*, *Kosten*, *Marge* en *CO₂* zijn berekende waarden (zie hierboven).
   Via *Kolommen* zet u verborgen kolommen aan, zoals het ordertype en de organisatie-eenheid.
 - De kolom *Ritwaarschuwing* toont een driehoekje bij een order waarvan de "Tevens rit" niet is aangemaakt
-  (zie *Tabblad Planning*); open de order voor de reden.
+  (zie *Tevens rit*); open de order voor de reden.
 - **Exporteren** (het downloadpictogram rechts boven de lijst) maakt een Excel-bestand van de lijst. Kies
   *Zichtbare kolommen* of *Alle kolommen*, en *De rijen van het huidige filter en de zoekterm* of *Alle
   rijen* (alle orders, zonder filter of zoekterm). De kolommen staan in de volgorde en met de namen van de
   lijst; CO₂ gaat mee, de ritwaarschuwing niet. Een export heeft een maximum aantal rijen
   (standaard 50.000); is het er meer, dan meldt het venster dat en filtert u de lijst eerst.
 - Dubbelklik op een regel om de order te openen.
-- In de actiebalk: **Nieuwe transportorder** (heeft u meerdere ordertypen, dan staat er per type een
-  knop), **Nieuw van sjabloon**, en voor de geselecteerde order(s) **Order kopiëren**, **Vrachtbrief
+- In de actiebalk: **Nieuwe transportorder** (opent direct een nieuwe orderpagina; heeft u meerdere
+  ordertypen, dan staat er per type een knop), **Nieuw van sjabloon**, en voor de geselecteerde order(s) **Order kopiëren**, **Vrachtbrief
   afdrukken**, **Goedkeuren**, **Order annuleren** en **Verwijderen**. Rechtsklikken op een regel geeft
   dezelfde acties.
 
 ## Een order aanmaken
 
-**Nieuwe transportorder** opent een klein venster met het ordertype, de klant, de orderdatum (standaard
-vandaag) en de klantreferentie. Na **Opslaan** staat de order als *Concept* klaar en opent de pagina van de
-order. De standaardstops van het ordertype worden het *stoppatroon* van de order en de financiële
-standaarden van de klant (valuta, btw, betaaltermijn, prijslijsten, kortingen en toeslagen) de
-financiële voorwaarden.
+**Nieuwe transportorder** opent direct de orderpagina van een nieuwe order, zonder tussenvenster. Het
+standaard ordertype is al gekozen (met **Nieuw** per ordertype het type van die knop), de orderdatum is
+vandaag en de cursor staat in het veld *Klant*. Kiest u de klant, dan worden diens financiële
+standaarden (valuta, btw, betaaltermijn, prijslijsten, kortingen en toeslagen) de financiële voorwaarden
+van de order. Leg daarna de vrachtregels vast (zie *Vrachtregels snel invoeren*) en kies **Opslaan**
+(of Ctrl+S, op de Mac ⌘+S): de order staat dan als *Concept* klaar, met alles wat u hebt ingevuld, en de
+pagina toont de opgeslagen order. Met **Bevestigen** (of Ctrl+Enter, op de Mac ⌘+Enter) slaat u de nieuwe
+order op en bevestigt u hem in één keer.
 
 Een concept mag onvolledig zijn. Pas bij **Bevestigen** controleert het systeem of alles ingevuld is wat
-het ordertype verplicht stelt (de velden met een sterretje), of er minstens één regel is en of elke
-regel minstens twee stops heeft. Ontbreekt er iets, dan staat bovenaan de pagina wat er mist. Bij het
-bevestigen krijgt de order haar nummer en maakt de planning de legs (trajecten) aan.
+het ordertype verplicht stelt (de velden met een sterretje), of er minstens één vrachtregel is en of elke
+vrachtregel minstens twee stops heeft. Ontbreekt er iets, dan staat bovenaan de pagina wat er mist. Bij
+het bevestigen krijgt de order haar nummer en maakt de planning de legs (trajecten) aan.
 
 ## De orderpagina
 
-Bovenaan staan het nummer (of *Concept*) en de status. De knoppen hangen af van de status:
+De orderpagina is één pagina zonder tabbladen. Van boven naar beneden:
+
+1. de **kop** met het nummer (of *Concept*), de status en de knoppen, en daaronder de **ordergegevens**:
+   klant, ordertype (vast zodra de order een nummer heeft), orderdatum, klantreferentie, contactpersoon en
+   organisatie-eenheid; de interne en de factuuropmerkingen staan achter **Opmerkingen**;
+2. de **vrachtregels**: de lijst, de invoerregel om snel vrachtregels toe te voegen en, als u een
+   vrachtregel kiest, de details van die vrachtregel direct onder de lijst;
+3. de **totalen** van de order;
+4. de onderdelen op orderniveau, die u met een klik op de titel open- en dichtklapt: **Financiële
+   voorwaarden**, **Tevens rit**, **Referenties en kenmerken**, **Documenten** en
+   **Recordidentificatie**.
+
+Een order heeft geen stoppatroon meer: stops horen bij een vrachtregel. De standaardstops van het
+ordertype bepalen alleen het stoptype van de eerste en de laatste stop van een nieuwe vrachtregel
+(meestal *Laden* en *Lossen*).
+
+De knoppen hangen af van de status:
 
 | Status | Knoppen |
 |---|---|
+| Nieuw (nog niet opgeslagen) | Opslaan, Bevestigen |
 | Concept | Opslaan, Bevestigen, Order annuleren, Vrachtbrief afdrukken, Verwijderen |
 | Open | Opslaan, Goedkeuren, Order annuleren, Vrachtbrief afdrukken, Verwijderen |
 | Gereed voor facturatie | Archiveren, Herzien, Vrachtbrief afdrukken |
@@ -88,15 +109,26 @@ Bovenaan staan het nummer (of *Concept*) en de status. De knoppen hangen af van 
 | Geannuleerd | Vrachtbrief afdrukken |
 
 Een order in de status *Gereed voor facturatie*, *Gefactureerd*, *Gearchiveerd* of *Geannuleerd* is
-alleen te bekijken. Met **Opslaan als sjabloon** maakt u van de order een sjabloon (alleen met het recht
-om sjablonen aan te maken). Drukt u een vrachtbrief af terwijl er nog wijzigingen openstaan, dan slaat het
-systeem eerst op.
+alleen te bekijken; de invoerregel staat er dan niet. Met **Opslaan als sjabloon** maakt u van de order een
+sjabloon (alleen met het recht om sjablonen aan te maken). Drukt u een vrachtbrief af terwijl er nog
+wijzigingen openstaan, dan slaat het systeem eerst op.
 
-**Opslaan** verstuurt de gewijzigde onderdelen van de order één voor één: de ordergegevens, het
-stoppatroon, de regels, de referenties, de financiële voorwaarden, de rit en de kenmerken. Weigert het
-systeem een onderdeel, dan stopt het opslaan daar. Bovenaan ziet u de melding en welke onderdelen wel en
-welke niet zijn opgeslagen. De onderdelen die niet zijn opgeslagen, blijven gewijzigd staan; pas ze zo
-nodig aan en kies opnieuw **Opslaan**: dan gaan alleen die onderdelen.
+**Sneltoetsen** op de orderpagina:
+
+| Toets | Doet |
+|---|---|
+| Ctrl+S (Mac: ⌘+S) | Opslaan |
+| Ctrl+Enter (Mac: ⌘+Enter) | Bevestigen (alleen een concept of een nieuwe order) |
+| Esc | De details van de gekozen vrachtregel sluiten |
+| Enter in de invoerregel | De vrachtregel toevoegen |
+
+**Opslaan** verstuurt de gewijzigde onderdelen van de order één voor één: de ordergegevens, de
+vrachtregels, de referenties, de financiële voorwaarden, de rit en de kenmerken. Weigert het systeem een
+onderdeel, dan stopt het opslaan daar. Bovenaan ziet u de melding en welke onderdelen wel en welke niet
+zijn opgeslagen. De onderdelen die niet zijn opgeslagen, blijven gewijzigd staan; pas ze zo nodig aan en
+kies opnieuw **Opslaan**: dan gaan alleen die onderdelen. Klopt er iets niet in een dichtgeklapt
+onderdeel, dan klapt het bij het opslaan open en staat de titel in rood met een uitroepteken; een
+vrachtregel waar iets aan ontbreekt, heeft een rood driehoekje in de lijst en gaat open.
 
 **Gewijzigd door iemand anders.** Heeft iemand anders de order gewijzigd nadat u begon met bewerken, dan
 slaat het systeem uw wijzigingen niet over die van de ander heen. U krijgt de melding *Transportorder
@@ -104,7 +136,7 @@ gewijzigd door iemand anders* met twee keuzes:
 
 - **Opnieuw laden** toont de versie van de ander; uw niet-opgeslagen wijzigingen vervallen.
 - **Verder bewerken** houdt uw wijzigingen in beeld, bijvoorbeeld om ze over te nemen. Opslaan kan dan niet
-  (de knop is uitgeschakeld) tot u de order opnieuw laadt; bovenaan elk tabblad staat een melding met de
+  (de knop en Ctrl+S doen niets) tot u de order opnieuw laadt; bovenaan de pagina staat een melding met de
   knop **Opnieuw laden**.
 
 Onderdelen die vóór de melding al waren opgeslagen, blijven opgeslagen; de melding noemt welke wel en welke
@@ -119,18 +151,10 @@ wijziging door iemand anders en het opslaan gaat dan gewoon door.
   reden opgeven; die wordt bij de order bewaard. Een gefactureerde order kan niet herzien worden.
 - **Order annuleren** kan zolang geen leg op een rit staat die onderweg of afgerond is.
 
-### Tabblad Algemeen
+### Ordergegevens
 
-Ordertype (vast zodra de order een nummer heeft), klant, contactpersoon, orderdatum, klantreferentie,
-organisatie-eenheid, de interne en de factuuropmerkingen, en de *kenmerken* die uw organisatie voor
-orders heeft gedefinieerd (in de app Stamgegevens, onder Orders). Onderaan staat het **stoppatroon**:
-de stops waarmee elke nieuwe regel begint. Een gewijzigd patroon geldt alleen voor regels die u daarna
-toevoegt.
-
-Onder **Referenties** staan de referenties van de order (type, waarde en omschrijving), bijvoorbeeld een
-inkoopordernummer van de klant. **Referentie toevoegen** voegt een regel toe; type en waarde zijn
-verplicht (een type heeft hoogstens 32 tekens, een waarde 128, een omschrijving 256; hoogstens 50
-referenties per order).
+Klant, ordertype, orderdatum, klantreferentie, contactpersoon en organisatie-eenheid; achter
+**Opmerkingen** de interne en de factuuropmerkingen.
 
 Kiest u bij een opgeslagen order een **andere klant**, dan vraagt het systeem *De financiële
 standaardinstellingen van … overnemen?* Met **Overnemen** worden de valuta, btw, betaaltermijn,
@@ -139,82 +163,131 @@ bij een nieuwe order: de prijslijsten in hun volgorde en alleen de kortingen en 
 orderdatum gelden; een klant zonder financiële instellingen geeft euro zonder prijslijsten). Met
 **Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat:
 de nieuwe klant en de voorwaarden worden in één keer opgeslagen, dus nooit de klant zonder zijn
-voorwaarden. Op het tabblad Prijzen ziet u ze vooraf.
+voorwaarden. Onder *Financiële voorwaarden* ziet u ze vooraf. Bij een nieuwe order vraagt het systeem
+niets: de standaarden van de gekozen klant worden direct overgenomen.
 
-### Tabblad Regels
+### Vrachtregels
 
-De regels (vrachten) staan in een tabel: transporteenheid, product, aantal, posities, colli, gewicht,
-volume, laadmeters, europallets, en na het berekenen de afstand, de duur, de CO₂ en de prijs van de
-regel. Aantallen en gewichten past u direct in de tabel aan. **Regel toevoegen** maakt een regel met de
-stops van het stoppatroon (de datums volgen de orderdatum).
+De lijst toont per vrachtregel: het volgnummer, *Van → Naar* (de eerste en de laatste stop: relatie en
+plaats), datum en tijd (van de eerste stop), transporteenheid, aantal, gewicht, referentie (van de
+laadstop), de prijs (het opgeslagen totaal van de tariefregels van die vrachtregel; tijdens het herberekenen
+staat er een draaiend symbool bij) en de rit (een knop naar de rit zodra de legs van de vrachtregel op een
+rit staan). Transporteenheid, aantal, gewicht en referentie past u direct in de lijst aan. Een vrachtregel
+verwijdert u met de prullenbak aan het eind van de regel.
 
-Klik op het potlood (of dubbelklik) om een regel te openen. Onder de tabel verschijnen dan de
-onderdelen *Lading*, *Container*, *Teksten en documenten*, *Afmetingen*, *Kenmerken* en de **stops**
-van die regel. Onder *Afmetingen* staan naast lengte, breedte en hoogte drie **wegingen** (kg) en drie
-**volumes** (m³) per regel, bijvoorbeeld de gewogen gewichten per pallet; een leeg veld telt niet mee. De stops past u in hun eigen tabel aan: stoptype, datum, tijdslot of tijdvenster
-(van–tot, als UU:MM), referentie en opmerking. Een stop openen geeft de relatie, het adres van die
-relatie, de contactpersoon en de geplande duur; het geopende onderdeel schuift in beeld en de cursor staat
-in het veld *Relatie*. Kiest u een relatie, dan vult het systeem het standaardadres van die relatie in (of het
-enige adres, als de relatie er maar één heeft). Met de pijltjes verschuift u de stop. Velden die het
-ordertype verplicht stelt, hebben een sterretje in de kolomkop.
+#### Vrachtregels snel invoeren
 
-### Tabblad Prijzen
+Onder de lijst staat de **invoerregel**: *Van*, *Naar*, datum en tijd, transporteenheid, aantal, gewicht en
+referentie. Zo werkt hij met het toetsenbord:
 
-Hier staan de **tariefregels** van de order zoals het systeem ze heeft berekend en opgeslagen: eerst per
-regel, daarna de regels op orderniveau (kortingen en toeslagen, extra diensten, vaste prijs). Het soort
-regel staat als label in de tabel; houdt u de muis erboven, dan ziet u waar de prijs vandaan komt
-(prijslijst, regel, kolom, hoeveelheid). Met het recht *Tariefregels wijzigen* kunt u:
+- **Tab** gaat naar het volgende veld. Staat in een keuzelijst een keuze gemarkeerd, dan neemt Tab die over.
+- Bij een relatie neemt het systeem het standaardadres (of het enige adres) van die relatie. *Van* krijgt
+  het eerste en *Naar* het laatste standaard stoptype van het ordertype (meestal *Laden* en *Lossen*).
+- **Enter** voegt de vrachtregel toe. *Van*, datum, tijd en transporteenheid blijven staan voor de
+  volgende vrachtregel; de cursor staat weer in *Naar*. Zo voert u een reeks leveringen vanaf één adres in
+  met alleen *Naar*, Enter, *Naar*, Enter.
+- Ontbreekt *Van*, *Naar* of de transporteenheid, dan voegt Enter niets toe en staat onder het veld wat er
+  mist.
+- Kent het systeem een relatie of transporteenheid niet, typ dan de naam en druk op **Enter** terwijl de
+  lijst *Geen resultaten* toont: het venster voor een nieuw record opent met die naam, en na het opslaan is
+  het gekozen.
 
-- **Regel toevoegen**: een handmatige regel (omschrijving, aantal, eenheidsprijs), op een regel of op de
-  order;
-- **Extra dienst toevoegen**: een extra dienst uit de stamgegevens;
-- de **eenheidsprijs** van een berekende regel aanpassen (in de tabel);
-- een handmatige regel **verwijderen** (prullenbak);
-- een **vaste prijs instellen** of weer verwijderen.
+Extra stops, lading en containergegevens vult u in de details van de vrachtregel in.
 
-Onder de tabel staan de totalen (regels, kortingen en toeslagen, extra diensten, totaal), met de valuta
-één keer erbij. Past u op het tabblad Regels iets aan zonder op te slaan, dan toont het tabblad Prijzen
-na een ogenblik een **voorbeeld** van de nieuwe prijzen, met een melding dat het om een voorbeeld gaat.
-Een voorbeeld komt er pas als elke regel een transporteenheid heeft en minstens twee stops met relatie en
-adres; tot die tijd staat er een korte melding dat het voorbeeld nog niet beschikbaar is.
-Na **Opslaan** komen de opgeslagen, opnieuw berekende prijzen terug.
+#### Plakken uit Excel
 
-Onderaan staan de **financiële voorwaarden**: valuta (een keuzelijst van de valuta's uit Stamgegevens;
-een ontbrekende voegt u toe met *Nieuwe valuta toevoegen…*), btw, betaaltermijn, prijslijsten, wat er gebeurt
-als meerdere prijslijsten passen, kortingen en toeslagen (die van de klant zijn gemarkeerd als
-*standaard klant*), een vaste prijs en of de vrachtdocumenten met de factuur meegaan.
+Rijen uit Excel (of een ander rekenblad) worden in één keer vrachtregels. Kopieer de rijen en plak ze in
+een veld van de invoerregel, of kies **Plakken uit Excel** boven de lijst en plak ze in het tekstveld.
+De kolommen staan in de volgorde van de invoerregel: *Van*, *Naar*, *Datum*, *Tijd*, *Transporteenheid*,
+*Aantal*, *Gewicht*, *Referentie*. Een datum mag ook de tijd bevatten (*26-10-2026 08:00*); die geldt als de
+kolom *Tijd* leeg is. Relaties en transporteenheden zoekt het systeem op code of naam.
 
-### Tabblad Planning
+Eerst ziet u een **voorbeeld**. Een cel die het systeem niet kan thuisbrengen (geen of meer dan één
+treffer, een ongeldige datum, tijd of hoeveelheid) staat in rood met een driehoekje; die velden blijven
+leeg in de nieuwe vrachtregel en vult u daarna in de details in. Met de prullenbak laat u een rij weg
+(bijvoorbeeld de kopregel). **… vrachtregels toevoegen** voegt de rijen toe; opslaan doet u daarna met
+**Opslaan**.
 
-Bovenaan de **legs** van de order: elk traject tussen twee stops, met de geplande datums, afstand, duur,
-tolkilometers, CO₂, het rittnummer waarop de leg staat en de toegerekende kosten en opbrengst.
-Dubbelklik op een leg op een rit om die rit te openen; bij een leg zonder rit (of via rechtsklikken
-**Bewerken**) wijzigt u per kant (herkomst en bestemming) de referentie, de geplande datum en het
-**tijdvenster** (*Van* en *Tot*, als UU:MM op die datum; *Van* mag niet na *Tot* liggen), en de opmerking.
-Laat u beide tijden leeg, dan vervalt het tijdvenster (de hele dag). Verschuift u de datum, dan schuift het
-tijdvenster mee. De geplande datum moet binnen het tijdvenster liggen; anders meldt het venster dat. Legs
-bestaan pas na het bevestigen.
+#### De details van een vrachtregel
 
-Daaronder het onderdeel **Rit** ("Tevens rit"): zet het vinkje *Maak bij het bevestigen direct een rit aan
-voor deze order* aan. Het systeem vult de lege velden dan alvast in: het standaard rittype (of het enige
-rittype), het vertrek met de relatie en het adres van de eerste stop van de eerste regel, de aankomst met
-die van de laatste stop van de laatste regel, en als geplande vertrekdatum de datum van die eerste stop (met
-het begin van het tijdvenster als tijd, als dat is ingevuld). Controleer de voorstellen en pas ze zo nodig
-aan; wat u al had ingevuld, blijft staan. Kiest u zelf een andere relatie, dan vult het systeem het
-standaardadres van die relatie in (of het enige adres). Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een
-combinatie, de chauffeurs en een afgesproken inkoopprijs met valuta. Met een vervoerder wordt de rit
-uitbesteed aan die vervoerder; de afgesproken inkoopprijs hoort daarbij en is pas in te vullen als er een
-vervoerder is gekozen (haalt u de vervoerder weg, dan vervalt ook de prijs). Zonder vervoerder rijdt de rit
-met eigen materieel en komen de kosten uit de kostprijs per km. Bij **Bevestigen** maakt het systeem de rit
-één keer aan en zet alle legs van de order erop. Daarna is dit onderdeel alleen te bekijken en staat er
-een knop naar de aangemaakte rit; latere wijzigingen aan de order veranderen de rit niet.
+Klik op een vrachtregel (of druk Enter, of dubbelklik, of klik op het potlood) om de details te openen
+direct onder de lijst. **Esc** of het kruisje sluit ze weer. De details hebben drie tabbladen:
+
+- **Vrachtdetails**: eerst de lading en de aantallen (transporteenheid, aantal, posities, colli, gewicht,
+  volume, laadmeters, europallets, beladingsgraad, product, klantcode, voertuigtype, temperatuur,
+  transportvereisten, frankering, barcode), daarna de dichtklapbare onderdelen *Container*, *Afmetingen*
+  (lengte, breedte, hoogte en drie **wegingen** en drie **volumes**; een leeg veld telt niet mee), *Teksten
+  en documenten* en *Kenmerken*.
+- **Stops en trajecten**: de stops van de vrachtregel in een tabel: stoptype, datum, tijdslot of
+  tijdvenster (van–tot, als UU:MM), referentie en opmerking. Een stop openen geeft de relatie, het adres
+  (het standaardadres wordt voorgesteld), de contactpersoon en de geplande duur. Met de pijltjes verschuift
+  u een stop; **Stop toevoegen** voegt er een toe. Daaronder staan de **legs** van deze vrachtregel, met de
+  geplande datums, afstand, CO₂, de rit en de toegerekende kosten en opbrengst. Dubbelklik op een leg op
+  een rit om die rit te openen; bij een leg zonder rit (of via rechtsklikken **Bewerken**) wijzigt u per
+  kant de referentie, de geplande datum en het **tijdvenster** (*Van* en *Tot*, als UU:MM op die datum;
+  laat u beide leeg, dan geldt de hele dag), en de opmerking. Vóór het bevestigen staat hier dat de legs
+  bij het bevestigen worden aangemaakt.
+- **Prijzen**: de tariefregels van deze vrachtregel met het soort regel als label (houdt u de muis erboven,
+  dan ziet u waar de prijs vandaan komt), aantal, eenheidsprijs en bedrag, en het totaal van de
+  vrachtregel. Met het recht *Tariefregels wijzigen* voegt u een handmatige regel toe (**Regel
+  toevoegen**), past u de eenheidsprijs van een berekende regel aan en verwijdert u een handmatige regel.
+  Past u iets aan zonder op te slaan, dan staat hier na een ogenblik een **voorbeeld** van de nieuwe
+  prijzen; een voorbeeld komt er pas als elke vrachtregel een transporteenheid heeft en minstens twee
+  stops met relatie en adres. Een nieuwe vrachtregel krijgt zijn prijs na het opslaan.
+
+Velden die het ordertype verplicht stelt, hebben een sterretje.
+
+### Totalen
+
+De totalen van de order, alleen te lezen: de vrachtregels, een vaste prijs, de regels op orderniveau, de
+extra diensten, de kortingen en toeslagen en het totaal, met de valuta één keer erbij en een draaiend
+symbool zolang de prijzen worden herberekend. Tijdens een voorbeeld staan hier de voorbeeldbedragen.
+
+### Financiële voorwaarden
+
+Valuta (een keuzelijst van de valuta's uit Stamgegevens; een ontbrekende voegt u toe met *Nieuwe valuta
+toevoegen…*), btw, betaaltermijn, prijslijsten, wat er gebeurt als meerdere prijslijsten passen,
+kortingen en toeslagen (die van de klant zijn gemarkeerd als *standaard klant*), een vaste prijs en of de
+vrachtdocumenten met de factuur meegaan. Daaronder de **regels op orderniveau**: handmatige regels op de
+order, extra diensten, de vaste prijs en de kortingen en toeslagen, met **Regel toevoegen**, **Extra
+dienst toevoegen** en **Vaste prijs instellen** (of weer verwijderen).
+
+### Tevens rit
+
+Zet het vinkje *Maak bij het bevestigen direct een rit aan voor deze order* aan. Het systeem vult de lege
+velden dan alvast in: het standaard rittype (of het enige rittype), het vertrek met de relatie en het adres
+van de eerste stop van de eerste vrachtregel op de rit, de aankomst met die van de laatste stop van de
+laatste vrachtregel op de rit, en als geplande vertrekdatum de datum van die eerste stop (met het begin van
+het tijdvenster als tijd, als dat is ingevuld). Controleer de voorstellen en pas ze zo nodig aan; wat u al
+had ingevuld, blijft staan.
+
+Onder **Vrachtregels op de rit** staat per vrachtregel een vinkje; standaard gaan ze allemaal mee. Alleen
+de legs van de aangevinkte vrachtregels gaan bij het bevestigen op de rit; de andere blijven ongepland
+voor het Planbord. De stops van de rit volgen uit die legs. Staat er geen enkele vrachtregel aangevinkt
+(bijvoorbeeld omdat de enige gekozen vrachtregel is verwijderd), dan meldt het onderdeel dat; vink dan
+vrachtregels aan of zet de tevens-rit uit, anders kunt u niet opslaan.
+
+Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een combinatie, de chauffeurs en
+een afgesproken inkoopprijs met valuta. Met een vervoerder wordt de rit uitbesteed aan die vervoerder; de
+afgesproken inkoopprijs hoort daarbij en is pas in te vullen als er een vervoerder is gekozen (haalt u de
+vervoerder weg, dan vervalt ook de prijs). Zonder vervoerder rijdt de rit met eigen materieel en komen de
+kosten uit de kostprijs per km. Bij **Bevestigen** maakt het systeem de rit één keer aan. Daarna is dit
+onderdeel alleen te bekijken en staat er een knop naar de aangemaakte rit; latere wijzigingen aan de order
+veranderen de rit niet.
 
 Kon de planning de rit niet aanmaken (bijvoorbeeld omdat het rittype, een relatie, voertuig of chauffeur
-daar niet bekend is), dan staan de legs ongepland. Het onderdeel **Rit** toont dan een waarschuwing met de
-reden en het tijdstip, en bovenaan de orderpagina staat het label *Rit niet aangemaakt*; een klik erop opent
-dit tabblad. Plan de legs dan op het Planbord.
+daar niet bekend is), dan staan de legs ongepland. Dit onderdeel toont dan een waarschuwing met de reden en
+het tijdstip, en bovenaan de orderpagina staat het label *Rit niet aangemaakt*; een klik erop klapt dit
+onderdeel open. Plan de legs dan op het Planbord.
 
-### Tabblad Documenten
+### Referenties en kenmerken
+
+De referenties van de order (type, waarde en omschrijving), bijvoorbeeld een inkoopordernummer van de
+klant. **Referentie toevoegen** voegt een regel toe; type en waarde zijn verplicht (een type heeft
+hoogstens 32 tekens, een waarde 128, een omschrijving 256; hoogstens 50 referenties per order). Daaronder
+de *kenmerken* die uw organisatie voor orders heeft gedefinieerd (in de app Stamgegevens, onder Orders).
+
+### Documenten
 
 De afgedrukte vrachtbrieven van deze order, met nummer, afdrukmoment, profiel en bestand. Met het
 download-symbool haalt u de PDF op; met **Vrachtbrief afdrukken** maakt u een nieuwe.
@@ -227,7 +300,7 @@ download-symbool haalt u de PDF op; met **Vrachtbrief afdrukken** maakt u een ni
    het aantal exemplaren, randen, QR-code en *groeperen per leg* aanpassen, en per vak (afzender,
    geadresseerde, plaats van aflevering, plaats van inontvangstneming, vervoerder, opvolgende vervoerder,
    opgemaakt te) bepalen waar de gegevens vandaan komen.
-2. **Regels**: vink de regels aan die op de vrachtbrief komen. Bij een rit gaan alle orders van de rit mee.
+2. **Vrachtregels**: vink de vrachtregels aan die op de vrachtbrief komen. Bij een rit gaan alle orders van de rit mee.
 3. **Uitvoer**: met **Afdrukken** maakt het systeem één vrachtbrief per order. Per order ziet u of het
    gelukt is; lukt het niet (bijvoorbeeld omdat er nog geen vrachtbriefsjabloon is gekozen), dan staat de
    reden erbij. Per gemaakte vrachtbrief kiest u **Downloaden** of **Afdrukken** (opent de PDF).
@@ -242,9 +315,10 @@ klant, herhaling, dagen, de laatste aanmaakdatum, het aantal regels en of het sj
 *Toon inactief* ziet u ook de inactieve. **Nieuw sjabloon** vraagt naam, ordertype en klant en opent dan
 het sjabloon.
 
-Een sjabloon heeft dezelfde tabbladen als een order, met deze verschillen: in plaats van een nummer heeft
+Een sjabloon heeft dezelfde pagina als een order, met deze verschillen: in plaats van een nummer heeft
 het een **naam** en *Actief*, de stops hebben een **dagverschuiving** (aantal dagen na de orderdatum) in
-plaats van een datum, en op het tabblad Algemeen staat het onderdeel **Planning** (het schema):
+plaats van een datum (ook in de invoerregel), er zijn geen totalen, en onder de vrachtregels staat het
+onderdeel **Planning** (het schema):
 herhaling (geen, wekelijks of maandelijks), interval, de weekdagen of de dag van de maand, de horizon
 (hoeveel dagen vooruit het systeem orders aanmaakt, 1 tot 60) en de geldigheid (van en tot). Elk uur
 maakt het systeem voor elk actief sjabloon de orders aan voor de datums binnen de horizon die nog geen
