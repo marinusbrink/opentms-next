@@ -7,6 +7,9 @@ public static class OrdersSettings
     public const string ActiveApprovalRules = "Orders:ActiveApprovalRules";
 
     public const string DefaultActiveApprovalRules = "OrderMustBeOpen,ReferencesMustExist,NextInvoicePrice,FreightDocumentsAvailable";
+
+    /// <summary>UI-GRID-013: the most rows one export of the order list may hold (default <see cref="OrdersConsts.DefaultExportMaxRows"/>).</summary>
+    public const string ExportMaxRows = "Orders:Export:MaxRows";
 }
 
 /// <summary>Whether a discount or surcharge came with the customer's defaults or was picked by the clerk (design 58).</summary>

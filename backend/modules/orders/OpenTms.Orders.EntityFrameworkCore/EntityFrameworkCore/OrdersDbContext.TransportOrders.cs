@@ -60,6 +60,10 @@ public partial class OrdersDbContext
                 t.Property(x => x.DriverIds).HasJsonbList();
                 t.Property(x => x.AgreedPurchaseAmount).HasPrecision(MoneyPrecision, MoneyScale);
                 t.Property(x => x.AgreedPurchaseCurrencyCode).HasMaxLength(OrdersConsts.MaxCurrencyCodeLength);
+                t.Property(x => x.WarningCode).HasMaxLength(OrdersConsts.MaxTripRequestWarningLength);
+                t.Property(x => x.WarningField).HasMaxLength(OrdersConsts.MaxTripRequestWarningLength);
+                /* An instant, as the request's times: a DateTime here would make ABP configure the type as an entity of its own. */
+                t.Property(x => x.WarningAt).HasUtcInstant();
             });
 
             b.HasMany(o => o.Lines).WithOne().HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Cascade);

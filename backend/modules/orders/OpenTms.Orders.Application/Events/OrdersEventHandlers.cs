@@ -9,6 +9,7 @@ using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.Events;
 using OpenTms.Platform.DerivedValues;
 using Volo.Abp.DependencyInjection;
+using Volo.Abp.Timing;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.Uow;
@@ -27,6 +28,7 @@ public class OrdersEventHandlers :
     IDistributedEventHandler<LegUnassignedEto>,
     IDistributedEventHandler<LegsGeneratedEto>,
     IDistributedEventHandler<TransportTripCreatedEto>,
+    IDistributedEventHandler<TransportTripRequestNotHonouredEto>,
     IDistributedEventHandler<TransportTripStatusChangedEto>,
     IDistributedEventHandler<TransportTripRecalculatedEto>,
     IDistributedEventHandler<RateLinesChangedEto>,
@@ -34,13 +36,15 @@ public class OrdersEventHandlers :
 {
     private readonly IRepository<TransportOrder, Guid> _orders;
     private readonly IDerivedValueScheduler _derivedValues;
+    private readonly IClock _clock;
 
     public ILogger<OrdersEventHandlers> Logger { get; set; } = NullLogger<OrdersEventHandlers>.Instance;
 
-    public OrdersEventHandlers(IRepository<TransportOrder, Guid> orders, IDerivedValueScheduler derivedValues)
+    public OrdersEventHandlers(IRepository<TransportOrder, Guid> orders, IDerivedValueScheduler derivedValues, IClock clock)
     {
         _orders = orders;
         _derivedValues = derivedValues;
+        _clock = clock;
     }
 
     [UnitOfWork]
@@ -76,6 +80,22 @@ public class OrdersEventHandlers :
             await _orders.UpdateAsync(order, autoSave: true);
             await _derivedValues.RequestAsync(OrdersConsts.OrderSummaryTargetType, order.Id, "TripCreated");
             Logger.LogInformation("Trip {TripId} recorded on the trip request of order {OrderId}.", eventData.TripId, order.Id);
+        }
+    }
+
+    /// <summary>
+    /// Planning could not honour the order's trip request (design 59 build note 13): the order keeps a warning the
+    /// screens show. Idempotent: the same refusal again changes nothing; a request already honoured is left alone.
+    /// </summary>
+    [UnitOfWork]
+    public virtual async Task HandleEventAsync(TransportTripRequestNotHonouredEto eventData)
+    {
+        var order = await _orders.FindAsync(eventData.OrderId, includeDetails: false);
+        if (order != null && order.RecordTripRequestNotHonoured(eventData.Field, new DateTimeOffset(_clock.Now)))
+        {
+            await _orders.UpdateAsync(order, autoSave: true);
+            await _derivedValues.RequestAsync(OrdersConsts.OrderSummaryTargetType, order.Id, "TripRequestNotHonoured");
+            Logger.LogInformation("Trip request of order {OrderId} recorded as not honoured ({Field}).", order.Id, eventData.Field);
         }
     }
 

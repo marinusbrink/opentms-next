@@ -16,5 +16,12 @@ public class OrdersSettingDefinitionProvider : SettingDefinitionProvider
             LocalizableString.Create<OrdersResource>("Orders:Setting.ActiveApprovalRules"),
             LocalizableString.Create<OrdersResource>("Orders:Setting.ActiveApprovalRulesDescription"),
             isVisibleToClients: true));
+
+        context.Add(new SettingDefinition(
+            OrdersSettings.ExportMaxRows,
+            OrdersConsts.DefaultExportMaxRows.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            LocalizableString.Create<OrdersResource>("Orders:Setting.ExportMaxRows"),
+            LocalizableString.Create<OrdersResource>("Orders:Setting.ExportMaxRowsDescription"),
+            isVisibleToClients: true));
     }
 }

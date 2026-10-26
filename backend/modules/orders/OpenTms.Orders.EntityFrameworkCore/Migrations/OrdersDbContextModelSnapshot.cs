@@ -1719,6 +1719,17 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                                 .IsRequired()
                                 .HasColumnType("jsonb");
 
+                            b1.Property<DateTimeOffset?>("WarningAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<string>("WarningCode")
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
+                            b1.Property<string>("WarningField")
+                                .HasMaxLength(64)
+                                .HasColumnType("character varying(64)");
+
                             b1.HasKey("TransportOrderId");
 
                             b1.ToTable("TransportOrders", "orders");

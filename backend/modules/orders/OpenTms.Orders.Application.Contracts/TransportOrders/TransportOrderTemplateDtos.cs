@@ -177,6 +177,48 @@ public class MaterialiseTemplateDto
 
     [Range(1, OrdersConsts.MaxMaterialisationCopies)]
     public int Copies { get; set; } = 1;
+
+    /// <summary>
+    /// Design 61 wizard step "Details": per generated order (date and copy index) the customer reference and per line the
+    /// quantity and weight to use instead of the template's. Orders without an override get the template's values.
+    /// </summary>
+    [MaxLength(OrdersConsts.MaxMaterialisationOverrides)]
+    public List<MaterialisationOverrideDto> Overrides { get; set; } = new();
+}
+
+/// <summary>The details of one generated order (design 61 "Details (reference, quantity, weight per generated order)").</summary>
+public class MaterialisationOverrideDto
+{
+    /// <summary>One of the request's dates.</summary>
+    [Required]
+    public DateOnly Date { get; set; }
+
+    /// <summary>0-based: 0 .. copies − 1.</summary>
+    [Range(0, OrdersConsts.MaxMaterialisationCopies - 1)]
+    public int CopyIndex { get; set; }
+
+    /// <summary>Null keeps the template's reference; an empty text clears it.</summary>
+    [MaxLength(OrdersConsts.MaxCustomerReferenceLength)]
+    public string? CustomerReference { get; set; }
+
+    [MaxLength(OrdersConsts.MaxLines)]
+    public List<MaterialisationLineOverrideDto> Lines { get; set; } = new();
+}
+
+/// <summary>
+/// A line of a generated order. <see cref="LineId"/> is the template line's id for "new from template" and the copied
+/// order's line id for "copy order"; null values keep the source's.
+/// </summary>
+public class MaterialisationLineOverrideDto
+{
+    [Required]
+    public Guid LineId { get; set; }
+
+    [Range(typeof(decimal), "0", "99999999999999")]
+    public decimal? Quantity { get; set; }
+
+    [Range(0d, double.MaxValue)]
+    public double? WeightKg { get; set; }
 }
 
 public class MaterialisationResultDto

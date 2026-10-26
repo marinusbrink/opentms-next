@@ -538,6 +538,14 @@
     "Orders:ContentBoxes": "Inhoud",
     "Orders:CopiesHint": "1 tot 5 exemplaren per afdruk.",
     "Orders:FixedDescriptionsHint": "Afgedrukt in de vakken 6 en 13.",
-    "Orders:ReportDefinitionDefaultHint": "Leeg: de standaarddefinitie voor de vrachtbrief in de taal van de gebruiker."
+    "Orders:ReportDefinitionDefaultHint": "Leeg: de standaarddefinitie voor de vrachtbrief in de taal van de gebruiker.",
+    "Orders:Setting.ExportMaxRows": "Maximum aantal rijen per export",
+    "Orders:Setting.ExportMaxRowsDescription": "Het grootste aantal rijen dat één Excel-export van de orderlijst mag bevatten.",
+    "Orders:ExportSheetName": "Transportopdrachten",
+    "OpenTms.Orders:MaterialisationLineUnknown": "De details noemen een regel ({lineId}) die de bron niet heeft.",
+    "OpenTms.Orders:MaterialisationOverrideInvalid": "De details van {date}, exemplaar {copyIndex} passen niet bij de datums en exemplaren die worden gemaakt, of noemen een regel twee keer.",
+    "OpenTms.Orders:ExportTooManyRows": "De export zou {count} rijen bevatten; maximaal {max} zijn toegestaan. Filter de lijst eerst.",
+    "OpenTms.Orders:ExportUnknownColumn": "De lijst heeft geen kolom \"{field}\" om te exporteren.",
+    "OpenTms.Orders:TripRequestNotHonoured": "De rit van deze order is niet aangemaakt: {field} is onbekend bij de planning. De trajecten zijn ongepland; plan ze op het planbord."
   }
 }

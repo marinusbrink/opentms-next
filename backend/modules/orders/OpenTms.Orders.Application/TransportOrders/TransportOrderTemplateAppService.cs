@@ -196,7 +196,9 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
             throw new BusinessException(OrdersErrorCodes.TemplateInactive);
         }
 
-        var result = await _runner.MaterialiseAsync(template, Dates(input), input.Copies, storedTemplate: true);
+        var dates = Dates(input);
+        var details = Details(input, dates, template.Lines.OrderBy(l => l.Position).Select(l => l.Id).ToList());
+        var result = await _runner.MaterialiseAsync(template, dates, input.Copies, storedTemplate: true, details);
         await _templates.UpdateAsync(template, autoSave: true);
         return result;
     }
@@ -223,8 +225,58 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
     public virtual async Task<MaterialisationResultDto> CopyOrderAsync(Guid orderId, MaterialiseTemplateDto input)
     {
         var order = await _orders.GetAsync(orderId, includeDetails: true);
+        var dates = Dates(input);
+        /* The transient template keeps the order's lines in position order: the wizard names the order's own line ids. */
+        var details = Details(input, dates, order.Lines.OrderBy(l => l.Position).Select(l => l.Id).ToList());
         var transient = TransportOrderTemplate.FromOrder(GuidGenerator.Create(), order, "copy", _clock.Zone, GuidGenerator.Create);
-        return await _runner.MaterialiseAsync(transient, Dates(input), input.Copies, storedTemplate: false);
+        return await _runner.MaterialiseAsync(transient, dates, input.Copies, storedTemplate: false, details);
+    }
+
+    /// <summary>
+    /// The wizard's per-order details (design 61 "Details"), validated against the request: a date of the request, a copy
+    /// index below the copies, each (date, copy) once, each line once and known to the source.
+    /// </summary>
+    private static Dictionary<(DateOnly Date, int CopyIndex), MaterialisationDetails> Details(MaterialiseTemplateDto input, IReadOnlyList<DateOnly> dates, IReadOnlyList<Guid> lineIds)
+    {
+        var result = new Dictionary<(DateOnly, int), MaterialisationDetails>();
+        if (input.Overrides.Count > OrdersConsts.MaxMaterialisationOverrides)
+        {
+            throw new BusinessException(OrdersErrorCodes.MaterialisationOverrideInvalid).WithData("date", string.Empty).WithData("copyIndex", string.Empty);
+        }
+
+        var indexOf = lineIds.Select((id, index) => (id, index)).ToDictionary(p => p.id, p => p.index);
+        foreach (var o in input.Overrides)
+        {
+            if (!dates.Contains(o.Date) || o.CopyIndex < 0 || o.CopyIndex >= input.Copies || result.ContainsKey((o.Date, o.CopyIndex)))
+            {
+                throw new BusinessException(OrdersErrorCodes.MaterialisationOverrideInvalid).WithData("date", o.Date.ToString("yyyy-MM-dd")).WithData("copyIndex", o.CopyIndex);
+            }
+
+            if (o.CustomerReference is { Length: > OrdersConsts.MaxCustomerReferenceLength })
+            {
+                throw new BusinessException(OrdersErrorCodes.MaterialisationOverrideInvalid).WithData("date", o.Date.ToString("yyyy-MM-dd")).WithData("copyIndex", o.CopyIndex);
+            }
+
+            var lines = new Dictionary<int, MaterialisationLineDetails>();
+            foreach (var line in o.Lines)
+            {
+                if (!indexOf.TryGetValue(line.LineId, out var index))
+                {
+                    throw new BusinessException(OrdersErrorCodes.MaterialisationLineUnknown).WithData("lineId", line.LineId);
+                }
+
+                if (lines.ContainsKey(index) || line.Quantity is < 0 || line.WeightKg is < 0 || (line.WeightKg is { } w && !double.IsFinite(w)))
+                {
+                    throw new BusinessException(OrdersErrorCodes.MaterialisationOverrideInvalid).WithData("date", o.Date.ToString("yyyy-MM-dd")).WithData("copyIndex", o.CopyIndex);
+                }
+
+                lines[index] = new MaterialisationLineDetails(line.Quantity, line.WeightKg);
+            }
+
+            result[(o.Date, o.CopyIndex)] = new MaterialisationDetails(o.CustomerReference, lines);
+        }
+
+        return result;
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -373,6 +425,8 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
             {
                 var line = new TemplateLineDto
                 {
+                    /* The id the wizard's details name (MaterialisationLineOverrideDto.LineId); a template update replaces the lines and their ids. */
+                    Id = l.Id,
                     Position = l.Position,
                     TransportUnitName = units.GetValueOrDefault(l.Freight.TransportUnitId, NotFound()),
                     ProductName = l.Freight.ProductId == null ? null : products.GetValueOrDefault(l.Freight.ProductId.Value, NotFound()),

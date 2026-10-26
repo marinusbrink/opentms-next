@@ -62,7 +62,8 @@ public class TemplateMaterialisationRunner : ITransientDependency
     /// stamps the orders with its id (source Template) and records the last date, a transient one (copy order) leaves
     /// them without template (source Screen). Runs in the caller's unit of work.
     /// </summary>
-    public async Task<MaterialisationResultDto> MaterialiseAsync(TransportOrderTemplate template, IReadOnlyList<DateOnly> dates, int copies, bool storedTemplate)
+    public async Task<MaterialisationResultDto> MaterialiseAsync(TransportOrderTemplate template, IReadOnlyList<DateOnly> dates, int copies, bool storedTemplate,
+        IReadOnlyDictionary<(DateOnly Date, int CopyIndex), MaterialisationDetails>? details = null)
     {
         var result = new MaterialisationResultDto();
         var existing = storedTemplate
@@ -81,6 +82,11 @@ public class TemplateMaterialisationRunner : ITransientDependency
                 }
 
                 var draft = TemplateMaterialiser.ToDraft(template, date, _clock.Zone);
+                if (details != null && details.TryGetValue((date, copy), out var detail))
+                {
+                    draft = TemplateMaterialiser.WithDetails(draft, detail);
+                }
+
                 var order = await _commands.CreateAsync(draft, storedTemplate ? OrderSource.Template : OrderSource.Screen, null, storedTemplate ? template.Id : null, copy, confirm: true);
                 result.CreatedOrderIds.Add(order.Id);
             }
