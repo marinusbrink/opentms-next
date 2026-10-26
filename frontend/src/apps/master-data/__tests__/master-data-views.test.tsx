@@ -174,6 +174,16 @@ describe("Master data list views", () => {
     ]);
   });
 
+  it("the vehicle types grid shows the cost price per km (QP10) as a unit price, visible", async () => {
+    grants = { "MasterData.VehicleTypes": true };
+    render(<VehicleTypesView />);
+    const grid = await screen.findByTestId("mock-grid");
+    const column = grid.querySelector<HTMLElement>("[data-column=costPricePerKm]");
+    expect(column?.textContent).toBe("MasterData:CostPricePerKm");
+    expect(column?.getAttribute("data-cell-renderer")).toBe("UnitPriceCell");
+    expect(column?.getAttribute("data-hidden")).toBeNull();
+  });
+
   it.each([
     ["MasterData.AddressTypes", "masterData.addressTypes", AddressTypesView],
     ["MasterData.Countries", "masterData.countries", CountriesView],

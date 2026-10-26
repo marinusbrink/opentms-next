@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -13,17 +14,22 @@ import { Wizard, type WizardTask } from "@/components/ui/wizard";
 import { useAppFeatures } from "@/app/app-features";
 import { NewTemplateDialog } from "@/apps/transport/components/NewTemplateDialog";
 import { addDays } from "@/apps/transport/orders/order-form";
-import { MAX_COPIES, RECURRENCE_DAYS, copyOrder, materialiseTemplate, useInvalidateOrdersAfterMaterialisation, useTemplateLookup } from "@/domains/orders/templates";
+import { MaterialiseDetails } from "@/apps/transport/wizards/MaterialiseDetails";
+import { changedKeys, detailKey, detailSourceOf, hasInvalidValue, overridesFor, type DetailEdits } from "@/apps/transport/wizards/materialise-details";
+import { MAX_COPIES, RECURRENCE_DAYS, copyOrder, materialiseTemplate, useInvalidateOrdersAfterMaterialisation, useTemplate, useTemplateLookup } from "@/domains/orders/templates";
+import { useTransportOrder } from "@/domains/orders/transport-orders";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { parseInteger } from "@/lib/forms/use-form-state";
 import { toDate, toIsoDate, useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
+import { useOpenRecord } from "@/lib/use-open-record";
 
 /* The wizard New from template / Copy order (design 61; UI-WIZ-001 to -005): Source (a template, or the order being
  * copied) → Dates (per weekday over a range, or a calendar with copies per day) → Details (the copies per date; the
- * order's reference, quantity and weight are the template's: the API creates whole orders) → Confirm with per-date
- * progress through `materialise` / `copy-order` (design 58). */
+ * per generated order (date × copy) its customer reference and per line the quantity and weight, prefilled from the
+ * source; only what differs is sent as `overrides`) → Confirm with per-date progress through `materialise` /
+ * `copy-order` (design 58 build note 19). */
 
 export interface MaterialiseSource {
   kind: "template" | "order";
@@ -52,27 +58,29 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
   const [weekdays, setWeekdays] = useState<number>(1 | 2 | 4 | 8 | 16);
   const [picked, setPicked] = useState<string[]>([]);
   const [copies, setCopies] = useState("1");
+  const [edits, setEdits] = useState<DetailEdits>({});
   const [tasks, setTasks] = useState<WizardTask[] | undefined>(undefined);
   const [created, setCreated] = useState(0);
   /* "Add new template…" (UI-LOOK-004): the New template dialog on top (the Templates node's Create permission and
-   * feature chain, UI-PERM-006); the new template is selected and named until the lookup refetches. */
+   * feature chain, UI-PERM-006). A new template has no lines yet, so materialising it at once would create empty
+   * orders: after its save the wizard closes and the template's page opens (design 61, Assumption 1: New asks the
+   * minimum fields, then opens the page), where its lines and schedule are added; Create orders there runs this
+   * wizard on it. */
   const features = useAppFeatures();
+  const openRecord = useOpenRecord();
   const canCreateTemplate = useIsGranted("Orders.TransportOrderTemplates.Create") && features.isFeatureEnabled("Apps.Transport.Orders.Templates");
   const [newTemplate, setNewTemplate] = useState<{ term: string } | null>(null);
-  const [createdTemplate, setCreatedTemplate] = useState<{ value: string; label: string } | null>(null);
 
   useEffect(() => {
     if (open) {
       setTasks(undefined);
       setCreated(0);
+      setEdits({});
       setTemplateId(source?.kind === "template" ? source.id : null);
     }
   }, [open, source]);
 
-  const templateOptions = useMemo(() => {
-    const options = (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" }));
-    return createdTemplate && !options.some((o) => o.value === createdTemplate.value) ? [...options, createdTemplate] : options;
-  }, [templates.data, createdTemplate]);
+  const templateOptions = useMemo(() => (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" })), [templates.data]);
   const sourceLabel = source ? source.label : (templateOptions.find((o) => o.value === templateId)?.label ?? "");
 
   const dates = useMemo(() => {
@@ -94,6 +102,15 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
   const copiesValid = copiesValue != null && !Number.isNaN(copiesValue) && copiesValue >= 1 && copiesValue <= MAX_COPIES;
   const sourceId = source?.kind === "order" ? source.id : templateId;
 
+  /* The Details step's source: the template (its lines carry their ids) or the order being copied. */
+  const templateRecord = useTemplate(open && source?.kind !== "order" ? (templateId ?? undefined) : undefined);
+  const orderRecord = useTransportOrder(open && source?.kind === "order" ? source.id : undefined);
+  const sourceRecord = source?.kind === "order" ? orderRecord : templateRecord;
+  const detailSource = useMemo(() => detailSourceOf(sourceRecord.data), [sourceRecord.data]);
+  const copyCount = copiesValid ? (copiesValue ?? 1) : 0;
+  const detailsInvalid = dates.some((date) => Array.from({ length: copyCount }, (_, i) => edits[detailKey(date, i)]).some(hasInvalidValue));
+  const changedCount = detailSource ? changedKeys(dates, copyCount, detailSource, edits).length : 0;
+
   const run = async () => {
     if (!sourceId) return;
     setTasks(dates.map((date) => ({ id: date, label: f.date(date), status: "waiting" })));
@@ -101,7 +118,8 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
     for (const date of dates) {
       setTasks((prev) => prev?.map((task) => (task.id === date ? { ...task, status: "running" } : task)));
       try {
-        const result = source?.kind === "order" ? await copyOrder(source.id, [date], copiesValue ?? 1) : await materialiseTemplate(sourceId, [date], copiesValue ?? 1);
+        const overrides = detailSource ? overridesFor(date, copiesValue ?? 1, detailSource, edits) : [];
+        const result = source?.kind === "order" ? await copyOrder(source.id, [date], copiesValue ?? 1, overrides) : await materialiseTemplate(sourceId, [date], copiesValue ?? 1, overrides);
         total += result.createdOrderIds?.length ?? 0;
         setCreated(total);
         setTasks((prev) => prev?.map((task) => (task.id === date ? { ...task, status: "done" } : task)));
@@ -142,7 +160,14 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                 </FormSection>
               ) : (
                 <FormSection title={t("Orders:TransportOrderTemplate")}>
-                  <FormField label={t("Orders:TransportOrderTemplate")} htmlFor="materialise-template" required floating="always" className="max-w-md">
+                  <FormField
+                    label={t("Orders:TransportOrderTemplate")}
+                    htmlFor="materialise-template"
+                    required
+                    floating="always"
+                    className="max-w-md"
+                    hint={canCreateTemplate && tasks == null ? t("Orders:NewTemplateOpensItsPage") : undefined}
+                  >
                     <ReferenceCombobox
                       id="materialise-template"
                       value={templateId}
@@ -161,8 +186,9 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                         if (!next) setNewTemplate(null);
                       }}
                       onCreated={(template) => {
-                        setCreatedTemplate({ value: template.id, label: template.name });
-                        setTemplateId(template.id);
+                        setNewTemplate(null);
+                        onOpenChange(false);
+                        openRecord("TransportOrderTemplate", template.id);
                       }}
                     />
                   )}
@@ -232,16 +258,28 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
         {
           id: "details",
           title: t("Orders:Details"),
-          isValid: copiesValid,
+          /* The source must have loaded to prefill the details; when it cannot be read the orders are created as the
+           * source is (no details), and the step says so. */
+          isValid: copiesValid && !detailsInvalid && (detailSource != null || sourceRecord.isError),
           content: (
-            <FormSection title={t("Orders:Details")}>
-              <div className="grid grid-cols-4 gap-x-4 gap-y-3">
-                <FormField label={t("Orders:Copies")} htmlFor="materialise-copies" required error={copiesValid ? undefined : t("OpenTms.Orders:InvalidCopies").replace("{min}", "1").replace("{max}", String(MAX_COPIES))}>
-                  <Input id="materialise-copies" inputMode="numeric" className="tabular-nums" value={copies} onChange={(e) => setCopies(e.target.value)} />
-                </FormField>
-              </div>
-              <p className="mt-3 text-label text-muted-foreground">{t("Orders:MaterialiseDetailsHint")}</p>
-            </FormSection>
+            <div className="flex flex-col gap-4">
+              <FormSection title={t("Orders:Details")}>
+                <div className="grid grid-cols-4 gap-x-4 gap-y-3">
+                  <FormField label={t("Orders:Copies")} htmlFor="materialise-copies" required error={copiesValid ? undefined : t("OpenTms.Orders:InvalidCopies").replace("{min}", "1").replace("{max}", String(MAX_COPIES))}>
+                    <Input id="materialise-copies" inputMode="numeric" className="tabular-nums" value={copies} onChange={(e) => setCopies(e.target.value)} />
+                  </FormField>
+                </div>
+              </FormSection>
+              {sourceRecord.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {getApiErrorMessage(sourceRecord.error, t)} {t("Orders:DetailsUnavailable")}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                copyCount > 0 && <MaterialiseDetails dates={dates} copies={copyCount} source={detailSource} edits={edits} onEditsChange={setEdits} />
+              )}
+            </div>
           ),
         },
         {
@@ -256,6 +294,8 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                 <dd className="tabular-nums">{dates.length}</dd>
                 <dt className="text-label text-muted-foreground">{t("Orders:Copies")}</dt>
                 <dd className="tabular-nums">{copies}</dd>
+                <dt className="text-label text-muted-foreground">{t("Orders:OrdersWithDetails")}</dt>
+                <dd className="tabular-nums" data-slot="materialise-changed-count">{changedCount}</dd>
               </dl>
             </FormSection>
           ),

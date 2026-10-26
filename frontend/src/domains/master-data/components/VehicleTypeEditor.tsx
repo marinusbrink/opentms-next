@@ -30,10 +30,12 @@ interface Values {
   defaultWidthCm: string;
   defaultHeightCm: string;
   defaultGrossVehicleWeightKg: string;
+  /** QP10: the own-fleet cost price per kilometre of the type's vehicles (4 decimals); empty = unknown. */
+  costPricePerKm: string;
   transportCharacteristicsIds: string[];
 }
 
-const NUMBER_FIELDS = ["maxEpq", "maxLoadingMeters", "defaultLengthCm", "defaultWidthCm", "defaultHeightCm", "defaultGrossVehicleWeightKg"] as const;
+const NUMBER_FIELDS = ["maxEpq", "maxLoadingMeters", "defaultLengthCm", "defaultWidthCm", "defaultHeightCm", "defaultGrossVehicleWeightKg", "costPricePerKm"] as const;
 
 const initialValuesFor = (initialName: string | undefined) => (dto: VehicleTypeDto | undefined): Values => ({
   name: dto?.name ?? initialName ?? "",
@@ -45,6 +47,7 @@ const initialValuesFor = (initialName: string | undefined) => (dto: VehicleTypeD
   defaultWidthCm: numberToText(dto?.defaultWidthCm),
   defaultHeightCm: numberToText(dto?.defaultHeightCm),
   defaultGrossVehicleWeightKg: numberToText(dto?.defaultGrossVehicleWeightKg),
+  costPricePerKm: numberToText(dto?.costPricePerKm),
   transportCharacteristicsIds: (dto?.transportCharacteristics ?? []).map((i) => i.id ?? "").filter(Boolean),
 });
 
@@ -91,6 +94,7 @@ export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved, 
         defaultWidthCm: parseNumber(v.defaultWidthCm),
         defaultHeightCm: parseNumber(v.defaultHeightCm),
         defaultGrossVehicleWeightKg: parseNumber(v.defaultGrossVehicleWeightKg),
+        costPricePerKm: parseNumber(v.costPricePerKm),
         transportCharacteristicsIds: v.transportCharacteristicsIds,
       };
       return mode === "create"
@@ -126,6 +130,8 @@ export function VehicleTypeEditor({ mode, id, readOnly, open, onClose, onSaved, 
                 </Select>
               </FormField>
               <TextAreaField form={form} field="description" labelKey="MasterData:Description" maxLength={2500} />
+              {/* QP10: the cost price of an own-fleet trip per kilometre; a vehicle of this type without its own uses it. */}
+              <NumberField form={form} field="costPricePerKm" labelKey="MasterData:CostPricePerKm" />
             </div>
           </FormSection>
           <FormSection title={t("MasterData:DimensionsAndCapacities")}>

@@ -19,6 +19,12 @@ export function AmountCell({ value }: CellParams<number | null | undefined>) {
   return <span className="tabular-nums">{f.amount(value)}</span>;
 }
 
+/** A unit price (UI-FMT-006: 2 to 5 decimals, no currency symbol), e.g. a cost price per kilometre. */
+export function UnitPriceCell({ value }: CellParams<number | null | undefined>) {
+  const f = useFormat();
+  return <span className="tabular-nums">{f.unitPrice(value)}</span>;
+}
+
 export function DateCell({ value }: CellParams<string | Date | null | undefined>) {
   const f = useFormat();
   return <span className="tabular-nums">{f.date(value)}</span>;

@@ -534,6 +534,8 @@
     "MasterData:EmptyWeightKg": "Leeggewicht (kg)",
     "MasterData:MaxPayloadKg": "Max. laadvermogen (kg)",
     "MasterData:CostPricePerKm": "Kostprijs per km",
+    "MasterData:CostPricePerKmFromTypeHint": "Leeg: de kostprijs van het voertuigtype ({0}) geldt.",
+    "MasterData:CostPricePerKmNoTypeValueHint": "Leeg: ook het voertuigtype heeft geen kostprijs per km.",
     "MasterData:DimensionsAndCapacity": "Afmetingen en capaciteit",
     "MasterData:Engine": "Aandrijving",
     "MasterData:DriversAndIdentification": "Chauffeurs en identificatie",

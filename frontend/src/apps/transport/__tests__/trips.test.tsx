@@ -39,7 +39,8 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { TripPage } from "@/apps/transport/pages/TripPage";
 import { TripsView } from "@/apps/transport/views/TripsView";
 import { toast } from "sonner";
-import { barButton, gridRows, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
+import { tripPickerPage } from "@/domains/planning-execution/trips";
+import { barButton, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "PlanningExecution.TransportTrips";
@@ -86,6 +87,7 @@ beforeEach(() => {
   grants = { ...ALL };
   features = { ...FEATURES };
   gridRows.current = [];
+  lookupItems.current = {};
   resetClient();
   routes.GET["/api/planning/transport-trip"] = () => ({ rows: tripRows, totalCount: 2, filteredCount: 2 });
   routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1);
@@ -160,6 +162,35 @@ describe("TripsView", () => {
     expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TransportTripCompleted");
   });
 
+  it("exports the list (UI-GRID-013): the list's filters, the visible columns without CO2, the server's file name; a refusal stays in the dialog", async () => {
+    gridRows.current = tripRows;
+    const downloads: string[] = [];
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push(this.download);
+    });
+    routes.POST["/api/planning/transport-trip/export"] = () => ({ data: undefined, error: { error: { code: "OpenTms.PlanningExecution:ExportUnknownColumn", message: "The list has no column \"x\" to export." } }, response: new Response(null, { status: 400 }) });
+    renderWith(<TripsView filter="open" />);
+    await screen.findByTestId("mock-grid");
+    fireEvent.click(screen.getByRole("checkbox", { name: "PlanningExecution:HideEmpty" }));
+    fireEvent.click(screen.getByText("grid-export"));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    expect(await within(dialog).findByText(/has no column/)).toBeInTheDocument();
+    expect(downloads).toEqual([]);
+
+    routes.POST["/api/planning/transport-trip/export"] = () => ({ data: new Blob(["x"]), error: undefined, response: new Response(null, { headers: { "Content-Disposition": "attachment; filename=transport-trips-2026-10-26.xlsx" } }) });
+    dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    await waitFor(() => expect(downloads).toEqual(["transport-trips-2026-10-26.xlsx"]));
+    const body = lastCall(POST, "/api/planning/transport-trip/export")?.body as { columns: { field: string; header: string }[]; allRows: boolean; view: string; isArchived: boolean; hideEmpty: boolean };
+    expect(body).toMatchObject({ view: "Open", isArchived: false, hideEmpty: true, allRows: false });
+    expect(body.columns.map((c) => c.field)).not.toContain("co2Kg");
+    expect(body.columns.map((c) => c.field)).not.toContain("isArchived");
+    expect(body.columns.find((c) => c.field === "plannedDistanceM")?.header).toBe("PlanningExecution:Distance (km)");
+    click.mockRestore();
+  });
+
   it("opens a trip through useOpenRecord", async () => {
     gridRows.current = tripRows;
     renderWith(<TripsView filter="today" />);
@@ -215,6 +246,42 @@ describe("TripPage – ribbon and header", () => {
   });
 });
 
+describe("TripPage – carrier and agreed price per execution (own fleet vs outsourced)", () => {
+  const agreedLines = { currencyCode: "EUR", lines: [{ id: "a1", tripId: "t1", kind: 6, quantity: 1, unitPrice: 400, amount: 400, currencyCode: "EUR", position: 1, concurrencyStamp: "a1s" }], totals: { total: 400 }, state: { status: 2 } };
+  const carrierText = () => panel("General").querySelector("[data-slot=trip-carrier]")?.textContent;
+  const agreedText = () => panel("General").querySelector("[data-slot=trip-agreed-price]")?.textContent ?? null;
+
+  it("an outsourced trip shows its carrier and the agreed purchase price from its cost lines", async () => {
+    routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1, { execution: 2, carrierRelationId: "car-1", carrierName: "Charter BV" });
+    routes.GET["/api/financial/rate-line"] = () => agreedLines;
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("Charter BV");
+    await waitFor(() => expect(agreedText()).toBe("400.00 EUR"));
+  });
+
+  it("an outsourced trip without a carrier says none is chosen yet, never the own company", async () => {
+    routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1, { execution: 2, carrierRelationId: null, carrierName: null });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("PlanningExecution:NoCarrierChosen");
+  });
+
+  it("an own-fleet trip shows the own company and no agreed price row; switching the execution follows the form", async () => {
+    routes.GET["/api/financial/rate-line"] = () => agreedLines;
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    expect(carrierText()).toBe("PlanningExecution:OwnCompany");
+    /* The cost lines hold an agreed price, but an own-fleet trip shows no agreed price row. */
+    await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/financial/rate-line", expect.anything()));
+    expect(agreedText()).toBeNull();
+
+    fireEvent.change(within(panel("General")).getByLabelText(/^PlanningExecution:Execution/), { target: { value: "2" } });
+    expect(carrierText()).toBe("PlanningExecution:NoCarrierChosen");
+    await waitFor(() => expect(agreedText()).toBe("400.00 EUR"));
+  });
+});
+
 describe("TripPage – stops, legs, cost", () => {
   it("lists the stops with their warnings; Remove only for a manual stop, move blocked by actuals; Record actuals posts", async () => {
     routes.POST["/api/planning/transport-trip/{id}/record-stop-actuals/{stopId}"] = () => trip(1, { concurrencyStamp: "ts-2" });
@@ -257,6 +324,104 @@ describe("TripPage – stops, legs, cost", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/unassign-legs", { params: { path: { id: "t1" } }, body: { legIds: ["leg-1"] } }));
     fireEvent.click(within(legs).getByText("PlanningExecution:OpenOrder"));
     expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/orders/o1" }));
+  });
+
+  it("the leg dialog edits the time windows: prefilled as HH:mm, from after till refused, the changed window sent as instants", async () => {
+    const at = (time: string) => {
+      const [hh, mm] = time.split(":").map(Number);
+      return new Date(2026, 9, 25, hh, mm).toISOString();
+    };
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderId: "o1", orderNumber: "TO-1", tripPosition: 1, concurrencyStamp: "leg-s1", origin: { name: "Acme", plannedDate: "2026-10-25", windowFrom: at("08:00"), windowTill: at("12:00") }, destination: { name: "Beta", plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ id: "leg-1" });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    const from = dialog.querySelector<HTMLInputElement>("#trip-leg-origin-window-from")!;
+    const till = dialog.querySelector<HTMLInputElement>("#trip-leg-origin-window-till")!;
+    expect([from.value, till.value]).toEqual(["08:00", "12:00"]);
+    expect(dialog.querySelector<HTMLInputElement>("#trip-leg-destination-window-from")!.value).toBe("");
+
+    fireEvent.change(from, { target: { value: "13:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByText("PlanningExecution:WindowEndsBeforeStart")).toBeInTheDocument();
+    expect(PUT).not.toHaveBeenCalledWith("/api/planning/leg/{id}", expect.anything());
+
+    fireEvent.change(from, { target: { value: "09:30" } });
+    fireEvent.change(till, { target: { value: "14:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/leg/{id}", expect.objectContaining({ params: { path: { id: "leg-1" } } })));
+    const body = lastCall(PUT, "/api/planning/leg/{id}")!.body as Record<string, unknown>;
+    expect(body).toMatchObject({ concurrencyStamp: "leg-s1", originPlannedDate: "2026-10-25", destinationPlannedDate: "2026-10-26", originWindow: { from: at("09:30"), till: at("14:00") } });
+    expect(body.destinationWindow).toBeUndefined();
+    expect(toast.success).toHaveBeenCalledWith("PlanningExecution:LegSaved");
+  });
+
+  it("the leg dialog shows the server's InvalidLegWindow refusal and stays open", async () => {
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderId: "o1", orderNumber: "TO-1", origin: { plannedDate: "2026-10-25" }, destination: { plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ data: undefined, error: { error: { code: "OpenTms.PlanningExecution:InvalidLegWindow", message: "The time window ends before it starts (destination)." } }, response: new Response(null, { status: 400 }) });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(dialog.querySelector("#trip-leg-destination-window-from")!, { target: { value: "10:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(await within(dialog).findByText("The time window ends before it starts (destination).")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("Outsource origin picks the target trip in a trip picker (not an id field) and posts its id", async () => {
+    routes.POST["/api/planning/transport-trip/{id}/outsource-origin"] = () => ({ id: "leg-9" });
+    lookupItems.current = { "outsource-hub": [{ id: "hub-1", name: "Hub Tilburg" }], "outsource-trip": [{ id: "t9", number: "TR-9", name: "Evening" } as never] };
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("PlanningExecution:OutsourceOrigin"));
+    const dialog = await screen.findByRole("dialog");
+    const picker = dialog.querySelector<HTMLSelectElement>("#outsource-trip")!;
+    expect(picker.tagName).toBe("SELECT");
+    expect(within(dialog).getByRole("option", { name: "TR-9 · Evening" })).toBeInTheDocument();
+    fireEvent.change(dialog.querySelector("#outsource-hub")!, { target: { value: "hub-1" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByText("MasterData:Required")).toBeInTheDocument();
+    expect(POST).not.toHaveBeenCalledWith("/api/planning/transport-trip/{id}/outsource-origin", expect.anything());
+    fireEvent.change(picker, { target: { value: "t9" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/outsource-origin", { params: { path: { id: "t1" } }, body: { legId: "leg-1", hubRelationId: "hub-1", hubAddressId: null, toTripId: "t9" } }),
+    );
+  });
+
+  it("the trip picker asks the picker endpoint with the search, the page and the leg's own trip excluded", async () => {
+    routes.GET["/api/planning/transport-trip/picker"] = () => ({ rows: [{ id: "t9", number: "TR-9", status: 1 }, { id: null, number: "broken" }], totalCount: 7, filteredCount: 7 });
+    const page = await tripPickerPage("t1")({ term: "eve", skip: 25, take: 25 });
+    expect(GET).toHaveBeenCalledWith("/api/planning/transport-trip/picker", { params: { query: { StartRow: 25, EndRow: 50, WildcardSearch: "eve", ExcludeTripId: "t1" } } });
+    expect(page).toEqual({ items: [{ id: "t9", number: "TR-9", status: 1 }], totalCount: 7 });
+    await tripPickerPage("t1")({ term: "", skip: 0, take: 25 });
+    expect(lastCall(GET, "/api/planning/transport-trip/picker")?.params?.query?.WildcardSearch).toBeUndefined();
   });
 
   it("the cost tab shows the cost lines, the totals and the allocation per leg", async () => {

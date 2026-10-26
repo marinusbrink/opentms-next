@@ -215,8 +215,8 @@ describe("toSimulateDto", () => {
     quantity: "2", positions: "", colli: "", weightKg: "1.250,5".replace(".", "").replace(",", "."), volumeM3: "", loadingMeters: "", loadFactor: "", epq: "", distanceKm: "120", tollDistanceKm: "", durationH: "", asOf: "2026-06-01",
   };
 
-  it("needs both relations and the transport unit, and parses the quantities", () => {
-    expect(toSimulateDto({ ...values, transportUnitId: null })).toBeUndefined();
+  it("needs both relations, takes the transport unit as optional (design 57 build note 20), and parses the quantities", () => {
+    expect(toSimulateDto({ ...values, transportUnitId: null })).toMatchObject({ fromRelationId: "rel-1", toRelationId: "rel-1", transportUnitId: null });
     expect(toSimulateDto({ ...values, toRelation: null })).toBeUndefined();
     expect(toSimulateDto({ ...values, colli: "x" })).toBeUndefined();
     expect(toSimulateDto(values)).toMatchObject({ fromRelationId: "rel-1", fromRegionIds: ["r-1"], toRelationId: "rel-1", transportUnitId: "tu-1", quantity: 2, weightKg: 1250.5, distanceKm: 120, colli: null, asOf: "2026-06-01" });
@@ -329,7 +329,7 @@ describe("PriceListEditor — rules", () => {
     expect((await within(panel(RULES)).findByTestId("mock-grid")).getAttribute("data-grid-id")).toBe("masterData.priceListRules");
     await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/financial/price-list/{id}/rules", expect.objectContaining({ params: expect.objectContaining({ path: { id: "pl-1" } }) })));
     const rulesCall = GET.mock.calls.find(([p]) => p === "/api/financial/price-list/{id}/rules")!;
-    expect(rulesCall[1]!.params!.query).toMatchObject({ StartRow: 0, EndRow: 50, Tier: undefined });
+    expect(rulesCall[1]!.params!.query).toMatchObject({ StartRow: 0, EndRow: 50, Tiers: undefined });
 
     fireEvent.click(within(panel(RULES)).getByRole("button", { name: "Edit" }));
     await waitFor(() => expect(GET).toHaveBeenCalledWith("/api/financial/price-list/{id}/rule/{ruleId}", { params: { path: { id: "pl-1", ruleId: "rule-1" } } }));
@@ -400,6 +400,46 @@ describe("PriceListEditor — rules", () => {
     fireEvent.click(within(panel(RULES)).getByRole("button", { name: "Open" }));
     await within(panel(RULES)).findByText("Financial:Rule 1");
     expect(within(panel(RULES)).queryByRole("button", { name: /Financial:SaveRule/ })).toBeNull();
+  });
+});
+
+describe("PriceListEditor — rules tier filter (design 57 build note 20)", () => {
+  it("Overrides asks for tiers 1, 2 and 3 at once, Defaults for tier 0, a single tier for that tier, All for every rule", async () => {
+    grants = { "Financial.PriceLists.Update": true };
+    gridRows.current = [RULE_ROW];
+    renderWith(<PriceListEditor mode="edit" id="pl-1" readOnly={false} open onClose={noop} onSaved={noop} />);
+    await waitFor(() => expect(fieldIn(GENERAL, "MasterData:Code").value).toBe("BNL"));
+    tab(RULES);
+    await within(panel(RULES)).findByTestId("mock-grid");
+    const lastTiers = () => GET.mock.calls.filter(([p]) => p === "/api/financial/price-list/{id}/rules").at(-1)![1]!.params!.query!.Tiers;
+    const filter = within(panel(RULES)).getByLabelText("Financial:Tier") as HTMLSelectElement;
+    const choose = (label: string) => fireEvent.change(filter, { target: { value: Array.from(filter.options).find((o) => o.textContent === label)!.value } });
+    choose("Financial:Overrides");
+    await waitFor(() => expect(lastTiers()).toEqual([1, 2, 3]));
+    choose("Financial:Defaults");
+    await waitFor(() => expect(lastTiers()).toEqual([0]));
+    choose("Financial:Tier 2");
+    await waitFor(() => expect(lastTiers()).toEqual([2]));
+    choose("Financial:AllRules");
+    await waitFor(() => expect(lastTiers()).toBeUndefined());
+  });
+});
+
+describe("PriceListEditor — simulate without a transport unit", () => {
+  it("runs the simulation without a transport unit (only rules for any unit can match) and does not mark it required", async () => {
+    grants = { "Financial.PriceLists.Simulate": true };
+    POST.mockImplementation(async (path) => (path.endsWith("/simulate") ? ok({ winningRuleId: null, candidates: [], isValidOnAsOf: true }) : ok({ id: "new" })));
+    renderWith(<PriceListEditor mode="edit" id="pl-1" readOnly={false} open onClose={noop} onSaved={noop} />);
+    await waitFor(() => expect(fieldIn(GENERAL, "MasterData:Code").value).toBe("BNL"));
+    tab(SIMULATE);
+    const relations = within(panel(SIMULATE)).getAllByLabelText(/^Financial:Relation/);
+    fireEvent.change(relations[0], { target: { value: "rel-1" } });
+    fireEvent.change(relations[1], { target: { value: "rel-2" } });
+    fireEvent.click(within(panel(SIMULATE)).getByRole("button", { name: /Financial:RunSimulation/ }));
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/financial/price-list/{id}/simulate", expect.anything()));
+    const call = POST.mock.calls.find(([p]) => p === "/api/financial/price-list/{id}/simulate")!;
+    expect(call[1]!.body).toMatchObject({ fromRelationId: "rel-1", toRelationId: "rel-2", transportUnitId: null });
+    expect(within(panel(SIMULATE)).getByLabelText(/^Financial:TransportUnit/)).not.toHaveAttribute("aria-invalid", "true");
   });
 });
 

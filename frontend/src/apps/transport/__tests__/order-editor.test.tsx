@@ -10,11 +10,12 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
-vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
+/* The save report's keys carry their {0}, so a test sees which section names were filled in. */
+vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => (k.startsWith("Orders:Sections") ? `${k} {0}` : k), culture: "en", isLoading: false }) }));
 
 let grants: Record<string, boolean> = {};
 vi.mock("@/lib/abp/queries", () => ({
-  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Trips": "true" } } } }),
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true", "Apps.Transport.Trips": "true" } } } }),
 }));
 vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("@/lib/realtime/record-updates", () => ({
@@ -37,6 +38,7 @@ vi.mock("@/apps/transport/wizards/MaterialiseWizard", () => ({ MaterialiseWizard
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
+import { TemplatePage } from "@/apps/transport/pages/TemplatePage";
 import { toast } from "sonner";
 import { fail, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
@@ -258,6 +260,246 @@ describe("OrderPage – saving", () => {
   });
 });
 
+describe("OrderPage – one call for header and terms, and a save that stops part-way", () => {
+  const typeIn = (scope: HTMLElement, label: RegExp, value: string) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
+  const changeReference = (value: string) => typeIn(panel("General"), /^Orders:CustomerReference/, value);
+  const changePaymentTerm = (value: string) => {
+    tab("Orders:Pricing");
+    typeIn(panel("Orders:Pricing"), /^Orders:PaymentTermDays/, value);
+  };
+  const changeQuantity = async (value: string) => {
+    tab("Orders:Lines");
+    const lines = panel("Orders:Lines");
+    await waitFor(() => expect(within(lines).getAllByLabelText("Orders:Quantity").length).toBeGreaterThan(0));
+    fireEvent.change(within(lines).getAllByLabelText("Orders:Quantity")[0], { target: { value } });
+  };
+  const detailReads = () => calls(GET, "/api/orders/transport-order/{id}").length;
+
+  it("a header edit together with a terms edit is one header call that carries the terms", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    changePaymentTerm("45");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(
+      expect.objectContaining({ concurrencyStamp: "stamp-1", customerReference: "REF-2", financialTerms: expect.objectContaining({ currencyCode: "EUR", paymentTermDays: 45 }) }),
+    );
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved");
+  });
+
+  it("a terms-only edit keeps the terms command and sends no header", async () => {
+    routes.PUT["/api/orders/transport-order/{id}/financial-terms"] = () => order(2, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changePaymentTerm("45");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-1", paymentTermDays: 45 }));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(0);
+  });
+
+  it("stops at the first failure, names the saved and the unsaved sections, keeps the rest dirty and retries only those with the new stamp", async () => {
+    vi.mocked(toast.success).mockClear();
+    /* The server's state: the header call stores the new reference; the lines call fails once. */
+    let server = order(2);
+    routes.GET["/api/orders/transport-order/{id}"] = () => server;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (server = order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" }));
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => fail("Line 1 has no transport unit.");
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    await changeQuantity("3");
+    const readsBefore = detailReads();
+    await click(ribbonButton("Save")!);
+
+    expect(await screen.findByText("Line 1 has no transport unit.")).toBeInTheDocument();
+    const report = document.querySelector("[data-slot=save-report]") as HTMLElement;
+    expect(report).toHaveTextContent("Orders:SectionsSaved Orders:OrderDetails");
+    expect(report).toHaveTextContent("Orders:SectionsNotSaved Orders:Lines");
+    expect(report).not.toHaveTextContent("Orders:Attributes");
+    expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1);
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-2" }));
+    expect(toast.success).not.toHaveBeenCalled();
+    /* The record is read again (its current stamp), and the typed quantity is still there and dirty. */
+    await waitFor(() => expect(detailReads()).toBeGreaterThan(readsBefore));
+    expect((within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0] as HTMLInputElement).value).toBe("3");
+
+    /* Retry: only the lines go, with the stamp the header call returned; the header is not sent again. */
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => (server = order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-3" }));
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(2));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-2", lines: [expect.objectContaining({ id: "l1", quantity: 3 })] }));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
+    expect(document.querySelector("[data-slot=save-report]")).toBeNull();
+  });
+
+  it("a section left unsaved keeps the page dirty: Close asks first", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-2" });
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => fail("Refused.");
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    await changeQuantity("3");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("Refused.")).toBeInTheDocument();
+    await click(ribbonButton("Close")!);
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("UnsavedChanges");
+  });
+
+  it("a concurrency refusal while only the stamp changed (a recalculation, no one's content) runs the step again once with the newest stamp", async () => {
+    vi.mocked(toast.success).mockClear();
+    let attempts = 0;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (++attempts === 1 ? fail("The data you have submitted has already changed by another user.", 409) : order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-10" }));
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    changeReference("REF-2");
+    /* The newest version: the same content, another stamp (the summary the recalculation wrote). */
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-9", summary: { revenueAmount: 300 } });
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(2));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")[0][1]!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-1" }));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-9", customerReference: "REF-2" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("OrderPage – changed by someone else (concurrency conflict, no overwrite)", () => {
+  const typeIn = (scope: HTMLElement, label: RegExp, value: string) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
+  const referenceField = () => within(panel("General")).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement;
+  const theirs = () => order(2, { customerReference: "THEIRS", concurrencyStamp: "stamp-other" });
+
+  it("a 409 after someone else changed the order: the prompt, no retry with their stamp; Keep editing keeps the input and blocks Save", async () => {
+    vi.mocked(toast.success).mockClear();
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("The data you have submitted has already changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+
+    const prompt = await screen.findByRole("alertdialog");
+    expect(prompt).toHaveTextContent("Orders:TransportOrderChanged");
+    expect(prompt).toHaveTextContent("Orders:OrderChangedByOther");
+    /* Destructive (it discards the input): the focus starts on Keep editing. */
+    await waitFor(() => expect(document.activeElement).toHaveTextContent("Orders:KeepEditing"));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+    expect(toast.success).not.toHaveBeenCalledWith("Orders:TransportOrderSaved");
+
+    await click(within(prompt).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(referenceField().value).toBe("MINE");
+    expect(document.querySelector("[data-slot=order-conflict]")).toHaveTextContent("Orders:OrderChangedByOtherBanner");
+    expect(ribbonButton("Save")).toHaveAttribute("aria-disabled", "true");
+    /* Save stays impossible: even a command that saves first (Ctrl+S, Confirm, Print) sends nothing. */
+    await click(ribbonButton("Save")!);
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+  });
+
+  it("Reload discards the unsaved changes and loads theirs; saving works again with their stamp", async () => {
+    vi.mocked(toast.success).mockClear();
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("Changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+    const prompt = await screen.findByRole("alertdialog");
+    await click(within(prompt).getByRole("button", { name: "Orders:Reload" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(referenceField().value).toBe("THEIRS"));
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(ribbonButton("Save")).not.toHaveAttribute("aria-disabled");
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderReloaded");
+
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "AGAIN", concurrencyStamp: "stamp-next" });
+    typeIn(panel("General"), /^Orders:CustomerReference/, "AGAIN");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(2));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-other", customerReference: "AGAIN" }));
+  });
+
+  it("the banner's Reload asks again before it discards", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("Changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+    await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    const banner = document.querySelector("[data-slot=order-conflict]") as HTMLElement;
+    await click(within(banner).getByRole("button", { name: /Orders:Reload/ }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Orders:OrderChangedByOther");
+    expect(referenceField().value).toBe("MINE");
+  });
+
+  it("a newer version with other content that arrived while editing is not saved over: the prompt, without any call", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <OrderPage id="o1" />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    /* A push (another user's save) refreshes the record while the form is dirty. */
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["orders", "transportOrders", "detail", "o1"] });
+      /* The query's observers are notified on the next tick. */
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(referenceField().value).toBe("MINE");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Orders:OrderChangedByOther");
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(0);
+  });
+
+  it("a 409 after part of the save went through keeps the saved section and names the rest in the banner", async () => {
+    let server = order(2);
+    routes.GET["/api/orders/transport-order/{id}"] = () => server;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (server = order(2, { customerReference: "MINE", concurrencyStamp: "stamp-2" }));
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => {
+      /* Someone else changed the lines in between. */
+      server = order(2, { customerReference: "MINE", concurrencyStamp: "stamp-3", lines: [{ ...order(2).lines[0], quantity: 9 }] });
+      return fail("Changed by another user.", 409);
+    };
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    tab("Orders:Lines");
+    await waitFor(() => expect(within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity").length).toBeGreaterThan(0));
+    fireEvent.change(within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0], { target: { value: "3" } });
+    await click(ribbonButton("Save")!);
+    await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1);
+    const report = panel("Orders:Lines").querySelector("[data-slot=order-conflict] [data-slot=save-report]") as HTMLElement;
+    expect(report).toHaveTextContent("Orders:SectionsSaved Orders:OrderDetails");
+    expect(report).toHaveTextContent("Orders:SectionsNotSaved Orders:Lines");
+    expect((within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0] as HTMLInputElement).value).toBe("3");
+  });
+
+  it("a business-rule 409 (with its error code) is no conflict: the error shows and the partial-save behaviour stays", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => ({ data: undefined, error: { error: { code: "OpenTms.Orders:InvalidTransition", message: "The order cannot be changed in this status." } }, response: new Response(null, { status: 409 }) });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("The order cannot be changed in this status.")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(ribbonButton("Save")).not.toHaveAttribute("aria-disabled");
+  });
+});
+
 describe("OrderPage – pricing tab", () => {
   it("shows the stored rate lines grouped by line, the totals and the currency once (UI-FMT-007)", async () => {
     renderPage();
@@ -328,6 +570,37 @@ describe("OrderPage – planning tab (Tevens trip, Q9)", () => {
     expect(within(planning).getByText("Orders:TripRequestIncomplete")).toBeInTheDocument();
   });
 
+  it("the agreed purchase price belongs to an outsourced trip: it waits for a carrier and is cleared with it", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () =>
+      order(1, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureRelationName: "Acme", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalRelationName: "Beta", arrivalAddressId: "adr-2", plannedDeparture: "2026-10-25T06:00:00Z", carrierRelationId: "car-1", carrierRelationName: "Charter", agreedPurchaseAmount: 400, agreedPurchaseCurrencyCode: "EUR", vehicleIds: [], driverIds: [] } });
+    routes.PUT["/api/orders/transport-order/{id}/trip-request"] = () => order(1, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await screen.findByRole("heading", { level: 1 });
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    const amount = () => within(planning).getByLabelText(/^Orders:AgreedPurchaseAmount/) as HTMLInputElement;
+    const currency = () => planning.querySelector<HTMLSelectElement>("select[id$='-trip-agreedPurchaseCurrencyCode']")!;
+    const carrier = planning.querySelector<HTMLSelectElement>("select[id$='-trip-carrier']")!;
+    expect(amount().value).toBe("400");
+    expect(amount()).toBeEnabled();
+    expect(within(planning).queryByText("Orders:AgreedPurchaseNeedsCarrier")).toBeNull();
+
+    /* No carrier: an own-fleet trip; the price is cleared and waits, with the reason under it. */
+    lookupItems.current = { [carrier.id]: [{ id: "car-1", name: "Charter" }] };
+    fireEvent.change(carrier, { target: { value: "" } });
+    expect(amount().value).toBe("");
+    expect(amount()).toBeDisabled();
+    expect(currency()).toBeDisabled();
+    expect(within(planning).getByText("Orders:AgreedPurchaseNeedsCarrier")).toBeInTheDocument();
+
+    fireEvent.change(carrier, { target: { value: "car-1" } });
+    expect(amount()).toBeEnabled();
+    fireEvent.change(amount(), { target: { value: "350" } });
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/trip-request")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/trip-request")!.body).toEqual(expect.objectContaining({ tripRequest: expect.objectContaining({ carrierRelationId: "car-1", agreedPurchaseAmount: 350, agreedPurchaseCurrencyCode: null }) }));
+  });
+
   it("shows the created trip as a link and no editable fields once the order is confirmed", async () => {
     routes.GET["/api/orders/transport-order/{id}"] = () =>
       order(2, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalAddressId: "adr-2", plannedDeparture: "2026-10-25T06:00:00Z", tripId: "trip-9", tripNumber: "TR-9" } });
@@ -361,5 +634,97 @@ describe("OrderPage – documents and close", () => {
     await click(ribbonButton("Close")!);
     expect(navigateMock).not.toHaveBeenCalled();
     expect(await screen.findByRole("alertdialog")).toHaveTextContent("UnsavedChanges");
+  });
+});
+
+describe("TemplatePage – Create orders needs lines", () => {
+  const template = (extra: Record<string, unknown> = {}) => ({
+    id: "tpl-1",
+    name: "Weekly Acme",
+    transportOrderTypeId: "type-1",
+    customerRelationId: "rel-1",
+    customerName: "Acme",
+    isActive: true,
+    concurrencyStamp: "tstamp-1",
+    defaultStops: [],
+    lines: [],
+    schedule: { recurrence: 1, interval: 1, daysOfWeek: 1, horizonDays: 5, validFrom: "2026-10-25" },
+    ...extra,
+  });
+  const renderTemplate = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <TemplatePage id="tpl-1" />
+      </QueryClientProvider>,
+    );
+  };
+
+  it("a template without lines (a new one) cannot create orders yet; with a line it can", async () => {
+    grants = { ...ALL, "Orders.TransportOrderTemplates": true, "Orders.TransportOrderTemplates.Update": true };
+    routes.GET["/api/orders/transport-order-template/{id}"] = () => template();
+    const { unmount } = renderTemplate();
+    await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
+    /* A disabled ribbon command stays focusable (aria-disabled) and names its reason (UI-ACT). */
+    expect(ribbonButton("Orders:Materialise")).toHaveAttribute("aria-disabled", "true");
+    expect(ribbonButton("Orders:Materialise")).toHaveAttribute("title", "Orders:TemplateHasNoLines");
+    unmount();
+
+    routes.GET["/api/orders/transport-order-template/{id}"] = () => template({ lines: [{ id: "tl1", position: 1, transportUnitId: "unit-1", transportUnitName: "Pallet", quantity: 1, paymentInstruction: 0, stops: [] }] });
+    renderTemplate();
+    await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
+    expect(ribbonButton("Orders:Materialise")).not.toHaveAttribute("aria-disabled");
+  });
+});
+
+describe("OrderPage – Planning tab leg dialog (time windows)", () => {
+  it("edits a leg's destination window on the order's Planning tab and sends it on the planned date", async () => {
+    const at = (date: [number, number, number], time: string) => {
+      const [hh, mm] = time.split(":").map(Number);
+      return new Date(date[0], date[1] - 1, date[2], hh, mm).toISOString();
+    };
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", position: 1, concurrencyStamp: "ls", origin: { name: "Acme", plannedDate: "2026-10-25" }, destination: { name: "Beta", plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ id: "leg-1" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    await waitFor(() => expect(planning.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(planning).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(dialog.querySelector("#leg-destination-window-from")!, { target: { value: "7:15" } });
+    fireEvent.change(dialog.querySelector("#leg-destination-window-till")!, { target: { value: "11:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/leg/{id}", expect.anything()));
+    const body = lastCall(PUT, "/api/planning/leg/{id}")!.body as Record<string, unknown>;
+    expect(body.destinationWindow).toEqual({ from: at([2026, 10, 26], "07:15"), till: at([2026, 10, 26], "11:00") });
+    expect(body.originWindow).toBeUndefined();
+  });
+});
+
+describe("OrderPage – trip request warning", () => {
+  it("shows the warning as a header badge that opens the Planning tab, and in the Tevens-trip section with its time", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () =>
+      order(2, { tripRequest: { transportTripTypeId: "tt-1", plannedDeparture: "2026-10-25T06:00:00Z", vehicleIds: [], driverIds: [], warningCode: "OpenTms.Orders:TripRequestNotHonoured", warningField: "TransportTripType", warningAt: "2026-10-25T09:00:00Z" } });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    const badge = header().querySelector<HTMLElement>("[data-slot=trip-request-warning-badge]")!;
+    expect(badge).toHaveTextContent("Orders:TripNotCreated");
+    fireEvent.click(badge);
+    expect(screen.getByRole("tab", { name: "Orders:Planning" })).toHaveAttribute("aria-selected", "true");
+    const alert = panel("Orders:Planning").querySelector<HTMLElement>("[data-slot=trip-request-warning]")!;
+    expect(alert).toHaveTextContent("OpenTms.Orders:TripRequestNotHonoured");
+    expect(alert).toHaveTextContent("Orders:WarningSince");
+  });
+
+  it("shows no badge and no warning without one", async () => {
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    expect(header().querySelector("[data-slot=trip-request-warning-badge]")).toBeNull();
+    tab("Orders:Planning");
+    expect(panel("Orders:Planning").querySelector("[data-slot=trip-request-warning]")).toBeNull();
   });
 });

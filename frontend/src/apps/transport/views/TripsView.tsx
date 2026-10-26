@@ -11,9 +11,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
+import { GridExportDialog } from "@/components/ui/grid-export-dialog";
 import { AmountCell, BoolCell, DateCell, DateTimeCell, NumberCell, PercentCell } from "@/components/ui/grid-cells";
 import { MultiSelect } from "@/components/ui/multi-select";
-import type { GridSelectionDto } from "@/components/ui/opentms-grid";
+import type { GridExportContext, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
@@ -27,6 +28,7 @@ import {
   TRANSPORT_TRIP_STATUSES,
   TRANSPORT_TRIP_TARGET_TYPE,
   TRIP_VIEWS,
+  exportTransportTrips,
   tripStatusName,
   useCancelTrip,
   useCompleteTrip,
@@ -52,7 +54,8 @@ export interface TripsViewProps {
  * planned departure/arrival, stops, legs, customers, orders, distance, load factor, CO₂, cost, revenue, warnings;
  * archived hidden) with the filters view, date range, status, carrier, organisation unit, hide empty, and the command
  * bar Print CMR, Archive (wizard), Cancel, Complete; no New (the Planboard, PO). Derived columns show the
- * CalculatingIndicator while pending (flow 2). Export waits for a server export endpoint. */
+ * CalculatingIndicator while pending (flow 2). Export (UI-GRID-013) sends the list's request with the chosen columns and
+ * rows to the server export and saves the xlsx. */
 export function TripsView({ filter }: TripsViewProps) {
   const { t } = useL();
   const f = useFormat();
@@ -75,6 +78,7 @@ export function TripsView({ filter }: TripsViewProps) {
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [dialog, setDialog] = useState<"print" | "archive" | "cancel" | "complete" | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [exportContext, setExportContext] = useState<GridExportContext | null>(null);
 
   const view = TRIP_VIEWS[filter ?? "today"] ?? TRIP_VIEWS.today;
   const filters = useMemo<TransportTripListFilters>(
@@ -147,7 +151,8 @@ export function TripsView({ filter }: TripsViewProps) {
       { colId: "orders", headerName: t("PlanningExecution:Orders"), minWidth: 160, valueGetter: (p) => (p.data?.orderNumbers ?? []).join(", "), sortable: false },
       derived("plannedDistanceM", `${t("PlanningExecution:Distance")} (km)`, (p) => (p.value == null ? "" : f.number(p.value / 1000, { maxDecimals: 1 }))),
       derived("loadFactor", t("PlanningExecution:LoadFactor"), (p) => PercentCell({ value: p.value == null ? null : p.value * 100 })),
-      derived("co2Kg", t("PlanningExecution:Co2Kg"), (p) => NumberCell({ value: p.value })),
+      /* The server export has no CO₂ column (design 59 build note 14): not offered in the export. */
+      derived("co2Kg", t("PlanningExecution:Co2Kg"), (p) => NumberCell({ value: p.value }), { context: { export: false } }),
       derived("costAmount", t("PlanningExecution:CostAmount"), (p) => AmountCell({ value: p.value })),
       derived("revenueAmount", t("PlanningExecution:RevenueAmount"), (p) => AmountCell({ value: p.value })),
       { field: "warnings", headerName: t("PlanningExecution:Warnings"), minWidth: 100, sortable: false, cellRenderer: (p: { value: TransportTripRow["warnings"] }) => <WarningsCell value={p.value} /> },
@@ -183,6 +188,7 @@ export function TripsView({ filter }: TripsViewProps) {
           columnDefs={columns}
           fetchRows={fetchRows}
           onSelectionChange={setSelection}
+          onExport={setExportContext}
           onOpen={(row) => row.id && openRecord("TransportTrip", row.id)}
           rowActions={(rows) => [
             { id: "open", labelKey: "Open", onClick: () => rows[0]?.id && openRecord("TransportTrip", rows[0].id) },
@@ -212,6 +218,12 @@ export function TripsView({ filter }: TripsViewProps) {
       </div>
       {single && <PrintCmrWizard open={dialog === "print"} onOpenChange={(next) => setDialog(next ? "print" : null)} trip={{ id: single.id!, number: single.number ?? "" }} />}
       <ArchiveTripsWizard open={dialog === "archive"} onOpenChange={(next) => { setDialog(next ? "archive" : null); if (!next) refresh(); }} trips={selectedRows} />
+      <GridExportDialog
+        open={exportContext != null}
+        onOpenChange={(next) => !next && setExportContext(null)}
+        columns={exportContext?.columns ?? []}
+        onExport={(choice) => exportTransportTrips(exportContext!.request, filters, choice)}
+      />
       <ConfirmDialog
         open={dialog === "complete"}
         onOpenChange={(next) => setDialog(next ? "complete" : null)}

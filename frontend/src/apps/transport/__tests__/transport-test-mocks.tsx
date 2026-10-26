@@ -7,6 +7,7 @@ import type { EntityLookupProps } from "@/components/ui/entity-lookup";
 import type { LinesGridProps } from "@/components/ui/lines-grid";
 import type { MultiSelectProps } from "@/components/ui/multi-select";
 import type { GridRequest, OpenTmsGridProps } from "@/components/ui/opentms-grid";
+import { buildExportContext } from "@/components/ui/opentms-grid-export";
 import type { ReferenceComboboxProps } from "@/components/ui/reference-combobox";
 import type { TreeSelectProps } from "@/components/ui/tree-select";
 
@@ -51,7 +52,10 @@ function cellText<TRow>(col: ColDef<TRow>, row: TRow, raw: unknown): ReactNode {
   return raw == null ? "" : String(raw);
 }
 
-export function MockOpenTmsGrid<TRow>({ gridId, columnDefs, fetchRows, rowActions, filters, onSelectionChange, onOpen }: OpenTmsGridProps<TRow>) {
+/** The search term and sort the mock grid's Export button reports as the list's current request (a test may set them). */
+export const exportRequest: { search: string; sort: { colId: string; sort: "asc" | "desc" } | null } = { search: "", sort: null };
+
+export function MockOpenTmsGrid<TRow>({ gridId, columnDefs, fetchRows, rowActions, filters, onSelectionChange, onOpen, onExport }: OpenTmsGridProps<TRow>) {
   /* The rows the last fetch returned, as the real grid shows; a test may also preset gridRows. */
   const [fetched, setFetched] = useState<TRow[] | null>(null);
   useEffect(() => {
@@ -69,6 +73,23 @@ export function MockOpenTmsGrid<TRow>({ gridId, columnDefs, fetchRows, rowAction
   return (
     <div data-testid="mock-grid" data-grid-id={gridId}>
       {filters}
+      {onExport && (
+        <button
+          type="button"
+          onClick={() =>
+            onExport(
+              buildExportContext(
+                columnDefs.map((col) => ({ colId: String(col.colId ?? col.field ?? ""), hide: col.hide ?? false, sort: exportRequest.sort?.colId === (col.colId ?? col.field) ? (exportRequest.sort?.sort ?? null) : null })),
+                columnDefs,
+                exportRequest.search,
+                GRID_REQUEST,
+              ),
+            )
+          }
+        >
+          grid-export
+        </button>
+      )}
       <div data-slot="mock-grid-columns">
         {columnDefs.map((col, index) => (
           <span key={index} data-column={col.field ?? col.colId} data-hidden={col.hide ? "true" : undefined} data-sortable={col.sortable === false ? "false" : "true"}>

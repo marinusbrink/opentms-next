@@ -55,6 +55,10 @@ Lengte, breedte en hoogte (cm), leeggewicht, toegestaan totaalgewicht en maximaa
 elektrisch, waterstof; *niet van toepassing* voor opleggers) en **euroklasse** (Euro 0 tot en met
 Euro 6, EEV, emissievrij).
 
+Onder **Financieel** staat de **kostprijs per km** van het voertuig. Een rit met eigen materieel krijgt
+zijn kosten uit de kostprijs per km van de voertuigen. Laat u het veld leeg, dan geldt de kostprijs van
+het voertuigtype; de tekst onder het veld toont die waarde, of meldt dat ook het type er geen heeft.
+
 **Transportkenmerken**
 
 Eén tabel met alle kenmerken van het voertuig. De kenmerken van het voertuigtype staan erin met het

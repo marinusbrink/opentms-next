@@ -139,7 +139,9 @@ product, de verpakking en het afleveradres.
 ## Voertuigtypen en transportkenmerken
 
 Een voertuigtype heeft een soort (trekker, oplegger, bakwagen, bestelwagen), maximale EPQ en
-laadmeters, standaardafmetingen en brutogewicht, en een set transportkenmerken. Een
+laadmeters, standaardafmetingen en brutogewicht, een **kostprijs per km** (voor ritten met eigen
+materieel; een voertuig zonder eigen kostprijs gebruikt die van zijn type, en de lijst toont de kolom)
+en een set transportkenmerken. Een
 transportkenmerk heeft een unieke code. Een nieuw [voertuig](voertuigen.md) neemt de afmetingen van
 zijn type één keer over; de transportkenmerken van het type gelden altijd voor elk voertuig van dat
 type.
@@ -238,14 +240,16 @@ verwijderen; archiveer hem dan. Het scherm van een prijslijst vult het hele vens
 - **Regels**: links de regels van de lijst, rechts de gekozen regel. Een regel beschrijft een **laan** (aan de
   *Van*- en *Naar*-kant een relatie of een regio, minstens aan één kant) en optioneel een transporteenheid, product
   en voertuigtype (*Alle* als u niets kiest). Het **Niveau** is het aantal gekozen kenmerken (0 tot 3): de meest
-  specifieke regel wint; met het filter toont u alleen **Uitzonderingen** (niveau 1–3), **Standaard** (niveau 0) of
-  één niveau. Onder de regel staan de **Staffels**: per rij een grens op de **Rijhoeveelheid** en per kolom van de
+  specifieke regel wint; met het filter toont u alleen **Uitzonderingen** (de regels van niveau 1, 2 en 3 samen),
+  **Standaard** (niveau 0) of één niveau. Onder de regel staan de **Staffels**: per rij een grens op de **Rijhoeveelheid** en per kolom van de
   lijst een prijs per eenheid (leeg = geen prijs in die cel); de laatste rij is open. Met *Ingevoerd* als
   rijhoeveelheid heeft de regel alleen die open rij. **Minimumbedrag** en **Maximumbedrag** begrenzen het bedrag van
   de regel. Een regel slaat u op met **Regel opslaan**, los van de lijst; wijzigt u de kolommen, sla de lijst dan
   eerst op.
 - **Simuleren** (met het recht daarvoor): beschrijf één orderregel (de relaties en regio's van van en naar, de
-  transporteenheid, de hoeveelheden en een peildatum) en kies **Simuleren**. U ziet welke regel wint, welke kolom
+  hoeveelheden, een peildatum en desgewenst de transporteenheid, het product en het voertuigtype) en kies
+  **Simuleren**. Laat u de transporteenheid leeg (*Alle*), dan kunnen alleen regels zonder transporteenheid winnen.
+  U ziet welke regel wint, welke kolom
   die kiest, de prijs per eenheid en het bedrag, en de andere kandidaten met de reden waarom ze niet wonnen. Er wordt
   niets opgeslagen.
 

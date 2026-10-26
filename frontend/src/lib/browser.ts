@@ -39,6 +39,11 @@ export function fallbackFileName(name: string, contentType: string | null | unde
   return base.toLowerCase().endsWith(extension) ? base : `${base}${extension}`;
 }
 
+/** Today as yyyy-mm-dd in the browser's zone, for a fallback file name such as `transport-orders-2026-10-26.xlsx`. */
+export function fileDateStamp(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 /** Saves a blob as a download under `fileName` and releases its object URL afterwards. */
 export function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);

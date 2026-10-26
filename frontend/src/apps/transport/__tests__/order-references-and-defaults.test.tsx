@@ -6,9 +6,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * build note 7): the references are a LinesGrid saved through PUT references (type and value required, the server's
  * lengths); the line's individual weighings and volumes (up to three of each) are saved with the lines; a customer
  * change asks "Take over the financial defaults of <customer>?": Take over reads the customer's settings
- * (by-relation) and sends them as the terms after the header, Cancel sends the current terms after the header (so a
- * server that copies the defaults on a customer change by itself is overruled). Risk class: Medium (UI flow over the
- * server's commands, which own the rules). */
+ * (by-relation) and sends them as the terms inside the header call, Cancel sends the current terms inside the header
+ * call (so the server, which copies the defaults on a customer change by itself, keeps them as posted); one call, so a
+ * failure cannot save the customer without its terms. Risk class: Medium (UI flow over the server's commands, which own
+ * the rules). */
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
@@ -223,7 +224,7 @@ describe("Line measurements (design 58: up to three weighings and volumes per li
 });
 
 describe("Customer change on a stored order: take over the financial defaults? (design 58, build note 7)", () => {
-  it("Take over: reads the new customer's settings and sends them as the terms after the header (lists by position, only the discounts valid on the order date)", async () => {
+  it("Take over: reads the new customer's settings and sends them as the terms in the header call (lists by position, only the discounts valid on the order date)", async () => {
     renderPage();
     await loaded();
     pickCustomer("rel-2");
@@ -234,25 +235,26 @@ describe("Customer change on a stored order: take over the financial defaults? (
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 
     await click(ribbonButton("Save")!);
-    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(1));
-    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ customerRelationId: "rel-2" }));
-    expect(lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")).toEqual({
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")).toEqual({
       params: { path: { id: "o1" } },
-      body: {
-        concurrencyStamp: "stamp-2",
-        currencyCode: "USD",
-        vatPercentageId: "vat-2",
-        paymentTermDays: 14,
-        priceListIds: ["pl-a", "pl-b"],
-        multipleMatches: 2,
-        discountsOrSurcharges: [{ discountOrSurchargeId: "ds-valid", source: 1 }],
-        fixedPriceAmount: null,
-        sendFreightDocumentsWithInvoice: true,
-      },
+      body: expect.objectContaining({
+        concurrencyStamp: "stamp-1",
+        customerRelationId: "rel-2",
+        financialTerms: {
+          currencyCode: "USD",
+          vatPercentageId: "vat-2",
+          paymentTermDays: 14,
+          priceListIds: ["pl-a", "pl-b"],
+          multipleMatches: 2,
+          discountsOrSurcharges: [{ discountOrSurchargeId: "ds-valid", source: 1 }],
+          fixedPriceAmount: null,
+          sendFreightDocumentsWithInvoice: true,
+        },
+      }),
     });
-    const header = PUT.mock.calls.findIndex(([path]) => path === "/api/orders/transport-order/{id}");
-    const terms = PUT.mock.calls.findIndex(([path]) => path === "/api/orders/transport-order/{id}/financial-terms");
-    expect(header).toBeLessThan(terms);
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
+    expect(PUT).toHaveBeenCalledTimes(1);
   });
 
   it("Take over for a customer without settings: the module's default terms (EUR, no lists, no discounts)", async () => {
@@ -263,9 +265,8 @@ describe("Customer change on a stored order: take over the financial defaults? (
     await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Orders:TakeOver" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     await click(ribbonButton("Save")!);
-    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(1));
-    expect(lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body).toEqual({
-      concurrencyStamp: "stamp-2",
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
+    expect((lastCall(PUT, "/api/orders/transport-order/{id}")!.body as { financialTerms: unknown }).financialTerms).toEqual({
       currencyCode: "EUR",
       vatPercentageId: null,
       paymentTermDays: null,
@@ -275,38 +276,44 @@ describe("Customer change on a stored order: take over the financial defaults? (
       fixedPriceAmount: null,
       sendFreightDocumentsWithInvoice: false,
     });
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
   });
 
-  it("Cancel: keeps the current terms and sends them after the header, so the new customer's defaults are not copied", async () => {
+  it("Cancel: keeps the current terms and sends them in the header call, so the new customer's defaults are not copied", async () => {
     renderPage();
     await loaded();
     pickCustomer("rel-2");
     await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
     expect(GET).not.toHaveBeenCalledWith("/api/financial/relation-financial-settings/by-relation/{relationId}", expect.anything());
     await click(ribbonButton("Save")!);
-    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(1));
-    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ customerRelationId: "rel-2" }));
-    expect(lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body).toEqual({
-      concurrencyStamp: "stamp-2",
-      currencyCode: "EUR",
-      vatPercentageId: "vat-1",
-      paymentTermDays: 30,
-      priceListIds: ["pl-1"],
-      multipleMatches: 1,
-      discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 2 }],
-      fixedPriceAmount: null,
-      sendFreightDocumentsWithInvoice: false,
-    });
-    expect(PUT.mock.calls.findIndex(([path]) => path === "/api/orders/transport-order/{id}")).toBeLessThan(PUT.mock.calls.findIndex(([path]) => path === "/api/orders/transport-order/{id}/financial-terms"));
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(
+      expect.objectContaining({
+        concurrencyStamp: "stamp-1",
+        customerRelationId: "rel-2",
+        financialTerms: {
+          currencyCode: "EUR",
+          vatPercentageId: "vat-1",
+          paymentTermDays: 30,
+          priceListIds: ["pl-1"],
+          multipleMatches: 1,
+          discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 2 }],
+          fixedPriceAmount: null,
+          sendFreightDocumentsWithInvoice: false,
+        },
+      }),
+    );
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
   });
 
-  it("no question and no terms command when the customer stays", async () => {
+  it("no question and no terms when the customer stays", async () => {
     renderPage();
     await loaded();
     fireEvent.change(within(panel("General")).getByLabelText(/^Orders:CustomerReference/), { target: { value: "REF-9" } });
     expect(screen.queryByRole("alertdialog")).toBeNull();
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
+    expect((lastCall(PUT, "/api/orders/transport-order/{id}")!.body as { financialTerms?: unknown }).financialTerms).toBeUndefined();
     expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
   });
 });

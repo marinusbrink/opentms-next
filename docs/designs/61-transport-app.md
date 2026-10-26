@@ -164,6 +164,24 @@ The endpoints the screens asked for, as the generated client names them (details
    `tripRequestWarningCode`; the text is the localized error code with `{field}`.
 6. **Price lists**: the rules list takes `tiers[]` ("Overrides" = 1, 2, 3); Simulate's transport unit is optional.
 
+### Build notes (frontend, last pass, 2026-10-26)
+
+1. **Export** (UI-GRID-013): `GridExportDialog` (`components/ui`) on the Orders and Trips lists; OpenTmsGrid's Export
+   button hands the page the list's request and its columns in display order (`buildExportContext`). Neither server
+   export knows `co2Kg`, so that column (and the Orders list's trip request warning icon) is marked
+   `context: { export: false }` and not offered; adding CO₂ to the exports is a backend follow-up.
+2. **Wizard Details**: per generated order (date × copy) the customer reference and, in a LinesGrid, each line's
+   quantity and weight; only values that differ from the source go out as `overrides[]` (per date, one call per date).
+3. **Trip picker**: an EntityLookup over `/transport-trip/picker` without "Add new …":
+   `DEVIATION(UI-LOOK-004)`, a trip is never created in the Transport app (no New, see "Trips list and editor").
+4. **Leg windows**: one `LegDialog` for both tabs; a window is HH:mm on the end's planned date (the browser's zone,
+   as the other time fields of the app), sent only when changed or when its date moved; an overnight window cannot be
+   entered in this dialog.
+5. **Concurrency on the order page**: the save never adopts a newer stamp for dirty sections when someone else
+   changed the order's content (a 409 concurrency refusal, or a newer version a push brought in while dirty); the page
+   offers Reload / Keep editing and blocks Save until a reload. A 409 while only derived values changed (the summary
+   the recalculation writes changes the stamp) runs the step again once with the newest stamp.
+
 ## Security quickscan
 
 No new client-side secrets; downloads through authenticated endpoints; permissions checked with `useIsGranted` for

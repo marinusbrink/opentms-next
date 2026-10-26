@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import type { EntityLookupPage, EntityLookupQuery } from "@/components/ui/entity-lookup";
+import type { GridExportChoice } from "@/components/ui/grid-export-dialog";
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { fallbackFileName, fileDateStamp, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import { useRecordUpdates } from "@/lib/realtime/use-record-updates";
 
 /* Transport trips (design 59; design 61 "Trips list and editor"): the list, the record with its stops and their legs,
@@ -32,6 +35,7 @@ export type AddManualStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips
 export type UpdateStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips.UpdateStopDto"];
 export type StopActualsDto = Schemas["OpenTms.PlanningExecution.TransportTrips.StopActualsDto"];
 export type OutsourceOriginDto = Schemas["OpenTms.PlanningExecution.TransportTrips.OutsourceOriginDto"];
+export type TransportTripPickerDto = Schemas["OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto"];
 export type TripAttributeDefinitionRow = Schemas["OpenTms.PlanningExecution.TransportTrips.TripAttributeDefinitionRowDto"];
 
 export const TRANSPORT_TRIP_TARGET_TYPE = "PlanningExecution.TransportTrip";
@@ -128,6 +132,50 @@ export async function fetchTransportTrips(request: GridRequest, filters: Transpo
   });
   if (error) throw error;
   return { rows: data?.rows ?? [], totalCount: Number(data?.totalCount ?? 0), filteredCount: Number(data?.filteredCount ?? 0) };
+}
+
+/** Exports the Trips list as xlsx (design 59 build note 14): the list's own request plus the chosen columns and rows;
+ * the file is saved under the server's name. A refusal (ExportTooManyRows, ExportUnknownColumn) is thrown. */
+export async function exportTransportTrips(request: GridRequest, filters: TransportTripListFilters, choice: GridExportChoice): Promise<void> {
+  const sort = request.sortModels[0];
+  const { data, error, response } = await apiClient.POST("/api/planning/transport-trip/export", {
+    body: {
+      wildcardSearch: request.wildcardSearch ?? undefined,
+      sortBy: sort?.colId,
+      sortDir: sort?.sort,
+      view: filters.view,
+      status: filters.status && filters.status.length > 0 ? filters.status : undefined,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+      carrierRelationId: filters.carrierRelationId || undefined,
+      organizationUnitId: filters.organizationUnitId || undefined,
+      isArchived: filters.isArchived,
+      hideEmpty: filters.hideEmpty,
+      columns: choice.columns,
+      allRows: choice.allRows,
+    },
+    parseAs: "blob",
+  });
+  if (error) throw error;
+  const blob = data as unknown as Blob | undefined;
+  if (!blob) throw new Error("The server returned no file.");
+  saveBlob(blob, fileNameFromContentDisposition(response.headers.get("Content-Disposition")) ?? fallbackFileName(`transport-trips-${fileDateStamp()}`, response.headers.get("Content-Type") ?? blob.type, ".xlsx"));
+}
+
+/** A trip as the trip picker offers it (EntityLookup needs a string id). */
+export type TripPickerOption = TransportTripPickerDto & { id: string };
+
+/** The trip picker ("Outsource origin", design 59 build note 14): planned and running trips by default, searched over
+ * number, name, carrier, vehicles, customers and stop cities on the server, paged; `excludeTripId` leaves out the
+ * leg's own trip. */
+export function tripPickerPage(excludeTripId: string | undefined): (q: EntityLookupQuery) => Promise<EntityLookupPage<TripPickerOption>> {
+  return async ({ term, skip, take }) => {
+    const { data, error } = await apiClient.GET("/api/planning/transport-trip/picker", {
+      params: { query: { StartRow: skip, EndRow: skip + take, WildcardSearch: term || undefined, ExcludeTripId: excludeTripId } },
+    });
+    if (error) throw error;
+    return { items: (data?.rows ?? []).filter((row) => row.id != null).map((row) => ({ ...row, id: row.id! })), totalCount: Number(data?.totalCount ?? 0) };
+  };
 }
 
 export function useTransportTripsGridFetcher(filters: TransportTripListFilters) {

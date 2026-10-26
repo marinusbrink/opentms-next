@@ -48,6 +48,13 @@ berekening wordt automatisch opnieuw geprobeerd en tot die tijd blijven de vorig
   ordernummer, referentie, klant en de namen en plaatsen van de eerste en laatste stop.
 - De kolommen *Opbrengst*, *Kosten*, *Marge* en *CO₂* zijn berekende waarden (zie hierboven).
   Via *Kolommen* zet u verborgen kolommen aan, zoals het ordertype en de organisatie-eenheid.
+- De kolom *Ritwaarschuwing* toont een driehoekje bij een order waarvan de "Tevens rit" niet is aangemaakt
+  (zie *Tabblad Planning*); open de order voor de reden.
+- **Exporteren** (het downloadpictogram rechts boven de lijst) maakt een Excel-bestand van de lijst. Kies
+  *Zichtbare kolommen* of *Alle kolommen*, en *De rijen van het huidige filter en de zoekterm* of *Alle
+  rijen* (alle orders, zonder filter of zoekterm). De kolommen staan in de volgorde en met de namen van de
+  lijst. CO₂ en de ritwaarschuwing gaan niet mee in de export. Een export heeft een maximum aantal rijen
+  (standaard 50.000); is het er meer, dan meldt het venster dat en filtert u de lijst eerst.
 - Dubbelklik op een regel om de order te openen.
 - In de actiebalk: **Nieuwe transportorder** (heeft u meerdere ordertypen, dan staat er per type een
   knop), **Nieuw van sjabloon**, en voor de geselecteerde order(s) **Order kopiëren**, **Vrachtbrief
@@ -85,6 +92,25 @@ alleen te bekijken. Met **Opslaan als sjabloon** maakt u van de order een sjablo
 om sjablonen aan te maken). Drukt u een vrachtbrief af terwijl er nog wijzigingen openstaan, dan slaat het
 systeem eerst op.
 
+**Opslaan** verstuurt de gewijzigde onderdelen van de order één voor één: de ordergegevens, het
+stoppatroon, de regels, de referenties, de financiële voorwaarden, de rit en de kenmerken. Weigert het
+systeem een onderdeel, dan stopt het opslaan daar. Bovenaan ziet u de melding en welke onderdelen wel en
+welke niet zijn opgeslagen. De onderdelen die niet zijn opgeslagen, blijven gewijzigd staan; pas ze zo
+nodig aan en kies opnieuw **Opslaan**: dan gaan alleen die onderdelen.
+
+**Gewijzigd door iemand anders.** Heeft iemand anders de order gewijzigd nadat u begon met bewerken, dan
+slaat het systeem uw wijzigingen niet over die van de ander heen. U krijgt de melding *Transportorder
+gewijzigd door iemand anders* met twee keuzes:
+
+- **Opnieuw laden** toont de versie van de ander; uw niet-opgeslagen wijzigingen vervallen.
+- **Verder bewerken** houdt uw wijzigingen in beeld, bijvoorbeeld om ze over te nemen. Opslaan kan dan niet
+  (de knop is uitgeschakeld) tot u de order opnieuw laadt; bovenaan elk tabblad staat een melding met de
+  knop **Opnieuw laden**.
+
+Onderdelen die vóór de melding al waren opgeslagen, blijven opgeslagen; de melding noemt welke wel en welke
+niet. Alleen de berekende waarden (prijzen, CO₂, voortgang) veranderen tussendoor geregeld; dat is geen
+wijziging door iemand anders en het opslaan gaat dan gewoon door.
+
 - **Goedkeuren** controleert de order tegen de goedkeuringsregels van uw organisatie en toont per regel
   het resultaat (waarschuwing of fout) en de status die de order krijgt: *Gereed voor facturatie*, of
   *Gearchiveerd* als er niets te factureren valt. Alleen orders zonder fout worden goedgekeurd. Wijzigt er
@@ -111,8 +137,9 @@ standaardinstellingen van … overnemen?* Met **Overnemen** worden de valuta, bt
 prijslijsten en kortingen en toeslagen van de nieuwe klant de financiële voorwaarden van de order (zoals
 bij een nieuwe order: de prijslijsten in hun volgorde en alleen de kortingen en toeslagen die op de
 orderdatum gelden; een klant zonder financiële instellingen geeft euro zonder prijslijsten). Met
-**Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat;
-op het tabblad Prijzen ziet u ze vooraf.
+**Annuleren** blijven de huidige voorwaarden staan. In beide gevallen gelden ze zodra u de order opslaat:
+de nieuwe klant en de voorwaarden worden in één keer opgeslagen, dus nooit de klant zonder zijn
+voorwaarden. Op het tabblad Prijzen ziet u ze vooraf.
 
 ### Tabblad Regels
 
@@ -148,7 +175,8 @@ Onder de tabel staan de totalen (regels, kortingen en toeslagen, extra diensten,
 na een ogenblik een **voorbeeld** van de nieuwe prijzen, met een melding dat het om een voorbeeld gaat.
 Na **Opslaan** komen de opgeslagen, opnieuw berekende prijzen terug.
 
-Onderaan staan de **financiële voorwaarden**: valuta, btw, betaaltermijn, prijslijsten, wat er gebeurt
+Onderaan staan de **financiële voorwaarden**: valuta (een keuzelijst van de valuta's uit Stamgegevens;
+een ontbrekende voegt u toe met *Nieuwe valuta toevoegen…*), btw, betaaltermijn, prijslijsten, wat er gebeurt
 als meerdere prijslijsten passen, kortingen en toeslagen (die van de klant zijn gemarkeerd als
 *standaard klant*), een vaste prijs en of de vrachtdocumenten met de factuur meegaan.
 
@@ -156,16 +184,27 @@ als meerdere prijslijsten passen, kortingen en toeslagen (die van de klant zijn 
 
 Bovenaan de **legs** van de order: elk traject tussen twee stops, met de geplande datums, afstand, duur,
 tolkilometers, CO₂, het rittnummer waarop de leg staat en de toegerekende kosten en opbrengst.
-Dubbelklik op een leg op een rit om die rit te openen; bij een leg zonder rit wijzigt u de referenties,
-de geplande datums (binnen het tijdvenster van de stop) en de opmerking. Legs bestaan pas na het
-bevestigen.
+Dubbelklik op een leg op een rit om die rit te openen; bij een leg zonder rit (of via rechtsklikken
+**Bewerken**) wijzigt u per kant (herkomst en bestemming) de referentie, de geplande datum en het
+**tijdvenster** (*Van* en *Tot*, als UU:MM op die datum; *Van* mag niet na *Tot* liggen), en de opmerking.
+Laat u beide tijden leeg, dan vervalt het tijdvenster (de hele dag). Verschuift u de datum, dan schuift het
+tijdvenster mee. De geplande datum moet binnen het tijdvenster liggen; anders meldt het venster dat. Legs
+bestaan pas na het bevestigen.
 
 Daaronder het onderdeel **Rit** ("Tevens rit"): zet het vinkje *Maak bij het bevestigen direct een rit aan
 voor deze order* aan en vul het rittype, het vertrek en de aankomst (relatie en adres) en de geplande
 vertrekdatum en -tijd in. Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een
-combinatie, de chauffeurs en een afgesproken inkoopprijs. Bij **Bevestigen** maakt het systeem de rit
+combinatie, de chauffeurs en een afgesproken inkoopprijs met valuta. Met een vervoerder wordt de rit
+uitbesteed aan die vervoerder; de afgesproken inkoopprijs hoort daarbij en is pas in te vullen als er een
+vervoerder is gekozen (haalt u de vervoerder weg, dan vervalt ook de prijs). Zonder vervoerder rijdt de rit
+met eigen materieel en komen de kosten uit de kostprijs per km. Bij **Bevestigen** maakt het systeem de rit
 één keer aan en zet alle legs van de order erop. Daarna is dit onderdeel alleen te bekijken en staat er
 een knop naar de aangemaakte rit; latere wijzigingen aan de order veranderen de rit niet.
+
+Kon de planning de rit niet aanmaken (bijvoorbeeld omdat het rittype, een relatie, voertuig of chauffeur
+daar niet bekend is), dan staan de legs ongepland. Het onderdeel **Rit** toont dan een waarschuwing met de
+reden en het tijdstip, en bovenaan de orderpagina staat het label *Rit niet aangemaakt*; een klik erop opent
+dit tabblad. Plan de legs dan op het Planbord.
 
 ### Tabblad Documenten
 
@@ -208,12 +247,20 @@ order van dit sjabloon hebben. Die orders zijn direct bevestigd en hebben een nu
 **Nieuw van sjabloon** (in de lijst Opdrachten), **Orders aanmaken** (bij een sjabloon) en **Order
 kopiëren** openen hetzelfde stappenvenster:
 
-1. **Bron**: het sjabloon of de order die u kopieert.
+1. **Bron**: het sjabloon of de order die u kopieert. Maakt u hier met *Nieuw sjabloon toevoegen…* een
+   sjabloon aan, dan sluit het stappenvenster en opent de pagina van het nieuwe sjabloon: een nieuw
+   sjabloon heeft nog geen regels. Voeg die daar toe en kies dan **Orders aanmaken**. Een sjabloon zonder
+   regels kan nog geen orders aanmaken (de knop is dan uitgeschakeld, in de lijst en op de pagina).
 2. **Datums**: kies *Per weekdag over een periode* (een begin- en einddatum en de weekdagen; standaard
    maandag tot en met vrijdag) of *Uit de kalender* (klik de gewenste dagen aan).
-3. **Details**: het aantal exemplaren per datum (1 tot 20). De orders nemen de referentie, aantallen en
-   gewichten van de bron over; pas die zo nodig daarna per order aan.
-4. **Bevestigen**: een overzicht; met **Orders aanmaken** begint het aanmaken. Per datum ziet u of het
+3. **Details**: het aantal exemplaren per datum (1 tot 20), en per aan te maken order (datum en exemplaar)
+   de klantreferentie en per regel het aantal en het gewicht. Links staat de lijst van de orders die worden
+   aangemaakt, rechts de gekozen order; alles begint met de waarden van de bron (het sjabloon of de
+   gekopieerde order). Een potloodje in de lijst markeert een order waarvan u iets hebt gewijzigd. Alleen
+   wat u wijzigt, gaat mee; een leeggemaakt aantal of gewicht houdt de waarde van de bron, een leeggemaakte
+   klantreferentie maakt die leeg. Regels toevoegen of verwijderen kan hier niet.
+4. **Bevestigen**: een overzicht, met het aantal orders met gewijzigde details; met **Orders aanmaken**
+   begint het aanmaken. Per datum ziet u of het
    gelukt is. Datums waarvoor dit sjabloon al een order heeft, worden overgeslagen.
 
 ## De lijst Ritten
@@ -223,7 +270,10 @@ De lijst toont nummer, status, datum, naam, rittype, vervoerder, voertuigen, cha
 en geplande aankomst, het aantal stops en legs, klanten, orders, afstand, beladingsgraad, CO₂, kosten,
 opbrengst en waarschuwingen (een driehoekje; de muis erboven toont welke). Gearchiveerde ritten staan er
 niet in. Filters: de weergave in het navigatiepaneel, bij *Alles* een periode, en verder status,
-vervoerder, organisatie-eenheid en *Verberg lege ritten*.
+vervoerder, organisatie-eenheid en *Verberg lege ritten*. **Exporteren** (het downloadpictogram rechts
+boven de lijst) werkt als bij de lijst Opdrachten: zichtbare of alle kolommen, de rijen van het filter of
+alle rijen (gearchiveerde ritten blijven buiten de export). Tijden staan in uw tijdzone, de afstand in km en
+de beladingsgraad als percentage; CO₂ gaat niet mee.
 
 In de actiebalk staan voor de geselecteerde rit(ten) **Vrachtbrief afdrukken**, **Ritten archiveren**,
 **Afronden** en **Rit annuleren**. **Ritten archiveren** opent een stappenvenster met de geselecteerde
@@ -241,13 +291,18 @@ tijden met de geplande. Bij annuleren gaan de legs van de rit af.
   de regel voor eerste en laatste stop; vertrek en aankomst met geplande en werkelijke tijden; afstanden
   (gepland, werkelijk), geplande duur en beladingsgraad; opmerkingen, chauffeursinstructies en kenmerken.
   Vervoerder, voertuigen en chauffeurs worden op het Planbord gekozen en staan hier ter informatie, met
-  een knop naar het Planbord. Alleen bij een geplande rit die vanuit een order is aangemaakt, wijzigt u
+  een knop naar het Planbord. Bij een rit met eigen materieel staat als vervoerder *Eigen bedrijf*; bij een
+  uitbestede rit de vervoerder (of *Nog geen vervoerder gekozen*) en, als die is afgesproken, de
+  afgesproken inkoopprijs. Alleen bij een geplande rit die vanuit een order is aangemaakt, wijzigt u
   ze hier met het potlood.
 - **Legs**: de legs op de rit met order, klant, herkomst en bestemming, datum, tijdvenster, referenties,
   aantal, gewicht, afstand en de toegerekende kosten en opbrengst. Dubbelklik opent de order.
-  Rechtsklikken geeft: **Legs losmaken** (van de rit halen), **Apart uitvoeren** (eigen stops voor deze
-  leg), **Retourleg** (een leg terug van bestemming naar herkomst) en **Herkomstactiviteit uitbesteden**
-  (het ophalen door een andere rit via een hub laten doen).
+  Rechtsklikken geeft: **Bewerken** (per kant de referentie, geplande datum en het tijdvenster, en de
+  opmerking; zoals op het tabblad Planning van de order), **Legs losmaken** (van de rit halen), **Apart
+  uitvoeren** (eigen stops voor deze leg), **Retourleg** (een leg terug van bestemming naar herkomst) en
+  **Herkomstactiviteit uitbesteden** (het ophalen door een andere rit via een hub laten doen). Bij
+  uitbesteden kiest u de hub (relatie en adres) en de **doelrit** uit een zoeklijst van geplande en lopende
+  ritten (zoeken op nummer, naam, vervoerder of plaats); de rit van de leg zelf staat er niet in.
 - **Stops**: de stops in volgorde met activiteit, relatie, plaats, geplande, verwachte en werkelijke
   tijden, cumulatieve afstand, het aantal legs en waarschuwingen. Rechtsklikken geeft **Omhoog** en
   **Omlaag** (niet bij een stop met werkelijke tijden), **Werkelijke tijden vastleggen** (aankomst,

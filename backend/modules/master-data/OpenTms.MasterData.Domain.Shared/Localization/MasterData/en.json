@@ -534,6 +534,8 @@
     "MasterData:EmptyWeightKg": "Empty weight (kg)",
     "MasterData:MaxPayloadKg": "Max payload (kg)",
     "MasterData:CostPricePerKm": "Cost price per km",
+    "MasterData:CostPricePerKmFromTypeHint": "Empty: the vehicle type's cost price ({0}) is used.",
+    "MasterData:CostPricePerKmNoTypeValueHint": "Empty: the vehicle type has no cost price per km either.",
     "MasterData:DimensionsAndCapacity": "Dimensions and capacity",
     "MasterData:Engine": "Engine",
     "MasterData:DriversAndIdentification": "Drivers and identification",

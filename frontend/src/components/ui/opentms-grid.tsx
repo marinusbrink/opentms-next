@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/opentms-grid-actions";
 import { OpenTmsGridFooter } from "@/components/ui/opentms-grid-footer";
 import { createGridSettingsPersister } from "@/components/ui/opentms-grid-settings";
+import { buildExportContext, type GridExportContext } from "@/components/ui/opentms-grid-export";
 import { OpenTmsGridToolbar } from "@/components/ui/opentms-grid-toolbar";
 import { apiClient } from "@/lib/api/client";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -99,6 +100,8 @@ export interface GridSelectionDto {
 
 export type { GridRowAction } from "@/components/ui/opentms-grid-actions";
 
+export type { GridExportColumn, GridExportContext } from "@/components/ui/opentms-grid-export";
+
 /** Tree data (organisation units): rows expand into children fetched per parent. The grid
  *  passes the keys of the expanded ancestors in `GridRequest.groupKeys`, last one deepest. */
 export interface GridTreeDataOptions<TRow> {
@@ -124,8 +127,9 @@ export interface OpenTmsGridProps<TRow> {
   rowActions?: (rows: TRow[]) => GridRowAction[];
   /** UI-GRID-005: the page's filter controls, rendered next to the search box. */
   filters?: ReactNode;
-  /** UI-GRID-013: shows the Export button when the design includes export. */
-  onExport?: () => void;
+  /** UI-GRID-013: shows the Export button when the design includes export; it receives the current request and the
+   * columns in display order (a column definition with `context: { export: false }` is not offered). */
+  onExport?: (context: GridExportContext) => void;
   /** Hierarchical rows (UI-LOOK-001 "tree data"); the first column becomes the expanding one. */
   treeData?: GridTreeDataOptions<TRow>;
   /** UI-GRID-016: a picker grid toggles the selection on row click. */
@@ -532,6 +536,14 @@ export function OpenTmsGrid<TRow>({
     gridApiRef.current?.refreshServerSide({ purge: true });
   }, []);
 
+  // ── Export (UI-GRID-013) ──────────────────────────────────────────────────
+
+  const handleExport = useCallback(() => {
+    if (!onExport) return;
+    const state = gridApiRef.current?.getColumnState() ?? columnDefs.map((cd) => ({ colId: String(cd.colId ?? cd.field ?? ""), hide: cd.hide ?? false }));
+    onExport(buildExportContext(state, columnDefs, searchTermRef.current, currentGridRequestRef.current, treeData ? { autoColumnId: AUTO_COLUMN_ID, field: treeData.field } : undefined));
+  }, [onExport, columnDefs, treeData]);
+
   // ── Opening a record (UI-GRID-007) ────────────────────────────────────────
 
   const openRow = useCallback(
@@ -763,7 +775,7 @@ export function OpenTmsGrid<TRow>({
         onToggleColumn={handleToggleColumn}
         onReset={handleReset}
         onRefresh={handleRefresh}
-        onExport={onExport}
+        onExport={onExport ? handleExport : undefined}
         filters={filters}
       />
 

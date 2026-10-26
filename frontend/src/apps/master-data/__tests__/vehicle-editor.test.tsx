@@ -10,7 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  * flow); the server tests prove the same rules where they are enforced. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
-  useL: () => ({ t: (k: string) => (k.endsWith("Question") ? `${k} {0}` : k), culture: "en", isLoading: false }),
+  useL: () => ({ t: (k: string) => (k.endsWith("Question") || k.endsWith("FromTypeHint") ? `${k} {0}` : k), culture: "en", isLoading: false }),
 }));
 
 let grants: Record<string, boolean> = {};
@@ -59,6 +59,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import { VehicleEditor } from "@/domains/master-data/components/VehicleEditor";
+import { VehicleTypeEditor } from "@/domains/master-data/components/VehicleTypeEditor";
 import type { VehicleDto } from "@/domains/master-data/entities";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;
@@ -399,5 +400,95 @@ describe("VehicleEditor — registration", () => {
     await waitFor(() => expect(field("MasterData:Name")).toHaveValue("Truck 01"));
     expect(field("MasterData:LicencePlate")).toHaveValue("12-ABC-3");
     expect(editorDialog().querySelector("[data-slot=entity-dialog-header]")).toHaveTextContent("MasterData:VehicleTypeKind.Tractor");
+  });
+});
+
+/* QP10: the own-fleet cost price per kilometre on the type and on the vehicle; the server uses the vehicle's own value,
+ * else its type's, so an empty vehicle field names the type's value in its hint. */
+describe("Cost price per km (QP10)", () => {
+  const costField = () => field("MasterData:CostPricePerKm");
+  const hintOf = (input: HTMLInputElement) => document.getElementById(input.getAttribute("aria-describedby") ?? "")?.textContent ?? null;
+
+  it("an empty vehicle field shows the type's value as its hint and posts null", async () => {
+    GET.mockImplementation(async (path, init) => {
+      if (path === "/api/master-data/vehicle/type-defaults/{vehicleTypeId}")
+        return ok(init?.params?.path?.vehicleTypeId === "vt-trailer" ? { ...TRAILER_DEFAULTS, costPricePerKm: null } : { ...TRACTOR_DEFAULTS, costPricePerKm: 1.4 });
+      if (path === "/api/master-data/vehicle/{id}") return ok(detail);
+      if (path === "/api/master-data/vehicle-type/lookup") return ok([{ id: "vt-tractor", name: "Tractor 4x2" }, { id: "vt-trailer", name: "Curtainsider" }]);
+      if (path === "/api/master-data/country/lookup") return ok([{ id: "nl", code: "NL", name: "Netherlands" }]);
+      return ok([]);
+    });
+    renderEditor({ mode: "edit", id: "v1" });
+    await waitFor(() => expect(field("MasterData:Name")).toHaveValue("Truck 01"));
+    tab("MasterData:DimensionsAndCapacity");
+    expect(costField()).toHaveValue("");
+    await waitFor(() => expect(hintOf(costField())).toBe("MasterData:CostPricePerKmFromTypeHint 1.40"));
+
+    /* A type without a value says so; a typed value of its own drops the hint. */
+    tab("General");
+    fireEvent.change(field("MasterData:VehicleType"), { target: { value: "vt-trailer" } });
+    tab("MasterData:DimensionsAndCapacity");
+    await waitFor(() => expect(hintOf(costField())).toBe("MasterData:CostPricePerKmNoTypeValueHint"));
+    typeInto("MasterData:CostPricePerKm", "1.25");
+    expect(hintOf(costField())).toBeNull();
+
+    typeInto("MasterData:CostPricePerKm", "");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(PUT.mock.calls[0][1]!.body).toEqual(expect.objectContaining({ vehicleTypeId: "vt-trailer", costPricePerKm: null }));
+  });
+
+  it("the vehicle's own value is loaded and saved, and a negative one is refused on submit", async () => {
+    detail = { ...stored, costPricePerKm: 1.2345 } as VehicleDto;
+    renderEditor({ mode: "edit", id: "v1" });
+    await waitFor(() => expect(field("MasterData:Name")).toHaveValue("Truck 01"));
+    tab("MasterData:DimensionsAndCapacity");
+    expect(costField()).toHaveValue("1.2345");
+    expect(hintOf(costField())).toBeNull();
+
+    typeInto("MasterData:CostPricePerKm", "-1");
+    await submitEditor();
+    expect(PUT).not.toHaveBeenCalled();
+    expect(screen.getByText("MasterData:InvalidNumber")).toBeInTheDocument();
+
+    typeInto("MasterData:CostPricePerKm", "1.5");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(PUT.mock.calls[0][1]!.body).toEqual(expect.objectContaining({ costPricePerKm: 1.5 }));
+  });
+});
+
+describe("VehicleTypeEditor — cost price per km (QP10)", () => {
+  function renderTypeEditor(props: Partial<React.ComponentProps<typeof VehicleTypeEditor>> = {}) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <VehicleTypeEditor mode="create" readOnly={false} open onClose={vi.fn()} onSaved={vi.fn()} {...props} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("a new type posts its cost price per km", async () => {
+    POST.mockImplementation(async () => ok({ id: "vt-new", name: "Tractor 6x2" }));
+    renderTypeEditor({ initialName: "Tractor 6x2" });
+    await waitFor(() => expect(field("MasterData:Name")).toHaveValue("Tractor 6x2"));
+    typeInto("MasterData:CostPricePerKm", "1.2345");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/master-data/vehicle-type", expect.anything()));
+    expect(POST.mock.calls[0][1]!.body).toEqual(expect.objectContaining({ name: "Tractor 6x2", costPricePerKm: 1.2345 }));
+  });
+
+  it("an existing type shows its value and clears it to null", async () => {
+    GET.mockImplementation(async (path) =>
+      path === "/api/master-data/vehicle-type/{id}"
+        ? ok({ id: "vt-tractor", name: "Tractor 4x2", kind: 1, costPricePerKm: 0.95, transportCharacteristics: [], concurrencyStamp: "stamp-vt" })
+        : ok([]),
+    );
+    renderTypeEditor({ mode: "edit", id: "vt-tractor" });
+    await waitFor(() => expect(field("MasterData:CostPricePerKm")).toHaveValue("0.95"));
+    typeInto("MasterData:CostPricePerKm", "");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(PUT.mock.calls[0][1]!.body).toEqual(expect.objectContaining({ costPricePerKm: null, concurrencyStamp: "stamp-vt" }));
   });
 });

@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import type { GridExportChoice } from "@/components/ui/grid-export-dialog";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
+import { withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
+import { fallbackFileName, fileDateStamp, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import { useRecordUpdates } from "@/lib/realtime/use-record-updates";
 
 /* The transport orders of the Transport app (designs 58 and 61): the list, the record, the section commands of the
@@ -94,6 +97,13 @@ export const MEASUREMENT_KINDS: { value: MeasurementKind; key: string }[] = [
 
 export const enumKey = (items: { value: number; key: string }[], value: number | null | undefined) => items.find((i) => i.value === value)?.key ?? "";
 
+/** The trip request's warning (design 58 build note 19: Planning could not honour the request, the legs stay
+ * unplanned) as the localized error code with its `{field}`; null without a warning. */
+export function tripRequestWarningText(t: (key: string) => string, request: Pick<TransportOrderTripRequestDto, "warningCode" | "warningField"> | null | undefined): string | null {
+  if (!request?.warningCode) return null;
+  return t(request.warningCode).replace("{field}", request.warningField ?? "");
+}
+
 /** The URL filter values of the Orders list (apps.config.ts, UI-PAGE-004) mapped onto the API's `view` (design 58). */
 export const ORDER_VIEWS: Record<string, TransportOrderView> = {
   all: 0,
@@ -167,18 +177,48 @@ export function useTransportOrdersGridFetcher(filters: TransportOrderListFilters
   return useCallback((request: GridRequest) => fetchTransportOrders(request, JSON.parse(key) as TransportOrderListFilters), [key]);
 }
 
+/** Exports the Orders list as xlsx (design 58 build note 19): the list's own request (search, sort, filters) plus the
+ * chosen columns and rows; the file is saved under the server's name. A refusal (ExportTooManyRows,
+ * ExportUnknownColumn) is thrown as the ABP error. */
+export async function exportTransportOrders(request: GridRequest, filters: TransportOrderListFilters, choice: GridExportChoice): Promise<void> {
+  const sort = request.sortModels[0];
+  const { data, error, response } = await apiClient.POST("/api/orders/transport-order/export", {
+    body: {
+      wildcardSearch: request.wildcardSearch ?? undefined,
+      sortBy: sort?.colId,
+      sortDir: sort?.sort,
+      view: filters.view,
+      status: filters.status && filters.status.length > 0 ? filters.status : undefined,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+      customerRelationId: filters.customerRelationId || undefined,
+      organizationUnitId: filters.organizationUnitId || undefined,
+      sourceTemplateId: filters.sourceTemplateId || undefined,
+      columns: choice.columns,
+      allRows: choice.allRows,
+    },
+    parseAs: "blob",
+  });
+  if (error) throw error;
+  const blob = data as unknown as Blob | undefined;
+  if (!blob) throw new Error("The server returned no file.");
+  saveBlob(blob, fileNameFromContentDisposition(response.headers.get("Content-Disposition")) ?? fallbackFileName(`transport-orders-${fileDateStamp()}`, response.headers.get("Content-Type") ?? blob.type, ".xlsx"));
+}
+
 /* ── Record ──────────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Reads one order; the error carries its status (the page tells "not found" from it, recordLoadState). */
+export async function fetchTransportOrder(id: string): Promise<TransportOrderDto> {
+  const { data, error, response } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id } } });
+  if (error) throw withStatus(error, response);
+  return data!;
+}
 
 export function useTransportOrder(id: string | undefined) {
   return useQuery({
     queryKey: transportOrderKeys.detail(id),
     enabled: id != null,
-    queryFn: async (): Promise<TransportOrderDto> => {
-      const { data, error, response } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id: id! } } });
-      /* The ABP error body carries no status; the page tells "not found" from it (recordLoadState). */
-      if (error) throw { ...(error as object), status: response.status };
-      return data!;
-    },
+    queryFn: () => fetchTransportOrder(id!),
   });
 }
 
@@ -242,8 +282,9 @@ function useOrderMutation<TArgs>(run: (args: TArgs) => Promise<TransportOrderDto
   });
 }
 
-const unwrap = <T,>(result: { data?: T; error?: unknown }): T => {
-  if (result.error) throw result.error;
+/* The error keeps its HTTP status: the order editor tells a concurrency refusal (409 without a code) from the rest. */
+const unwrap = <T,>(result: { data?: T; error?: unknown; response?: Response }): T => {
+  if (result.error) throw withStatus(result.error, result.response);
   return result.data as T;
 };
 

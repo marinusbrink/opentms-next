@@ -90,7 +90,8 @@ const initial = (): SimulateValues => ({
 
 /** The snapshot the server takes; undefined when a required part is missing or a number is not a number. */
 export function toSimulateDto(v: SimulateValues): PriceListSimulateDto | undefined {
-  if (!v.fromRelation || !v.toRelation || !v.transportUnitId) return undefined;
+  /* The transport unit is optional (design 57 build note 20): without one only the rules for any unit can match. */
+  if (!v.fromRelation || !v.toRelation) return undefined;
   const numbers = Object.fromEntries(QUANTITY_FIELDS.map(([field]) => [field, parseNumber(v[field])])) as Record<QuantityField, number | null>;
   if (Object.values(numbers).some((n) => n != null && Number.isNaN(n))) return undefined;
   return {
@@ -98,7 +99,7 @@ export function toSimulateDto(v: SimulateValues): PriceListSimulateDto | undefin
     fromRegionIds: v.fromRegionIds,
     toRelationId: v.toRelation.id,
     toRegionIds: v.toRegionIds,
-    transportUnitId: v.transportUnitId,
+    transportUnitId: v.transportUnitId ?? null,
     productId: v.productId,
     vehicleTypeId: v.vehicleTypeId,
     quantity: numbers.quantity ?? 1,
@@ -224,7 +225,7 @@ export function PriceListSimulateTab({ priceListId, currencyCode }: PriceListSim
         </div>
         <FormSection title={t("Financial:Dimensions")}>
           <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-            {dimension("transportUnitId", "Financial:TransportUnit", unitOptions, "TransportUnit", true)}
+            {dimension("transportUnitId", "Financial:TransportUnit", unitOptions, "TransportUnit", false)}
             {dimension("productId", "Financial:Product", productOptions, "Product", false)}
             {dimension("vehicleTypeId", "Financial:VehicleType", vehicleTypeOptions, "VehicleType", false)}
           </div>

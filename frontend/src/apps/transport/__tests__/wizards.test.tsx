@@ -8,7 +8,27 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * and Archive trips (open trips skipped and named, one archive call per trip). Risk class: Medium. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
-vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: {} }, auth: { grantedPolicies: {} } } }) }));
+let grants: Record<string, boolean> = {};
+let features: Record<string, string> = {};
+vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: features }, auth: { grantedPolicies: grants } } }) }));
+const navigateMock = vi.fn();
+vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders", search: {} }) }));
+/* The New template dialog (its own tests cover its fields): a stub that hands back the template its save created. */
+vi.mock("@/apps/transport/components/NewTemplateDialog", () => ({
+  NewTemplateDialog: ({ initialName, onCreated, onOpenChange }: { initialName?: string; onCreated?: (template: { id: string; name: string }) => void; onOpenChange: (open: boolean) => void }) => (
+    <div data-testid="new-template-dialog" data-initial-name={initialName ?? ""}>
+      <button
+        type="button"
+        onClick={() => {
+          onOpenChange(false);
+          onCreated?.({ id: "tpl-new", name: initialName ?? "" });
+        }}
+      >
+        stub-save-template
+      </button>
+    </div>
+  ),
+}));
 vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("@/components/ui/reference-combobox", async () => ({ ReferenceCombobox: (await import("./transport-test-mocks")).MockReferenceCombobox }));
 vi.mock("@/components/ui/date-picker", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/date-picker")>()), DatePicker: (await import("./transport-test-mocks")).MockDatePicker }));
@@ -16,6 +36,7 @@ vi.mock("@/components/ui/select", async () => {
   const mocks = await import("./transport-test-mocks");
   return { Select: mocks.MockSelect, SelectTrigger: mocks.MockSelectTrigger, SelectValue: mocks.Nothing, SelectContent: mocks.Nothing, SelectItem: mocks.Nothing };
 });
+vi.mock("@/components/ui/lines-grid-lazy", async () => ({ LazyLinesGrid: (await import("./transport-test-mocks")).MockLinesGrid }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 import { ArchiveTripsWizard } from "@/apps/transport/wizards/ArchiveTripsWizard";
@@ -28,6 +49,9 @@ import { POST, calls, resetClient, routes } from "./test-setup-mocks";
 
 beforeAll(stubGlobals);
 beforeEach(() => {
+  grants = {};
+  features = {};
+  navigateMock.mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
   resetClient();
@@ -143,6 +167,83 @@ describe("MaterialiseWizard", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order-template/copy-order/{orderId}", { params: { path: { orderId: "o1" } }, body: { dates: ["2026-10-27"], copies: 3 } }));
   });
 
+  it("Details: per order (date × copy) the reference and the lines' quantity and weight, prefilled from the template; only changes are sent", async () => {
+    routes.GET["/api/orders/transport-order-template/{id}"] = () => ({
+      id: "tpl-1",
+      name: "Weekly Acme",
+      customerReference: "WEEK",
+      lines: [
+        { id: "tl-2", position: 2, transportUnitName: "Box", quantity: 2, weightKg: null, transportUnitId: "u" },
+        { id: "tl-1", position: 1, transportUnitName: "Pallet", productName: "Beer", quantity: 10, weightKg: 500, transportUnitId: "u" },
+      ],
+    });
+    routes.POST["/api/orders/transport-order-template/{id}/materialise"] = () => ({ createdOrderIds: ["x"], skippedCount: 0 });
+    renderWith(<MaterialiseWizard open onOpenChange={() => undefined} source={{ kind: "template", id: "tpl-1", label: "Weekly Acme" }} />);
+    const dialog = await screen.findByRole("dialog");
+    await next();
+    fireEvent.change(within(dialog).getByLabelText(/^Financial:From/), { target: { value: "2026-10-26" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Financial:To/), { target: { value: "2026-10-27" } });
+    await next();
+    fireEvent.change(within(dialog).getByLabelText(/^Orders:Copies/), { target: { value: "2" } });
+    /* Four orders: two dates × two copies; the first is shown, prefilled from the template. */
+    const list = await within(dialog).findByRole("list", { name: "Orders:OrdersToCreate" });
+    expect(within(list).getAllByRole("button")).toHaveLength(4);
+    const reference = within(dialog).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement;
+    expect(reference.value).toBe("WEEK");
+    const lines = () => Array.from(dialog.querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
+    expect(lines().map((l) => l.getAttribute("data-key"))).toEqual(["tl-1", "tl-2"]);
+    expect((within(lines()[0]).getByLabelText("Orders:Quantity") as HTMLInputElement).value).toBe("10");
+    expect(within(lines()[0]).queryByText("Remove")).toBeNull();
+
+    /* The second copy of the 27th: another reference and the first line's weight. */
+    fireEvent.click(within(list).getAllByRole("button")[3]);
+    expect(dialog.querySelector("[data-slot=materialise-detail]")).toHaveAttribute("data-key", "2026-10-27|1");
+    fireEvent.change(within(dialog).getByLabelText(/^Orders:CustomerReference/), { target: { value: "SPECIAL" } });
+    fireEvent.change(within(lines()[0]).getByLabelText("Orders:WeightKg"), { target: { value: "450" } });
+    expect(within(list).getAllByRole("button")[3].querySelector("[data-slot=detail-changed]")).not.toBeNull();
+    expect(within(list).getAllByRole("button")[0].querySelector("[data-slot=detail-changed]")).toBeNull();
+
+    /* A value that is no number blocks Next. */
+    fireEvent.change(within(lines()[1]).getByLabelText("Orders:Quantity"), { target: { value: "abc" } });
+    expect(within(dialog).getByText("Orders:DetailsInvalidNumber")).toBeInTheDocument();
+    expect(footerButton("Wizard:Next")).toBeDisabled();
+    fireEvent.change(within(lines()[1]).getByLabelText("Orders:Quantity"), { target: { value: "2" } });
+    expect(footerButton("Wizard:Next")).toBeEnabled();
+
+    await next();
+    expect(dialog.querySelector("[data-slot=materialise-changed-count]")).toHaveTextContent("1");
+    await finish("Orders:Materialise");
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order-template/{id}/materialise")).toHaveLength(2));
+    const bodies = calls(POST, "/api/orders/transport-order-template/{id}/materialise").map(([, init]) => init!.body);
+    expect(bodies[0]).toEqual({ dates: ["2026-10-26"], copies: 2 });
+    expect(bodies[1]).toEqual({ dates: ["2026-10-27"], copies: 2, overrides: [{ date: "2026-10-27", copyIndex: 1, customerReference: "SPECIAL", lines: [{ lineId: "tl-1", quantity: null, weightKg: 450 }] }] });
+  });
+
+  it("Details of Copy order name the copied order's line ids", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => ({ id: "o1", number: "TO-1", customerReference: null, lines: [{ id: "ol-1", position: 1, transportUnitName: "Pallet", quantity: 4, weightKg: 100 }] });
+    routes.POST["/api/orders/transport-order-template/copy-order/{orderId}"] = () => ({ createdOrderIds: ["x"], skippedCount: 0 });
+    renderWith(<MaterialiseWizard open onOpenChange={() => undefined} source={{ kind: "order", id: "o1", label: "Orders:TransportOrder TO-1" }} />);
+    const dialog = await screen.findByRole("dialog");
+    await next();
+    fireEvent.change(within(dialog).getByLabelText(/^Financial:From/), { target: { value: "2026-10-27" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Financial:To/), { target: { value: "2026-10-27" } });
+    await next();
+    const line = await waitFor(() => {
+      const found = dialog.querySelector<HTMLElement>("[data-slot=mock-line][data-key=ol-1]");
+      if (!found) throw new Error("no line");
+      return found;
+    });
+    fireEvent.change(within(line).getByLabelText("Orders:Quantity"), { target: { value: "6" } });
+    await next();
+    await finish("Orders:Materialise");
+    await waitFor(() =>
+      expect(POST).toHaveBeenCalledWith("/api/orders/transport-order-template/copy-order/{orderId}", {
+        params: { path: { orderId: "o1" } },
+        body: { dates: ["2026-10-27"], copies: 1, overrides: [{ date: "2026-10-27", copyIndex: 0, customerReference: null, lines: [{ lineId: "ol-1", quantity: 6, weightKg: null }] }] },
+      }),
+    );
+  });
+
   it("without a preselected source the first step picks a template and Next waits for it", async () => {
     renderWith(<MaterialiseWizard open onOpenChange={() => undefined} />);
     const dialog = await screen.findByRole("dialog");
@@ -150,6 +251,31 @@ describe("MaterialiseWizard", () => {
     await waitFor(() => expect(within(dialog).getByText("Weekly Acme")).toBeInTheDocument());
     fireEvent.change(dialog.querySelector("#materialise-template")!, { target: { value: "tpl-1" } });
     expect(footerButton("Wizard:Next")).toBeEnabled();
+  });
+
+  it("a template made with Add new … opens on its page (it has no lines yet) instead of continuing the wizard", async () => {
+    grants = { "Orders.TransportOrderTemplates": true, "Orders.TransportOrderTemplates.Create": true };
+    features = { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true" };
+    const onOpenChange = vi.fn();
+    renderWith(<MaterialiseWizard open onOpenChange={onOpenChange} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Orders:NewTemplateOpensItsPage")).toBeInTheDocument();
+    fireEvent.click(dialog.querySelector("[data-create-for=materialise-template]")!);
+    expect(screen.getByTestId("new-template-dialog")).toHaveAttribute("data-initial-name", "Typed name");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "stub-save-template" }));
+      await Promise.resolve();
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/templates/tpl-new" }));
+    expect(calls(POST, "/api/orders/transport-order-template/{id}/materialise")).toHaveLength(0);
+  });
+
+  it("offers no Add new … row and no hint without the templates' Create permission", async () => {
+    renderWith(<MaterialiseWizard open onOpenChange={() => undefined} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("[data-create-for=materialise-template]")).toBeNull();
+    expect(within(dialog).queryByText("Orders:NewTemplateOpensItsPage")).toBeNull();
   });
 });
 

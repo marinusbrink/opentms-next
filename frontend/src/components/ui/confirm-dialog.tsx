@@ -23,6 +23,8 @@ export interface ConfirmDialogProps {
   confirmLabel: string;
   /** The label while the action runs, e.g. t("Deleting"). Defaults to the confirm label. */
   busyLabel?: string;
+  /** The label of the button that closes without acting; defaults to t("Cancel") (e.g. "Keep editing"). */
+  cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => Promise<void> | void;
   /** Keeps the confirm button disabled, e.g. until a typed confirmation matches (irreversible actions). */
@@ -37,6 +39,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   busyLabel,
+  cancelLabel,
   destructive,
   onConfirm,
   confirmDisabled = false,
@@ -95,7 +98,7 @@ export function ConfirmDialog({
 
         <div className="flex justify-end gap-2">
           <Button ref={cancelRef} variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            {t("Cancel")}
+            {cancelLabel ?? t("Cancel")}
           </Button>
           <Button
             ref={confirmRef}
