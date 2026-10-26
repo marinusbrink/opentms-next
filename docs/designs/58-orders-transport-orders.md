@@ -184,6 +184,13 @@ Design 61 (the Transport app and the Master data lists).
 
 Features of design 56, default on. Rollback: features off.
 
+*Consignment notes per screen (review M3, 2026-10-26).* `ConsignmentNoteAppService` carries `Apps.Transport` on the
+class; `PrintAsync` needs `Apps.Transport.Orders`. `GetDocumentListAsync` serves three screens and checks the feature of
+the one asking: without an anchor (the Transport app's Documents list) `Apps.Transport.Documents`, with `OrderId` (the
+order's Documents tab) `Apps.Transport.Orders`, with `TripId` (the trip's Documents tab) `Apps.Transport.Trips`.
+`GetDocumentAsync` and `GetDownloadAsync` serve every screen and need only the app, so a CMR stays downloadable from the
+order when Documents is off. The hourly template run checks its own features (design 56 "Background paths").
+
 ## Cost & SLO impact
 
 See design 56; order save p95 < 500 ms (the aggregate, ≤ 5 outbox rows, one derived-value upsert); CMR print ≈ 1–3 s

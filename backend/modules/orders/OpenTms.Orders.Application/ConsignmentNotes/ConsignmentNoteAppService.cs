@@ -114,9 +114,20 @@ public class ConsignmentNoteAppService : OrdersAppServiceBase, IConsignmentNoteA
         return await ToDtosAsync(documents);
     }
 
+    /// <summary>
+    /// The stored notes, for three screens with their own nav-tree feature (review M3, design 56 "Flag &amp; rollout"): the
+    /// Transport app's Documents list asks without an anchor and needs <c>Apps.Transport.Documents</c>; the order editor's
+    /// Documents tab asks with <c>OrderId</c> and needs <c>Apps.Transport.Orders</c>; the trip editor's tab asks with
+    /// <c>TripId</c> and needs <c>Apps.Transport.Trips</c>. The app itself is the class attribute. The detail and the
+    /// download serve every screen and need only the app, so a CMR stays downloadable from the order with Documents off.
+    /// </summary>
     [Authorize(OrdersPermissions.TransportOrders.Default)]
     public virtual async Task<GridResponse<ConsignmentNoteDocumentDto>> GetDocumentListAsync(ConsignmentNoteDocumentListRequestDto input)
     {
+        await FeatureChecker.CheckEnabledAsync(input.OrderId != null
+            ? AppFeatures.TransportApp.Orders
+            : input.TripId != null ? AppFeatures.TransportApp.Trips : AppFeatures.TransportApp.Documents);
+
         var query = await _documents.GetQueryableAsync();
         if (input.OrderId != null) query = query.Where(d => d.OrderId == input.OrderId.Value);
         if (input.TripId != null) query = query.Where(d => d.TripId == input.TripId.Value);

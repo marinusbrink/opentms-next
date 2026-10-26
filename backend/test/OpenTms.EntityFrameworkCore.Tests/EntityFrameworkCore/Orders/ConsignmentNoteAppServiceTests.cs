@@ -135,6 +135,46 @@ public class ConsignmentNoteAppServiceTests : TransportOrderTestBase<Consignment
     }
 
     [Fact]
+    public async Task The_documents_list_needs_the_Documents_feature_while_the_orders_tab_and_the_download_need_only_Orders()
+    {
+        /* Review M3: the Transport app's Documents node gates the unanchored list; the order's Documents tab (OrderId) and
+         * the detail and download keep working with Documents off. */
+        using var _ = InTenantA();
+        using var on = RenderingOn();
+        var f = await FixtureAsync();
+        await DefinitionAsync();
+        await ProfileAsync();
+        var order = await Orders.CreateAsync(CreateDto(f, confirm: true));
+        var document = (await Notes.PrintAsync(new PrintConsignmentNoteDto { OrderLineIds = order.Lines.Select(l => l.Id!.Value).ToList() })).Single();
+
+        using (TestFeatureValueProvider.Override(AppFeatures.TransportApp.Documents, "false"))
+        {
+            await Should.ThrowAsync<Volo.Abp.Authorization.AbpAuthorizationException>(() => Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto()));
+            (await Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto { OrderId = order.Id })).TotalCount.ShouldBe(1, "the order's Documents tab");
+            (await Notes.GetDocumentAsync(document.Id)).Number.ShouldBe(document.Number);
+            (await Notes.GetDownloadAsync(document.Id)).FileName.ShouldBe(document.FileName, "a CMR stays downloadable from the order");
+        }
+
+        (await Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto())).TotalCount.ShouldBe(1, "Documents on: the list answers");
+
+        using (TestFeatureValueProvider.Override(AppFeatures.TransportApp.Orders, "false"))
+        {
+            await Should.ThrowAsync<Volo.Abp.Authorization.AbpAuthorizationException>(() => Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto { OrderId = order.Id }));
+            (await Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto())).TotalCount.ShouldBe(1, "the Documents list does not depend on the Orders node");
+        }
+
+        using (TestFeatureValueProvider.Override(AppFeatures.TransportApp.Trips, "false"))
+        {
+            await Should.ThrowAsync<Volo.Abp.Authorization.AbpAuthorizationException>(() => Notes.GetDocumentListAsync(new ConsignmentNoteDocumentListRequestDto { TripId = Guid.NewGuid() }));
+        }
+
+        using (TestFeatureValueProvider.Override(AppFeatures.Transport, "false"))
+        {
+            await Should.ThrowAsync<Volo.Abp.Authorization.AbpAuthorizationException>(() => Notes.GetDownloadAsync(document.Id));
+        }
+    }
+
+    [Fact]
     public async Task Overrides_change_the_boxes_for_one_print_and_an_explicit_definition_wins_scenario_29()
     {
         using var _ = InTenantA();
