@@ -22,6 +22,7 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { parseInteger } from "@/lib/forms/use-form-state";
 import { toDate, toIsoDate, useFormat } from "@/lib/format";
+import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
@@ -128,7 +129,7 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
       }
     }
     refresh();
-    toast.success(t("Orders:OrdersCreated").replace("{0}", String(total)));
+    toast.success(countText(t, "Orders:OrdersCreated", total));
   };
 
   const modeItems = [
@@ -145,7 +146,7 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
       busyLabel={t("Orders:Creating")}
       onFinish={run}
       tasks={tasks}
-      runContent={tasks ? <p className="shrink-0 text-sm text-muted-foreground">{t("Orders:OrdersCreated").replace("{0}", String(created))}</p> : undefined}
+      runContent={tasks ? <p className="shrink-0 text-sm text-muted-foreground">{countText(t, "Orders:OrdersCreated", created)}</p> : undefined}
       steps={[
         {
           id: "source",
@@ -249,7 +250,7 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                 </div>
               </FormSection>
               <p className="text-label text-muted-foreground" data-slot="materialise-dates">
-                {t("Orders:DatesSelected").replace("{0}", String(dates.length))}
+                {countText(t, "Orders:DatesSelected", dates.length)}
                 {dates.length > 0 && `: ${dates.slice(0, 10).map((d) => f.date(d)).join(", ")}${dates.length > 10 ? "…" : ""}`}
               </p>
             </div>

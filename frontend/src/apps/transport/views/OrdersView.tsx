@@ -44,6 +44,7 @@ import {
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
+import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useDerivedValueStates, useRecordUpdates } from "@/lib/realtime/use-record-updates";
 import { useOpenRecord } from "@/lib/use-open-record";
@@ -254,15 +255,15 @@ export function OrdersView({ filter }: OrdersViewProps) {
         open={dialog === "delete"}
         onOpenChange={(next) => setDialog(next ? "delete" : null)}
         title={t("Orders:DeleteTransportOrder")}
-        description={`${t("Orders:DeleteNTransportOrdersQuestion").replace("{0}", String(selectionCount))} ${t("ThisCannotBeUndone")}`}
+        description={`${countText(t, "Orders:DeleteNTransportOrdersQuestion", selectionCount)} ${t("ThisCannotBeUndone")}`}
         confirmLabel={t("Delete")}
         destructive
         onConfirm={async () => {
           if (!selection) return;
           try {
             const result = await bulkDelete.mutateAsync({ selection, filters });
-            toast.success(t("Orders:OrdersDeleted").replace("{0}", String(result?.deletedCount ?? 0)));
-            if ((result?.skippedRows ?? []).length > 0) toast.warning(t("Orders:OrdersSkipped").replace("{0}", String(result!.skippedRows!.length)));
+            toast.success(countText(t, "Orders:OrdersDeleted", result?.deletedCount ?? 0));
+            if ((result?.skippedRows ?? []).length > 0) toast.warning(countText(t, "Orders:OrdersSkipped", result!.skippedRows!.length));
             setDialog(null);
             setSelection(null);
             refresh();

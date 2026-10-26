@@ -7,7 +7,14 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * New from template / Copy order (the dates per weekday over a range, one materialise call per date with the copies)
  * and Archive trips (open trips skipped and named, one archive call per trip). Risk class: Medium. */
 
-vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
+/* Count texts (finding 6) carry their placeholders, so a test sees the count and whether the singular key was picked. */
+vi.mock("@/lib/i18n/LocalizationProvider", () => ({
+  useL: () => ({
+    t: (k: string) => (/^(Orders:(PrintCmrOutputHint|PrintCmrOutputTripHint|OrdersCreated|DatesSelected)|PlanningExecution:(ArchiveTripsIntro|ArchiveTripsSkipped|TripsArchived))(\.One)?$/.test(k) ? `${k} {0}${k.includes("Skipped") ? " {1}" : ""}` : k),
+    culture: "en",
+    isLoading: false,
+  }),
+}));
 let grants: Record<string, boolean> = {};
 let features: Record<string, string> = {};
 vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: features }, auth: { grantedPolicies: grants } } }) }));
@@ -78,6 +85,16 @@ const finish = async (verb: string) =>
   });
 
 describe("PrintCmrWizard", () => {
+  it("names one consignment note in the singular on the output step (finding 6)", async () => {
+    renderWith(<PrintCmrWizard open onOpenChange={() => undefined} orders={[{ id: "o9", number: "TO-9", lines: [{ id: "l9", position: 1, label: "Pallet" }] }]} />);
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect((within(dialog).getByLabelText(/^Orders:ConsignmentNoteProfile/) as HTMLSelectElement).value).toBe("p-default"));
+    await next();
+    await next();
+    expect(within(dialog).getByText("Orders:PrintCmrOutputHint.One 1")).toBeInTheDocument();
+  });
+
+
   const orders = [
     { id: "o1", number: "TO-1", lines: [{ id: "l1", position: 1, label: "Pallet" }, { id: "l2", position: 2, label: "Box" }] },
     { id: "o2", number: "TO-2", lines: [{ id: "l3", position: 1, label: "Container" }] },
@@ -100,6 +117,7 @@ describe("PrintCmrWizard", () => {
     expect(within(dialog).getByText("Orders:TransportOrder TO-1")).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("checkbox", { name: /Orders:Line 2: Box/ }));
     await next();
+    expect(within(dialog).getByText("Orders:PrintCmrOutputHint 2")).toBeInTheDocument();
     expect(footerButton("Orders:Print")).toBeEnabled();
     await finish("Orders:Print");
 
@@ -121,6 +139,8 @@ describe("PrintCmrWizard", () => {
     await next();
     expect(within(dialog).getByText("Orders:PrintCmrTripHint")).toBeInTheDocument();
     await next();
+    /* A trip prints one note per order on it: no count of "1" (finding 6). */
+    expect(within(dialog).getByText("Orders:PrintCmrOutputTripHint TR-1")).toBeInTheDocument();
     await finish("Orders:Print");
     await waitFor(() => expect(within(dialog).getByText("No consignment note template")).toBeInTheDocument());
     expect(calls(POST, "/api/orders/consignment-note/print")[0][1]!.body).toMatchObject({ tripId: "t1", orderLineIds: null });
@@ -138,7 +158,7 @@ describe("MaterialiseWizard", () => {
     fireEvent.change(within(dialog).getByLabelText(/^Financial:From/), { target: { value: "2026-10-26" } }); // a Monday
     fireEvent.change(within(dialog).getByLabelText(/^Financial:To/), { target: { value: "2026-11-01" } }); // the Sunday
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Orders:RecurrenceDays.Wednesday" })); // Mon-Fri preselected: drop Wednesday
-    expect(dialog.querySelector("[data-slot=materialise-dates]")).toHaveTextContent("Orders:DatesSelected");
+    expect(dialog.querySelector("[data-slot=materialise-dates]")).toHaveTextContent("Orders:DatesSelected 4");
     await next();
     fireEvent.change(within(dialog).getByLabelText(/^Orders:Copies/), { target: { value: "2" } });
     await next();
@@ -148,7 +168,7 @@ describe("MaterialiseWizard", () => {
     const dates = calls(POST, "/api/orders/transport-order-template/{id}/materialise").map(([, init]) => (init!.body as { dates: string[]; copies: number }).dates[0]);
     expect(dates).toEqual(["2026-10-26", "2026-10-27", "2026-10-29", "2026-10-30"]);
     expect((calls(POST, "/api/orders/transport-order-template/{id}/materialise")[0][1]!.body as { copies: number }).copies).toBe(2);
-    expect(toast.success).toHaveBeenCalledWith("Orders:OrdersCreated");
+    expect(toast.success).toHaveBeenCalledWith("Orders:OrdersCreated 8");
   });
 
   it("copies an order through copy-order and refuses more than the maximum copies", async () => {
@@ -290,12 +310,14 @@ describe("ArchiveTripsWizard", () => {
     renderWith(<ArchiveTripsWizard open onOpenChange={() => undefined} trips={trips} />);
     const dialog = await screen.findByRole("dialog");
     expect(dialog.querySelectorAll("[data-slot=archive-selection] li")).toHaveLength(2);
-    expect(within(dialog).getByText("PlanningExecution:ArchiveTripsSkipped")).toBeInTheDocument();
+    /* One trip skipped, two archived: the singular and the plural count text. */
+    expect(within(dialog).getByText("PlanningExecution:ArchiveTripsSkipped.One 1 TR-2")).toBeInTheDocument();
+    expect(within(dialog).getByText("PlanningExecution:ArchiveTripsIntro 2")).toBeInTheDocument();
     await finish("PlanningExecution:Archive");
     await waitFor(() => expect(calls(POST, "/api/planning/transport-trip/{id}/archive")).toHaveLength(2));
     expect(calls(POST, "/api/planning/transport-trip/{id}/archive").map(([, init]) => init!.params!.path!.id)).toEqual(["t1", "t3"]);
     await waitFor(() => expect(footerButton("Close")).toBeEnabled());
-    expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TripsArchived");
+    expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TripsArchived 2");
   });
 
   it("cannot start without an archivable trip", async () => {

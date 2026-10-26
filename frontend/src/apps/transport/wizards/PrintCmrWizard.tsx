@@ -26,6 +26,7 @@ import {
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { parseInteger } from "@/lib/forms/use-form-state";
+import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -278,7 +279,7 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
         {
           id: "output",
           title: t("Orders:Output"),
-          content: <p className="text-sm text-muted-foreground">{t("Orders:PrintCmrOutputHint").replace("{0}", String(trip ? 1 : selectedOrders.length))}</p>,
+          content: <p className="text-sm text-muted-foreground">{trip ? t("Orders:PrintCmrOutputTripHint").replace("{0}", trip.number) : countText(t, "Orders:PrintCmrOutputHint", selectedOrders.length)}</p>,
         },
       ]}
     />

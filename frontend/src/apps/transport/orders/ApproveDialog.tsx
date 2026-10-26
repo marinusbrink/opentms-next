@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { orderStatusName, useApproveMany, useValidateApproval, type ApprovalValidationDto } from "@/domains/orders/transport-orders";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* Approve (design 58, Q6): the dialog runs the approval check for the selected orders, shows every rule result with
@@ -64,7 +65,7 @@ export function ApproveDialog({ ids, open, onOpenChange, onApproved }: ApproveDi
     try {
       const outcome = await approve.mutateAsync({ ids: approvable, hash: validation.hash });
       const approved = outcome.approvedIds ?? [];
-      toast.success(t("Orders:OrdersApproved").replace("{0}", String(approved.length)));
+      toast.success(countText(t, "Orders:OrdersApproved", approved.length));
       onApproved?.(approved);
       onOpenChange(false);
     } catch (err) {

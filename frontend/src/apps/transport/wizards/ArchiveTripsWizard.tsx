@@ -6,6 +6,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { Wizard, type WizardTask } from "@/components/ui/wizard";
 import { archiveTrip, transportTripKeys, type TransportTripRow } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -46,7 +47,7 @@ export function ArchiveTripsWizard({ open, onOpenChange, trips }: ArchiveTripsWi
       }
     }
     void queryClient.invalidateQueries({ queryKey: transportTripKeys.all });
-    toast.success(t("PlanningExecution:TripsArchived").replace("{0}", String(done)));
+    toast.success(countText(t, "PlanningExecution:TripsArchived", done));
   };
 
   return (
@@ -65,7 +66,7 @@ export function ArchiveTripsWizard({ open, onOpenChange, trips }: ArchiveTripsWi
           isValid: archivable.length > 0,
           content: (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">{t("PlanningExecution:ArchiveTripsIntro").replace("{0}", String(archivable.length))}</p>
+              <p className="text-sm text-muted-foreground">{countText(t, "PlanningExecution:ArchiveTripsIntro", archivable.length)}</p>
               <FormSection title={t("PlanningExecution:TransportTrips")}>
                 <ul className="grid grid-cols-2 gap-1 text-sm" data-slot="archive-selection">
                   {archivable.map((trip) => (
@@ -77,7 +78,7 @@ export function ArchiveTripsWizard({ open, onOpenChange, trips }: ArchiveTripsWi
               </FormSection>
               {skipped.length > 0 && (
                 <Alert variant="warning">
-                  <AlertDescription>{t("PlanningExecution:ArchiveTripsSkipped").replace("{0}", String(skipped.length)).replace("{1}", skipped.map((trip) => trip.number).join(", "))}</AlertDescription>
+                  <AlertDescription>{countText(t, "PlanningExecution:ArchiveTripsSkipped", skipped.length, skipped.map((trip) => trip.number).join(", "))}</AlertDescription>
                 </Alert>
               )}
             </div>
