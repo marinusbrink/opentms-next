@@ -274,11 +274,14 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
             b.ToTable(Invoicing + "RelationFinancialSettings", FinancialDbProperties.DbSchema);
             b.ConfigureByConvention();
             b.Property(s => s.CurrencyCode).HasMaxLength(ReferenceDataConsts.IsoCurrencyCodeLength);
+            b.Property(s => s.RelationName).IsRequired().HasMaxLength(FinancialConsts.MaxRelationNameLength).HasDefaultValue(string.Empty);
             b.HasOne<VatPercentage>().WithMany().HasForeignKey(s => s.VatPercentageId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(s => s.PriceLists).WithOne().HasForeignKey(p => p.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(s => s.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(s => s.TenantId);
             b.HasIndex(s => new { s.TenantId, s.RelationId }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
+            /* The list's default sort (review M2): by the stored relation name, in the query. */
+            b.HasIndex(s => new { s.TenantId, s.RelationName });
         });
 
         builder.Entity<RelationPriceList>(b =>

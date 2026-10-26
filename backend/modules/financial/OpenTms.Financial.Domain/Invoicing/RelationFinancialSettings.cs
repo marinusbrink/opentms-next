@@ -23,6 +23,13 @@ public class RelationFinancialSettings : FullAuditedAggregateRoot<Guid>, IMultiT
     /// <summary>A Master Data relation, checked through IMasterDataReferenceLookup.</summary>
     public Guid RelationId { get; private set; }
 
+    /// <summary>
+    /// The relation's name as Master Data gave it at the last save: a copy for sorting and searching the list in the
+    /// query (review M2), like the order's customer name. Screens show the live name from the lookup; a rename in Master
+    /// Data reaches this copy at the next save of the settings.
+    /// </summary>
+    public string RelationName { get; private set; } = string.Empty;
+
     public MultipleMatches RevenueMultipleMatches { get; private set; } = MultipleMatches.All;
 
     public MultipleMatches CostMultipleMatches { get; private set; } = MultipleMatches.All;
@@ -66,6 +73,12 @@ public class RelationFinancialSettings : FullAuditedAggregateRoot<Guid>, IMultiT
     }
 
     public MultipleMatches MultipleMatchesFor(RateSide side) => side == RateSide.Cost ? CostMultipleMatches : RevenueMultipleMatches;
+
+    public void SetRelationName(string? name)
+    {
+        var trimmed = name?.Trim() ?? string.Empty;
+        RelationName = trimmed.Length > FinancialConsts.MaxRelationNameLength ? trimmed[..FinancialConsts.MaxRelationNameLength] : trimmed;
+    }
 
     public void SetPaymentTermDays(int? days)
     {

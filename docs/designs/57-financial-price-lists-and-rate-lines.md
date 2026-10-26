@@ -249,7 +249,16 @@ What the implementer decided where this document left a detail open, and where i
     bracket, `Price1..n` per column) plus a reference sheet `Columns`; import replaces the whole rule set and reports
     `Financial:ImportInvalid` with `row`, `column`, `problem`; files above 5 MB are refused.
 15. **Relation settings list search** by relation name resolves names through the lookup in chunks of 500 and filters in
-    memory; without a term only the page is named.
+    memory; without a term only the page is named. *Superseded 2026-10-26 (review M2: the sort covered only the page and a
+    search loaded every row):* `RelationFinancialSettings.RelationName` (`varchar(128)`, not null, default `''`, index
+    `(TenantId, RelationName)`; migration `FinancialRelationSettingsName`, expand only) holds the relation's name as
+    Master Data gave it at the last save, the same snapshot rule as the order's customer name. The list filters
+    (case-insensitive contains), sorts (name, payment term, currency; always ending on name and id) and pages in the
+    query, then loads only the page with its children and shows the page's live names from the lookup. Chosen over a
+    bounded lookup search because the default sort (by name, no term) needs every row's name, which only a stored copy
+    gives in the query. Trade-off: a relation renamed in Master Data sorts and is found under its old name until its
+    settings are saved again (no Master Data rename event exists yet; one would close the gap). Rows saved before the
+    migration have an empty copy until their next save (the branch was never released, so no production rows).
 16. **Extra error codes** beyond the list above: `Financial:AnchorRequired`, `Financial:TooManyRateLines`,
     `Financial:InvalidValidity`, `Financial:AdjustmentRequired`, `Financial:RateLineConflict` (409). Warning codes:
     `Financial:QuantityMissing`, `Financial:CurrencyMismatch`, `Financial:NoCostPriceSource`.

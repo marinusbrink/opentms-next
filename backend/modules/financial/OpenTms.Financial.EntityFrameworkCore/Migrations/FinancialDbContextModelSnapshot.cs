@@ -301,6 +301,13 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                     b.Property<Guid>("RelationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RelationName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasDefaultValue("");
+
                     b.Property<int>("RevenueMultipleMatches")
                         .HasColumnType("integer");
 
@@ -325,6 +332,8 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         .HasFilter("\"IsDeleted\" = false");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "RelationId"), false);
+
+                    b.HasIndex("TenantId", "RelationName");
 
                     b.ToTable("InvoicingRelationFinancialSettings", "financial");
                 });

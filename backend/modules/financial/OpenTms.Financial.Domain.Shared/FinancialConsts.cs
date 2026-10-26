@@ -6,6 +6,9 @@ public static class FinancialConsts
     /// <summary>Validity rows of one VAT category.</summary>
     public const int MaxVatRates = 50;
 
+    /// <summary>The stored copy of a relation's name on its financial settings (Master Data's name length).</summary>
+    public const int MaxRelationNameLength = 128;
+
     /// <summary>Validity rows of one discount or surcharge (a monthly diesel surcharge over 15 years).</summary>
     public const int MaxDiscountOrSurchargeValues = 200;
 

@@ -15,9 +15,11 @@ using Volo.Abp.Features;
 namespace OpenTms.Financial.Invoicing;
 
 /// <summary>
-/// Design 57: the financial defaults per relation, upserted by relation id (created on first edit). The list searches by
-/// relation name through the Master Data lookup (names are not stored here): without a term the page's names are
-/// resolved; with a term the names of every row are resolved in chunks and filtered in memory, bounded by the lookup.
+/// Design 57: the financial defaults per relation, upserted by relation id (created on first edit). The list filters,
+/// sorts and pages in the query on <see cref="RelationFinancialSettings.RelationName"/>, the copy of the relation's name
+/// each save stores (review M2; the order's customer name is the precedent); only the page's live names are then read
+/// through the Master Data lookup for display. A relation renamed in Master Data sorts and is found under its old name
+/// until its settings are saved again (no Master Data rename event exists yet).
 /// </summary>
 [RequiresFeature(AppFeatures.MasterData.Default)]
 public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRelationFinancialSettingsAppService
@@ -46,36 +48,37 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
     [Authorize(FinancialPermissions.RelationFinancialSettings.Default)]
     public virtual async Task<GridResponse<RelationFinancialSettingsRowDto>> GetListAsync(ReferenceDataListRequestDto input)
     {
-        var query = (await _settings.WithDetailsAsync()).OrderBy(s => s.CreationTime).ThenBy(s => s.RelationId);
-        var totalCount = await AsyncExecuter.LongCountAsync(query);
+        var all = await _settings.GetQueryableAsync();
+        var totalCount = await AsyncExecuter.LongCountAsync(all);
+
+        var filtered = all;
         var term = input.WildcardSearch?.Trim().ToLowerInvariant();
-
-        List<RelationFinancialSettings> page;
-        Dictionary<Guid, string> names;
-        long filteredCount;
-        if (string.IsNullOrEmpty(term))
+        if (!string.IsNullOrEmpty(term))
         {
-            page = await AsyncExecuter.ToListAsync(query.Skip(input.StartRow).Take(input.EndRow - input.StartRow));
-            names = await _masterData.GetRelationNamesAsync(page.Select(s => s.RelationId).ToList());
-            filteredCount = totalCount;
-        }
-        else
-        {
-            var all = await AsyncExecuter.ToListAsync(query);
-            names = await _masterData.GetRelationNamesAsync(all.Select(s => s.RelationId).ToList());
-            var matching = all.Where(s => names.TryGetValue(s.RelationId, out var name) && name.Contains(term, StringComparison.CurrentCultureIgnoreCase)).ToList();
-            filteredCount = matching.Count;
-            page = matching.Skip(input.StartRow).Take(input.EndRow - input.StartRow).ToList();
+            filtered = filtered.Where(s => s.RelationName.ToLower().Contains(term));
         }
 
-        var sorted = (input.SortBy?.ToLowerInvariant()) switch
+        var filteredCount = string.IsNullOrEmpty(term) ? totalCount : await AsyncExecuter.LongCountAsync(filtered);
+        var descending = input.Descending;
+        /* Every order ends on the name and the id, so pages never overlap or skip a row. */
+        var ordered = (input.SortBy?.ToLowerInvariant()) switch
         {
-            null or "" or "relationname" => page.OrderBy(s => names.GetValueOrDefault(s.RelationId) ?? string.Empty, StringComparer.CurrentCultureIgnoreCase),
-            "paymenttermdays" => page.OrderBy(s => s.PaymentTermDays),
-            "currencycode" => page.OrderBy(s => s.CurrencyCode),
+            null or "" or "relationname" => descending
+                ? filtered.OrderByDescending(s => s.RelationName).ThenByDescending(s => s.Id)
+                : filtered.OrderBy(s => s.RelationName).ThenBy(s => s.Id),
+            "paymenttermdays" => descending
+                ? filtered.OrderByDescending(s => s.PaymentTermDays).ThenBy(s => s.RelationName).ThenBy(s => s.Id)
+                : filtered.OrderBy(s => s.PaymentTermDays).ThenBy(s => s.RelationName).ThenBy(s => s.Id),
+            "currencycode" => descending
+                ? filtered.OrderByDescending(s => s.CurrencyCode).ThenBy(s => s.RelationName).ThenBy(s => s.Id)
+                : filtered.OrderBy(s => s.CurrencyCode).ThenBy(s => s.RelationName).ThenBy(s => s.Id),
             _ => throw new BusinessException(ReferenceDataErrorCodes.UnknownSortColumn).WithData("sortBy", input.SortBy!)
         };
-        var rows = input.Descending ? sorted.Reverse().ToList() : sorted.ToList();
+
+        var pageIds = await AsyncExecuter.ToListAsync(ordered.Skip(input.StartRow).Take(input.EndRow - input.StartRow).Select(s => s.Id));
+        var loaded = pageIds.Count == 0 ? [] : (await _settings.GetListAsync(s => pageIds.Contains(s.Id), includeDetails: true)).ToDictionary(s => s.Id);
+        var rows = pageIds.Where(loaded.ContainsKey).Select(id => loaded[id]).ToList();
+        var names = await _masterData.GetRelationNamesAsync(rows.Select(s => s.RelationId).ToList());
 
         var vatNames = await _vat.GetNamesAsync(rows.Select(s => s.VatPercentageId));
         return new GridResponse<RelationFinancialSettingsRowDto>
@@ -84,7 +87,7 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
             {
                 Id = s.Id,
                 RelationId = s.RelationId,
-                RelationName = names.GetValueOrDefault(s.RelationId) ?? string.Empty,
+                RelationName = names.GetValueOrDefault(s.RelationId) ?? s.RelationName,
                 RevenuePriceListCount = s.PriceLists.Count(p => p.Side == RateSide.Revenue),
                 CostPriceListCount = s.PriceLists.Count(p => p.Side == RateSide.Cost),
                 VatPercentageName = s.VatPercentageId != null && vatNames.TryGetValue(s.VatPercentageId.Value, out var vatName) ? vatName : null,
@@ -116,7 +119,18 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
             await _masterData.EnsureRelationsExistAsync([relationId]);
             settings = new RelationFinancialSettings(GuidGenerator.Create(), CurrentTenant.Id, relationId);
         }
-        else if (!string.IsNullOrEmpty(input.ConcurrencyStamp))
+
+
+        /* The list sorts and searches on this copy; every save refreshes it from Master Data. */
+        var relationName = (await _masterData.GetRelationNamesAsync([relationId])).GetValueOrDefault(relationId);
+        if (relationName != null)
+        {
+            settings.SetRelationName(relationName);
+        }
+
+        /* The client's stamp is taken after the Master Data name lookup: taken before it, a stale stamp was not detected
+         * on SQLite (RelationFinancialSettingsAppServiceTests covers both orders of checks after it). */
+        if (!isNew && !string.IsNullOrEmpty(input.ConcurrencyStamp))
         {
             settings.ConcurrencyStamp = input.ConcurrencyStamp;
         }
