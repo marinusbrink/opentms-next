@@ -1,5 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
@@ -8,19 +14,35 @@ import { AttributeFields } from "@/apps/transport/components/AttributeFields";
 import { CheckboxField, ComboField, DateField, NumberField, SelectField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import { StopsEditor } from "@/apps/transport/components/StopsEditor";
-import { REQUIRED_FLAG, hasFlag, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
+import { termsFromDefaults } from "@/apps/transport/orders/NewOrderDialog";
+import {
+  MAX_REFERENCES,
+  REQUIRED_FLAG,
+  hasFlag,
+  newReference,
+  termsValuesOfInput,
+  type EditorMode,
+  type OrderValues,
+  type ReferenceValues,
+} from "@/apps/transport/orders/order-form";
+import { fetchRelationFinancialDefaults } from "@/domains/financial/rate-lines";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { RECURRENCE_DAYS, TEMPLATE_RECURRENCES } from "@/domains/orders/templates";
 import { timeSlots, transportOrderTypes, waypointTypes, type TransportOrderTypeDto } from "@/domains/orders/reference-data";
 import { useOrderAttributeDefinitions } from "@/domains/orders/transport-orders";
+import type { RelationOption } from "@/domains/master-data/entities";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The General tab of the order editor (design 61): Type (locked once numbered), Customer, Contact, Order date,
  * Customer reference, Organisation unit, Attributes (from the definitions), remarks, and the Stop pattern (the default
  * stops of new lines) as a LinesGrid. In template mode the header carries the template's name, description and
- * Active, and the Schedule section (recurrence, interval, weekdays / day of month, horizon, validity). */
+ * Active, and the Schedule section (recurrence, interval, weekdays / day of month, horizon, validity). The order's
+ * references (type, value, description) are a LinesGrid. A customer change on a stored order asks whether to take
+ * over the new customer's financial defaults (design 58, build note 7): Take over reads them and puts them into the
+ * terms, Cancel keeps the current terms; the save sends the terms either way (OrderEditor). */
 
 /** Relations with the Customer role (design 43 flags). */
 const CUSTOMER_ROLE = 1;
@@ -31,9 +53,11 @@ export interface GeneralTabProps {
   /** The order has a number: its type is locked (design 58, `OrderDatePeriodLocked` and the numbering per type). */
   numbered: boolean;
   type: TransportOrderTypeDto | undefined;
+  /** A stored order: a customer change asks about the new customer's financial defaults. */
+  askFinancialDefaults?: boolean;
 }
 
-export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
+export function GeneralTab({ form, mode, numbered, type, askFinancialDefaults = false }: GeneralTabProps) {
   const { t } = useL();
   const typeLookup = transportOrderTypes.useLookup();
   const typeOptions = useMemo(() => toOptions(typeLookup.data, { id: form.values.transportOrderTypeId, name: type?.name }), [typeLookup.data, form.values.transportOrderTypeId, type?.name]);
@@ -47,6 +71,21 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
   const flags = type?.requiredFields as number | undefined;
   /* "Add new …" in the type and organisation-unit pickers (UI-LOOK-004); the relation pickers carry their own. */
   const inPlace = useCreateInPlace();
+  const [defaultsOf, setDefaultsOf] = useState<RelationOption | null>(null);
+  const changeCustomer = (next: RelationOption | null) => {
+    if (askFinancialDefaults && next && next.id !== form.values.customer?.id) setDefaultsOf(next);
+    form.set("customer", next);
+    form.set("customerContactPersonId", null);
+  };
+  const takeOverDefaults = async (customer: RelationOption) => {
+    try {
+      const defaults = await fetchRelationFinancialDefaults(customer.id);
+      form.update((values) => (values.customer?.id === customer.id ? { ...values, terms: termsValuesOfInput(termsFromDefaults(defaults, values.orderDate)) } : values));
+      form.blur("terms");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, t));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,10 +112,7 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
               id={form.id("customer")}
               label={t("Orders:Customer")}
               value={form.values.customer}
-              onChange={(next) => {
-                form.set("customer", next);
-                form.set("customerContactPersonId", null);
-              }}
+              onChange={changeCustomer}
               roles={CUSTOMER_ROLE}
               required
               disabled={form.readOnly}
@@ -108,6 +144,7 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
         </div>
       </div>
       {mode === "template" && <ScheduleSection form={form} />}
+      <ReferencesSection form={form} />
       <FormSection title={t("Orders:DefaultStops")}>
         <p className="mb-2 text-label text-muted-foreground">{t("Orders:DefaultStopsHint")}</p>
         {form.error("defaultStops") && <p className="mb-2 text-label text-destructive">{form.error("defaultStops")}</p>}
@@ -127,7 +164,60 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
         />
       </FormSection>
       {inPlace.dialog}
+      <ConfirmDialog
+        open={defaultsOf != null}
+        onOpenChange={(next) => {
+          if (!next) setDefaultsOf(null);
+        }}
+        title={t("Orders:FinancialDefaults")}
+        description={`${t("Orders:TakeOverFinancialDefaultsQuestion").replace("{0}", defaultsOf?.name ?? "")} ${t("Orders:TakeOverFinancialDefaultsHint")}`}
+        confirmLabel={t("Orders:TakeOver")}
+        onConfirm={async () => {
+          const customer = defaultsOf;
+          setDefaultsOf(null);
+          if (customer) await takeOverDefaults(customer);
+        }}
+      />
     </div>
+  );
+}
+
+/** The order's references (design 58: type, value, description; at most 50), edited inline. */
+function ReferencesSection({ form }: { form: FormContext<OrderValues> }) {
+  const { t } = useL();
+  const columns = useMemo<ColDef<ReferenceValues>[]>(
+    () => [
+      { field: "type", headerName: `${t("Orders:ReferenceType")} *`, flex: 1, minWidth: 120, editable: !form.readOnly },
+      { field: "value", headerName: `${t("Orders:ReferenceValue")} *`, flex: 1.5, minWidth: 160, editable: !form.readOnly },
+      { field: "description", headerName: t("Orders:Description"), flex: 2, minWidth: 180, editable: !form.readOnly },
+    ],
+    [t, form.readOnly],
+  );
+  const setReferences = (references: ReferenceValues[]) => {
+    form.set("references", references);
+    form.blur("references");
+  };
+  return (
+    <FormSection title={t("Orders:References")}>
+      {form.error("references") && <p className="mb-2 text-label text-destructive">{form.error("references")}</p>}
+      <div className="h-40">
+        <LazyLinesGrid<ReferenceValues>
+          rows={form.values.references}
+          onRowsChange={setReferences}
+          getRowId={(row) => row.key}
+          columnDefs={columns}
+          readOnly={form.readOnly}
+          emptyText={t("Orders:NoReferences")}
+          toolbar={
+            form.values.references.length < MAX_REFERENCES ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => setReferences([...form.values.references, newReference()])}>
+                <Plus /> {t("Orders:AddReference")}
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+    </FormSection>
   );
 }
 

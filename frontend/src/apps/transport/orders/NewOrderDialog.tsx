@@ -45,16 +45,21 @@ export interface NewOrderDialogProps {
   typeId?: string;
 }
 
-/** The customer's financial defaults as the order's terms (revenue side). */
-export function termsFromDefaults(defaults: Awaited<ReturnType<typeof fetchRelationFinancialDefaults>>): TransportOrderFinancialTermsInputDto | undefined {
+/**
+ * The customer's financial defaults as the order's terms (revenue side), as the server copies them (design 58, build
+ * note 7; Financial's RelationFinancialSettings): the revenue lists in position order and, given the order date, only
+ * the default discounts or surcharges valid on it.
+ */
+export function termsFromDefaults(defaults: Awaited<ReturnType<typeof fetchRelationFinancialDefaults>>, asOf?: string | null): TransportOrderFinancialTermsInputDto | undefined {
   if (!defaults) return undefined;
+  const validOn = (d: { validFrom?: string; validTill?: string | null }) => !asOf || ((!d.validFrom || d.validFrom <= asOf) && (!d.validTill || asOf <= d.validTill));
   return {
     currencyCode: defaults.currencyCode ?? "EUR",
     vatPercentageId: defaults.vatPercentageId ?? null,
     paymentTermDays: defaults.paymentTermDays ?? null,
-    priceListIds: (defaults.revenuePriceLists ?? []).map((p) => p.priceListId!).filter(Boolean),
+    priceListIds: [...(defaults.revenuePriceLists ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map((p) => p.priceListId!).filter(Boolean),
     multipleMatches: defaults.revenueMultipleMatches,
-    discountsOrSurcharges: (defaults.discountsOrSurcharges ?? []).filter((d) => d.discountOrSurchargeId).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId!, source: 1 as const })),
+    discountsOrSurcharges: (defaults.discountsOrSurcharges ?? []).filter((d) => d.discountOrSurchargeId && validOn(d)).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId!, source: 1 as const })),
     sendFreightDocumentsWithInvoice: defaults.sendFreightDocumentsWithInvoice ?? false,
   };
 }
@@ -90,7 +95,7 @@ export function NewOrderDialog({ open, onOpenChange, typeId }: NewOrderDialogPro
         orderDate: values.orderDate,
         customerReference: values.customerReference.trim() || null,
         defaultStops: (type.data?.defaultWaypoints ?? []).map((w) => ({ waypointTypeId: w.waypointTypeId ?? "", dayOffset: 0 })),
-        financialTerms: termsFromDefaults(defaults),
+        financialTerms: termsFromDefaults(defaults, values.orderDate),
         source: 1,
       });
       toast.success(t("Orders:TransportOrderSaved"));

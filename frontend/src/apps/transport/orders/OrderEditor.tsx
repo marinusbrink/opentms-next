@@ -14,6 +14,7 @@ import { GeneralTab } from "@/apps/transport/orders/GeneralTab";
 import { LinesTab } from "@/apps/transport/orders/LinesTab";
 import {
   changedSections,
+  customerChanged,
   defaultStopInputOf,
   lineInputOf,
   orderValuesOf,
@@ -65,7 +66,7 @@ import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
  * values arrive by push (flow 2). Document commands save first (UI-ACT-008). */
 
 /** The tab that shows a field's error (UI-FORM-006: submit switches to the first tab with an error). */
-const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general" };
+const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general", references: "general" };
 
 const DRAFT = 1;
 const OPEN = 2;
@@ -181,7 +182,9 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
         if (changed.defaultStops) current = await defaultStops.mutateAsync({ id: order.id, concurrencyStamp: stamp(), defaultStops: values.defaultStops.map(defaultStopInputOf) });
         if (changed.lines) current = await lines.mutateAsync({ id: order.id, concurrencyStamp: stamp(), lines: values.lines.map(lineInputOf) });
         if (changed.references) current = await references.mutateAsync({ id: order.id, concurrencyStamp: stamp(), references: referencesInputOf(values.references) });
-        if (changed.terms) current = await terms.mutateAsync({ id: order.id, concurrencyStamp: stamp(), terms: termsInputOf(values.terms) });
+        /* A customer change sends the terms too (design 58, build note 7): the defaults the clerk took over, or the
+         * current terms kept; after the header, so they win over a server that copies the defaults on its own. */
+        if (changed.terms || (changed.header && customerChanged(values, initial))) current = await terms.mutateAsync({ id: order.id, concurrencyStamp: stamp(), terms: termsInputOf(values.terms) });
         if (changed.tripRequest) current = await tripRequest.mutateAsync({ id: order.id, concurrencyStamp: stamp(), tripRequest: tripRequestInputOf(values.tripRequest) });
         if (changed.attributes) current = await attributes.mutateAsync({ id: order.id, concurrencyStamp: stamp(), attributes: values.attributes });
         lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
@@ -282,7 +285,7 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   const hasError = (fields: (keyof OrderValues & string)[]) => fields.some((field) => form.error(field) != null);
 
   const tabs: EntityDialogTab[] = [
-    { value: "general", label: t("General"), hasError: hasError(["transportOrderTypeId", "customer", "orderDate", "name", "schedule", "defaultStops"]), content: withAlert(<GeneralTab form={form} mode={mode} numbered={!!order?.number} type={type.data} />, "general") },
+    { value: "general", label: t("General"), hasError: hasError(["transportOrderTypeId", "customer", "orderDate", "name", "schedule", "defaultStops", "references"]), content: withAlert(<GeneralTab form={form} mode={mode} numbered={!!order?.number} type={type.data} askFinancialDefaults={mode === "order" && order?.id != null} />, "general") },
     { value: "lines", label: t("Orders:Lines"), hasError: hasError(["lines"]), content: withAlert(<LinesTab form={form} mode={mode} type={type.data} rateLines={rateLines.data} />, "lines") },
     { value: "pricing", label: t("Orders:Pricing"), hasError: hasError(["terms"]), content: withAlert(<PricingTab form={form} mode={mode} order={order} rateLines={rateLines.data} previewDirty={sections.lines || sections.terms} canEditRateLines={can.rateLines && editableStatus} />, "pricing") },
     { value: "planning", label: t("Orders:Planning"), hasError: hasError(["tripRequest"]), content: withAlert(<PlanningTab form={form} mode={mode} order={order} />, "planning") },

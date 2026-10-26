@@ -69,7 +69,9 @@ export interface LineValues {
   lengthCm: string;
   widthCm: string;
   heightCm: string;
-  measurements: TransportOrderMeasurementDto[];
+  /** The individual weighings and volumes of the line (design 58: up to three per kind), as typed; position = index + 1. */
+  weightMeasurements: string[];
+  volumeMeasurements: string[];
   invoiceReference: string;
   remarks: string;
   internalRemarks: string;
@@ -170,6 +172,30 @@ export const newKey = (prefix: string) => `${prefix}-${++keyCounter}`;
 
 /* ── From the DTOs ───────────────────────────────────────────────────────────────────────────────────────────── */
 
+/** MeasurementKind (design 58): WeightKg = 1, VolumeM3 = 2; at most three of each (OrdersConsts.MaxMeasurementsPerKind). */
+export const MEASUREMENT_KIND = { WeightKg: 1, VolumeM3: 2 } as const;
+export const MAX_MEASUREMENTS_PER_KIND = 3;
+
+/** One kind's measurements as the three typed slots (position 1..3). */
+export function measurementTexts(measurements: TransportOrderMeasurementDto[] | null | undefined, kind: number): string[] {
+  const slots = Array.from({ length: MAX_MEASUREMENTS_PER_KIND }, () => "");
+  for (const m of measurements ?? []) {
+    const index = (m.position ?? 0) - 1;
+    if (m.kind === kind && index >= 0 && index < MAX_MEASUREMENTS_PER_KIND) slots[index] = numberToText(m.value);
+  }
+  return slots;
+}
+
+/** The typed slots back as the line's measurements; an empty slot is none. */
+export function measurementsOf(weights: string[], volumes: string[]): TransportOrderMeasurementDto[] {
+  const of = (texts: string[], kind: 1 | 2) =>
+    texts.flatMap((text, index) => {
+      const value = parseNumber(text);
+      return value == null ? [] : [{ kind, position: index + 1, value }];
+    });
+  return [...of(weights, MEASUREMENT_KIND.WeightKg), ...of(volumes, MEASUREMENT_KIND.VolumeM3)];
+}
+
 export function stopValuesOf(stop: TransportOrderStopDto | TransportOrderDefaultStopDto | TemplateStopDto): StopValues {
   const s = stop as Partial<TransportOrderStopDto & TransportOrderDefaultStopDto & TemplateStopDto>;
   return {
@@ -246,7 +272,8 @@ export function lineValuesOf(line: TransportOrderLineDto | TemplateLineDto): Lin
     lengthCm: numberToText(l.lengthCm),
     widthCm: numberToText(l.widthCm),
     heightCm: numberToText(l.heightCm),
-    measurements: l.measurements ?? [],
+    weightMeasurements: measurementTexts(l.measurements, MEASUREMENT_KIND.WeightKg),
+    volumeMeasurements: measurementTexts(l.measurements, MEASUREMENT_KIND.VolumeM3),
     invoiceReference: l.invoiceReference ?? "",
     remarks: l.remarks ?? "",
     internalRemarks: l.internalRemarks ?? "",
@@ -292,7 +319,8 @@ export function newLine(pattern: StopValues[], orderDate: string | null, mode: E
     lengthCm: "",
     widthCm: "",
     heightCm: "",
-    measurements: [],
+    weightMeasurements: ["", "", ""],
+    volumeMeasurements: ["", "", ""],
     invoiceReference: "",
     remarks: "",
     internalRemarks: "",
@@ -337,6 +365,22 @@ export function termsValuesOf(terms: TransportOrderFinancialTermsDto | undefined
     discountsOrSurcharges: (terms.discountsOrSurcharges ?? []).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId, source: (d.source ?? 2) as 1 | 2 })),
     fixedPriceAmount: numberToText(terms.fixedPriceAmount),
     sendFreightDocumentsWithInvoice: terms.sendFreightDocumentsWithInvoice ?? false,
+  };
+}
+
+/** Terms as an API input carries them (the customer's defaults, NewOrderDialog.termsFromDefaults) as form values;
+ *  none means the module's default, as the server starts an order without the customer's settings (design 58). */
+export function termsValuesOfInput(input: TransportOrderFinancialTermsInputDto | undefined): TermsValues {
+  if (!input) return DEFAULT_TERMS;
+  return {
+    currencyCode: input.currencyCode ?? "EUR",
+    vatPercentageId: input.vatPercentageId ?? null,
+    paymentTermDays: numberToText(input.paymentTermDays),
+    priceListIds: input.priceListIds ?? [],
+    multipleMatches: input.multipleMatches ?? 1,
+    discountsOrSurcharges: (input.discountsOrSurcharges ?? []).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId, source: (d.source ?? 1) as 1 | 2 })),
+    fixedPriceAmount: numberToText(input.fixedPriceAmount),
+    sendFreightDocumentsWithInvoice: input.sendFreightDocumentsWithInvoice ?? false,
   };
 }
 
@@ -537,7 +581,7 @@ function lineCore(line: LineValues) {
     lengthCm: parseNumber(line.lengthCm),
     widthCm: parseNumber(line.widthCm),
     heightCm: parseNumber(line.heightCm),
-    measurements: line.measurements,
+    measurements: measurementsOf(line.weightMeasurements, line.volumeMeasurements),
     invoiceReference: text(line.invoiceReference),
     remarks: text(line.remarks),
     internalRemarks: text(line.internalRemarks),
@@ -621,6 +665,15 @@ export function templateTripRequestInputOf(request: TripRequestValues): Template
 
 export const referencesInputOf = (references: ReferenceValues[]) => references.map((r) => ({ type: r.type.trim(), value: r.value.trim(), description: text(r.description) }));
 
+/** OrdersConsts: at most 50 references; type 32, value 128, description 256 characters. */
+export const MAX_REFERENCES = 50;
+export const REFERENCE_LIMITS = { type: 32, value: 128, description: 256 } as const;
+
+export const newReference = (): ReferenceValues => ({ key: newKey("ref"), type: "", value: "", description: "" });
+
+/** The customer of a stored order changed: the clerk is asked about the new customer's financial defaults (design 58, build note 7). */
+export const customerChanged = (values: OrderValues, initial: OrderValues) => (values.customer?.id ?? null) !== (initial.customer?.id ?? null);
+
 /** Which sections of the order changed since it was loaded (each has its own command, design 58 API contract). */
 export interface ChangedSections {
   header: boolean;
@@ -690,11 +743,18 @@ export function validateOrder(values: OrderValues, mode: EditorMode): FieldError
   for (const line of values.lines) {
     if (!line.transportUnitId) errors.lines = "Orders:LineNeedsTransportUnit";
     for (const field of NUMERIC_LINE_FIELDS) if (numberError(line[field] as string)) errors.lines = "MasterData:InvalidNumber";
+    for (const measurement of [...line.weightMeasurements, ...line.volumeMeasurements]) if (numberError(measurement, { min: 0 })) errors.lines = "MasterData:InvalidNumber";
     for (const stop of line.stops) {
       if (!stop.waypointTypeId || !stop.relationId || !stop.relationAddressId) errors.lines = "Orders:StopIncomplete";
       if ((stop.windowFrom.trim() && !parseTimeOfDay(stop.windowFrom)) || (stop.windowTill.trim() && !parseTimeOfDay(stop.windowTill))) errors.lines = "Orders:InvalidTime";
     }
   }
+  for (const reference of values.references) {
+    const type = reference.type.trim();
+    const value = reference.value.trim();
+    if (!type || !value || type.length > REFERENCE_LIMITS.type || value.length > REFERENCE_LIMITS.value || reference.description.trim().length > REFERENCE_LIMITS.description) errors.references = "Orders:ReferenceInvalid";
+  }
+  if (values.references.length > MAX_REFERENCES) errors.references = "Orders:ReferenceInvalid";
   for (const stop of values.defaultStops) {
     if (!stop.waypointTypeId) errors.defaultStops = "Orders:StopIncomplete";
     if (numberError(stop.dayOffset, { integer: true })) errors.defaultStops = "MasterData:InvalidNumber";

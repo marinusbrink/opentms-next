@@ -160,7 +160,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     expect(createFor(panel("General"), "-customer")).toBeNull();
   });
 
-  it("customer: the new relation is picked and the save sends the new customer", async () => {
+  it("customer: the new relation is picked, the defaults question is kept off with Cancel, and the save sends the new customer", async () => {
     allowCreate("Relation");
     saved.Relation = { id: "rel-new", code: "NEW", name: "New customer", roles: 1, addresses: [] };
     renderPage();
@@ -176,6 +176,8 @@ describe("Transport order page — Add new … in its pickers", () => {
     expect(editor()).toBeNull();
     const customer = within(panel("General")).getByLabelText(/^Orders:Customer \*/) as HTMLSelectElement;
     expect(customer.value).toBe("rel-new");
+    /* A stored order asks about the new customer's financial defaults (design 58 build note 7); Cancel keeps the terms. */
+    await click(await screen.findByRole("button", { name: "Cancel" }));
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
     expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ customerRelationId: "rel-new", customerContactPersonId: null }));

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
+import { Input } from "@/components/ui/input";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor";
 import { AttributeFields } from "@/apps/transport/components/AttributeFields";
@@ -35,7 +36,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 /* The Lines tab of the order editor (design 61): a LinesGrid of the lines (unit, product, quantity, positions, colli,
  * weight, volume, loading metres, EPQ, distance, duration, CO₂ (stored), price (the stored total of the line's rate
  * lines)) with the quantities edited inline, and a side panel for the selected line with the sections Cargo,
- * Container, Documents/texts, Measurements, Attributes and the Stops grid (no nested modal, UX finding §6.3/6.4). The
+ * Container, Documents/texts, Measurements (dimensions and the individual weighings and volumes), Attributes and the
+ * Stops grid (no nested modal, UX finding §6.3/6.4). The
  * type's required flags mark the fields (UI-FORM-002); a Draft saves without them. Every record picker, the unit and
  * product cells included, offers "Add new …" (UI-LOOK-004): the editor opens on top, the new record lands in its line. */
 
@@ -334,6 +336,26 @@ function LineDetail({ line, form, mode, flags, onChange, onClose, options, defin
               <NumberField form={lineForm} field="lengthCm" labelKey="Orders:LengthCm" />
               <NumberField form={lineForm} field="widthCm" labelKey="Orders:WidthCm" />
               <NumberField form={lineForm} field="heightCm" labelKey="Orders:HeightCm" />
+              {/* The individual weighings and volumes (design 58: up to three of each), saved with the lines. */}
+              {(["weightMeasurements", "volumeMeasurements"] as const).map((field) =>
+                line[field].map((text, index) => {
+                  const id = lineForm.id(`${field}-${index + 1}`);
+                  const labelKey = field === "weightMeasurements" ? "Orders:WeightMeasurement" : "Orders:VolumeMeasurement";
+                  return (
+                    <FormField key={id} label={t(labelKey).replace("{0}", String(index + 1))} htmlFor={id}>
+                      <Input
+                        id={id}
+                        inputMode="decimal"
+                        className="tabular-nums"
+                        value={text}
+                        disabled={form.readOnly}
+                        onChange={(e) => onChange({ [field]: line[field].map((v, i) => (i === index ? e.target.value : v)) })}
+                        onBlur={() => form.blur("lines")}
+                      />
+                    </FormField>
+                  );
+                }),
+              )}
             </div>
           </FormSection>
           <AttributeFields idPrefix={lineForm.id("attributes")} title={t("Orders:Attributes")} definitions={definitions} value={line.attributes} onChange={(next) => onChange({ attributes: next })} readOnly={form.readOnly} />
