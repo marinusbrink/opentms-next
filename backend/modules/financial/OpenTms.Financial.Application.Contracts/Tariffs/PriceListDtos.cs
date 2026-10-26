@@ -108,6 +108,13 @@ public class PriceListRuleListRequestDto : ReferenceDataListRequestDto
     /// <summary>0–3: only the rules of this specificity.</summary>
     [Range(0, 3)]
     public int? Tier { get; set; }
+
+    /// <summary>
+    /// Several tiers at once (design 57 UI: "Overrides" = tiers 1–3, "Defaults" = tier 0). Combined with <see cref="Tier"/>
+    /// when both are given (a rule must match both); empty = no tier filter.
+    /// </summary>
+    [MaxLength(4)]
+    public List<int> Tiers { get; set; } = new();
 }
 
 public class PriceListBracketInputDto
@@ -230,7 +237,11 @@ public class PriceListSimulateDto
     public List<Guid> FromRegionIds { get; set; } = new();
     public Guid ToRelationId { get; set; }
     public List<Guid> ToRegionIds { get; set; } = new();
-    public Guid TransportUnitId { get; set; }
+    /// <summary>
+    /// Null simulates a line without a transport unit: only rules that name no unit ("any unit") can match, as a rule's
+    /// dimension set to "any" matches every line (design 57 step 3; build note 20).
+    /// </summary>
+    public Guid? TransportUnitId { get; set; }
     public Guid? ProductId { get; set; }
     public Guid? VehicleTypeId { get; set; }
     public decimal Quantity { get; set; } = 1m;
