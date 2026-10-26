@@ -277,7 +277,7 @@ deviations, each small and reversible:
     replaces them) or the copied order's; unknown lines `Orders:MaterialisationLineUnknown`, a date or copy not being created,
     a duplicate or a negative value `Orders:MaterialisationOverrideInvalid` (400), checked before anything is created. *Trip
     request warning*: Planning's `TransportTripRequestNotHonouredEto` (design 59 build note 14) sets
-    `TripRequest.WarningCode` (`OpenTms.Orders:TripRequestNotHonoured`), `WarningField` and `WarningAt` (migration
+    `TripRequest.WarningCode` (`OpenTms.Orders:TripRequestNotHonoured`, a warning code in `OrdersWarningCodes`, not an error code), `WarningField` and `WarningAt` (migration
     `OrdersTripRequestWarning`); the row DTO carries `tripRequestWarningCode`; recording a trip clears it, request edits keep
     it (the request is honoured once, on Confirm). *Approval*: `FinancialDefaultsMismatch` stays out of the default active
     rules — it is a user validator in OpenTMS (`orders.md` §5) and Q6 / Assumption 3 make the four system rules the

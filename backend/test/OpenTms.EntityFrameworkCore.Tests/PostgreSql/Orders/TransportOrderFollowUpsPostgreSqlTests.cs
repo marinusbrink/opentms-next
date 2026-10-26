@@ -99,7 +99,7 @@ public class TransportOrderFollowUpsPostgreSqlTests : TransportOrdersPostgreSqlT
             await handlers.HandleEventAsync(eto);
             await FlushAsync();
             var first = (await Orders.GetAsync(order.Id)).TripRequest.ShouldNotBeNull();
-            (first.WarningCode, first.WarningField).ShouldBe((OrdersErrorCodes.TripRequestNotHonoured, "transportTripTypeId"));
+            (first.WarningCode, first.WarningField).ShouldBe((OrdersWarningCodes.TripRequestNotHonoured, "transportTripTypeId"));
 
             /* At least once: delivered again, the stored warning (and its time) is unchanged. */
             await handlers.HandleEventAsync(eto);

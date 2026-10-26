@@ -89,7 +89,7 @@ public class TransportOrderRowDto
     public ExecutionProgress ExecutionProgress { get; set; }
     public string? TripNumbers { get; set; }
     public bool HasTripRequest { get; set; }
-    /// <summary>Set when Planning could not honour the order's trip request ("Orders:TripRequestNotHonoured"); the legs stay unplanned.</summary>
+    /// <summary>Set when Planning could not honour the order's trip request ("OpenTms.Orders:TripRequestNotHonoured", OrdersWarningCodes); the legs stay unplanned.</summary>
     public string? TripRequestWarningCode { get; set; }
     public DateTime CreationTime { get; set; }
     public DateTime? LastModificationTime { get; set; }

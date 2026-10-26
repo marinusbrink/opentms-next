@@ -240,7 +240,7 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// order. Idempotent; a request removed meanwhile or already honoured with a trip is left alone.
     /// </summary>
     public bool RecordTripRequestNotHonoured(string? field, DateTimeOffset at)
-        => TripRequest != null && TripRequest.SetNotHonoured(OrdersErrorCodes.TripRequestNotHonoured, field, at);
+        => TripRequest != null && TripRequest.SetNotHonoured(OrdersWarningCodes.TripRequestNotHonoured, field, at);
 
     // ── default stops (the pattern) ─────────────────────────────────────────────
 

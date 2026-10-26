@@ -276,17 +276,17 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         tripRequest.TripId.ShouldBeNull();
 
         /* Not silent: Planning's fact reached Orders, and the order carries a warning the screens show (design 59 build note 13). */
-        tripRequest.WarningCode.ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+        tripRequest.WarningCode.ShouldBe(OpenTms.Orders.OrdersWarningCodes.TripRequestNotHonoured);
         tripRequest.WarningField.ShouldBe("transportTripTypeId");
         tripRequest.WarningAt.ShouldNotBeNull();
         (await Orders.GetListAsync(new TransportOrderListRequestDto())).Rows.Single(r => r.Id == orderId).TripRequestWarningCode
-            .ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+            .ShouldBe(OpenTms.Orders.OrdersWarningCodes.TripRequestNotHonoured);
 
         /* Delivered again: still one warning, still no trip; the order's later edits of the request keep the confirm's warning. */
         await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
         (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldBeEmpty();
         var again = (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull();
-        again.WarningCode.ShouldBe(OpenTms.Orders.OrdersErrorCodes.TripRequestNotHonoured);
+        again.WarningCode.ShouldBe(OpenTms.Orders.OrdersWarningCodes.TripRequestNotHonoured);
         again.WarningAt.ShouldBe(tripRequest.WarningAt);
     }
 

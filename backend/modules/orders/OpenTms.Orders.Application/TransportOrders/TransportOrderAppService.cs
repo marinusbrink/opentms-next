@@ -14,6 +14,7 @@ using OpenTms.Platform.Grid;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
 using Volo.Abp.Content;
+using Volo.Abp.Domain.ChangeTracking;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
 using Volo.Abp.Settings;
@@ -85,6 +86,8 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
     public virtual async Task<IRemoteStreamContent> ExportAsync(TransportOrderExportRequestDto input)
     {
         var columns = TransportOrderExportColumns.Resolve(input.Columns, L);
+        /* Read only: up to the cap of rows pass through, none is written, none needs change tracking. */
+        using var untracked = LazyServiceProvider.LazyGetRequiredService<IEntityChangeTrackingProvider>().Change(false);
         var query = await _orders.GetQueryableAsync();
         if (!input.AllRows)
         {

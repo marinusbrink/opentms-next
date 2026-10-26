@@ -89,11 +89,6 @@ public static class OrdersErrorCodes
     /// <summary>The export names a column the list does not have ({field}).</summary>
     public const string ExportUnknownColumn = Namespace + ":ExportUnknownColumn";
 
-    /* Design 59 build note 13: a trip request Planning could not honour (a warning on the order, not an error). */
-
-    /// <summary>The order's trip request was not honoured: {field} does not resolve in Planning; the legs stay unplanned.</summary>
-    public const string TripRequestNotHonoured = Namespace + ":TripRequestNotHonoured";
-
     /// <summary>A schedule's interval, days or day of month are out of range ({field}).</summary>
     public const string InvalidSchedule = Namespace + ":InvalidSchedule";
 
@@ -126,4 +121,14 @@ public static class OrdersErrorCodes
         InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies, MaterialisationLineUnknown,
         MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn
     ];
+}
+
+/// <summary>
+/// Warning codes the Orders module stores on its records (never thrown, so no HTTP status); the namespace prefix maps to
+/// the Orders localization resource like the error codes, so a client localizes them the same way.
+/// </summary>
+public static class OrdersWarningCodes
+{
+    /// <summary>The order's trip request was not honoured: {field} does not resolve in Planning; the legs stay unplanned (design 59 build note 13).</summary>
+    public const string TripRequestNotHonoured = OrdersErrorCodes.Namespace + ":TripRequestNotHonoured";
 }
