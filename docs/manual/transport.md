@@ -273,7 +273,7 @@ niet in. Filters: de weergave in het navigatiepaneel, bij *Alles* een periode, e
 vervoerder, organisatie-eenheid en *Verberg lege ritten*. **Exporteren** (het downloadpictogram rechts
 boven de lijst) werkt als bij de lijst Opdrachten: zichtbare of alle kolommen, de rijen van het filter of
 alle rijen (gearchiveerde ritten blijven buiten de export). Tijden staan in uw tijdzone, de afstand in km en
-de beladingsgraad als percentage; CO₂ gaat niet mee.
+de beladingsgraad als percentage; CO₂ gaat mee in kg.
 
 In de actiebalk staan voor de geselecteerde rit(ten) **Vrachtbrief afdrukken**, **Ritten archiveren**,
 **Afronden** en **Rit annuleren**. **Ritten archiveren** opent een stappenvenster met de geselecteerde
