@@ -12,7 +12,7 @@ namespace OpenTms.Integrations.CarbonFootprint;
 /// </summary>
 public interface ICarbonFootprintCalculator
 {
-    /// <summary>The trip's total and its allocation over <paramref name="legs"/> (same order), or the fallback when the provider fails.</summary>
+    /// <summary>The trip's total and its allocation over <paramref name="legs"/> (same order), or the great-circle fallback when the route function is not configured, has no path or is down (it never throws <see cref="RoutingUnavailableException"/>).</summary>
     Task<Co2Estimate> EstimateTripAsync(IReadOnlyList<GeoPoint> stops, VehicleSpec? vehicle, IReadOnlyList<LegLoad> legs, CancellationToken cancellationToken = default);
 
     /// <summary>The estimate of one unplanned leg: great-circle distance × tonnes × the tenant's CPI (grams per tonne-kilometre).</summary>

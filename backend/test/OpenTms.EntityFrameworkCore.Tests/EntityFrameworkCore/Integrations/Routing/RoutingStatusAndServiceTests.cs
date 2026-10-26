@@ -234,11 +234,47 @@ public class RoutingStatusAndServiceTests : OpenTmsTestBase<RoutingTestModule>
     [Fact]
     public async Task A_matrix_with_an_unreachable_pair_is_null_and_nothing_is_cached()
     {
-        _handler.Always(RoutingRecorded.OsrmTableUnreachable);
+        /* Three points, the second consecutive pair without a road (a 2×2 table for three points would be a malformed
+         * answer, which is now an outage: RoutingUnavailableException). */
+        _handler.Always("""{"code":"Ok","distances":[[0,72484.6,45120.2],[72510.1,0,null],[45200.5,null,0]],"durations":[[0,3712.4,2410.0],[3720.0,0,null],[2415.2,null,0]]}""");
 
         using (_currentTenant.Change(TenantB))
         {
             (await _routing.GetMatrixAsync([A, B, C], null)).ShouldBeNull();
+            (await _cache.GetListAsync()).ShouldBeEmpty();
+        }
+    }
+
+    [Fact]
+    public async Task An_engine_that_is_down_throws_through_the_service_caches_nothing_and_answers_once_it_recovers()
+    {
+        using (_currentTenant.Change(TenantB))
+        {
+            /* Review B1 (constitution rule 3): an outage is not "no route"; it fails the calculation so Hangfire retries. */
+            _handler.AlwaysStatus(System.Net.HttpStatusCode.ServiceUnavailable);
+            (await Should.ThrowAsync<RoutingUnavailableException>(() => _routing.GetRouteAsync(A, B, null, RoutingOptions.DistanceOnly)))
+                .Code.ShouldBe(OpenTms.Integrations.IntegrationsErrorCodes.RoutingUnavailable);
+            await Should.ThrowAsync<RoutingUnavailableException>(() => _routing.GetMatrixAsync([A, B, C], null));
+            (await _cache.GetListAsync()).ShouldBeEmpty("an outage pins nothing in the cache");
+
+            _handler.AnswerByPath();
+            (await _routing.GetRouteAsync(A, B, null, RoutingOptions.DistanceOnly)).ShouldNotBeNull().DistanceM.ShouldBe(72485);
+            (await _cache.GetListAsync()).Count.ShouldBe(1);
+        }
+    }
+
+    [Fact]
+    public async Task A_function_that_is_down_while_toll_is_asked_fails_the_route_and_caches_nothing()
+    {
+        /* OSRM answers, the function does not: toll kilometres are a pricing input, so the leg waits for the retry. */
+        _handler.Fallback = (request, _) => System.Threading.Tasks.Task.FromResult(request.Method == HttpMethod.Post
+            ? RoutingHttpHandler.Status(System.Net.HttpStatusCode.BadGateway, "{}")
+            : RoutingHttpHandler.Json(RoutingRecorded.OsrmRouteOk));
+
+        using (_currentTenant.Change(TenantB))
+        {
+            (await Should.ThrowAsync<RoutingUnavailableException>(() => _routing.GetRouteAsync(A, B, null, new RoutingOptions(IncludeToll: true))))
+                .StatusCode.ShouldBe(502);
             (await _cache.GetListAsync()).ShouldBeEmpty();
         }
     }

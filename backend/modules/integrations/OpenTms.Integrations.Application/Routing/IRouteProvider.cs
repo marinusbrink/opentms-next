@@ -7,8 +7,9 @@ namespace OpenTms.Integrations.Routing;
 /// <summary>
 /// One routing engine behind <see cref="RoutingService"/> (design 60, "Providers"). Registered in the module and chosen
 /// by <see cref="Name"/> from <c>Integrations:Routing:Provider</c>; no factories, no reflection. A provider answers null
-/// for "no route" and for any failure (logged at warning with the status code only); it never throws for a transport
-/// error.
+/// for "not configured" and "no path" only; a timeout, an unreachable host, an error status or an answer of the wrong
+/// shape is logged at warning with the status code only and thrown as <see cref="RoutingUnavailableException"/>, so the
+/// calculation job fails and is retried with backoff (constitution rule 3).
 /// </summary>
 public interface IRouteProvider
 {

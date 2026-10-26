@@ -19,7 +19,9 @@ namespace OpenTms.Integrations.Routing;
 /// tenant's unexpired row, else ask the configured provider for distance and duration and, when asked, the route function
 /// for toll, CO₂ and geometry, then write the row. The matrix is the consecutive pairs with the cache per pair; the
 /// pairs the cache misses go to the provider in one table call. Null means "no route": not configured (one warning per
-/// tenant per hour, not per call), the engine down, or no path. In-process only, called from calculator jobs.
+/// tenant per hour, not per call) or no path. An engine that is down — the distance provider, or the route function when
+/// toll or CO₂ is asked — throws <see cref="RoutingUnavailableException"/> through this service, so the calculation job
+/// fails and is retried with backoff; nothing is cached for that question. In-process only, called from calculator jobs.
 /// </summary>
 public class RoutingService : IRoutingService, ITransientDependency
 {
@@ -85,6 +87,8 @@ public class RoutingService : IRoutingService, ITransientDependency
             return null;
         }
 
+        /* A function that is down throws: toll kilometres are a pricing input, so the leg waits for the retry rather than
+         * storing a distance without them. A function without a path (null) leaves toll and CO₂ empty. */
         var extra = function == null ? null : await function.CalculateAsync([from, to], vehicle, cancellationToken);
         var source = extra ?? route;
         var result = new RouteResult(

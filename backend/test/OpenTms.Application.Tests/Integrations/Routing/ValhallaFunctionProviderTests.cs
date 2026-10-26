@@ -15,7 +15,9 @@ namespace OpenTms.Integrations.Routing;
 /// "Function provider: contract, retry without vehicle, toll/CO₂ parsing", High). The POST carries origin, destination,
 /// the waypoints between them and the vehicle block; the answer gives one leg (the function knows only the total), the
 /// polyline, the toll and the CO₂e in kilograms with three decimals. A 442 or a "no path" error body is retried once
-/// without the vehicle and the answer then carries no toll and no CO₂. Any other failure is null with the status only.
+/// without the vehicle and the answer then carries no toll and no CO₂; no path again is null. Any other failure (an error
+/// status, a timeout, an unreachable host, a wrong shape) throws <see cref="RoutingUnavailableException"/> with the status
+/// only in the log, so the job is retried (constitution rule 3, review B1).
 /// </summary>
 public class ValhallaFunctionProviderTests
 {
@@ -134,12 +136,19 @@ public class ValhallaFunctionProviderTests
 
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
     [InlineData(HttpStatusCode.InternalServerError)]
-    public async Task Any_other_error_is_null_after_one_attempt_with_the_status_only_in_the_log(HttpStatusCode status)
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task Any_other_error_throws_routing_unavailable_after_one_attempt_with_the_status_only_in_the_log(HttpStatusCode status)
     {
         _handler.ThenStatus(status, """{"error":"secret details 52.3702"}""");
 
-        (await Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], Truck, CancellationToken.None)).ShouldBeNull();
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], Truck, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.HttpStatus);
+        error.StatusCode.ShouldBe((int)status);
+        error.Message.ShouldNotContain("secret");
+        error.Message.ShouldNotContain("52.3702");
         _handler.Requests.Count.ShouldBe(1);
         var warning = _log.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
@@ -149,13 +158,26 @@ public class ValhallaFunctionProviderTests
     }
 
     [Fact]
-    public async Task A_timeout_or_an_unreachable_host_is_null()
+    public async Task A_retry_without_the_vehicle_that_meets_an_outage_throws()
+    {
+        _handler.ThenStatus(ValhallaFunctionProvider.NoPathStatusCode).ThenStatus(HttpStatusCode.ServiceUnavailable);
+
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], Truck, CancellationToken.None));
+
+        error.StatusCode.ShouldBe(503);
+        _handler.Requests.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_timeout_or_an_unreachable_host_throws_routing_unavailable()
     {
         _handler.ThenHang();
-        (await Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)).ShouldBeNull();
+        (await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)))
+            .Failure.ShouldBe(RoutingFailure.Timeout);
 
         _handler.ThenThrow(new HttpRequestException(HttpRequestError.ConnectionError));
-        (await Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)).ShouldBeNull();
+        (await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)))
+            .Failure.ShouldBe(RoutingFailure.Unreachable);
 
         _log.Entries.Count.ShouldBe(2);
         _log.Entries[0].Message.ShouldContain("timed out");
@@ -163,11 +185,12 @@ public class ValhallaFunctionProviderTests
     }
 
     [Fact]
-    public async Task An_answer_without_a_route_is_null()
+    public async Task An_answer_without_a_route_throws_routing_unavailable()
     {
         _handler.ThenJson("""{"message":"ok"}""");
 
-        (await Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)).ShouldBeNull();
+        (await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().CalculateAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)))
+            .Failure.ShouldBe(RoutingFailure.InvalidAnswer);
         _log.Entries.ShouldHaveSingleItem().Message.ShouldContain("unexpected shape");
     }
 

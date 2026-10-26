@@ -121,6 +121,29 @@ public class CarbonFootprintCalculatorTests
     }
 
     [Fact]
+    public async Task When_the_function_is_down_the_fallback_answers_and_nothing_throws()
+    {
+        _function.Unavailable = true;
+
+        var estimate = await Calculator().EstimateTripAsync([A, B, C], null, [new LegLoad(2_000, 0, 2)]);
+
+        estimate.Method.ShouldBe(Co2Estimate.MethodGreatCircleCpi, "design 60: CO₂ never waits for the route function");
+        estimate.TotalKg.ShouldBeGreaterThan(0m);
+    }
+
+    [Fact]
+    public async Task When_only_the_matrix_is_down_the_functions_total_is_allocated_over_great_circle_spans()
+    {
+        _routing.Unavailable = true;
+
+        var estimate = await Calculator().EstimateTripAsync([A, B, C], null, [new LegLoad(1_000, 0, 1), new LegLoad(1_000, 1, 2)]);
+
+        estimate.Method.ShouldBe(Co2Estimate.MethodRouteFunction);
+        estimate.TotalKg.ShouldBe(100m);
+        estimate.PerLegKg.Sum().ShouldBe(100m);
+    }
+
+    [Fact]
     public void The_leg_fallback_is_synchronous_and_names_the_cpi()
     {
         var estimate = Calculator(cpi: 80.5m).EstimateLegFallback(A, C, 20_000);
@@ -171,12 +194,19 @@ public class CarbonFootprintCalculatorTests
 
         public int MatrixCalls { get; private set; }
 
+        public bool Unavailable { get; set; }
+
         public Task<RouteResult?> GetRouteAsync(GeoPoint from, GeoPoint to, VehicleSpec? vehicle, RoutingOptions options, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<RouteMatrix?> GetMatrixAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, CancellationToken cancellationToken = default)
         {
             MatrixCalls++;
+            if (Unavailable)
+            {
+                throw new RoutingUnavailableException("Fake", "table", RoutingFailure.HttpStatus, 503);
+            }
+
             return Task.FromResult(Matrix);
         }
 
@@ -189,6 +219,8 @@ public class CarbonFootprintCalculatorTests
 
         public decimal? Co2Kg { get; set; } = 100m;
 
+        public bool Unavailable { get; set; }
+
         public List<(IReadOnlyList<GeoPoint> Points, VehicleSpec? Vehicle)> Calls { get; } = new();
 
         public bool IsConfigured => Configured;
@@ -198,6 +230,11 @@ public class CarbonFootprintCalculatorTests
         public Task<ProviderRoute?> CalculateAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, CancellationToken cancellationToken)
         {
             Calls.Add((points, vehicle));
+            if (Unavailable)
+            {
+                throw new RoutingUnavailableException("Fake", "route", RoutingFailure.Timeout);
+            }
+
             return Task.FromResult(Co2Kg == null ? null : new ProviderRoute([new ProviderLeg(100_000, 5_000)], null, null, null, null, Co2Kg));
         }
 

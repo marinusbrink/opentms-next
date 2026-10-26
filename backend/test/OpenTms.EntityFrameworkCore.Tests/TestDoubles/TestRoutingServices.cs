@@ -32,6 +32,9 @@ public class TestRoutingWorld
     /// <summary>True: the next routing calls throw (provider failure the job must retry).</summary>
     public volatile bool RoutingThrows;
 
+    /// <summary>True: the next routing calls throw <see cref="RoutingUnavailableException"/>, as the real providers do for an outage.</summary>
+    public volatile bool RoutingDown;
+
     public ConcurrentQueue<(Guid? TenantId, int Points)> MatrixCalls { get; } = new();
 
     public ConcurrentQueue<(Guid? TenantId, GeoPoint From, GeoPoint To, VehicleSpec? Vehicle)> RouteCalls { get; } = new();
@@ -87,6 +90,11 @@ public class TestRoutingService : IRoutingService
             throw new InvalidOperationException("Simulated routing provider failure");
         }
 
+        if (_world.RoutingDown)
+        {
+            throw new RoutingUnavailableException("Test", "route", RoutingFailure.HttpStatus, 503);
+        }
+
         _world.RouteCalls.Enqueue((_currentTenant.Id, from, to, vehicle));
         return Task.FromResult(_world.RoutingAvailable ? _world.Route(from, to, vehicle) : null);
     }
@@ -96,6 +104,11 @@ public class TestRoutingService : IRoutingService
         if (_world.RoutingThrows)
         {
             throw new InvalidOperationException("Simulated routing provider failure");
+        }
+
+        if (_world.RoutingDown)
+        {
+            throw new RoutingUnavailableException("Test", "table", RoutingFailure.Timeout);
         }
 
         _world.MatrixCalls.Enqueue((_currentTenant.Id, points.Count));

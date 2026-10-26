@@ -150,3 +150,16 @@ never returns keys or full URLs; cache rows carry coordinates only (rounded), no
   `TestRoutingWorld` inside their own test modules only, so every other module's tests run the real adapters (with the
   Integrations tables created in the shared SQLite database by the base test module).
 - **2026-10-25, integration:** the route-function vehicle block was verified against the legacy `TransportFileRouteCalculator.cs:455-464` and `RouteVehicleSpecMapper.cs`: weight in tonnes, Euro class `EURO_0`…`EURO_VI`, fuel as the GLEC names `Diesel`/`Petrol`/`Electric`/`CNG` (others omitted), dimensions in metres, consumption in litres per kilometre. The adapter was corrected accordingly (open question 1 of the build notes is closed).
+- **2026-10-26, review B1 (constitution rule 3: retry with backoff):** an engine outage is no longer a null answer. The
+  providers answer null only for "not configured" and "no path" (OSRM's `NoRoute`/`NoSegment`/`NoTable`/`NoMatch`/`NoTrips`;
+  the function's 442 or "no path" body after the retry without the vehicle); a timeout, an unreachable host, any other
+  error status (5xx, 429, 401/403, an unexpected 4xx) or an answer that is not the engine's shape logs one warning (status
+  and code only) and throws `RoutingUnavailableException` (Application.Contracts, `IHasErrorCode` with
+  `OpenTms.Integrations:RoutingUnavailable`, never coordinates). `RoutingService` passes it through and caches nothing for
+  that question. The calculators do not catch it: the derived-value job fails, the old values stay (a new leg stays
+  without distance), the state reads Failed with that code and stays behind the requested version ("calculating"), and
+  Hangfire's automatic retry (default policy, increasing backoff) runs the same version again; the newer-version guard
+  still skips a retry that a later save overtook. A function outage while toll is asked fails the leg too (toll
+  kilometres are a pricing input), whereas `CarbonFootprintCalculator` keeps the great-circle × CPI fallback when the
+  function (or the matrix for the allocation shares) is down, as designed. No `RoutingUnavailable` trip warning exists: a
+  failed job rolls back, so the trip could never store it; the state's error code is the signal.

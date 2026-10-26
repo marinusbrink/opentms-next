@@ -47,11 +47,21 @@ public class CarbonFootprintCalculator : ICarbonFootprintCalculator, ITransientD
             return new Co2Estimate(0m, legs.Select(_ => 0m).ToList(), Co2Estimate.MethodGreatCircleCpi, _fallback.FactorSet);
         }
 
-        var function = _function.IsConfigured ? await _function.CalculateAsync(stops, vehicle, cancellationToken) : null;
+        var function = _function.IsConfigured ? await TryFunctionAsync(stops, vehicle, cancellationToken) : null;
         if (function?.Co2Kg is { } totalKg)
         {
             /* Road distance per stop pair from the matrix (cached per pair); great circle for a pair the engine cannot route. */
-            var matrix = await _routing.GetMatrixAsync(stops, vehicle, cancellationToken);
+            RouteMatrix? matrix;
+            try
+            {
+                matrix = await _routing.GetMatrixAsync(stops, vehicle, cancellationToken);
+            }
+            catch (RoutingUnavailableException)
+            {
+                /* The allocation only needs the distance shares: great circle stands in while the engine is down. */
+                matrix = null;
+            }
+
             var roadM = new double[pairs];
             for (var i = 0; i < pairs; i++)
             {
@@ -64,6 +74,22 @@ public class CarbonFootprintCalculator : ICarbonFootprintCalculator, ITransientD
 
         var perLegFallback = legs.Select(l => _fallback.EstimateKg(SpanDistance(greatCircleM, l), l.WeightKg)).ToList();
         return new Co2Estimate(perLegFallback.Sum(), perLegFallback, Co2Estimate.MethodGreatCircleCpi, _fallback.FactorSet);
+    }
+
+    /// <summary>
+    /// The function's answer, or null when it is down: design 60 keeps the great-circle × CPI fallback for an unavailable
+    /// function (the estimate is marked <see cref="Co2Estimate.MethodGreatCircleCpi"/>), so a CO₂ figure never waits for it.
+    /// </summary>
+    private async Task<ProviderRoute?> TryFunctionAsync(IReadOnlyList<GeoPoint> stops, VehicleSpec? vehicle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _function.CalculateAsync(stops, vehicle, cancellationToken);
+        }
+        catch (RoutingUnavailableException)
+        {
+            return null;
+        }
     }
 
     public Co2Estimate EstimateLegFallback(GeoPoint from, GeoPoint to, double? weightKg)

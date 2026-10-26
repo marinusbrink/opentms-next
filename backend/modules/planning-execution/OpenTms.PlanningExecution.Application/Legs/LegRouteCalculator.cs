@@ -20,8 +20,10 @@ namespace OpenTms.PlanningExecution.Legs;
 /// Design 59 "Calculators", <c>PlanningExecution.Leg</c>: routes one leg through the tenant's routing provider with the
 /// trip's vehicle profile (or the default), applies the tenant's speed correction to the duration, stores toll
 /// kilometres when the provider gives them, and estimates CO₂ for an unplanned leg (great-circle × CPI). A leg without
-/// coordinates gets nothing (the trip warns <c>AddressNotGeocoded</c>). A provider that answers null leaves the old values;
-/// a provider that throws fails the job, which Hangfire retries (flow 2 C).
+/// coordinates gets nothing (the trip warns <c>AddressNotGeocoded</c>). A provider that answers null (not configured, no
+/// path) leaves the old values; a provider that is down throws <see cref="RoutingUnavailableException"/>, which is not
+/// caught here: it fails the job, the leg keeps its old values (none for a new leg), the state records
+/// <c>OpenTms.Integrations:RoutingUnavailable</c> and Hangfire retries with backoff (flow 2 C, constitution rule 3).
 /// </summary>
 public class LegRouteCalculator : IDerivedValueCalculator, ITransientDependency
 {
@@ -80,7 +82,7 @@ public class LegRouteCalculator : IDerivedValueCalculator, ITransientDependency
         var route = await _routing.GetRouteAsync(from, to, spec, new RoutingOptions(IncludeToll: true), context.CancellationToken);
         if (route == null)
         {
-            Logger.LogInformation("Leg {LegId}: the routing provider gave no route; stored values kept.", leg.Id);
+            Logger.LogInformation("Leg {LegId}: routing is not configured or found no path; stored values kept.", leg.Id);
         }
         else
         {

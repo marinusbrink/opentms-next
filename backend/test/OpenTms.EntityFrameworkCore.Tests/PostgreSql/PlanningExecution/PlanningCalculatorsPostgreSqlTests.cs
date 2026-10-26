@@ -127,6 +127,55 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
     }
 
     [Fact]
+    public async Task A_routing_outage_fails_the_leg_job_without_a_distance_and_the_retry_after_recovery_stores_it()
+    {
+        /* Review B1 (constitution rule 3): an outage is thrown, not answered null, so the job fails and Hangfire retries. */
+        var suffix = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var orderId = await CommittedAsync(async () =>
+        {
+            var a = await PlaceAsync("OA" + suffix, "A", 52.1, 5.1);
+            var b = await PlaceAsync("OB" + suffix, "B", 52.4, 5.4);
+            var id = (await OrderAsync(a.RelationId, LineOf(1, 800, StopAt(a.RelationId, a.AddressId, Load), StopAt(b.RelationId, b.AddressId, Unload)))).Id;
+            (await ConfirmAsync(id)).ShouldHaveSingleItem();
+            return id;
+        });
+        var leg = (await LegsAsync(orderId)).Single();
+        var version = await RequestedVersionAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id);
+
+        World.RoutingAvailable = true;
+        World.RoutingThrows = false;
+        World.RoutingDown = true;
+        try
+        {
+            await Should.ThrowAsync<OpenTms.Integrations.Routing.RoutingUnavailableException>(() => RunAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id, version));
+        }
+        finally
+        {
+            World.RoutingDown = false;
+        }
+
+        var failed = await CommittedAsync(async () => (await States.FindAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id))!);
+        failed.Status.ShouldBe(DerivedValueStatus.Failed);
+        failed.LastErrorCode.ShouldBe(OpenTms.Integrations.IntegrationsErrorCodes.RoutingUnavailable);
+        failed.CalculatedVersion.ShouldBeLessThan(version, "the value stays calculating until a retry succeeds");
+        failed.FailedAttempts.ShouldBe(1);
+        var unrouted = (await LegsAsync(orderId)).Single();
+        unrouted.DistanceM.ShouldBeNull("the failed job stored nothing");
+        unrouted.RoutedAt.ShouldBeNull();
+
+        /* The provider recovers: Hangfire's retry runs the same version and stores the distance. */
+        await RunAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id, version);
+
+        var routed = (await LegsAsync(orderId)).Single();
+        routed.DistanceM.ShouldBe((int)Math.Round(TestRoutingWorld.GreatCircleM(new(52.1, 5.1), new(52.4, 5.4)) * World.RoadFactor));
+        var done = await CommittedAsync(async () => (await States.FindAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id))!);
+        done.Status.ShouldBe(DerivedValueStatus.UpToDate);
+        done.CalculatedVersion.ShouldBe(version);
+        done.LastErrorCode.ShouldBeNull();
+        await DrainOutboxAsync();
+    }
+
+    [Fact]
     public async Task The_trip_calculator_writes_stop_times_distances_load_co2_allocation_warnings_and_publishes_the_fact()
     {
         var setup = await PlanOneOrderAsync();

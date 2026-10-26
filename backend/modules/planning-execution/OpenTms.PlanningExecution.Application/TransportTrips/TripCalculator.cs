@@ -26,8 +26,11 @@ namespace OpenTms.PlanningExecution.TransportTrips;
 /// cumulative distances from one matrix call, (b) load factor and loading metres against the vehicles' capacity,
 /// (c) the warnings, (d) CO₂ for the trip with the per-leg allocation, (e) the cost and revenue allocation over the legs
 /// from Financial's stored rate lines. Every value is written as a plain column; the job's transaction holds them until
-/// the guarded completion. A routing provider that throws fails the job (old values stay); one that answers null leaves
-/// the old times and warns.
+/// the guarded completion. A routing provider that is down throws <see cref="RoutingUnavailableException"/>, which fails
+/// the job (old values and warnings stay, the state records <c>OpenTms.Integrations:RoutingUnavailable</c>, Hangfire
+/// retries); one that answers null (not configured, no path) leaves the old times and warns <c>RoutingNotConfigured</c>.
+/// No <c>RoutingUnavailable</c> warning exists: a failed job rolls back, so the trip could never store one; the
+/// derived-value state carries that code instead. CO₂ falls back to great circle when only the route function is down.
 /// </summary>
 public class TripCalculator : IDerivedValueCalculator, ITransientDependency
 {

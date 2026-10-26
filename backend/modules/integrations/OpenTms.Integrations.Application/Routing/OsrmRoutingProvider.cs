@@ -17,9 +17,12 @@ namespace OpenTms.Integrations.Routing;
 /// The OSRM adapter (design 60, "Providers"; assessment §1.4): <c>GET {base}/route/v1/driving/{lon,lat;…}?overview=false</c>
 /// for a route (one leg per consecutive pair) and <c>GET {base}/table/v1/driving/{…}?annotations=distance,duration</c> for
 /// a matrix. Metres and seconds are taken as OSRM returns them, rounded to the unit only (never to kilometres or
-/// minutes as OpenTMS did). OSRM has no vehicle profile: the spec is ignored here. Any non-success answer, a
-/// <c>code</c> other than <c>Ok</c>, a timeout or an unreachable host gives null and one warning with the status code —
-/// never coordinates. The typed client carries the base URL and the timeout from <see cref="RoutingIntegrationOptions"/>.
+/// minutes as OpenTMS did). OSRM has no vehicle profile: the spec is ignored here. OSRM's own "no path" codes
+/// (<see cref="NoPathCodes"/>) give null and one warning; every other failure — a timeout, an unreachable host, a 5xx or
+/// 429, any other non-<c>Ok</c> code, a body that is not JSON or not OSRM's shape — logs one warning and throws
+/// <see cref="RoutingUnavailableException"/>, so the calculation job fails and Hangfire retries it with backoff
+/// (constitution rule 3). Logs carry the status and the code, never coordinates. The typed client carries the base URL
+/// and the timeout from <see cref="RoutingIntegrationOptions"/>.
 /// </summary>
 public class OsrmRoutingProvider : IRouteProvider
 {
@@ -29,6 +32,9 @@ public class OsrmRoutingProvider : IRouteProvider
 
     /// <summary>The probe asks the nearest road segment of one point; any JSON answer with a code means the engine is up.</summary>
     public const string ProbePath = "nearest/v1/driving/4.9041,52.3676";
+
+    /// <summary>OSRM's codes for "the points cannot be connected": an answer about the points, not an outage.</summary>
+    public static readonly IReadOnlySet<string> NoPathCodes = new HashSet<string>(StringComparer.Ordinal) { "NoRoute", "NoSegment", "NoTable", "NoMatch", "NoTrips" };
 
     private readonly HttpClient _http;
     private readonly RoutingIntegrationOptions _options;
@@ -68,7 +74,7 @@ public class OsrmRoutingProvider : IRouteProvider
             if (legs.Count != points.Count - 1)
             {
                 Logger.LogWarning("OSRM route answered {LegCount} legs for {PointCount} points.", legs.Count, points.Count);
-                return null;
+                throw new RoutingUnavailableException(Name, "route", RoutingFailure.InvalidAnswer);
             }
 
             string? polyline = null;
@@ -79,10 +85,10 @@ public class OsrmRoutingProvider : IRouteProvider
 
             return new ProviderRoute(legs, polyline, null, null, null, null);
         }
-        catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
+        catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException or FormatException)
         {
             Logger.LogWarning("OSRM route answered an unexpected shape: {Error}", e.GetType().Name);
-            return null;
+            throw new RoutingUnavailableException(Name, "route", RoutingFailure.InvalidAnswer, innerException: e);
         }
     }
 
@@ -122,10 +128,10 @@ public class OsrmRoutingProvider : IRouteProvider
 
             return new ProviderTable(cells);
         }
-        catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
+        catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException or FormatException)
         {
             Logger.LogWarning("OSRM table answered an unexpected shape: {Error}", e.GetType().Name);
-            return null;
+            throw new RoutingUnavailableException(Name, "table", RoutingFailure.InvalidAnswer, innerException: e);
         }
     }
 
@@ -170,6 +176,10 @@ public class OsrmRoutingProvider : IRouteProvider
         return builder.ToString();
     }
 
+    /// <summary>
+    /// The engine's JSON for an <c>Ok</c> answer; null for "not configured" and for OSRM's "no path" codes; throws
+    /// <see cref="RoutingUnavailableException"/> for everything else.
+    /// </summary>
     private async Task<JsonElement?> GetJsonAsync(string relative, string operation, CancellationToken cancellationToken)
     {
         if (!IsConfigured)
@@ -177,39 +187,57 @@ public class OsrmRoutingProvider : IRouteProvider
             return null;
         }
 
+        int status;
+        string body;
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(_options.Timeout);
             using var response = await _http.GetAsync(relative, HttpCompletionOption.ResponseContentRead, timeout.Token);
-            var status = (int)response.StatusCode;
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(timeout.Token));
-            var code = document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String
-                ? c.GetString()
-                : null;
-            if (!response.IsSuccessStatusCode || code != "Ok")
-            {
-                /* The status and OSRM's code only: no coordinates in the log (rule 5). */
-                Logger.LogWarning("OSRM {Operation} answered HTTP {StatusCode} with code {Code}.", operation, status, code ?? "(none)");
-                return null;
-            }
-
-            return document.RootElement.Clone();
+            status = (int)response.StatusCode;
+            body = await response.Content.ReadAsStringAsync(timeout.Token);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
         {
             Logger.LogWarning("OSRM {Operation} timed out after {TimeoutSeconds} s.", operation, _options.Timeout.TotalSeconds);
-            return null;
+            throw new RoutingUnavailableException(Name, operation, RoutingFailure.Timeout, innerException: e);
         }
         catch (HttpRequestException e)
         {
             Logger.LogWarning("OSRM {Operation} could not be reached: {RequestError}.", operation, e.HttpRequestError);
-            return null;
+            throw new RoutingUnavailableException(Name, operation, RoutingFailure.Unreachable, (int?)e.StatusCode, e);
         }
-        catch (JsonException)
+
+        JsonDocument document;
+        try
         {
-            Logger.LogWarning("OSRM {Operation} answered a body that is not JSON.", operation);
-            return null;
+            document = JsonDocument.Parse(body);
+        }
+        catch (JsonException e)
+        {
+            Logger.LogWarning("OSRM {Operation} answered HTTP {StatusCode} with a body that is not JSON.", operation, status);
+            throw new RoutingUnavailableException(Name, operation, status is >= 200 and < 300 ? RoutingFailure.InvalidAnswer : RoutingFailure.HttpStatus, status, e);
+        }
+
+        using (document)
+        {
+            var code = document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String
+                ? c.GetString()
+                : null;
+            if (status is >= 200 and < 300 && code == "Ok")
+            {
+                return document.RootElement.Clone();
+            }
+
+            /* The status and OSRM's code only: no coordinates in the log (rule 5). */
+            Logger.LogWarning("OSRM {Operation} answered HTTP {StatusCode} with code {Code}.", operation, status, code ?? "(none)");
+            if (status < 500 && status != 429 && code != null && NoPathCodes.Contains(code))
+            {
+                /* The points cannot be connected: an answer, not an outage. A retry would give the same. */
+                return null;
+            }
+
+            throw new RoutingUnavailableException(Name, operation, status is >= 200 and < 300 ? RoutingFailure.InvalidAnswer : RoutingFailure.HttpStatus, status);
         }
     }
 

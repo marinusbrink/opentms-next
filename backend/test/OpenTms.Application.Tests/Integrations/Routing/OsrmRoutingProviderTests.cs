@@ -14,8 +14,9 @@ namespace OpenTms.Integrations.Routing;
 /// The OSRM adapter against recorded answers (design 60, test risk analysis: "OSRM provider: request shape, parsing,
 /// metres/seconds exact, error → null", High). Request shape: longitude first, overview off unless geometry is asked,
 /// the table with both annotations. Parsing: metres and seconds rounded to the unit, never to kilometres or minutes.
-/// Failure: a non-Ok code, a non-success status, a timeout or an unreachable host give null and a warning that carries
-/// the status code only.
+/// Failure (constitution rule 3, review B1): OSRM's "no path" codes give null; a 5xx or 429, another non-Ok code, a
+/// timeout, an unreachable host or a body that is not OSRM's shape throw <see cref="RoutingUnavailableException"/> so the
+/// job is retried; every failure logs one warning that carries the status code only.
 /// </summary>
 public class OsrmRoutingProviderTests
 {
@@ -121,45 +122,101 @@ public class OsrmRoutingProviderTests
     }
 
     [Theory]
+    [InlineData("NoSegment")]
+    [InlineData("NoTable")]
+    public async Task Every_no_path_code_is_null_not_an_outage(string code)
+    {
+        _handler.ThenStatus(HttpStatusCode.BadRequest, "{\"code\":\"" + code + "\"}");
+
+        (await Provider().GetTableAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)).ShouldBeNull();
+        _handler.Requests.Count.ShouldBe(1);
+    }
+
+    [Theory]
     [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
     [InlineData(HttpStatusCode.ServiceUnavailable)]
-    public async Task A_server_error_is_null(HttpStatusCode status)
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    public async Task A_server_error_or_too_many_requests_throws_routing_unavailable(HttpStatusCode status)
     {
         _handler.ThenStatus(status, """{"code":"InvalidQuery"}""");
 
-        (await Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None)).ShouldBeNull();
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.HttpStatus);
+        error.StatusCode.ShouldBe((int)status);
+        error.Code.ShouldBe(IntegrationsErrorCodes.RoutingUnavailable);
+        error.Message.ShouldNotContain("52.37", Case.Insensitive, "no coordinates in the exception");
         _log.Entries.ShouldHaveSingleItem().Message.ShouldContain(((int)status).ToString());
     }
 
     [Fact]
-    public async Task A_body_that_is_not_json_is_null()
+    public async Task A_server_error_whose_body_is_not_json_still_throws_with_its_status()
+    {
+        _handler.ThenStatus(HttpStatusCode.ServiceUnavailable, "<html>upstream down</html>");
+
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.HttpStatus);
+        error.StatusCode.ShouldBe(503);
+    }
+
+    [Fact]
+    public async Task A_body_that_is_not_json_throws_routing_unavailable()
     {
         _handler.ThenStatus(HttpStatusCode.OK, "<html>gateway</html>");
 
-        (await Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None)).ShouldBeNull();
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.InvalidAnswer);
         _log.Entries.ShouldHaveSingleItem().Message.ShouldContain("not JSON");
     }
 
     [Fact]
-    public async Task An_unreachable_host_is_null_with_the_request_error_only()
+    public async Task An_ok_answer_of_the_wrong_shape_throws_routing_unavailable()
+    {
+        _handler.ThenJson("""{"code":"Ok","routes":[]}""");
+
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.InvalidAnswer);
+        _log.Entries.ShouldHaveSingleItem().Message.ShouldContain("unexpected shape");
+    }
+
+    [Fact]
+    public async Task An_unreachable_host_throws_routing_unavailable_with_the_request_error_only()
     {
         _handler.ThenThrow(new HttpRequestException(HttpRequestError.ConnectionError, "connection refused"));
 
-        (await Provider().GetTableAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None)).ShouldBeNull();
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetTableAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, CancellationToken.None));
+
+        error.Failure.ShouldBe(RoutingFailure.Unreachable);
         var warning = _log.Entries.ShouldHaveSingleItem();
         warning.Message.ShouldContain("ConnectionError");
         warning.Message.ShouldNotContain("refused");
     }
 
     [Fact]
-    public async Task A_timeout_is_null_and_does_not_throw()
+    public async Task A_timeout_throws_routing_unavailable()
     {
         _handler.ThenHang();
 
-        var route = await Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None);
+        var error = await Should.ThrowAsync<RoutingUnavailableException>(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, CancellationToken.None));
 
-        route.ShouldBeNull();
+        error.Failure.ShouldBe(RoutingFailure.Timeout);
         _log.Entries.ShouldHaveSingleItem().Message.ShouldContain("timed out");
+    }
+
+    [Fact]
+    public async Task The_callers_own_cancellation_is_not_an_outage()
+    {
+        _handler.ThenHang();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        var thrown = await Record.ExceptionAsync(() => Provider().GetRouteAsync([RoutingHarness.Amsterdam, RoutingHarness.Rotterdam], null, false, cancelled.Token));
+
+        thrown.ShouldBeAssignableTo<OperationCanceledException>("a cancelled job is not retried as an outage");
     }
 
     [Fact]

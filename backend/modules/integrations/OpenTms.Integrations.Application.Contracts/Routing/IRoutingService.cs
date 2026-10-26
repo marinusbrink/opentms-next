@@ -9,8 +9,12 @@ namespace OpenTms.Integrations.Routing;
 /// <summary>
 /// Distances, durations, geometry and toll between coordinates, from the tenant's routing provider behind one adapter
 /// (AD-12, design 60; PO decision Q4: OSRM for distances, the Valhalla route function for toll and CO₂). In-process only,
-/// called from calculator jobs, never from a request. Null means "no route" (unreachable, not configured, provider down):
-/// the caller stores nothing and records a warning; a retry comes with the next calculation.
+/// called from calculator jobs, never from a request. Null means "no route": routing is not configured, or the points
+/// cannot be connected; the caller stores nothing and records a warning. A provider that is down (timeout, unreachable,
+/// 5xx/429 or another error status, an answer that is not the engine's shape) throws
+/// <see cref="RoutingUnavailableException"/>: the caller lets it fail the calculation job, which keeps the old values,
+/// records <c>OpenTms.Integrations:RoutingUnavailable</c> on the derived-value state and is retried by Hangfire with
+/// backoff (constitution rule 3).
 /// </summary>
 public interface IRoutingService
 {

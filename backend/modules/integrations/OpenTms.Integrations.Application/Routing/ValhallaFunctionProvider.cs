@@ -21,7 +21,10 @@ namespace OpenTms.Integrations.Routing;
 /// <c>carbonFootprint{ totalKgCO2e, gCO2ePerTkm }</c> (GLEC v3 / ISO 14083). The function knows only the total, so a
 /// route is one leg and a table is one call per pair. When truck routing finds no path (HTTP 442, or an error body that
 /// says "no path") the call is retried once without the vehicle; the answer then keeps distance, duration and geometry
-/// and drops toll and CO₂ (<see cref="ProviderRoute.VehicleDropped"/>). Ten seconds per attempt; the optional key goes
+/// and drops toll and CO₂ (<see cref="ProviderRoute.VehicleDropped"/>); a retry that again finds no path is null. Every
+/// other failure — a timeout, an unreachable host, any other non-success status (5xx, 429, 401/403, …), a body that is
+/// not the contract's shape — logs one warning and throws <see cref="RoutingUnavailableException"/>, so the calculation
+/// job fails and Hangfire retries it with backoff (constitution rule 3). Ten seconds per attempt; the optional key goes
 /// in the configured header. Logs carry the operation and the status code, never coordinates, the key or the body.
 /// </summary>
 public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
@@ -100,22 +103,24 @@ public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
         var spec = vehicle ?? VehicleSpec.Default;
         var (status, body) = await PostAsync(RouteFunctionRequest.From(points, spec), cancellationToken);
         var vehicleDropped = false;
-        if (status == NoPathStatusCode || (status is >= 400 and < 500 && body != null && body.Contains(NoPathMarker, StringComparison.OrdinalIgnoreCase)))
+        if (IsNoPath(status, body))
         {
             /* Truck routing found no path: retry as a plain vehicle and keep only what does not depend on the profile. */
             Logger.LogInformation("Route function found no truck path (HTTP {StatusCode}); retrying without the vehicle.", status);
             (status, body) = await PostAsync(RouteFunctionRequest.From(points, null), cancellationToken);
             vehicleDropped = true;
+            if (IsNoPath(status, body))
+            {
+                /* No path for any vehicle: an answer about the points, not an outage; a retry would give the same. */
+                Logger.LogInformation("Route function found no path without the vehicle either (HTTP {StatusCode}).", status);
+                return null;
+            }
         }
 
-        if (status is null or < 200 or >= 300 || body == null)
+        if (status is < 200 or >= 300)
         {
-            if (status != null)
-            {
-                Logger.LogWarning("Route function answered HTTP {StatusCode}.", status);
-            }
-
-            return null;
+            Logger.LogWarning("Route function answered HTTP {StatusCode}.", status);
+            throw new RoutingUnavailableException(Name, "route", RoutingFailure.HttpStatus, status);
         }
 
         try
@@ -156,7 +161,7 @@ public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
             Logger.LogWarning("Route function answered an unexpected shape: {Error}.", e.GetType().Name);
-            return null;
+            throw new RoutingUnavailableException(Name, "route", RoutingFailure.InvalidAnswer, status, e);
         }
     }
 
@@ -183,7 +188,11 @@ public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
         }
     }
 
-    private async Task<(int? Status, string? Body)> PostAsync(RouteFunctionRequest payload, CancellationToken cancellationToken)
+    private static bool IsNoPath(int status, string body)
+        => status == NoPathStatusCode || (status is >= 400 and < 500 && body.Contains(NoPathMarker, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The status and body of one POST; a timeout or an unreachable host throws <see cref="RoutingUnavailableException"/>.</summary>
+    private async Task<(int Status, string Body)> PostAsync(RouteFunctionRequest payload, CancellationToken cancellationToken)
     {
         try
         {
@@ -197,15 +206,15 @@ public class ValhallaFunctionProvider : IRouteProvider, IRouteFunction
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, timeout.Token);
             return ((int)response.StatusCode, await response.Content.ReadAsStringAsync(timeout.Token));
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
         {
             Logger.LogWarning("Route function timed out after {TimeoutSeconds} s.", _options.Timeout.TotalSeconds);
-            return (null, null);
+            throw new RoutingUnavailableException(Name, "route", RoutingFailure.Timeout, innerException: e);
         }
         catch (HttpRequestException e)
         {
             Logger.LogWarning("Route function could not be reached: {RequestError}.", e.HttpRequestError);
-            return (null, null);
+            throw new RoutingUnavailableException(Name, "route", RoutingFailure.Unreachable, (int?)e.StatusCode, e);
         }
     }
 
