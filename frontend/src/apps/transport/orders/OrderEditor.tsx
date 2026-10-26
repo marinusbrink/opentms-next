@@ -321,7 +321,9 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
     if ((status === DRAFT || status === OPEN) && can.delete) commands.push({ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive", groupKey: "Delete", onClick: () => setDialog("delete") });
   }
   if (mode === "template" && template?.id) {
-    commands.push({ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, groupKey: "Orders:Documents", disabled: !template.isActive, disabledReasonKey: "OpenTms.Orders:TemplateInactive", onClick: () => void saveIfDirty().then((ok) => ok && setDialog("materialise")) });
+    /* A template without lines would create empty orders (a new one starts without; its lines are added here first). */
+    const noLines = form.values.lines.length === 0;
+    commands.push({ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, groupKey: "Orders:Documents", disabled: !template.isActive || noLines, disabledReasonKey: !template.isActive ? "OpenTms.Orders:TemplateInactive" : "Orders:TemplateHasNoLines", onClick: () => void saveIfDirty().then((ok) => ok && setDialog("materialise")) });
     if (can.deleteTemplate) commands.push({ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive", groupKey: "Delete", onClick: () => setDialog("delete") });
   }
 

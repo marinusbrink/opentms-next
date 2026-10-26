@@ -125,6 +125,19 @@ describe("TemplatesView", () => {
     expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/templates/tpl-1" }));
   });
 
+  it("Create orders is blocked for an active template without lines, with the reason (it would create empty orders)", async () => {
+    grants = { "Orders.TransportOrderTemplates": true, "Orders.TransportOrders.Create": true };
+    const empty = [{ id: "tpl-3", name: "New Gamma", recurrence: 0, lineCount: 0, isActive: true }];
+    gridRows.current = empty;
+    routes.GET["/api/orders/transport-order-template"] = () => ({ rows: empty, totalCount: 1, filteredCount: 1 });
+    renderWith(<TemplatesView />);
+    await screen.findByTestId("mock-grid");
+    const row = document.querySelector("[data-slot=mock-grid-row]") as HTMLElement;
+    const action = await waitFor(() => within(row).getByText("Orders:Materialise"));
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("title", "Orders:TemplateHasNoLines");
+  });
+
   it("hides New and Delete without their permissions", async () => {
     grants = { "Orders.TransportOrderTemplates": true };
     renderWith(<TemplatesView />);

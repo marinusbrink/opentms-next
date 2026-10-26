@@ -533,6 +533,8 @@
     "Orders:DatesSelected": "{0} dates selected",
     "Orders:MaterialiseDetailsHint": "Every order takes the reference, quantities and weights of its source; adjust them on the created orders.",
     "Orders:NewFromTemplateIntro": "Creates confirmed transport orders from a template for the dates you choose. Dates that already have an order from this template are skipped.",
+    "Orders:NewTemplateOpensItsPage": "A new template opens on its own page: add its lines there, then create orders from it.",
+    "Orders:TemplateHasNoLines": "The template has no lines yet: add them first.",
     "Orders:CopyOrderIntro": "Copies {0} to the dates you choose, as new confirmed transport orders.",
     "Orders:AllTargets": "Order and lines",
     "Orders:AttributeKeyHint": "The stable identifier integrations use; at most 32 characters.",

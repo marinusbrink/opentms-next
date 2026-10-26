@@ -8,7 +8,27 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * and Archive trips (open trips skipped and named, one archive call per trip). Risk class: Medium. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }) }));
-vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: {} }, auth: { grantedPolicies: {} } } }) }));
+let grants: Record<string, boolean> = {};
+let features: Record<string, string> = {};
+vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: features }, auth: { grantedPolicies: grants } } }) }));
+const navigateMock = vi.fn();
+vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders", search: {} }) }));
+/* The New template dialog (its own tests cover its fields): a stub that hands back the template its save created. */
+vi.mock("@/apps/transport/components/NewTemplateDialog", () => ({
+  NewTemplateDialog: ({ initialName, onCreated, onOpenChange }: { initialName?: string; onCreated?: (template: { id: string; name: string }) => void; onOpenChange: (open: boolean) => void }) => (
+    <div data-testid="new-template-dialog" data-initial-name={initialName ?? ""}>
+      <button
+        type="button"
+        onClick={() => {
+          onOpenChange(false);
+          onCreated?.({ id: "tpl-new", name: initialName ?? "" });
+        }}
+      >
+        stub-save-template
+      </button>
+    </div>
+  ),
+}));
 vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("@/components/ui/reference-combobox", async () => ({ ReferenceCombobox: (await import("./transport-test-mocks")).MockReferenceCombobox }));
 vi.mock("@/components/ui/date-picker", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/date-picker")>()), DatePicker: (await import("./transport-test-mocks")).MockDatePicker }));
@@ -28,6 +48,9 @@ import { POST, calls, resetClient, routes } from "./test-setup-mocks";
 
 beforeAll(stubGlobals);
 beforeEach(() => {
+  grants = {};
+  features = {};
+  navigateMock.mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
   resetClient();
@@ -150,6 +173,31 @@ describe("MaterialiseWizard", () => {
     await waitFor(() => expect(within(dialog).getByText("Weekly Acme")).toBeInTheDocument());
     fireEvent.change(dialog.querySelector("#materialise-template")!, { target: { value: "tpl-1" } });
     expect(footerButton("Wizard:Next")).toBeEnabled();
+  });
+
+  it("a template made with Add new … opens on its page (it has no lines yet) instead of continuing the wizard", async () => {
+    grants = { "Orders.TransportOrderTemplates": true, "Orders.TransportOrderTemplates.Create": true };
+    features = { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true" };
+    const onOpenChange = vi.fn();
+    renderWith(<MaterialiseWizard open onOpenChange={onOpenChange} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Orders:NewTemplateOpensItsPage")).toBeInTheDocument();
+    fireEvent.click(dialog.querySelector("[data-create-for=materialise-template]")!);
+    expect(screen.getByTestId("new-template-dialog")).toHaveAttribute("data-initial-name", "Typed name");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "stub-save-template" }));
+      await Promise.resolve();
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/templates/tpl-new" }));
+    expect(calls(POST, "/api/orders/transport-order-template/{id}/materialise")).toHaveLength(0);
+  });
+
+  it("offers no Add new … row and no hint without the templates' Create permission", async () => {
+    renderWith(<MaterialiseWizard open onOpenChange={() => undefined} />);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("[data-create-for=materialise-template]")).toBeNull();
+    expect(within(dialog).queryByText("Orders:NewTemplateOpensItsPage")).toBeNull();
   });
 });
 

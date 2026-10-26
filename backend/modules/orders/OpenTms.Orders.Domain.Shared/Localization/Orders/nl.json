@@ -533,6 +533,8 @@
     "Orders:DatesSelected": "{0} datums geselecteerd",
     "Orders:MaterialiseDetailsHint": "Elke order neemt de referentie, aantallen en gewichten van de bron over; pas ze aan op de aangemaakte orders.",
     "Orders:NewFromTemplateIntro": "Maakt bevestigde transportorders aan vanuit een sjabloon voor de gekozen datums. Datums die al een order van dit sjabloon hebben worden overgeslagen.",
+    "Orders:NewTemplateOpensItsPage": "Een nieuw sjabloon opent op een eigen pagina: voeg daar de regels toe en maak er daarna orders van.",
+    "Orders:TemplateHasNoLines": "Het sjabloon heeft nog geen regels: voeg ze eerst toe.",
     "Orders:CopyOrderIntro": "Kopieert {0} naar de gekozen datums, als nieuwe bevestigde transportorders.",
     "Orders:AllTargets": "Order en regels",
     "Orders:AttributeKeyHint": "Het vaste kenmerk dat koppelingen gebruiken; maximaal 32 tekens.",

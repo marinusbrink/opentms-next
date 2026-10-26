@@ -217,7 +217,10 @@ order van dit sjabloon hebben. Die orders zijn direct bevestigd en hebben een nu
 **Nieuw van sjabloon** (in de lijst Opdrachten), **Orders aanmaken** (bij een sjabloon) en **Order
 kopiëren** openen hetzelfde stappenvenster:
 
-1. **Bron**: het sjabloon of de order die u kopieert.
+1. **Bron**: het sjabloon of de order die u kopieert. Maakt u hier met *Nieuw sjabloon toevoegen…* een
+   sjabloon aan, dan sluit het stappenvenster en opent de pagina van het nieuwe sjabloon: een nieuw
+   sjabloon heeft nog geen regels. Voeg die daar toe en kies dan **Orders aanmaken**. Een sjabloon zonder
+   regels kan nog geen orders aanmaken (de knop is dan uitgeschakeld, in de lijst en op de pagina).
 2. **Datums**: kies *Per weekdag over een periode* (een begin- en einddatum en de weekdagen; standaard
    maandag tot en met vrijdag) of *Uit de kalender* (klik de gewenste dagen aan).
 3. **Details**: het aantal exemplaren per datum (1 tot 20). De orders nemen de referentie, aantallen en

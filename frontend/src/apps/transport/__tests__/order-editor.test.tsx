@@ -15,7 +15,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string
 
 let grants: Record<string, boolean> = {};
 vi.mock("@/lib/abp/queries", () => ({
-  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Trips": "true" } } } }),
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true", "Apps.Transport.Trips": "true" } } } }),
 }));
 vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
 vi.mock("@/lib/realtime/record-updates", () => ({
@@ -38,6 +38,7 @@ vi.mock("@/apps/transport/wizards/MaterialiseWizard", () => ({ MaterialiseWizard
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
+import { TemplatePage } from "@/apps/transport/pages/TemplatePage";
 import { toast } from "sonner";
 import { fail, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
@@ -473,5 +474,45 @@ describe("OrderPage – documents and close", () => {
     await click(ribbonButton("Close")!);
     expect(navigateMock).not.toHaveBeenCalled();
     expect(await screen.findByRole("alertdialog")).toHaveTextContent("UnsavedChanges");
+  });
+});
+
+describe("TemplatePage – Create orders needs lines", () => {
+  const template = (extra: Record<string, unknown> = {}) => ({
+    id: "tpl-1",
+    name: "Weekly Acme",
+    transportOrderTypeId: "type-1",
+    customerRelationId: "rel-1",
+    customerName: "Acme",
+    isActive: true,
+    concurrencyStamp: "tstamp-1",
+    defaultStops: [],
+    lines: [],
+    schedule: { recurrence: 1, interval: 1, daysOfWeek: 1, horizonDays: 5, validFrom: "2026-10-25" },
+    ...extra,
+  });
+  const renderTemplate = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <TemplatePage id="tpl-1" />
+      </QueryClientProvider>,
+    );
+  };
+
+  it("a template without lines (a new one) cannot create orders yet; with a line it can", async () => {
+    grants = { ...ALL, "Orders.TransportOrderTemplates": true, "Orders.TransportOrderTemplates.Update": true };
+    routes.GET["/api/orders/transport-order-template/{id}"] = () => template();
+    const { unmount } = renderTemplate();
+    await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
+    /* A disabled ribbon command stays focusable (aria-disabled) and names its reason (UI-ACT). */
+    expect(ribbonButton("Orders:Materialise")).toHaveAttribute("aria-disabled", "true");
+    expect(ribbonButton("Orders:Materialise")).toHaveAttribute("title", "Orders:TemplateHasNoLines");
+    unmount();
+
+    routes.GET["/api/orders/transport-order-template/{id}"] = () => template({ lines: [{ id: "tl1", position: 1, transportUnitId: "unit-1", transportUnitName: "Pallet", quantity: 1, paymentInstruction: 0, stops: [] }] });
+    renderTemplate();
+    await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
+    expect(ribbonButton("Orders:Materialise")).not.toHaveAttribute("aria-disabled");
   });
 });

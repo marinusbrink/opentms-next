@@ -19,6 +19,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { parseInteger } from "@/lib/forms/use-form-state";
 import { toDate, toIsoDate, useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
+import { useOpenRecord } from "@/lib/use-open-record";
 
 /* The wizard New from template / Copy order (design 61; UI-WIZ-001 to -005): Source (a template, or the order being
  * copied) → Dates (per weekday over a range, or a calendar with copies per day) → Details (the copies per date; the
@@ -55,11 +56,14 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
   const [tasks, setTasks] = useState<WizardTask[] | undefined>(undefined);
   const [created, setCreated] = useState(0);
   /* "Add new template…" (UI-LOOK-004): the New template dialog on top (the Templates node's Create permission and
-   * feature chain, UI-PERM-006); the new template is selected and named until the lookup refetches. */
+   * feature chain, UI-PERM-006). A new template has no lines yet, so materialising it at once would create empty
+   * orders: after its save the wizard closes and the template's page opens (design 61, Assumption 1: New asks the
+   * minimum fields, then opens the page), where its lines and schedule are added; Create orders there runs this
+   * wizard on it. */
   const features = useAppFeatures();
+  const openRecord = useOpenRecord();
   const canCreateTemplate = useIsGranted("Orders.TransportOrderTemplates.Create") && features.isFeatureEnabled("Apps.Transport.Orders.Templates");
   const [newTemplate, setNewTemplate] = useState<{ term: string } | null>(null);
-  const [createdTemplate, setCreatedTemplate] = useState<{ value: string; label: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -69,10 +73,7 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
     }
   }, [open, source]);
 
-  const templateOptions = useMemo(() => {
-    const options = (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" }));
-    return createdTemplate && !options.some((o) => o.value === createdTemplate.value) ? [...options, createdTemplate] : options;
-  }, [templates.data, createdTemplate]);
+  const templateOptions = useMemo(() => (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" })), [templates.data]);
   const sourceLabel = source ? source.label : (templateOptions.find((o) => o.value === templateId)?.label ?? "");
 
   const dates = useMemo(() => {
@@ -142,7 +143,14 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                 </FormSection>
               ) : (
                 <FormSection title={t("Orders:TransportOrderTemplate")}>
-                  <FormField label={t("Orders:TransportOrderTemplate")} htmlFor="materialise-template" required floating="always" className="max-w-md">
+                  <FormField
+                    label={t("Orders:TransportOrderTemplate")}
+                    htmlFor="materialise-template"
+                    required
+                    floating="always"
+                    className="max-w-md"
+                    hint={canCreateTemplate && tasks == null ? t("Orders:NewTemplateOpensItsPage") : undefined}
+                  >
                     <ReferenceCombobox
                       id="materialise-template"
                       value={templateId}
@@ -161,8 +169,9 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
                         if (!next) setNewTemplate(null);
                       }}
                       onCreated={(template) => {
-                        setCreatedTemplate({ value: template.id, label: template.name });
-                        setTemplateId(template.id);
+                        setNewTemplate(null);
+                        onOpenChange(false);
+                        openRecord("TransportOrderTemplate", template.id);
                       }}
                     />
                   )}

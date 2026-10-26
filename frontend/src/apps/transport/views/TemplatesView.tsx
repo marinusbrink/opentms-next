@@ -81,10 +81,12 @@ export function TemplatesView() {
   const singleId = selectedIds.length === 1 ? selectedIds[0] : undefined;
   const single = singleId ? rowsById.get(singleId) : undefined;
   const source: MaterialiseSource | undefined = single ? { kind: "template", id: single.id!, label: single.name ?? "" } : undefined;
+  /* Create orders needs an active template with lines: one without would create empty orders. */
+  const blockReason = (row: TemplateRow | undefined) => (row?.isActive === false ? "OpenTms.Orders:TemplateInactive" : row?.lineCount === 0 ? "Orders:TemplateHasNoLines" : undefined);
 
   const commands: AppCommandBarCommand[] = [
     ...(canCreate ? [{ id: "new", labelKey: "Orders:NewTransportOrderTemplate", icon: Plus, isPrimary: true, onClick: () => setDialog("new") }] : []),
-    ...(canCreateOrders ? [{ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, requiresSelection: true, disabled: !single || single.isActive === false, disabledReasonKey: single && single.isActive === false ? "OpenTms.Orders:TemplateInactive" : "Orders:SelectOneTemplate", onClick: () => setDialog("materialise") }] : []),
+    ...(canCreateOrders ? [{ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, requiresSelection: true, disabled: !single || blockReason(single) != null, disabledReasonKey: (single && blockReason(single)) ?? "Orders:SelectOneTemplate", onClick: () => setDialog("materialise") }] : []),
     ...(canDelete ? [{ id: "delete", labelKey: "Delete", icon: Trash2, variant: "destructive" as const, requiresSelection: true, disabled: !singleId, disabledReasonKey: "Orders:SelectOneTemplate", onClick: () => setDialog("delete") }] : []),
   ];
 
@@ -100,7 +102,7 @@ export function TemplatesView() {
           onOpen={(row) => row.id && openRecord("TransportOrderTemplate", row.id)}
           rowActions={(rows) => [
             { id: "open", labelKey: "Open", onClick: () => rows[0]?.id && openRecord("TransportOrderTemplate", rows[0].id) },
-            ...(canCreateOrders ? [{ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, disabled: rows[0]?.isActive === false, disabledReasonKey: "OpenTms.Orders:TemplateInactive", onClick: () => { setSelection({ mode: "Explicit", explicitIds: [rows[0].id!], filterRequest: null, excludedIds: [] }); setDialog("materialise"); } }] : []),
+            ...(canCreateOrders ? [{ id: "materialise", labelKey: "Orders:Materialise", icon: CirclePlay, disabled: blockReason(rows[0]) != null, disabledReasonKey: blockReason(rows[0]), onClick: () => { setSelection({ mode: "Explicit", explicitIds: [rows[0].id!], filterRequest: null, excludedIds: [] }); setDialog("materialise"); } }] : []),
             ...(canDelete ? [{ id: "delete", labelKey: "Delete", icon: Trash2, destructive: true, onClick: () => { setSelection({ mode: "Explicit", explicitIds: [rows[0].id!], filterRequest: null, excludedIds: [] }); setDialog("delete"); } }] : []),
           ]}
           filters={
