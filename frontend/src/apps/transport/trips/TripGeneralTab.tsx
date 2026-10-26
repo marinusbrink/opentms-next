@@ -120,7 +120,7 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
         </FormSection>
         <FormSection title={t("PlanningExecution:Departure")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <RelationField id={form.id("departureRelation")} label={t("PlanningExecution:Departure")} value={form.values.departureRelation} onChange={(next) => form.set("departureRelation", next)} disabled={form.readOnly} />
+            <RelationField id={form.id("departureRelation")} label={t("PlanningExecution:Departure")} value={form.values.departureRelation} onChange={(next) => form.update((v) => ({ ...v, departureRelation: next, departureAddressId: next?.id === v.departureRelation?.id ? v.departureAddressId : null }))} disabled={form.readOnly} />
             <AddressField id={form.id("departureAddress")} label={t("Orders:Address")} relationId={form.values.departureRelation?.id} value={form.values.departureAddressId} onChange={(next) => form.set("departureAddressId", next)} disabled={form.readOnly} />
             <DateField form={form} field="plannedDepartureDate" labelKey="PlanningExecution:PlannedDeparture" required />
             <TextField form={form} field="plannedDepartureTime" labelKey="Orders:DepartureTime" />
@@ -131,7 +131,7 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
         </FormSection>
         <FormSection title={t("PlanningExecution:Arrival")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <RelationField id={form.id("arrivalRelation")} label={t("PlanningExecution:Arrival")} value={form.values.arrivalRelation} onChange={(next) => form.set("arrivalRelation", next)} disabled={form.readOnly} />
+            <RelationField id={form.id("arrivalRelation")} label={t("PlanningExecution:Arrival")} value={form.values.arrivalRelation} onChange={(next) => form.update((v) => ({ ...v, arrivalRelation: next, arrivalAddressId: next?.id === v.arrivalRelation?.id ? v.arrivalAddressId : null }))} disabled={form.readOnly} />
             <AddressField id={form.id("arrivalAddress")} label={t("Orders:Address")} relationId={form.values.arrivalRelation?.id} value={form.values.arrivalAddressId} onChange={(next) => form.set("arrivalAddressId", next)} disabled={form.readOnly} />
             <DateField form={form} field="plannedArrivalDate" labelKey="PlanningExecution:PlannedArrival" />
             <TextField form={form} field="plannedArrivalTime" labelKey="Orders:ArrivalTime" />

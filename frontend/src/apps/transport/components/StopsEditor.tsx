@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 
@@ -72,6 +72,17 @@ export function StopsEditor({
 
   const rows = useMemo<Row[]>(() => stops.map((stop, index) => ({ ...stop, position: index + 1 })), [stops]);
   const open = rows.find((row) => row.key === openKey) ?? null;
+
+  /* The detail opens under the grid, often below the fold: bring it into view in its nearest scroll container and
+   * put the cursor in its first field, so opening a stop visibly does something (finding 2). */
+  const detailRef = useRef<HTMLDivElement>(null);
+  const openedKey = open?.key ?? null;
+  useEffect(() => {
+    const panel = detailRef.current;
+    if (!openedKey || !panel) return;
+    panel.scrollIntoView?.({ block: "nearest" });
+    panel.querySelector<HTMLElement>("[data-slot=stop-detail-fields] :is(input, select, textarea, button, [role=combobox]):not([disabled])")?.focus({ preventScroll: true });
+  }, [openedKey]);
 
   const labelOf = (options: ReferenceOption[], value: string | null) => options.find((o) => o.value === value)?.label ?? "";
 
@@ -186,7 +197,7 @@ export function StopsEditor({
         />
       </div>
       {open && (
-        <div className="rounded-lg border border-border-section bg-background p-3" data-slot="stop-detail" data-key={open.key}>
+        <div key={open.key} ref={detailRef} className="rounded-lg border border-border-section bg-background p-3" data-slot="stop-detail" data-key={open.key}>
           <div className="mb-2 flex items-center gap-2">
             <span className="text-label font-semibold text-brand">
               {t("Orders:Stop")} {open.position}
@@ -205,7 +216,7 @@ export function StopsEditor({
               <X />
             </Button>
           </div>
-          <div className="grid grid-cols-4 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-4 gap-x-4 gap-y-3" data-slot="stop-detail-fields">
             <RelationField
               id={`${idPrefix}-${open.key}-relation`}
               label={t("Orders:Relation")}

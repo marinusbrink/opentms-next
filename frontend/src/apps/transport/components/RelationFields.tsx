@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
@@ -86,6 +86,17 @@ export interface AddressFieldProps {
   disabled?: boolean;
   error?: string;
   className?: string;
+  /** When the relation changes to one and the address is empty, select its default address (or its only one). On by
+   * default: every relation/address pair in the Transport app wants it; a field that must stay empty passes false. */
+  preselectDefault?: boolean;
+}
+
+/** The address to preselect for a picked relation: its default address (design 43: the one without an address type),
+ * else its only address, else none. */
+export function defaultAddressIdOf(addresses: readonly { id?: string | null; addressTypeId?: string | null }[] | undefined): string | null {
+  if (!addresses || addresses.length === 0) return null;
+  const fallback = addresses.find((a) => !a.addressTypeId) ?? (addresses.length === 1 ? addresses[0] : undefined);
+  return fallback?.id ?? null;
 }
 
 /** One line per address: "Street 12, 1234 AB City (type)". */
@@ -96,8 +107,22 @@ export function addressLabel(address: { addressTypeName?: string | null; street?
   return address.addressTypeName ? `${line} (${address.addressTypeName})` : line;
 }
 
-export function AddressField({ id, label, relationId, value, onChange, required, disabled, error, className }: AddressFieldProps) {
+export function AddressField({ id, label, relationId, value, onChange, required, disabled, error, className, preselectDefault = true }: AddressFieldProps) {
   const addresses = useRelationAddresses(relationId ?? undefined);
+  /* The default address follows a relation picked here, not a stored one on load (that would dirty an untouched form):
+   * the relation the field mounted with counts as handled. */
+  const handled = useRef(relationId ?? null);
+  useEffect(() => {
+    if (!preselectDefault || disabled || !relationId || handled.current === relationId) return;
+    if (value) {
+      handled.current = relationId;
+      return;
+    }
+    if (!addresses.isSuccess) return;
+    handled.current = relationId;
+    const preselected = defaultAddressIdOf(addresses.data);
+    if (preselected) onChange(preselected);
+  }, [preselectDefault, disabled, relationId, value, addresses.isSuccess, addresses.data, onChange]);
   const options = useMemo(() => (addresses.data ?? []).map((a) => ({ value: a.id ?? "", label: addressLabel(a) })), [addresses.data]);
   const inPlace = useCreateInPlace();
   /* The relation editor opens on the picked relation; the address its save added is the one to select. */

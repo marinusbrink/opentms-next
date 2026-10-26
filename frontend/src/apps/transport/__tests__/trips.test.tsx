@@ -225,6 +225,26 @@ describe("TripPage – ribbon and header", () => {
     expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TransportTripSaved");
   });
 
+  it("a new departure relation replaces the old relation's address with its default address (finding 3)", async () => {
+    routes.GET["/api/planning/transport-trip/{id}"] = () => trip(1, { departureRelationId: "rel-1", departureRelationName: "Acme", departureAddressId: "adr-1" });
+    routes.GET["/api/master-data/relation/{id}/addresses"] = (init) =>
+      init?.params?.path?.id === "rel-2" ? [{ id: "adr-2-dock", addressTypeId: "type-1", street: "Dock", city: "B" }, { id: "adr-2", addressTypeId: null, street: "Main", city: "B" }] : [{ id: "adr-1", addressTypeId: null, street: "Main", city: "A" }];
+    routes.PUT["/api/planning/transport-trip/{id}"] = () => trip(1, { concurrencyStamp: "ts-2" });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    const relation = panel("General").querySelector<HTMLSelectElement>("select[id$='-departureRelation']")!;
+    const address = () => panel("General").querySelector<HTMLSelectElement>("select[id$='-departureAddress']")!;
+    lookupItems.current = { [relation.id]: [{ id: "rel-2", name: "Beta" }] };
+    /* The stored pair is left alone on load. */
+    await waitFor(() => expect(address().value).toBe("adr-1"));
+    fireEvent.change(relation, { target: { value: "" } });
+    fireEvent.change(relation, { target: { value: "rel-2" } });
+    await waitFor(() => expect(address().value).toBe("adr-2"));
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(PUT).toHaveBeenCalledTimes(1));
+    expect(lastCall(PUT, "/api/planning/transport-trip/{id}")!.body).toMatchObject({ departureRelationId: "rel-2", departureAddressId: "adr-2" });
+  });
+
   it("Start posts the command and shows the API's refusal in the page", async () => {
     routes.POST["/api/planning/transport-trip/{id}/start"] = () => ({ data: undefined, error: { error: { message: "'Start' is not possible" } }, response: new Response(null, { status: 409 }) });
     renderWith(<TripPage id="t1" />);
