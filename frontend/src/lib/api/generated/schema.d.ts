@@ -45062,6 +45062,8 @@ export interface components {
             name?: string | null;
         };
         "OpenTms.MasterData.Fleet.VehicleCreateDto": {
+            /** Format: double */
+            costPricePerKm?: number | null;
             defaultDrivers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"][] | null;
             description?: string | null;
             /** Format: double */
@@ -45109,6 +45111,8 @@ export interface components {
             characteristics?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCharacteristicDto"][] | null;
             combinationName?: string | null;
             concurrencyStamp?: string | null;
+            /** Format: double */
+            costPricePerKm?: number | null;
             /** Format: date-time */
             creationTime?: string;
             /** Format: uuid */
@@ -45200,6 +45204,8 @@ export interface components {
         };
         "OpenTms.MasterData.Fleet.VehicleTypeCreateDto": {
             /** Format: double */
+            costPricePerKm?: number | null;
+            /** Format: double */
             defaultGrossVehicleWeightKg?: number | null;
             /** Format: double */
             defaultHeightCm?: number | null;
@@ -45219,6 +45225,8 @@ export interface components {
         "OpenTms.MasterData.Fleet.VehicleTypeDefaultsDto": {
             characteristics?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleCharacteristicDto"][] | null;
             /** Format: double */
+            costPricePerKm?: number | null;
+            /** Format: double */
             grossVehicleWeightKg?: number | null;
             /** Format: double */
             heightCm?: number | null;
@@ -45236,6 +45244,8 @@ export interface components {
         };
         "OpenTms.MasterData.Fleet.VehicleTypeDto": {
             concurrencyStamp?: string | null;
+            /** Format: double */
+            costPricePerKm?: number | null;
             /** Format: date-time */
             creationTime?: string;
             /** Format: uuid */
@@ -45270,6 +45280,8 @@ export interface components {
         "OpenTms.MasterData.Fleet.VehicleTypeKind": 1 | 2 | 3 | 4;
         "OpenTms.MasterData.Fleet.VehicleTypeRowDto": {
             /** Format: double */
+            costPricePerKm?: number | null;
+            /** Format: double */
             defaultGrossVehicleWeightKg?: number | null;
             /** Format: double */
             defaultHeightCm?: number | null;
@@ -45290,6 +45302,8 @@ export interface components {
         "OpenTms.MasterData.Fleet.VehicleTypeUpdateDto": {
             concurrencyStamp: string;
             /** Format: double */
+            costPricePerKm?: number | null;
+            /** Format: double */
             defaultGrossVehicleWeightKg?: number | null;
             /** Format: double */
             defaultHeightCm?: number | null;
@@ -45308,6 +45322,8 @@ export interface components {
         };
         "OpenTms.MasterData.Fleet.VehicleUpdateDto": {
             concurrencyStamp: string;
+            /** Format: double */
+            costPricePerKm?: number | null;
             defaultDrivers?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"][] | null;
             description?: string | null;
             /** Format: double */
@@ -46967,7 +46983,7 @@ export interface components {
             orderDate?: string | null;
             /** Format: uuid */
             organizationUnitId?: string | null;
-            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][] | null;
+            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][] | null;
             source?: components["schemas"]["OpenTms.Orders.TransportOrders.OrderSource"];
             /** Format: uuid */
             transportOrderTypeId: string;
@@ -47068,7 +47084,7 @@ export interface components {
             orderDate?: string;
             /** Format: uuid */
             organizationUnitId?: string | null;
-            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][] | null;
+            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][] | null;
             remarks?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderRemarkDto"][] | null;
             requiredFields?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderRequiredFields"];
             source?: components["schemas"]["OpenTms.Orders.TransportOrders.OrderSource"];
@@ -47261,14 +47277,14 @@ export interface components {
             /** Format: double */
             value?: number;
         };
-        "OpenTms.Orders.TransportOrders.TransportOrderReferenceDto": {
+        "OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto": {
             description?: string | null;
             type: string;
             value: string;
         };
         "OpenTms.Orders.TransportOrders.TransportOrderReferencesUpdateDto": {
             concurrencyStamp: string;
-            references: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][];
+            references: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][];
         };
         "OpenTms.Orders.TransportOrders.TransportOrderRemarkDto": {
             /** Format: date-time */
@@ -47447,7 +47463,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             organizationUnitId?: string | null;
-            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][] | null;
+            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][] | null;
             schedule: components["schemas"]["OpenTms.Orders.TransportOrders.TemplateScheduleDto"];
             /** Format: uuid */
             transportOrderTypeId: string;
@@ -47486,7 +47502,7 @@ export interface components {
             name?: string | null;
             /** Format: uuid */
             organizationUnitId?: string | null;
-            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][] | null;
+            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][] | null;
             schedule?: components["schemas"]["OpenTms.Orders.TransportOrders.TemplateScheduleDto"];
             /** Format: uuid */
             sourceOrderId?: string | null;
@@ -47544,7 +47560,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             organizationUnitId?: string | null;
-            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"][] | null;
+            references?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"][] | null;
             schedule: components["schemas"]["OpenTms.Orders.TransportOrders.TemplateScheduleDto"];
             /** Format: uuid */
             transportOrderTypeId: string;
@@ -47693,6 +47709,7 @@ export interface components {
             customerReference?: string | null;
             /** Format: uuid */
             customerRelationId: string;
+            financialTerms?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsInputDto"];
             internalRemarks?: string | null;
             invoicingRemarks?: string | null;
             /** Format: date */

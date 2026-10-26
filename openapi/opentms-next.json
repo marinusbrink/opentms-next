@@ -3981,6 +3981,13 @@
       "OpenTms.MasterData.Fleet.VehicleCreateDto": {
         "additionalProperties": false,
         "properties": {
+          "costPricePerKm": {
+            "format": "double",
+            "maximum": 999999999999.9999,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          },
           "defaultDrivers": {
             "items": {
               "$ref": "#/components/schemas/OpenTms.MasterData.Fleet.VehicleDefaultDriverDto"
@@ -4144,6 +4151,11 @@
           "concurrencyStamp": {
             "nullable": true,
             "type": "string"
+          },
+          "costPricePerKm": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
           },
           "creationTime": {
             "format": "date-time",
@@ -4427,6 +4439,13 @@
       "OpenTms.MasterData.Fleet.VehicleTypeCreateDto": {
         "additionalProperties": false,
         "properties": {
+          "costPricePerKm": {
+            "format": "double",
+            "maximum": 999999999999.9999,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          },
           "defaultGrossVehicleWeightKg": {
             "format": "double",
             "maximum": 1.7976931348623157e+308,
@@ -4507,6 +4526,11 @@
             "nullable": true,
             "type": "array"
           },
+          "costPricePerKm": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
           "grossVehicleWeightKg": {
             "format": "double",
             "nullable": true,
@@ -4553,6 +4577,11 @@
           "concurrencyStamp": {
             "nullable": true,
             "type": "string"
+          },
+          "costPricePerKm": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
           },
           "creationTime": {
             "format": "date-time",
@@ -4641,6 +4670,11 @@
       "OpenTms.MasterData.Fleet.VehicleTypeRowDto": {
         "additionalProperties": false,
         "properties": {
+          "costPricePerKm": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
           "defaultGrossVehicleWeightKg": {
             "format": "double",
             "nullable": true,
@@ -4695,6 +4729,13 @@
           "concurrencyStamp": {
             "minLength": 1,
             "type": "string"
+          },
+          "costPricePerKm": {
+            "format": "double",
+            "maximum": 999999999999.9999,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
           },
           "defaultGrossVehicleWeightKg": {
             "format": "double",
@@ -4773,6 +4814,13 @@
           "concurrencyStamp": {
             "minLength": 1,
             "type": "string"
+          },
+          "costPricePerKm": {
+            "format": "double",
+            "maximum": 999999999999.9999,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
           },
           "defaultDrivers": {
             "items": {
@@ -10415,7 +10463,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -10724,7 +10772,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -11396,7 +11444,7 @@
         },
         "type": "object"
       },
-      "OpenTms.Orders.TransportOrders.TransportOrderReferenceDto": {
+      "OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -11430,7 +11478,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "type": "array"
           }
@@ -11970,7 +12018,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -12096,7 +12144,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -12279,7 +12327,7 @@
           },
           "references": {
             "items": {
-              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceDto"
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderReferenceEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -12771,6 +12819,9 @@
           "customerRelationId": {
             "format": "uuid",
             "type": "string"
+          },
+          "financialTerms": {
+            "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsInputDto"
           },
           "internalRemarks": {
             "maxLength": 2500,
