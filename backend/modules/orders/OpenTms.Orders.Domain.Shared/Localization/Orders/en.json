@@ -507,6 +507,8 @@
     "Orders:LegsAfterConfirm": "The legs appear once the order is confirmed.",
     "Orders:OrderLevel": "Order",
     "Orders:PricePreviewNotice": "Preview of the unsaved changes; the stored prices return after saving.",
+    "Orders:PricePreviewIncomplete": "Preview unavailable until the lines are complete.",
+    "Orders:PricePreviewUnavailable": "Preview unavailable for these changes; the prices are calculated after saving.",
     "Orders:Draft": "Draft",
     "Orders:ApproveTransportOrders": "Approve transport orders",
     "Orders:Approving": "Approving…",

@@ -540,6 +540,64 @@ describe("OrderPage – pricing tab", () => {
     vi.useRealTimers();
   });
 
+  it("does not preview an incomplete line (no transport unit): a quiet note instead; once complete it sends no empty ids", async () => {
+    vi.mocked(toast.error).mockClear();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes.POST["/api/orders/transport-order/{id}/preview-prices"] = () => ({ currencyCode: "EUR", linesAmount: 300, discountsAndSurchargesAmount: 0, totalAmount: 300, lines: [], warnings: [] });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    tab("Orders:Lines");
+    const lines = panel("Orders:Lines");
+    await waitFor(() => expect(within(lines).getAllByText("Pallet").length).toBeGreaterThan(0));
+    fireEvent.click(within(lines).getByText("Orders:AddLine"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(0);
+    expect(toast.error).not.toHaveBeenCalled();
+    tab("Orders:Pricing");
+    expect(within(panel("Orders:Pricing")).getByText("Orders:PricePreviewIncomplete")).toBeInTheDocument();
+
+    tab("Orders:Lines");
+    const newLine = lines.querySelectorAll("[data-slot=mock-lines-grid]")[0].querySelectorAll(":scope > [data-slot=mock-line]")[1] as HTMLElement;
+    fireEvent.change(within(newLine).getByLabelText("Orders:TransportUnit *"), { target: { value: "unit-2" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(1));
+    const body = lastCall(POST, "/api/orders/transport-order/{id}/preview-prices")!.body as { lines: { transportUnitId: string }[] };
+    expect(body.lines.map((l) => l.transportUnitId)).toEqual(["unit-1", "unit-2"]);
+    const emptyIds: string[] = [];
+    const walk = (value: unknown, path: string) => {
+      if (Array.isArray(value)) value.forEach((v, i) => walk(v, `${path}[${i}]`));
+      else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) (/Id$/.test(k) && v === "" ? emptyIds.push(`${path}.${k}`) : walk(v, `${path}.${k}`));
+    };
+    walk(body, "body");
+    expect(emptyIds).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("a refused preview never toasts: the Pricing tab shows a quiet note and the stored lines", async () => {
+    vi.mocked(toast.error).mockClear();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes.POST["/api/orders/transport-order/{id}/preview-prices"] = () => fail("Your request is not valid!");
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    tab("Orders:Lines");
+    const lines = panel("Orders:Lines");
+    await waitFor(() => expect(within(lines).getAllByLabelText("Orders:Quantity").length).toBeGreaterThan(0));
+    fireEvent.change(within(lines).getAllByLabelText("Orders:Quantity")[0], { target: { value: "3" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(1));
+    tab("Orders:Pricing");
+    await waitFor(() => expect(within(panel("Orders:Pricing")).getByText("Orders:PricePreviewUnavailable")).toBeInTheDocument());
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(panel("Orders:Pricing").querySelector("[data-slot=price-preview]")).toBeNull();
+    vi.useRealTimers();
+  });
+
   it("without Financial.RateLines.Update the rate lines are read-only", async () => {
     grants = { ...ALL, "Financial.RateLines.Update": false };
     renderPage();

@@ -8,6 +8,7 @@ import {
   mergeSavedSections,
   newLine,
   orderValuesOf,
+  pricePreviewRequestOf,
   savePlan,
   splitDateTime,
   stopValuesOf,
@@ -176,5 +177,30 @@ describe("savePlan / mergeSavedSections (one call for header and terms; a save t
     expect(merged.lines[0].id).toBe("l-new");
     expect(merged.attributes).toEqual({ a: "1" });
     expect(changedSections(merged, fromServer)).toEqual({ ...none, attributes: true });
+  });
+});
+
+describe("pricePreviewRequestOf (finding 1)", () => {
+  const complete = () => orderValuesOf({ ...stored, lines: [{ id: "l1", position: 1, transportUnitId: "unit-1", quantity: 1, paymentInstruction: 0, stops: [
+    { id: "s1", position: 1, waypointTypeId: "wp-load", relationId: "rel-1", relationAddressId: "adr-1", date: "2026-10-25" },
+    { id: "s2", position: 2, waypointTypeId: "wp-unload", relationId: "rel-2", relationAddressId: "adr-2", date: "2026-10-26" },
+  ] }] } as TransportOrderDto);
+
+  it("builds the request for priceable lines and sends null, never an empty string, for an empty id", () => {
+    const values = complete();
+    values.terms = { ...values.terms, vatPercentageId: "" as unknown as null };
+    const request = pricePreviewRequestOf(values)!;
+    expect(request.lines![0].transportUnitId).toBe("unit-1");
+    expect(request.customerRelationId).toBe("rel-1");
+    expect(request.financialTerms!.vatPercentageId).toBeNull();
+  });
+
+  it("is null without lines, without a transport unit, with fewer than two stops or a stop without relation or address", () => {
+    const base = complete();
+    expect(pricePreviewRequestOf({ ...base, lines: [] })).toBeNull();
+    expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], transportUnitId: null }] })).toBeNull();
+    expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: base.lines[0].stops.slice(0, 1) }] })).toBeNull();
+    expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: [base.lines[0].stops[0], { ...base.lines[0].stops[1], relationAddressId: null }] }] })).toBeNull();
+    expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: [{ ...base.lines[0].stops[0], relationId: null }, base.lines[0].stops[1]] }] })).toBeNull();
   });
 });

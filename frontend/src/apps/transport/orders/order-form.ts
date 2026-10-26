@@ -15,6 +15,7 @@ import type {
   TransportOrderStopInputDto,
   TransportOrderTripRequestDto,
   TransportOrderTripRequestInputDto,
+  PricePreviewRequestDto,
 } from "@/domains/orders/transport-orders";
 import type { MultipleMatches } from "@/domains/financial/rate-lines";
 import { relationOptionOf } from "@/apps/transport/components/RelationFields";
@@ -619,6 +620,30 @@ export function termsInputOf(terms: TermsValues): TransportOrderFinancialTermsIn
     fixedPriceAmount: parseNumber(terms.fixedPriceAmount),
     sendFreightDocumentsWithInvoice: terms.sendFreightDocumentsWithInvoice,
   };
+}
+
+/** Whether the unsaved lines can be priced (finding 1): at least one line, every line has a transport unit and at least
+ * two stops, and every stop has a waypoint type, a relation and an address. Below that the preview is not asked for. */
+export function linesArePriceable(lines: LineValues[]): boolean {
+  return (
+    lines.length > 0 &&
+    lines.every((line) => !!line.transportUnitId && line.stops.length >= 2 && line.stops.every((stop) => !!stop.waypointTypeId && !!stop.relationId && !!stop.relationAddressId))
+  );
+}
+
+/** An empty string is never an id: every `…Id` field that holds `""` goes to the server as null. */
+function withoutEmptyIds<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutEmptyIds) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, /Id$/.test(key) && v === "" ? null : withoutEmptyIds(v)])) as T;
+  }
+  return value;
+}
+
+/** The body of `preview-prices` for the unsaved order (pricing §4.3), or null while the lines cannot be priced yet. */
+export function pricePreviewRequestOf(values: Pick<OrderValues, "customer" | "orderDate" | "terms" | "lines">): PricePreviewRequestDto | null {
+  if (!linesArePriceable(values.lines)) return null;
+  return withoutEmptyIds({ customerRelationId: values.customer?.id || null, orderDate: values.orderDate, financialTerms: termsInputOf(values.terms), lines: values.lines.map(lineInputOf) });
 }
 
 export function tripRequestInputOf(request: TripRequestValues): TransportOrderTripRequestInputDto | undefined {

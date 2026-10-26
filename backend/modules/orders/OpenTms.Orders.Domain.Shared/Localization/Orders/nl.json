@@ -507,6 +507,8 @@
     "Orders:LegsAfterConfirm": "De trajecten verschijnen zodra de order is bevestigd.",
     "Orders:OrderLevel": "Order",
     "Orders:PricePreviewNotice": "Voorbeeld van de niet-opgeslagen wijzigingen; de opgeslagen prijzen komen terug na opslaan.",
+    "Orders:PricePreviewIncomplete": "Geen voorbeeld zolang de regels niet compleet zijn.",
+    "Orders:PricePreviewUnavailable": "Geen voorbeeld voor deze wijzigingen; de prijzen worden berekend na opslaan.",
     "Orders:Draft": "Concept",
     "Orders:ApproveTransportOrders": "Transportorders goedkeuren",
     "Orders:Approving": "Goedkeuren…",

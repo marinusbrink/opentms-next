@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CheckboxField, ComboField, NumberField, SelectField, toOptions } from "@/apps/transport/components/fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { TotalsBlock } from "@/apps/transport/components/TotalsBlock";
-import { lineInputOf, termsInputOf, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
+import { pricePreviewRequestOf, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import type { PriceListDto } from "@/domains/financial/price-lists";
 import { additionalServices, discountsOrSurcharges, vatPercentages } from "@/domains/financial/reference-data";
 import {
@@ -76,14 +76,17 @@ export function PricingTab({ form, mode, order, rateLines, previewDirty, canEdit
   /* The preview of unsaved lines/terms (pricing §4.3): debounced, never stored; cleared once the form is saved. */
   const [preview, setPreview] = useState<PricePreviewDto | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const previewRequest = useMemo(
-    () =>
-      mode === "order" && order?.id && previewDirty
-        ? JSON.stringify({ customerRelationId: form.values.customer?.id ?? null, orderDate: form.values.orderDate, financialTerms: termsInputOf(form.values.terms), lines: form.values.lines.map(lineInputOf) })
-        : null,
-    [mode, order?.id, previewDirty, form.values.customer?.id, form.values.orderDate, form.values.terms, form.values.lines],
+  const [previewFailed, setPreviewFailed] = useState(false);
+  /* Only a priceable input is previewed (finding 1): every line has a transport unit and two stops with a relation and
+   * an address. Below that, or when the server cannot price it, a quiet note replaces the preview: never a toast. */
+  const previewInput = useMemo(
+    () => (mode === "order" && order?.id && previewDirty ? pricePreviewRequestOf({ customer: form.values.customer, orderDate: form.values.orderDate, terms: form.values.terms, lines: form.values.lines }) : undefined),
+    [mode, order?.id, previewDirty, form.values.customer, form.values.orderDate, form.values.terms, form.values.lines],
   );
+  const previewRequest = previewInput ? JSON.stringify(previewInput) : null;
+  const previewIncomplete = previewInput === null;
   useEffect(() => {
+    setPreviewFailed(false);
     if (!previewRequest || !order?.id) {
       setPreview(null);
       return;
@@ -95,8 +98,11 @@ export function PricingTab({ form, mode, order, rateLines, previewDirty, canEdit
         .then((result) => {
           if (!cancelled) setPreview(result);
         })
-        .catch((err: unknown) => {
-          if (!cancelled) toast.error(getApiErrorMessage(err, t));
+        .catch(() => {
+          if (!cancelled) {
+            setPreview(null);
+            setPreviewFailed(true);
+          }
         })
         .finally(() => {
           if (!cancelled) setPreviewing(false);
@@ -106,7 +112,7 @@ export function PricingTab({ form, mode, order, rateLines, previewDirty, canEdit
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [previewRequest, order?.id, t]);
+  }, [previewRequest, order?.id]);
 
   const lineLabel = useMemo(() => {
     const byId = new Map<string, number>();
@@ -214,7 +220,12 @@ export function PricingTab({ form, mode, order, rateLines, previewDirty, canEdit
               </AlertDescription>
             </Alert>
           )}
-          <div className={preview ? "relative opacity-50" : undefined}>
+          {!preview && (previewIncomplete || previewFailed) && (
+            <p className="mb-3 text-label text-muted-foreground" data-slot="price-preview-unavailable">
+              {t(previewIncomplete ? "Orders:PricePreviewIncomplete" : "Orders:PricePreviewUnavailable")}
+            </p>
+          )}
+          <div className={preview ? "relative opacity-50" : "relative"}>
             {previewing && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <Spinner />
