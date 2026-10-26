@@ -119,10 +119,12 @@ export function tierOf(rule: Pick<PriceListRuleRow, "transportUnitId" | "product
 }
 
 /**
- * The server-side page fetcher of a list's rules for OpenTmsGrid; `tier` narrows to one specificity and `refreshKey`
- * gives the grid a new fetcher after a rule command (the grid refetches when the fetcher changes).
+ * The server-side page fetcher of a list's rules for OpenTmsGrid; `tiers` narrows to those specificities (the
+ * editor's "Overrides" = 1, 2, 3, "Defaults" = 0; design 57 build note 20; undefined = all) and `refreshKey` gives the
+ * grid a new fetcher after a rule command (the grid refetches when the fetcher changes).
  */
-export function usePriceListRulesFetcher(priceListId: string | undefined, tier: number | undefined, refreshKey = 0) {
+export function usePriceListRulesFetcher(priceListId: string | undefined, tiers: number[] | undefined, refreshKey = 0) {
+  const tiersKey = tiers && tiers.length > 0 ? tiers.join(",") : "";
   return useCallback(
     async (request: GridRequest): Promise<GridResponse<PriceListRuleRow>> => {
       if (!priceListId) return { rows: [], totalCount: 0, filteredCount: 0 };
@@ -131,7 +133,7 @@ export function usePriceListRulesFetcher(priceListId: string | undefined, tier: 
         params: {
           path: { id: priceListId },
           query: {
-            Tier: tier,
+            Tiers: tiersKey ? tiersKey.split(",").map(Number) : undefined,
             StartRow: request.startRow,
             EndRow: request.endRow,
             WildcardSearch: request.wildcardSearch ?? undefined,
@@ -144,7 +146,7 @@ export function usePriceListRulesFetcher(priceListId: string | undefined, tier: 
       return { rows: data?.rows ?? [], totalCount: Number(data?.totalCount ?? 0), filteredCount: Number(data?.filteredCount ?? 0) };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [priceListId, tier, refreshKey],
+    [priceListId, tiersKey, refreshKey],
   );
 }
 

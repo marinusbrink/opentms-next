@@ -45,6 +45,9 @@ export interface PriceListRulesTabProps {
 
 type TierFilter = "all" | "overrides" | "defaults" | "1" | "2" | "3";
 
+/** The tiers each filter asks the server for; undefined = every rule. */
+const TIERS_OF: Record<TierFilter, number[] | undefined> = { all: undefined, overrides: [1, 2, 3], defaults: [0], "1": [1], "2": [2], "3": [3] };
+
 export function PriceListRulesTab({ priceListId, columns, columnsDirty, readOnly, refreshKey }: PriceListRulesTabProps) {
   const { t } = useL();
   const f = useFormat();
@@ -54,10 +57,10 @@ export function PriceListRulesTab({ priceListId, columns, columnsDirty, readOnly
   const [toDelete, setToDelete] = useState<PriceListRuleRow | null>(null);
   const remove = useDeletePriceListRule();
 
-  /* "Overrides" and "Defaults" group by tier: tier 0 = defaults; the server filters one tier at a time, so overrides
-   * (1–3) are fetched unfiltered and the grouping shows in the badge; the single-tier choices narrow further. */
-  const tier = tierFilter === "1" || tierFilter === "2" || tierFilter === "3" ? Number(tierFilter) : tierFilter === "defaults" ? 0 : undefined;
-  const fetchRows = usePriceListRulesFetcher(priceListId, tier, refreshKey + localRefresh);
+  /* "Overrides" and "Defaults" group by tier (tier 0 = defaults): the server takes several tiers at once (design 57
+   * build note 20), so Overrides asks for 1, 2 and 3; the single-tier choices narrow further. */
+  const tiers = TIERS_OF[tierFilter];
+  const fetchRows = usePriceListRulesFetcher(priceListId, tiers, refreshKey + localRefresh);
   const refresh = useCallback(() => setLocalRefresh((k) => k + 1), []);
 
   const regionLookup = geographicalRegions.useLookup();
