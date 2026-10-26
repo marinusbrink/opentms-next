@@ -559,6 +559,10 @@
     "OpenTms.Orders:MaterialisationOverrideInvalid": "De details van {date}, exemplaar {copyIndex} passen niet bij de datums en exemplaren die worden gemaakt, of noemen een regel twee keer.",
     "OpenTms.Orders:ExportTooManyRows": "De export zou {count} rijen bevatten; maximaal {max} zijn toegestaan. Filter de lijst eerst.",
     "OpenTms.Orders:ExportUnknownColumn": "De lijst heeft geen kolom \"{field}\" om te exporteren.",
-    "OpenTms.Orders:TripRequestNotHonoured": "De rit van deze order is niet aangemaakt: {field} is onbekend bij de planning. De trajecten zijn ongepland; plan ze op het planbord."
+    "OpenTms.Orders:TripRequestNotHonoured": "De rit van deze order is niet aangemaakt: {field} is onbekend bij de planning. De trajecten zijn ongepland; plan ze op het planbord.",
+    "Orders:TripNotCreated": "Rit niet aangemaakt",
+    "Orders:TripNotCreatedHint": "De rit van deze order is niet aangemaakt; de trajecten zijn ongepland. Open de order voor de details.",
+    "Orders:TripRequestWarning": "Ritwaarschuwing",
+    "Orders:WarningSince": "Sinds {0}"
   }
 }

@@ -20,6 +20,7 @@ import { StatusCell } from "@/components/ui/status-badge";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { ApproveDialog } from "@/apps/transport/orders/ApproveDialog";
 import { NewOrderDialog } from "@/apps/transport/orders/NewOrderDialog";
+import { TripRequestWarningCell } from "@/apps/transport/components/TripRequestWarning";
 import { MaterialiseWizard, type MaterialiseSource } from "@/apps/transport/wizards/MaterialiseWizard";
 import { PrintCmrWizard, type PrintableOrder } from "@/apps/transport/wizards/PrintCmrWizard";
 import { relationLookupPage, type RelationOption } from "@/domains/master-data/entities";
@@ -152,6 +153,8 @@ export function OrdersView({ filter }: OrdersViewProps) {
       derived("co2Kg", t("Orders:Co2Kg"), NumberCell, { context: { export: false } }),
       { field: "tripNumbers", headerName: t("Orders:TripNumbers"), minWidth: 130, sortable: false },
       { field: "executionProgress", headerName: t("Orders:ExecutionProgress"), minWidth: 130, valueFormatter: (p) => t(enumKey(EXECUTION_PROGRESSES, p.value as number)) },
+      /* The trip request Planning could not honour (design 58 build note 19): an icon; not part of the server export. */
+      { field: "tripRequestWarningCode", headerName: t("Orders:TripRequestWarning"), minWidth: 90, width: 100, sortable: false, context: { export: false }, cellRenderer: (p: { value: string | null | undefined }) => <TripRequestWarningCell value={p.value} /> },
       { field: "transportOrderTypeName", headerName: t("Orders:TransportOrderType"), minWidth: 140, hide: true, sortable: false },
       { field: "organizationUnitId", headerName: t("Orders:OrganizationUnit"), minWidth: 140, hide: true, valueFormatter: (p) => units.data?.find((u) => u.id === p.value)?.displayName ?? "" },
       { field: "currencyCode", headerName: t("Orders:CurrencyCode"), minWidth: 90, hide: true },

@@ -96,6 +96,13 @@ export const MEASUREMENT_KINDS: { value: MeasurementKind; key: string }[] = [
 
 export const enumKey = (items: { value: number; key: string }[], value: number | null | undefined) => items.find((i) => i.value === value)?.key ?? "";
 
+/** The trip request's warning (design 58 build note 19: Planning could not honour the request, the legs stay
+ * unplanned) as the localized error code with its `{field}`; null without a warning. */
+export function tripRequestWarningText(t: (key: string) => string, request: Pick<TransportOrderTripRequestDto, "warningCode" | "warningField"> | null | undefined): string | null {
+  if (!request?.warningCode) return null;
+  return t(request.warningCode).replace("{field}", request.warningField ?? "");
+}
+
 /** The URL filter values of the Orders list (apps.config.ts, UI-PAGE-004) mapped onto the API's `view` (design 58). */
 export const ORDER_VIEWS: Record<string, TransportOrderView> = {
   all: 0,

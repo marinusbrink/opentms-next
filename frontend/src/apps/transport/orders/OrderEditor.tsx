@@ -38,6 +38,7 @@ import { PricingTab } from "@/apps/transport/orders/PricingTab";
 import { ReviseDialog } from "@/apps/transport/orders/ReviseDialog";
 import { MaterialiseWizard } from "@/apps/transport/wizards/MaterialiseWizard";
 import { PrintCmrWizard } from "@/apps/transport/wizards/PrintCmrWizard";
+import { TripRequestWarningBadge } from "@/apps/transport/components/TripRequestWarning";
 import { useOrderRateLineUpdates, useOrderRateLines } from "@/domains/financial/rate-lines";
 import { transportOrderTypes } from "@/domains/orders/reference-data";
 import { useCreateTemplateFromOrder, useDeleteTemplate, useUpdateTemplate, type TemplateDto } from "@/domains/orders/templates";
@@ -363,7 +364,14 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
     <div ref={formRef} className="h-full" data-slot={mode === "order" ? "order-page" : "template-page"} data-record-id={order?.id ?? template?.id} data-status={orderStatusName(order?.status)}>
       <RecordPage
         title={title}
-        badges={mode === "order" ? <StatusBadge entity="TransportOrder" state={orderStatusName(order?.status)} /> : undefined}
+        badges={
+          mode === "order" ? (
+            <>
+              <StatusBadge entity="TransportOrder" state={orderStatusName(order?.status)} />
+              <TripRequestWarningBadge request={order?.tripRequest} onOpen={() => setActiveTab("planning")} />
+            </>
+          ) : undefined
+        }
         commands={commands}
         tabs={tabs}
         activeTab={activeTab}

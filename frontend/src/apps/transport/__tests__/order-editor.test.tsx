@@ -575,3 +575,27 @@ describe("OrderPage – Planning tab leg dialog (time windows)", () => {
     expect(body.originWindow).toBeUndefined();
   });
 });
+
+describe("OrderPage – trip request warning", () => {
+  it("shows the warning as a header badge that opens the Planning tab, and in the Tevens-trip section with its time", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () =>
+      order(2, { tripRequest: { transportTripTypeId: "tt-1", plannedDeparture: "2026-10-25T06:00:00Z", vehicleIds: [], driverIds: [], warningCode: "OpenTms.Orders:TripRequestNotHonoured", warningField: "TransportTripType", warningAt: "2026-10-25T09:00:00Z" } });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    const badge = header().querySelector<HTMLElement>("[data-slot=trip-request-warning-badge]")!;
+    expect(badge).toHaveTextContent("Orders:TripNotCreated");
+    fireEvent.click(badge);
+    expect(screen.getByRole("tab", { name: "Orders:Planning" })).toHaveAttribute("aria-selected", "true");
+    const alert = panel("Orders:Planning").querySelector<HTMLElement>("[data-slot=trip-request-warning]")!;
+    expect(alert).toHaveTextContent("OpenTms.Orders:TripRequestNotHonoured");
+    expect(alert).toHaveTextContent("Orders:WarningSince");
+  });
+
+  it("shows no badge and no warning without one", async () => {
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    expect(header().querySelector("[data-slot=trip-request-warning-badge]")).toBeNull();
+    tab("Orders:Planning");
+    expect(panel("Orders:Planning").querySelector("[data-slot=trip-request-warning]")).toBeNull();
+  });
+});

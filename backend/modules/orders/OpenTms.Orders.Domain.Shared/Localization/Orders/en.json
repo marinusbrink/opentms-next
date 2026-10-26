@@ -559,6 +559,10 @@
     "OpenTms.Orders:MaterialisationOverrideInvalid": "The details of {date}, copy {copyIndex} do not match the dates and copies being created, or name a line twice.",
     "OpenTms.Orders:ExportTooManyRows": "The export would hold {count} rows; at most {max} are allowed. Filter the list first.",
     "OpenTms.Orders:ExportUnknownColumn": "The list has no column \"{field}\" to export.",
-    "OpenTms.Orders:TripRequestNotHonoured": "The trip of this order was not created: {field} is not known to Planning. The legs are unplanned; plan them on the Planboard."
+    "OpenTms.Orders:TripRequestNotHonoured": "The trip of this order was not created: {field} is not known to Planning. The legs are unplanned; plan them on the Planboard.",
+    "Orders:TripNotCreated": "Trip not created",
+    "Orders:TripNotCreatedHint": "The trip of this order was not created; its legs are unplanned. Open the order for the details.",
+    "Orders:TripRequestWarning": "Trip warning",
+    "Orders:WarningSince": "Since {0}"
   }
 }

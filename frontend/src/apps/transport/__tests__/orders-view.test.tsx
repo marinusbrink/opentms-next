@@ -88,7 +88,7 @@ describe("OrdersView – grid", () => {
     expect((await screen.findByTestId("mock-grid")).getAttribute("data-grid-id")).toBe("orders.transport.transportOrders");
     expect(columns()).toEqual([
       "number", "status", "orderDate", "customerName", "customerReference", "lineCount", "firstStop", "firstStopDate", "lastStop", "lastStopDate",
-      "revenueAmount", "costOfRevenueAmount", "marginAmount", "co2Kg", "tripNumbers", "executionProgress",
+      "revenueAmount", "costOfRevenueAmount", "marginAmount", "co2Kg", "tripNumbers", "executionProgress", "tripRequestWarningCode",
       "transportOrderTypeName (hidden)", "organizationUnitId (hidden)", "currencyCode (hidden)", "stopCount (hidden)", "source (hidden)",
     ]);
     const first = document.querySelectorAll("[data-slot=mock-grid-row]")[0];
@@ -190,6 +190,19 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     expect(within(row).getByText("Orders:Cancel")).toBeDisabled();
     fireEvent.click(within(row).getByText("Orders:PrintConsignmentNote"));
     await screen.findByTestId("print-wizard");
+  });
+});
+
+describe("OrdersView – trip request warning", () => {
+  it("marks a row whose trip request Planning did not honour with a warning icon, and only that row", async () => {
+    const warned = [{ ...rows[0], tripRequestWarningCode: "OpenTms.Orders:TripRequestNotHonoured" }, rows[1]];
+    routes.GET["/api/orders/transport-order"] = () => ({ rows: warned, totalCount: 2, filteredCount: 2 });
+    renderView();
+    await screen.findByTestId("mock-grid");
+    await waitFor(() => expect(document.querySelectorAll("[data-slot=trip-request-warning-cell]")).toHaveLength(1));
+    const [first, second] = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=mock-grid-row]"));
+    expect(within(first).getByRole("img", { name: "Orders:TripNotCreated" })).toBeInTheDocument();
+    expect(within(second).queryByRole("img", { name: "Orders:TripNotCreated" })).toBeNull();
   });
 });
 

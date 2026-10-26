@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { LegDialog } from "@/apps/transport/components/LegDialog";
+import { TripRequestWarningAlert } from "@/apps/transport/components/TripRequestWarning";
 import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import type { EditorMode, OrderValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
@@ -158,6 +159,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
           </Button>
         )}
       </div>
+      {mode === "order" && <TripRequestWarningAlert request={order?.tripRequest} />}
       {form.error("tripRequest") && <p className="mb-2 text-label text-destructive">{form.error("tripRequest")}</p>}
       {request.enabled && (
         <div className="grid grid-cols-4 gap-x-4 gap-y-3" data-slot="trip-request-fields">
