@@ -92,6 +92,7 @@
     "PlanningExecution:Reference": "Reference",
     "PlanningExecution:PlannedDate": "Planned date",
     "PlanningExecution:Window": "Time window",
+    "PlanningExecution:WindowEndsBeforeStart": "The time window ends before it starts.",
     "PlanningExecution:Quantity": "Quantity",
     "PlanningExecution:WeightKg": "Weight (kg)",
     "PlanningExecution:Distance": "Distance",

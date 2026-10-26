@@ -92,6 +92,7 @@
     "PlanningExecution:Reference": "Referentie",
     "PlanningExecution:PlannedDate": "Geplande datum",
     "PlanningExecution:Window": "Tijdvenster",
+    "PlanningExecution:WindowEndsBeforeStart": "Het tijdvenster eindigt voordat het begint.",
     "PlanningExecution:Quantity": "Aantal",
     "PlanningExecution:WeightKg": "Gewicht (kg)",
     "PlanningExecution:Distance": "Afstand",

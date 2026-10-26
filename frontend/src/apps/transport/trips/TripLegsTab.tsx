@@ -9,13 +9,12 @@ import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { AmountCell, BoolCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
 import { EntityLookup } from "@/components/ui/entity-lookup";
-import { Input } from "@/components/ui/input";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
-import { Textarea } from "@/components/ui/textarea";
+import { LegDialog } from "@/apps/transport/components/LegDialog";
 import { AddressField, RelationField } from "@/apps/transport/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
 import type { RelationOption } from "@/domains/master-data/entities";
-import { fetchLegs, legEndLabel, useUpdateLeg, type LegDto } from "@/domains/planning-execution/legs";
+import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
 import { tripPickerPage, TRANSPORT_TRIP_STATUSES, useCarryOutSeparately, useCreateReturnLeg, useOutsourceOrigin, useUnassignLegs, type TransportTripDto, type TripPickerOption } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
@@ -23,7 +22,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
 /* The Legs tab of the trip editor (design 61): an OpenTmsGrid of the trip's legs with the editable reference, remarks
- * and planned dates in an action dialog, the row actions Unassign, Carry out separately, Return leg, Outsource origin
+ * planned dates and time windows in the shared LegDialog, the row actions Unassign, Carry out separately, Return leg, Outsource origin
  * (design 59 commands) and the link to the order; double click opens the order. */
 
 export interface TripLegsTabProps {
@@ -107,70 +106,9 @@ export function TripLegsTab({ trip, canAssign, canEditLegs }: TripLegsTabProps) 
           }}
         />
       </div>
-      {editing && <LegEditDialog leg={editing} onClose={() => setEditing(null)} />}
+      {editing && <LegDialog leg={editing} title={`${t("PlanningExecution:Leg")} ${editing.orderNumber ?? ""}`} idPrefix="trip-leg" onClose={() => setEditing(null)} />}
       {outsourcing && <OutsourceDialog tripId={trip.id!} leg={outsourcing} onClose={() => setOutsourcing(null)} />}
     </div>
-  );
-}
-
-function LegEditDialog({ leg, onClose }: { leg: LegDto; onClose: () => void }) {
-  const { t } = useL();
-  const update = useUpdateLeg();
-  const [originReference, setOriginReference] = useState(leg.origin?.reference ?? "");
-  const [destinationReference, setDestinationReference] = useState(leg.destination?.reference ?? "");
-  const [remarks, setRemarks] = useState(leg.remarks ?? "");
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await update.mutateAsync({ id: leg.id!, dto: { concurrencyStamp: leg.concurrencyStamp ?? "", originReference: originReference.trim() || null, destinationReference: destinationReference.trim() || null, remarks: remarks.trim() || null } });
-      toast.success(t("PlanningExecution:LegSaved"));
-      onClose();
-    } catch (err) {
-      setError(getApiErrorMessage(err, t));
-    }
-  };
-
-  return (
-    <EntityDialog
-      open
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      variant="action"
-      size="sm"
-      title={`${t("PlanningExecution:Leg")} ${leg.orderNumber ?? ""}`}
-      isBusy={update.isPending}
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose} disabled={update.isPending}>
-            {t("Cancel")}
-          </Button>
-          <Button type="submit" form="trip-leg-form" disabled={update.isPending}>
-            {update.isPending ? t("Saving") : t("Save")}
-          </Button>
-        </>
-      }
-    >
-      <form id="trip-leg-form" onSubmit={(e) => void submit(e)} noValidate className="grid grid-cols-1 gap-3">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        <FormField label={`${t("PlanningExecution:Reference")} (${t("PlanningExecution:Origin")})`} htmlFor="trip-leg-origin-reference">
-          <Input id="trip-leg-origin-reference" value={originReference} maxLength={128} onChange={(e) => setOriginReference(e.target.value)} autoFocus />
-        </FormField>
-        <FormField label={`${t("PlanningExecution:Reference")} (${t("PlanningExecution:Destination")})`} htmlFor="trip-leg-destination-reference">
-          <Input id="trip-leg-destination-reference" value={destinationReference} maxLength={128} onChange={(e) => setDestinationReference(e.target.value)} />
-        </FormField>
-        <FormField label={t("PlanningExecution:Remarks")} htmlFor="trip-leg-remarks" floating="always">
-          <Textarea id="trip-leg-remarks" rows={3} value={remarks} maxLength={2500} onChange={(e) => setRemarks(e.target.value)} />
-        </FormField>
-      </form>
-    </EntityDialog>
   );
 }
 

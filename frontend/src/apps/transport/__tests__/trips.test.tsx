@@ -326,6 +326,65 @@ describe("TripPage – stops, legs, cost", () => {
     expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/orders/o1" }));
   });
 
+  it("the leg dialog edits the time windows: prefilled as HH:mm, from after till refused, the changed window sent as instants", async () => {
+    const at = (time: string) => {
+      const [hh, mm] = time.split(":").map(Number);
+      return new Date(2026, 9, 25, hh, mm).toISOString();
+    };
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderId: "o1", orderNumber: "TO-1", tripPosition: 1, concurrencyStamp: "leg-s1", origin: { name: "Acme", plannedDate: "2026-10-25", windowFrom: at("08:00"), windowTill: at("12:00") }, destination: { name: "Beta", plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ id: "leg-1" });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    const from = dialog.querySelector<HTMLInputElement>("#trip-leg-origin-window-from")!;
+    const till = dialog.querySelector<HTMLInputElement>("#trip-leg-origin-window-till")!;
+    expect([from.value, till.value]).toEqual(["08:00", "12:00"]);
+    expect(dialog.querySelector<HTMLInputElement>("#trip-leg-destination-window-from")!.value).toBe("");
+
+    fireEvent.change(from, { target: { value: "13:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(within(dialog).getByText("PlanningExecution:WindowEndsBeforeStart")).toBeInTheDocument();
+    expect(PUT).not.toHaveBeenCalledWith("/api/planning/leg/{id}", expect.anything());
+
+    fireEvent.change(from, { target: { value: "09:30" } });
+    fireEvent.change(till, { target: { value: "14:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/leg/{id}", expect.objectContaining({ params: { path: { id: "leg-1" } } })));
+    const body = lastCall(PUT, "/api/planning/leg/{id}")!.body as Record<string, unknown>;
+    expect(body).toMatchObject({ concurrencyStamp: "leg-s1", originPlannedDate: "2026-10-25", destinationPlannedDate: "2026-10-26", originWindow: { from: at("09:30"), till: at("14:00") } });
+    expect(body.destinationWindow).toBeUndefined();
+    expect(toast.success).toHaveBeenCalledWith("PlanningExecution:LegSaved");
+  });
+
+  it("the leg dialog shows the server's InvalidLegWindow refusal and stays open", async () => {
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderId: "o1", orderNumber: "TO-1", origin: { plannedDate: "2026-10-25" }, destination: { plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ data: undefined, error: { error: { code: "OpenTms.PlanningExecution:InvalidLegWindow", message: "The time window ends before it starts (destination)." } }, response: new Response(null, { status: 400 }) });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(dialog.querySelector("#trip-leg-destination-window-from")!, { target: { value: "10:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    expect(await within(dialog).findByText("The time window ends before it starts (destination).")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("Outsource origin picks the target trip in a trip picker (not an id field) and posts its id", async () => {
     routes.POST["/api/planning/transport-trip/{id}/outsource-origin"] = () => ({ id: "leg-9" });
     lookupItems.current = { "outsource-hub": [{ id: "hub-1", name: "Hub Tilburg" }], "outsource-trip": [{ id: "t9", number: "TR-9", name: "Evening" } as never] };

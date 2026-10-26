@@ -547,3 +547,31 @@ describe("TemplatePage – Create orders needs lines", () => {
     expect(ribbonButton("Orders:Materialise")).not.toHaveAttribute("aria-disabled");
   });
 });
+
+describe("OrderPage – Planning tab leg dialog (time windows)", () => {
+  it("edits a leg's destination window on the order's Planning tab and sends it on the planned date", async () => {
+    const at = (date: [number, number, number], time: string) => {
+      const [hh, mm] = time.split(":").map(Number);
+      return new Date(date[0], date[1] - 1, date[2], hh, mm).toISOString();
+    };
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", position: 1, concurrencyStamp: "ls", origin: { name: "Acme", plannedDate: "2026-10-25" }, destination: { name: "Beta", plannedDate: "2026-10-26" } }], totalCount: 1, filteredCount: 1 });
+    routes.PUT["/api/planning/leg/{id}"] = () => ({ id: "leg-1" });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    await waitFor(() => expect(planning.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(planning).getByText("Edit"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(dialog.querySelector("#leg-destination-window-from")!, { target: { value: "7:15" } });
+    fireEvent.change(dialog.querySelector("#leg-destination-window-till")!, { target: { value: "11:00" } });
+    await act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/leg/{id}", expect.anything()));
+    const body = lastCall(PUT, "/api/planning/leg/{id}")!.body as Record<string, unknown>;
+    expect(body.destinationWindow).toEqual({ from: at([2026, 10, 26], "07:15"), till: at([2026, 10, 26], "11:00") });
+    expect(body.originWindow).toBeUndefined();
+  });
+});
