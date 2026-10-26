@@ -129,7 +129,20 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
   /* UI-KEY-004: Tab commits. Base UI closes on Tab without selecting, so the highlighted item (or the
    * only match of a typed term) is handed over before the popup closes. */
   const highlightedRef = useRef<T | undefined>(undefined);
+  /* UI-LOOK-004 from the keyboard (design 61 "Order page, revised": fast entry): Enter on a typed term the server has
+   * no match for opens "Add new …" with that term, as a click on the row would. */
+  const createOnEnter = (event: React.KeyboardEvent) => {
+    if (event.key !== "Enter" || !open || !onCreateNew || trimmed.length < ENTITY_LOOKUP_MIN_TERM_LENGTH) return false;
+    if (searchTerm !== trimmed || loading || items.length > 0) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    setOpen(false);
+    setTerm("");
+    onCreateNew(trimmed);
+    return true;
+  };
   const commitOnTab = (event: React.KeyboardEvent) => {
+    if (createOnEnter(event)) return;
     if (event.key !== "Tab" || !open || props.multiple) return;
     const candidate = highlightedRef.current ?? (trimmed.length > 0 && items.length === 1 ? items[0] : undefined);
     if (candidate && !(props.value && props.value.id === candidate.id)) props.onChange(candidate);

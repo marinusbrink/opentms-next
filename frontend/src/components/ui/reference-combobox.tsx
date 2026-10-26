@@ -79,6 +79,17 @@ export function ReferenceCombobox({
         id={id}
         placeholder={placeholder}
         disabled={disabled}
+        onKeyDown={(event) => {
+          /* UI-LOOK-004 from the keyboard: Enter on a typed term no option contains opens "Add new …" with it. */
+          const typed = term.trim();
+          if (event.key !== "Enter" || !open || !onCreateNew || typed.length === 0) return;
+          if (options.some((o) => o.label.toLowerCase().includes(typed.toLowerCase()))) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          setTerm("");
+          onCreateNew(typed);
+        }}
         showClear={!required && selected != null && !disabled}
         className={className}
         aria-invalid={aria["aria-invalid"]}

@@ -35,6 +35,9 @@ export interface LinesGridProps<TRow> {
   /** Rows that may not be removed (design 48: a vehicle's characteristics inherited from its type) get no trash
    *  icon and are skipped by the context menu's Remove; absent → every row is removable. */
   canRemoveRow?: (row: TRow) => boolean;
+  /** A click on a row (a master list whose selected line shows its detail under the grid, design 61 "Order page,
+   *  revised"); the click still starts the cell's inline edit. */
+  onRowClick?: (row: TRow) => void;
   /** Localized text for the no-rows overlay. */
   emptyText?: string;
   className?: string;
@@ -52,6 +55,7 @@ export function LinesGrid<TRow>({
   readOnly = false,
   onOpen,
   canRemoveRow,
+  onRowClick,
   emptyText,
   className,
 }: LinesGridProps<TRow>) {
@@ -193,6 +197,7 @@ export function LinesGrid<TRow>({
           }
           getContextMenuItems={getContextMenuItems}
           onRowDoubleClicked={onOpen ? openRow : undefined}
+          onRowClicked={onRowClick ? (event) => event.data != null && onRowClick(event.data) : undefined}
           onCellKeyDown={onOpen ? openRowOnEnter : undefined}
           suppressContextMenu={readOnly}
           preventDefaultOnContextMenu={!readOnly}

@@ -17,6 +17,8 @@ export interface RecordIdentification {
   creator?: string | null;
   lastModificationTime?: string | Date | null;
   modifier?: string | null;
+  /** On a one-page record (design 61 "Order page, revised") the section is collapsible and starts closed. */
+  collapsible?: boolean;
 }
 
 export function RecordIdentificationTab(record: RecordIdentification) {
@@ -27,7 +29,7 @@ export function RecordIdentificationTab(record: RecordIdentification) {
   /* One topic, so the section carries the tab's own name (UI-FORM-005). */
   if (!record.id) {
     return (
-      <FormSection title={t("RecordIdentification")}>
+      <FormSection title={t("RecordIdentification")} collapsible={record.collapsible}>
         <p className="text-sm text-muted-foreground">{t("Record:NotSavedYet")}</p>
       </FormSection>
     );
@@ -53,7 +55,7 @@ export function RecordIdentificationTab(record: RecordIdentification) {
   ];
 
   return (
-    <FormSection title={t("RecordIdentification")}>
+    <FormSection title={t("RecordIdentification")} collapsible={record.collapsible}>
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
       <dt className="text-label font-medium text-muted-foreground">{t("Record:Id")}</dt>
       <dd className="flex items-center gap-2">

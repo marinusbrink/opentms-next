@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { FORM_SECTION_CAPTION, FormSection } from "@/components/ui/form-section";
@@ -81,5 +81,42 @@ describe("FormSection", () => {
     );
     const section = screen.getByRole("region", { name: "Customer" });
     expect(section).toHaveClass("rounded-lg", "border", "flex", "flex-col");
+  });
+
+  it("collapsible: the caption is a disclosure button; closed it renders only the caption, open the content", () => {
+    render(
+      <FormSection title="Financial terms" collapsible>
+        <input aria-label="Currency" />
+      </FormSection>,
+    );
+    const section = screen.getByRole("region", { name: "Financial terms" });
+    const toggle = within(section).getByRole("button", { name: "Financial terms" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(section).toHaveAttribute("data-state", "closed");
+    expect(within(section).queryByLabelText("Currency")).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(within(section).getByLabelText("Currency")).toBeInTheDocument();
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toContainElement(within(section).getByLabelText("Currency"));
+  });
+
+  it("collapsible and controlled: follows open and reports the toggle; an error marks the caption", () => {
+    const changes: boolean[] = [];
+    const { rerender } = render(
+      <FormSection title="Trip" collapsible open={false} onOpenChange={(next) => changes.push(next)} hasError>
+        <input aria-label="Type" />
+      </FormSection>,
+    );
+    const heading = screen.getByRole("heading", { level: 3 });
+    expect(heading).toHaveClass("text-destructive");
+    fireEvent.click(screen.getByRole("button", { name: "Trip" }));
+    expect(changes).toEqual([true]);
+    expect(screen.queryByLabelText("Type")).toBeNull();
+    rerender(
+      <FormSection title="Trip" collapsible open onOpenChange={(next) => changes.push(next)}>
+        <input aria-label="Type" />
+      </FormSection>,
+    );
+    expect(screen.getByLabelText("Type")).toBeInTheDocument();
   });
 });
