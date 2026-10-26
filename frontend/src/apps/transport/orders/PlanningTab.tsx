@@ -19,7 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import type { EditorMode, OrderValues } from "@/apps/transport/orders/order-form";
-import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type VehicleOption } from "@/domains/master-data/entities";
+import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
+import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
 import type { TransportOrderDto } from "@/domains/orders/transport-orders";
 import { fetchLegs, legEndLabel, useUpdateLeg, type LegDto } from "@/domains/planning-execution/legs";
 import { transportTripTypes } from "@/domains/planning-execution/reference-data";
@@ -200,6 +201,10 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
     form.set("tripRequest", { ...request, ...change });
     form.blur("tripRequest");
   };
+  /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved lands in the latest request. */
+  const inPlace = useCreateInPlace();
+  const setLatest = (change: (current: OrderValues["tripRequest"]) => Partial<OrderValues["tripRequest"]>) =>
+    form.update((values) => ({ ...values, tripRequest: { ...values.tripRequest, ...change(values.tripRequest) } }));
   const requestForm = {
     values: request,
     set: (field: string, value: unknown) => set({ [field]: value }),
@@ -227,7 +232,14 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
       {form.error("tripRequest") && <p className="mb-2 text-label text-destructive">{form.error("tripRequest")}</p>}
       {request.enabled && (
         <div className="grid grid-cols-4 gap-x-4 gap-y-3" data-slot="trip-request-fields">
-          <ComboField form={requestForm} field="transportTripTypeId" labelKey="Orders:TransportTripType" required options={typeOptions} />
+          <ComboField
+            form={requestForm}
+            field="transportTripTypeId"
+            labelKey="Orders:TransportTripType"
+            required
+            options={typeOptions}
+            {...inPlace.offer("TransportTripType", readOnly, (r) => setLatest(() => ({ transportTripTypeId: r.id })))}
+          />
           {mode === "order" ? (
             <FormField label={t("Orders:PlannedDeparture")} htmlFor={form.id("trip-departureDate")} required floating="always">
               <DatePicker id={form.id("trip-departureDate")} value={request.departureDate} onChange={(next) => set({ departureDate: next })} required disabled={readOnly} />
@@ -250,9 +262,15 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
             <>
               <RelationField id={form.id("trip-carrier")} label={t("Orders:Carrier")} value={request.carrierRelation} onChange={(next) => set({ carrierRelation: next, carrierContactPersonId: null })} roles={CARRIER_ROLE} disabled={readOnly} />
               <ContactPersonField id={form.id("trip-carrierContact")} labelKey="PlanningExecution:CarrierContactPerson" relationId={request.carrierRelation?.id} value={request.carrierContactPersonId} onChange={(next) => set({ carrierContactPersonId: next })} disabled={readOnly} />
-              <ComboField form={requestForm} field="vehicleCombinationId" labelKey="Orders:VehicleCombination" options={combinationOptions} disabled={request.vehicleIds.length > 0} />
+              <ComboField
+                form={requestForm}
+                field="vehicleCombinationId"
+                labelKey="Orders:VehicleCombination"
+                options={combinationOptions}
+                disabled={request.vehicleIds.length > 0}
+                {...inPlace.offer("VehicleCombination", readOnly || request.vehicleIds.length > 0, (r) => setLatest(() => ({ vehicleCombinationId: r.id, vehicleIds: [] })))}
+              />
               <FormField label={t("Orders:Vehicles")} htmlFor={form.id("trip-vehicles")} floating="always">
-                {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
                 <EntityLookup<VehicleOption>
                   id={form.id("trip-vehicles")}
                   multiple
@@ -264,10 +282,13 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
                   fetchPage={vehiclePage}
                   getLabel={(v) => v.name}
                   disabled={readOnly || request.vehicleCombinationId != null}
+                  {...inPlace.offer<VehicleDto>("Vehicle", readOnly || request.vehicleCombinationId != null || request.vehicleIds.length >= 3, (r) => {
+                    setVehicles((known) => [...known.filter((v) => v.id !== r.id), { id: r.id, name: r.name, licencePlate: r.dto.licencePlate ?? null, kind: r.dto.kind ?? 1, vehicleTypeName: r.dto.vehicleTypeName ?? null }]);
+                    setLatest((current) => ({ vehicleIds: withId(current.vehicleIds, r.id).slice(0, 3), vehicleCombinationId: null }));
+                  })}
                 />
               </FormField>
               <FormField label={t("Orders:Drivers")} htmlFor={form.id("trip-drivers")} floating="always">
-                {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
                 <EntityLookup<DriverOption>
                   id={form.id("trip-drivers")}
                   multiple
@@ -279,6 +300,10 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
                   fetchPage={driverLookupPage}
                   getLabel={(d) => d.name}
                   disabled={readOnly}
+                  {...inPlace.offer("Driver", readOnly || request.driverIds.length >= 3, (r) => {
+                    setDrivers((known) => [...known.filter((d) => d.id !== r.id), { id: r.id, name: r.name, code: r.code ?? "" }]);
+                    setLatest((current) => ({ driverIds: withId(current.driverIds, r.id).slice(0, 3) }));
+                  })}
                 />
               </FormField>
               <NumberField form={requestForm} field="agreedPurchaseAmount" labelKey="Orders:AgreedPurchaseAmount" />
@@ -287,6 +312,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
           )}
         </div>
       )}
+      {inPlace.dialog}
     </FormSection>
   );
 }

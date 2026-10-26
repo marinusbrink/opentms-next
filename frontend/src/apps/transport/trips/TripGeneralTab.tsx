@@ -16,7 +16,8 @@ import { AttributeFields } from "@/apps/transport/components/AttributeFields";
 import { DateField, NumberField, SelectField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
 import type { TripValues } from "@/apps/transport/trips/trip-form";
-import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type RelationOption, type VehicleOption } from "@/domains/master-data/entities";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type RelationOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { TRIP_EXECUTIONS } from "@/domains/planning-execution/reference-data";
 import { FIRST_LAST_STOP_RULES, STOP_COMPOSITION_MODES, useSetTripCarrier, useSetTripDrivers, useSetTripVehicles, useTripAttributeDefinitions, type TransportTripDto } from "@/domains/planning-execution/trips";
@@ -49,6 +50,7 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
   const [resourceDialog, setResourceDialog] = useState<"carrier" | "vehicles" | "drivers" | null>(null);
   /* Resources are the Planboard's (design 61); the Tevens-trip path edits them here while the trip is Planned. */
   const resourcesEditable = !readOnly && trip.createdFromOrderId != null && trip.status === PLANNED && !trip.isArchived;
+  const inPlace = useCreateInPlace();
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,8 +67,14 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
             </FormField>
             <SelectField form={form} field="execution" labelKey="PlanningExecution:Execution" items={TRIP_EXECUTIONS.map((e) => ({ value: e.value, label: t(e.key) }))} />
             <FormField label={t("PlanningExecution:OrganizationUnit")} htmlFor={form.id("organizationUnitId")} floating="always">
-              {/* DEVIATION(UI-LOOK-004): no "Add new organisation unit…": creating Platform units in place is the Master data app's pickers' role (PO 2026-10-16); approved in design 61 build notes. */}
-              <TreeSelect id={form.id("organizationUnitId")} nodes={unitTree} value={form.values.organizationUnitId} onChange={(next) => form.set("organizationUnitId", next)} disabled={form.readOnly} />
+              <TreeSelect
+                id={form.id("organizationUnitId")}
+                nodes={unitTree}
+                value={form.values.organizationUnitId}
+                onChange={(next) => form.set("organizationUnitId", next)}
+                disabled={form.readOnly}
+                {...inPlace.offer("OrganizationUnit", form.readOnly, (r) => form.set("organizationUnitId", r.id))}
+              />
             </FormField>
             <SelectField form={form} field="stopCompositionMode" labelKey="PlanningExecution:StopCompositionMode" items={STOP_COMPOSITION_MODES.map((m) => ({ value: m.value, label: t(m.key) }))} />
             <SelectField form={form} field="firstLastStopRule" labelKey="PlanningExecution:FirstLastStopRule" items={FIRST_LAST_STOP_RULES.map((r) => ({ value: r.value, label: t(r.key) }))} />
@@ -135,6 +143,7 @@ export function TripGeneralTab({ form, trip, readOnly }: TripGeneralTabProps) {
       </div>
       <AttributeFields idPrefix={form.id("trip")} title={t("PlanningExecution:Attributes")} definitions={definitions.data} value={form.values.attributes} onChange={(next) => form.set("attributes", next)} readOnly={form.readOnly} />
       {resourceDialog && <ResourceDialog kind={resourceDialog} trip={trip} onClose={() => setResourceDialog(null)} />}
+      {inPlace.dialog}
     </div>
   );
 }
@@ -164,6 +173,8 @@ function ResourceDialog({ kind, trip, onClose }: { kind: "carrier" | "vehicles" 
   const combinationOptions = useMemo(() => toOptions(combinations.data), [combinations.data]);
   const vehiclePage = useMemo(() => vehicleLookupPage(), []);
   const busy = setCarrier.isPending || setVehicles.isPending || setDrivers.isPending;
+  /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved is picked (at most three vehicles / drivers). */
+  const inPlace = useCreateInPlace();
   const title = kind === "carrier" ? t("PlanningExecution:Carrier") : kind === "vehicles" ? t("PlanningExecution:Vehicles") : t("PlanningExecution:Drivers");
 
   const save = async () => {
@@ -215,22 +226,57 @@ function ResourceDialog({ kind, trip, onClose }: { kind: "carrier" | "vehicles" 
         {kind === "vehicles" && (
           <>
             <FormField label={t("PlanningExecution:VehicleCombination")} htmlFor="trip-combination" floating="always">
-              {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-              <ReferenceCombobox id="trip-combination" value={combinationId} onChange={(next) => { setCombinationId(next); if (next) setVehiclesValue([]); }} options={combinationOptions} />
+              <ReferenceCombobox
+                id="trip-combination"
+                value={combinationId}
+                onChange={(next) => {
+                  setCombinationId(next);
+                  if (next) setVehiclesValue([]);
+                }}
+                options={combinationOptions}
+                {...inPlace.offer("VehicleCombination", busy, (r) => {
+                  setCombinationId(r.id);
+                  setVehiclesValue([]);
+                })}
+              />
             </FormField>
             <FormField label={t("PlanningExecution:Vehicles")} htmlFor="trip-vehicles" floating="always">
-              {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-              <EntityLookup<VehicleOption> id="trip-vehicles" multiple value={vehicles} onChange={(next) => { setVehiclesValue(next.slice(0, 3)); if (next.length > 0) setCombinationId(null); }} fetchPage={vehiclePage} getLabel={(v) => v.name} disabled={combinationId != null} />
+              <EntityLookup<VehicleOption>
+                id="trip-vehicles"
+                multiple
+                value={vehicles}
+                onChange={(next) => {
+                  setVehiclesValue(next.slice(0, 3));
+                  if (next.length > 0) setCombinationId(null);
+                }}
+                fetchPage={vehiclePage}
+                getLabel={(v) => v.name}
+                disabled={combinationId != null}
+                {...inPlace.offer<VehicleDto>("Vehicle", busy || combinationId != null || vehicles.length >= 3, (r) => {
+                  setVehiclesValue((current) => (current.some((v) => v.id === r.id) ? current : [...current, { id: r.id, name: r.name, licencePlate: r.dto.licencePlate ?? null, kind: r.dto.kind ?? 1, vehicleTypeName: r.dto.vehicleTypeName ?? null }].slice(0, 3)));
+                  setCombinationId(null);
+                })}
+              />
             </FormField>
           </>
         )}
         {kind === "drivers" && (
           <FormField label={t("PlanningExecution:Drivers")} htmlFor="trip-drivers" floating="always">
-            {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-            <EntityLookup<DriverOption> id="trip-drivers" multiple value={drivers} onChange={(next) => setDriversValue(next.slice(0, 3))} fetchPage={driverLookupPage} getLabel={(d) => d.name} />
+            <EntityLookup<DriverOption>
+              id="trip-drivers"
+              multiple
+              value={drivers}
+              onChange={(next) => setDriversValue(next.slice(0, 3))}
+              fetchPage={driverLookupPage}
+              getLabel={(d) => d.name}
+              {...inPlace.offer("Driver", busy || drivers.length >= 3, (r) =>
+                setDriversValue((current) => (current.some((d) => d.id === r.id) ? current : [...current, { id: r.id, name: r.name, code: r.code ?? "" }].slice(0, 3))),
+              )}
+            />
           </FormField>
         )}
       </div>
+      {inPlace.dialog}
     </EntityDialog>
   );
 }

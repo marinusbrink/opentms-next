@@ -18,6 +18,7 @@ import { toOptions } from "@/apps/transport/components/fields";
 import { joinDateTime, splitDateTime } from "@/apps/transport/orders/order-form";
 import { AddressField, RelationField } from "@/apps/transport/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { RelationOption } from "@/domains/master-data/entities";
 import { waypointTypes } from "@/domains/orders/reference-data";
 import { parseTimeOfDay } from "@/domains/orders/reference-data";
@@ -205,6 +206,7 @@ export function RecordActualsDialog({ tripId, stop, onClose }: { tripId: string;
 function AddManualStopDialog({ tripId, stopCount, onClose }: { tripId: string; stopCount: number; onClose: () => void }) {
   const { t } = useL();
   const add = useAddManualStop();
+  const inPlace = useCreateInPlace();
   const waypointLookup = waypointTypes.useLookup();
   const waypointOptions = useMemo(() => toOptions(waypointLookup.data), [waypointLookup.data]);
   const [waypointTypeId, setWaypointTypeId] = useState<string | null>(null);
@@ -258,8 +260,15 @@ function AddManualStopDialog({ tripId, stopCount, onClose }: { tripId: string; s
           </Alert>
         )}
         <FormField label={t("Orders:StopType")} htmlFor="add-stop-type" required error={submitted && !waypointTypeId ? t("MasterData:Required") : undefined} floating="always">
-          {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-          <ReferenceCombobox id="add-stop-type" value={waypointTypeId} onChange={setWaypointTypeId} options={waypointOptions} required aria-invalid={submitted && !waypointTypeId} />
+          <ReferenceCombobox
+            id="add-stop-type"
+            value={waypointTypeId}
+            onChange={setWaypointTypeId}
+            options={waypointOptions}
+            required
+            aria-invalid={submitted && !waypointTypeId}
+            {...inPlace.offer("WaypointType", add.isPending, (r) => setWaypointTypeId(r.id))}
+          />
         </FormField>
         <RelationField id="add-stop-relation" label={t("PlanningExecution:Relation")} value={relation} onChange={(next) => { setRelation(next); setAddressId(null); }} required error={submitted && !relation ? t("MasterData:Required") : undefined} />
         <AddressField id="add-stop-address" label={t("Orders:Address")} relationId={relation?.id} value={addressId} onChange={setAddressId} />
@@ -273,6 +282,7 @@ function AddManualStopDialog({ tripId, stopCount, onClose }: { tripId: string; s
           <Textarea id="add-stop-remarks" rows={2} value={remarks} maxLength={2500} onChange={(e) => setRemarks(e.target.value)} />
         </FormField>
       </form>
+      {inPlace.dialog}
     </EntityDialog>
   );
 }

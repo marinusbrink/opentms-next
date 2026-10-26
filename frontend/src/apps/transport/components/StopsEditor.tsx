@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 
@@ -11,6 +11,7 @@ import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor
 import type { ReferenceOption } from "@/components/ui/reference-combobox";
 import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
 import { newStop, type EditorMode, type StopValues } from "@/apps/transport/orders/order-form";
+import { useCreateInPlace, type CreatableEntity } from "@/domains/master-data/components/create-in-place";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -19,7 +20,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * picked in the cell (ReferenceCellEditor), the date in the date cell editor (order lines) or as a day offset (pattern,
  * template), window and reference typed inline; the position is editable and renumbers the list (move). The relation,
  * its explicit address (design 58: the address type of a stop is explicit) and the contact person are edited in the
- * inline detail under the grid for the stop opened with the pencil, Enter or a double click: still no modal. */
+ * inline detail under the grid for the stop opened with the pencil, Enter or a double click: still no modal. The type
+ * and time-slot cells offer "Add new …" (UI-LOOK-004): the editor opens on top and the new record lands in the row. */
 
 export type StopsKind = "line" | "pattern";
 
@@ -90,6 +92,28 @@ export function StopsEditor({
 
   const update = (key: string, change: Partial<StopValues>) => onChange(stops.map((stop) => (stop.key === key ? { ...stop, ...change } : stop)));
 
+  /* A record created from a cell lands in that row of the latest stops (the editor saves after later edits). */
+  const latest = useRef({ stops, onChange });
+  latest.current = { stops, onChange };
+  const inPlace = useCreateInPlace();
+  const { offer } = inPlace;
+  const createFor = useCallback(
+    (entity: CreatableEntity, field: "waypointTypeId" | "timeSlotId") => {
+      const apply = (row: Row, id: string, name: string) =>
+        latest.current.onChange(
+          latest.current.stops.map((stop) => (stop.key === row.key ? { ...stop, [field]: id, ...(field === "waypointTypeId" ? { waypointTypeName: name } : {}) } : stop)),
+        );
+      const props = offer(entity, readOnly, () => undefined);
+      return {
+        createLabel: props.createLabel,
+        onCreateNew: props.onCreateNew ? (term: string, row: Row) => offer(entity, readOnly, (r) => apply(row, r.id, r.name)).onCreateNew?.(term) : undefined,
+      };
+    },
+    [offer, readOnly],
+  );
+  const waypointCreate = createFor("WaypointType", "waypointTypeId");
+  const slotCreate = createFor("TimeSlot", "timeSlotId");
+
   const move = (key: string, delta: number) => {
     const index = stops.findIndex((stop) => stop.key === key);
     const target = index + delta;
@@ -117,8 +141,7 @@ export function StopsEditor({
         flex: 1,
         minWidth: 140,
         editable: !readOnly,
-        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
-        ...referenceCellEditorColDef<Row>({ options: waypointTypeOptions }),
+        ...referenceCellEditorColDef<Row>({ options: waypointTypeOptions, onCreateNew: waypointCreate.onCreateNew, createLabel: waypointCreate.createLabel }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(waypointTypeOptions, p.value ?? null),
       },
       { field: "relationName", headerName: `${t("Orders:Relation")} *`, flex: 1.5, minWidth: 160 },
@@ -130,8 +153,7 @@ export function StopsEditor({
         headerName: t("Orders:TimeSlot"),
         minWidth: 130,
         editable: !readOnly,
-        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
-        ...referenceCellEditorColDef<Row>({ options: timeSlotOptions }),
+        ...referenceCellEditorColDef<Row>({ options: timeSlotOptions, onCreateNew: slotCreate.onCreateNew, createLabel: slotCreate.createLabel }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(timeSlotOptions, p.value ?? null),
       },
       { field: "windowFrom", headerName: mark(t("Orders:WindowFrom"), requireWindow), width: 100, minWidth: 90, editable: !readOnly },
@@ -140,7 +162,7 @@ export function StopsEditor({
       { field: "remarks", headerName: t("Orders:Remarks"), flex: 1, minWidth: 120, editable: !readOnly },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, readOnly, max, waypointTypeOptions, timeSlotOptions, useDate, requireReference, requireWindow, f],
+    [t, readOnly, max, waypointTypeOptions, timeSlotOptions, useDate, requireReference, requireWindow, f, waypointCreate.onCreateNew != null, slotCreate.onCreateNew != null],
   );
 
   return (
@@ -208,6 +230,7 @@ export function StopsEditor({
           </div>
         </div>
       )}
+      {inPlace.dialog}
     </div>
   );
 }

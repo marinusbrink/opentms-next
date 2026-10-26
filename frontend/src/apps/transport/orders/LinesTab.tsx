@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Plus, X } from "lucide-react";
 
@@ -13,7 +13,18 @@ import { ComboField, NumberField, SelectField, TextAreaField, TextField, toOptio
 import { RelationField } from "@/apps/transport/components/RelationFields";
 import { StopsEditor } from "@/apps/transport/components/StopsEditor";
 import { REQUIRED_FLAG, hasFlag, newLine, type EditorMode, type LineValues, type OrderValues } from "@/apps/transport/orders/order-form";
-import { products, productRelationCodes, temperatures, transportCharacteristicLookupPage, transportUnits, vehicleTypes, type TransportCharacteristicOption } from "@/domains/master-data/entities";
+import { useCreateInPlace, withId, type CreatableEntity, type CreatedRecord } from "@/domains/master-data/components/create-in-place";
+import {
+  products,
+  productRelationCodes,
+  temperatures,
+  toTransportCharacteristicOption,
+  transportCharacteristicLookupPage,
+  transportUnits,
+  vehicleTypes,
+  type TransportCharacteristicOption,
+  type TransportCharacteristicsDto,
+} from "@/domains/master-data/entities";
 import { timeSlots, waypointTypes, type TransportOrderTypeDto } from "@/domains/orders/reference-data";
 import { PAYMENT_INSTRUCTIONS, useOrderAttributeDefinitions } from "@/domains/orders/transport-orders";
 import type { RateLineSetDto } from "@/domains/financial/rate-lines";
@@ -25,7 +36,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * weight, volume, loading metres, EPQ, distance, duration, CO₂ (stored), price (the stored total of the line's rate
  * lines)) with the quantities edited inline, and a side panel for the selected line with the sections Cargo,
  * Container, Documents/texts, Measurements, Attributes and the Stops grid (no nested modal, UX finding §6.3/6.4). The
- * type's required flags mark the fields (UI-FORM-002); a Draft saves without them. */
+ * type's required flags mark the fields (UI-FORM-002); a Draft saves without them. Every record picker, the unit and
+ * product cells included, offers "Add new …" (UI-LOOK-004): the editor opens on top, the new record lands in its line. */
 
 const MAX_LINES = 200;
 
@@ -61,6 +73,26 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
   const slotOptions = useMemo(() => toOptions(slotLookup.data), [slotLookup.data]);
   const definitions = useOrderAttributeDefinitions(2);
 
+  /* "Add new …" from a unit or product cell: the record lands in that line of the latest values. */
+  const inPlace = useCreateInPlace();
+  const { offer } = inPlace;
+  const { readOnly, update: updateValues } = form;
+  const cellCreate = useCallback(
+    (entity: CreatableEntity, change: (line: LineValues, record: CreatedRecord) => Partial<LineValues>) => ({
+      createLabel: offer(entity, readOnly, () => undefined).createLabel,
+      onCreateNew:
+        offer(entity, readOnly, () => undefined).onCreateNew != null
+          ? (term: string, row: Row) =>
+              offer(entity, readOnly, (record) =>
+                updateValues((values) => ({ ...values, lines: values.lines.map((line) => (line.key === row.key ? { ...line, ...change(line, record) } : line)) })),
+              ).onCreateNew?.(term)
+          : undefined,
+    }),
+    [offer, readOnly, updateValues],
+  );
+  const unitCreate = cellCreate("TransportUnit", (_line, r) => ({ transportUnitId: r.id, transportUnitName: r.name }));
+  const productCreate = cellCreate("Product", (_line, r) => ({ productId: r.id, productName: r.name }));
+
   const priceOf = useMemo(() => {
     const totals = new Map<string, number>();
     for (const line of rateLines?.lines ?? []) {
@@ -94,8 +126,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
         flex: 1,
         minWidth: 140,
         editable: !form.readOnly,
-        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
-        ...referenceCellEditorColDef<Row>({ options: unitOptions }),
+        ...referenceCellEditorColDef<Row>({ options: unitOptions, onCreateNew: unitCreate.onCreateNew, createLabel: unitCreate.createLabel }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(unitOptions, p.value ?? null),
       },
       {
@@ -104,8 +135,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
         flex: 1,
         minWidth: 140,
         editable: !form.readOnly,
-        /* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */
-        ...referenceCellEditorColDef<Row>({ options: productOptions }),
+        ...referenceCellEditorColDef<Row>({ options: productOptions, onCreateNew: productCreate.onCreateNew, createLabel: productCreate.createLabel }),
         valueFormatter: (p: ValueFormatterParams<Row, string | null>) => labelOf(productOptions, p.value ?? null),
       },
       numeric("quantity", t("Orders:Quantity"), REQUIRED_FLAG.QuantityPerLine),
@@ -125,7 +155,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
         : []),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, form.readOnly, unitOptions, productOptions, mode, f, flags, form.values.terms.currencyCode],
+    [t, form.readOnly, unitOptions, productOptions, mode, f, flags, form.values.terms.currencyCode, unitCreate.onCreateNew != null, productCreate.onCreateNew != null],
   );
 
   const setLines = (lines: LineValues[]) => {
@@ -183,6 +213,7 @@ export function LinesTab({ form, mode, type, rateLines }: LinesTabProps) {
           definitions={definitions.data}
         />
       )}
+      {inPlace.dialog}
     </div>
   );
 }
@@ -202,6 +233,10 @@ interface LineDetailProps {
 function LineDetail({ line, form, mode, flags, onChange, onClose, options, definitions }: LineDetailProps) {
   const { t } = useL();
   const [characteristics, setCharacteristics] = useState<TransportCharacteristicOption[]>([]);
+  const inPlace = useCreateInPlace();
+  /* A record created in place lands in this line of the latest values (its editor saves on top of the form). */
+  const applyToLine = (change: (l: LineValues) => Partial<LineValues>) =>
+    form.update((values) => ({ ...values, lines: values.lines.map((l) => (l.key === line.key ? { ...l, ...change(l) } : l)) }));
   const lineForm = {
     values: line,
     set: (field: string, value: unknown) => onChange({ [field]: value }),
@@ -228,14 +263,32 @@ function LineDetail({ line, form, mode, flags, onChange, onClose, options, defin
       <div className="grid grid-cols-2 gap-4">
         <FormSection title={t("Orders:Cargo")}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <ComboField form={lineForm} field="productRelationCodeId" labelKey="Orders:ProductRelationCode" options={options.codeOptions} />
-            <ComboField form={lineForm} field="temperatureId" labelKey="Orders:Temperature" required={hasFlag(flags, REQUIRED_FLAG.Temperature)} options={options.temperatureOptions} />
-            <ComboField form={lineForm} field="vehicleTypeId" labelKey="Orders:VehicleType" options={options.vehicleTypeOptions} />
+            <ComboField
+              form={lineForm}
+              field="productRelationCodeId"
+              labelKey="Orders:ProductRelationCode"
+              options={options.codeOptions}
+              {...inPlace.offer("ProductRelationCode", form.readOnly, (r) => applyToLine(() => ({ productRelationCodeId: r.id })))}
+            />
+            <ComboField
+              form={lineForm}
+              field="temperatureId"
+              labelKey="Orders:Temperature"
+              required={hasFlag(flags, REQUIRED_FLAG.Temperature)}
+              options={options.temperatureOptions}
+              {...inPlace.offer("Temperature", form.readOnly, (r) => applyToLine(() => ({ temperatureId: r.id })))}
+            />
+            <ComboField
+              form={lineForm}
+              field="vehicleTypeId"
+              labelKey="Orders:VehicleType"
+              options={options.vehicleTypeOptions}
+              {...inPlace.offer("VehicleType", form.readOnly, (r) => applyToLine(() => ({ vehicleTypeId: r.id })))}
+            />
             <SelectField form={lineForm} field="paymentInstruction" labelKey="Orders:PaymentInstruction" items={PAYMENT_INSTRUCTIONS.map((p) => ({ value: p.value, label: t(p.key) }))} />
             <TextField form={lineForm} field="barcode" labelKey="Orders:Barcode" maxLength={64} />
             <NumberField form={lineForm} field="loadFactor" labelKey="Orders:LoadFactor" />
             <FormField label={t("Orders:RequiredTransportCharacteristics")} htmlFor={lineForm.id("characteristics")} floating="always" className="col-span-2">
-              {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
               <EntityLookup<TransportCharacteristicOption>
                 id={lineForm.id("characteristics")}
                 multiple
@@ -247,6 +300,11 @@ function LineDetail({ line, form, mode, flags, onChange, onClose, options, defin
                 fetchPage={transportCharacteristicLookupPage}
                 getLabel={(c) => c.name}
                 disabled={form.readOnly}
+                {...inPlace.offer<TransportCharacteristicsDto>("TransportCharacteristics", form.readOnly, (r) => {
+                  const created = toTransportCharacteristicOption(r.dto);
+                  setCharacteristics((known) => [...known.filter((c) => c.id !== created.id), created]);
+                  applyToLine((l) => ({ requiredTransportCharacteristicIds: withId(l.requiredTransportCharacteristicIds, created.id) }));
+                })}
               />
             </FormField>
           </div>
@@ -297,6 +355,7 @@ function LineDetail({ line, form, mode, flags, onChange, onClose, options, defin
           heightClass="h-48"
         />
       </FormSection>
+      {inPlace.dialog}
     </div>
   );
 }

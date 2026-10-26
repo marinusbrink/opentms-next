@@ -7,6 +7,7 @@ import { EntityDialog } from "@/components/ui/entity-dialog";
 import { ComboField, DateField, TextField } from "@/apps/transport/components/fields";
 import { RelationField } from "@/apps/transport/components/RelationFields";
 import { fetchRelationFinancialDefaults } from "@/domains/financial/rate-lines";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { RelationOption } from "@/domains/master-data/entities";
 import { transportOrderTypes } from "@/domains/orders/reference-data";
 import { useCreateTransportOrder, useTransportOrderTypeRows, type TransportOrderFinancialTermsInputDto } from "@/domains/orders/transport-orders";
@@ -75,6 +76,7 @@ export function NewOrderDialog({ open, onOpenChange, typeId }: NewOrderDialogPro
   }, [open, typeId, types.data]);
 
   const type = transportOrderTypes.useDetail(form.values.transportOrderTypeId ?? undefined);
+  const inPlace = useCreateInPlace();
 
   const save = useCallback(async () => {
     const values = submit(formRef.current);
@@ -124,12 +126,20 @@ export function NewOrderDialog({ open, onOpenChange, typeId }: NewOrderDialogPro
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <ComboField form={form} field="transportOrderTypeId" labelKey="Orders:TransportOrderType" required options={typeOptions} />
+        <ComboField
+          form={form}
+          field="transportOrderTypeId"
+          labelKey="Orders:TransportOrderType"
+          required
+          options={typeOptions}
+          {...inPlace.offer("TransportOrderType", create.isPending, (r) => form.set("transportOrderTypeId", r.id))}
+        />
         <RelationField id={form.id("customer")} label={t("Orders:Customer")} value={form.values.customer} onChange={(next) => form.set("customer", next)} roles={CUSTOMER_ROLE} required error={form.error("customer")} />
         <DateField form={form} field="orderDate" labelKey="Orders:OrderDate" required />
         <TextField form={form} field="customerReference" labelKey="Orders:CustomerReference" maxLength={128} />
         <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
       </form>
+      {inPlace.dialog}
     </EntityDialog>
   );
 }

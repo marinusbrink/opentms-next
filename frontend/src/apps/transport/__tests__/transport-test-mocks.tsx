@@ -18,6 +18,19 @@ import type { TreeSelectProps } from "@/components/ui/tree-select";
 type Row = Record<string, unknown>;
 const EMPTY = "";
 
+/** What the user "typed" before choosing a picker's "Add new …" row (UI-LOOK-004). */
+export const TYPED_TERM = "Typed name";
+
+/** A picker's "Add new …" row as a button `data-create-for=<id>`; absent without onCreateNew, as in the real pickers. */
+function CreateRow({ id, onCreateNew, createLabel }: { id: string; onCreateNew?: (term: string) => void; createLabel?: string }) {
+  if (!onCreateNew) return null;
+  return (
+    <button type="button" data-create-for={id} onClick={() => onCreateNew(TYPED_TERM)}>
+      {createLabel ?? "AddNew"}
+    </button>
+  );
+}
+
 /* ── OpenTmsGrid → fetches once per fetcher identity, renders filters, columns, rows (cell values) and row actions ── */
 
 export const gridRows: { current: unknown[] } = { current: [] };
@@ -112,16 +125,23 @@ function MockCell<TRow>({ col, row, readOnly, onChange }: { col: ColDef<TRow>; r
     );
   }
   if (typeof col.cellEditor === "function" && (col.cellEditorParams as { options?: { value: string; label: string }[] } | undefined)?.options) {
-    const options = (col.cellEditorParams as { options: { value: string; label: string }[] }).options;
+    const params = col.cellEditorParams as { options: { value: string; label: string }[]; onCreateNew?: (term: string, row: TRow) => void; createLabel?: string };
     return (
-      <select aria-label={label} value={(raw as string | null) ?? EMPTY} onChange={(e) => update(e.target.value || null)}>
-        <option value={EMPTY}>—</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <>
+        <select aria-label={label} value={(raw as string | null) ?? EMPTY} onChange={(e) => update(e.target.value || null)}>
+          <option value={EMPTY}>—</option>
+          {params.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {params.onCreateNew && (
+          <button type="button" data-create-cell={field} onClick={() => params.onCreateNew!(TYPED_TERM, row)}>
+            {params.createLabel ?? "AddNew"}
+          </button>
+        )}
+      </>
     );
   }
   return <input type="text" aria-label={label} value={raw == null ? "" : String(raw)} onChange={(e) => update(typeof col.cellEditor === "function" ? e.target.value || null : e.target.value)} />;
@@ -166,14 +186,17 @@ export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, 
 
 export function MockReferenceCombobox(props: ReferenceComboboxProps) {
   return (
-    <select id={props.id} disabled={props.disabled} aria-invalid={props["aria-invalid"]} aria-required={props["aria-required"]} value={props.value ?? EMPTY} onChange={(e) => props.onChange(e.target.value || null)}>
-      <option value={EMPTY}>{props.placeholder ?? "—"}</option>
-      {props.options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <>
+      <select id={props.id} disabled={props.disabled} aria-invalid={props["aria-invalid"]} aria-required={props["aria-required"]} value={props.value ?? EMPTY} onChange={(e) => props.onChange(e.target.value || null)}>
+        <option value={EMPTY}>{props.placeholder ?? "—"}</option>
+        {props.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <CreateRow id={props.id} onCreateNew={props.onCreateNew} createLabel={props.createLabel} />
+    </>
   );
 }
 
@@ -186,6 +209,7 @@ export function MockMultiSelect(props: MultiSelectProps) {
           {option.label}
         </label>
       ))}
+      <CreateRow id={props.id} onCreateNew={props.onCreateNew} createLabel={props.createLabel} />
     </div>
   );
 }
@@ -193,14 +217,17 @@ export function MockMultiSelect(props: MultiSelectProps) {
 export function MockTreeSelect(props: TreeSelectProps) {
   const flat = (nodes: TreeSelectProps["nodes"]): { id: string; label: string }[] => nodes.flatMap((n) => [{ id: n.id, label: n.label }, ...flat(n.children ?? [])]);
   return (
-    <select id={props.id} disabled={props.disabled} value={props.value ?? EMPTY} onChange={(e) => props.onChange(e.target.value || null)}>
-      <option value={EMPTY}>{props.noneLabel ?? "—"}</option>
-      {flat(props.nodes).map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <>
+      <select id={props.id} disabled={props.disabled} value={props.value ?? EMPTY} onChange={(e) => props.onChange(e.target.value || null)}>
+        <option value={EMPTY}>{props.noneLabel ?? "—"}</option>
+        {flat(props.nodes).map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <CreateRow id={props.id} onCreateNew={props.onCreateNew} createLabel={props.createLabel} />
+    </>
   );
 }
 
@@ -224,20 +251,32 @@ export function MockEntityLookup<T extends { id: string }>(props: EntityLookupPr
             {props.getLabel(item)}
           </label>
         ))}
+        {/* The selection the lookup holds beyond the offered items (a record created in place). */}
+        {props.value
+          .filter((v) => !items.some((i) => i.id === v.id))
+          .map((v) => (
+            <span key={v.id} data-selected-extra={v.id}>
+              {props.getLabel(v)}
+            </span>
+          ))}
+        <CreateRow id={props.id} onCreateNew={props.onCreateNew} createLabel={props.createLabel} />
       </div>
     );
   }
   const current = props.value;
   return (
-    <select id={props.id} disabled={props.disabled} aria-invalid={props["aria-invalid"]} value={current?.id ?? EMPTY} onChange={(e) => props.onChange(items.find((i) => i.id === e.target.value) ?? null)}>
-      <option value={EMPTY}>{props.placeholder ?? "—"}</option>
-      {current && !items.some((i) => i.id === current.id) && <option value={current.id}>{props.getLabel(current)}</option>}
-      {items.map((item) => (
-        <option key={item.id} value={item.id}>
-          {props.getLabel(item)}
-        </option>
-      ))}
-    </select>
+    <>
+      <select id={props.id} disabled={props.disabled} aria-invalid={props["aria-invalid"]} value={current?.id ?? EMPTY} onChange={(e) => props.onChange(items.find((i) => i.id === e.target.value) ?? null)}>
+        <option value={EMPTY}>{props.placeholder ?? "—"}</option>
+        {current && !items.some((i) => i.id === current.id) && <option value={current.id}>{props.getLabel(current)}</option>}
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {props.getLabel(item)}
+          </option>
+        ))}
+      </select>
+      <CreateRow id={props.id} onCreateNew={props.onCreateNew} createLabel={props.createLabel} />
+    </>
   );
 }
 

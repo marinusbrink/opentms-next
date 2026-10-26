@@ -4,11 +4,11 @@ import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { useCreateInPlace, type CreatedRecord } from "@/domains/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { CheckboxField, EnumSelectField, NumberField, TextAreaField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
-import { geographicalRegions, relationLookupPage, useRelationAddresses, type RelationOption } from "@/domains/master-data/entities";
+import { geographicalRegions, relationLookupPage, useRelationAddresses, type RelationDto, type RelationOption } from "@/domains/master-data/entities";
 import { waypointTypes } from "@/domains/orders/reference-data";
 import {
   MAX_VIA_DEPOT_POSITION,
@@ -264,21 +264,32 @@ function DepotAddressField({ form, storedCity }: { form: FormContext<Values>; st
     const current = form.values.depotAddressId;
     return current && !list.some((o) => o.value === current) ? [...list, { value: current, label: storedCity ?? "" }] : list;
   }, [addresses.data, form.values.depotAddressId, storedCity]);
+  /* "Add new address…" (UI-LOOK-004): the depot relation's editor opens on it (an address is part of the relation,
+   * saved with it); the address its save added is selected. */
+  const inPlace = useCreateInPlace();
+  const known = new Set(options.map((o) => o.value));
+  const onAddressCreated = (r: CreatedRecord<RelationDto>) => {
+    const added = (r.dto.addresses ?? []).find((a) => a.id && !known.has(a.id));
+    if (added?.id) form.update((values) => (values.depotRelation?.id === depotId ? { ...values, depotAddressId: added.id! } : values));
+  };
   return (
-    <FormField label={t("PlanningExecution:DepotAddress")} htmlFor={form.id("depotAddressId")} required error={form.error("depotAddressId")} floating="always" hint={depotId ? undefined : t("PlanningExecution:DepotAddressHint")}>
-      {/* DEVIATION(UI-LOOK-004): the address list belongs to the picked depot relation, which has no address editor of its own; a new address is added through the relation editor. Reported for approval in the design-61 build notes (Master data lists). */}
-      <ReferenceCombobox
-        id={form.id("depotAddressId")}
-        value={form.values.depotAddressId}
-        onChange={(next) => {
-          form.set("depotAddressId", next);
-          form.blur("depotAddressId");
-        }}
-        options={options}
-        required
-        aria-invalid={form.error("depotAddressId") != null}
-        disabled={form.readOnly || !depotId}
-      />
-    </FormField>
+    <>
+      <FormField label={t("PlanningExecution:DepotAddress")} htmlFor={form.id("depotAddressId")} required error={form.error("depotAddressId")} floating="always" hint={depotId ? undefined : t("PlanningExecution:DepotAddressHint")}>
+        <ReferenceCombobox
+          id={form.id("depotAddressId")}
+          value={form.values.depotAddressId}
+          onChange={(next) => {
+            form.set("depotAddressId", next);
+            form.blur("depotAddressId");
+          }}
+          options={options}
+          required
+          aria-invalid={form.error("depotAddressId") != null}
+          disabled={form.readOnly || !depotId}
+          {...inPlace.offer<RelationDto>("RelationAddress", form.readOnly, onAddressCreated, { parentId: depotId })}
+        />
+      </FormField>
+      {inPlace.dialog}
+    </>
   );
 }

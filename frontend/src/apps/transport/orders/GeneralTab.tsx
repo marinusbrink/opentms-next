@@ -9,6 +9,7 @@ import { CheckboxField, ComboField, DateField, NumberField, SelectField, TextAre
 import { ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import { StopsEditor } from "@/apps/transport/components/StopsEditor";
 import { REQUIRED_FLAG, hasFlag, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { RECURRENCE_DAYS, TEMPLATE_RECURRENCES } from "@/domains/orders/templates";
 import { timeSlots, transportOrderTypes, waypointTypes, type TransportOrderTypeDto } from "@/domains/orders/reference-data";
 import { useOrderAttributeDefinitions } from "@/domains/orders/transport-orders";
@@ -44,6 +45,8 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
   const unitTree = useMemo(() => buildTree(units.data ?? [], (u) => u.id ?? "", (u) => u.parentId, (u) => u.displayName ?? ""), [units.data]);
   const definitions = useOrderAttributeDefinitions(1);
   const flags = type?.requiredFields as number | undefined;
+  /* "Add new …" in the type and organisation-unit pickers (UI-LOOK-004); the relation pickers carry their own. */
+  const inPlace = useCreateInPlace();
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,7 +59,15 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
                 <CheckboxField form={form} field="isActive" labelKey="Orders:IsActive" />
               </>
             )}
-            <ComboField form={form} field="transportOrderTypeId" labelKey="Orders:TransportOrderType" required options={typeOptions} disabled={numbered} />
+            <ComboField
+              form={form}
+              field="transportOrderTypeId"
+              labelKey="Orders:TransportOrderType"
+              required
+              options={typeOptions}
+              disabled={numbered}
+              {...inPlace.offer("TransportOrderType", form.readOnly || numbered, (r) => form.set("transportOrderTypeId", r.id))}
+            />
             {mode === "order" ? <DateField form={form} field="orderDate" labelKey="Orders:OrderDate" required /> : <span />}
             <RelationField
               id={form.id("customer")}
@@ -74,8 +85,14 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
             <ContactPersonField id={form.id("customerContactPersonId")} relationId={form.values.customer?.id} value={form.values.customerContactPersonId} onChange={(next) => form.set("customerContactPersonId", next)} disabled={form.readOnly} />
             <TextField form={form} field="customerReference" labelKey="Orders:CustomerReference" required={hasFlag(flags, REQUIRED_FLAG.CustomerReference)} maxLength={128} />
             <FormField label={t("Orders:OrganizationUnit")} htmlFor={form.id("organizationUnitId")} floating="always">
-              {/* DEVIATION(UI-LOOK-004): no "Add new organisation unit…": creating Platform units in place is the Master data app's pickers' role (PO 2026-10-16); approved in design 61 build notes. */}
-              <TreeSelect id={form.id("organizationUnitId")} nodes={unitTree} value={form.values.organizationUnitId} onChange={(next) => form.set("organizationUnitId", next)} disabled={form.readOnly} />
+              <TreeSelect
+                id={form.id("organizationUnitId")}
+                nodes={unitTree}
+                value={form.values.organizationUnitId}
+                onChange={(next) => form.set("organizationUnitId", next)}
+                disabled={form.readOnly}
+                {...inPlace.offer("OrganizationUnit", form.readOnly, (r) => form.set("organizationUnitId", r.id))}
+              />
             </FormField>
             {mode === "template" && <TextAreaField form={form} field="description" labelKey="MasterData:Remarks" maxLength={2500} className="col-span-2" />}
           </div>
@@ -109,6 +126,7 @@ export function GeneralTab({ form, mode, numbered, type }: GeneralTabProps) {
           timeSlotOptions={slotOptions}
         />
       </FormSection>
+      {inPlace.dialog}
     </div>
   );
 }

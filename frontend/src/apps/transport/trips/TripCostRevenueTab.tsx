@@ -227,7 +227,7 @@ function ManualCostLineDialog({ tripId, currency, legs, onClose }: { tripId: str
           </Alert>
         )}
         <FormField label={t("PlanningExecution:Leg")} htmlFor="cost-line-leg" floating="always">
-          {/* DEVIATION(UI-LOOK-004): the trip's legs are derived from the orders, never created by hand; approved in design 61 build notes. */}
+          {/* DEVIATION(UI-LOOK-004): the trip's own legs: nothing to create in place, a leg is derived from the orders' lines and never created by hand. */}
           <ReferenceCombobox id="cost-line-leg" value={legId} onChange={setLegId} options={legs.map((leg) => ({ value: leg.id, label: leg.label }))} />
         </FormField>
         <FormField label={t("Orders:Description")} htmlFor="cost-line-description">

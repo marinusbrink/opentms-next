@@ -10,9 +10,12 @@ import { Input } from "@/components/ui/input";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Wizard, type WizardTask } from "@/components/ui/wizard";
+import { useAppFeatures } from "@/app/app-features";
+import { NewTemplateDialog } from "@/apps/transport/components/NewTemplateDialog";
 import { addDays } from "@/apps/transport/orders/order-form";
 import { MAX_COPIES, RECURRENCE_DAYS, copyOrder, materialiseTemplate, useInvalidateOrdersAfterMaterialisation, useTemplateLookup } from "@/domains/orders/templates";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { useIsGranted } from "@/lib/auth/permissions";
 import { parseInteger } from "@/lib/forms/use-form-state";
 import { toDate, toIsoDate, useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -51,6 +54,12 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
   const [copies, setCopies] = useState("1");
   const [tasks, setTasks] = useState<WizardTask[] | undefined>(undefined);
   const [created, setCreated] = useState(0);
+  /* "Add new template…" (UI-LOOK-004): the New template dialog on top (the Templates node's Create permission and
+   * feature chain, UI-PERM-006); the new template is selected and named until the lookup refetches. */
+  const features = useAppFeatures();
+  const canCreateTemplate = useIsGranted("Orders.TransportOrderTemplates.Create") && features.isFeatureEnabled("Apps.Transport.Orders.Templates");
+  const [newTemplate, setNewTemplate] = useState<{ term: string } | null>(null);
+  const [createdTemplate, setCreatedTemplate] = useState<{ value: string; label: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -60,7 +69,10 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
     }
   }, [open, source]);
 
-  const templateOptions = useMemo(() => (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" })), [templates.data]);
+  const templateOptions = useMemo(() => {
+    const options = (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" }));
+    return createdTemplate && !options.some((o) => o.value === createdTemplate.value) ? [...options, createdTemplate] : options;
+  }, [templates.data, createdTemplate]);
   const sourceLabel = source ? source.label : (templateOptions.find((o) => o.value === templateId)?.label ?? "");
 
   const dates = useMemo(() => {
@@ -131,9 +143,29 @@ export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWiz
               ) : (
                 <FormSection title={t("Orders:TransportOrderTemplate")}>
                   <FormField label={t("Orders:TransportOrderTemplate")} htmlFor="materialise-template" required floating="always" className="max-w-md">
-                    {/* DEVIATION(UI-LOOK-004): a template is a whole record page (the order editor in template mode), not a dialog to open on top of a wizard; approved in design 61 build notes. */}
-                    <ReferenceCombobox id="materialise-template" value={templateId} onChange={setTemplateId} options={templateOptions} required />
+                    <ReferenceCombobox
+                      id="materialise-template"
+                      value={templateId}
+                      onChange={setTemplateId}
+                      options={templateOptions}
+                      required
+                      onCreateNew={canCreateTemplate && tasks == null ? (term) => setNewTemplate({ term }) : undefined}
+                      createLabel={t("Orders:AddNewTransportOrderTemplate")}
+                    />
                   </FormField>
+                  {newTemplate && (
+                    <NewTemplateDialog
+                      open
+                      initialName={newTemplate.term}
+                      onOpenChange={(next) => {
+                        if (!next) setNewTemplate(null);
+                      }}
+                      onCreated={(template) => {
+                        setCreatedTemplate({ value: template.id, label: template.name });
+                        setTemplateId(template.id);
+                      }}
+                    />
+                  )}
                 </FormSection>
               )}
             </div>

@@ -23,6 +23,7 @@ import {
   type ConsignmentNoteDocumentDto,
   type ConsignmentNoteOverridesDto,
 } from "@/domains/orders/consignment-notes";
+import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { parseInteger } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -66,6 +67,9 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
   const [tasks, setTasks] = useState<WizardTask[] | undefined>(undefined);
   const [documents, setDocuments] = useState<ConsignmentNoteDocumentDto[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /* "Add new profile…" (UI-LOOK-004): the profile editor opens on top; the new one is picked and named until the rows refetch. */
+  const inPlace = useCreateInPlace();
+  const [created, setCreated] = useState<{ value: string; label: string } | null>(null);
 
   /* The default profile is preselected; the profile's values are the starting overrides. */
   useEffect(() => {
@@ -92,7 +96,10 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
     }
   }, [open, orders]);
 
-  const profileOptions = useMemo(() => (profiles.data ?? []).map((p) => ({ value: p.id ?? "", label: p.isDefault ? `${p.name ?? ""} (${t("MasterData:IsDefault")})` : (p.name ?? "") })), [profiles.data, t]);
+  const profileOptions = useMemo(() => {
+    const options = (profiles.data ?? []).map((p) => ({ value: p.id ?? "", label: p.isDefault ? `${p.name ?? ""} (${t("MasterData:IsDefault")})` : (p.name ?? "") }));
+    return created && !options.some((o) => o.value === created.value) ? [...options, created] : options;
+  }, [profiles.data, created, t]);
   const partyItems = CMR_PARTY_SOURCES.map((s) => ({ value: String(s.value), label: t(s.key) }));
 
   const overridesDto = (): ConsignmentNoteOverridesDto => ({
@@ -190,8 +197,17 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
               <FormSection title={t("Orders:Profile")}>
                 <div className="grid grid-cols-4 gap-x-4 gap-y-3">
                   <FormField label={t("Orders:ConsignmentNoteProfile")} htmlFor="cmr-profile" required floating="always" className="col-span-2">
-                    {/* DEVIATION(UI-LOOK-004): no "Add new profile…": the CMR profile editor lives in the Master data app (apps never import apps); approved in design 61 build notes. */}
-                    <ReferenceCombobox id="cmr-profile" value={profileId} onChange={setProfileId} options={profileOptions} required />
+                    <ReferenceCombobox
+                      id="cmr-profile"
+                      value={profileId}
+                      onChange={setProfileId}
+                      options={profileOptions}
+                      required
+                      {...inPlace.offer("ConsignmentNoteProfile", tasks != null, (r) => {
+                        setCreated({ value: r.id, label: r.name });
+                        setProfileId(r.id);
+                      })}
+                    />
                   </FormField>
                   <FormField label={t("Orders:Copies")} htmlFor="cmr-copies">
                     <Input id="cmr-copies" inputMode="numeric" value={overrides.copies} onChange={(e) => setOverrides({ ...overrides, copies: e.target.value })} />
@@ -230,6 +246,7 @@ export function PrintCmrWizard({ open, onOpenChange, orders, trip }: PrintCmrWiz
                   ))}
                 </div>
               </FormSection>
+              {inPlace.dialog}
             </div>
           ),
         },

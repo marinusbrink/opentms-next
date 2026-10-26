@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CheckboxField, ComboField, NumberField, SelectField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { TotalsBlock } from "@/apps/transport/components/TotalsBlock";
 import { lineInputOf, termsInputOf, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
+import type { PriceListDto } from "@/domains/financial/price-lists";
 import { additionalServices, discountsOrSurcharges, vatPercentages } from "@/domains/financial/reference-data";
 import {
   MULTIPLE_MATCHES,
@@ -34,6 +35,7 @@ import {
   type RateLineDto,
   type RateLineSetDto,
 } from "@/domains/financial/rate-lines";
+import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import { previewPrices, type PricePreviewDto, type TransportOrderDto } from "@/domains/orders/transport-orders";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { parseNumber, type FormContext } from "@/lib/forms/use-form-state";
@@ -290,32 +292,56 @@ function TermsSection({ form, order }: { form: FormContext<OrderValues>; order: 
     readOnly: form.readOnly,
     id: (field: string) => form.id(`terms-${field}`),
   } as unknown as FormContext<OrderValues["terms"]>;
+  /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved lands in the latest terms. */
+  const inPlace = useCreateInPlace();
+  const setLatest = (change: (current: OrderValues["terms"]) => Partial<OrderValues["terms"]>) =>
+    form.update((values) => ({ ...values, terms: { ...values.terms, ...change(values.terms) } }));
 
   return (
     <FormSection title={t("Orders:FinancialTerms")}>
       {form.error("terms") && <p className="mb-2 text-label text-destructive">{form.error("terms")}</p>}
       <div className="grid grid-cols-4 gap-x-4 gap-y-3">
         <TextField form={termsForm} field="currencyCode" labelKey="Orders:CurrencyCode" required maxLength={3} upper />
-        <ComboField form={termsForm} field="vatPercentageId" labelKey="Orders:VatPercentage" options={vatOptions} />
+        <ComboField
+          form={termsForm}
+          field="vatPercentageId"
+          labelKey="Orders:VatPercentage"
+          options={vatOptions}
+          {...inPlace.offer("VatPercentage", form.readOnly, (r) => setLatest(() => ({ vatPercentageId: r.id })))}
+        />
         <NumberField form={termsForm} field="paymentTermDays" labelKey="Orders:PaymentTermDays" />
         <SelectField form={termsForm} field="multipleMatches" labelKey="Orders:MultipleMatches" items={MULTIPLE_MATCHES.map((m) => ({ value: m.value, label: t(m.key) }))} />
         <FormField label={t("Orders:PriceLists")} htmlFor={form.id("terms-priceListIds")} floating="always" className="col-span-2">
-          {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-          <MultiSelect id={form.id("terms-priceListIds")} value={terms.priceListIds} onChange={(next) => setTerms({ priceListIds: next })} options={priceListOptions} disabled={form.readOnly} />
+          <MultiSelect
+            id={form.id("terms-priceListIds")}
+            value={terms.priceListIds}
+            onChange={(next) => setTerms({ priceListIds: next })}
+            options={priceListOptions}
+            disabled={form.readOnly}
+            {...inPlace.offer<PriceListDto>("PriceList", form.readOnly, (r) => {
+              /* The order's terms hold revenue lists only (design 57); a cost list made here is not one of them. */
+              if (r.dto.side === RATE_SIDE.Revenue) setLatest((current) => ({ priceListIds: withId(current.priceListIds, r.id) }));
+            })}
+          />
         </FormField>
         <FormField label={t("Orders:DiscountsOrSurcharges")} htmlFor={form.id("terms-ds")} floating="always" className="col-span-2">
-          {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
           <MultiSelect
             id={form.id("terms-ds")}
             value={terms.discountsOrSurcharges.map((d) => d.discountOrSurchargeId)}
             onChange={(next) => setTerms({ discountsOrSurcharges: next.map((id) => terms.discountsOrSurcharges.find((d) => d.discountOrSurchargeId === id) ?? { discountOrSurchargeId: id, source: 2 }) })}
             options={dsOptions}
             disabled={form.readOnly}
+            {...inPlace.offer("DiscountOrSurcharge", form.readOnly, (r) =>
+              setLatest((current) => ({
+                discountsOrSurcharges: current.discountsOrSurcharges.some((d) => d.discountOrSurchargeId === r.id) ? current.discountsOrSurcharges : [...current.discountsOrSurcharges, { discountOrSurchargeId: r.id, source: 2 }],
+              })),
+            )}
           />
         </FormField>
         <NumberField form={termsForm} field="fixedPriceAmount" labelKey="Orders:FixedPriceAmount" />
         <CheckboxField form={termsForm} field="sendFreightDocumentsWithInvoice" labelKey="Orders:SendFreightDocumentsWithInvoice" className="col-span-2" />
       </div>
+      {inPlace.dialog}
     </FormSection>
   );
 }
@@ -343,6 +369,7 @@ function RateLineDialog({ kind, orderId, currency, lines, onClose }: RateLineDia
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const busy = add.isPending || setFixed.isPending;
+  const inPlace = useCreateInPlace();
 
   const title = kind === "manual" ? t("Financial:AddManualLine") : kind === "service" ? t("Financial:AddAdditionalService") : t("Financial:SetFixedPrice");
   const verb = kind === "fixed" ? t("Financial:SetFixedPrice") : t("Financial:AddLine");
@@ -409,14 +436,21 @@ function RateLineDialog({ kind, orderId, currency, lines, onClose }: RateLineDia
         )}
         {kind !== "fixed" && (
           <FormField label={t("Orders:Line")} htmlFor="rate-line-line" floating="always">
-            {/* DEVIATION(UI-LOOK-004): the order's own lines, nothing to create here (a line is added on the Lines tab); approved in design 61 build notes. */}
+            {/* DEVIATION(UI-LOOK-004): the order's own lines (or the order itself): nothing to create in place, a line is added on the Lines tab. */}
             <ReferenceCombobox id="rate-line-line" value={lineId} onChange={setLineId} options={[{ value: "", label: t("Orders:OrderLevel") }, ...lines.filter((l) => l.id).map((l) => ({ value: l.id!, label: l.label }))]} />
           </FormField>
         )}
         {kind === "service" && (
           <FormField label={t("Financial:AdditionalService")} htmlFor="rate-line-service" required error={serviceError} floating="always">
-            {/* DEVIATION(UI-LOOK-004): no "Add new…": the entity's editor lives in the Master data app and an app never imports another app (CLAUDE.md); approved in design 61 build notes, open question for the PO. */}
-            <ReferenceCombobox id="rate-line-service" value={serviceId} onChange={setServiceId} options={serviceOptions} required aria-invalid={serviceError != null} />
+            <ReferenceCombobox
+              id="rate-line-service"
+              value={serviceId}
+              onChange={setServiceId}
+              options={serviceOptions}
+              required
+              aria-invalid={serviceError != null}
+              {...inPlace.offer("AdditionalService", busy, (r) => setServiceId(r.id))}
+            />
           </FormField>
         )}
         {kind === "manual" && (
@@ -433,6 +467,7 @@ function RateLineDialog({ kind, orderId, currency, lines, onClose }: RateLineDia
           <Input id="rate-line-price" inputMode="decimal" className="tabular-nums" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} autoFocus />
         </FormField>
       </form>
+      {inPlace.dialog}
     </EntityDialog>
   );
 }
