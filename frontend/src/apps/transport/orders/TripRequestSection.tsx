@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,104 +7,39 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
-import { AmountCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
-import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
-import { LegDialog } from "@/apps/transport/components/LegDialog";
 import { TripRequestWarningAlert } from "@/apps/transport/components/TripRequestWarning";
 import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import { defaultTripTypeIdOf, tripRequestWithDefaults, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
 import type { TransportOrderDto } from "@/domains/orders/transport-orders";
-import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
 import { transportTripTypes, useDefaultTransportTripTypeId } from "@/domains/planning-execution/reference-data";
-import { tripStatusName } from "@/domains/planning-execution/trips";
 import type { FormContext } from "@/lib/forms/use-form-state";
-import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
-/* The Planning tab of the order editor (design 61): the legs of the order read from Planning (position, origin →
- * destination, planned dates, distance, duration, toll km, CO₂, trip number (a link), allocated cost/revenue) with the
- * editable leg fields (references, planned dates, time windows, remarks) in the shared LegDialog, and the Tevens trip section (Q9): a checkbox "Create a trip with this
- * order", trip type, departure/arrival (relation + address), planned departure, an Advanced disclosure for carrier,
- * vehicles or combination, drivers and the agreed purchase price; after Confirm the section is read-only and shows
- * the created trip as a link. Legs are never posted by the client (design 58). */
+/* The Tevens trip section of the order page (design 61 "Order page, revised" 7; Q9): a checkbox "Create a trip with
+ * this order", then trip type, departure/arrival (relation + address), planned departure, which freight items go on
+ * the trip (a checkbox per item, default all: only their legs are put on the trip on Confirm, the others stay
+ * unplanned for the Planboard; the trip's stops follow from its legs), and an Advanced disclosure for carrier,
+ * vehicles or combination, drivers and the agreed purchase price. Ticking it prefills the empty fields from the items
+ * on the trip. After Confirm the section is read-only and shows the created trip as a link. A collapsible
+ * FormSection, opened on submit when the request holds an error (UI-FORM-006). */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
 
-export interface PlanningTabProps {
+export interface TripRequestSectionProps {
   form: FormContext<OrderValues>;
   mode: EditorMode;
   order: TransportOrderDto | undefined;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function PlanningTab({ form, mode, order }: PlanningTabProps) {
-  const { t } = useL();
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      {mode === "order" && order?.id && <LegsSection orderId={order.id} />}
-      <TripRequestSection form={form} mode={mode} order={order} />
-      {mode === "order" && !order?.id && <p className="text-label text-muted-foreground">{t("Orders:LegsAfterConfirm")}</p>}
-    </div>
-  );
-}
-
-function LegsSection({ orderId }: { orderId: string }) {
-  const { t } = useL();
-  const f = useFormat();
-  const openRecord = useOpenRecord();
-  const [editing, setEditing] = useState<LegDto | null>(null);
-  const fetchRows = useMemo(() => (request: Parameters<typeof fetchLegs>[0]) => fetchLegs(request, { orderId }), [orderId]);
-
-  const columns = useMemo<ColDef<LegDto>[]>(
-    () => [
-      { field: "position", headerName: t("PlanningExecution:Position"), width: 80, minWidth: 70, cellRenderer: NumberCell, type: "rightAligned" },
-      { colId: "origin", headerName: t("PlanningExecution:Origin"), flex: 1, minWidth: 160, valueGetter: (p) => legEndLabel(p.data?.origin), sortable: false },
-      { colId: "destination", headerName: t("PlanningExecution:Destination"), flex: 1, minWidth: 160, valueGetter: (p) => legEndLabel(p.data?.destination), sortable: false },
-      { colId: "originDate", headerName: t("PlanningExecution:PlannedDate"), minWidth: 110, valueGetter: (p) => p.data?.origin?.plannedDate, cellRenderer: DateCell, sortable: false },
-      { colId: "destinationDate", headerName: `${t("PlanningExecution:PlannedDate")} (${t("PlanningExecution:Destination")})`, minWidth: 110, valueGetter: (p) => p.data?.destination?.plannedDate, cellRenderer: DateCell, sortable: false },
-      { colId: "distance", headerName: `${t("PlanningExecution:Distance")} (km)`, minWidth: 100, type: "rightAligned", valueGetter: (p) => (p.data?.distanceM == null ? null : p.data.distanceM / 1000), valueFormatter: (p: ValueFormatterParams<LegDto, number | null>) => f.number(p.value, { maxDecimals: 1 }), cellClass: "tabular-nums", sortable: false },
-      { field: "durationS", headerName: t("Orders:DurationS"), minWidth: 100, type: "rightAligned", valueFormatter: (p: ValueFormatterParams<LegDto, number | null>) => (p.value == null ? "" : f.duration(Math.round(p.value / 60))), cellClass: "tabular-nums", sortable: false },
-      { colId: "toll", headerName: `${t("PlanningExecution:TollDistance")} (km)`, minWidth: 100, type: "rightAligned", valueGetter: (p) => (p.data?.tollDistanceM == null ? null : p.data.tollDistanceM / 1000), valueFormatter: (p: ValueFormatterParams<LegDto, number | null>) => f.number(p.value, { maxDecimals: 1 }), cellClass: "tabular-nums", sortable: false },
-      { field: "estimatedCo2Kg", headerName: t("PlanningExecution:Co2Kg"), minWidth: 100, type: "rightAligned", valueFormatter: (p: ValueFormatterParams<LegDto, number | null>) => f.number(p.value, { maxDecimals: 3 }), cellClass: "tabular-nums", sortable: false },
-      { field: "tripNumber", headerName: t("PlanningExecution:Trip"), minWidth: 120, cellRenderer: (p: { value: string | null; data: LegDto | undefined }) => (p.value ? <span className="inline-flex items-center gap-1 text-brand">{p.value}<StatusBadge entity="TransportTrip" state={tripStatusName(p.data?.tripStatus)} /></span> : null), sortable: false },
-      { field: "allocatedCostAmount", headerName: t("PlanningExecution:AllocatedCost"), minWidth: 110, cellRenderer: AmountCell, type: "rightAligned", sortable: false },
-      { field: "allocatedRevenueAmount", headerName: t("PlanningExecution:AllocatedRevenue"), minWidth: 110, cellRenderer: AmountCell, type: "rightAligned", sortable: false },
-      { colId: "originReference", headerName: `${t("PlanningExecution:Reference")} (${t("PlanningExecution:Origin")})`, minWidth: 120, valueGetter: (p) => p.data?.origin?.reference, hide: true, sortable: false },
-      { colId: "destinationReference", headerName: `${t("PlanningExecution:Reference")} (${t("PlanningExecution:Destination")})`, minWidth: 120, valueGetter: (p) => p.data?.destination?.reference, hide: true, sortable: false },
-      { field: "remarks", headerName: t("PlanningExecution:Remarks"), minWidth: 120, hide: true, sortable: false },
-    ],
-    [t, f],
-  );
-
-  return (
-    <FormSection title={t("PlanningExecution:Legs")} className="flex min-h-64 flex-1 flex-col">
-      <div className="min-h-0 flex-1" style={{ minHeight: "14rem" }}>
-        <LazyOpenTmsGrid<LegDto>
-          gridId="planning.transport.orderLegs"
-          columnDefs={columns}
-          fetchRows={fetchRows}
-          onOpen={(row) => {
-            if (row.tripId) openRecord("TransportTrip", row.tripId);
-            else setEditing(row);
-          }}
-          rowActions={(rows) => [
-            { id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => setEditing(rows[0]) },
-            ...(rows[0]?.tripId ? [{ id: "trip", labelKey: "PlanningExecution:OpenTrip", icon: ExternalLink, onClick: () => openRecord("TransportTrip", rows[0].tripId!) }] : []),
-          ]}
-        />
-      </div>
-      {editing && <LegDialog leg={editing} title={`${t("PlanningExecution:Leg")} ${editing.position ?? ""}`} idPrefix="leg" onClose={() => setEditing(null)} />}
-    </FormSection>
-  );
-}
-
-function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValues>; mode: EditorMode; order: TransportOrderDto | undefined }) {
+export function TripRequestSection({ form, mode, order, open, onOpenChange }: TripRequestSectionProps) {
   const { t } = useL();
   const openRecord = useOpenRecord();
   const request = form.values.tripRequest;
@@ -153,8 +87,13 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
     id: (field: string) => form.id(`trip-${field}`),
   } as unknown as FormContext<OrderValues["tripRequest"]>;
 
+  /* Which freight items go on the trip (PO 2026-10-26): a checkbox per item, default all; only their legs are put on
+   * the trip on Confirm, the others stay unplanned for the Planboard. */
+  const toggleItem = (key: string, included: boolean) =>
+    set({ excludedLineKeys: included ? request.excludedLineKeys.filter((k) => k !== key) : [...request.excludedLineKeys, key] });
+
   return (
-    <FormSection aria-label={t("Orders:TripRequest")} className="shrink-0">
+    <FormSection title={t("Orders:TripRequest")} collapsible open={open} onOpenChange={onOpenChange} hasError={form.error("tripRequest") != null} className="shrink-0">
       <div className="mb-3 flex items-center gap-4">
         <label className="flex items-center gap-2 text-label font-semibold text-brand" htmlFor={form.id("trip-enabled")}>
           <Checkbox id={form.id("trip-enabled")} checked={request.enabled} disabled={readOnly} onCheckedChange={(next) => enable(next === true)} />
@@ -191,6 +130,29 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
           <AddressField id={form.id("trip-departureAddress")} label={`${t("Orders:Departure")}: ${t("Orders:Address")}`} relationId={request.departureRelation?.id} value={request.departureAddressId} onChange={(next) => set({ departureAddressId: next })} required disabled={readOnly} />
           <RelationField id={form.id("trip-arrivalRelation")} label={t("Orders:Arrival")} value={request.arrivalRelation} onChange={(next) => set({ arrivalRelation: next, arrivalAddressId: null })} required disabled={readOnly} />
           <AddressField id={form.id("trip-arrivalAddress")} label={`${t("Orders:Arrival")}: ${t("Orders:Address")}`} relationId={request.arrivalRelation?.id} value={request.arrivalAddressId} onChange={(next) => set({ arrivalAddressId: next })} required disabled={readOnly} />
+          {form.values.lines.length > 0 && (
+            <fieldset className="col-span-4 flex flex-col gap-1" data-slot="trip-request-items" aria-label={t("Orders:TripRequestItems")}>
+              <legend className="mb-1 text-label font-medium text-muted-foreground">{t("Orders:TripRequestItems")}</legend>
+              {form.values.lines.map((line, index) => {
+                const first = line.stops[0];
+                const last = line.stops.length > 1 ? line.stops.at(-1) : undefined;
+                const route = [first?.relationName, last?.relationName].filter(Boolean).join(" → ");
+                const id = form.id(`trip-item-${line.key}`);
+                return (
+                  <label key={line.key} className="flex h-8 items-center gap-2 text-sm" htmlFor={id}>
+                    <Checkbox id={id} checked={!request.excludedLineKeys.includes(line.key)} disabled={readOnly} onCheckedChange={(next) => toggleItem(line.key, next === true)} />
+                    {`${t("Orders:Line")} ${index + 1}`}
+                    {route && <span className="text-muted-foreground">{route}</span>}
+                  </label>
+                );
+              })}
+              {/* None ticked (a stored empty selection, or every item unticked): the user chooses items or switches the trip off. */}
+              {form.values.lines.every((line) => request.excludedLineKeys.includes(line.key)) && !form.error("tripRequest") && (
+                <p className="text-label text-destructive" data-slot="trip-request-no-items">{t("Orders:TripRequestNoItems")}</p>
+              )}
+              <p className="text-label text-muted-foreground">{t("Orders:TripRequestItemsHint")}</p>
+            </fieldset>
+          )}
           <div className="col-span-4">
             <Button type="button" variant="link" size="sm" aria-expanded={advanced} onClick={() => setAdvanced((v) => !v)}>
               {t("Orders:Advanced")}

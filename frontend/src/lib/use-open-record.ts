@@ -59,9 +59,15 @@ export function parseRecordPath(pathname: string): RecordRef | undefined {
 }
 
 export interface OpenRecordOptions {
-  /** Replace the current history entry (a New dialog handing over to the page it created). */
+  /** Replace the current history entry (a new record's page handing over to the record it created). */
   replace?: boolean;
+  /** Search params that belong to the page being left, not to the record (the new order's `type`). */
+  omitSearch?: string[];
 }
+
+/** The id a record route takes for a record that does not exist yet (design 61 "Order page, revised" 5: New opens
+ * the page directly, `/transport/orders/new`); Save creates the record and the route moves to its id. */
+export const NEW_RECORD_ID = "new";
 
 export type OpenRecord = (type: RecordType, id: string, options?: OpenRecordOptions) => boolean;
 
@@ -89,10 +95,37 @@ export function useOpenRecord(): OpenRecord {
         toast.error(t("FeatureUnavailable"));
         return false;
       }
-      void navigate({ to: recordPath(type, id), search: keepSearch, replace: options?.replace });
+      const omit = options?.omitSearch ?? [];
+      const search = omit.length === 0 ? keepSearch : (previous: Record<string, unknown>) => Object.fromEntries(Object.entries(previous).filter(([key]) => !omit.includes(key)));
+      void navigate({ to: recordPath(type, id), search, replace: options?.replace });
       return true;
     },
     [features, isGranted, navigate, t],
+  );
+}
+
+/**
+ * `openNewRecord("TransportOrder", { type: typeId })` opens the page of a record that does not exist yet, keeping the
+ * list's filters; the extra search params (the order type of "New per type") travel with it. The page itself checks
+ * the Create permission.
+ */
+export function useOpenNewRecord(): (type: RecordType, extra?: Record<string, string | undefined>) => void {
+  const navigate = useNavigate();
+  return useCallback(
+    (type, extra) => {
+      void navigate({
+        to: recordPath(type, NEW_RECORD_ID),
+        search: (previous: Record<string, unknown>) => {
+          const next: Record<string, unknown> = { ...previous };
+          for (const [key, value] of Object.entries(extra ?? {})) {
+            if (value == null) delete next[key];
+            else next[key] = value;
+          }
+          return next;
+        },
+      });
+    },
+    [navigate],
   );
 }
 

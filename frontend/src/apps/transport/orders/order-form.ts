@@ -21,9 +21,11 @@ import type { MultipleMatches } from "@/domains/financial/rate-lines";
 import { relationOptionOf } from "@/apps/transport/components/RelationFields";
 import { isSameValue, numberError, numberToText, parseInteger, parseNumber, type FieldErrors } from "@/lib/forms/use-form-state";
 
-/* The form model of the order editor (design 61 "Order editor"), shared by the order page and the template page
- * ("the order editor in template mode"). Values are strings where the user types numbers; the DTO mappers below
- * parse on save. A stop carries a date (order) or a day offset (pattern, template); the mapper picks the right one. */
+/* The form model of the order page (design 61 "Order page, revised"), shared by the order page and the template page
+ * ("templates use the same page in template mode"). Values are strings where the user types numbers; the DTO mappers
+ * below parse on save. A stop carries a date (order) or a day offset (template); the mapper picks the right one. On
+ * screen the API's "line" is a freight item; the code keeps the API's name. The order has no stop pattern any more
+ * (PO 2026-10-26): `defaultStops` is carried unchanged so a save never drops what an older order stored. */
 
 export type EditorMode = "order" | "template";
 
@@ -35,6 +37,8 @@ export interface StopValues {
   relationId: string | null;
   relationName: string;
   relationAddressId: string | null;
+  /** The address's city, shown in the freight item list (from → to); not sent. */
+  city: string;
   contactPersonId: string | null;
   /** Order lines: `YYYY-MM-DD`. */
   date: string | null;
@@ -134,6 +138,9 @@ export interface TripRequestValues {
   driverIds: string[];
   agreedPurchaseAmount: string;
   agreedPurchaseCurrencyCode: string;
+  /** The freight items whose legs do not go on the trip (PO 2026-10-26: a checkbox per item, default all); by the
+   *  item's form key, so a new item is on the trip until it is unticked. */
+  excludedLineKeys: string[];
 }
 
 export interface ScheduleValues {
@@ -207,6 +214,7 @@ export function stopValuesOf(stop: TransportOrderStopDto | TransportOrderDefault
     relationId: s.relationId ?? null,
     relationName: s.relationName ?? "",
     relationAddressId: s.relationAddressId ?? null,
+    city: (s as Partial<TransportOrderStopDto>).city ?? "",
     contactPersonId: s.contactPersonId ?? null,
     date: s.date ?? null,
     dayOffset: numberToText(s.dayOffset ?? 0),
@@ -227,6 +235,7 @@ export function newStop(orderDate: string | null, pattern?: StopValues): StopVal
       relationId: null,
       relationName: "",
       relationAddressId: null,
+      city: "",
       contactPersonId: null,
       timeSlotId: null,
       windowFrom: "",
@@ -297,8 +306,109 @@ export function lineValuesOf(line: TransportOrderLineDto | TemplateLineDto): Lin
   };
 }
 
-/** A new line starts with the order's stop pattern (design 58, Assumption 1); in order mode the dates follow the order date. */
-export function newLine(pattern: StopValues[], orderDate: string | null, mode: EditorMode): LineValues {
+/** One end of a freight item typed in the fast entry row: the relation, its default (or only) address and its city. */
+export interface EntryEnd {
+  relation: RelationOption | null;
+  addressId: string | null;
+  city: string;
+}
+
+/** The fast entry row (design 61 "Order page, revised" 3): From, To, date (template: day offset) and time, transport
+ * unit, quantity, weight, reference. Extra stops, cargo and container are edited in the item's detail. */
+export interface ItemEntry {
+  from: EntryEnd;
+  to: EntryEnd;
+  /** Order: `YYYY-MM-DD`. */
+  date: string | null;
+  /** Template: days from the order date, as typed. */
+  dayOffset: string;
+  /** `HH:mm` as typed: the start of the loading window. */
+  time: string;
+  transportUnitId: string | null;
+  transportUnitName: string;
+  quantity: string;
+  weightKg: string;
+  /** The loading (first) stop's reference. */
+  reference: string;
+}
+
+export const EMPTY_END: EntryEnd = { relation: null, addressId: null, city: "" };
+
+export const emptyEntry = (date: string | null): ItemEntry => ({ from: EMPTY_END, to: EMPTY_END, date, dayOffset: "0", time: "", transportUnitId: null, transportUnitName: "", quantity: "", weightKg: "", reference: "" });
+
+/** After Enter added an item: From, date and unit stay for the next one, the rest starts empty. */
+export const nextEntry = (entry: ItemEntry): ItemEntry => ({ ...emptyEntry(entry.date), from: entry.from, dayOffset: entry.dayOffset, time: entry.time, transportUnitId: entry.transportUnitId, transportUnitName: entry.transportUnitName });
+
+/** The waypoint types a new item's first and last stop get: the order type's first and last default waypoint
+ * (normally Load and Unload, design 61 "Order page, revised" 3). */
+export interface EntryWaypoints {
+  from: { id: string; name: string } | null;
+  to: { id: string; name: string } | null;
+}
+
+/** The waypoint types for a new item: the order type's first and last default waypoint; without those, the first
+ * waypoint type whose activity loads and the first that unloads. */
+export function entryWaypointsOf(
+  defaults: readonly { waypointTypeId?: string; name?: string | null; position?: number }[] | null | undefined,
+  types: readonly { id?: string; name?: string | null; activity?: number }[] | undefined,
+): EntryWaypoints {
+  const ordered = [...(defaults ?? [])].filter((w) => w.waypointTypeId).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const of = (w: { waypointTypeId?: string; name?: string | null } | undefined) => (w?.waypointTypeId ? { id: w.waypointTypeId, name: w.name ?? "" } : null);
+  const byActivity = (activity: number) => {
+    const type = (types ?? []).find((t) => t.activity === activity && t.id);
+    return type ? { id: type.id!, name: type.name ?? "" } : null;
+  };
+  if (ordered.length > 0) return { from: of(ordered[0]), to: ordered.length > 1 ? of(ordered.at(-1)) : byActivity(2) };
+  return { from: byActivity(1), to: byActivity(2) };
+}
+
+/** The entry's missing fields (UI-FORM-006 on Enter): From, To and the transport unit. */
+export function entryErrors(entry: ItemEntry, mode: EditorMode): Partial<Record<"from" | "to" | "transportUnitId" | "date" | "time" | "quantity" | "weightKg" | "dayOffset", string>> {
+  const errors: Partial<Record<"from" | "to" | "transportUnitId" | "date" | "time" | "quantity" | "weightKg" | "dayOffset", string>> = {};
+  if (!entry.from.relation) errors.from = "MasterData:Required";
+  if (!entry.to.relation) errors.to = "MasterData:Required";
+  if (!entry.transportUnitId) errors.transportUnitId = "MasterData:Required";
+  if (mode === "order" && !entry.date) errors.date = "MasterData:Required";
+  if (mode === "template" && numberError(entry.dayOffset, { integer: true })) errors.dayOffset = "MasterData:InvalidNumber";
+  if (entry.time.trim() && !parseTimeOfDay(entry.time)) errors.time = "Orders:InvalidTime";
+  if (numberError(entry.quantity, { min: 0 })) errors.quantity = "MasterData:InvalidNumber";
+  if (numberError(entry.weightKg, { min: 0 })) errors.weightKg = "MasterData:InvalidNumber";
+  return errors;
+}
+
+/** The freight item the entry row (or a pasted row) adds: two stops, From with the date, time and reference, To on
+ * the same date; the quantity defaults to 1. */
+export function itemFromEntry(entry: ItemEntry, waypoints: EntryWaypoints): LineValues {
+  const stop = (end: EntryEnd, waypoint: EntryWaypoints["from"], first: boolean): StopValues => ({
+    key: newKey("stop"),
+    id: null,
+    waypointTypeId: waypoint?.id ?? null,
+    waypointTypeName: waypoint?.name ?? "",
+    relationId: end.relation?.id ?? null,
+    relationName: end.relation?.name ?? "",
+    relationAddressId: end.addressId,
+    city: end.city,
+    contactPersonId: null,
+    date: entry.date,
+    dayOffset: entry.dayOffset.trim() || "0",
+    timeSlotId: null,
+    windowFrom: first ? (parseTimeOfDay(entry.time) ? timeOfDay(parseTimeOfDay(entry.time)) : "") : "",
+    windowTill: "",
+    reference: first ? entry.reference.trim() : "",
+    remarks: "",
+    plannedDurationMin: "",
+  });
+  return {
+    ...newLine([stop(entry.from, waypoints.from, true), stop(entry.to, waypoints.to, false)]),
+    transportUnitId: entry.transportUnitId,
+    transportUnitName: entry.transportUnitName,
+    quantity: entry.quantity.trim() || "1",
+    weightKg: entry.weightKg.trim(),
+  };
+}
+
+/** An empty freight item with the given stops (the fast entry row or a pasted row builds them, `itemFromEntry`). */
+export function newLine(stops: StopValues[] = []): LineValues {
   return {
     key: newKey("line"),
     id: null,
@@ -337,7 +447,7 @@ export function newLine(pattern: StopValues[], orderDate: string | null, mode: E
     barcode: "",
     requiredTransportCharacteristicIds: [],
     attributes: {},
-    stops: pattern.map((stop) => (mode === "order" ? newStop(orderDate, stop) : { ...stop, key: newKey("stop"), id: null })),
+    stops,
     distanceM: null,
     durationS: null,
     co2Kg: null,
@@ -405,6 +515,7 @@ export const EMPTY_TRIP_REQUEST: TripRequestValues = {
   driverIds: [],
   agreedPurchaseAmount: "",
   agreedPurchaseCurrencyCode: "",
+  excludedLineKeys: [],
 };
 
 /** An ISO instant → the local `YYYY-MM-DD` and `HH:mm` the fields show (UI-FMT-004); conversion through Date only. */
@@ -429,7 +540,9 @@ export function joinDateTime(date: string | null, time: string): string | null {
  * are filled, the user can change all of them. Trip type: the tenant's default (or only) type; departure: the first
  * stop of the first line, with its date and window start; arrival: the last stop of the last line. A template carries
  * day offsets instead of dates. */
-export function tripRequestWithDefaults(request: TripRequestValues, lines: LineValues[], mode: EditorMode, defaultTripTypeId: string | null): TripRequestValues {
+export function tripRequestWithDefaults(request: TripRequestValues, allLines: LineValues[], mode: EditorMode, defaultTripTypeId: string | null): TripRequestValues {
+  /* Only the freight items that go on the trip give its departure and arrival. */
+  const lines = allLines.filter((line) => !request.excludedLineKeys.includes(line.key));
   const first = lines[0]?.stops[0];
   const last = lines.at(-1)?.stops.at(-1);
   const next = { ...request };
@@ -462,8 +575,11 @@ export function defaultTripTypeIdOf(defaultId: string | null | undefined, active
   return activeIds.length === 1 ? activeIds[0] : null;
 }
 
-export function tripRequestValuesOf(request: TransportOrderTripRequestDto | TemplateTripRequestInputDto | undefined): TripRequestValues {
+export function tripRequestValuesOf(request: TransportOrderTripRequestDto | TemplateTripRequestInputDto | undefined, lines: LineValues[] = []): TripRequestValues {
   if (!request) return EMPTY_TRIP_REQUEST;
+  /* `lineIds` (design 61 "Order page, revised" 7): null = every item; a stored `[]` (the last chosen item was removed)
+   * means none: shown as nothing ticked, which the validation refuses until the user chooses (never posted back). */
+  const lineIds = (request as { lineIds?: string[] | null }).lineIds?.map((id) => id.toLowerCase()) ?? null;
   const r = request as Partial<TransportOrderTripRequestDto & TemplateTripRequestInputDto>;
   const departure = splitDateTime(r.plannedDeparture);
   const arrival = splitDateTime(r.plannedArrival);
@@ -487,12 +603,14 @@ export function tripRequestValuesOf(request: TransportOrderTripRequestDto | Temp
     driverIds: r.driverIds ?? [],
     agreedPurchaseAmount: numberToText(r.agreedPurchaseAmount),
     agreedPurchaseCurrencyCode: r.agreedPurchaseCurrencyCode ?? "",
+    excludedLineKeys: lineIds ? lines.filter((line) => !line.id || !lineIds.includes(line.id.toLowerCase())).map((line) => line.key) : [],
   };
 }
 
 export const DEFAULT_SCHEDULE: ScheduleValues = { recurrence: 0, interval: "1", daysOfWeek: 0, dayOfMonth: "", horizonDays: "5", validFrom: null, validTill: null };
 
 export function orderValuesOf(dto: TransportOrderDto | undefined): OrderValues {
+  const lines = (dto?.lines ?? []).map(lineValuesOf);
   return {
     transportOrderTypeId: dto?.transportOrderTypeId ?? null,
     customer: relationOptionOf(dto?.customerRelationId, dto?.customerName),
@@ -504,10 +622,10 @@ export function orderValuesOf(dto: TransportOrderDto | undefined): OrderValues {
     invoicingRemarks: dto?.invoicingRemarks ?? "",
     attributes: dto?.attributes ?? {},
     defaultStops: (dto?.defaultStops ?? []).map(stopValuesOf),
-    lines: (dto?.lines ?? []).map(lineValuesOf),
+    lines,
     references: (dto?.references ?? []).map((r) => ({ key: newKey("ref"), type: r.type, value: r.value, description: r.description ?? "" })),
     terms: termsValuesOf(dto?.financialTerms),
-    tripRequest: tripRequestValuesOf(dto?.tripRequest),
+    tripRequest: tripRequestValuesOf(dto?.tripRequest, lines),
     name: "",
     description: "",
     isActive: true,
@@ -736,6 +854,35 @@ export const newReference = (): ReferenceValues => ({ key: newKey("ref"), type: 
 /** The customer of a stored order changed: the clerk is asked about the new customer's financial defaults (design 58, build note 7). */
 export const customerChanged = (values: OrderValues, initial: OrderValues) => (values.customer?.id ?? null) !== (initial.customer?.id ?? null);
 
+/** The freight items left off the Tevens trip, by id (or key for an unsaved item); null when the trip takes all. */
+export function tripSelectionOf(values: Pick<OrderValues, "lines" | "tripRequest">): string[] | null {
+  if (!values.tripRequest.enabled) return null;
+  const excluded = values.lines.filter((line) => values.tripRequest.excludedLineKeys.includes(line.key)).map((line) => (line.id ?? line.key).toLowerCase());
+  return excluded.length > 0 ? excluded.sort() : null;
+}
+
+/** The trip request's `lineIds` for the stored lines the save just wrote (by position: the server returns them in the
+ * posted order): null when every item goes on the trip, else the ids of those that do. Never `[]` (that posts "every
+ * line"): the validation refuses a trip without items first. */
+export function tripLineIdsFor(values: Pick<OrderValues, "lines" | "tripRequest">, storedLines: readonly { id?: string | null }[]): string[] | null {
+  if (tripSelectionOf(values) == null) return null;
+  const ids = values.lines.flatMap((line, index) => (values.tripRequest.excludedLineKeys.includes(line.key) ? [] : storedLines[index]?.id ? [storedLines[index].id!] : []));
+  return ids.length > 0 ? ids : null;
+}
+
+/** The ids a create (or a template save) posts on its lines: the stored id, or a client id for a new line, which the
+ * server maps to the line's real id, so the trip request can name a new item (design 61 "Order page, revised" 7). */
+export function postedLineIdsOf(lines: readonly LineValues[], newId: () => string = () => crypto.randomUUID()): Map<string, string> {
+  return new Map(lines.map((line) => [line.key, line.id ?? newId()]));
+}
+
+/** The trip request's `lineIds` over the posted ids: null when every item goes on the trip (never `[]`). */
+export function tripLineIdsPosted(values: Pick<OrderValues, "lines" | "tripRequest">, posted: Map<string, string>): string[] | null {
+  if (tripSelectionOf(values) == null) return null;
+  const ids = values.lines.filter((line) => !values.tripRequest.excludedLineKeys.includes(line.key)).map((line) => posted.get(line.key)!);
+  return ids.length > 0 ? ids : null;
+}
+
 /** Which sections of the order changed since it was loaded (each has its own command, design 58 API contract). */
 export interface ChangedSections {
   header: boolean;
@@ -756,7 +903,7 @@ export function changedSections(values: OrderValues, initial: OrderValues): Chan
     lines: !isSameValue(values.lines.map(lineInputOf), initial.lines.map(lineInputOf)),
     references: !isSameValue(referencesInputOf(values.references), referencesInputOf(initial.references)),
     terms: !isSameValue(termsInputOf(values.terms), termsInputOf(initial.terms)),
-    tripRequest: !isSameValue(tripRequestInputOf(values.tripRequest), tripRequestInputOf(initial.tripRequest)),
+    tripRequest: !isSameValue([tripRequestInputOf(values.tripRequest), tripSelectionOf(values)], [tripRequestInputOf(initial.tripRequest), tripSelectionOf(initial)]),
     attributes: !isSameValue(values.attributes, initial.attributes),
   };
 }
@@ -882,10 +1029,6 @@ export function validateOrder(values: OrderValues, mode: EditorMode): FieldError
     if (!type || !value || type.length > REFERENCE_LIMITS.type || value.length > REFERENCE_LIMITS.value || reference.description.trim().length > REFERENCE_LIMITS.description) errors.references = "Orders:ReferenceInvalid";
   }
   if (values.references.length > MAX_REFERENCES) errors.references = "Orders:ReferenceInvalid";
-  for (const stop of values.defaultStops) {
-    if (!stop.waypointTypeId) errors.defaultStops = "Orders:StopIncomplete";
-    if (numberError(stop.dayOffset, { integer: true })) errors.defaultStops = "MasterData:InvalidNumber";
-  }
   if (numberError(values.terms.paymentTermDays, { integer: true, min: 0 }) || numberError(values.terms.fixedPriceAmount, { min: 0 })) errors.terms = "MasterData:InvalidNumber";
   if (values.tripRequest.enabled) {
     const r = values.tripRequest;
@@ -893,8 +1036,21 @@ export function validateOrder(values: OrderValues, mode: EditorMode): FieldError
     if (mode === "order" && !r.departureDate) errors.tripRequest = "Orders:TripRequestIncomplete";
     if ((r.departureTime.trim() && !parseTimeOfDay(r.departureTime)) || (r.arrivalTime.trim() && !parseTimeOfDay(r.arrivalTime))) errors.tripRequest = "Orders:InvalidTime";
     if (numberError(r.agreedPurchaseAmount, { min: 0 })) errors.tripRequest = "MasterData:InvalidNumber";
+    if (values.lines.length > 0 && values.lines.every((line) => r.excludedLineKeys.includes(line.key))) errors.tripRequest = "Orders:TripRequestNoItems";
   }
   return errors;
+}
+
+/** What is wrong with each freight item (the list marks the item, design 61 "Order page, revised" 2), by key. */
+export function lineProblemsOf(lines: LineValues[]): Map<string, string> {
+  const problems = new Map<string, string>();
+  for (const line of lines) {
+    if (!line.transportUnitId) problems.set(line.key, "Orders:LineNeedsTransportUnit");
+    else if (line.stops.length < 2) problems.set(line.key, "Orders:LineNeedsTwoStopsHint");
+    else if (line.stops.some((stop) => !stop.waypointTypeId || !stop.relationId || !stop.relationAddressId)) problems.set(line.key, "Orders:StopIncomplete");
+    else if (NUMERIC_LINE_FIELDS.some((field) => numberError(line[field] as string))) problems.set(line.key, "MasterData:InvalidNumber");
+  }
+  return problems;
 }
 
 /** Whether a stop's waypoint type loads or unloads, from the type's activity (the required marks per flag). */

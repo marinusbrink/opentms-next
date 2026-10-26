@@ -19,9 +19,11 @@ export interface DocumentsTabProps {
   tripId?: string;
   /** Opens the Print CMR wizard; absent without the Print permission (UI-PERM-002). */
   onPrint?: () => void;
+  /** On the one-page order (design 61 "Order page, revised") the section is collapsible and starts closed. */
+  collapsible?: boolean;
 }
 
-export function DocumentsTab({ orderId, tripId, onPrint }: DocumentsTabProps) {
+export function DocumentsTab({ orderId, tripId, onPrint, collapsible = false }: DocumentsTabProps) {
   const { t } = useL();
   const f = useFormat();
   const documents = useConsignmentNotesOf({ orderId, tripId }, orderId != null || tripId != null);
@@ -41,7 +43,7 @@ export function DocumentsTab({ orderId, tripId, onPrint }: DocumentsTabProps) {
 
   const rows = documents.data?.rows ?? [];
   return (
-    <FormSection title={t("Orders:ConsignmentNotes")}>
+    <FormSection title={collapsible ? t("Orders:Documents") : t("Orders:ConsignmentNotes")} collapsible={collapsible}>
       {onPrint && (
         <div className="mb-3">
           <Button type="button" size="sm" variant="outline" onClick={onPrint}>

@@ -19,7 +19,6 @@ import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { ApproveDialog } from "@/apps/transport/orders/ApproveDialog";
-import { NewOrderDialog } from "@/apps/transport/orders/NewOrderDialog";
 import { TripRequestWarningCell } from "@/apps/transport/components/TripRequestWarning";
 import { MaterialiseWizard, type MaterialiseSource } from "@/apps/transport/wizards/MaterialiseWizard";
 import { PrintCmrWizard, type PrintableOrder } from "@/apps/transport/wizards/PrintCmrWizard";
@@ -47,7 +46,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useDerivedValueStates, useRecordUpdates } from "@/lib/realtime/use-record-updates";
-import { useOpenRecord } from "@/lib/use-open-record";
+import { useOpenNewRecord, useOpenRecord } from "@/lib/use-open-record";
 
 export interface OrdersViewProps {
   /** The saved filter from the URL (today, tomorrow, this-week, open, drafts, all; UI-PAGE-004). */
@@ -79,8 +78,8 @@ export function OrdersView({ filter }: OrdersViewProps) {
   const [unitId, setUnitId] = useState<string | null>(null);
   const [selection, setSelection] = useState<GridSelectionDto | null>(null);
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<"new" | "template" | "copy" | "print" | "approve" | "cancel" | "delete" | null>(null);
-  const [newTypeId, setNewTypeId] = useState<string | undefined>(undefined);
+  const [dialog, setDialog] = useState<"template" | "copy" | "print" | "approve" | "cancel" | "delete" | null>(null);
+  const openNewRecord = useOpenNewRecord();
   const [refreshKey, setRefreshKey] = useState(0);
   const [exportContext, setExportContext] = useState<GridExportContext | null>(null);
 
@@ -172,8 +171,9 @@ export function OrdersView({ filter }: OrdersViewProps) {
   const commands: AppCommandBarCommand[] = [
     ...(canCreate
       ? [
-          { id: "new", labelKey: "Orders:NewTransportOrder", icon: Plus, isPrimary: true, onClick: () => { setNewTypeId(undefined); setDialog("new"); } },
-          ...((types.data ?? []).length > 1 ? (types.data ?? []).map((type) => ({ id: `new-${type.id}`, labelKey: type.name ?? type.code ?? "", icon: Plus, onClick: () => { setNewTypeId(type.id); setDialog("new"); } })) : []),
+          /* New opens the order page directly (design 61 "Order page, revised" 5); New per type names the type. */
+          { id: "new", labelKey: "Orders:NewTransportOrder", icon: Plus, isPrimary: true, onClick: () => openNewRecord("TransportOrder", { type: undefined }) },
+          ...((types.data ?? []).length > 1 ? (types.data ?? []).map((type) => ({ id: `new-${type.id}`, labelKey: type.name ?? type.code ?? "", icon: Plus, onClick: () => openNewRecord("TransportOrder", { type: type.id }) })) : []),
           ...(canTemplates ? [{ id: "from-template", labelKey: "Orders:NewFromTemplate", icon: LayoutTemplate, onClick: () => setDialog("template") }] : []),
           { id: "copy", labelKey: "Orders:CopyOrder", icon: Copy, requiresSelection: true, disabled: !singleId, disabledReasonKey: "Orders:SelectOneOrder", onClick: () => setDialog("copy") },
         ]
@@ -220,7 +220,6 @@ export function OrdersView({ filter }: OrdersViewProps) {
           }
         />
       </div>
-      <NewOrderDialog open={dialog === "new"} onOpenChange={(next) => setDialog(next ? "new" : null)} typeId={newTypeId} />
       <MaterialiseWizard open={dialog === "template"} onOpenChange={(next) => setDialog(next ? "template" : null)} />
       {copySource && <MaterialiseWizard open={dialog === "copy"} onOpenChange={(next) => setDialog(next ? "copy" : null)} source={copySource} />}
       <PrintCmrWizard open={dialog === "print" && printable.length > 0} onOpenChange={(next) => setDialog(next ? "print" : null)} orders={printable} />

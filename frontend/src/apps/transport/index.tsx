@@ -39,7 +39,7 @@ export function TransportApp() {
     }
   }, [appRedirect, filterList, filterRedirect, navigate]);
 
-  if (record?.type === "TransportOrder") return <OrderPage id={record.id} />;
+  if (record?.type === "TransportOrder") return <OrderPage id={record.id} typeId={typeof search?.type === "string" ? search.type : undefined} />;
   if (record?.type === "TransportOrderTemplate") return <TemplatePage id={record.id} />;
   if (record?.type === "TransportTrip") return <TripPage id={record.id} />;
   if (pathname.startsWith("/transport/templates")) return <TemplatesView />;

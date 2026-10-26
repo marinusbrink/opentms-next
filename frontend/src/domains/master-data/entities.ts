@@ -473,10 +473,11 @@ export function relationLookupPage(
   };
 }
 
-export function useRelationAddresses(id: string | undefined) {
-  return useQuery({
+/** The addresses of one relation as a query (the pickers' list, and the default address the order page's fast entry
+ *  takes without a picker: `queryClient.fetchQuery(relationAddressesQuery(id))`). */
+export function relationAddressesQuery(id: string | undefined) {
+  return {
     queryKey: masterDataQueryKey("relations", "addresses", id),
-    enabled: id != null,
     queryFn: async (): Promise<RelationAddressDto[]> => {
       const { data, error } = await apiClient.GET(
         "/api/master-data/relation/{id}/addresses",
@@ -485,7 +486,11 @@ export function useRelationAddresses(id: string | undefined) {
       if (error) throw error;
       return data ?? [];
     },
-  });
+  };
+}
+
+export function useRelationAddresses(id: string | undefined) {
+  return useQuery({ ...relationAddressesQuery(id), enabled: id != null });
 }
 
 /** The matcher (design 43 §3.15): finds existing relations for a party; it never creates one. */
