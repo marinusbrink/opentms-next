@@ -94,7 +94,8 @@ export function PasteItemsDialog({ open, onOpenChange, initialText, mode, waypoi
     return () => {
       cancelled = true;
     };
-  }, [open, text, units.data, unitList, mode, culture, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t only formats the error; the check runs per paste
+  }, [open, text, units.data, unitList, mode, culture]);
 
   const taken = (rows ?? []).slice(0, Math.max(room, 0));
   const marked = taken.reduce((count, row) => count + problemCells(row).length, 0);

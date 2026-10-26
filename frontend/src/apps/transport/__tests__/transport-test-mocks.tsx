@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { ColDef, ValueFormatterParams, ValueGetterParams } from "ag-grid-community";
+import { fireEvent } from "@testing-library/react";
 import { vi } from "vitest";
 
 import type { DatePickerProps } from "@/components/ui/date-picker";
@@ -168,7 +169,7 @@ function MockCell<TRow>({ col, row, readOnly, onChange }: { col: ColDef<TRow>; r
   return <input type="text" aria-label={label} value={raw == null ? "" : String(raw)} onChange={(e) => update(typeof col.cellEditor === "function" ? e.target.value || null : e.target.value)} />;
 }
 
-export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, toolbar, readOnly = false, onOpen, canRemoveRow }: LinesGridProps<TRow>) {
+export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, toolbar, readOnly = false, onOpen, canRemoveRow, onRowClick }: LinesGridProps<TRow>) {
   return (
     <div data-slot="mock-lines-grid" data-readonly={readOnly ? "true" : undefined}>
       {!readOnly && toolbar}
@@ -186,6 +187,11 @@ export function MockLinesGrid<TRow>({ rows, onRowsChange, getRowId, columnDefs, 
             {columnDefs.map((col, index) => (
               <MockCell key={index} col={col} row={row} readOnly={readOnly} onChange={(next) => onRowsChange(rows.map((r) => (r === row ? next : r)))} />
             ))}
+            {onRowClick && (
+              <button type="button" data-row-click onClick={() => onRowClick(row)}>
+                row-click
+              </button>
+            )}
             {!readOnly && onOpen && (
               <button type="button" onClick={() => onOpen(row)}>
                 Edit
@@ -256,7 +262,8 @@ export function MockTreeSelect(props: TreeSelectProps) {
 export const lookupItems: { current: Record<string, { id: string; name?: string; label?: string }[]> } = { current: {} };
 
 export function MockEntityLookup<T extends { id: string }>(props: EntityLookupProps<T>) {
-  const items = (lookupItems.current[props.id] ?? []) as unknown as T[];
+  /* A key starting with "*" offers its items to every lookup whose id ends with the rest (ids carry a form prefix). */
+  const items = (lookupItems.current[props.id] ?? Object.entries(lookupItems.current).find(([key]) => key.startsWith("*") && props.id.endsWith(key.slice(1)))?.[1] ?? []) as unknown as T[];
   if (props.multiple) {
     return (
       <div id={props.id} role="group" data-slot="mock-entity-lookup">
@@ -376,4 +383,43 @@ export function panel(label: string): HTMLElement {
   const found = document.querySelector<HTMLElement>(`[role=tabpanel][aria-label="${label}"]`);
   if (!found) throw new Error(`no tab panel ${label}`);
   return found;
+}
+
+/* ── The one-page order (design 61 "Order page, revised") ─────────────────────────────────────────────────────── */
+
+/** The order page's body (header, freight items, totals, the order-level sections). */
+export function orderBody(): HTMLElement {
+  const found = document.querySelector<HTMLElement>("[data-slot=order-body]");
+  if (!found) throw new Error("no order body");
+  return found;
+}
+
+/** A section of the order page by its caption; a collapsible one is opened first. */
+export function section(caption: string): HTMLElement {
+  const found = Array.from(document.querySelectorAll<HTMLElement>("[data-slot=form-section]")).find((s) => s.getAttribute("aria-label") === caption);
+  if (!found) throw new Error(`no section ${caption}`);
+  const toggle = found.querySelector<HTMLButtonElement>(":scope > div > h3 > button[aria-expanded]");
+  if (toggle?.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  return found;
+}
+
+/** The freight item list (the first LinesGrid of the Freight items section) and its rows. */
+export const itemList = () => document.querySelector<HTMLElement>("[data-slot=freight-items] [data-slot=mock-lines-grid]")!;
+export const itemRows = () => Array.from(itemList().querySelectorAll<HTMLElement>(":scope > [data-slot=mock-line]"));
+
+/** Selects a freight item (a row click): its detail opens under the list. */
+export function openItem(index: number): HTMLElement {
+  fireEvent.click(itemRows()[index].querySelector<HTMLElement>("[data-row-click]")!);
+  const detail = document.querySelector<HTMLElement>("[data-slot=line-detail]");
+  if (!detail) throw new Error("no item detail");
+  return detail;
+}
+
+/** The open item detail, switched to one of its tabs. */
+export function itemTab(name: string): HTMLElement {
+  const detail = document.querySelector<HTMLElement>("[data-slot=line-detail]")!;
+  const tab = Array.from(detail.querySelectorAll<HTMLElement>("[role=tab]")).find((t) => t.textContent?.trim() === name);
+  if (!tab) throw new Error(`no item tab ${name}`);
+  fireEvent.click(tab);
+  return detail.querySelector<HTMLElement>("[role=tabpanel]:not([hidden])") ?? detail;
 }

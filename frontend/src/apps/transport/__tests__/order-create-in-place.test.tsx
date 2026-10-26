@@ -79,7 +79,7 @@ vi.mock("@/domains/orders/components/ConsignmentNoteProfileEditor", () => ({ Con
 import { featureChain } from "@/app/app-features";
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
 import { PrintCmrWizard } from "@/apps/transport/wizards/PrintCmrWizard";
-import { TYPED_TERM, lookupItems, panel, ribbonButton, stubGlobals } from "./transport-test-mocks";
+import { TYPED_TERM, itemList, lookupItems, ribbonButton, section, stubGlobals } from "./transport-test-mocks";
 import { PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ORDER_GRANTS = { "Orders.TransportOrders": true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Print": true, "PlanningExecution.TransportTrips": true, "Financial.RateLines.Update": true };
@@ -146,7 +146,6 @@ function renderPage() {
   );
 }
 const loaded = () => screen.findByRole("heading", { level: 1 });
-const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
 const click = async (element: Element) =>
   act(async () => {
     fireEvent.click(element);
@@ -160,7 +159,7 @@ describe("Transport order page — Add new … in its pickers", () => {
   it("customer: no row without the relations' Create permission and node", async () => {
     renderPage();
     await loaded();
-    expect(createFor(panel("General"), "-customer")).toBeNull();
+    expect(createFor(section("Orders:OrderDetails"), "-customer")).toBeNull();
   });
 
   it("customer: the new relation is picked, the defaults question is kept off with Cancel, and the save sends the new customer", async () => {
@@ -168,7 +167,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.Relation = { id: "rel-new", code: "NEW", name: "New customer", roles: 1, addresses: [] };
     renderPage();
     await loaded();
-    const row = createFor(panel("General"), "-customer")!;
+    const row = createFor(section("Orders:OrderDetails"), "-customer")!;
     expect(row).toHaveTextContent("MasterData:AddNewRelation");
     await click(row);
     expect(editor()).toHaveAttribute("data-stub-editor", "Relation");
@@ -177,7 +176,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     expect(editor()).toHaveAttribute("data-initial-roles", "1");
     await saveStub("Relation");
     expect(editor()).toBeNull();
-    const customer = within(panel("General")).getByLabelText(/^Orders:Customer \*/) as HTMLSelectElement;
+    const customer = within(section("Orders:OrderDetails")).getByLabelText(/^Orders:Customer \*/) as HTMLSelectElement;
     expect(customer.value).toBe("rel-new");
     /* A stored order asks about the new customer's financial defaults (design 58 build note 7); Cancel keeps the terms. */
     await click(await screen.findByRole("button", { name: "Cancel" }));
@@ -191,7 +190,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.Relation = { id: "rel-1", name: "Acme", contactPersons: [{ id: "cp-1" }, { id: "cp-new" }] };
     renderPage();
     await loaded();
-    const general = panel("General");
+    const general = section("Orders:OrderDetails");
     await waitFor(() => expect(within(general).getByRole("option", { name: "Jan Jansen" })).toBeInTheDocument());
     const row = createFor(general, "-customerContactPersonId")!;
     expect(row).toHaveTextContent("MasterData:AddNewContactPerson");
@@ -212,8 +211,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.TransportUnit = { id: "unit-new", code: null, name: "Box pallet" };
     renderPage();
     await loaded();
-    tab("Orders:Lines");
-    const lines = panel("Orders:Lines");
+    const lines = itemList();
     const row = await waitFor(() => lines.querySelector<HTMLElement>("[data-create-cell=transportUnitId]")!);
     expect(row).toHaveTextContent("MasterData:AddNewTransportUnit");
     await click(row);
@@ -230,8 +228,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     allowCreate("PriceList");
     renderPage();
     await loaded();
-    tab("Orders:Pricing");
-    const pricing = panel("Orders:Pricing");
+    const pricing = section("Orders:FinancialTerms");
     saved.PriceList = { id: "pl-cost", code: "C1", name: "Cost list", side: 2 };
     await click(createFor(pricing, "-terms-priceListIds")!);
     await saveStub("PriceList");
@@ -251,8 +248,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.Driver = { id: "drv-new", code: "D9", fullName: "Jan Smit" };
     renderPage();
     await loaded();
-    tab("Orders:Planning");
-    const planning = panel("Orders:Planning");
+    const planning = section("Orders:TripRequest");
     fireEvent.click(within(planning).getByText("Orders:Advanced"));
     await click(createFor(planning, "-trip-vehicles")!);
     expect(editor()).toHaveAttribute("data-stub-editor", "Vehicle");
@@ -271,8 +267,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.Currency = { id: "c-chf", isoCode: "CHF", name: "Swiss franc" };
     renderPage();
     await loaded();
-    tab("Orders:Pricing");
-    const pricing = panel("Orders:Pricing");
+    const pricing = section("Orders:FinancialTerms");
     const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
     await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
     expect(currency.value).toBe("EUR");
@@ -297,8 +292,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { financialTerms: { currencyCode: "GBP", priceListIds: [], multipleMatches: 1, discountsOrSurcharges: [] } });
     renderPage();
     await loaded();
-    tab("Orders:Pricing");
-    const pricing = panel("Orders:Pricing");
+    const pricing = section("Orders:FinancialTerms");
     const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
     await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
     expect(currency.value).toBe("GBP");
@@ -315,8 +309,7 @@ describe("Transport order page — Add new … in its pickers", () => {
       order(1, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureRelationName: "Acme", departureAddressId: "adr-1", arrivalRelationId: "rel-1", arrivalRelationName: "Acme", arrivalAddressId: "adr-1", plannedDeparture: "2026-10-25T06:00:00Z", carrierRelationId: "car-1", carrierRelationName: "Charter", agreedPurchaseAmount: 400, vehicleIds: [], driverIds: [] } });
     renderPage();
     await loaded();
-    tab("Orders:Planning");
-    const planning = panel("Orders:Planning");
+    const planning = section("Orders:TripRequest");
     const currency = planning.querySelector<HTMLSelectElement>("select[id$='-trip-agreedPurchaseCurrencyCode']")!;
     await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
     expect(currency.value).toBe("");

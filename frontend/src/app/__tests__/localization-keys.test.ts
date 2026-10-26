@@ -223,3 +223,29 @@ describe("Platform localization key additions — grid settings failure toasts (
     });
   }
 });
+
+describe("Orders resource additions — the order page by freight item (design 61 \"Order page, revised\"; low risk)", () => {
+  const KEYS = [
+    "Orders:AddFreightItems", "Orders:AddLineHint", "Orders:CloseItemDetail", "Orders:DateTime", "Orders:FastEntry", "Orders:FreightDetails",
+    "Orders:FromRelation", "Orders:ToRelation", "Orders:ItemPricedAfterSave", "Orders:ItemTotal", "Orders:LineNeedsTwoStopsHint",
+    "Orders:OrderLevelLines", "Orders:PasteAmbiguous", "Orders:PasteFreightItems", "Orders:PasteFromExcel", "Orders:PasteInvalid",
+    "Orders:PasteMarkedHint", "Orders:PasteNotFound", "Orders:PastePreview", "Orders:PasteRows", "Orders:PasteRowsHint", "Orders:PasteTooManyRows",
+    "Orders:ReferencesAndAttributes", "Orders:Route", "Orders:StopsAndLegs", "Orders:Totals", "Orders:TripRequestItems",
+    "Orders:TripRequestItemsHint", "Orders:TripRequestNoItems",
+  ];
+  for (const lang of ["en", "nl"]) {
+    it(`${lang}: every key has a text without an em dash (UI-FB-007)`, () => {
+      const texts = readAllTexts(lang);
+      for (const key of KEYS) {
+        expect(texts[key], key).toBeTruthy();
+        expect(texts[key], key).not.toContain("—");
+      }
+    });
+  }
+
+  it("on screen the API's line is a freight item (PO 2026-10-26)", () => {
+    expect(readAllTexts("en")["Orders:Lines"]).toBe("Freight items");
+    expect(readAllTexts("nl")["Orders:Lines"]).toBe("Vrachtregels");
+    expect(readAllTexts("nl")["Orders:Line"]).toBe("Vrachtregel");
+  });
+});

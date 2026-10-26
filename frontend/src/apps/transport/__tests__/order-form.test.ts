@@ -21,6 +21,16 @@ import {
   termsInputOf,
   tripRequestInputOf,
   validateOrder,
+  emptyEntry,
+  entryErrors,
+  entryWaypointsOf,
+  itemFromEntry,
+  lineProblemsOf,
+  nextEntry,
+  postedLineIdsOf,
+  tripLineIdsFor,
+  tripLineIdsPosted,
+  tripSelectionOf,
   type OrderValues,
 } from "@/apps/transport/orders/order-form";
 import type { TransportOrderDto } from "@/domains/orders/transport-orders";
@@ -77,17 +87,89 @@ describe("orderValuesOf / lineInputOf", () => {
     expect(termsInputOf(values.terms)).toEqual({ currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true });
   });
 
-  it("a new line starts with the stop pattern; order lines get dates from the order date and offsets, template lines keep offsets", () => {
-    const values = orderValuesOf(stored);
-    const line = newLine(values.defaultStops, "2026-10-25", "order");
-    expect(line.stops.map((s) => [s.waypointTypeId, s.date])).toEqual([
-      ["wp-load", "2026-10-25"],
-      ["wp-unload", "2026-10-26"],
+  it("a new item from the fast entry row: From with the date, time and reference, To on the same date; quantity 1; no stop pattern", () => {
+    const acme = { id: "rel-1", code: "ACME", name: "Acme", city: "Utrecht", countryCode: "NL", roles: 1 };
+    const beta = { id: "rel-2", code: "BETA", name: "Beta", city: null, countryCode: null, roles: 1 };
+    const entry = { ...emptyEntry("2026-10-25"), from: { relation: acme, addressId: "adr-1", city: "Utrecht" }, to: { relation: beta, addressId: "adr-2", city: "Gouda" }, time: "730", transportUnitId: "unit-1", transportUnitName: "Pallet", weightKg: "120", reference: " LOAD-1 " };
+    const line = itemFromEntry(entry, { from: { id: "wp-load", name: "Load" }, to: { id: "wp-unload", name: "Unload" } });
+    expect(line).toMatchObject({ id: null, transportUnitId: "unit-1", quantity: "1", weightKg: "120" });
+    expect(line.stops.map((s) => [s.waypointTypeId, s.relationId, s.relationAddressId, s.city, s.date, s.windowFrom, s.reference])).toEqual([
+      ["wp-load", "rel-1", "adr-1", "Utrecht", "2026-10-25", "07:30", "LOAD-1"],
+      ["wp-unload", "rel-2", "adr-2", "Gouda", "2026-10-25", "", ""],
     ]);
-    expect(line.quantity).toBe("1");
-    const templateLine = newLine(values.defaultStops, null, "template");
-    expect(templateLineInputOf(templateLine).stops?.map((s) => s.dayOffset)).toEqual([0, 1]);
+    expect(lineInputOf(line).stops?.map((s) => s.date)).toEqual(["2026-10-25", "2026-10-25"]);
+    /* A template item keeps day offsets. */
+    const templateLine = itemFromEntry({ ...entry, date: null, dayOffset: "2" }, { from: null, to: null });
+    expect(templateLineInputOf(templateLine).stops?.map((s) => s.dayOffset)).toEqual([2, 2]);
+    /* Enter keeps From, the date, the time and the unit for the next item. */
+    expect(nextEntry(entry)).toMatchObject({ from: entry.from, to: { relation: null }, date: "2026-10-25", time: "730", transportUnitId: "unit-1", quantity: "", weightKg: "", reference: "" });
+    expect(newLine().stops).toEqual([]);
     expect(stopValuesOf({ waypointTypeId: "wp", relationId: "r", relationAddressId: "a", dayOffset: 3 }).dayOffset).toBe("3");
+  });
+
+  it("the entry needs From, To, the unit and (orders) a date; a bad time or number is named", () => {
+    expect(Object.keys(entryErrors(emptyEntry(null), "order")).sort()).toEqual(["date", "from", "to", "transportUnitId"]);
+    expect(Object.keys(entryErrors(emptyEntry(null), "template")).sort()).toEqual(["from", "to", "transportUnitId"]);
+    expect(entryErrors({ ...emptyEntry("2026-10-25"), time: "25:00", quantity: "x" }, "order")).toMatchObject({ time: "Orders:InvalidTime", quantity: "MasterData:InvalidNumber" });
+  });
+
+  it("the item's waypoint types: the order type's first and last default waypoint, else the first Load and Unload type", () => {
+    const types = [{ id: "wp-via", name: "Via", activity: 3 }, { id: "wp-unload", name: "Unload", activity: 2 }, { id: "wp-load", name: "Load", activity: 1 }];
+    expect(entryWaypointsOf([{ waypointTypeId: "b", name: "B", position: 2 }, { waypointTypeId: "a", name: "A", position: 1 }, { waypointTypeId: "c", name: "C", position: 3 }], types)).toEqual({ from: { id: "a", name: "A" }, to: { id: "c", name: "C" } });
+    expect(entryWaypointsOf([], types)).toEqual({ from: { id: "wp-load", name: "Load" }, to: { id: "wp-unload", name: "Unload" } });
+    expect(entryWaypointsOf([{ waypointTypeId: "a", name: "A", position: 1 }], types)).toEqual({ from: { id: "a", name: "A" }, to: { id: "wp-unload", name: "Unload" } });
+    expect(entryWaypointsOf(undefined, undefined)).toEqual({ from: null, to: null });
+  });
+});
+
+describe("Tevens trip per freight item (lineIds)", () => {
+  const two = (): TransportOrderDto => ({ ...stored, lines: [stored.lines![0], { ...stored.lines![0], id: "l2", position: 2 }], tripRequest: { transportTripTypeId: "tt", departureRelationId: "rel-1", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalAddressId: "adr-2", plannedDeparture: "2026-10-25T06:00:00Z", vehicleIds: [], driverIds: [], lineIds: null } });
+
+  it("null reads as every item; a list as those items; a stored [] as none (the validation then asks to choose)", () => {
+    expect(orderValuesOf(two()).tripRequest.excludedLineKeys).toEqual([]);
+    const some = orderValuesOf({ ...two(), tripRequest: { ...two().tripRequest!, lineIds: ["L2"] } });
+    expect(some.tripRequest.excludedLineKeys).toEqual([some.lines[0].key]);
+    const none = orderValuesOf({ ...two(), tripRequest: { ...two().tripRequest!, lineIds: [] } });
+    expect(none.tripRequest.excludedLineKeys).toEqual(none.lines.map((l) => l.key));
+    expect(validateOrder(none, "order").tripRequest).toBe("Orders:TripRequestNoItems");
+  });
+
+  it("an item ticked off is a trip-request change; the posted lineIds name the items on the trip, never []", () => {
+    const initial = orderValuesOf(two());
+    const values = { ...initial, tripRequest: { ...initial.tripRequest, excludedLineKeys: [initial.lines[0].key] } };
+    expect(changedSections(values, initial)).toMatchObject({ tripRequest: true, lines: false });
+    expect(tripSelectionOf(values)).toEqual(["l1"]);
+    expect(tripLineIdsFor(values, [{ id: "l1" }, { id: "l2" }])).toEqual(["l2"]);
+    expect(tripLineIdsFor(initial, [{ id: "l1" }, { id: "l2" }])).toBeNull();
+    /* A new order posts client ids on its new lines and names them. */
+    const fresh = { ...values, lines: [...values.lines, { ...newLine(), key: "new-1" }] };
+    let n = 0;
+    const posted = postedLineIdsOf(fresh.lines, () => `client-${++n}`);
+    expect([...posted.values()]).toEqual(["l1", "l2", "client-1"]);
+    expect(tripLineIdsPosted(fresh, posted)).toEqual(["l2", "client-1"]);
+    const allOff = { ...fresh, tripRequest: { ...fresh.tripRequest, excludedLineKeys: fresh.lines.map((l) => l.key) } };
+    expect(tripLineIdsPosted(allOff, posted)).toBeNull();
+    expect(validateOrder(allOff, "order").tripRequest).toBe("Orders:TripRequestNoItems");
+  });
+
+  it("the trip's prefill takes the items on the trip only", () => {
+    const initial = orderValuesOf(two());
+    const lines = [{ ...initial.lines[0], stops: [{ ...initial.lines[0].stops[0], relationId: "x", relationName: "X" }, initial.lines[0].stops[1]] }, initial.lines[1]];
+    const request = tripRequestWithDefaults({ ...EMPTY_TRIP_REQUEST, enabled: true, excludedLineKeys: [lines[0].key] }, lines, "order", null);
+    expect(request.departureRelation?.id).toBe("rel-1");
+  });
+});
+
+describe("lineProblemsOf (the list marks an incomplete item)", () => {
+  it("names a missing unit, fewer than two stops and an incomplete stop", () => {
+    const values = orderValuesOf(stored);
+    const ok = values.lines[0];
+    const problems = lineProblemsOf([ok, { ...ok, key: "a", transportUnitId: null }, { ...ok, key: "b", stops: ok.stops.slice(0, 1) }, { ...ok, key: "c", stops: [ok.stops[0], { ...ok.stops[1], relationAddressId: null }] }]);
+    expect([...problems.entries()]).toEqual([
+      ["a", "Orders:LineNeedsTransportUnit"],
+      ["b", "Orders:LineNeedsTwoStopsHint"],
+      ["c", "Orders:StopIncomplete"],
+    ]);
   });
 });
 
@@ -211,7 +293,7 @@ describe("pricePreviewRequestOf (finding 1)", () => {
 
 describe("tripRequestWithDefaults (finding 4)", () => {
   const stop = (relationId: string, extra: Record<string, string> = {}) => ({ ...newStop("2026-10-25"), relationId, relationName: relationId.toUpperCase(), relationAddressId: `adr-${relationId}`, ...extra });
-  const lines = (stops: ReturnType<typeof stop>[][]) => stops.map((s) => ({ ...newLine([], null, "order"), stops: s }));
+  const lines = (stops: ReturnType<typeof stop>[][]) => stops.map((s) => ({ ...newLine(), stops: s }));
 
   it("fills only the empty fields; a template takes the first stop's day offset and window start", () => {
     const template = tripRequestWithDefaults({ ...EMPTY_TRIP_REQUEST, enabled: true }, lines([[stop("a", { dayOffset: "1", windowFrom: "08:00" }), stop("b")]]), "template", "tt-1");

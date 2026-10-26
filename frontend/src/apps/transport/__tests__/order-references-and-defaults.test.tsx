@@ -41,7 +41,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
-import { lookupItems, panel, ribbonButton, stubGlobals } from "./transport-test-mocks";
+import { itemRows, lookupItems, openItem, ribbonButton, section, stubGlobals } from "./transport-test-mocks";
 import { GET, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ORDER_GRANTS = { "Orders.TransportOrders": true, "Orders.TransportOrders.Update": true, "PlanningExecution.TransportTrips": true, "Financial.RateLines.Update": true };
@@ -126,15 +126,14 @@ function renderPage() {
   );
 }
 const loaded = () => screen.findByRole("heading", { level: 1 });
-const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
 const click = async (element: Element) =>
   act(async () => {
     fireEvent.click(element);
     await Promise.resolve();
   });
-const referencesSection = () => within(panel("General")).getByText("Orders:References").closest("section, [data-slot=form-section]") as HTMLElement;
+const referencesSection = () => section("Orders:ReferencesAndAttributes");
 const referenceLines = () => Array.from(referencesSection().querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
-const pickCustomer = (id: string) => fireEvent.change(within(panel("General")).getByLabelText(/^Orders:Customer \*/), { target: { value: id } });
+const pickCustomer = (id: string) => fireEvent.change(within(section("Orders:OrderDetails")).getByLabelText(/^Orders:Customer \*/), { target: { value: id } });
 
 describe("Order references (design 58)", () => {
   it("shows the stored references, adds one and saves them through PUT references with the stamp, and nothing else", async () => {
@@ -184,11 +183,8 @@ describe("Line measurements (design 58: up to three weighings and volumes per li
   it("shows the stored ones in their slots and saves the edited ones with the lines", async () => {
     renderPage();
     await loaded();
-    tab("Orders:Lines");
-    const lines = panel("Orders:Lines");
-    await waitFor(() => expect(within(lines).getAllByText("Edit").length).toBeGreaterThan(0));
-    fireEvent.click(within(lines).getAllByText("Edit")[0]);
-    const detail = lines.querySelector("[data-slot=line-detail]") as HTMLElement;
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    const detail = openItem(0);
     const weighing = (n: number) => within(detail).getAllByLabelText("Orders:WeightMeasurement")[n - 1] as HTMLInputElement;
     const volume = (n: number) => within(detail).getAllByLabelText("Orders:VolumeMeasurement")[n - 1] as HTMLInputElement;
     expect(weighing(1).value).toBe("410");
@@ -211,15 +207,12 @@ describe("Line measurements (design 58: up to three weighings and volumes per li
   it("refuses a measurement that is not a number (Lines marked, nothing sent)", async () => {
     renderPage();
     await loaded();
-    tab("Orders:Lines");
-    const lines = panel("Orders:Lines");
-    await waitFor(() => expect(within(lines).getAllByText("Edit").length).toBeGreaterThan(0));
-    fireEvent.click(within(lines).getAllByText("Edit")[0]);
-    const detail = lines.querySelector("[data-slot=line-detail]") as HTMLElement;
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    const detail = openItem(0);
     fireEvent.change(within(detail).getAllByLabelText("Orders:WeightMeasurement")[0], { target: { value: "heavy" } });
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
-    expect(within(lines).getByText("MasterData:InvalidNumber")).toBeInTheDocument();
+    expect(within(section("Orders:Lines")).getAllByText("MasterData:InvalidNumber").length).toBeGreaterThan(0);
   });
 });
 
@@ -309,7 +302,7 @@ describe("Customer change on a stored order: take over the financial defaults? (
   it("no question and no terms when the customer stays", async () => {
     renderPage();
     await loaded();
-    fireEvent.change(within(panel("General")).getByLabelText(/^Orders:CustomerReference/), { target: { value: "REF-9" } });
+    fireEvent.change(within(section("Orders:OrderDetails")).getByLabelText(/^Orders:CustomerReference/), { target: { value: "REF-9" } });
     expect(screen.queryByRole("alertdialog")).toBeNull();
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));

@@ -1,0 +1,233 @@
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+/* The new order (design 61 "Order page, revised" 5: New opens the page directly, no New dialog): the default type
+ * (or the one New per type names), today, the cursor in Customer, the customer's financial defaults copied when it
+ * is chosen; Save creates the order in one call with its freight items and opens its page; Confirm (Ctrl/⌘+Enter)
+ * creates and confirms; a Tevens trip for some of the new items names them by the client ids posted on the lines.
+ * And Paste from Excel (3): the rows become items after a preview that marks the unmatched cells. Risk class: Medium. */
+
+const navigateMock = vi.fn();
+vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
+/* The save report's keys carry their {0}, so a test sees which section names were filled in. */
+vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => (k.startsWith("Orders:Sections") ? `${k} {0}` : k), culture: "en", isLoading: false }) }));
+
+let grants: Record<string, boolean> = {};
+vi.mock("@/lib/abp/queries", () => ({
+  useApplicationConfiguration: () => ({ data: { currentTenant: { id: "t-1" }, auth: { grantedPolicies: grants }, features: { values: { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true", "Apps.Transport.Trips": "true" } } } }),
+}));
+vi.mock("@/lib/api/client", () => ({ apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() } }));
+vi.mock("@/lib/realtime/record-updates", () => ({
+  DerivedValueStatus: { Pending: 1, UpToDate: 2, Failed: 3 },
+  recordUpdatesClient: () => ({ watch: () => () => undefined, subscribe: () => () => undefined, onReconnected: () => () => undefined }),
+}));
+vi.mock("@/components/ui/opentms-grid-lazy", async () => ({ LazyOpenTmsGrid: (await import("./transport-test-mocks")).MockOpenTmsGrid }));
+vi.mock("@/components/ui/lines-grid-lazy", async () => ({ LazyLinesGrid: (await import("./transport-test-mocks")).MockLinesGrid }));
+vi.mock("@/components/ui/entity-lookup", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/entity-lookup")>()), EntityLookup: (await import("./transport-test-mocks")).MockEntityLookup }));
+vi.mock("@/components/ui/multi-select", async () => ({ MultiSelect: (await import("./transport-test-mocks")).MockMultiSelect }));
+vi.mock("@/components/ui/tree-select", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/tree-select")>()), TreeSelect: (await import("./transport-test-mocks")).MockTreeSelect }));
+vi.mock("@/components/ui/date-picker", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/date-picker")>()), DatePicker: (await import("./transport-test-mocks")).MockDatePicker }));
+vi.mock("@/components/ui/reference-combobox", async () => ({ ReferenceCombobox: (await import("./transport-test-mocks")).MockReferenceCombobox }));
+vi.mock("@/components/ui/select", async () => {
+  const mocks = await import("./transport-test-mocks");
+  return { Select: mocks.MockSelect, SelectTrigger: mocks.MockSelectTrigger, SelectValue: mocks.Nothing, SelectContent: mocks.Nothing, SelectItem: mocks.Nothing };
+});
+vi.mock("@/apps/transport/wizards/PrintCmrWizard", () => ({ PrintCmrWizard: ({ open }: { open: boolean }) => (open ? <div data-testid="print-wizard" /> : null) }));
+vi.mock("@/apps/transport/wizards/MaterialiseWizard", () => ({ MaterialiseWizard: () => null }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
+
+import { OrderPage } from "@/apps/transport/pages/OrderPage";
+import { toast } from "sonner";
+import { itemRows, lookupItems, ribbonButton, ribbonLabels, section, stubGlobals } from "./transport-test-mocks";
+import { GET, POST, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
+
+const ALL = { "Orders.TransportOrders": true, "Orders.TransportOrders.Create": true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Confirm": true, "Financial.RateLines.Update": true };
+const LOAD_UNLOAD = [{ waypointTypeId: "wp-load", name: "Load", position: 1 }, { waypointTypeId: "wp-unload", name: "Unload", position: 2 }];
+const today = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+})();
+
+beforeAll(stubGlobals);
+beforeEach(() => {
+  navigateMock.mockReset();
+  vi.mocked(toast.success).mockClear();
+  grants = { ...ALL };
+  lookupItems.current = {
+    "*-customer": [{ id: "rel-1", name: "Acme" }],
+    "*-entry-from": [{ id: "rel-1", name: "Acme" }],
+    "*-entry-to": [{ id: "rel-2", name: "Beta" }],
+  };
+  resetClient();
+  routes.GET["/api/orders/transport-order-type"] = () => ({ rows: [{ id: "type-1", name: "Standard", isDefault: true }, { id: "type-2", name: "Express" }], totalCount: 2, filteredCount: 2 });
+  routes.GET["/api/orders/transport-order-type/{id}"] = (init) => ({ id: String(init?.params?.path?.id), name: "Standard", requiredFields: 0, defaultWaypoints: LOAD_UNLOAD });
+  routes.GET["/api/orders/transport-order-type/lookup"] = () => [{ id: "type-1", name: "Standard" }, { id: "type-2", name: "Express" }];
+  routes.GET["/api/master-data/transport-unit/lookup"] = () => [{ id: "unit-1", code: "PL", name: "Pallet" }];
+  routes.GET["/api/master-data/relation/{id}/addresses"] = (init) => [{ id: `${String(init?.params?.path?.id)}-main`, addressTypeId: null, city: "Town" }];
+  routes.GET["/api/financial/relation-financial-settings/by-relation/{relationId}"] = () => ({ currencyCode: "EUR", paymentTermDays: 14, revenuePriceLists: [{ priceListId: "pl-1", position: 1 }], discountsOrSurcharges: [] });
+  routes.GET["/api/planning/transport-trip-type/lookup"] = () => [{ id: "tt-1", name: "Own fleet" }];
+});
+
+function renderNew(typeId?: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <OrderPage id="new" typeId={typeId} />
+    </QueryClientProvider>,
+  );
+}
+const click = async (element: Element) =>
+  act(async () => {
+    fireEvent.click(element);
+    await Promise.resolve();
+  });
+const key = async (element: Element, init: Record<string, unknown>) =>
+  act(async () => {
+    fireEvent.keyDown(element, init);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+const header = () => section("Orders:OrderDetails");
+const field = (scope: HTMLElement, suffix: string) => scope.querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-${suffix}']`)!;
+const entry = () => document.querySelector<HTMLElement>("[data-slot=freight-item-entry]")!;
+const created = (extra: Record<string, unknown> = {}) => ({ id: "o-new", status: 1, number: null, transportOrderTypeId: "type-1", customerRelationId: "rel-1", customerName: "Acme", orderDate: today, concurrencyStamp: "c1", lines: [], financialTerms: { currencyCode: "EUR", priceListIds: [], multipleMatches: 1, discountsOrSurcharges: [] }, ...extra });
+
+async function addItem() {
+  await waitFor(() => expect(calls(GET, "/api/orders/transport-order-type/{id}").length).toBeGreaterThan(0));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  fireEvent.change(field(entry(), "entry-from"), { target: { value: "rel-1" } });
+  fireEvent.change(field(entry(), "entry-to"), { target: { value: "rel-2" } });
+  fireEvent.change(field(entry(), "entry-unit"), { target: { value: "unit-1" } });
+  await key(field(entry(), "entry-to"), { key: "Enter" });
+}
+
+describe("New order: the page opens directly", () => {
+  it("starts with the default type, today and the cursor in Customer; Save, Confirm and Close; no totals yet", async () => {
+    renderNew();
+    expect(await screen.findByText("Orders:NewTransportOrder")).toBeInTheDocument();
+    expect(field(header(), "transportOrderTypeId").value).toBe("type-1");
+    expect(field(header(), "orderDate").value).toBe(today);
+    await waitFor(() => expect(document.activeElement?.id).toMatch(/-customer$/));
+    expect(ribbonLabels()).toEqual(["Save", "Close", "Orders:Confirm"]);
+    expect(document.querySelector("[data-slot=form-section][aria-label='Orders:Totals']")).toBeNull();
+  });
+
+  it("New per type starts with that type; without the Create permission the page is denied", async () => {
+    const { unmount } = renderNew("type-2");
+    await screen.findByText("Orders:NewTransportOrder");
+    expect(field(header(), "transportOrderTypeId").value).toBe("type-2");
+    unmount();
+    grants = { ...ALL, "Orders.TransportOrders.Create": false };
+    renderNew();
+    expect(screen.getByRole("status")).toHaveTextContent("PermissionDenied");
+  });
+
+  it("choosing the customer copies its financial defaults; Save creates the order with its items in one call and opens its page", async () => {
+    routes.POST["/api/orders/transport-order"] = () => created({ lines: [{ id: "l1", position: 1, transportUnitId: "unit-1", quantity: 1, paymentInstruction: 0, stops: [] }] });
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await addItem();
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    await waitFor(() => expect(calls(GET, "/api/financial/relation-financial-settings/by-relation/{relationId}")).toHaveLength(1));
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order")).toHaveLength(1));
+    const body = lastCall(POST, "/api/orders/transport-order")!.body as Record<string, unknown> & { lines: { id: string; stops: Record<string, unknown>[] }[] };
+    expect(body).toMatchObject({ transportOrderTypeId: "type-1", customerRelationId: "rel-1", orderDate: today, source: 1, confirm: false, financialTerms: expect.objectContaining({ paymentTermDays: 14, priceListIds: ["pl-1"] }) });
+    expect(body.defaultStops).toBeUndefined();
+    expect(body.lines).toHaveLength(1);
+    expect(body.lines[0].stops.map((s) => [s.waypointTypeId, s.relationId, s.relationAddressId])).toEqual([["wp-load", "rel-1", "rel-1-main"], ["wp-unload", "rel-2", "rel-2-main"]]);
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved");
+    expect(navigateMock).toHaveBeenCalledWith(expect.objectContaining({ to: "/transport/orders/o-new", replace: true }));
+  });
+
+  it("Ctrl/⌘+Enter creates and confirms; a Tevens trip for some new items names them by the posted client ids", async () => {
+    routes.POST["/api/orders/transport-order"] = () => created({ status: 2, number: "TO-1" });
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await addItem();
+    fireEvent.change(field(entry(), "entry-to"), { target: { value: "rel-2" } });
+    await key(field(entry(), "entry-to"), { key: "Enter" });
+    await waitFor(() => expect(itemRows()).toHaveLength(2));
+    const trip = section("Orders:TripRequest");
+    fireEvent.click(within(trip).getByRole("checkbox", { name: "Orders:TripRequestHint" }));
+    fireEvent.click(within(trip.querySelector<HTMLElement>("[data-slot=trip-request-items]")!).getAllByRole("checkbox")[0]);
+    await key(field(header(), "customerReference"), { key: "Enter", ctrlKey: true });
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order")).toHaveLength(1));
+    const body = lastCall(POST, "/api/orders/transport-order")!.body as { confirm: boolean; lines: { id: string }[]; tripRequest: { lineIds: string[] } };
+    expect(body.confirm).toBe(true);
+    expect(body.lines.map((l) => l.id)).toEqual([expect.stringMatching(/^[0-9a-f-]{36}$/), expect.stringMatching(/^[0-9a-f-]{36}$/)]);
+    expect(body.tripRequest.lineIds).toEqual([body.lines[1].id]);
+    expect(calls(POST, "/api/orders/transport-order/{id}/confirm")).toHaveLength(0);
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderConfirmed");
+  });
+
+  it("a refused create shows the error in the page and stays on the new order", async () => {
+    routes.POST["/api/orders/transport-order"] = () => ({ data: undefined, error: { error: { message: "The order date is in a closed period." } }, response: new Response(null, { status: 400 }) });
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("The order date is in a closed period.")).toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Paste from Excel", () => {
+  beforeEach(() => {
+    routes.GET["/api/master-data/relation/lookup-page"] = (init) => {
+      const term = String(init?.params?.query?.term ?? "").toLowerCase();
+      const all = [{ id: "rel-1", code: "ACME", name: "Acme" }, { id: "rel-2", code: "BETA", name: "Beta" }];
+      const items = all.filter((r) => r.code.toLowerCase().includes(term) || r.name.toLowerCase().includes(term));
+      return { items, totalCount: items.length };
+    };
+  });
+
+  it("rows pasted into the entry row open the preview; unmatched cells are marked; Add makes them items with the matched values", async () => {
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    await waitFor(() => expect(calls(GET, "/api/orders/transport-order-type/{id}").length).toBeGreaterThan(0));
+    const text = ["ACME\tBeta\t26-10-2026\t08:00\tPL\t2\t500\tR1", "acme\tNobody\t27/10/2026\t\tCrate\t1\t\tR2"].join("\n");
+    await act(async () => {
+      fireEvent.paste(field(entry(), "entry-reference"), { clipboardData: { getData: () => text } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const preview = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(preview).getAllByRole("row").filter((r) => r.getAttribute("data-slot") === "paste-row")).toHaveLength(2));
+    const rows = preview.querySelectorAll("[data-slot=paste-row]");
+    expect(rows[0].querySelector("[data-problem]")).toBeNull();
+    expect(Array.from(rows[1].querySelectorAll("[data-problem]")).map((c) => c.getAttribute("data-column"))).toEqual(["to", "unit"]);
+    expect(within(preview).getByText("Orders:PasteMarkedHint")).toBeInTheDocument();
+    await click(within(preview).getByRole("button", { name: "Orders:AddFreightItems" }));
+    await waitFor(() => expect(itemRows()).toHaveLength(2));
+    expect(itemRows()[0].querySelector("[data-field=route]")?.textContent).toBe("Acme, Town → Beta, Town");
+    expect(itemRows()[0].querySelector("[data-field=when]")?.textContent).toBe("26/10/2026 08:00");
+    expect((within(itemRows()[0]).getByLabelText("Orders:Quantity") as HTMLInputElement).value).toBe("2");
+    expect((within(itemRows()[0]).getByLabelText("Orders:WeightKg") as HTMLInputElement).value).toBe("500");
+    /* The unmatched To and unit stay empty: the item is marked until it is completed. */
+    expect(itemRows()[1].querySelector("[data-field=route]")?.textContent).toBe("Acme, Town");
+    expect(itemRows()[1].querySelector("[data-slot=item-problem]")).not.toBeNull();
+  });
+
+  it("the Paste command opens the preview with a text field; a row can be dropped before adding", async () => {
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.click(within(section("Orders:Lines")).getByText("Orders:PasteFromExcel"));
+    const dialog = await screen.findByRole("dialog");
+    const area = within(dialog).getByLabelText(/^Orders:PasteRows/);
+    await act(async () => {
+      fireEvent.paste(area, { clipboardData: { getData: () => "From\tTo\nACME\tBETA\t\t\tPL" } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(dialog.querySelectorAll("[data-slot=paste-row]")).toHaveLength(2));
+    /* The header row matches nothing: drop it. */
+    fireEvent.click(within(dialog.querySelectorAll<HTMLElement>("[data-slot=paste-row]")[0]).getByRole("button", { name: "Remove" }));
+    expect(dialog.querySelectorAll("[data-slot=paste-row]")).toHaveLength(1);
+    await click(within(dialog).getByRole("button", { name: "Orders:AddFreightItems" }));
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    expect(itemRows()[0].querySelector("[data-slot=item-problem]")).toBeNull();
+  });
+});
