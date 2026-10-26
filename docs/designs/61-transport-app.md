@@ -167,9 +167,8 @@ The endpoints the screens asked for, as the generated client names them (details
 ### Build notes (frontend, last pass, 2026-10-26)
 
 1. **Export** (UI-GRID-013): `GridExportDialog` (`components/ui`) on the Orders and Trips lists; OpenTmsGrid's Export
-   button hands the page the list's request and its columns in display order (`buildExportContext`). Neither server
-   export knows `co2Kg`, so that column (and the Orders list's trip request warning icon) is marked
-   `context: { export: false }` and not offered; adding CO₂ to the exports is a backend follow-up.
+   button hands the page the list's request and its columns in display order (`buildExportContext`). Both server
+   exports know `co2Kg`; only the Orders list's trip request warning icon is marked `context: { export: false }`.
 2. **Wizard Details**: per generated order (date × copy) the customer reference and, in a LinesGrid, each line's
    quantity and weight; only values that differ from the source go out as `overrides[]` (per date, one call per date).
 3. **Trip picker**: an EntityLookup over `/transport-trip/picker` without "Add new …":

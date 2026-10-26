@@ -151,8 +151,7 @@ export function TripsView({ filter }: TripsViewProps) {
       { colId: "orders", headerName: t("PlanningExecution:Orders"), minWidth: 160, valueGetter: (p) => (p.data?.orderNumbers ?? []).join(", "), sortable: false },
       derived("plannedDistanceM", `${t("PlanningExecution:Distance")} (km)`, (p) => (p.value == null ? "" : f.number(p.value / 1000, { maxDecimals: 1 }))),
       derived("loadFactor", t("PlanningExecution:LoadFactor"), (p) => PercentCell({ value: p.value == null ? null : p.value * 100 })),
-      /* The server export has no CO₂ column (design 59 build note 14): not offered in the export. */
-      derived("co2Kg", t("PlanningExecution:Co2Kg"), (p) => NumberCell({ value: p.value }), { context: { export: false } }),
+      derived("co2Kg", t("PlanningExecution:Co2Kg"), (p) => NumberCell({ value: p.value })),
       derived("costAmount", t("PlanningExecution:CostAmount"), (p) => AmountCell({ value: p.value })),
       derived("revenueAmount", t("PlanningExecution:RevenueAmount"), (p) => AmountCell({ value: p.value })),
       { field: "warnings", headerName: t("PlanningExecution:Warnings"), minWidth: 100, sortable: false, cellRenderer: (p: { value: TransportTripRow["warnings"] }) => <WarningsCell value={p.value} /> },

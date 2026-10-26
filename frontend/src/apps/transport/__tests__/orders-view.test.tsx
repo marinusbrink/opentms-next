@@ -223,7 +223,7 @@ describe("OrdersView – export (UI-GRID-013)", () => {
     exportRequest.sort = null;
   });
 
-  it("sends the list's request, the visible columns with their headers (CO2 is not exportable) and saves the server's file", async () => {
+  it("sends the list's request, the visible columns with their headers (CO2 included) and saves the server's file", async () => {
     routes.POST["/api/orders/transport-order/export"] = xlsx;
     exportRequest.search = "acme";
     exportRequest.sort = { colId: "orderDate", sort: "desc" };
@@ -240,7 +240,7 @@ describe("OrdersView – export (UI-GRID-013)", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/export", expect.objectContaining({ parseAs: "blob" })));
     const body = lastCall(POST, "/api/orders/transport-order/export")?.body as { columns: { field: string; header: string }[]; allRows: boolean; view: number; dateFrom: string; wildcardSearch: string; sortBy: string; sortDir: string };
     expect(body).toMatchObject({ view: 0, dateFrom: "2026-10-01", wildcardSearch: "acme", sortBy: "orderDate", sortDir: "desc", allRows: false });
-    expect(body.columns.map((c) => c.field)).toEqual(["number", "status", "orderDate", "customerName", "customerReference", "lineCount", "firstStop", "firstStopDate", "lastStop", "lastStopDate", "revenueAmount", "costOfRevenueAmount", "marginAmount", "tripNumbers", "executionProgress"]);
+    expect(body.columns.map((c) => c.field)).toEqual(["number", "status", "orderDate", "customerName", "customerReference", "lineCount", "firstStop", "firstStopDate", "lastStop", "lastStopDate", "revenueAmount", "costOfRevenueAmount", "marginAmount", "co2Kg", "tripNumbers", "executionProgress"]);
     expect(body.columns[0]).toEqual({ field: "number", header: "Orders:Number" });
     await waitFor(() => expect(downloads).toEqual(["transport-orders-2026-10-26.xlsx"]));
     expect(createObjectURL).toHaveBeenCalled();
@@ -261,7 +261,8 @@ describe("OrdersView – export (UI-GRID-013)", () => {
     const body = lastCall(POST, "/api/orders/transport-order/export")?.body as { columns: { field: string }[]; allRows: boolean };
     expect(body.allRows).toBe(true);
     expect(body.columns.map((c) => c.field)).toContain("source");
-    expect(body.columns.map((c) => c.field)).not.toContain("co2Kg");
+    expect(body.columns.map((c) => c.field)).toContain("co2Kg");
+    expect(body.columns.map((c) => c.field)).not.toContain("tripRequestWarningCode");
   });
 
   it("shows ExportTooManyRows inside the dialog, which stays open, and downloads nothing", async () => {

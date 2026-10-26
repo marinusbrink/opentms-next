@@ -162,7 +162,7 @@ describe("TripsView", () => {
     expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TransportTripCompleted");
   });
 
-  it("exports the list (UI-GRID-013): the list's filters, the visible columns without CO2, the server's file name; a refusal stays in the dialog", async () => {
+  it("exports the list (UI-GRID-013): the list's filters, the visible columns with CO2, the server's file name; a refusal stays in the dialog", async () => {
     gridRows.current = tripRows;
     const downloads: string[] = [];
     vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
@@ -185,7 +185,7 @@ describe("TripsView", () => {
     await waitFor(() => expect(downloads).toEqual(["transport-trips-2026-10-26.xlsx"]));
     const body = lastCall(POST, "/api/planning/transport-trip/export")?.body as { columns: { field: string; header: string }[]; allRows: boolean; view: string; isArchived: boolean; hideEmpty: boolean };
     expect(body).toMatchObject({ view: "Open", isArchived: false, hideEmpty: true, allRows: false });
-    expect(body.columns.map((c) => c.field)).not.toContain("co2Kg");
+    expect(body.columns.map((c) => c.field)).toContain("co2Kg");
     expect(body.columns.map((c) => c.field)).not.toContain("isArchived");
     expect(body.columns.find((c) => c.field === "plannedDistanceM")?.header).toBe("PlanningExecution:Distance (km)");
     click.mockRestore();

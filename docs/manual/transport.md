@@ -53,7 +53,7 @@ berekening wordt automatisch opnieuw geprobeerd en tot die tijd blijven de vorig
 - **Exporteren** (het downloadpictogram rechts boven de lijst) maakt een Excel-bestand van de lijst. Kies
   *Zichtbare kolommen* of *Alle kolommen*, en *De rijen van het huidige filter en de zoekterm* of *Alle
   rijen* (alle orders, zonder filter of zoekterm). De kolommen staan in de volgorde en met de namen van de
-  lijst. CO₂ en de ritwaarschuwing gaan niet mee in de export. Een export heeft een maximum aantal rijen
+  lijst; CO₂ gaat mee, de ritwaarschuwing niet. Een export heeft een maximum aantal rijen
   (standaard 50.000); is het er meer, dan meldt het venster dat en filtert u de lijst eerst.
 - Dubbelklik op een regel om de order te openen.
 - In de actiebalk: **Nieuwe transportorder** (heeft u meerdere ordertypen, dan staat er per type een

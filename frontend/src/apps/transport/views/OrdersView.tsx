@@ -149,8 +149,7 @@ export function OrdersView({ filter }: OrdersViewProps) {
       derived("revenueAmount", t("Orders:RevenueAmount"), AmountCell),
       derived("costOfRevenueAmount", t("Orders:CostOfRevenueAmount"), AmountCell),
       derived("marginAmount", t("Orders:MarginAmount"), AmountCell),
-      /* The server export has no CO₂ column (design 58 build note 19): not offered in the export. */
-      derived("co2Kg", t("Orders:Co2Kg"), NumberCell, { context: { export: false } }),
+      derived("co2Kg", t("Orders:Co2Kg"), NumberCell),
       { field: "tripNumbers", headerName: t("Orders:TripNumbers"), minWidth: 130, sortable: false },
       { field: "executionProgress", headerName: t("Orders:ExecutionProgress"), minWidth: 130, valueFormatter: (p) => t(enumKey(EXECUTION_PROGRESSES, p.value as number)) },
       /* The trip request Planning could not honour (design 58 build note 19): an icon; not part of the server export. */
