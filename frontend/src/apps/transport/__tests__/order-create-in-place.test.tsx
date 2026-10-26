@@ -71,6 +71,7 @@ function stub(name: string) {
 vi.mock("@/domains/master-data/components/RelationEditor", () => ({ RelationEditor: stub("Relation") }));
 vi.mock("@/domains/master-data/components/VehicleEditor", () => ({ VehicleEditor: stub("Vehicle") }));
 vi.mock("@/domains/master-data/components/DriverEditor", () => ({ DriverEditor: stub("Driver") }));
+vi.mock("@/domains/master-data/components/CurrencyEditor", () => ({ CurrencyEditor: stub("Currency") }));
 vi.mock("@/domains/master-data/components/TransportUnitEditor", () => ({ TransportUnitEditor: stub("TransportUnit") }));
 vi.mock("@/domains/financial/components/PriceListEditor", () => ({ PriceListEditor: stub("PriceList") }));
 vi.mock("@/domains/orders/components/ConsignmentNoteProfileEditor", () => ({ ConsignmentNoteProfileEditor: stub("ConsignmentNoteProfile") }));
@@ -91,6 +92,7 @@ const CREATE = {
   TransportUnit: ["MasterData.TransportUnits.Create", "Apps.MasterData.General.Transport.TransportUnits"],
   PriceList: ["Financial.PriceLists.Create", "Apps.MasterData.Financial.Pricing.PriceLists"],
   ConsignmentNoteProfile: ["Orders.ConsignmentNoteProfiles.Create", "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles"],
+  Currency: ["MasterData.Currencies.Create", "Apps.MasterData.General.Reference.Currencies"],
 } as const;
 const allowCreate = (...entities: (keyof typeof CREATE)[]) => {
   for (const entity of entities) {
@@ -128,6 +130,7 @@ beforeEach(() => {
   routes.GET["/api/master-data/transport-unit/lookup"] = () => [{ id: "unit-1", name: "Pallet" }];
   routes.GET["/api/master-data/relation/{id}"] = () => ({ id: "rel-1", name: "Acme", contactPersons: [{ id: "cp-1", firstName: "Jan", lastName: "Jansen" }] });
   routes.GET["/api/financial/price-list/lookup"] = () => [{ id: "pl-1", code: "PL1", name: "Benelux" }];
+  routes.GET["/api/master-data/currency/lookup"] = () => [{ id: "c-eur", code: "EUR", name: "Euro" }, { id: "c-usd", code: "USD", name: "US dollar" }];
   routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-2" });
   routes.PUT["/api/orders/transport-order/{id}/financial-terms"] = () => order(2, { concurrencyStamp: "stamp-3" });
   routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2" });
@@ -263,8 +266,69 @@ describe("Transport order page — Add new … in its pickers", () => {
     expect(lastCall(PUT, "/api/orders/transport-order/{id}/trip-request")!.body).toEqual(expect.objectContaining({ tripRequest: expect.objectContaining({ vehicleIds: ["veh-new"], driverIds: ["drv-new"] }) }));
   });
 
+  it("terms currency: a picker over the currencies that stores the ISO code; Add new … picks the new currency's code", async () => {
+    allowCreate("Currency");
+    saved.Currency = { id: "c-chf", isoCode: "CHF", name: "Swiss franc" };
+    renderPage();
+    await loaded();
+    tab("Orders:Pricing");
+    const pricing = panel("Orders:Pricing");
+    const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
+    await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
+    expect(currency.value).toBe("EUR");
+    fireEvent.change(currency, { target: { value: "USD" } });
+    expect(currency.value).toBe("USD");
+
+    const row = createFor(pricing, "-terms-currencyCode")!;
+    expect(row).toHaveTextContent("MasterData:AddNewCurrency");
+    await click(row);
+    expect(editor()).toHaveAttribute("data-stub-editor", "Currency");
+    expect(editor()).toHaveAttribute("data-initial-name", TYPED_TERM);
+    await saveStub("Currency");
+    expect(currency.value).toBe("CHF");
+    expect(within(currency).getByRole("option", { name: "CHF Swiss franc" })).toBeInTheDocument();
+
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(1));
+    expect((lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body as { currencyCode: string }).currencyCode).toBe("CHF");
+  });
+
+  it("terms currency: a stored code the lookup no longer has stays selected; no row without the currencies' Create permission", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { financialTerms: { currencyCode: "GBP", priceListIds: [], multipleMatches: 1, discountsOrSurcharges: [] } });
+    renderPage();
+    await loaded();
+    tab("Orders:Pricing");
+    const pricing = panel("Orders:Pricing");
+    const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
+    await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
+    expect(currency.value).toBe("GBP");
+    expect(createFor(pricing, "-terms-currencyCode")).toBeNull();
+    /* Untouched: nothing to save. */
+    expect(ribbonButton("Save")).not.toBeNull();
+    await click(ribbonButton("Save")!);
+    expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(0);
+  });
+
+  it("Tevens trip: the agreed purchase currency is the same picker and is saved as the ISO code", async () => {
+    allowCreate("Currency");
+    routes.GET["/api/orders/transport-order/{id}"] = () =>
+      order(1, { tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureRelationName: "Acme", departureAddressId: "adr-1", arrivalRelationId: "rel-1", arrivalRelationName: "Acme", arrivalAddressId: "adr-1", plannedDeparture: "2026-10-25T06:00:00Z", carrierRelationId: "car-1", carrierRelationName: "Charter", agreedPurchaseAmount: 400, vehicleIds: [], driverIds: [] } });
+    renderPage();
+    await loaded();
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    const currency = planning.querySelector<HTMLSelectElement>("select[id$='-trip-agreedPurchaseCurrencyCode']")!;
+    await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
+    expect(currency.value).toBe("");
+    expect(createFor(planning, "-trip-agreedPurchaseCurrencyCode")).toHaveTextContent("MasterData:AddNewCurrency");
+    fireEvent.change(currency, { target: { value: "USD" } });
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/trip-request")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}/trip-request")!.body).toEqual(expect.objectContaining({ tripRequest: expect.objectContaining({ agreedPurchaseAmount: 400, agreedPurchaseCurrencyCode: "USD" }) }));
+  });
+
   it("a read-only order (no Update) offers no row, even with every Create permission", async () => {
-    allowCreate("Relation", "PriceList", "TransportUnit");
+    allowCreate("Relation", "PriceList", "TransportUnit", "Currency");
     grants["Orders.TransportOrders.Update"] = false;
     renderPage();
     await loaded();

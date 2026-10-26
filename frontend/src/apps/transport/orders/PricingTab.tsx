@@ -15,7 +15,8 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckboxField, ComboField, NumberField, SelectField, TextField, toOptions } from "@/apps/transport/components/fields";
+import { CheckboxField, ComboField, NumberField, SelectField, toOptions } from "@/apps/transport/components/fields";
+import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { TotalsBlock } from "@/apps/transport/components/TotalsBlock";
 import { lineInputOf, termsInputOf, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import type { PriceListDto } from "@/domains/financial/price-lists";
@@ -301,7 +302,7 @@ function TermsSection({ form, order }: { form: FormContext<OrderValues>; order: 
     <FormSection title={t("Orders:FinancialTerms")}>
       {form.error("terms") && <p className="mb-2 text-label text-destructive">{form.error("terms")}</p>}
       <div className="grid grid-cols-4 gap-x-4 gap-y-3">
-        <TextField form={termsForm} field="currencyCode" labelKey="Orders:CurrencyCode" required maxLength={3} upper />
+        <CurrencyField id={form.id("terms-currencyCode")} label={t("Orders:CurrencyCode")} value={terms.currencyCode} onChange={(next) => setTerms({ currencyCode: next ?? "" })} required disabled={form.readOnly} />
         <ComboField
           form={termsForm}
           field="vatPercentageId"

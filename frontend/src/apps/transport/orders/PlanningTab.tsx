@@ -17,6 +17,7 @@ import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
+import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
 import type { EditorMode, OrderValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
@@ -307,7 +308,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
                 />
               </FormField>
               <NumberField form={requestForm} field="agreedPurchaseAmount" labelKey="Orders:AgreedPurchaseAmount" />
-              <TextField form={requestForm} field="agreedPurchaseCurrencyCode" labelKey="Orders:CurrencyCode" maxLength={3} upper />
+              <CurrencyField id={form.id("trip-agreedPurchaseCurrencyCode")} label={t("Orders:CurrencyCode")} value={request.agreedPurchaseCurrencyCode} onChange={(next) => set({ agreedPurchaseCurrencyCode: next ?? "" })} disabled={readOnly} />
             </>
           )}
         </div>
