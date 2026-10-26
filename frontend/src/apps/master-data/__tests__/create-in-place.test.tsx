@@ -50,10 +50,17 @@ vi.mock("@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor", asy
   ConsignmentNoteFixedDescriptionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ConsignmentNoteFixedDescription"),
 }));
 vi.mock("@/domains/platform/components/ReportDefinitionEditor", async () => ({ ReportDefinitionEditor: (await import("./create-in-place-test-mocks")).stubEditor("ReportDefinition") }));
+vi.mock("@/domains/master-data/components/VehicleCombinationEditor", async () => ({ VehicleCombinationEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleCombination") }));
+vi.mock("@/domains/master-data/components/ProductRelationCodeEditor", async () => ({ ProductRelationCodeEditor: (await import("./create-in-place-test-mocks")).stubEditor("ProductRelationCode") }));
+vi.mock("@/domains/orders/components/TransportOrderTypeEditor", async () => ({ TransportOrderTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportOrderType") }));
+vi.mock("@/domains/orders/components/TimeSlotEditor", async () => ({ TimeSlotEditor: (await import("./create-in-place-test-mocks")).stubEditor("TimeSlot") }));
+vi.mock("@/domains/orders/components/ConsignmentNoteProfileEditor", async () => ({ ConsignmentNoteProfileEditor: (await import("./create-in-place-test-mocks")).stubEditor("ConsignmentNoteProfile") }));
+vi.mock("@/domains/planning-execution/components/TransportTripTypeEditor", async () => ({ TransportTripTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("TransportTripType") }));
+vi.mock("@/domains/financial/components/AdditionalServiceEditor", async () => ({ AdditionalServiceEditor: (await import("./create-in-place-test-mocks")).stubEditor("AdditionalService") }));
 vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", async () => ({ OrganizationUnitFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("OrganizationUnit") }));
 vi.mock("@/domains/platform/components/UserFormDialog", async () => ({ UserFormDialog: (await import("./create-in-place-test-mocks")).stubDialog("User") }));
 
-import { useCreateInPlace, withId, type CreatableEntity, type CreatedRecord, type CreateInPlaceProps } from "@/domains/master-data/components/create-in-place";
+import { useCreateInPlace, withId, type CreatableEntity, type CreatedRecord, type CreateInPlaceOptions, type CreateInPlaceProps } from "@/domains/master-data/components/create-in-place";
 import {
   countries,
   currencies,
@@ -153,6 +160,50 @@ const CASES: Case[] = [
     cacheKey: ORG_UNITS_KEY,
   },
   { entity: "User", permission: "Platform.Administration.Users.Create", labelKey: "Administration:AddNewUser", record: { id: "new-user", code: "jdoe", name: "Jane Doe" }, cacheKey: null },
+  /* The Transport app's pickers (design 61 follow-ups). */
+  {
+    entity: "VehicleCombination",
+    permission: "MasterData.VehicleCombinations.Create",
+    labelKey: "MasterData:AddNewVehicleCombination",
+    record: { id: "new-combination", code: null, name: "Combi 1" },
+    cacheKey: masterDataQueryKey("vehicleCombinations", "lookup"),
+  },
+  {
+    entity: "ProductRelationCode",
+    permission: "MasterData.ProductRelationCodes.Create",
+    labelKey: "MasterData:AddNewProductRelationCode",
+    record: { id: "new-code", code: "C-1", name: "C-1" },
+    cacheKey: masterDataQueryKey("productRelationCodes", "lookup"),
+  },
+  {
+    entity: "TransportOrderType",
+    permission: "Orders.TransportOrderTypes.Create",
+    labelKey: "Orders:AddNewTransportOrderType",
+    record: { id: "new-order-type", code: "EXP", name: "Express" },
+    cacheKey: masterDataQueryKey("transportOrderTypes", "lookup"),
+  },
+  { entity: "TimeSlot", permission: "Orders.TimeSlots.Create", labelKey: "Orders:AddNewTimeSlot", record: { id: "new-slot", code: "AM", name: "Morning" }, cacheKey: masterDataQueryKey("timeSlots", "lookup") },
+  {
+    entity: "ConsignmentNoteProfile",
+    permission: "Orders.ConsignmentNoteProfiles.Create",
+    labelKey: "Orders:AddNewConsignmentNoteProfile",
+    record: { id: "new-profile", code: null, name: "Container" },
+    cacheKey: masterDataQueryKey("consignmentNoteProfiles", "lookup"),
+  },
+  {
+    entity: "TransportTripType",
+    permission: "PlanningExecution.TransportTripTypes.Create",
+    labelKey: "PlanningExecution:AddNewTransportTripType",
+    record: { id: "new-trip-type", code: "OWN", name: "Own fleet" },
+    cacheKey: masterDataQueryKey("transportTripTypes", "lookup"),
+  },
+  {
+    entity: "AdditionalService",
+    permission: "Financial.AdditionalServices.Create",
+    labelKey: "Financial:AddNewAdditionalService",
+    record: { id: "new-service", code: "WAIT", name: "Waiting time" },
+    cacheKey: masterDataQueryKey("additionalServices", "lookup"),
+  },
 ];
 
 const ALL_PERMISSIONS = CASES.map((c) => c.permission);
@@ -161,10 +212,10 @@ const ALL_PERMISSIONS = CASES.map((c) => c.permission);
 
 const offers: unknown[] = [];
 
-function Harness({ entity, readOnly = false, onCreated }: { entity: CreatableEntity; readOnly?: boolean; onCreated: (r: CreatedRecord) => void }) {
+function Harness({ entity, readOnly = false, onCreated, options }: { entity: CreatableEntity; readOnly?: boolean; onCreated: (r: CreatedRecord) => void; options?: CreateInPlaceOptions }) {
   const { offer, dialog } = useCreateInPlace();
   offers.push(offer);
-  const props: CreateInPlaceProps = offer(entity, readOnly, onCreated);
+  const props: CreateInPlaceProps = offer(entity, readOnly, onCreated, options);
   return (
     <>
       <span data-testid="create-label">{props.createLabel}</span>
@@ -178,14 +229,14 @@ function Harness({ entity, readOnly = false, onCreated }: { entity: CreatableEnt
   );
 }
 
-function setup(entity: CreatableEntity, options: { readOnly?: boolean; seed?: (client: QueryClient) => void } = {}) {
+function setup(entity: CreatableEntity, options: { readOnly?: boolean; seed?: (client: QueryClient) => void; offer?: CreateInPlaceOptions } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   options.seed?.(client);
   const invalidate = vi.spyOn(client, "invalidateQueries");
   const onCreated = vi.fn();
   const wrap = (node: ReactNode) => <QueryClientProvider client={client}>{node}</QueryClientProvider>;
-  const view = render(wrap(<Harness entity={entity} readOnly={options.readOnly} onCreated={onCreated} />));
-  return { client, invalidate, onCreated, rerender: (readOnly = options.readOnly) => view.rerender(wrap(<Harness entity={entity} readOnly={readOnly} onCreated={onCreated} />)) };
+  const view = render(wrap(<Harness entity={entity} readOnly={options.readOnly} onCreated={onCreated} options={options.offer} />));
+  return { client, invalidate, onCreated, rerender: (readOnly = options.readOnly) => view.rerender(wrap(<Harness entity={entity} readOnly={readOnly} onCreated={onCreated} options={options.offer} />)) };
 }
 
 const addNew = () => screen.queryByRole("button", { name: "add-new" });
@@ -298,8 +349,10 @@ describe("useCreateInPlace — offer", () => {
         ...texts(`backend/modules/platform/OpenTms.Platform.Domain.Shared/Localization/Platform/${culture}.json`),
         ...texts(`backend/modules/orders/OpenTms.Orders.Domain.Shared/Localization/Orders/${culture}.json`),
         ...texts(`backend/modules/financial/OpenTms.Financial.Domain.Shared/Localization/Financial/${culture}.json`),
+        ...texts(`backend/modules/planning-execution/OpenTms.PlanningExecution.Domain.Shared/Localization/PlanningExecution/${culture}.json`),
       };
       for (const { labelKey } of CASES) expect(all[labelKey]?.trim(), `${culture}: ${labelKey}`).toBeTruthy();
+      for (const key of ["MasterData:AddNewAddress", "MasterData:AddNewContactPerson"]) expect(all[key]?.trim(), `${culture}: ${key}`).toBeTruthy();
       expect(all["Editions:AddNewEdition"]?.trim(), `${culture}: Editions:AddNewEdition`).toBeTruthy();
     }
   });
@@ -433,5 +486,68 @@ describe("withId", () => {
   it("returns the same array when the id is already there (no state change)", () => {
     const ids = ["a", "b"];
     expect(withId(ids, "b")).toBe(ids);
+  });
+});
+
+/* ── A relation's parts and a new relation's roles (the Transport app's pickers, design 61 follow-ups) ─────────── */
+
+describe("useCreateInPlace — a relation's address or contact person", () => {
+  const PARTS = [
+    { entity: "RelationAddress" as const, labelKey: "MasterData:AddNewAddress", tab: "general", contact: "" },
+    { entity: "RelationContactPerson" as const, labelKey: "MasterData:AddNewContactPerson", tab: "contactPersons", contact: TYPED_TERM },
+  ];
+
+  it.each(PARTS)("$entity: no row without a picked relation, even with the relation's Update permission", ({ entity, labelKey }) => {
+    grants = { "MasterData.Relations.Update": true };
+    setup(entity, { offer: { parentId: null } });
+    expect(addNew()).toBeNull();
+    expect(screen.getByTestId("create-label")).toHaveTextContent(labelKey);
+  });
+
+  it.each(PARTS)("$entity: the row needs the relation's Update permission (not Create) and the Relations node's feature chain", ({ entity }) => {
+    grants = { "MasterData.Relations.Create": true };
+    setup(entity, { offer: { parentId: "rel-1" } });
+    expect(addNew()).toBeNull();
+    cleanup();
+
+    grants = { "MasterData.Relations.Update": true };
+    features = { ...ALL_CREATE_FEATURES, "Apps.MasterData.General.Relations.Relations": "false" };
+    setup(entity, { offer: { parentId: "rel-1" } });
+    expect(addNew()).toBeNull();
+    cleanup();
+
+    features = Object.fromEntries(featureChain("Apps.MasterData.General.Relations.Relations").map((f) => [f, "true"]));
+    setup(entity, { offer: { parentId: "rel-1" } });
+    expect(addNew()).not.toBeNull();
+    cleanup();
+
+    setup(entity, { readOnly: true, offer: { parentId: "rel-1" } });
+    expect(addNew()).toBeNull();
+  });
+
+  it.each(PARTS)("$entity: opens the relation editor in edit mode on the picked relation and hands back the saved relation", async ({ entity, tab, contact }) => {
+    grants = { "MasterData.Relations.Update": true };
+    savedDtos.Relation = { id: "rel-1", code: "ACME", name: "Acme", addresses: [{ id: "adr-new" }], contactPersons: [{ id: "cp-new" }] };
+    const { onCreated } = setup(entity, { offer: { parentId: "rel-1" } });
+    fireEvent.click(addNew()!);
+    expect(stub()).toHaveAttribute("data-stub-editor", "Relation");
+    expect(stub()).toHaveAttribute("data-mode", "edit");
+    expect(stub()).toHaveAttribute("data-record-id", "rel-1");
+    expect(stub()).toHaveAttribute("data-initial-tab", tab);
+    expect(stub()).toHaveAttribute("data-initial-name", "");
+    expect(stub()).toHaveAttribute("data-new-contact-person", contact);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "stub-save-Relation" }));
+    });
+    expect(onCreated).toHaveBeenCalledWith({ id: "rel-1", code: "ACME", name: "Acme", dto: savedDtos.Relation });
+  });
+
+  it("a new relation starts with the roles of the picker that created it", () => {
+    grants = { "MasterData.Relations.Create": true };
+    setup("Relation", { offer: { roles: 1 } });
+    fireEvent.click(addNew()!);
+    expect(stub()).toHaveAttribute("data-mode", "create");
+    expect(stub()).toHaveAttribute("data-initial-roles", "1");
+    expect(stub()).toHaveAttribute("data-initial-name", TYPED_TERM);
   });
 });

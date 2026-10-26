@@ -6,7 +6,15 @@ import { useAppFeatures } from "@/app/app-features";
 import { OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
+import { AdditionalServiceEditor } from "@/domains/financial/components/AdditionalServiceEditor";
+import { rateLineKeys } from "@/domains/financial/rate-lines";
 import { ConsignmentNoteFixedDescriptionEditor } from "@/domains/orders/components/ConsignmentNoteFixedDescriptionEditor";
+import { ConsignmentNoteProfileEditor } from "@/domains/orders/components/ConsignmentNoteProfileEditor";
+import { TimeSlotEditor } from "@/domains/orders/components/TimeSlotEditor";
+import { TransportOrderTypeEditor } from "@/domains/orders/components/TransportOrderTypeEditor";
+import { consignmentNoteKeys } from "@/domains/orders/consignment-notes";
+import { transportOrderKeys } from "@/domains/orders/transport-orders";
+import { TransportTripTypeEditor } from "@/domains/planning-execution/components/TransportTripTypeEditor";
 import { CountryEditor } from "@/domains/master-data/components/CountryEditor";
 import { CurrencyEditor } from "@/domains/master-data/components/CurrencyEditor";
 import { DiscountOrSurchargeEditor } from "@/domains/financial/components/DiscountOrSurchargeEditor";
@@ -14,14 +22,16 @@ import { DriverEditor } from "@/domains/master-data/components/DriverEditor";
 import { GeographicalRegionEditor } from "@/domains/master-data/components/GeographicalRegionEditor";
 import { PriceListEditor } from "@/domains/financial/components/PriceListEditor";
 import { ProductEditor } from "@/domains/master-data/components/ProductEditor";
+import { ProductRelationCodeEditor } from "@/domains/master-data/components/ProductRelationCodeEditor";
 import { RelationCategoryEditor } from "@/domains/master-data/components/RelationCategoryEditor";
-import { RelationEditor } from "@/domains/master-data/components/RelationEditor";
+import { RelationEditor, type RelationEditorProps } from "@/domains/master-data/components/RelationEditor";
 import { ReportDefinitionEditor } from "@/domains/platform/components/ReportDefinitionEditor";
 import { TemperatureEditor } from "@/domains/master-data/components/TemperatureEditor";
 import { TransportCharacteristicsEditor } from "@/domains/master-data/components/TransportCharacteristicsEditor";
 import { TransportUnitEditor } from "@/domains/master-data/components/TransportUnitEditor";
 import { VehicleEditor } from "@/domains/master-data/components/VehicleEditor";
 import { VatPercentageEditor } from "@/domains/financial/components/VatPercentageEditor";
+import { VehicleCombinationEditor } from "@/domains/master-data/components/VehicleCombinationEditor";
 import { VehicleTypeEditor } from "@/domains/master-data/components/VehicleTypeEditor";
 import { WaypointTypeEditor } from "@/domains/orders/components/WaypointTypeEditor";
 import { resolveLocalizedName } from "@/domains/master-data/localized-name";
@@ -48,6 +58,13 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  *   <ReferenceCombobox … {...inPlace.offer("Currency", form.readOnly, (r) => form.set("currencyId", r.id))} />
  *   …
  *   {inPlace.dialog}
+ *
+ * A record that belongs to another one (a relation's address or contact person: the relation aggregate has no
+ * endpoint of its own for them) is created in that record's editor: `offer("RelationAddress", readOnly, onCreated,
+ * { parentId })` opens the relation editor on the picked relation (the contact person's dialog already open with the
+ * typed name) and hands back the saved relation, whose new address or contact person the picker selects. Without a
+ * parent there is no row. `roles` gives a new relation the roles of the picker that created it (a customer picker
+ * creates a customer, so the role-narrowed lookup finds it again).
  *
  * It lives in the Master Data domain folder, beside the editors it opens, because two apps use it (the Master data
  * app's editors and the Transport app's forms, design 61) and an app never imports another app (CLAUDE.md, frontend
@@ -85,16 +102,26 @@ interface Saved {
   surname?: string | null;
 }
 
+/** What a picker passes besides the term (see the header). */
+export interface CreateInPlaceOptions {
+  /** The record the new one belongs to; required by the entities that set `parent`. */
+  parentId?: string | null;
+  /** A new relation's roles (a [Flags] value). */
+  roles?: number;
+}
+
 interface EntityEntry {
-  /** The Create permission; without it the picker has no "Add new …" row. */
+  /** The Create permission (Update of the parent for a child record); without it the picker has no "Add new …" row. */
   permission: string;
+  /** A child of another record: the row needs `options.parentId`, and the parent's editor opens on it. */
+  parent?: true;
   /** The feature of the entity's navigation node (apps.config.ts); it and every ancestor must be on. */
   feature: string;
   labelKey: string;
   /** Renders the editor in create mode. The editor component is looked up only when this renders (the getters
    *  in ENTITIES), never at module load: the editors import this hook, so a binding read during the import cycle
    *  could still be uninitialised (a `const X = memo(…)` editor would throw). */
-  render: (props: EntityEditorProps) => ReactNode;
+  render: (props: EntityEditorProps, options: CreateInPlaceOptions) => ReactNode;
   /** The code and name the entity's lookup shows. */
   toRecord: (dto: Saved, culture: string) => { code: string | null; name: string };
   /** Puts the record into the cached option list(s) the pickers read. */
@@ -107,6 +134,12 @@ type EditorComponent = (props: EntityEditorProps) => ReactNode;
 const masterDataEditor = (getEditor: () => EditorComponent) => (props: EntityEditorProps) => {
   const Editor = getEditor();
   return <Editor {...props} />;
+};
+
+/** The relation editor with the extras a picker may pass (a new relation's roles; a child record's tab). */
+const relationEditor = (extra: (props: EntityEditorProps, options: CreateInPlaceOptions) => Partial<RelationEditorProps>) => (props: EntityEditorProps, options: CreateInPlaceOptions) => {
+  const Editor = RelationEditor;
+  return <Editor {...props} {...extra(props, options)} />;
 };
 
 /** Adds the record to the entity's cached lookup (masterDataQueryKey(entity, "lookup")) when it is loaded. */
@@ -123,7 +156,7 @@ const localized = (code: (dto: Saved) => string | null | undefined) => (dto: Sav
   name: resolveLocalizedName(dto.names, culture) || dto.name || "",
 });
 
-/* The entities a form picks. AddressType, ProductRelationCode and VehicleCombination are no picker's target. */
+/* The entities a form picks. AddressType is no picker's target. */
 const ENTITIES = {
   Country: {
     permission: "MasterData.Countries.Create",
@@ -169,9 +202,29 @@ const ENTITIES = {
     permission: "MasterData.Relations.Create",
     feature: "Apps.MasterData.General.Relations.Relations",
     labelKey: "MasterData:AddNewRelation",
-    render: masterDataEditor(() => RelationEditor),
+    render: relationEditor((_props, options) => ({ initialRoles: options.roles })),
     toRecord: named,
     insert: intoLookup("relations"),
+  },
+  /* A relation's address and contact person (design 43: parts of the relation aggregate, saved with it). The relation
+   * editor opens in edit mode on the picked relation; the relation's queries are refetched by its save. */
+  RelationAddress: {
+    permission: "MasterData.Relations.Update",
+    parent: true,
+    feature: "Apps.MasterData.General.Relations.Relations",
+    labelKey: "MasterData:AddNewAddress",
+    render: relationEditor((_props, options) => ({ mode: "edit", id: options.parentId ?? undefined, initialName: undefined, initialTab: "general" })),
+    toRecord: named,
+    insert: () => undefined,
+  },
+  RelationContactPerson: {
+    permission: "MasterData.Relations.Update",
+    parent: true,
+    feature: "Apps.MasterData.General.Relations.Relations",
+    labelKey: "MasterData:AddNewContactPerson",
+    render: relationEditor((props, options) => ({ mode: "edit", id: options.parentId ?? undefined, initialName: undefined, initialTab: "contactPersons", newContactPersonName: props.initialName ?? "" })),
+    toRecord: named,
+    insert: () => undefined,
   },
   RelationCategory: {
     permission: "MasterData.RelationCategories.Create",
@@ -221,6 +274,24 @@ const ENTITIES = {
     toRecord: named,
     insert: intoLookup("vehicleTypes"),
   },
+  /* The Transport run (design 61): the pickers of the order and trip editors. */
+  VehicleCombination: {
+    permission: "MasterData.VehicleCombinations.Create",
+    feature: "Apps.MasterData.General.Fleet.VehicleCombinations",
+    labelKey: "MasterData:AddNewVehicleCombination",
+    render: masterDataEditor(() => VehicleCombinationEditor),
+    toRecord: named,
+    insert: intoLookup("vehicleCombinations"),
+  },
+  /* A product relation code is its code (it has no name). */
+  ProductRelationCode: {
+    permission: "MasterData.ProductRelationCodes.Create",
+    feature: "Apps.MasterData.General.Transport.ProductRelationCodes",
+    labelKey: "MasterData:AddNewProductRelationCode",
+    render: masterDataEditor(() => ProductRelationCodeEditor),
+    toRecord: (d) => ({ code: d.code ?? null, name: d.code ?? "" }),
+    insert: intoLookup("productRelationCodes"),
+  },
   /* Orders (design 51): the next type of a waypoint type and the default stops of a transport order type. */
   WaypointType: {
     permission: "Orders.WaypointTypes.Create",
@@ -229,6 +300,48 @@ const ENTITIES = {
     render: masterDataEditor(() => WaypointTypeEditor),
     toRecord: localized((d) => d.code),
     insert: intoLookup("waypointTypes"),
+  },
+  /* Orders (design 61): an order's type, a stop's time slot, the profile a CMR prints with. */
+  TransportOrderType: {
+    permission: "Orders.TransportOrderTypes.Create",
+    feature: "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes",
+    labelKey: "Orders:AddNewTransportOrderType",
+    render: masterDataEditor(() => TransportOrderTypeEditor),
+    toRecord: localized((d) => d.code),
+    /* The New order / New template dialogs read the types' rows (with the default flag), not the lookup. */
+    insert: (queryClient, record) => {
+      intoLookup("transportOrderTypes")(queryClient, record);
+      void queryClient.invalidateQueries({ queryKey: transportOrderKeys.orderTypes() });
+    },
+  },
+  TimeSlot: {
+    permission: "Orders.TimeSlots.Create",
+    feature: "Apps.MasterData.Orders.TransportOrders.TimeSlots",
+    labelKey: "Orders:AddNewTimeSlot",
+    render: masterDataEditor(() => TimeSlotEditor),
+    toRecord: localized((d) => d.code),
+    insert: intoLookup("timeSlots"),
+  },
+  ConsignmentNoteProfile: {
+    permission: "Orders.ConsignmentNoteProfiles.Create",
+    feature: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles",
+    labelKey: "Orders:AddNewConsignmentNoteProfile",
+    render: masterDataEditor(() => ConsignmentNoteProfileEditor),
+    toRecord: named,
+    /* The Print wizard reads the profiles' rows (with the default flag), not the lookup. */
+    insert: (queryClient, record) => {
+      intoLookup("consignmentNoteProfiles")(queryClient, record);
+      void queryClient.invalidateQueries({ queryKey: consignmentNoteKeys.profiles() });
+    },
+  },
+  /* Planning & Execution (design 53): the trip type of an order's "Tevens trip". */
+  TransportTripType: {
+    permission: "PlanningExecution.TransportTripTypes.Create",
+    feature: "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes",
+    labelKey: "PlanningExecution:AddNewTransportTripType",
+    render: masterDataEditor(() => TransportTripTypeEditor),
+    toRecord: localized((d) => d.code),
+    insert: intoLookup("transportTripTypes"),
   },
   /* Financial (design 52): the VAT category of an additional service or a discount or surcharge. */
   VatPercentage: {
@@ -240,14 +353,24 @@ const ENTITIES = {
     insert: intoLookup("vatPercentages"),
   },
   /* Financial (design 57): a relation's price lists and default discounts or surcharges. The price-list lookups are
-   * per side ("lookup", side): the save's invalidation of the entity refetches them, so nothing is inserted here. */
+   * per side ("lookup", side): the save's invalidation of the entity refetches the Master data editors' ones; the
+   * order's terms read Financial's lookup per side (rate-lines.ts), refetched here. */
   PriceList: {
     permission: "Financial.PriceLists.Create",
     feature: "Apps.MasterData.Financial.Pricing.PriceLists",
     labelKey: "Financial:AddNewPriceList",
     render: masterDataEditor(() => PriceListEditor),
     toRecord: named,
-    insert: () => undefined,
+    insert: (queryClient) => void queryClient.invalidateQueries({ queryKey: rateLineKeys.priceListLookup(undefined).slice(0, 3) }),
+  },
+  /* Financial (design 61): the service of an order's "Add additional service" line. */
+  AdditionalService: {
+    permission: "Financial.AdditionalServices.Create",
+    feature: "Apps.MasterData.Financial.Pricing.AdditionalServices",
+    labelKey: "Financial:AddNewAdditionalService",
+    render: masterDataEditor(() => AdditionalServiceEditor),
+    toRecord: localized((d) => d.code),
+    insert: intoLookup("additionalServices"),
   },
   DiscountOrSurcharge: {
     permission: "Financial.DiscountsOrSurcharges.Create",
@@ -313,16 +436,18 @@ interface Pending {
   seq: number;
   entity: CreatableEntity;
   term: string;
+  options: CreateInPlaceOptions;
   onCreated: (record: CreatedRecord<never>) => void;
 }
 
 /** The one "may this picker offer Add new …" gate: not read-only, the entity's Create permission, and its node's
  *  whole feature chain on (UI-PERM-006). For pickers that keep their own create dialog; `offer` uses it too. */
-export function useCanCreateInPlace(): (entity: CreatableEntity, readOnly: boolean) => boolean {
+export function useCanCreateInPlace(): (entity: CreatableEntity, readOnly: boolean, options?: CreateInPlaceOptions) => boolean {
   const isGranted = useIsGrantedChecker();
   const features = useAppFeatures();
-  return (entity, readOnly) => {
+  return (entity, readOnly, options) => {
     const entry: EntityEntry = ENTITIES[entity];
+    if (entry.parent && !options?.parentId) return false;
     return !readOnly && isGranted(entry.permission) && features.isFeatureEnabled(entry.feature);
   };
 }
@@ -339,12 +464,12 @@ export function useCreateInPlace() {
   latest.current = { canCreate, t };
 
   const offer = useCallback(
-    <TDto = unknown,>(entity: CreatableEntity, readOnly: boolean, onCreated: (record: CreatedRecord<TDto>) => void): CreateInPlaceProps => {
+    <TDto = unknown,>(entity: CreatableEntity, readOnly: boolean, onCreated: (record: CreatedRecord<TDto>) => void, options: CreateInPlaceOptions = {}): CreateInPlaceProps => {
       const entry: EntityEntry = ENTITIES[entity];
       return {
         createLabel: latest.current.t(entry.labelKey),
-        onCreateNew: latest.current.canCreate(entity, readOnly)
-          ? (term: string) => setPending({ seq: ++seq.current, entity, term, onCreated: onCreated as (record: CreatedRecord<never>) => void })
+        onCreateNew: latest.current.canCreate(entity, readOnly, options)
+          ? (term: string) => setPending({ seq: ++seq.current, entity, term, options, onCreated: onCreated as (record: CreatedRecord<never>) => void })
           : undefined,
       };
     },
@@ -370,7 +495,7 @@ export function useCreateInPlace() {
             void queryClient.invalidateQueries({ queryKey: ["entity-lookup"] });
             pending.onCreated(record as CreatedRecord<never>);
           },
-        })}
+        }, pending.options)}
       </Fragment>
     );
   }

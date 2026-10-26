@@ -38,6 +38,16 @@ export const CREATE_NODE_FEATURES = {
   ReportDefinition: "Apps.MasterData.Platform.ReportDefinitions",
   OrganizationUnit: "Apps.Administration.OrganizationUnits",
   User: "Apps.Administration.Users",
+  /* The Transport app's pickers (design 61 follow-ups): every record picker there offers Add new too. */
+  RelationAddress: "Apps.MasterData.General.Relations.Relations",
+  RelationContactPerson: "Apps.MasterData.General.Relations.Relations",
+  VehicleCombination: "Apps.MasterData.General.Fleet.VehicleCombinations",
+  ProductRelationCode: "Apps.MasterData.General.Transport.ProductRelationCodes",
+  TransportOrderType: "Apps.MasterData.Orders.TransportOrders.TransportOrderTypes",
+  TimeSlot: "Apps.MasterData.Orders.TransportOrders.TimeSlots",
+  ConsignmentNoteProfile: "Apps.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles",
+  TransportTripType: "Apps.MasterData.PlanningExecution.Trips.TransportTripTypes",
+  AdditionalService: "Apps.MasterData.Financial.Pricing.AdditionalServices",
 } as const;
 
 /** The feature values with each given node and all its ancestors on. */
@@ -189,13 +199,39 @@ export function resetSavedDtos() {
     OrganizationUnit: { id: "new-ou", code: "00009", displayName: "Depot Venlo", parentId: null },
     User: { id: "new-user", userName: "jdoe", name: "Jane", surname: "Doe", email: "jane@example.test" },
     Edition: { id: "new-edition", displayName: "Platinum" },
+    VehicleCombination: { id: "new-combination", name: "Combi 1" },
+    ProductRelationCode: { id: "new-code", code: "C-1" },
+    TransportOrderType: { id: "new-order-type", code: "EXP", names: { en: "Express", nl: "Spoed" } },
+    TimeSlot: { id: "new-slot", code: "AM", names: { en: "Morning", nl: "Ochtend" } },
+    ConsignmentNoteProfile: { id: "new-profile", code: null, name: "Container" },
+    TransportTripType: { id: "new-trip-type", code: "OWN", names: { en: "Own fleet", nl: "Eigen vloot" } },
+    AdditionalService: { id: "new-service", code: "WAIT", names: { en: "Waiting time", nl: "Wachttijd" } },
   });
 }
 resetSavedDtos();
 
-function StubShell({ name, initialName, mode, onSave, onClose, children }: { name: string; initialName?: string; mode: string; onSave: () => void; onClose: () => void; children?: ReactNode }) {
+interface StubShellProps {
+  name: string;
+  initialName?: string;
+  mode: string;
+  onSave: () => void;
+  onClose: () => void;
+  children?: ReactNode;
+  /** The relation editor's extras (the record and tab a child record opens on, a new relation's roles). */
+  extra?: { id?: string; initialTab?: string; initialRoles?: number; newContactPersonName?: string };
+}
+
+function StubShell({ name, initialName, mode, onSave, onClose, children, extra }: StubShellProps) {
   return (
-    <div data-stub-editor={name} data-mode={mode} data-initial-name={initialName ?? ""}>
+    <div
+      data-stub-editor={name}
+      data-mode={mode}
+      data-initial-name={initialName ?? ""}
+      data-record-id={extra?.id ?? ""}
+      data-initial-tab={extra?.initialTab ?? ""}
+      data-initial-roles={extra?.initialRoles ?? ""}
+      data-new-contact-person={extra?.newContactPersonName ?? ""}
+    >
       <button type="button" onClick={onSave}>
         {`stub-save-${name}`}
       </button>
@@ -209,12 +245,13 @@ function StubShell({ name, initialName, mode, onSave, onClose, children }: { nam
 
 /** A master-data editor stub: on save it reports the DTO through onSaved and closes, as MasterDataEditor does. */
 export function stubEditor(name: string) {
-  return function StubEditor({ mode, initialName, onSaved, onClose }: EntityEditorProps) {
+  return function StubEditor({ mode, initialName, onSaved, onClose, ...extra }: EntityEditorProps & StubShellProps["extra"]) {
     return (
       <StubShell
         name={name}
         mode={mode}
         initialName={initialName}
+        extra={extra}
         onClose={onClose}
         onSave={() => {
           onSaved(savedDtos[name]);

@@ -64,6 +64,7 @@ import { timeZoneOptions } from "@/domains/master-data/components/time-zones";
 import {
   ContactPersonDialog,
   contactFullName,
+  newContactRow,
   type ContactRow,
 } from "@/domains/master-data/components/ContactPersonDialog";
 import {
@@ -200,6 +201,7 @@ const toAddressRow = (
 const initialValuesFor =
   (
     initialName: string | undefined,
+    initialRoles: number | undefined,
     defaultCountry: { id: string; timeZoneId: string | null } | null,
     defaultCurrencyId: string | null,
   ) =>
@@ -210,7 +212,7 @@ const initialValuesFor =
       code: dto?.code ?? "",
       name: dto?.name ?? initialName ?? "",
       fullName: dto?.fullName ?? "",
-      roles: rolesToList(dto?.roles),
+      roles: rolesToList(dto ? dto.roles : initialRoles),
       isArchived: dto?.isArchived ?? false,
       isBlocked: dto?.isBlocked ?? false,
       blockReason: dto?.blockReason ?? 0,
@@ -338,6 +340,22 @@ const ADMINISTRATION_FIELDS: (keyof Values & string)[] = [
   "transportCharacteristics",
 ];
 
+export interface RelationEditorProps extends EntityEditorProps {
+  /** Create mode: the roles a new relation starts with (a [Flags] value; a customer picker's "Add new …"). */
+  initialRoles?: number;
+  /** The tab the editor opens on. */
+  initialTab?: string;
+  /** Edit mode: opens the contact person dialog for a new contact person with this name once the relation has loaded
+   *  (a contact-person picker's "Add new …", UI-LOOK-004); the relation's Save stores it. */
+  newContactPersonName?: string;
+}
+
+/** A typed name as a new contact person: the first word the first name, the rest the last name (one word: the last name). */
+export function contactFromTerm(term: string): Pick<ContactRow, "firstName" | "lastName"> {
+  const words = term.trim().split(/\s+/).filter(Boolean);
+  return words.length > 1 ? { firstName: words[0], lastName: words.slice(1).join(" ") } : { firstName: "", lastName: words[0] ?? "" };
+}
+
 export function RelationEditor({
   mode,
   id,
@@ -346,7 +364,10 @@ export function RelationEditor({
   onClose,
   onSaved,
   initialName,
-}: EntityEditorProps) {
+  initialRoles,
+  initialTab,
+  newContactPersonName,
+}: RelationEditorProps) {
   const { t } = useL();
   const queryClient = useQueryClient();
   const detail = relations.useDetail(mode === "edit" ? id : undefined);
@@ -359,12 +380,13 @@ export function RelationEditor({
     () =>
       initialValuesFor(
         initialName,
+        initialRoles,
         defaultCountryId
           ? { id: defaultCountryId, timeZoneId: defaultCountryZone }
           : null,
         defaultCurrencyId,
       ),
-    [initialName, defaultCountryId, defaultCountryZone, defaultCurrencyId],
+    [initialName, initialRoles, defaultCountryId, defaultCountryZone, defaultCurrencyId],
   );
   /* A new relation waits for the default country (cached after the first open) so its initial values hold it. */
   const ready =
@@ -513,6 +535,15 @@ export function RelationEditor({
   const [contactDialog, setContactDialog] = useState<{
     row: ContactRow | null;
   } | null>(null);
+  /* A contact-person picker's "Add new …": the dialog opens once the relation has loaded (its load resets the form). */
+  const pendingContact = useRef(newContactPersonName);
+  useEffect(() => {
+    if (pendingContact.current != null && detail.data) {
+      const term = pendingContact.current;
+      pendingContact.current = undefined;
+      setContactDialog({ row: { ...newContactRow(), ...contactFromTerm(term) } });
+    }
+  }, [detail.data]);
   const [activeTypeId, setActiveTypeId] = useState<string | null>(null);
 
   /* An address' time zone follows the country while it is empty or still a zone a previous country
@@ -1596,6 +1627,7 @@ export function RelationEditor({
         }
         badges={badges}
         applyValues={applyValues}
+        initialTab={initialTab}
       />
       {newCharacteristic && (
         <TransportCharacteristicsEditor

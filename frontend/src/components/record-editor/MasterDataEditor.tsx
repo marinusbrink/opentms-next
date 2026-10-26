@@ -75,6 +75,8 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   applyValues?: { key: number; update: (values: TValues) => TValues };
   /** EntityDialog's fixed full height, for a tab that keeps part of itself fixed and scrolls a region (UI-DLG-006). */
   panelScroll?: boolean;
+  /** The tab the dialog opens on (a picker's "Add new …" of a record's part, e.g. a relation's contact person). */
+  initialTab?: string;
 }
 
 export { normaliseValues };
@@ -108,6 +110,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   badges,
   applyValues,
   panelScroll,
+  initialTab,
 }: MasterDataEditorProps<TValues, TDto>) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -121,7 +124,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(tabs[0]?.value ?? "general");
+  const [activeTab, setActiveTab] = useState(() => (initialTab && tabs.some((tab) => tab.value === initialTab) ? initialTab : (tabs[0]?.value ?? "general")));
 
   /* The record arrives after the dialog opened: reset the form once, when it loads. */
   const loadedKey = detail.data?.id ?? "new";

@@ -162,6 +162,7 @@
     "Financial:PriceListSaved": "Price list saved",
     "Financial:PriceListDeleted": "Price list deleted",
     "Financial:AddNewPriceList": "Add new price list…",
+    "Financial:AddNewAdditionalService": "Add new additional service…",
     "Financial:RelationFinancialSetting": "Relation financial settings",
     "Financial:RelationFinancialSettingsSaved": "Relation financial settings saved",
     "Financial:RateLine": "Rate line",

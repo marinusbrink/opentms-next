@@ -32,6 +32,7 @@
     "Orders:WaypointTypeSaved": "Waypointtype opgeslagen",
     "Orders:WaypointTypeDeleted": "Waypointtype verwijderd",
     "Orders:AddNewWaypointType": "Nieuw waypointtype toevoegen…",
+    "Orders:AddNewTimeSlot": "Nieuw tijdvak toevoegen…",
     "Orders:TimeSlot": "Tijdvak",
     "Orders:NewTimeSlot": "Nieuw tijdvak",
     "Orders:DeleteTimeSlot": "Tijdvak verwijderen",

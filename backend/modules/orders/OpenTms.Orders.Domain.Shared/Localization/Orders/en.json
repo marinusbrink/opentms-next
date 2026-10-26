@@ -32,6 +32,7 @@
     "Orders:WaypointTypeSaved": "Waypoint type saved",
     "Orders:WaypointTypeDeleted": "Waypoint type deleted",
     "Orders:AddNewWaypointType": "Add new waypoint type…",
+    "Orders:AddNewTimeSlot": "Add new time slot…",
     "Orders:TimeSlot": "Time slot",
     "Orders:NewTimeSlot": "New time slot",
     "Orders:DeleteTimeSlot": "Delete time slot",
