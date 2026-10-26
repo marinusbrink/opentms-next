@@ -699,6 +699,12 @@ export function changedSections(values: OrderValues, initial: OrderValues): Chan
   };
 }
 
+/** True when two versions of an order differ in what a user edits (any section), not only in derived values (the
+ * summary a recalculation writes changes the concurrency stamp but none of these). */
+export function contentDiffers(a: OrderValues, b: OrderValues): boolean {
+  return Object.values(changedSections(a, b)).some(Boolean);
+}
+
 export type SectionKey = keyof ChangedSections;
 
 /** The order in which a save runs the section commands. */

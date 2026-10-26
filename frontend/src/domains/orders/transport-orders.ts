@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { GridExportChoice } from "@/components/ui/grid-export-dialog";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
+import { withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { fallbackFileName, fileDateStamp, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import { useRecordUpdates } from "@/lib/realtime/use-record-updates";
@@ -206,16 +207,18 @@ export async function exportTransportOrders(request: GridRequest, filters: Trans
 
 /* ── Record ──────────────────────────────────────────────────────────────────────────────────────────────────── */
 
+/** Reads one order; the error carries its status (the page tells "not found" from it, recordLoadState). */
+export async function fetchTransportOrder(id: string): Promise<TransportOrderDto> {
+  const { data, error, response } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id } } });
+  if (error) throw withStatus(error, response);
+  return data!;
+}
+
 export function useTransportOrder(id: string | undefined) {
   return useQuery({
     queryKey: transportOrderKeys.detail(id),
     enabled: id != null,
-    queryFn: async (): Promise<TransportOrderDto> => {
-      const { data, error, response } = await apiClient.GET("/api/orders/transport-order/{id}", { params: { path: { id: id! } } });
-      /* The ABP error body carries no status; the page tells "not found" from it (recordLoadState). */
-      if (error) throw { ...(error as object), status: response.status };
-      return data!;
-    },
+    queryFn: () => fetchTransportOrder(id!),
   });
 }
 
@@ -279,8 +282,9 @@ function useOrderMutation<TArgs>(run: (args: TArgs) => Promise<TransportOrderDto
   });
 }
 
-const unwrap = <T,>(result: { data?: T; error?: unknown }): T => {
-  if (result.error) throw result.error;
+/* The error keeps its HTTP status: the order editor tells a concurrency refusal (409 without a code) from the rest. */
+const unwrap = <T,>(result: { data?: T; error?: unknown; response?: Response }): T => {
+  if (result.error) throw withStatus(result.error, result.response);
   return result.data as T;
 };
 

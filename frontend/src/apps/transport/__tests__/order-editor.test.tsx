@@ -351,23 +351,152 @@ describe("OrderPage – one call for header and terms, and a save that stops par
     expect(await screen.findByRole("alertdialog")).toHaveTextContent("UnsavedChanges");
   });
 
-  it("a refused first call (a stale stamp) saves nothing, shows no section report and retries with the stamp read again", async () => {
+  it("a concurrency refusal while only the stamp changed (a recalculation, no one's content) runs the step again once with the newest stamp", async () => {
+    vi.mocked(toast.success).mockClear();
     let attempts = 0;
-    routes.PUT["/api/orders/transport-order/{id}"] = () => (++attempts === 1 ? fail("The order was changed by another user.", 409) : order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-10" }));
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (++attempts === 1 ? fail("The data you have submitted has already changed by another user.", 409) : order(2, { customerReference: "REF-2", concurrencyStamp: "stamp-10" }));
     renderPage();
     await screen.findByText("Orders:TransportOrder TO-2026-00001");
     changeReference("REF-2");
-    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-9" });
-    await click(ribbonButton("Save")!);
-    expect(await screen.findByText("The order was changed by another user.")).toBeInTheDocument();
-    expect(document.querySelector("[data-slot=save-report]")).toBeNull();
-    /* The page keeps the input while the record is read again. */
-    await waitFor(() => expect(calls(GET, "/api/orders/transport-order/{id}").length).toBeGreaterThan(1));
-    expect((within(panel("General")).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement).value).toBe("REF-2");
-
+    /* The newest version: the same content, another stamp (the summary the recalculation wrote). */
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-9", summary: { revenueAmount: 300 } });
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(2));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")[0][1]!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-1" }));
     expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-9", customerReference: "REF-2" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("OrderPage – changed by someone else (concurrency conflict, no overwrite)", () => {
+  const typeIn = (scope: HTMLElement, label: RegExp, value: string) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
+  const referenceField = () => within(panel("General")).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement;
+  const theirs = () => order(2, { customerReference: "THEIRS", concurrencyStamp: "stamp-other" });
+
+  it("a 409 after someone else changed the order: the prompt, no retry with their stamp; Keep editing keeps the input and blocks Save", async () => {
+    vi.mocked(toast.success).mockClear();
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("The data you have submitted has already changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+
+    const prompt = await screen.findByRole("alertdialog");
+    expect(prompt).toHaveTextContent("Orders:TransportOrderChanged");
+    expect(prompt).toHaveTextContent("Orders:OrderChangedByOther");
+    /* Destructive (it discards the input): the focus starts on Keep editing. */
+    await waitFor(() => expect(document.activeElement).toHaveTextContent("Orders:KeepEditing"));
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+    expect(toast.success).not.toHaveBeenCalledWith("Orders:TransportOrderSaved");
+
+    await click(within(prompt).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(referenceField().value).toBe("MINE");
+    expect(document.querySelector("[data-slot=order-conflict]")).toHaveTextContent("Orders:OrderChangedByOtherBanner");
+    expect(ribbonButton("Save")).toHaveAttribute("aria-disabled", "true");
+    /* Save stays impossible: even a command that saves first (Ctrl+S, Confirm, Print) sends nothing. */
+    await click(ribbonButton("Save")!);
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1);
+  });
+
+  it("Reload discards the unsaved changes and loads theirs; saving works again with their stamp", async () => {
+    vi.mocked(toast.success).mockClear();
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("Changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+    const prompt = await screen.findByRole("alertdialog");
+    await click(within(prompt).getByRole("button", { name: "Orders:Reload" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(referenceField().value).toBe("THEIRS"));
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(ribbonButton("Save")).not.toHaveAttribute("aria-disabled");
+    expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderReloaded");
+
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { customerReference: "AGAIN", concurrencyStamp: "stamp-next" });
+    typeIn(panel("General"), /^Orders:CustomerReference/, "AGAIN");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(2));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ concurrencyStamp: "stamp-other", customerReference: "AGAIN" }));
+  });
+
+  it("the banner's Reload asks again before it discards", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => fail("Changed by another user.", 409);
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await click(ribbonButton("Save")!);
+    await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    const banner = document.querySelector("[data-slot=order-conflict]") as HTMLElement;
+    await click(within(banner).getByRole("button", { name: /Orders:Reload/ }));
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Orders:OrderChangedByOther");
+    expect(referenceField().value).toBe("MINE");
+  });
+
+  it("a newer version with other content that arrived while editing is not saved over: the prompt, without any call", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <OrderPage id="o1" />
+      </QueryClientProvider>,
+    );
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    /* A push (another user's save) refreshes the record while the form is dirty. */
+    routes.GET["/api/orders/transport-order/{id}"] = theirs;
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["orders", "transportOrders", "detail", "o1"] });
+      /* The query's observers are notified on the next tick. */
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(referenceField().value).toBe("MINE");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByRole("alertdialog")).toHaveTextContent("Orders:OrderChangedByOther");
+    expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(0);
+  });
+
+  it("a 409 after part of the save went through keeps the saved section and names the rest in the banner", async () => {
+    let server = order(2);
+    routes.GET["/api/orders/transport-order/{id}"] = () => server;
+    routes.PUT["/api/orders/transport-order/{id}"] = () => (server = order(2, { customerReference: "MINE", concurrencyStamp: "stamp-2" }));
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => {
+      /* Someone else changed the lines in between. */
+      server = order(2, { customerReference: "MINE", concurrencyStamp: "stamp-3", lines: [{ ...order(2).lines[0], quantity: 9 }] });
+      return fail("Changed by another user.", 409);
+    };
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    tab("Orders:Lines");
+    await waitFor(() => expect(within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity").length).toBeGreaterThan(0));
+    fireEvent.change(within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0], { target: { value: "3" } });
+    await click(ribbonButton("Save")!);
+    await click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Orders:KeepEditing" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1);
+    const report = panel("Orders:Lines").querySelector("[data-slot=order-conflict] [data-slot=save-report]") as HTMLElement;
+    expect(report).toHaveTextContent("Orders:SectionsSaved Orders:OrderDetails");
+    expect(report).toHaveTextContent("Orders:SectionsNotSaved Orders:Lines");
+    expect((within(panel("Orders:Lines")).getAllByLabelText("Orders:Quantity")[0] as HTMLInputElement).value).toBe("3");
+  });
+
+  it("a business-rule 409 (with its error code) is no conflict: the error shows and the partial-save behaviour stays", async () => {
+    routes.PUT["/api/orders/transport-order/{id}"] = () => ({ data: undefined, error: { error: { code: "OpenTms.Orders:InvalidTransition", message: "The order cannot be changed in this status." } }, response: new Response(null, { status: 409 }) });
+    renderPage();
+    await screen.findByText("Orders:TransportOrder TO-2026-00001");
+    typeIn(panel("General"), /^Orders:CustomerReference/, "MINE");
+    await click(ribbonButton("Save")!);
+    expect(await screen.findByText("The order cannot be changed in this status.")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(document.querySelector("[data-slot=order-conflict]")).toBeNull();
+    expect(ribbonButton("Save")).not.toHaveAttribute("aria-disabled");
   });
 });
 

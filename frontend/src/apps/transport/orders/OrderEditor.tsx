@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Archive, CheckCheck, CirclePlay, CircleX, LayoutTemplate, Printer, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Archive, CheckCheck, CirclePlay, CircleX, LayoutTemplate, Printer, RefreshCw, RotateCcw, Save, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { EntityDialogTab, RibbonCommand } from "@/components/ui/entity-dialog";
 import { RecordPage } from "@/components/ui/record-page";
@@ -15,6 +16,7 @@ import { GeneralTab } from "@/apps/transport/orders/GeneralTab";
 import { LinesTab } from "@/apps/transport/orders/LinesTab";
 import {
   changedSections,
+  contentDiffers,
   customerChanged,
   defaultStopInputOf,
   lineInputOf,
@@ -43,6 +45,7 @@ import { useOrderRateLineUpdates, useOrderRateLines } from "@/domains/financial/
 import { transportOrderTypes } from "@/domains/orders/reference-data";
 import { useCreateTemplateFromOrder, useDeleteTemplate, useUpdateTemplate, type TemplateDto } from "@/domains/orders/templates";
 import {
+  fetchTransportOrder,
   orderStatusName,
   transportOrderKeys,
   useArchiveTransportOrder,
@@ -59,7 +62,7 @@ import {
   useUpdateTransportOrderTripRequest,
   type TransportOrderDto,
 } from "@/domains/orders/transport-orders";
-import { getApiErrorMessage } from "@/lib/api/errors";
+import { getApiErrorMessage, isConcurrencyConflict } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { parseInteger, useFormState } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -74,7 +77,15 @@ import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
  * a failure cannot save half of it). The API has no transaction over the section commands: a save stops at the first
  * failure, the sections saved so far take the server's values, the rest stay dirty, the page names both (UI-FB-004),
  * and the record is read again so a retry runs with its current concurrency stamp. Document commands save first
- * (UI-ACT-008). */
+ * (UI-ACT-008).
+ *
+ * Concurrency: the user's edits are based on the server content they started from (`editBase`). When someone else
+ * changed that content (a 409 concurrency refusal, or a newer version a push brought in while the form was dirty),
+ * the save never adopts the newer stamp for the dirty sections, which would overwrite the other user's change: the
+ * page says the order was changed by someone else and offers Reload (discard the unsaved changes, load theirs) or Keep
+ * editing (nothing can be saved until a reload), like the Master data editors. A 409 while only derived values changed
+ * (the recalculation of the previous save wrote the summary and so the stamp) is no one's change: the step runs again
+ * once with the newest stamp. */
 
 /** The tab that shows a field's error (UI-FORM-006: submit switches to the first tab with an error). */
 const TAB_OF_FIELD: Record<string, string> = { lines: "lines", terms: "pricing", tripRequest: "planning", defaultStops: "general", schedule: "general", references: "general" };
@@ -108,6 +119,8 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
     setSaveReport(null);
   };
   const [dialog, setDialog] = useState<"approve" | "revise" | "print" | "cancel" | "delete" | "materialise" | null>(null);
+  /** Someone else changed the order while it was being edited: the prompt (Reload / Keep editing), then the banner. */
+  const [conflict, setConflict] = useState<"prompt" | "banner" | null>(null);
 
   const status = order?.status ?? DRAFT;
   const editableStatus = mode === "template" || status === DRAFT || status === OPEN;
@@ -120,11 +133,16 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   /* The record arrives or changes (a save, a push): the form follows unless the user is editing. */
   const loadedKey = `${order?.id ?? template?.id ?? "new"}|${order?.concurrencyStamp ?? template?.concurrencyStamp ?? ""}`;
   const lastLoadedKey = useRef<string | null>(null);
+  /** The server content the unsaved edits are based on; it follows the record only while the form is clean. */
+  const editBase = useRef<OrderValues | null>(null);
   useEffect(() => {
     if (lastLoadedKey.current !== loadedKey) {
       const first = lastLoadedKey.current == null;
       lastLoadedKey.current = loadedKey;
-      if (first || !isDirty) reset(initial);
+      if (first || !isDirty) {
+        reset(initial);
+        editBase.current = initial;
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedKey, initial]);
@@ -166,9 +184,18 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   const isSaving = header.isPending || defaultStops.isPending || lines.isPending || references.isPending || terms.isPending || tripRequest.isPending || attributes.isPending || updateTemplate.isPending;
   const isBusy = isSaving || confirm.isPending || cancel.isPending || archive.isPending || remove.isPending || saveAsTemplate.isPending || removeTemplate.isPending;
 
+  /** The newest version of the order (it also refreshes the page's query); null when it cannot be read. */
+  const readFresh = (orderId: string) =>
+    queryClient.fetchQuery({ queryKey: transportOrderKeys.detail(orderId), queryFn: () => fetchTransportOrder(orderId), staleTime: 0 }).catch(() => null);
+
   /** Runs the save plan of a stored order (see the header comment); true when every call succeeded. */
   const saveOrder = async (stored: TransportOrderDto, values: OrderValues): Promise<boolean> => {
     const orderId = stored.id!;
+    /* A newer version with other content arrived while the form was dirty: saving with its stamp would overwrite it. */
+    if (editBase.current && contentDiffers(orderValuesOf(stored), editBase.current)) {
+      setConflict("prompt");
+      return false;
+    }
     let current = stored;
     const stamp = () => current.concurrencyStamp ?? "";
     const run = (command: SectionKey, withTerms: boolean): Promise<TransportOrderDto> => {
@@ -208,34 +235,77 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
 
     const steps = savePlan(changedSections(values, initial), customerChanged(values, initial));
     const saved: SectionKey[] = [];
+    /* The saved sections are clean with the server's values; the others keep the input and stay dirty. */
+    const keepSaved = () => {
+      if (saved.length === 0) return;
+      const server = orderValuesOf(current);
+      lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
+      reset(mergeSavedSections(values, server, saved), server);
+      editBase.current = server;
+    };
     for (const [index, step] of steps.entries()) {
-      try {
-        current = await run(step.command, step.sections.includes("terms"));
-        saved.push(...step.sections);
-      } catch (err) {
-        setServerError(getApiErrorMessage(err, t));
-        if (steps.length > 1) setSaveReport({ saved, notSaved: steps.slice(index).flatMap((s) => s.sections) });
-        if (saved.length > 0) {
-          /* The saved sections are clean with the server's values; the others keep the input and stay dirty. */
-          const server = orderValuesOf(current);
-          lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
-          reset(mergeSavedSections(values, server, saved), server);
+      let retried = false;
+      for (;;) {
+        try {
+          current = await run(step.command, step.sections.includes("terms"));
+          saved.push(...step.sections);
+          break;
+        } catch (err) {
+          if (isConcurrencyConflict(err)) {
+            /* Whose change was it? The content the server should hold: the base, with the sections saved in this run. */
+            const fresh = await readFresh(orderId);
+            const expected = editBase.current ? mergeSavedSections(editBase.current, orderValuesOf(current), saved) : null;
+            if (!retried && fresh && expected && !contentDiffers(orderValuesOf(fresh), expected)) {
+              /* Only derived values changed: no one's content is at stake; run the step again with the newest stamp. */
+              retried = true;
+              current = fresh;
+              continue;
+            }
+            /* Someone else changed the order: keep the user's input, never send it with the newer stamp. */
+            if (steps.length > 1 && saved.length > 0) setSaveReport({ saved: [...saved], notSaved: steps.slice(index).flatMap((s) => s.sections) });
+            keepSaved();
+            setConflict("prompt");
+            return false;
+          }
+          setServerError(getApiErrorMessage(err, t));
+          if (steps.length > 1) setSaveReport({ saved, notSaved: steps.slice(index).flatMap((s) => s.sections) });
+          keepSaved();
+          /* Read the record again: a retry then runs with its current concurrency stamp (a failed first call may have
+           * been a stale one), and the dirty sections are compared with what the server now holds. */
+          void queryClient.invalidateQueries({ queryKey: transportOrderKeys.detail(orderId) });
+          return false;
         }
-        /* Read the record again: a retry then runs with its current concurrency stamp (a failed first call may have
-         * been a stale one), and the dirty sections are compared with what the server now holds. */
-        void queryClient.invalidateQueries({ queryKey: transportOrderKeys.detail(orderId) });
-        return false;
       }
     }
     lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
     reset(orderValuesOf(current));
+    editBase.current = orderValuesOf(current);
     toast.success(t("Orders:TransportOrderSaved"));
     return true;
+  };
+
+  /** Reload after a conflict: the unsaved changes are discarded and the other user's version is loaded. */
+  const reloadAfterConflict = async () => {
+    if (!order?.id) return;
+    const fresh = await fetchTransportOrder(order.id);
+    queryClient.setQueryData(transportOrderKeys.detail(order.id), fresh);
+    const values = orderValuesOf(fresh);
+    lastLoadedKey.current = `${fresh.id}|${fresh.concurrencyStamp ?? ""}`;
+    reset(values);
+    editBase.current = values;
+    clearServerError();
+    setConflict(null);
+    toast.success(t("Orders:TransportOrderReloaded"));
   };
 
   /** Validates, then runs the changed sections' commands; returns the saved record or null (UI-FORM-006 on failure). */
   const save = async (): Promise<boolean> => {
     if (formReadOnly) return true;
+    /* After a conflict nothing is saved until the order is reloaded (no automatic overwrite). */
+    if (conflict) {
+      setConflict("prompt");
+      return false;
+    }
     clearServerError();
     const values = submit(formRef.current);
     if (!values) {
@@ -307,7 +377,7 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   const title = mode === "template" ? `${t("Orders:TransportOrderTemplate")} ${template?.name ?? ""}` : `${t("Orders:TransportOrder")} ${number || t("Orders:TransportOrderStatus.Draft")}`;
 
   const commands: RibbonCommand[] = [];
-  if (!formReadOnly) commands.push({ id: "save", labelKey: isSaving ? "Saving" : "Save", icon: Save, isPrimary: true, onClick: () => void save() });
+  if (!formReadOnly) commands.push({ id: "save", labelKey: isSaving ? "Saving" : "Save", icon: Save, isPrimary: true, disabled: conflict != null, disabledReasonKey: "Orders:ReloadToSave", onClick: () => void save() });
   if (mode === "order" && order?.id) {
     if (status === DRAFT && can.confirm && !readOnly) commands.push({ id: "confirm", labelKey: "Orders:Confirm", icon: CirclePlay, groupKey: "Orders:Status", onClick: () => void runCommand(() => confirm.mutateAsync(order.id!), "Orders:TransportOrderConfirmed") });
     if (status === OPEN && can.approve) commands.push({ id: "approve", labelKey: "Orders:Approve", icon: CheckCheck, groupKey: "Orders:Status", onClick: () => void saveIfDirty().then((ok) => ok && setDialog("approve")) });
@@ -329,8 +399,28 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
   }
 
   const sections = useMemo(() => changedSections(form.values, initial), [form.values, initial]);
+  const savedReportText = saveReport && saveReport.saved.length > 0 ? `${t("Orders:SectionsSaved").replace("{0}", saveReport.saved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))} ` : "";
   const withAlert = (content: ReactNode, tab: string) => (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      {conflict && activeTab === tab && (
+        <Alert variant="warning" data-slot="order-conflict">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>
+            <p>{t("Orders:OrderChangedByOtherBanner")}</p>
+            {saveReport && (
+              <p data-slot="save-report">
+                {savedReportText}
+                {t("Orders:SectionsNotSaved").replace("{0}", saveReport.notSaved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))}
+              </p>
+            )}
+            <div className="mt-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => setConflict("prompt")}>
+                <RefreshCw /> {t("Orders:Reload")}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       {serverError && activeTab === tab && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -382,6 +472,17 @@ export function OrderEditor({ mode, order, template, readOnly }: OrderEditorProp
       />
       {order?.id && (
         <>
+          <ConfirmDialog
+            open={conflict === "prompt"}
+            onOpenChange={(next) => setConflict(next ? "prompt" : "banner")}
+            title={t("Orders:TransportOrderChanged")}
+            description={t("Orders:OrderChangedByOther")}
+            confirmLabel={t("Orders:Reload")}
+            busyLabel={t("Orders:Reloading")}
+            cancelLabel={t("Orders:KeepEditing")}
+            destructive
+            onConfirm={reloadAfterConflict}
+          />
           <ApproveDialog ids={[order.id]} open={dialog === "approve"} onOpenChange={(next) => setDialog(next ? "approve" : null)} />
           <ReviseDialog orderId={order.id} number={number} open={dialog === "revise"} onOpenChange={(next) => setDialog(next ? "revise" : null)} />
           <PrintCmrWizard open={dialog === "print"} onOpenChange={(next) => setDialog(next ? "print" : null)} orders={printable} />
