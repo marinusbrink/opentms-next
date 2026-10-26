@@ -2430,6 +2430,7 @@
           },
           "transportUnitId": {
             "format": "uuid",
+            "nullable": true,
             "type": "string"
           },
           "vehicleTypeId": {
@@ -9136,6 +9137,84 @@
         "format": "int32",
         "type": "integer"
       },
+      "OpenTms.Orders.TransportOrders.ExportColumnDto": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "header": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "type": "object"
+      },
+      "OpenTms.Orders.TransportOrders.MaterialisationLineOverrideDto": {
+        "additionalProperties": false,
+        "properties": {
+          "lineId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "quantity": {
+            "format": "double",
+            "maximum": 99999999999999,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          },
+          "weightKg": {
+            "format": "double",
+            "maximum": 1.7976931348623157e+308,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lineId"
+        ],
+        "type": "object"
+      },
+      "OpenTms.Orders.TransportOrders.MaterialisationOverrideDto": {
+        "additionalProperties": false,
+        "properties": {
+          "copyIndex": {
+            "format": "int32",
+            "maximum": 49,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "customerReference": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.MaterialisationLineOverrideDto"
+            },
+            "maxItems": 200,
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "required": [
+          "date"
+        ],
+        "type": "object"
+      },
       "OpenTms.Orders.TransportOrders.MaterialisationResultDto": {
         "additionalProperties": false,
         "properties": {
@@ -9169,6 +9248,14 @@
               "type": "string"
             },
             "maxItems": 60,
+            "type": "array"
+          },
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.MaterialisationOverrideDto"
+            },
+            "maxItems": 3000,
+            "nullable": true,
             "type": "array"
           }
         },
@@ -10815,6 +10902,87 @@
         },
         "type": "object"
       },
+      "OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "allRows": {
+            "type": "boolean"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.ExportColumnDto"
+            },
+            "maxItems": 100,
+            "nullable": true,
+            "type": "array"
+          },
+          "customerRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "dateFrom": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "dateTo": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "descending": {
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "endRow": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "organizationUnitId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "sortBy": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "sortDir": {
+            "maxLength": 4,
+            "nullable": true,
+            "type": "string"
+          },
+          "sourceTemplateId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "startRow": {
+            "format": "int32",
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderStatus"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "view": {
+            "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderView"
+          },
+          "wildcardSearch": {
+            "maxLength": 200,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsDto": {
         "additionalProperties": false,
         "properties": {
@@ -11671,6 +11839,10 @@
           "tripNumbers": {
             "nullable": true,
             "type": "string"
+          },
+          "tripRequestWarningCode": {
+            "nullable": true,
+            "type": "string"
           }
         },
         "type": "object"
@@ -12447,6 +12619,19 @@
             "maxItems": 3,
             "nullable": true,
             "type": "array"
+          },
+          "warningAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "warningCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "warningField": {
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
@@ -13446,6 +13631,22 @@
         "format": "int32",
         "type": "integer"
       },
+      "OpenTms.PlanningExecution.Legs.LegTimeWindowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "till": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.PlanningExecution.Legs.LegUpdateDto": {
         "additionalProperties": false,
         "properties": {
@@ -13463,6 +13664,9 @@
             "nullable": true,
             "type": "string"
           },
+          "destinationWindow": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegTimeWindowDto"
+          },
           "originPlannedDate": {
             "format": "date",
             "nullable": true,
@@ -13472,6 +13676,9 @@
             "maxLength": 128,
             "nullable": true,
             "type": "string"
+          },
+          "originWindow": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegTimeWindowDto"
           },
           "remarks": {
             "maxLength": 2500,
@@ -13564,6 +13771,25 @@
         },
         "required": [
           "legIds"
+        ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.TransportTrips.ExportColumnDto": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "header": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
         ],
         "type": "object"
       },
@@ -14053,6 +14279,139 @@
             },
             "nullable": true,
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto": {
+        "additionalProperties": false,
+        "properties": {
+          "allRows": {
+            "type": "boolean"
+          },
+          "carrierRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.ExportColumnDto"
+            },
+            "maxItems": 100,
+            "nullable": true,
+            "type": "array"
+          },
+          "dateFrom": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "dateTo": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "descending": {
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "endRow": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "executionFrom": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "executionTo": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "hideEmpty": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "nullable": true,
+            "type": "boolean"
+          },
+          "organizationUnitId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "sortBy": {
+            "maxLength": 64,
+            "nullable": true,
+            "type": "string"
+          },
+          "sortDir": {
+            "maxLength": 4,
+            "nullable": true,
+            "type": "string"
+          },
+          "startRow": {
+            "format": "int32",
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "view": {
+            "maxLength": 16,
+            "nullable": true,
+            "type": "string"
+          },
+          "wildcardSearch": {
+            "maxLength": 200,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto": {
+        "additionalProperties": false,
+        "properties": {
+          "carrierName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "carrierRelationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "number": {
+            "nullable": true,
+            "type": "string"
+          },
+          "plannedDeparture": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"
+          },
+          "tripDate": {
+            "format": "date",
+            "type": "string"
           }
         },
         "type": "object"
@@ -18703,6 +19062,27 @@
           "rows": {
             "items": {
               "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto"
             },
             "nullable": true,
             "type": "array"
@@ -32748,6 +33128,18 @@
               "maximum": 3,
               "minimum": 0,
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Tiers",
+            "schema": {
+              "items": {
+                "format": "int32",
+                "type": "integer"
+              },
+              "maxItems": 4,
+              "type": "array"
             }
           },
           {
@@ -67593,6 +67985,177 @@
         ]
       }
     },
+    "/api/orders/transport-order/export": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.TransportOrderExportRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "TransportOrder"
+        ]
+      }
+    },
     "/api/orders/transport-order/validate-approval": {
       "post": {
         "requestBody": {
@@ -76265,6 +76828,411 @@
         },
         "tags": [
           "TransportTripType"
+        ]
+      }
+    },
+    "/api/planning/transport-trip/export": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripExportRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "TransportTrip"
+        ]
+      }
+    },
+    "/api/planning/transport-trip/picker": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "Status",
+            "schema": {
+              "items": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.TransportTrips.TransportTripStatus"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "DateFrom",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "DateTo",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ExcludeTripId",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "StartRow",
+            "schema": {
+              "format": "int32",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "EndRow",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "WildcardSearch",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortBy",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "SortDir",
+            "schema": {
+              "maxLength": 4,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "Descending",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto, OpenTms.PlanningExecution.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "TransportTrip"
         ]
       }
     },
