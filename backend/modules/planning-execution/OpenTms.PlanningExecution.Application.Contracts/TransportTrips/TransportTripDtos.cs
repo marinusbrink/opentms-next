@@ -456,9 +456,70 @@ public class TransportTripListRequestDto : ReferenceDataListRequestDto
     public string? View { get; set; }
 }
 
+/// <summary>
+/// One column of a list export (UI-GRID-013): the grid's column id (<c>field</c> or <c>colId</c>, e.g. "number",
+/// "vehicles", "route") and the header text the user sees. A missing header is localized on the server in the UI culture.
+/// </summary>
+public class ExportColumnDto
+{
+    [Required, MaxLength(PlanningExecutionConsts.MaxExportFieldLength)]
+    public string Field { get; set; } = string.Empty;
+
+    [MaxLength(PlanningExecutionConsts.MaxExportHeaderLength)]
+    public string? Header { get; set; }
+}
+
+/// <summary>
+/// The trip list's export (UI-GRID-013, design 61): the list's own request (filters, view, search, sort; paging is
+/// ignored) plus the columns in display order (empty = every exportable column) and <see cref="AllRows"/> (true = the
+/// rows the list's TotalCount counts: every trip of the archived state asked for, ignoring the other filters, the view and
+/// the search; the sort still applies). The answer is an xlsx file; more rows than the setting
+/// <c>Planning:Export:MaxRows</c> (default 50,000) are refused. Times are written in the tenant's time zone.
+/// </summary>
+public class TransportTripExportRequestDto : TransportTripListRequestDto
+{
+    [MaxLength(PlanningExecutionConsts.MaxExportColumns)]
+    public List<ExportColumnDto> Columns { get; set; } = new();
+
+    public bool AllRows { get; set; }
+}
+
+/// <summary>
+/// The trip picker's request (design 61 "Outsource origin" target trip): <c>GET /api/planning/transport-trip/picker</c>,
+/// gated by the Trips node like the list (not a master-data <c>GetLookupAsync</c>). Paged search over the trip's search
+/// key (number, name, carrier, vehicles, customers, order numbers, stop cities), the statuses (default Planned and
+/// InProgress), the trip date range and one trip to leave out (the leg's own trip). Archived trips never appear.
+/// </summary>
+public class TransportTripPickerRequestDto : ReferenceDataListRequestDto
+{
+    /// <summary>Empty = Planned and InProgress (the trips a leg can still go to).</summary>
+    public List<TransportTripStatus>? Status { get; set; }
+
+    public DateOnly? DateFrom { get; set; }
+
+    public DateOnly? DateTo { get; set; }
+
+    public Guid? ExcludeTripId { get; set; }
+}
+
+/// <summary>A trip as the pickers show it.</summary>
+public class TransportTripPickerDto
+{
+    public Guid Id { get; set; }
+    public string Number { get; set; } = string.Empty;
+    public string? Name { get; set; }
+    public DateOnly TripDate { get; set; }
+    public TransportTripStatus Status { get; set; }
+    public Guid? CarrierRelationId { get; set; }
+    public string? CarrierName { get; set; }
+    public DateTimeOffset PlannedDeparture { get; set; }
+}
+
 public interface ITransportTripAppService : IApplicationService
 {
     Task<GridResponse<TransportTripRowDto>> GetListAsync(TransportTripListRequestDto input);
+    Task<Volo.Abp.Content.IRemoteStreamContent> ExportAsync(TransportTripExportRequestDto input);
+    Task<GridResponse<TransportTripPickerDto>> GetPickerAsync(TransportTripPickerRequestDto input);
     Task<TransportTripDto> GetAsync(Guid id);
     Task<TransportTripSummaryDto> GetSummaryAsync(Guid id);
     Task<TransportTripDto> CreateAsync(TransportTripCreateDto input);

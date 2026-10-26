@@ -126,12 +126,18 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
     public virtual async Task<LegDto> UpdateAsync(Guid id, LegUpdateDto input)
     {
         var leg = await _legs.GetAsync(id);
-        var datesChanged = (input.OriginPlannedDate != null && input.OriginPlannedDate != leg.OriginPlannedDate)
-                           || (input.DestinationPlannedDate != null && input.DestinationPlannedDate != leg.DestinationPlannedDate);
-        leg.SetEditable(input.OriginReference, input.DestinationReference, input.Remarks, input.OriginPlannedDate, input.DestinationPlannedDate);
+        var before = (leg.OriginPlannedDate, leg.DestinationPlannedDate, leg.OriginWindowFrom, leg.OriginWindowTill, leg.DestinationWindowFrom, leg.DestinationWindowTill);
+        leg.SetEditable(input.OriginReference, input.DestinationReference, input.Remarks, input.OriginPlannedDate, input.DestinationPlannedDate,
+            input.OriginWindow == null ? null : new LegWindow(input.OriginWindow.From, input.OriginWindow.Till),
+            input.DestinationWindow == null ? null : new LegWindow(input.DestinationWindow.From, input.DestinationWindow.Till));
         leg.ConcurrencyStamp = input.ConcurrencyStamp;
-        await _legs.UpdateAsync(leg);
-        if (datesChanged && leg.TripId != null)
+        /* Saved now, so the answer carries the new concurrency stamp the next edit sends back. */
+        await _legs.UpdateAsync(leg, autoSave: true);
+
+        /* Dates and windows feed the trip's stop times, window warnings and trip-window check: the trip recalculates.
+         * The edit is the planner's: the leg stays on its trip (design 59 unassigns only when the order's stop changes). */
+        var after = (leg.OriginPlannedDate, leg.DestinationPlannedDate, leg.OriginWindowFrom, leg.OriginWindowTill, leg.DestinationWindowFrom, leg.DestinationWindowTill);
+        if (before != after && leg.TripId != null)
         {
             await _scheduler.RequestAsync(PlanningExecutionApplicationModule.TripTargetType, leg.TripId.Value, "LegDatesChanged");
         }

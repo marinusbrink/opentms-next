@@ -137,6 +137,8 @@ public class LegAssignmentService : DomainService
         var destination = leg.Origin with { WaypointTypeId = leg.DestinationWaypointTypeId, PlannedDate = leg.Destination.PlannedDate < leg.Origin.PlannedDate ? leg.Origin.PlannedDate : leg.Destination.PlannedDate };
         var position = legsOfLine.Select(l => l.Position).DefaultIfEmpty(0).Max() + 1;
         var returnLeg = new Leg(newId(), leg.TenantId, leg.OrderId, leg.OrderLineId, leg.CustomerRelationId, position, LegSource.Return, origin, destination, leg.Quantities);
+        /* The mirrored ends follow the order stops the original's ends came from. */
+        returnLeg.InheritSourceKeys(leg.DestinationSourceKey, leg.OriginSourceKey);
 
         if (trip != null && leg.TripId == trip.Id)
         {
@@ -182,6 +184,7 @@ public class LegAssignmentService : DomainService
 
         var hubLeg = new Leg(newId(), leg.TenantId, leg.OrderId, leg.OrderLineId, leg.CustomerRelationId, leg.Position, LegSource.Outsourced, leg.Origin, hubArrival, leg.Quantities);
         hubLeg.SetEditable(leg.OriginReference, null, leg.Remarks, null, null);
+        hubLeg.InheritSourceKeys(leg.OriginSourceKey, null);
 
         leg.SetOrigin(hubDeparture);
         leg.MarkOutsourced();

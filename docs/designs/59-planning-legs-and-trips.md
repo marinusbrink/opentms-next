@@ -230,6 +230,25 @@ Decisions the build had to take where this design left room, reported for the re
     and not honoured — the legs stay unplanned — instead of failing the confirm handler on every delivery and blocking
     the tenant's outbox (Orders stores those ids unchecked, design 58 build note 8). Only `ReferenceNotFound` is caught;
     `TripOperations.CreateAsync` validates before it writes.
+14. **2026-10-26, follow-ups.** *Export* (UI-GRID-013): `POST /api/planning/transport-trip/export`, the shape of Orders'
+    (design 58 build note 19): the list's request plus `columns[]` and `allRows` (all = the rows the list's TotalCount
+    counts, so the archived state still applies); times in the tenant's zone, the distance in km, the load factor as a
+    percentage, lists joined, warnings localized; pages of 500; cap `Planning:Export:MaxRows` (default 50,000);
+    `ExportTooManyRows`, `ExportUnknownColumn` (400). *Trip picker* ("Outsource origin"): `GET
+    /api/planning/transport-trip/picker` (`status[]`, default Planned and InProgress; `dateFrom/To`; `excludeTripId`; search
+    over the search key; paged) → id, number, name, date, status, carrier, planned departure; gated like the list (not a
+    master-data picker). *Leg time windows*: `LegUpdateDto.originWindow` / `destinationWindow { from, till }` (null =
+    unchanged, both ends null = the whole day); `InvalidLegWindow` (400) when it ends before it starts; the planned dates are
+    checked against the resulting window; a change of dates or windows on a planned leg requests the trip. The update now
+    saves before it answers, so the returned concurrency stamp is the new one. *The planner's edits are no order change*:
+    `Legs.OriginSourceKey` / `DestinationSourceKey` (migration `PlanningLegSourceKeys`) keep the key of the snapshot each end
+    last took from its source; regeneration compares the order's stop with that key, not with the leg's current values, and
+    refreshes only the end that changed. Before, any edit of a reference, date or window made the next save of the line
+    unassign the leg with `LegChangedAfterPlanning`. Rows without a key compare their values as before; a return or hub leg
+    inherits the keys of the ends it copies. *Build note 13*: the refused request now publishes
+    `TransportTripRequestNotHonouredEto { OrderId, Field, Reason }`; Orders shows it on the order. Found, not changed: when
+    the order changes the stop a return leg's origin points at, regeneration copies that stop (with its activity) onto the
+    return leg, losing the swapped activity of note 10.
 
 ## Security quickscan
 

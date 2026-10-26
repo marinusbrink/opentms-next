@@ -258,6 +258,12 @@
     "PlanningExecution:AttributeKeyShapeHint": "Een letter, daarna letters, cijfers of liggende streepjes; maximaal 32 tekens.",
     "PlanningExecution:DepartureWaypointTypeHint": "Leeg: de activiteit bij aankomst.",
     "PlanningExecution:DepotAddressHint": "Kies eerst het depot.",
-    "PlanningExecution:ViaDepotPositionHint": "De eerste passende regel in positievolgorde geldt."
+    "PlanningExecution:ViaDepotPositionHint": "De eerste passende regel in positievolgorde geldt.",
+    "PlanningExecution:ExportSheetName": "Ritten",
+    "PlanningExecution:Name": "Naam",
+    "PlanningExecution:IsArchived": "Gearchiveerd",
+    "OpenTms.PlanningExecution:InvalidLegWindow": "Het tijdvenster eindigt voordat het begint ({field}).",
+    "OpenTms.PlanningExecution:ExportTooManyRows": "De export zou {count} rijen bevatten; maximaal {max} zijn toegestaan. Filter de lijst eerst.",
+    "OpenTms.PlanningExecution:ExportUnknownColumn": "De lijst heeft geen kolom \"{field}\" om te exporteren."
   }
 }

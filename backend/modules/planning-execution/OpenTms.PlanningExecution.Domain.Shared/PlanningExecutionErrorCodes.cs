@@ -70,6 +70,15 @@ public static class PlanningExecutionErrorCodes
     /// <summary>A leg's planned date must stay within the stop's window.</summary>
     public const string LegDateOutsideStopWindow = Namespace + ":LegDateOutsideStopWindow";
 
+    /// <summary>A leg's planned time window ends before it starts ({field}).</summary>
+    public const string InvalidLegWindow = Namespace + ":InvalidLegWindow";
+
+    /// <summary>The export would hold {count} rows; at most {max} are allowed: filter the list first.</summary>
+    public const string ExportTooManyRows = Namespace + ":ExportTooManyRows";
+
+    /// <summary>The export names a column the list does not have ({field}).</summary>
+    public const string ExportUnknownColumn = Namespace + ":ExportUnknownColumn";
+
     /// <summary>A via-depot rule's scope needs its relation or region, and only that one.</summary>
     public const string InvalidViaDepotScope = Namespace + ":InvalidViaDepotScope";
 
@@ -90,6 +99,7 @@ public static class PlanningExecutionErrorCodes
     public static readonly string[] BadRequestCodes =
     [
         TooManyVehicles, TooManyDrivers, TooManyStops, TooManyLegs, VehicleSourceConflict, InvalidSplit, InvalidAttributes,
-        InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip
+        InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
+        ExportTooManyRows, ExportUnknownColumn
     ];
 }

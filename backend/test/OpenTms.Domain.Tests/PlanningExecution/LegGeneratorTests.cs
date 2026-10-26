@@ -345,4 +345,90 @@ public class LegGeneratorTests
         Should.Throw<Volo.Abp.BusinessException>(() => leg.SetEditable(null, null, null, new DateOnly(2026, 10, 28), null))
             .Code.ShouldBe(PlanningExecutionErrorCodes.LegDateOutsideStopWindow);
     }
+
+    [Fact]
+    public void The_planners_edits_are_no_order_change_the_leg_keeps_them_and_its_trip_but_a_changed_stop_still_unassigns()
+    {
+        var day = new DateOnly(2026, 10, 26);
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", day);
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day);
+        var lineId = Guid.NewGuid();
+        var order = Order(Guid.NewGuid(), Line(lineId, 10, a, b));
+        var leg = Generate(order, []).Created.Single();
+        var tripId = Guid.NewGuid();
+        leg.AssignTo(tripId, 1);
+
+        var from = new DateTimeOffset(2026, 10, 26, 7, 0, 0, TimeSpan.FromHours(1));
+        var till = new DateTimeOffset(2026, 10, 26, 9, 30, 0, TimeSpan.FromHours(1));
+        leg.SetEditable("PLANNER-REF", "DEST-REF", "note", null, null, new LegWindow(from, till), new LegWindow(null, till));
+
+        /* Regenerated from the same order facts (e.g. after a quantity-only save): unchanged, the edits and the trip stay. */
+        var again = Generate(order, [leg]);
+        again.Unchanged.ShouldContain(leg);
+        again.Unassigned.ShouldBeEmpty();
+        leg.TripId.ShouldBe(tripId);
+        (leg.OriginReference, leg.DestinationReference, leg.OriginWindowFrom, leg.OriginWindowTill, leg.DestinationWindowTill).ShouldBe(("PLANNER-REF", "DEST-REF", from, till, till));
+
+        /* A quantity change updates the leg in place and keeps the planner's ends. */
+        var more = Order(order.OrderId, Line(lineId, 12, a, b));
+        var updated = Generate(more, [leg]);
+        updated.Updated.ShouldContain(leg);
+        updated.Unassigned.ShouldBeEmpty();
+        leg.Quantity.ShouldBe(12);
+        leg.OriginReference.ShouldBe("PLANNER-REF");
+
+        /* The order's destination stop really changes: only that end follows the order, and the leg leaves its trip. */
+        var moved = new LegGenerationStop { Snapshot = b.Snapshot with { Reference = "ORDER-REF", PlannedDate = day.AddDays(1) }, RegionIds = b.RegionIds };
+        var changed = Generate(Order(order.OrderId, Line(lineId, 12, a, moved)), [leg]);
+        changed.Unassigned.ShouldHaveSingleItem().Leg.ShouldBe(leg);
+        leg.TripId.ShouldBeNull();
+        leg.DestinationReference.ShouldBe("ORDER-REF");
+        leg.DestinationPlannedDate.ShouldBe(day.AddDays(1));
+        leg.OriginReference.ShouldBe("PLANNER-REF", "the origin did not change at the order: the planner's edit stays");
+    }
+
+    [Fact]
+    public void A_leg_without_a_stored_source_key_compares_its_current_values_as_before()
+    {
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", new DateOnly(2026, 10, 26));
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", new DateOnly(2026, 10, 26));
+        var leg = Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 10, a, b)), []).Created.Single();
+
+        leg.OriginSourceKey.ShouldBe(Leg.SourceKey(a.Snapshot));
+        leg.DestinationSourceKey.ShouldBe(Leg.SourceKey(b.Snapshot));
+        Leg.SourceKey(a.Snapshot with { Reference = "X" }).ShouldNotBe(Leg.SourceKey(a.Snapshot));
+        Leg.SourceKey(a.Snapshot with { }).ShouldBe(Leg.SourceKey(a.Snapshot), "deterministic");
+
+        leg.InheritSourceKeys(null, null);
+        leg.OriginDiffersFrom(a.Snapshot).ShouldBeFalse();
+        leg.OriginDiffersFrom(b.Snapshot).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_planned_window_must_not_end_before_it_starts_and_the_planned_date_must_lie_within_the_new_window()
+    {
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", new DateOnly(2026, 10, 26));
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", new DateOnly(2026, 10, 26));
+        var leg = Generate(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 10, a, b)), []).Created.Single();
+        var zone = TimeSpan.FromHours(1);
+
+        Should.Throw<Volo.Abp.BusinessException>(() => leg.SetEditable(null, null, null, null, null,
+                new LegWindow(new DateTimeOffset(2026, 10, 26, 10, 0, 0, zone), new DateTimeOffset(2026, 10, 26, 8, 0, 0, zone))))
+            .Code.ShouldBe(PlanningExecutionErrorCodes.InvalidLegWindow);
+        Should.Throw<Volo.Abp.BusinessException>(() => leg.SetEditable(null, null, null, null, null,
+                new LegWindow(new DateTimeOffset(2026, 10, 28, 8, 0, 0, zone), new DateTimeOffset(2026, 10, 28, 10, 0, 0, zone))))
+            .Code.ShouldBe(PlanningExecutionErrorCodes.LegDateOutsideStopWindow, "the planned date (the 26th) lies before the new window");
+        leg.OriginWindowFrom.ShouldBeNull("a refused edit changes nothing");
+
+        leg.SetEditable(null, null, null, new DateOnly(2026, 10, 28), null,
+            new LegWindow(new DateTimeOffset(2026, 10, 28, 8, 0, 0, zone), new DateTimeOffset(2026, 10, 28, 10, 0, 0, zone)));
+        leg.OriginPlannedDate.ShouldBe(new DateOnly(2026, 10, 28));
+        leg.OriginWindowFrom.ShouldBe(new DateTimeOffset(2026, 10, 28, 8, 0, 0, zone));
+
+        /* Both ends null clear the window (the whole day); a missing window leaves it alone. */
+        leg.SetEditable(null, null, "remark only", null, null);
+        leg.OriginWindowFrom.ShouldNotBeNull();
+        leg.SetEditable(null, null, null, null, null, new LegWindow(null, null));
+        (leg.OriginWindowFrom, leg.OriginWindowTill).ShouldBe((null, null));
+    }
 }

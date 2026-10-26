@@ -53,6 +53,18 @@ public sealed record LegEndSnapshot(
     }
 }
 
+/// <summary>A planned time window the planner sets on a leg's end; both null = the whole day.</summary>
+public sealed record LegWindow(DateTimeOffset? From, DateTimeOffset? Till)
+{
+    public void EnsureValid(string field)
+    {
+        if (From != null && Till != null && Till < From)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.InvalidLegWindow).WithData("field", field);
+        }
+    }
+}
+
 /// <summary>The quantities and goods facts a leg carries for allocation, capacity and the compatibility warnings.</summary>
 public sealed record LegQuantities(
     decimal Quantity,
@@ -156,6 +168,16 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public string? DestinationReference { get; private set; }
     public int? DestinationPlannedDurationMin { get; private set; }
 
+    /*
+     * The snapshot each end was last given by its source (the order's stop through the generator, or the leg it was
+     * derived from), as a key: regeneration compares the order's stop with this key, not with the leg's current values,
+     * so the planner's edits (references, planned dates, time windows) neither count as an order change nor take the leg
+     * off its trip (design 59: only a changed stop unassigns). Null on rows written before the key existed: those compare
+     * their current values, as before.
+     */
+    public Guid? OriginSourceKey { get; private set; }
+    public Guid? DestinationSourceKey { get; private set; }
+
     /* Assignment. */
     public Guid? TripId { get; private set; }
 
@@ -250,6 +272,7 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
         OriginWindowTill = end.WindowTill;
         OriginReference = Text(end.Reference, PlanningExecutionConsts.MaxReferenceLength);
         OriginPlannedDurationMin = end.PlannedDurationMin;
+        OriginSourceKey = SourceKey(end);
     }
 
     public void SetDestination(LegEndSnapshot end)
@@ -270,6 +293,37 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DestinationWindowTill = end.WindowTill;
         DestinationReference = Text(end.Reference, PlanningExecutionConsts.MaxReferenceLength);
         DestinationPlannedDurationMin = end.PlannedDurationMin;
+        DestinationSourceKey = SourceKey(end);
+    }
+
+    /// <summary>
+    /// A leg derived from another (a return leg, an outsourcing hub leg) follows the source of the end it copied, not the
+    /// copied values, which may hold the planner's edits.
+    /// </summary>
+    public void InheritSourceKeys(Guid? originSourceKey, Guid? destinationSourceKey)
+    {
+        if (originSourceKey != null)
+        {
+            OriginSourceKey = originSourceKey;
+        }
+
+        if (destinationSourceKey != null)
+        {
+            DestinationSourceKey = destinationSourceKey;
+        }
+    }
+
+    /// <summary>The key of a source snapshot: every field of the end, in a fixed invariant form.</summary>
+    public static Guid SourceKey(LegEndSnapshot end)
+    {
+        Check.NotNull(end, nameof(end));
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        var text = string.Join("|",
+            end.StopId.ToString("N"), end.WaypointTypeId.ToString("N"), end.RelationId.ToString("N"), end.RelationAddressId?.ToString("N"),
+            end.Name, end.City, end.CountryCode, end.Latitude?.ToString("R", c), end.Longitude?.ToString("R", c), end.TimeZoneId,
+            end.PlannedDate.ToString("yyyy-MM-dd", c), end.WindowFrom?.UtcTicks.ToString(c), end.WindowTill?.UtcTicks.ToString(c), end.Reference,
+            end.PlannedDurationMin?.ToString(c));
+        return new Guid(MD5.HashData(Encoding.UTF8.GetBytes(text)));
     }
 
     public void SetQuantities(LegQuantities quantities)
@@ -305,7 +359,12 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void MarkOutsourced() => Source = LegSource.Outsourced;
 
     /// <summary>Regeneration: true when the origin or destination snapshot differs (a changed assigned leg leaves its trip).</summary>
-    public bool EndsDifferFrom(LegEndSnapshot origin, LegEndSnapshot destination) => Origin != origin || Destination != destination;
+    public bool EndsDifferFrom(LegEndSnapshot origin, LegEndSnapshot destination) => OriginDiffersFrom(origin) || DestinationDiffersFrom(destination);
+
+    /// <summary>Whether the source of the origin changed: compared with the stored source key (see <see cref="OriginSourceKey"/>).</summary>
+    public bool OriginDiffersFrom(LegEndSnapshot source) => (OriginSourceKey ?? SourceKey(Origin)) != SourceKey(source);
+
+    public bool DestinationDiffersFrom(LegEndSnapshot source) => (DestinationSourceKey ?? SourceKey(Destination)) != SourceKey(source);
 
     public void AssignTo(Guid tripId, int tripPosition)
     {
@@ -359,23 +418,38 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
         AllocatedAt = at;
     }
 
-    /// <summary>The planner's editable fields (OpenTMS's leg grid): references, remarks and planned dates within the stops' windows.</summary>
-    public void SetEditable(string? originReference, string? destinationReference, string? remarks, DateOnly? originPlannedDate, DateOnly? destinationPlannedDate)
+    /// <summary>
+    /// The planner's editable fields (OpenTMS's leg grid): references, remarks, planned dates within the stops' windows and
+    /// the planned time windows themselves (null = unchanged; a window with both ends null = the whole day). The window is
+    /// set first, then the planned dates are checked against it. The edit leaves the source keys alone: it is the planner's,
+    /// not the order's, and never takes the leg off its trip.
+    /// </summary>
+    public void SetEditable(string? originReference, string? destinationReference, string? remarks, DateOnly? originPlannedDate, DateOnly? destinationPlannedDate,
+        LegWindow? originWindow = null, LegWindow? destinationWindow = null)
     {
+        originWindow?.EnsureValid("originWindow");
+        destinationWindow?.EnsureValid("destinationWindow");
+        var originFrom = originWindow == null ? OriginWindowFrom : originWindow.From;
+        var originTill = originWindow == null ? OriginWindowTill : originWindow.Till;
+        var destinationFrom = destinationWindow == null ? DestinationWindowFrom : destinationWindow.From;
+        var destinationTill = destinationWindow == null ? DestinationWindowTill : destinationWindow.Till;
+        if (originPlannedDate != null || originWindow != null)
+        {
+            EnsureWithinWindow(originPlannedDate ?? OriginPlannedDate, originFrom, originTill, OriginTimeZoneId, "originPlannedDate");
+        }
+
+        if (destinationPlannedDate != null || destinationWindow != null)
+        {
+            EnsureWithinWindow(destinationPlannedDate ?? DestinationPlannedDate, destinationFrom, destinationTill, DestinationTimeZoneId, "destinationPlannedDate");
+        }
+
         OriginReference = Text(originReference, PlanningExecutionConsts.MaxReferenceLength);
         DestinationReference = Text(destinationReference, PlanningExecutionConsts.MaxReferenceLength);
         Remarks = Text(remarks, PlanningExecutionConsts.MaxRemarksLength);
-        if (originPlannedDate != null)
-        {
-            EnsureWithinWindow(originPlannedDate.Value, OriginWindowFrom, OriginWindowTill, OriginTimeZoneId, "originPlannedDate");
-            OriginPlannedDate = originPlannedDate.Value;
-        }
-
-        if (destinationPlannedDate != null)
-        {
-            EnsureWithinWindow(destinationPlannedDate.Value, DestinationWindowFrom, DestinationWindowTill, DestinationTimeZoneId, "destinationPlannedDate");
-            DestinationPlannedDate = destinationPlannedDate.Value;
-        }
+        OriginPlannedDate = originPlannedDate ?? OriginPlannedDate;
+        DestinationPlannedDate = destinationPlannedDate ?? DestinationPlannedDate;
+        (OriginWindowFrom, OriginWindowTill) = (originFrom, originTill);
+        (DestinationWindowFrom, DestinationWindowTill) = (destinationFrom, destinationTill);
     }
 
     private static void EnsureWithinWindow(DateOnly date, DateTimeOffset? from, DateTimeOffset? till, string? timeZoneId, string field)

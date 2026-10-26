@@ -114,6 +114,9 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     b.Property<Guid>("DestinationRelationId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DestinationSourceKey")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("DestinationStopId")
                         .HasColumnType("uuid");
 
@@ -213,6 +216,9 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("OriginRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OriginSourceKey")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("OriginStopId")
