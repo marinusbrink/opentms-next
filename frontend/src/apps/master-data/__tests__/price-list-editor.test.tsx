@@ -146,6 +146,7 @@ function renderWith(element: React.ReactElement) {
 
 const bodyOf = (mock: Mock<ClientCall>) => mock.mock.calls.at(-1)![1]!.body as Record<string, unknown>;
 const noop = () => undefined;
+const calls = (mock: Mock<ClientCall>, path: string) => mock.mock.calls.filter(([p]) => p === path);
 
 describe("rule-ladder helpers", () => {
   it("reads the columns in position order and always ends with the open column", () => {
@@ -270,6 +271,36 @@ describe("PriceListEditor — header and columns", () => {
     });
   });
 
+  it("after creating a list the editor stays open on the saved list, on the Rules tab; the next save updates it (finding 7)", async () => {
+    grants = { "Financial.PriceLists.Update": true };
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    POST.mockImplementation(async (path) => (path === "/api/financial/price-list" ? ok(LIST) : ok({ id: "new" })));
+    renderWith(<PriceListEditor mode="create" readOnly={false} open onClose={onClose} onSaved={onSaved} />);
+    await waitFor(() => expect(within(editorDialog()).getByRole("option", { name: "GBP Pound" })).toBeInTheDocument());
+    typeIn(GENERAL, "MasterData:Code", "bnl");
+    typeIn(GENERAL, "MasterData:Name", "Benelux");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/financial/price-list", expect.anything()));
+    expect(onSaved).toHaveBeenCalledWith(LIST);
+    expect(toast.success).toHaveBeenCalledWith("Financial:PriceListSaved");
+    expect(onClose).not.toHaveBeenCalled();
+    /* The Rules tab is active and shows the rules of the saved list, not the "save first" hint. */
+    await waitFor(() => expect(screen.getByRole("tab", { name: RULES })).toHaveAttribute("aria-selected", "true"));
+    expect(await within(panel(RULES)).findByTestId("mock-grid")).toBeInTheDocument();
+    expect(within(panel(RULES)).queryByText("Financial:SaveListBeforeRulesHint")).toBeNull();
+    expect(within(editorDialog()).getByText("Financial:PriceList BNL Benelux")).toBeInTheDocument();
+    /* Saved from then on means an update with the stamp; the dialog then closes as an edit does. */
+    PUT.mockImplementation(async () => ok(LIST));
+    tab(GENERAL);
+    typeIn(GENERAL, "MasterData:Name", "Benelux 2");
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/financial/price-list/{id}", expect.objectContaining({ params: { path: { id: "pl-1" } } })));
+    expect(bodyOf(PUT)).toMatchObject({ name: "Benelux 2", concurrencyStamp: "stamp-pl1" });
+    expect(calls(POST, "/api/financial/price-list")).toHaveLength(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses columns that do not rise and a validity that ends before it starts", async () => {
     renderWith(<PriceListEditor mode="create" readOnly={false} open onClose={noop} onSaved={noop} />);
     typeIn(GENERAL, "MasterData:Code", "X");
@@ -388,6 +419,17 @@ describe("PriceListEditor — rules", () => {
     await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/financial/price-list/{id}/rule", expect.anything()));
     const call = POST.mock.calls.find(([p]) => p === "/api/financial/price-list/{id}/rule")!;
     expect(call[1]!.body).toMatchObject({ fromRelationId: null, toRegionId: "r-1", rowQuantity: 0, brackets: [{ upperBound: null, unitPrices: [12.5, null, null] }] });
+  });
+
+  it("a list without columns heads its one price column Price, not Above (finding 8)", async () => {
+    grants = { "Financial.PriceLists.Update": true };
+    GET.mockImplementation(async (path) => (path === "/api/financial/price-list/{id}" ? ok({ ...LIST, columns: [{ position: 1, upperBound: null }] }) : path === "/api/financial/price-list/{id}/rules" ? ok({ rows: [], totalCount: 0, filteredCount: 0 }) : ok([])));
+    renderWith(<PriceListEditor mode="edit" id="pl-1" readOnly={false} open onClose={noop} onSaved={noop} />);
+    await waitFor(() => expect(fieldIn(GENERAL, "MasterData:Code").value).toBe("BNL"));
+    tab(RULES);
+    fireEvent.click(await within(panel(RULES)).findByRole("button", { name: /Financial:AddRule/ }));
+    const ladder = panel(RULES).querySelector("[data-slot=grid]")!;
+    expect(Array.from(ladder.querySelectorAll("[data-slot=columns] > span")).map((s) => s.textContent)).toEqual(["Financial:UpperBound", "Financial:Price"]);
   });
 
   it("without Update the rules open read-only: no Add rule, no Save rule", async () => {

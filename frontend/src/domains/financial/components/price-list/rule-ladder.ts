@@ -92,9 +92,11 @@ export function bracketsError(lines: BracketLine[]): string | undefined {
   return undefined;
 }
 
-/** "≤ 1,000" for a bounded column, the "Above" text for the open one (the header of a ladder's price column). */
-export function columnHeader(f: Formatter, t: (key: string) => string, column: ColumnLine): string {
-  return column.upperBound == null ? t("Financial:Open") : `≤ ${f.number(column.upperBound, { maxDecimals: 4 })}`;
+/** "≤ 1,000" for a bounded column, the "Above" text for the open one (the header of a ladder's price column). A list
+ * without columns has one implicit open column: it is headed "Price", not "Above" (the open row's label, finding 8). */
+export function columnHeader(f: Formatter, t: (key: string) => string, column: ColumnLine, columnCount: number): string {
+  if (column.upperBound == null) return columnCount <= 1 ? t("Financial:Price") : t("Financial:Open");
+  return `≤ ${f.number(column.upperBound, { maxDecimals: 4 })}`;
 }
 
 /** The index of the price column a bracket line stores for a ladder column (`unitPrices[i]`), as a grid field name. */

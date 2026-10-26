@@ -226,7 +226,7 @@ export function PriceListRuleDetail({ priceListId, ruleId, columns, readOnly, lo
       ...columns.map(
         (column, index): ColDef<BracketRow> => ({
           field: priceField(index),
-          headerName: columnHeader(f, t, column),
+          headerName: columnHeader(f, t, column, columns.length),
           minWidth: 110,
           flex: 1,
           editable: !readOnly,

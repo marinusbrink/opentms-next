@@ -261,6 +261,7 @@
     "Financial:Brackets": "Brackets",
     "Financial:UpperBound": "Up to and including",
     "Financial:Open": "Above",
+    "Financial:Price": "Price",
     "Financial:UnitPrice": "Unit price",
     "Financial:Quantity": "Quantity",
     "Financial:Amount": "Amount",

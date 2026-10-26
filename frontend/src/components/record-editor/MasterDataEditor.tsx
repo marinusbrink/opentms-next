@@ -77,6 +77,12 @@ export interface MasterDataEditorProps<TValues extends object, TDto extends { id
   panelScroll?: boolean;
   /** The tab the dialog opens on (a picker's "Add new …" of a record's part, e.g. a relation's contact person). */
   initialTab?: string;
+  /**
+   * Create, then continue (a record that is useless without children it can only get once it exists, e.g. a price
+   * list's rules): after a successful create the dialog stays open, `onCreated` switches the owner to edit mode on the
+   * saved record (seed its detail cache so nothing reloads) and the dialog moves to `tab`. Without it a save closes.
+   */
+  continueAfterCreate?: { tab: string; onCreated: (saved: TDto) => void };
 }
 
 export { normaliseValues };
@@ -111,6 +117,7 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
   applyValues,
   panelScroll,
   initialTab,
+  continueAfterCreate,
 }: MasterDataEditorProps<TValues, TDto>) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -175,8 +182,16 @@ export function MasterDataEditor<TValues extends object, TDto extends { id?: str
       const saved = await save(values, detail.data);
       void queryClient.invalidateQueries({ queryKey: referenceDataQueryKey(queryEntity) });
       onSaved(saved);
-      onClose();
       toast.success(t(`${resource}:${entityKey}Saved`));
+      const created = saved as TDto | undefined;
+      if (mode === "create" && continueAfterCreate && created?.id) {
+        setSubmitted(false);
+        setTouched(new Set());
+        continueAfterCreate.onCreated(created);
+        setActiveTab(continueAfterCreate.tab);
+        return;
+      }
+      onClose();
     } catch (err) {
       setServerError(getApiErrorMessage(err, t));
     }

@@ -230,6 +230,10 @@ De lijst toont code, naam, soort, valuta, basis, geldigheid en het aantal regels
 ziet u alleen omzet- of kostenlijsten. Een lijst die een relatie of een berekende prijsregel gebruikt, kunt u niet
 verwijderen; archiveer hem dan. Het scherm van een prijslijst vult het hele venster.
 
+Een nieuwe lijst slaat u eerst op met de gegevens van **Algemeen** (en eventueel de **Kolommen**). Na het opslaan
+blijft het scherm open op de opgeslagen lijst en springt het naar het tabblad **Regels**: zonder regels rekent een
+lijst niets uit, dus daar voegt u meteen de regels toe. Sluit het scherm als u klaar bent.
+
 - **Algemeen**: code, naam, **Soort** (omzet of kosten), valuta, geldigheid (*Geldig vanaf* en *Geldig tot*; buiten
   die periode rekent een order de lijst niet) en de berekening: de **Basis** (waarover de prijs per eenheid gaat,
   bijvoorbeeld het gewicht of de kilometers), de **Vermenigvuldiging**, de **Kolomhoeveelheid** (welke hoeveelheid
@@ -242,7 +246,8 @@ verwijderen; archiveer hem dan. Het scherm van een prijslijst vult het hele vens
   en voertuigtype (*Alle* als u niets kiest). Het **Niveau** is het aantal gekozen kenmerken (0 tot 3): de meest
   specifieke regel wint; met het filter toont u alleen **Uitzonderingen** (de regels van niveau 1, 2 en 3 samen),
   **Standaard** (niveau 0) of één niveau. Onder de regel staan de **Staffels**: per rij een grens op de **Rijhoeveelheid** en per kolom van de
-  lijst een prijs per eenheid (leeg = geen prijs in die cel); de laatste rij is open. Met *Ingevoerd* als
+  lijst een prijs per eenheid (leeg = geen prijs in die cel); de laatste rij is open. Heeft de lijst geen kolommen,
+  dan is er één prijskolom, met de kop *Prijs*. Met *Ingevoerd* als
   rijhoeveelheid heeft de regel alleen die open rij. **Minimumbedrag** en **Maximumbedrag** begrenzen het bedrag van
   de regel. Een regel slaat u op met **Regel opslaan**, los van de lijst; wijzigt u de kolommen, sla de lijst dan
   eerst op.

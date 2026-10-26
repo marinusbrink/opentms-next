@@ -35,6 +35,7 @@ import {
   type StopMatching,
 } from "@/domains/financial/price-lists";
 import { masterDataQueryKey } from "@/domains/master-data/shared";
+import { referenceDataQueryKey } from "@/lib/reference-data/crud-hooks";
 import { currencies } from "@/domains/master-data/entities";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
@@ -106,8 +107,13 @@ export const validatePriceList = (v: Values): FieldErrors<Values> => {
 
 const TEMPLATE_GROUP = "Financial:PriceList";
 
-export function PriceListEditor({ mode, id, readOnly, open, onClose, onSaved, initialName, onOpenRecord }: EntityEditorProps) {
+export function PriceListEditor({ mode: requestedMode, id: requestedId, readOnly, open, onClose, onSaved, initialName, onOpenRecord }: EntityEditorProps) {
   const { t } = useL();
+  /* A new list is useless without rules: after its create the editor stays open on the saved list, on the Rules tab
+   * (finding 7). From then on it is an ordinary edit of that list. */
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const mode = createdId ? "edit" : requestedMode;
+  const id = createdId ?? requestedId;
   const f = useFormat();
   const queryClient = useQueryClient();
   const detail = priceLists.useDetail(mode === "edit" ? id : undefined);
@@ -393,6 +399,13 @@ export function PriceListEditor({ mode, id, readOnly, open, onClose, onSaved, in
         }
         deleteRecord={mode === "edit" && canDelete ? remove : undefined}
         panelScroll
+        continueAfterCreate={{
+          tab: "rules",
+          onCreated: (saved) => {
+            queryClient.setQueryData(referenceDataQueryKey(priceLists.entity, "detail", saved.id), saved);
+            setCreatedId(saved.id!);
+          },
+        }}
       />
       {isEdit && detail.data && dialog === "copy" && (
         <CopyPriceListDialog
