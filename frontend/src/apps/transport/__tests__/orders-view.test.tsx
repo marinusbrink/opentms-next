@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The Orders list (design 61 "Orders list"): the view permission and feature gates, the grid id and the designed
  * columns (hidden ones after the visible), the URL filter mapped onto the API's view (a date range for All), the
@@ -34,7 +34,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import { OrdersView } from "@/apps/transport/views/OrdersView";
 import { toast } from "sonner";
-import { barButton, gridRows, stubGlobals } from "./transport-test-mocks";
+import { barButton, exportRequest, gridRows, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ALL_ON = { "Apps.Transport": "true", "Apps.Transport.Orders": "true", "Apps.Transport.Orders.Templates": "true" };
@@ -190,5 +190,76 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     expect(within(row).getByText("Orders:Cancel")).toBeDisabled();
     fireEvent.click(within(row).getByText("Orders:PrintConsignmentNote"));
     await screen.findByTestId("print-wizard");
+  });
+});
+
+describe("OrdersView – export (UI-GRID-013)", () => {
+  const xlsx = () => ({ data: new Blob(["xlsx"]), error: undefined, response: new Response(null, { headers: { "Content-Disposition": 'attachment; filename="transport-orders-2026-10-26.xlsx"', "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } }) });
+  let createObjectURL: ReturnType<typeof vi.fn>;
+  let downloads: string[];
+  let anchorClick: { mockRestore: () => void } | undefined;
+  afterEach(() => anchorClick?.mockRestore());
+  beforeEach(() => {
+    createObjectURL = vi.fn(() => "blob:x");
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL: vi.fn() });
+    downloads = [];
+    anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push(this.download);
+    });
+    exportRequest.search = "";
+    exportRequest.sort = null;
+  });
+
+  it("sends the list's request, the visible columns with their headers (CO2 is not exportable) and saves the server's file", async () => {
+    routes.POST["/api/orders/transport-order/export"] = xlsx;
+    exportRequest.search = "acme";
+    exportRequest.sort = { colId: "orderDate", sort: "desc" };
+    renderView("all");
+    await screen.findByTestId("mock-grid");
+    fireEvent.change(document.getElementById("orders-date-from-filter")!, { target: { value: "2026-10-01" } });
+    fireEvent.click(screen.getByText("grid-export"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Grid:ExportTitle")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/export", expect.objectContaining({ parseAs: "blob" })));
+    const body = lastCall(POST, "/api/orders/transport-order/export")?.body as { columns: { field: string; header: string }[]; allRows: boolean; view: number; dateFrom: string; wildcardSearch: string; sortBy: string; sortDir: string };
+    expect(body).toMatchObject({ view: 0, dateFrom: "2026-10-01", wildcardSearch: "acme", sortBy: "orderDate", sortDir: "desc", allRows: false });
+    expect(body.columns.map((c) => c.field)).toEqual(["number", "status", "orderDate", "customerName", "customerReference", "lineCount", "firstStop", "firstStopDate", "lastStop", "lastStopDate", "revenueAmount", "costOfRevenueAmount", "marginAmount", "tripNumbers", "executionProgress"]);
+    expect(body.columns[0]).toEqual({ field: "number", header: "Orders:Number" });
+    await waitFor(() => expect(downloads).toEqual(["transport-orders-2026-10-26.xlsx"]));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Grid:ExportDownloaded");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("sends all columns and all rows when chosen", async () => {
+    routes.POST["/api/orders/transport-order/export"] = xlsx;
+    renderView();
+    await screen.findByTestId("mock-grid");
+    fireEvent.click(screen.getByText("grid-export"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^Grid:ExportAllColumns/ }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^Grid:ExportAllRows/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/orders/transport-order/export", expect.anything()));
+    const body = lastCall(POST, "/api/orders/transport-order/export")?.body as { columns: { field: string }[]; allRows: boolean };
+    expect(body.allRows).toBe(true);
+    expect(body.columns.map((c) => c.field)).toContain("source");
+    expect(body.columns.map((c) => c.field)).not.toContain("co2Kg");
+  });
+
+  it("shows ExportTooManyRows inside the dialog, which stays open, and downloads nothing", async () => {
+    routes.POST["/api/orders/transport-order/export"] = () => ({ data: undefined, error: { error: { code: "OpenTms.Orders:ExportTooManyRows", message: "The export would hold 60000 rows; at most 50000 are allowed. Filter the list first." } }, response: new Response(null, { status: 400 }) });
+    renderView();
+    await screen.findByTestId("mock-grid");
+    fireEvent.click(screen.getByText("grid-export"));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    expect(await within(dialog).findByText(/at most 50000 are allowed/)).toBeInTheDocument();
+    expect(downloads).toEqual([]);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

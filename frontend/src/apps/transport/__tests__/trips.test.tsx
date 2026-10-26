@@ -160,6 +160,35 @@ describe("TripsView", () => {
     expect(toast.success).toHaveBeenCalledWith("PlanningExecution:TransportTripCompleted");
   });
 
+  it("exports the list (UI-GRID-013): the list's filters, the visible columns without CO2, the server's file name; a refusal stays in the dialog", async () => {
+    gridRows.current = tripRows;
+    const downloads: string[] = [];
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloads.push(this.download);
+    });
+    routes.POST["/api/planning/transport-trip/export"] = () => ({ data: undefined, error: { error: { code: "OpenTms.PlanningExecution:ExportUnknownColumn", message: "The list has no column \"x\" to export." } }, response: new Response(null, { status: 400 }) });
+    renderWith(<TripsView filter="open" />);
+    await screen.findByTestId("mock-grid");
+    fireEvent.click(screen.getByRole("checkbox", { name: "PlanningExecution:HideEmpty" }));
+    fireEvent.click(screen.getByText("grid-export"));
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    expect(await within(dialog).findByText(/has no column/)).toBeInTheDocument();
+    expect(downloads).toEqual([]);
+
+    routes.POST["/api/planning/transport-trip/export"] = () => ({ data: new Blob(["x"]), error: undefined, response: new Response(null, { headers: { "Content-Disposition": "attachment; filename=transport-trips-2026-10-26.xlsx" } }) });
+    dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grid:Export" }));
+    await waitFor(() => expect(downloads).toEqual(["transport-trips-2026-10-26.xlsx"]));
+    const body = lastCall(POST, "/api/planning/transport-trip/export")?.body as { columns: { field: string; header: string }[]; allRows: boolean; view: string; isArchived: boolean; hideEmpty: boolean };
+    expect(body).toMatchObject({ view: "Open", isArchived: false, hideEmpty: true, allRows: false });
+    expect(body.columns.map((c) => c.field)).not.toContain("co2Kg");
+    expect(body.columns.map((c) => c.field)).not.toContain("isArchived");
+    expect(body.columns.find((c) => c.field === "plannedDistanceM")?.header).toBe("PlanningExecution:Distance (km)");
+    click.mockRestore();
+  });
+
   it("opens a trip through useOpenRecord", async () => {
     gridRows.current = tripRows;
     renderWith(<TripsView filter="today" />);

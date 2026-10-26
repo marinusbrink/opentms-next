@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import type { GridExportChoice } from "@/components/ui/grid-export-dialog";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
+import { fallbackFileName, fileDateStamp, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
 import { useRecordUpdates } from "@/lib/realtime/use-record-updates";
 
 /* The transport orders of the Transport app (designs 58 and 61): the list, the record, the section commands of the
@@ -165,6 +167,34 @@ export function useTransportOrdersGridFetcher(filters: TransportOrderListFilters
   const key = JSON.stringify(filters);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return useCallback((request: GridRequest) => fetchTransportOrders(request, JSON.parse(key) as TransportOrderListFilters), [key]);
+}
+
+/** Exports the Orders list as xlsx (design 58 build note 19): the list's own request (search, sort, filters) plus the
+ * chosen columns and rows; the file is saved under the server's name. A refusal (ExportTooManyRows,
+ * ExportUnknownColumn) is thrown as the ABP error. */
+export async function exportTransportOrders(request: GridRequest, filters: TransportOrderListFilters, choice: GridExportChoice): Promise<void> {
+  const sort = request.sortModels[0];
+  const { data, error, response } = await apiClient.POST("/api/orders/transport-order/export", {
+    body: {
+      wildcardSearch: request.wildcardSearch ?? undefined,
+      sortBy: sort?.colId,
+      sortDir: sort?.sort,
+      view: filters.view,
+      status: filters.status && filters.status.length > 0 ? filters.status : undefined,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+      customerRelationId: filters.customerRelationId || undefined,
+      organizationUnitId: filters.organizationUnitId || undefined,
+      sourceTemplateId: filters.sourceTemplateId || undefined,
+      columns: choice.columns,
+      allRows: choice.allRows,
+    },
+    parseAs: "blob",
+  });
+  if (error) throw error;
+  const blob = data as unknown as Blob | undefined;
+  if (!blob) throw new Error("The server returned no file.");
+  saveBlob(blob, fileNameFromContentDisposition(response.headers.get("Content-Disposition")) ?? fallbackFileName(`transport-orders-${fileDateStamp()}`, response.headers.get("Content-Type") ?? blob.type, ".xlsx"));
 }
 
 /* ── Record ──────────────────────────────────────────────────────────────────────────────────────────────────── */

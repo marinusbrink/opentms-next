@@ -10,10 +10,11 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
+import { GridExportDialog } from "@/components/ui/grid-export-dialog";
 import { AmountCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
-import type { GridSelectionDto } from "@/components/ui/opentms-grid";
+import type { GridExportContext, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
@@ -28,6 +29,7 @@ import {
   TRANSPORT_ORDER_STATUSES,
   TRANSPORT_ORDER_TARGET_TYPE,
   enumKey,
+  exportTransportOrders,
   orderStatusName,
   useBulkDeleteTransportOrders,
   useCancelTransportOrder,
@@ -54,7 +56,8 @@ export interface OrdersViewProps {
  * mapped onto the API's view, the toolbar filters (date range for All, status, customer, organisation unit), the
  * designed columns with CalculatingIndicator on the derived ones while a recalculation is pending (flow 2), the
  * selection-aware command bar (New per type, New from template, Copy, Print CMR, Approve, Cancel, Delete) and the row
- * actions; double click opens the record page through useOpenRecord. Export waits for a server export endpoint. */
+ * actions; double click opens the record page through useOpenRecord. Export (UI-GRID-013) sends the list's request with the
+ * chosen columns and rows to the server export and saves the xlsx. */
 export function OrdersView({ filter }: OrdersViewProps) {
   const { t } = useL();
   const features = useAppFeatures();
@@ -77,6 +80,7 @@ export function OrdersView({ filter }: OrdersViewProps) {
   const [dialog, setDialog] = useState<"new" | "template" | "copy" | "print" | "approve" | "cancel" | "delete" | null>(null);
   const [newTypeId, setNewTypeId] = useState<string | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [exportContext, setExportContext] = useState<GridExportContext | null>(null);
 
   const view = ORDER_VIEWS[filter ?? "today"] ?? ORDER_VIEWS.today;
   const filters = useMemo<TransportOrderListFilters>(
@@ -144,7 +148,8 @@ export function OrdersView({ filter }: OrdersViewProps) {
       derived("revenueAmount", t("Orders:RevenueAmount"), AmountCell),
       derived("costOfRevenueAmount", t("Orders:CostOfRevenueAmount"), AmountCell),
       derived("marginAmount", t("Orders:MarginAmount"), AmountCell),
-      derived("co2Kg", t("Orders:Co2Kg"), NumberCell),
+      /* The server export has no CO₂ column (design 58 build note 19): not offered in the export. */
+      derived("co2Kg", t("Orders:Co2Kg"), NumberCell, { context: { export: false } }),
       { field: "tripNumbers", headerName: t("Orders:TripNumbers"), minWidth: 130, sortable: false },
       { field: "executionProgress", headerName: t("Orders:ExecutionProgress"), minWidth: 130, valueFormatter: (p) => t(enumKey(EXECUTION_PROGRESSES, p.value as number)) },
       { field: "transportOrderTypeName", headerName: t("Orders:TransportOrderType"), minWidth: 140, hide: true, sortable: false },
@@ -188,6 +193,7 @@ export function OrdersView({ filter }: OrdersViewProps) {
           columnDefs={columns}
           fetchRows={fetchRows}
           onSelectionChange={setSelection}
+          onExport={setExportContext}
           onOpen={(row) => row.id && openRecord("TransportOrder", row.id)}
           rowActions={(rows) => [
             { id: "open", labelKey: "Open", onClick: () => rows[0]?.id && openRecord("TransportOrder", rows[0].id) },
@@ -216,6 +222,12 @@ export function OrdersView({ filter }: OrdersViewProps) {
       {copySource && <MaterialiseWizard open={dialog === "copy"} onOpenChange={(next) => setDialog(next ? "copy" : null)} source={copySource} />}
       <PrintCmrWizard open={dialog === "print" && printable.length > 0} onOpenChange={(next) => setDialog(next ? "print" : null)} orders={printable} />
       <ApproveDialog ids={selectedIds} open={dialog === "approve"} onOpenChange={(next) => setDialog(next ? "approve" : null)} onApproved={refresh} />
+      <GridExportDialog
+        open={exportContext != null}
+        onOpenChange={(next) => !next && setExportContext(null)}
+        columns={exportContext?.columns ?? []}
+        onExport={(choice) => exportTransportOrders(exportContext!.request, filters, choice)}
+      />
       <ConfirmDialog
         open={dialog === "cancel"}
         onOpenChange={(next) => setDialog(next ? "cancel" : null)}
