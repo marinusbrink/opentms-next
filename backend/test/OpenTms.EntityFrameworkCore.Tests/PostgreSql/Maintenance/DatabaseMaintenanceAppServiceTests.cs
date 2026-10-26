@@ -112,7 +112,7 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
         detail.IsHost.ShouldBeTrue();
         detail.DatabaseName.ShouldBe(PostgreSqlTestDatabases.HostDatabase);
         detail.SizeBytes.ShouldNotBeNull();
-        detail.SharedTenantNames.ShouldBe(["outbox-tenant-shared"]);
+        detail.SharedTenantNames.ShouldBe(["outbox-tenant-shared", "transport-run-shared"], ignoreOrder: true);
         detail.Schemas.Select(s => s.SchemaName).ShouldContain("platform");
         detail.Schemas.Select(s => s.SchemaName).ShouldContain("public");
         detail.Schemas.First(s => s.SchemaName == "platform").TableCount.ShouldBeGreaterThan(0);
