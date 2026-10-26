@@ -15,10 +15,11 @@ namespace OpenTms.Financial.Published;
 /// <summary>
 /// <see cref="IFinancialReferenceLookup"/>: existence and names of Financial's reference data for Orders' financial terms
 /// (design 56). In-process only, tenant-filtered, at most 500 ids per call; unknown ids are absent, archived rows carry
-/// their flag. Any signed-in user may call it: it returns ids, codes and names of the caller's own tenant only.
+/// their flag. Anonymous in-process (outbox handlers and jobs call it): it returns ids, codes and names of the current tenant only.
 /// </summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialReferenceLookup
 {
     private readonly IRepository<VatPercentage, Guid> _vat;
@@ -37,7 +38,6 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         _relationSettings = relationSettings;
     }
 
-    [Authorize]
     public virtual async Task<RelationFinancialSettingsReferenceDto?> GetRelationFinancialSettingsAsync(Guid relationId, DateOnly asOf, CancellationToken cancellationToken = default)
     {
         if (relationId == Guid.Empty)
@@ -65,7 +65,6 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         };
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<FinancialReferenceDto>> GetVatPercentagesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
     {
         var keys = Bounded(ids);
@@ -79,7 +78,6 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         return rows.Select(v => new FinancialReferenceDto { Id = v.Id, Code = v.Code, Name = v.Name.Resolve(culture), IsArchived = v.IsArchived }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<FinancialReferenceDto>> GetDiscountsOrSurchargesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
     {
         var keys = Bounded(ids);
@@ -92,7 +90,6 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         return rows.Select(d => new FinancialReferenceDto { Id = d.Id, Code = d.Code, Name = d.Name, IsArchived = d.IsArchived }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<FinancialReferenceDto>> GetAdditionalServicesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
     {
         var keys = Bounded(ids);
@@ -105,7 +102,6 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         return rows.Select(s => new FinancialReferenceDto { Id = s.Id, Code = s.Code, Name = s.Name, IsArchived = s.IsArchived }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<PriceListReferenceDto>> GetPriceListsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
     {
         var keys = Bounded(ids);

@@ -261,3 +261,22 @@ feature off; tables stay. Health tenant → friendly tenants → all is the host
 - **Secrets**: routing hosts and keys, pdfgeneratorapi key in configuration and user secrets only; the OpenTMS literals
   are not copied.
 - **Privacy**: see the PBI note; no personal data in logs or events (ids only).
+
+## Build notes
+
+1. **2026-10-26, background paths run without a user.** In the browser run a confirmed order never got legs: the outbox
+   dispatcher's `OrderLegsHandler` called `IOrderPricingReader`, which carried `[Authorize]`, and outbox handlers and the
+   Hangfire derived-value jobs have no current user, so every delivery threw `AbpAuthorizationException` and the
+   tenant's outbox stalled behind it. The tests missed it because the test base granted every check
+   (`AddAlwaysAllowAuthorization`) and ran as a fake admin. Now the published cross-module readers (`MasterDataReferenceLookup`,
+   `OrderPricingReader`, `TransportOrderLookup`, `FinancialReferenceLookup`, `RateLineReader`, `PricePreviewService`,
+   `LegReader`, `TransportTripLookup`) are in-process (`[RemoteService(IsEnabled = false)]`) and anonymous: they carry no
+   `[Authorize]` at all, so ABP attaches no authorization interceptor (ABP honours `[AllowAnonymous]` on methods only;
+   the class-level one states the intent), and the HTTP-facing app service that calls them authorizes. Every handler,
+   calculator and the template materialisation worker reach other modules only through these readers, domain services
+   and repositories. Two guards in `AuthorizationCoverageTests` hold it: an implementation of an `OpenTms.*.Published`
+   interface has no `[Authorize]` on its class or methods, and an `[AllowAnonymous]` application service or controller
+   action is `[RemoteService(IsEnabled = false)]` or on the (empty) allow-list of deliberate anonymous HTTP endpoints.
+   The test base now refuses `[Authorize]` and policy checks for a caller without a user
+   (`AddSignedInUserAuthorization`). The chain test, the derived-value, rate-line and Planning calculator tests run the
+   dispatcher and the jobs through `AsBackgroundProcess()` (no user), and the hourly template run has an anonymous test.

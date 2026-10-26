@@ -21,8 +21,9 @@ namespace OpenTms.MasterData.Published;
 /// <c>IN</c> query per call (two for the fleet reads that join the type; the address reads add one per distinct country and
 /// postcode for the region match); the tenant filter scopes every read.
 /// </summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataReferenceLookup
 {
     private readonly IRepository<Relation, Guid> _relations;
@@ -69,7 +70,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         _unitPairs = unitPairs;
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataReferenceDto>> GetRelationsAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -84,7 +84,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return await AsyncExecuter.ToListAsync(query);
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataReferenceDto>> GetRelationCategoriesAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -99,7 +98,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return await AsyncExecuter.ToListAsync(query);
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataReferenceDto>> GetGeographicalRegionsAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -114,7 +112,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return await AsyncExecuter.ToListAsync(query);
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataCodeReferenceDto>> GetCountriesAsync(IReadOnlyCollection<string> isoAlpha2Codes)
     {
         var keys = BoundCodes(isoAlpha2Codes);
@@ -129,7 +126,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             .ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataCodeReferenceDto>> GetCurrenciesAsync(IReadOnlyCollection<string> isoCodes)
     {
         var keys = BoundCodes(isoCodes);
@@ -144,7 +140,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             .ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationAddressesAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -158,7 +153,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
     }
 
 
-    [Authorize]
     public virtual async Task<List<MasterDataAddressReferenceDto>> GetAddressesOfRelationsAsync(IReadOnlyCollection<Guid> relationIds)
     {
         var keys = Bound(relationIds);
@@ -171,7 +165,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return (await DescribeAsync(rows)).OrderBy(a => a.RelationId).ThenBy(a => a.Id).ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataAddressReferenceDto>> GetRelationDefaultAddressesAsync(IReadOnlyCollection<Guid> relationIds)
     {
         var keys = Bound(relationIds);
@@ -247,7 +240,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             .ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataVehicleReferenceDto>> GetVehiclesAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -294,7 +286,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         }).OrderBy(v => v.Name).ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataVehicleCombinationReferenceDto>> GetVehicleCombinationsAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -314,7 +305,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataReferenceDto>> GetDriversAsync(IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -327,7 +317,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return drivers.Select(d => new MasterDataReferenceDto { Id = d.Id, Name = d.FullName, IsArchived = d.IsArchived }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<MasterDataIncompatibilitiesDto> GetIncompatibilitiesAsync(IReadOnlyCollection<Guid> temperatureIds, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Guid> transportUnitIds)
     {
         return new MasterDataIncompatibilitiesDto
@@ -352,7 +341,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return await AsyncExecuter.ToListAsync(query);
     }
 
-    [Authorize]
     public virtual async Task<List<MasterDataReferenceDto>> GetReferencesAsync(MasterDataReferenceKind kind, IReadOnlyCollection<Guid> ids)
     {
         var keys = Bound(ids);
@@ -388,7 +376,6 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         }
     }
 
-    [Authorize]
     public virtual async Task<MasterDataReferenceDto?> GetOwnCompanyAsync()
     {
         var own = (await _relations.GetListAsync(r => (r.Roles & RelationRoles.OwnCompany) == RelationRoles.OwnCompany && !r.IsArchived)).FirstOrDefault();

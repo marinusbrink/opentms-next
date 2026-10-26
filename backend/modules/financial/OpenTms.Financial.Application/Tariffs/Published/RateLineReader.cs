@@ -13,8 +13,9 @@ namespace OpenTms.Financial.Tariffs.Published;
 /// <see cref="IRateLineReader"/>: the stored lines and AD-08 totals of orders and trips for Orders (revenue, margin) and
 /// Planning (allocation over legs, AD-20). In-process only, tenant-filtered, reads stored columns, never calculates.
 /// </summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class RateLineReader : FinancialAppServiceBase, IRateLineReader
 {
     private readonly IRepository<RateLine, Guid> _lines;
@@ -24,11 +25,9 @@ public class RateLineReader : FinancialAppServiceBase, IRateLineReader
         _lines = lines;
     }
 
-    [Authorize]
     public virtual async Task<RateLineTotalsDto> GetOrderTotalsAsync(Guid orderId, CancellationToken cancellationToken = default)
         => (await GetOrderTotalsAsync([orderId], cancellationToken)).GetValueOrDefault(orderId) ?? Empty(orderId);
 
-    [Authorize]
     public virtual async Task<IReadOnlyDictionary<Guid, RateLineTotalsDto>> GetOrderTotalsAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
     {
         var ids = Bounded(orderIds);
@@ -37,14 +36,12 @@ public class RateLineReader : FinancialAppServiceBase, IRateLineReader
         return ids.ToDictionary(id => id, id => byOrder.TryGetValue(id, out var own) ? ToDto(id, own) : Empty(id));
     }
 
-    [Authorize]
     public virtual async Task<RateLineTotalsDto> GetTripTotalsAsync(Guid tripId, CancellationToken cancellationToken = default)
     {
         var lines = await _lines.GetListAsync(l => l.AnchorTripId == tripId && l.Side == RateSide.Cost, cancellationToken: cancellationToken);
         return lines.Count == 0 ? Empty(tripId) : ToDto(tripId, lines);
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<RateLineSnapshotDto>> GetLegLinesAsync(IReadOnlyCollection<Guid> legIds, CancellationToken cancellationToken = default)
     {
         var ids = Bounded(legIds);

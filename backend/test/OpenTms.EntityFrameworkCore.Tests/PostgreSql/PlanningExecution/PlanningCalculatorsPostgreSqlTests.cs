@@ -51,8 +51,14 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
     private async Task<long> RequestedVersionAsync(string targetType, Guid id)
         => await CommittedAsync(async () => (await States.FindAsync(targetType, id)).ShouldNotBeNull().RequestedVersion);
 
-    private Task RunAsync(string targetType, Guid id, long version)
-        => Job.ExecuteAsync(new DerivedValueCalculationArgs { TenantId = TenantA, TargetType = targetType, TargetId = id, Version = version });
+    /* The job and the dispatcher run as in production: without a current user (design 56 build notes). */
+    private async Task RunAsync(string targetType, Guid id, long version)
+    {
+        using (AsBackgroundProcess())
+        {
+            await Job.ExecuteAsync(new DerivedValueCalculationArgs { TenantId = TenantA, TargetType = targetType, TargetId = id, Version = version });
+        }
+    }
 
     private async Task<TransportTrip> TripAsync(Guid id) => await CommittedAsync(() => Operations.GetWithDetailsAsync(id));
 
@@ -239,6 +245,7 @@ public class PlanningCalculatorsPostgreSqlTests : PlanningPostgreSqlTestBase
     private async Task DrainOutboxAsync()
     {
         var dispatcher = GetRequiredService<IOutboxDispatcher>();
+        using var anonymous = AsBackgroundProcess();
         while (await dispatcher.DispatchAsync(TenantA) > 0)
         {
         }

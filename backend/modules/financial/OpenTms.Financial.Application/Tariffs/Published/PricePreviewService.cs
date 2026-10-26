@@ -14,10 +14,11 @@ namespace OpenTms.Financial.Tariffs.Published;
 /// <summary>
 /// <see cref="IPricePreviewService"/>: the one synchronous Financial call a request may make (design 56). The same
 /// resolver as the calculator over the posted snapshot: nothing is stored, nothing is published, ids of unsaved lines
-/// are synthetic. Any signed-in user of the tenant may ask (the screen that holds the order already shows its lines).
+/// are synthetic. Anonymous in-process: the HTTP-facing caller (Orders' preview endpoint) authorizes the request.
 /// </summary>
+// Published in-process service: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
 {
     private readonly PricingDataLoader _loader;
@@ -27,7 +28,6 @@ public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
         _loader = loader;
     }
 
-    [Authorize]
     public virtual async Task<PricePreviewDto> PreviewAsync(PricingSnapshotDto snapshot, CancellationToken cancellationToken = default)
     {
         var rootId = snapshot.OrderId ?? PricingLines.SyntheticId(0);

@@ -13,8 +13,9 @@ using Volo.Abp.Domain.Repositories;
 namespace OpenTms.Orders.Published;
 
 /// <summary>See <see cref="IOrderPricingReader"/>: the pricing snapshot of stored orders for Financial's calculator (in-process only).</summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class OrderPricingReader : OrdersAppServiceBase, IOrderPricingReader
 {
     private readonly IRepository<TransportOrder, Guid> _orders;
@@ -26,14 +27,12 @@ public class OrderPricingReader : OrdersAppServiceBase, IOrderPricingReader
         _snapshots = snapshots;
     }
 
-    [Authorize]
     public virtual async Task<PricingSnapshotDto?> GetSnapshotAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         var order = await _orders.FindAsync(orderId, includeDetails: true, cancellationToken);
         return order == null ? null : await _snapshots.BuildAsync(order);
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<PricingSnapshotDto>> GetSnapshotsAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
     {
         var keys = (orderIds ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
@@ -53,8 +52,9 @@ public class OrderPricingReader : OrdersAppServiceBase, IOrderPricingReader
 }
 
 /// <summary>See <see cref="ITransportOrderLookup"/>: short references and the trip request for Planning (in-process only).</summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
 {
     private readonly IRepository<TransportOrder, Guid> _orders;
@@ -66,7 +66,6 @@ public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
         _waypointTypes = waypointTypes;
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<WaypointTypeReferenceDto>> GetWaypointTypesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
     {
         var keys = (ids ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
@@ -84,7 +83,6 @@ public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
         return types.Select(w => new WaypointTypeReferenceDto { Id = w.Id, Activity = w.Activity, SuccessiveWaypointTypeId = w.SuccessiveWaypointTypeId, DefaultDurationMinutes = w.DefaultDurationMinutes }).ToList();
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<TransportOrderReferenceDto>> GetAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
     {
         var keys = (orderIds ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
@@ -107,7 +105,6 @@ public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
         return await AsyncExecuter.ToListAsync(query, cancellationToken);
     }
 
-    [Authorize]
     public virtual async Task<TripRequestDto?> GetTripRequestAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         var order = await _orders.FindAsync(orderId, includeDetails: false, cancellationToken);

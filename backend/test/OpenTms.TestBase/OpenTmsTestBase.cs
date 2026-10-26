@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Volo.Abp;
 using Volo.Abp.Modularity;
+using Volo.Abp.Security.Claims;
 using Volo.Abp.Uow;
 using Volo.Abp.Testing;
 
@@ -24,6 +26,14 @@ public abstract class OpenTmsTestBase<TStartupModule> : AbpIntegratedTest<TStart
         builder.AddJsonFile("appsettings.secrets.json", true);
         services.ReplaceConfiguration(builder.Build());
     }
+
+    /// <summary>
+    /// Runs the enclosed code the way production runs its background paths: the outbox dispatcher, the Hangfire
+    /// derived-value jobs and the background workers have no current user (design 56 build notes). The test bases
+    /// otherwise run as the fake admin of <c>FakeCurrentPrincipalAccessor</c>; user-facing calls keep that principal.
+    /// </summary>
+    protected IDisposable AsBackgroundProcess()
+        => GetRequiredService<ICurrentPrincipalAccessor>().Change(new ClaimsPrincipal(new ClaimsIdentity()));
 
     protected virtual Task WithUnitOfWorkAsync(Func<Task> func)
     {

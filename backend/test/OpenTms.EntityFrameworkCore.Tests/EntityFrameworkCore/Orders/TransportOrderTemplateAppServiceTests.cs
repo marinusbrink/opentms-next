@@ -213,6 +213,39 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
     }
 
     [Fact]
+    public async Task The_hourly_run_works_without_a_user_like_the_background_worker_and_stays_in_its_tenant()
+    {
+        /* The worker runs without a current user (design 56 build notes): the runner's order creation reads Master Data and
+         * Financial through their published readers, which must not require one. The runner logs and swallows a failing
+         * template, so the count is the proof. */
+        Guid dailyId;
+        using (InTenantA())
+        {
+            var f = await FixtureAsync();
+            dailyId = (await Templates.CreateAsync(TemplateDto(f, "Daily anonymous"))).Id;
+            using (AsBackgroundProcess())
+            {
+                GetRequiredService<Volo.Abp.Users.ICurrentUser>().IsAuthenticated.ShouldBeFalse();
+                (await GetRequiredService<TemplateMaterialisationRunner>().RunForCurrentTenantAsync()).ShouldBe(3, "the daily template over its horizon of three days, created without a user");
+            }
+
+            var created = await Orders.GetListAsync(new TransportOrderListRequestDto { SourceTemplateId = dailyId });
+            created.Rows.Count.ShouldBe(3);
+            created.Rows.ShouldAllBe(r => r.Status == TransportOrderStatus.Open && r.Source == OrderSource.Template);
+        }
+
+        using (InTenantB())
+        {
+            using (AsBackgroundProcess())
+            {
+                (await GetRequiredService<TemplateMaterialisationRunner>().RunForCurrentTenantAsync()).ShouldBe(0, "tenant A's template is not tenant B's");
+            }
+
+            (await Orders.GetListAsync(new TransportOrderListRequestDto { SourceTemplateId = dailyId })).TotalCount.ShouldBe(0);
+        }
+    }
+
+    [Fact]
     public async Task Another_tenant_sees_no_templates()
     {
         Guid templateId;

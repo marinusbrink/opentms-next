@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Security;
 using Volo.Abp;
 using Volo.Abp.Authorization;
 using Volo.Abp.Autofac;
@@ -24,7 +25,8 @@ public class OpenTmsTestBaseModule : AbpModule
             options.IsJobExecutionEnabled = false;
         });
 
-        context.Services.AddAlwaysAllowAuthorization();
+        /* Everything for the signed-in fake admin, nothing for a caller without a user (the background paths). */
+        context.Services.AddSignedInUserAuthorization();
     }
 
     public override void OnApplicationInitialization(ApplicationInitializationContext context)

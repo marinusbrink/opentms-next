@@ -12,8 +12,9 @@ using Volo.Abp.Domain.Repositories;
 namespace OpenTms.PlanningExecution.Legs;
 
 /// <summary>See <see cref="ILegReader"/>: stored values only, tenant-filtered, one query for the legs and one for their trips.</summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class LegReader : PlanningExecutionAppServiceBase, ILegReader
 {
     private readonly IRepository<Leg, Guid> _legs;
@@ -25,22 +26,18 @@ public class LegReader : PlanningExecutionAppServiceBase, ILegReader
         _trips = trips;
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<LegSnapshotDto>> GetByOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
         => await MapAsync(await _legs.GetListAsync(l => l.OrderId == orderId, cancellationToken: cancellationToken), cancellationToken);
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<LegSnapshotDto>> GetByOrdersAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default)
     {
         var keys = Bound(orderIds);
         return keys.Count == 0 ? [] : await MapAsync(await _legs.GetListAsync(l => keys.Contains(l.OrderId), cancellationToken: cancellationToken), cancellationToken);
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<LegSnapshotDto>> GetByTripAsync(Guid tripId, CancellationToken cancellationToken = default)
         => await MapAsync(await _legs.GetListAsync(l => l.TripId == tripId, cancellationToken: cancellationToken), cancellationToken);
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<LegSnapshotDto>> GetAsync(IReadOnlyCollection<Guid> legIds, CancellationToken cancellationToken = default)
     {
         var keys = Bound(legIds);

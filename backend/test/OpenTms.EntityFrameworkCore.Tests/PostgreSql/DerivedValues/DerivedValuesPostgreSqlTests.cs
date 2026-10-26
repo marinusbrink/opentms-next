@@ -81,8 +81,22 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
         return next - 1;
     }
 
-    private Task RunJobAsync(Guid targetId, long version, Guid? tenantId = null)
-        => _job.ExecuteAsync(new DerivedValueCalculationArgs { TenantId = tenantId ?? TenantA, TargetType = DerivedValueProbe.TargetType, TargetId = targetId, Version = version });
+    /* The job, the dispatcher and the request handler run as in production: without a current user. */
+    private async Task RunJobAsync(Guid targetId, long version, Guid? tenantId = null)
+    {
+        using (AsBackgroundProcess())
+        {
+            await _job.ExecuteAsync(new DerivedValueCalculationArgs { TenantId = tenantId ?? TenantA, TargetType = DerivedValueProbe.TargetType, TargetId = targetId, Version = version });
+        }
+    }
+
+    private async Task<int> DispatchAsync(Guid tenantId)
+    {
+        using (AsBackgroundProcess())
+        {
+            return await _dispatcher.DispatchAsync(tenantId);
+        }
+    }
 
     [Fact]
     public async Task A_request_commits_its_version_and_its_event_with_the_save_in_the_tenants_own_database()
@@ -108,7 +122,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             (await StateAsync(targetId)).ShouldBeNull("another tenant never sees the state");
         }
 
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -171,7 +185,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
 
         /* Request and recalculated events, both in tenant A's database. */
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(2);
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -213,7 +227,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             (await CommittedCalculationsAsync(targetId)).ShouldBe(1);
         }
 
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -243,7 +257,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             recovered.LastErrorCode.ShouldBeNull();
         }
 
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -270,7 +284,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             _control.Calls.Where(c => c.TargetId == targetId).ShouldBeEmpty();
         }
 
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -287,7 +301,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
 
         /* The production path: the dispatcher reads the tenant's outbox and hands the event to DerivedValuesRequestedHandler,
          * which reads the state (a DbContext: it needs the dispatcher's unit of work) and enqueues the job. */
-        (await _dispatcher.DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1);
+        (await DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1);
 
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(0, "the handled row is deleted; nothing blocks the tenant's outbox");
         GetRequiredService<RecordingBackgroundJobManager>().Of<DerivedValueCalculationArgs>().ShouldContain(a => a.TargetId == targetId);
@@ -301,7 +315,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             (await StateAsync(targetId)).ShouldNotBeNull().Status.ShouldBe(DerivedValueStatus.UpToDate);
         }
 
-        (await _dispatcher.DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1, "the recalculated fact");
+        (await DispatchAsync(TenantA)).ShouldBeGreaterThanOrEqualTo(1, "the recalculated fact");
         (await PostgreSqlTestDatabases.CountOutboxRowsAsync(PostgreSqlTestDatabases.TenantADatabase, targetId.ToString())).ShouldBe(0);
     }
 
@@ -328,7 +342,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
             (await StateAsync(targetId)).ShouldNotBeNull().CalculatedVersion.ShouldBe(version);
         }
 
-        await _dispatcher.DispatchAsync(PostgreSqlTestDatabases.SharedTenantId);
+        await DispatchAsync(PostgreSqlTestDatabases.SharedTenantId);
     }
 
     [Fact]
@@ -355,7 +369,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
                 .Code.ShouldBe(DerivedValueErrorCodes.UnknownTargetType);
         }
 
-        await _dispatcher.DispatchAsync(TenantA);
+        await DispatchAsync(TenantA);
     }
 
     [Fact]
@@ -390,7 +404,7 @@ public class DerivedValuesPostgreSqlTests : OpenTmsPostgreSqlTestBase
         }
 
         /* Drain the 10,000 request events so later tests see a clean outbox. */
-        while (await _dispatcher.DispatchAsync(TenantA) > 0)
+        while (await DispatchAsync(TenantA) > 0)
         {
         }
     }

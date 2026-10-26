@@ -11,8 +11,9 @@ using Volo.Abp.Domain.Repositories;
 namespace OpenTms.PlanningExecution.TransportTrips;
 
 /// <summary>See <see cref="ITransportTripLookup"/>: one query for the trips with their vehicles and drivers, one Master Data lookup per kind of name; the vehicles' cost price per kilometre summed for Financial (QP10).</summary>
+// Published in-process reader: outbox handlers and derived-value jobs call it without a user, so it is anonymous; the HTTP-facing caller authorizes.
 [RemoteService(IsEnabled = false)]
-[Authorize]
+[AllowAnonymous]
 public class TransportTripLookup : PlanningExecutionAppServiceBase, ITransportTripLookup
 {
     private readonly IRepository<TransportTrip, Guid> _trips;
@@ -24,7 +25,6 @@ public class TransportTripLookup : PlanningExecutionAppServiceBase, ITransportTr
         _masterData = masterData;
     }
 
-    [Authorize]
     public virtual async Task<IReadOnlyList<TransportTripReferenceDto>> GetAsync(IReadOnlyCollection<Guid> tripIds, CancellationToken cancellationToken = default)
     {
         var keys = (tripIds ?? []).Where(id => id != Guid.Empty).Distinct().ToList();

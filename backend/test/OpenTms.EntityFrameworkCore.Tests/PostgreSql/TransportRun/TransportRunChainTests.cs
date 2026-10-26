@@ -34,6 +34,7 @@ using Volo.Abp.Domain.Repositories;
 using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.SettingManagement;
+using Volo.Abp.Users;
 using Volo.Abp.Uow;
 using Xunit;
 
@@ -108,7 +109,9 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
     /// <summary>
     /// What the outbox worker and Hangfire do in production, synchronously and to the end: dispatch the tenant's outbox
     /// (the handlers request calculations and raise facts), run every job the request handler enqueued, repeat until
-    /// nothing moves. Returns the number of jobs run.
+    /// nothing moves. Like production, without a current user: the user-facing calls of the tests keep the admin, the
+    /// handlers and jobs run anonymously (the browser run's stalled outbox, design 56 build notes). Returns the number of
+    /// jobs run.
     /// </summary>
     private static readonly HashSet<string> ChainTargetTypes =
     [
@@ -118,6 +121,8 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
 
     private async Task<int> DriveAsync(Guid tenantId)
     {
+        using var anonymous = AsBackgroundProcess();
+        GetRequiredService<ICurrentUser>().IsAuthenticated.ShouldBeFalse("the background paths run without a user");
         var jobsRun = 0;
         for (var round = 0; round < 40; round++)
         {
