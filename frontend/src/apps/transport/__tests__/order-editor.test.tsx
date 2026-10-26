@@ -570,7 +570,11 @@ describe("OrderPage – pricing tab", () => {
     const emptyIds: string[] = [];
     const walk = (value: unknown, path: string) => {
       if (Array.isArray(value)) value.forEach((v, i) => walk(v, `${path}[${i}]`));
-      else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) (/Id$/.test(k) && v === "" ? emptyIds.push(`${path}.${k}`) : walk(v, `${path}.${k}`));
+      else if (value && typeof value === "object")
+        for (const [k, v] of Object.entries(value)) {
+          if (/Id$/.test(k) && v === "") emptyIds.push(`${path}.${k}`);
+          else walk(v, `${path}.${k}`);
+        }
     };
     walk(body, "body");
     expect(emptyIds).toEqual([]);
