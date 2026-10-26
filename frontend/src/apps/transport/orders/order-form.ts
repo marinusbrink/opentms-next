@@ -425,6 +425,43 @@ export function joinDateTime(date: string | null, time: string): string | null {
   return new Date(y, m - 1, d, hh, mm).toISOString();
 }
 
+/** The Tevens trip's prefill when the user ticks "Create a trip" (design 61, easier than OpenTMS): only the empty fields
+ * are filled, the user can change all of them. Trip type: the tenant's default (or only) type; departure: the first
+ * stop of the first line, with its date and window start; arrival: the last stop of the last line. A template carries
+ * day offsets instead of dates. */
+export function tripRequestWithDefaults(request: TripRequestValues, lines: LineValues[], mode: EditorMode, defaultTripTypeId: string | null): TripRequestValues {
+  const first = lines[0]?.stops[0];
+  const last = lines.at(-1)?.stops.at(-1);
+  const next = { ...request };
+  if (!next.transportTripTypeId && defaultTripTypeId) next.transportTripTypeId = defaultTripTypeId;
+  if (!next.departureRelation && first?.relationId) {
+    next.departureRelation = relationOptionOf(first.relationId, first.relationName);
+    next.departureAddressId = first.relationAddressId;
+  }
+  if (!next.arrivalRelation && last?.relationId) {
+    next.arrivalRelation = relationOptionOf(last.relationId, last.relationName);
+    next.arrivalAddressId = last.relationAddressId;
+  }
+  if (first) {
+    if (mode === "order") {
+      if (!next.departureDate && first.date) {
+        next.departureDate = first.date;
+        if (!next.departureTime.trim() && first.windowFrom.trim()) next.departureTime = first.windowFrom.trim();
+      }
+    } else if ((next.departureDayOffset.trim() === "" || next.departureDayOffset.trim() === "0") && !next.departureTime.trim()) {
+      next.departureDayOffset = first.dayOffset.trim() || "0";
+      if (first.windowFrom.trim()) next.departureTime = first.windowFrom.trim();
+    }
+  }
+  return next;
+}
+
+/** The trip type the Tevens trip starts with: the tenant's default type when it is among the active ones, else the only one. */
+export function defaultTripTypeIdOf(defaultId: string | null | undefined, activeIds: readonly string[]): string | null {
+  if (defaultId && activeIds.includes(defaultId)) return defaultId;
+  return activeIds.length === 1 ? activeIds[0] : null;
+}
+
 export function tripRequestValuesOf(request: TransportOrderTripRequestDto | TemplateTripRequestInputDto | undefined): TripRequestValues {
   if (!request) return EMPTY_TRIP_REQUEST;
   const r = request as Partial<TransportOrderTripRequestDto & TemplateTripRequestInputDto>;

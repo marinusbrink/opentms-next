@@ -16,12 +16,12 @@ import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { LegDialog } from "@/apps/transport/components/LegDialog";
 import { TripRequestWarningAlert } from "@/apps/transport/components/TripRequestWarning";
 import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
-import type { EditorMode, OrderValues } from "@/apps/transport/orders/order-form";
+import { defaultTripTypeIdOf, tripRequestWithDefaults, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
 import type { TransportOrderDto } from "@/domains/orders/transport-orders";
 import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
-import { transportTripTypes } from "@/domains/planning-execution/reference-data";
+import { transportTripTypes, useDefaultTransportTripTypeId } from "@/domains/planning-execution/reference-data";
 import { tripStatusName } from "@/domains/planning-execution/trips";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useFormat } from "@/lib/format";
@@ -123,6 +123,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const typeLookup = transportTripTypes.useLookup();
   const typeOptions = useMemo(() => toOptions(typeLookup.data), [typeLookup.data]);
+  const defaultType = useDefaultTransportTripTypeId(!readOnly);
   const combinationLookup = vehicleCombinations.useLookup(advanced);
   const combinationOptions = useMemo(() => toOptions(combinationLookup.data), [combinationLookup.data]);
   const vehiclePage = useMemo(() => vehicleLookupPage(), []);
@@ -130,6 +131,12 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
   const set = (change: Partial<OrderValues["tripRequest"]>) => {
     form.set("tripRequest", { ...request, ...change });
     form.blur("tripRequest");
+  };
+  /* Ticking "Create a trip" prefills the empty fields from the order (design 61 "Tevens trip": easier than OpenTMS). */
+  const enable = (enabled: boolean) => {
+    if (!enabled) return set({ enabled: false });
+    const activeTypeIds = (typeLookup.data ?? []).map((type) => type.id ?? "").filter(Boolean);
+    set(tripRequestWithDefaults({ ...request, enabled: true }, form.values.lines, mode, defaultTripTypeIdOf(defaultType.data, activeTypeIds)));
   };
   /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved lands in the latest request. */
   const inPlace = useCreateInPlace();
@@ -150,7 +157,7 @@ function TripRequestSection({ form, mode, order }: { form: FormContext<OrderValu
     <FormSection aria-label={t("Orders:TripRequest")} className="shrink-0">
       <div className="mb-3 flex items-center gap-4">
         <label className="flex items-center gap-2 text-label font-semibold text-brand" htmlFor={form.id("trip-enabled")}>
-          <Checkbox id={form.id("trip-enabled")} checked={request.enabled} disabled={readOnly} onCheckedChange={(next) => set({ enabled: next === true })} />
+          <Checkbox id={form.id("trip-enabled")} checked={request.enabled} disabled={readOnly} onCheckedChange={(next) => enable(next === true)} />
           {t("Orders:TripRequestHint")}
         </label>
         {locked && order?.tripRequest?.tripId && (

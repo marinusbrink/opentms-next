@@ -623,9 +623,80 @@ describe("OrderPage – planning tab (Tevens trip, Q9)", () => {
     expect(within(planning).getByText("Orders:Advanced")).toBeInTheDocument();
     expect(planning.querySelector("[data-grid-id='planning.transport.orderLegs']")).not.toBeNull();
 
+    /* The prefill (finding 4) fills the request from the order; without a trip type it is incomplete and not sent. */
+    fireEvent.change(planning.querySelector<HTMLSelectElement>("select[id$='-trip-transportTripTypeId']")!, { target: { value: "" } });
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
     expect(within(planning).getByText("Orders:TripRequestIncomplete")).toBeInTheDocument();
+  });
+
+  it("ticking the Tevens trip prefills type, departure (first stop, its date and window start) and arrival (last stop); the user can change them", async () => {
+    const base = order(1);
+    const lines = [
+      { ...base.lines[0], stops: [{ ...base.lines[0].stops[0], windowFrom: "07:30:00" }, base.lines[0].stops[1]] },
+      { id: "l2", position: 2, transportUnitId: "unit-1", quantity: 1, paymentInstruction: 0, stops: [
+        { id: "s3", position: 1, waypointTypeId: "wp-load", relationId: "rel-1", relationName: "Acme", relationAddressId: "adr-1", date: "2026-10-26" },
+        { id: "s4", position: 2, waypointTypeId: "wp-unload", relationId: "rel-3", relationName: "Gamma", relationAddressId: "adr-3", date: "2026-10-27" },
+      ] },
+    ];
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(1, { lines });
+    routes.GET["/api/planning/transport-trip-type/lookup"] = () => [{ id: "tt-1", name: "Own fleet" }, { id: "tt-2", name: "Charter" }];
+    routes.GET["/api/planning/transport-trip-type"] = () => ({ rows: [{ id: "tt-2", name: "Charter", isDefault: true }], totalCount: 2, filteredCount: 1 });
+    routes.PUT["/api/orders/transport-order/{id}/trip-request"] = () => order(1, { lines, concurrencyStamp: "stamp-2" });
+    routes.GET["/api/master-data/relation/{id}/addresses"] = (init) => {
+      const id = String(init?.params?.path?.id);
+      return [{ id: `adr-${id.slice(4)}-dock`, addressTypeId: "type-1", street: "Dock", city: "X" }, { id: `adr-${id.slice(4)}`, addressTypeId: null, street: "Main", city: "X" }];
+    };
+    renderPage();
+    await screen.findByRole("heading", { level: 1 });
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    await waitFor(() => expect(GET.mock.calls.some(([p]) => p === "/api/planning/transport-trip-type")).toBe(true));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(within(planning).getByRole("checkbox", { name: "Orders:TripRequestHint" }));
+
+    const field = (suffix: string) => planning.querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-trip-${suffix}']`)!;
+    expect(field("transportTripTypeId").value).toBe("tt-2");
+    expect(field("departureRelation").value).toBe("rel-1");
+    expect(field("arrivalRelation").value).toBe("rel-3");
+    /* The stops' own addresses (not the relations' defaults), once the address lists have loaded. */
+    await waitFor(() => expect(field("departureAddress").value).toBe("adr-1"));
+    await waitFor(() => expect(field("arrivalAddress").value).toBe("adr-3"));
+    expect(field("departureDate").value).toBe("2026-10-25");
+    expect(field("departureTime").value).toBe("07:30");
+
+    /* The prefill is a suggestion: a changed field is what is sent. */
+    fireEvent.change(field("departureTime"), { target: { value: "06:15" } });
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/trip-request")).toHaveLength(1));
+    const body = (lastCall(PUT, "/api/orders/transport-order/{id}/trip-request")!.body as { tripRequest: Record<string, unknown> }).tripRequest;
+    expect(body).toMatchObject({ transportTripTypeId: "tt-2", departureRelationId: "rel-1", departureAddressId: "adr-1", arrivalRelationId: "rel-3", arrivalAddressId: "adr-3" });
+    const departure = new Date(body.plannedDeparture as string);
+    expect([departure.getFullYear(), departure.getMonth() + 1, departure.getDate(), departure.getHours(), departure.getMinutes()]).toEqual([2026, 10, 25, 6, 15]);
+  });
+
+  it("the only trip type is the default when none is marked; a filled field is never overwritten", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(1);
+    renderPage();
+    await screen.findByRole("heading", { level: 1 });
+    tab("Orders:Planning");
+    const planning = panel("Orders:Planning");
+    await waitFor(() => expect(GET.mock.calls.some(([p]) => p === "/api/planning/transport-trip-type/lookup")).toBe(true));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const checkbox = () => within(planning).getByRole("checkbox", { name: "Orders:TripRequestHint" });
+    fireEvent.click(checkbox());
+    const field = (suffix: string) => planning.querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-trip-${suffix}']`)!;
+    expect(field("transportTripTypeId").value).toBe("tt-1");
+    expect(field("arrivalRelation").value).toBe("rel-2");
+    fireEvent.change(field("departureTime"), { target: { value: "05:00" } });
+    /* Off and on again: the typed time stays. */
+    fireEvent.click(checkbox());
+    fireEvent.click(checkbox());
+    expect(field("departureTime").value).toBe("05:00");
   });
 
   it("the agreed purchase price belongs to an outsourced trip: it waits for a carrier and is cleared with it", async () => {

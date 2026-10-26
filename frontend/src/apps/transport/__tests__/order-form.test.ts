@@ -9,6 +9,10 @@ import {
   newLine,
   orderValuesOf,
   pricePreviewRequestOf,
+  tripRequestWithDefaults,
+  defaultTripTypeIdOf,
+  EMPTY_TRIP_REQUEST,
+  newStop,
   savePlan,
   splitDateTime,
   stopValuesOf,
@@ -202,5 +206,29 @@ describe("pricePreviewRequestOf (finding 1)", () => {
     expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: base.lines[0].stops.slice(0, 1) }] })).toBeNull();
     expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: [base.lines[0].stops[0], { ...base.lines[0].stops[1], relationAddressId: null }] }] })).toBeNull();
     expect(pricePreviewRequestOf({ ...base, lines: [{ ...base.lines[0], stops: [{ ...base.lines[0].stops[0], relationId: null }, base.lines[0].stops[1]] }] })).toBeNull();
+  });
+});
+
+describe("tripRequestWithDefaults (finding 4)", () => {
+  const stop = (relationId: string, extra: Record<string, string> = {}) => ({ ...newStop("2026-10-25"), relationId, relationName: relationId.toUpperCase(), relationAddressId: `adr-${relationId}`, ...extra });
+  const lines = (stops: ReturnType<typeof stop>[][]) => stops.map((s) => ({ ...newLine([], null, "order"), stops: s }));
+
+  it("fills only the empty fields; a template takes the first stop's day offset and window start", () => {
+    const template = tripRequestWithDefaults({ ...EMPTY_TRIP_REQUEST, enabled: true }, lines([[stop("a", { dayOffset: "1", windowFrom: "08:00" }), stop("b")]]), "template", "tt-1");
+    expect(template).toMatchObject({ transportTripTypeId: "tt-1", departureDayOffset: "1", departureTime: "08:00", departureAddressId: "adr-a", arrivalAddressId: "adr-b" });
+
+    const filled = tripRequestWithDefaults({ ...EMPTY_TRIP_REQUEST, enabled: true, transportTripTypeId: "mine", departureDate: "2026-11-01", departureTime: "" }, lines([[stop("a", { windowFrom: "08:00" }), stop("b")]]), "order", "tt-1");
+    expect(filled).toMatchObject({ transportTripTypeId: "mine", departureDate: "2026-11-01", departureTime: "" });
+  });
+
+  it("without lines nothing but the type is filled", () => {
+    expect(tripRequestWithDefaults({ ...EMPTY_TRIP_REQUEST, enabled: true }, [], "order", null)).toEqual({ ...EMPTY_TRIP_REQUEST, enabled: true });
+  });
+
+  it("the default type when it is active, else the only active type", () => {
+    expect(defaultTripTypeIdOf("b", ["a", "b"])).toBe("b");
+    expect(defaultTripTypeIdOf("archived", ["a", "b"])).toBeNull();
+    expect(defaultTripTypeIdOf(null, ["a"])).toBe("a");
+    expect(defaultTripTypeIdOf(null, [])).toBeNull();
   });
 });

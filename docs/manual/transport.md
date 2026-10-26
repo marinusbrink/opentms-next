@@ -153,7 +153,9 @@ onderdelen *Lading*, *Container*, *Teksten en documenten*, *Afmetingen*, *Kenmer
 van die regel. Onder *Afmetingen* staan naast lengte, breedte en hoogte drie **wegingen** (kg) en drie
 **volumes** (m³) per regel, bijvoorbeeld de gewogen gewichten per pallet; een leeg veld telt niet mee. De stops past u in hun eigen tabel aan: stoptype, datum, tijdslot of tijdvenster
 (van–tot, als UU:MM), referentie en opmerking. Een stop openen geeft de relatie, het adres van die
-relatie, de contactpersoon en de geplande duur; met de pijltjes verschuift u de stop. Velden die het
+relatie, de contactpersoon en de geplande duur; het geopende onderdeel schuift in beeld en de cursor staat
+in het veld *Relatie*. Kiest u een relatie, dan vult het systeem het standaardadres van die relatie in (of het
+enige adres, als de relatie er maar één heeft). Met de pijltjes verschuift u de stop. Velden die het
 ordertype verplicht stelt, hebben een sterretje in de kolomkop.
 
 ### Tabblad Prijzen
@@ -173,6 +175,8 @@ regel staat als label in de tabel; houdt u de muis erboven, dan ziet u waar de p
 Onder de tabel staan de totalen (regels, kortingen en toeslagen, extra diensten, totaal), met de valuta
 één keer erbij. Past u op het tabblad Regels iets aan zonder op te slaan, dan toont het tabblad Prijzen
 na een ogenblik een **voorbeeld** van de nieuwe prijzen, met een melding dat het om een voorbeeld gaat.
+Een voorbeeld komt er pas als elke regel een transporteenheid heeft en minstens twee stops met relatie en
+adres; tot die tijd staat er een korte melding dat het voorbeeld nog niet beschikbaar is.
 Na **Opslaan** komen de opgeslagen, opnieuw berekende prijzen terug.
 
 Onderaan staan de **financiële voorwaarden**: valuta (een keuzelijst van de valuta's uit Stamgegevens;
@@ -192,8 +196,12 @@ tijdvenster mee. De geplande datum moet binnen het tijdvenster liggen; anders me
 bestaan pas na het bevestigen.
 
 Daaronder het onderdeel **Rit** ("Tevens rit"): zet het vinkje *Maak bij het bevestigen direct een rit aan
-voor deze order* aan en vul het rittype, het vertrek en de aankomst (relatie en adres) en de geplande
-vertrekdatum en -tijd in. Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een
+voor deze order* aan. Het systeem vult de lege velden dan alvast in: het standaard rittype (of het enige
+rittype), het vertrek met de relatie en het adres van de eerste stop van de eerste regel, de aankomst met
+die van de laatste stop van de laatste regel, en als geplande vertrekdatum de datum van die eerste stop (met
+het begin van het tijdvenster als tijd, als dat is ingevuld). Controleer de voorstellen en pas ze zo nodig
+aan; wat u al had ingevuld, blijft staan. Kiest u zelf een andere relatie, dan vult het systeem het
+standaardadres van die relatie in (of het enige adres). Onder **Geavanceerd** kiest u desgewenst de vervoerder, de voertuigen of een
 combinatie, de chauffeurs en een afgesproken inkoopprijs met valuta. Met een vervoerder wordt de rit
 uitbesteed aan die vervoerder; de afgesproken inkoopprijs hoort daarbij en is pas in te vullen als er een
 vervoerder is gekozen (haalt u de vervoerder weg, dan vervalt ook de prijs). Zonder vervoerder rijdt de rit
