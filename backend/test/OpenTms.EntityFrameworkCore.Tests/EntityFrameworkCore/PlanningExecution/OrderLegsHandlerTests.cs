@@ -291,6 +291,74 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
     }
 
     [Fact]
+    public async Task A_trip_request_with_freight_items_puts_only_their_legs_on_the_trip_and_leaves_the_others_unplanned()
+    {
+        using var _ = InTenantA();
+        var type = await TripTypeAsync();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var b = await PlaceAsync("B", "B", 52.3, 5.3);
+        var onTripKey = Guid.NewGuid();
+        var toA = Line(depot, a);
+        var toB = Line(depot, b, quantity: 4);
+        toB.Id = onTripKey;
+        var order = await OrderAsync(a.RelationId, new TransportOrderTripRequestInputDto
+        {
+            TransportTripTypeId = type, DepartureRelationId = depot.RelationId, DepartureAddressId = depot.AddressId,
+            ArrivalRelationId = depot.RelationId, ArrivalAddressId = depot.AddressId, PlannedDeparture = At(6), LineIds = [onTripKey]
+        }, toA, toB);
+        var lineToA = order.Lines.Single(l => l.Position == 1).Id!.Value;
+        var lineToB = order.Lines.Single(l => l.Position == 2).Id!.Value;
+
+        var orderId = await ConfirmOrderAsync(order);
+
+        var trip = (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldHaveSingleItem();
+        var legs = await LegsOfOrderAsync(orderId);
+        legs.Where(l => l.OrderLineId == lineToB).ShouldAllBe(l => l.TripId == trip.Id);
+        legs.Where(l => l.OrderLineId == lineToA).ShouldNotBeEmpty();
+        legs.Where(l => l.OrderLineId == lineToA).ShouldAllBe(l => l.TripId == null, "the item not chosen stays unplanned for the Planboard");
+        var detail = await Trips.GetAsync(trip.Id);
+        detail.Stops.OrderBy(s => s.Position).Select(s => s.RelationId).ShouldBe([depot.RelationId, b.RelationId], "the trip's stops follow from its legs only");
+        (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull().WarningCode.ShouldBeNull();
+
+        /* Delivered again: the request was honoured once; the unplanned leg stays where it is. */
+        await Handler.HandleEventAsync(new TransportOrderConfirmedEto { OrderId = orderId });
+        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldHaveSingleItem();
+        (await LegsOfOrderAsync(orderId)).Where(l => l.OrderLineId == lineToA).ShouldAllBe(l => l.TripId == null);
+    }
+
+    [Fact]
+    public async Task A_trip_request_whose_freight_items_lost_their_last_line_creates_no_trip_and_warns_on_the_order()
+    {
+        using var _ = InTenantA();
+        var type = await TripTypeAsync();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var order = await OrderAsync(a.RelationId, Line(depot, a), Line(depot, a, quantity: 3));
+        var chosen = order.Lines.Single(l => l.Position == 2).Id!.Value;
+        var requested = await Orders.UpdateTripRequestAsync(order.Id, new TransportOrderTripRequestUpdateDto
+        {
+            TripRequest = new TransportOrderTripRequestInputDto
+            {
+                TransportTripTypeId = type, DepartureRelationId = depot.RelationId, DepartureAddressId = depot.AddressId,
+                ArrivalRelationId = depot.RelationId, ArrivalAddressId = depot.AddressId, PlannedDeparture = At(6), LineIds = [chosen]
+            },
+            ConcurrencyStamp = order.ConcurrencyStamp
+        });
+        var emptied = await Orders.DeleteLineAsync(order.Id, chosen);
+        emptied.TripRequest.ShouldNotBeNull().LineIds.ShouldNotBeNull().ShouldBeEmpty();
+
+        var orderId = await ConfirmOrderAsync(emptied);
+
+        (await TripRepository.GetListAsync(t => t.CreatedFromOrderId == orderId)).ShouldBeEmpty("no empty trip");
+        (await LegsOfOrderAsync(orderId)).ShouldHaveSingleItem().TripId.ShouldBeNull();
+        var tripRequest = (await Orders.GetAsync(orderId)).TripRequest.ShouldNotBeNull();
+        tripRequest.WarningCode.ShouldBe(OpenTms.Orders.OrdersWarningCodes.TripRequestNotHonoured);
+        tripRequest.WarningField.ShouldBe("lineIds");
+        requested.TripRequest!.LineIds.ShouldBe([chosen]);
+    }
+
+    [Fact]
     public async Task An_honoured_trip_request_carries_no_warning()
     {
         using var _ = InTenantA();

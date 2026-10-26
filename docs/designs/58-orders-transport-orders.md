@@ -296,6 +296,11 @@ deviations, each small and reversible:
     assembly to the host: 3.1.1 is the version ClosedXML 0.105.1 already resolves to. `Export/XlsxTableWriter.cs` is
     duplicated in Planning (design 59 build note 15) because a module may not reference another module's Application
     project; moving it to a Platform helper is a Platform change and passes the design gate first (left for a later PBI).
+21. **2026-10-26, the trip request's freight items (design 61 point 7).** `tripRequest.lineIds` (order, template, published
+    `TripRequestDto`; jsonb `TripRequest_LineIds`, migration `OrdersTripRequestLines`): null/empty = every line; a foreign line
+    is `Orders:TripRequestLineUnknown` (400); on create and template save an id names the line posted with that `id`. A removed
+    line leaves the selection; losing the last one leaves `[]` (no trip, `TripRequestNotHonoured` on `lineIds`), and posting
+    `[]` back means every line again.
 
 ## Security quickscan
 

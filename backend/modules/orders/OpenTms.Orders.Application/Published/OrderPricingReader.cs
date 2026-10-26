@@ -130,6 +130,7 @@ public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
             DriverIds = t.DriverIds.ToList(),
             AgreedPurchaseAmount = t.AgreedPurchaseAmount,
             AgreedPurchaseCurrencyCode = t.AgreedPurchaseCurrencyCode,
+            LineIds = t.LineIds?.ToList(),
             TripId = t.TripId
         };
     }

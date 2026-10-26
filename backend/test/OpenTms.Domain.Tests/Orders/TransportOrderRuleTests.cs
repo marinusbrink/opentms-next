@@ -467,6 +467,52 @@ public class TransportOrderRuleTests
     }
 
     [Fact]
+    public void The_trip_request_takes_freight_items_of_the_order_only_and_loses_removed_lines_design_61_point_7()
+    {
+        var order = Order(OrderSource.Screen, null, Line(Load(), Unload()), Line(Load(), Unload()), Line(Load(), Unload()));
+        var lines = order.Lines.OrderBy(l => l.Position).Select(l => l.Id).ToList();
+        var request = new TripRequestInput(Guid.NewGuid(), DepotId, DepotAddressId, ShopId, ShopAddressId,
+            new DateTimeOffset(2026, 10, 20, 6, 0, 0, TimeSpan.FromHours(2)), null, null, null, null, [], [], null, null);
+
+        order.SetTripRequest(request);
+        order.TripRequest!.LineIds.ShouldBeNull("no selection: every line goes on the trip");
+        order.SetTripRequest(request with { LineIds = [lines[0], lines[1], lines[0], Guid.Empty] });
+        order.TripRequest!.LineIds.ShouldBe([lines[0], lines[1]], "distinct, without empty ids");
+        order.TripRequest.ToInput().LineIds.ShouldBe([lines[0], lines[1]]);
+        order.TripRequest.Covers([lines[2]]).ShouldBeFalse();
+        order.TripRequest.Covers([lines[1], lines[2]]).ShouldBeTrue();
+
+        var unknown = Should.Throw<BusinessException>(() => order.SetTripRequest(request with { LineIds = [lines[0], Guid.NewGuid()] }));
+        unknown.Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown);
+        unknown.Data["field"].ShouldBe("lineIds");
+        order.TripRequest!.LineIds.ShouldBe([lines[0], lines[1]], "a refused request leaves the stored one as it was");
+
+        /* A removed line leaves the selection, through the full replace and through the single delete. */
+        order.SetLines(order.Lines.Where(l => l.Id != lines[0]).OrderBy(l => l.Position).Select(l => l.ToInput()).ToList(), Guid.NewGuid);
+        order.TripRequest!.LineIds.ShouldBe([lines[1]]);
+        order.RemoveLine(lines[1]);
+        order.TripRequest!.LineIds.ShouldNotBeNull().ShouldBeEmpty("the last selected line went: no line, not every line");
+
+        /* Every line stays every line when lines go. */
+        order.SetTripRequest(request);
+        order.RemoveLine(lines[2]);
+        order.TripRequest!.LineIds.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_drafts_trip_request_names_its_lines_by_their_posted_ids_and_follows_them_to_the_new_ids()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var mapped = Guid.NewGuid();
+        var other = Guid.NewGuid();
+
+        TripRequestLines.Remap([second, other], [first, second], [Guid.NewGuid(), mapped]).ShouldBe([mapped, other], "an id that names no posted line is kept, so validation refuses it");
+        TripRequestLines.Remap(null, [first], [mapped]).ShouldBeNull();
+        TripRequestLines.Normalize([]).ShouldNotBeNull().ShouldBeEmpty("in the domain an empty list is a selection of no line; the API maps empty to null");
+    }
+
+    [Fact]
     public void The_summary_is_written_by_the_calculator_only_through_WriteSummary()
     {
         var order = Confirmed();

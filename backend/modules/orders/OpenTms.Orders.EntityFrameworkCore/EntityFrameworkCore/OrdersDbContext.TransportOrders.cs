@@ -58,6 +58,7 @@ public partial class OrdersDbContext
                 t.Property(x => x.PlannedArrival).HasUtcInstant();
                 t.Property(x => x.VehicleIds).HasJsonbList();
                 t.Property(x => x.DriverIds).HasJsonbList();
+                t.Property(x => x.LineIds).HasNullableJsonbList();
                 t.Property(x => x.AgreedPurchaseAmount).HasPrecision(MoneyPrecision, MoneyScale);
                 t.Property(x => x.AgreedPurchaseCurrencyCode).HasMaxLength(OrdersConsts.MaxCurrencyCodeLength);
                 t.Property(x => x.WarningCode).HasMaxLength(OrdersConsts.MaxTripRequestWarningLength);
@@ -197,6 +198,7 @@ public partial class OrdersDbContext
             {
                 r.Property(x => x.VehicleIds).HasJsonbList();
                 r.Property(x => x.DriverIds).HasJsonbList();
+                r.Property(x => x.LineIds).HasNullableJsonbList();
                 r.Property(x => x.AgreedPurchaseAmount).HasPrecision(MoneyPrecision, MoneyScale);
                 r.Property(x => x.AgreedPurchaseCurrencyCode).HasMaxLength(OrdersConsts.MaxCurrencyCodeLength);
             });

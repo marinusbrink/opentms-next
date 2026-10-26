@@ -243,8 +243,9 @@ public class ConsignmentNoteAppService : OrdersAppServiceBase, IConsignmentNoteA
     private async Task<TransportTripReferenceDto?> TripOfAsync(TransportOrder order, List<TransportOrderLine> lines)
     {
         var lineIds = lines.Select(l => l.Id).ToHashSet();
+        /* The request's trip stands in only for lines it takes (design 61 point 7: a request may name some freight items). */
         var tripId = (await _legs.GetByOrderAsync(order.Id)).Where(l => lineIds.Contains(l.OrderLineId)).Select(l => l.TripId).FirstOrDefault(t => t != null)
-                     ?? order.TripRequest?.TripId;
+                     ?? (order.TripRequest is { } request && request.Covers(lineIds) ? request.TripId : null);
         return tripId == null ? null : (await _trips.GetAsync([tripId.Value])).FirstOrDefault();
     }
 
@@ -273,7 +274,7 @@ public class ConsignmentNoteAppService : OrdersAppServiceBase, IConsignmentNoteA
         var codes = await _references.NamesAsync(MasterDataReferenceKind.ProductRelationCode, lines.Select(l => l.Freight.ProductRelationCodeId).OfType<Guid>(), require: false, "productRelationCodeId");
         var temperatures = await _references.NamesAsync(MasterDataReferenceKind.Temperature, lines.Select(l => l.Freight.TemperatureId).OfType<Guid>(), require: false, "temperatureId");
 
-        var carrierId = trip?.CarrierRelationId ?? order.TripRequest?.CarrierRelationId;
+        var carrierId = trip?.CarrierRelationId ?? (order.TripRequest is { } request && request.Covers(lines.Select(l => l.Id)) ? request.CarrierRelationId : null);
         var carrier = Party(carrierId) ?? (trip?.CarrierName == null ? null : new CmrParty(carrierId, trip.CarrierName, null));
         return new CmrSource(
             order, lines, layout, string.Empty, Party(order.CustomerRelationId), parties,

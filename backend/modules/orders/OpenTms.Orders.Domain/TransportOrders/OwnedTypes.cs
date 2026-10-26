@@ -250,6 +250,13 @@ public class TransportOrderTripRequest
     public List<Guid> DriverIds { get; private set; } = new();
     public decimal? AgreedPurchaseAmount { get; private set; }
     public string? AgreedPurchaseCurrencyCode { get; private set; }
+
+    /// <summary>
+    /// The lines whose legs go on the trip (design 61 point 7): null = every line. An empty list is a selection that lost
+    /// its last line (<see cref="DropLines"/>): Planning then creates no trip and reports the request as not honoured.
+    /// </summary>
+    public List<Guid>? LineIds { get; private set; }
+
     public Guid? TripId { get; private set; }
 
     /// <summary>Planning could not honour the request on Confirm (design 59 build note 13): the warning code, else null.</summary>
@@ -309,6 +316,7 @@ public class TransportOrderTripRequest
             DriverIds = drivers,
             AgreedPurchaseAmount = input.AgreedPurchaseAmount,
             AgreedPurchaseCurrencyCode = input.AgreedPurchaseAmount == null ? null : OrderValues.CurrencyCode(input.AgreedPurchaseCurrencyCode ?? "EUR"),
+            LineIds = TripRequestLines.Normalize(input.LineIds),
             TripId = keepTripId,
             /* The request is honoured once, on Confirm: a refusal stays the fact of that confirm until a trip exists. */
             WarningCode = keepTripId == null ? previous?.WarningCode : null,
@@ -316,6 +324,27 @@ public class TransportOrderTripRequest
             WarningAt = keepTripId == null ? previous?.WarningAt : null
         };
     }
+
+    /// <summary>
+    /// Removed lines leave the selection. A selection that loses its last line stays an empty selection (no lines, so no
+    /// trip on Confirm) rather than turning into "every line"; null (every line) is left alone.
+    /// </summary>
+    public void DropLines(IEnumerable<Guid> removedLineIds)
+    {
+        if (LineIds == null)
+        {
+            return;
+        }
+
+        var removed = removedLineIds.ToHashSet();
+        if (LineIds.Any(removed.Contains))
+        {
+            LineIds = LineIds.Where(id => !removed.Contains(id)).ToList();
+        }
+    }
+
+    /// <summary>True when the request takes at least one of these lines (every line when it names none).</summary>
+    public bool Covers(IEnumerable<Guid> lineIds) => LineIds == null || lineIds.Any(LineIds.Contains);
 
     /// <summary>Planning reported the trip it created from this request (idempotent: the same id again changes nothing).</summary>
     public void SetTrip(Guid tripId)
@@ -348,5 +377,56 @@ public class TransportOrderTripRequest
 
     public TripRequestInput ToInput() => new(
         TransportTripTypeId, DepartureRelationId, DepartureAddressId, ArrivalRelationId, ArrivalAddressId, PlannedDeparture, PlannedArrival,
-        CarrierRelationId, CarrierContactPersonId, VehicleCombinationId, VehicleIds.ToList(), DriverIds.ToList(), AgreedPurchaseAmount, AgreedPurchaseCurrencyCode);
+        CarrierRelationId, CarrierContactPersonId, VehicleCombinationId, VehicleIds.ToList(), DriverIds.ToList(), AgreedPurchaseAmount, AgreedPurchaseCurrencyCode,
+        LineIds?.ToList());
+}
+
+/// <summary>The freight-item selection of a trip request (design 61 point 7), shared by the order's and the template's request.</summary>
+public static class TripRequestLines
+{
+    /// <summary>Distinct, without empty ids; null stays null (every line), an empty list stays empty (no line).</summary>
+    public static List<Guid>? Normalize(IReadOnlyList<Guid>? lineIds)
+        => lineIds?.Where(id => id != Guid.Empty).Distinct().ToList();
+
+    /// <summary>Every id names one of <paramref name="lineIds"/>, else <see cref="OrdersErrorCodes.TripRequestLineUnknown"/> (400).</summary>
+    public static void EnsureKnown(IReadOnlyList<Guid>? selection, IEnumerable<Guid> lineIds)
+    {
+        if (selection == null)
+        {
+            return;
+        }
+
+        var known = lineIds.ToHashSet();
+        foreach (var id in selection)
+        {
+            if (!known.Contains(id))
+            {
+                throw new BusinessException(OrdersErrorCodes.TripRequestLineUnknown).WithData("field", "lineIds").WithData("lineId", id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The selection of a draft or a template save, which names lines by the id they were posted with (<paramref name="keys"/>,
+    /// in input order), rewritten to the ids the lines got (<paramref name="newIds"/>, same order). An id that names no
+    /// posted line is kept, so <see cref="EnsureKnown"/> refuses it.
+    /// </summary>
+    public static IReadOnlyList<Guid>? Remap(IReadOnlyList<Guid>? selection, IReadOnlyList<Guid?> keys, IReadOnlyList<Guid> newIds)
+    {
+        if (selection == null)
+        {
+            return null;
+        }
+
+        var map = new Dictionary<Guid, Guid>();
+        for (var i = 0; i < keys.Count && i < newIds.Count; i++)
+        {
+            if (keys[i] is { } key && key != Guid.Empty)
+            {
+                map.TryAdd(key, newIds[i]);
+            }
+        }
+
+        return selection.Select(id => map.TryGetValue(id, out var mapped) ? mapped : id).ToList();
+    }
 }

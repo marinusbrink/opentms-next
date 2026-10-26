@@ -10212,6 +10212,15 @@
             "nullable": true,
             "type": "array"
           },
+          "lineIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "nullable": true,
+            "type": "array"
+          },
           "transportTripTypeId": {
             "format": "uuid",
             "type": "string"
@@ -12584,6 +12593,15 @@
             "nullable": true,
             "type": "array"
           },
+          "lineIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
+            "nullable": true,
+            "type": "array"
+          },
           "plannedArrival": {
             "format": "date-time",
             "nullable": true,
@@ -12688,6 +12706,15 @@
               "type": "string"
             },
             "maxItems": 3,
+            "nullable": true,
+            "type": "array"
+          },
+          "lineIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 200,
             "nullable": true,
             "type": "array"
           },

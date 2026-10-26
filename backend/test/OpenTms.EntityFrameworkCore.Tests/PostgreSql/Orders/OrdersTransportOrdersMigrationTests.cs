@@ -47,7 +47,7 @@ public class OrdersTransportOrdersMigrationTests : ReferenceDataPostgreSqlTestBa
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe("20261026014344_OrdersTripRequestWarning", "the newest Orders migration (the Transport follow-ups)");
+            applied.Last().ShouldBe("20261026223019_OrdersTripRequestLines", "the newest Orders migration (the trip request's freight items)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

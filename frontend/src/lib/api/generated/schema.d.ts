@@ -47233,6 +47233,7 @@ export interface components {
             /** Format: time */
             departureTime?: string;
             driverIds?: string[] | null;
+            lineIds?: string[] | null;
             /** Format: uuid */
             transportTripTypeId: string;
             /** Format: uuid */
@@ -47965,6 +47966,7 @@ export interface components {
             departureRelationId: string;
             departureRelationName?: string | null;
             driverIds?: string[] | null;
+            lineIds?: string[] | null;
             /** Format: date-time */
             plannedArrival?: string | null;
             /** Format: date-time */
@@ -47999,6 +48001,7 @@ export interface components {
             /** Format: uuid */
             departureRelationId: string;
             driverIds?: string[] | null;
+            lineIds?: string[] | null;
             /** Format: date-time */
             plannedArrival?: string | null;
             /** Format: date-time */

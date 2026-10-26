@@ -153,8 +153,19 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         DiscountsOrSurcharges.OrderBy(d => d.Position).Select(d => new DiscountOrSurchargeInput(d.DiscountOrSurchargeId, d.Source)).ToList(),
         FinancialTerms.FixedPriceAmount, FinancialTerms.SendFreightDocumentsWithInvoice);
 
+    /// <summary>Replaces the trip request; null removes it. Its freight items must be lines of this template (call after <see cref="SetLines"/>).</summary>
     public void SetTripRequest(TemplateTripRequestInput? input)
-        => TripRequest = input == null ? null : TransportOrderTemplateTripRequest.From(input);
+    {
+        if (input == null)
+        {
+            TripRequest = null;
+            return;
+        }
+
+        var request = TransportOrderTemplateTripRequest.From(input);
+        TripRequestLines.EnsureKnown(request.LineIds, Lines.Select(l => l.Id));
+        TripRequest = request;
+    }
 
     public void SetDefaultStops(IReadOnlyList<DefaultStopInput> stops)
     {
@@ -173,7 +184,8 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         }
     }
 
-    public void SetLines(IReadOnlyList<TemplateLineInput> lines, Func<Guid> newId)
+    /// <summary>Replaces the lines (they get new ids); returns the new ids in input order, so a trip request can be remapped to them.</summary>
+    public IReadOnlyList<Guid> SetLines(IReadOnlyList<TemplateLineInput> lines, Func<Guid> newId)
     {
         Check.NotNull(lines, nameof(lines));
         if (lines.Count > OrdersConsts.MaxLines)
@@ -182,11 +194,16 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         }
 
         Lines.Clear();
+        var ids = new List<Guid>();
         var position = 1;
         foreach (var line in lines)
         {
-            Lines.Add(new TransportOrderTemplateLine(newId(), TenantId, Id, position++, line));
+            var added = new TransportOrderTemplateLine(newId(), TenantId, Id, position++, line);
+            Lines.Add(added);
+            ids.Add(added.Id);
         }
+
+        return ids;
     }
 
     public void SetReferences(IReadOnlyList<ReferenceInput> references, Func<Guid> newId)
@@ -218,7 +235,8 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         template.SetDefaultStops(order.DefaultStops.OrderBy(s => s.Position).Select(s => new DefaultStopInput(
             s.Details.WaypointTypeId, s.Details.RelationId, s.Details.RelationAddressId, s.Details.ContactPersonId, s.DayOffset,
             s.Details.TimeSlotId, s.Details.WindowFrom, s.Details.WindowTill, s.Details.PlannedDurationMin)).ToList());
-        template.SetLines(order.Lines.OrderBy(l => l.Position).Select(l => new TemplateLineInput(
+        var orderLines = order.Lines.OrderBy(l => l.Position).ToList();
+        var templateLineIds = template.SetLines(orderLines.Select(l => new TemplateLineInput(
             l.Freight.ToInput(),
             l.Measurements.Select(m => new MeasurementInput(m.Kind, m.Position, m.Value)).ToList(),
             l.RequiredTransportCharacteristics.Select(c => c.TransportCharacteristicId).ToList(),
@@ -238,7 +256,8 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
                 arrival == null ? null : DateOnly.FromDateTime(arrival.Value.DateTime).DayNumber - order.OrderDate.DayNumber,
                 arrival == null ? null : TimeOnly.FromDateTime(arrival.Value.DateTime),
                 trip.CarrierRelationId, trip.CarrierContactPersonId, trip.VehicleCombinationId, trip.VehicleIds, trip.DriverIds,
-                trip.AgreedPurchaseAmount, trip.AgreedPurchaseCurrencyCode));
+                trip.AgreedPurchaseAmount, trip.AgreedPurchaseCurrencyCode,
+                TripRequestLines.Remap(trip.LineIds, orderLines.Select(l => (Guid?)l.Id).ToList(), templateLineIds)));
         }
 
         return template;
@@ -416,7 +435,7 @@ public sealed record TemplateTripRequestInput(
     Guid TransportTripTypeId, Guid DepartureRelationId, Guid DepartureAddressId, Guid ArrivalRelationId, Guid ArrivalAddressId,
     int DepartureDayOffset, TimeOnly DepartureTime, int? ArrivalDayOffset, TimeOnly? ArrivalTime,
     Guid? CarrierRelationId, Guid? CarrierContactPersonId, Guid? VehicleCombinationId, IReadOnlyList<Guid> VehicleIds, IReadOnlyList<Guid> DriverIds,
-    decimal? AgreedPurchaseAmount, string? AgreedPurchaseCurrencyCode);
+    decimal? AgreedPurchaseAmount, string? AgreedPurchaseCurrencyCode, IReadOnlyList<Guid>? LineIds = null);
 
 /// <summary>The template's trip request: the order's request with times of day instead of instants.</summary>
 public class TransportOrderTemplateTripRequest
@@ -437,6 +456,9 @@ public class TransportOrderTemplateTripRequest
     public List<Guid> DriverIds { get; private set; } = new();
     public decimal? AgreedPurchaseAmount { get; private set; }
     public string? AgreedPurchaseCurrencyCode { get; private set; }
+
+    /// <summary>The template lines whose legs go on the trip (as <see cref="TransportOrderTripRequest.LineIds"/>; null = every line).</summary>
+    public List<Guid>? LineIds { get; private set; }
 
     protected TransportOrderTemplateTripRequest()
     {
@@ -472,12 +494,13 @@ public class TransportOrderTemplateTripRequest
             VehicleIds = checkedRequest.VehicleIds,
             DriverIds = checkedRequest.DriverIds,
             AgreedPurchaseAmount = checkedRequest.AgreedPurchaseAmount,
-            AgreedPurchaseCurrencyCode = checkedRequest.AgreedPurchaseCurrencyCode
+            AgreedPurchaseCurrencyCode = checkedRequest.AgreedPurchaseCurrencyCode,
+            LineIds = TripRequestLines.Normalize(input.LineIds)
         };
     }
 
     public TemplateTripRequestInput ToInput() => new(
         TransportTripTypeId, DepartureRelationId, DepartureAddressId, ArrivalRelationId, ArrivalAddressId, DepartureDayOffset, DepartureTime,
         ArrivalDayOffset, ArrivalTime, CarrierRelationId, CarrierContactPersonId, VehicleCombinationId, VehicleIds.ToList(), DriverIds.ToList(),
-        AgreedPurchaseAmount, AgreedPurchaseCurrencyCode);
+        AgreedPurchaseAmount, AgreedPurchaseCurrencyCode, LineIds?.ToList());
 }

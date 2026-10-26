@@ -67,6 +67,9 @@ public static class OrdersErrorCodes
     /// <summary>A trip request may name at most three vehicles and three drivers ({field}).</summary>
     public const string TooManyTripRequestMembers = Namespace + ":TooManyTripRequestMembers";
 
+    /// <summary>The trip request's freight items name a line the order (or template) does not have ({lineId}; design 61 point 7).</summary>
+    public const string TripRequestLineUnknown = Namespace + ":TripRequestLineUnknown";
+
     /* Design 58: templates. */
 
     /// <summary>The template is inactive or outside its validity; nothing is created from it.</summary>
@@ -119,7 +122,7 @@ public static class OrdersErrorCodes
         SuccessorIsSelf, EmptyTimeSlot, RequiredFieldMissing, LineRequired, LineNeedsTwoStops, StopWindowAmbiguous,
         StopAddressMismatch, RevisionReasonRequired, InvalidAttributes, TooManyTripRequestMembers, MaterialisationInputInvalid,
         InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies, MaterialisationLineUnknown,
-        MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn
+        MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn, TripRequestLineUnknown
     ];
 }
 

@@ -325,6 +325,14 @@ public class TransportOrderTripRequestInputDto
     [MaxLength(OrdersConsts.MaxTripRequestDrivers)] public List<Guid> DriverIds { get; set; } = new();
     public decimal? AgreedPurchaseAmount { get; set; }
     [MaxLength(OrdersConsts.MaxCurrencyCodeLength)] public string? AgreedPurchaseCurrencyCode { get; set; }
+
+    /// <summary>
+    /// The freight items (line ids) whose legs go on the trip (design 61 point 7); null or empty = every line. Each must be a
+    /// line of the order (<c>Orders:TripRequestLineUnknown</c>, 400). On create the lines have no ids yet: an id names the
+    /// line posted with that <c>id</c> (a client key; the line gets its own id). Read back, null = every line and an empty
+    /// list = the selection lost its last line (no trip is created; posting it back unchanged means every line again).
+    /// </summary>
+    [MaxLength(OrdersConsts.MaxLines)] public List<Guid>? LineIds { get; set; }
 }
 
 public class TransportOrderTripRequestDto : TransportOrderTripRequestInputDto

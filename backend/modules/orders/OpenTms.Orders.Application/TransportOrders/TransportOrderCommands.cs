@@ -76,9 +76,13 @@ public class TransportOrderCommands : ITransientDependency
             : type.DefaultWaypoints.OrderBy(w => w.Position).Select(w => new DefaultStopInput(w.WaypointTypeId, null, null, null, 0, null, null, null, null)).ToList());
 
         var pattern = order.StopsFromPattern();
-        order.SetLines(draft.Lines.Select(l => l.Stops.Count == 0 && l.Id == null ? l with { Stops = pattern } : l).ToList(), _guids.Create);
+        /* Every line of a new order is new: an id posted with a line is only its key in the draft (the trip request's
+         * freight items name lines by it, design 61 point 7), so a line without stops starts from the pattern either way. */
+        var lines = order.SetLines(draft.Lines.Select(l => l.Stops.Count == 0 ? l with { Stops = pattern } : l).ToList(), _guids.Create);
         order.SetReferences(draft.References, _guids.Create);
-        order.SetTripRequest(draft.TripRequest);
+        order.SetTripRequest(draft.TripRequest == null
+            ? null
+            : draft.TripRequest with { LineIds = TripRequestLines.Remap(draft.TripRequest.LineIds, draft.Lines.Select(l => l.Id).ToList(), lines.LineIds) });
 
         await _orders.InsertAsync(order, autoSave: true);
 

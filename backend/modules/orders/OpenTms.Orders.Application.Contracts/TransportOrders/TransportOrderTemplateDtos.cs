@@ -112,6 +112,13 @@ public class TemplateTripRequestInputDto
     [MaxLength(OrdersConsts.MaxTripRequestDrivers)] public List<Guid> DriverIds { get; set; } = new();
     public decimal? AgreedPurchaseAmount { get; set; }
     [MaxLength(OrdersConsts.MaxCurrencyCodeLength)] public string? AgreedPurchaseCurrencyCode { get; set; }
+
+    /// <summary>
+    /// The freight items whose legs go on the trip (design 61 point 7); null or empty = every line. An id names the line
+    /// posted with that <c>id</c> in <c>lines</c> (the ids read back, or a client key for a new line); a save replaces the
+    /// lines and the selection follows them to their new ids. Unknown: <c>Orders:TripRequestLineUnknown</c> (400).
+    /// </summary>
+    [MaxLength(OrdersConsts.MaxLines)] public List<Guid>? LineIds { get; set; }
 }
 
 public class TransportOrderTemplateCreateDto

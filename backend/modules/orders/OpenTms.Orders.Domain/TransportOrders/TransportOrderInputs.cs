@@ -93,7 +93,11 @@ public sealed record FinancialTermsInput(
     decimal? FixedPriceAmount,
     bool SendFreightDocumentsWithInvoice);
 
-/// <summary>"Tevens trip" (PO decision Q9): the trip Planning creates on Confirm.</summary>
+/// <summary>
+/// "Tevens trip" (PO decision Q9): the trip Planning creates on Confirm. <paramref name="LineIds"/> (design 61 "Order page,
+/// revised" point 7) are the lines whose legs go on the trip: null = every line; an empty list = none (a selection that
+/// lost its last line; the API maps an empty list to null). In a draft they name the draft's lines by their input id.
+/// </summary>
 public sealed record TripRequestInput(
     Guid TransportTripTypeId,
     Guid DepartureRelationId,
@@ -108,7 +112,8 @@ public sealed record TripRequestInput(
     IReadOnlyList<Guid> VehicleIds,
     IReadOnlyList<Guid> DriverIds,
     decimal? AgreedPurchaseAmount,
-    string? AgreedPurchaseCurrencyCode);
+    string? AgreedPurchaseCurrencyCode,
+    IReadOnlyList<Guid>? LineIds = null);
 
 /// <summary>The header of an order as created or updated.</summary>
 public sealed record OrderHeaderInput(

@@ -67,6 +67,20 @@ public static class OrdersJsonConversions
             .HasColumnType("jsonb")
             .IsRequired();
 
+    /// <summary>A list where null and empty differ (a trip request's freight items: null = every line, empty = none); null is SQL NULL.</summary>
+    public static PropertyBuilder<List<T>?> HasNullableJsonbList<T>(this PropertyBuilder<List<T>?> property)
+        => property
+            .HasConversion(
+                new ValueConverter<List<T>?, string?>(
+                    v => v == null ? null : JsonSerializer.Serialize(v, Options),
+                    v => v == null ? null : JsonSerializer.Deserialize<List<T>>(v, Options)),
+                new ValueComparer<List<T>?>(
+                    (a, b) => ReferenceEquals(a, b) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(17, (hash, item) => HashCode.Combine(hash, item)),
+                    v => v == null ? null : v.ToList()))
+            .HasColumnType("jsonb")
+            .IsRequired(false);
+
     /// <summary>Instants are stored in UTC (timestamptz); the client shows them in the stop's zone.</summary>
     public static PropertyBuilder<DateTimeOffset> HasUtcInstant(this PropertyBuilder<DateTimeOffset> property)
         => property.HasConversion(new ValueConverter<DateTimeOffset, DateTimeOffset>(v => v.ToUniversalTime(), v => v));

@@ -255,6 +255,11 @@ Decisions the build had to take where this design left room, reported for the re
     new assembly in the host (ClosedXML 0.105.1 resolves the same 3.1.1). `Export/XlsxTableWriter.cs` is a copy of
     Orders' writer (namespace only differs): modules cannot share Application code, and a shared Platform helper needs
     the design gate (Platform is critical); a later PBI may move it there.
+16. **2026-10-26, the trip request's freight items (design 61 point 7, design 58 build note 21).** On Confirm the
+    requested trip takes only the unplanned legs of `TripRequestDto.LineIds` (null = every line, as before); the other legs
+    stay unplanned for the Planboard, and the trip's stops follow from its legs. A selection that names no unplanned leg of
+    the order (it lost its last line) creates no trip: `TransportTripRequestNotHonouredEto { Field = "lineIds", Reason =
+    ReferenceNotFound }`. The legs are read before the trip is created; the request is still honoured once.
 
 ## Security quickscan
 

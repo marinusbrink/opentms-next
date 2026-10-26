@@ -152,6 +152,51 @@ public class TransportOrderTemplateAppServiceTests : TransportOrderTestBase<Open
     }
 
     [Fact]
+    public async Task The_trip_requests_freight_items_follow_the_template_lines_into_the_orders_copies_and_templates_made_from_them()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var dto = TemplateDto(f);
+        var firstKey = Guid.NewGuid();
+        var secondKey = Guid.NewGuid();
+        dto.Lines[0].Id = firstKey;
+        dto.Lines.Add(new TemplateLineInputDto { Id = secondKey, TransportUnitId = f.TransportUnitId, Quantity = 5, WeightKg = 200, Stops = dto.Lines[0].Stops.ToList() });
+        dto.TripRequest!.LineIds = [secondKey];
+
+        var template = await Templates.CreateAsync(dto);
+
+        var templateSecond = template.Lines.Single(l => l.Position == 2).Id!.Value;
+        template.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([templateSecond], "the posted id named the line; the selection follows it to its id");
+
+        /* A save posts the lines with the ids read back; the lines get new ids and the selection follows them again. */
+        var updated = await Templates.UpdateAsync(template.Id, new TransportOrderTemplateUpdateDto
+        {
+            Name = dto.Name, TransportOrderTypeId = dto.TransportOrderTypeId, CustomerRelationId = dto.CustomerRelationId, CustomerReference = dto.CustomerReference,
+            FinancialTerms = dto.FinancialTerms, References = dto.References, Schedule = dto.Schedule, IsActive = true, ConcurrencyStamp = template.ConcurrencyStamp,
+            Lines = template.Lines.Select(l => new TemplateLineInputDto { Id = l.Id, TransportUnitId = l.TransportUnitId, Quantity = l.Quantity, WeightKg = l.WeightKg, Stops = dto.Lines[0].Stops.ToList() }).ToList(),
+            TripRequest = template.TripRequest
+        });
+        var updatedSecond = updated.Lines.Single(l => l.Position == 2).Id!.Value;
+        updatedSecond.ShouldNotBe(templateSecond, "a template save replaces its lines");
+        updated.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([updatedSecond]);
+
+        dto.TripRequest.LineIds = [Guid.NewGuid()];
+        dto.Name = "Unknown line";
+        (await Should.ThrowAsync<BusinessException>(() => Templates.CreateAsync(dto))).Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown);
+
+        /* New from template: the order's request names the order's own second line. */
+        var monday = new DateOnly(2026, 11, 2);
+        var order = await Orders.GetAsync((await Templates.MaterialiseAsync(template.Id, new MaterialiseTemplateDto { Dates = [monday] })).CreatedOrderIds.Single());
+        order.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([order.Lines.Single(l => l.Position == 2).Id!.Value]);
+
+        /* Copy order and template from order keep the selection on the line in the same position. */
+        var copy = await Orders.GetAsync((await Templates.CopyOrderAsync(order.Id, new MaterialiseTemplateDto { Dates = [monday.AddDays(7)] })).CreatedOrderIds.Single());
+        copy.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([copy.Lines.Single(l => l.Position == 2).Id!.Value]);
+        var fromOrder = await Templates.CreateFromOrderAsync(order.Id);
+        fromOrder.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([fromOrder.Lines.Single(l => l.Position == 2).Id!.Value]);
+    }
+
+    [Fact]
     public async Task An_inactive_template_creates_nothing()
     {
         using var _ = InTenantA();

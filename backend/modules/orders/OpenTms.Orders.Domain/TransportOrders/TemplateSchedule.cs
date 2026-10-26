@@ -144,8 +144,9 @@ public static class TemplateMaterialiser
         Check.NotNull(template, nameof(template));
         Check.NotNull(zone, nameof(zone));
 
+        /* The template line's id is the line's key in the draft: the trip request's freight items name lines by it. */
         var lines = template.Lines.OrderBy(l => l.Position).Select(l => new LineInput(
-            null,
+            l.Id,
             l.Freight.ToInput(),
             l.Measurements.ToList(),
             l.RequiredTransportCharacteristicIds.ToList(),
@@ -171,7 +172,7 @@ public static class TemplateMaterialiser
             trip = new TripRequestInput(
                 t.TransportTripTypeId, t.DepartureRelationId, t.DepartureAddressId, t.ArrivalRelationId, t.ArrivalAddressId, departure, arrival,
                 t.CarrierRelationId, t.CarrierContactPersonId, t.VehicleCombinationId, t.VehicleIds.ToList(), t.DriverIds.ToList(),
-                t.AgreedPurchaseAmount, t.AgreedPurchaseCurrencyCode);
+                t.AgreedPurchaseAmount, t.AgreedPurchaseCurrencyCode, t.LineIds?.ToList());
         }
 
         return new TransportOrderDraft(template.HeaderFor(orderDate), template.FinancialTermsInput(), defaultStops, lines, references, trip, template.Attributes);

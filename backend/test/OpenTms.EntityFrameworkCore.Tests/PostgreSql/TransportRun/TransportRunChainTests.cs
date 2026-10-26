@@ -49,7 +49,8 @@ namespace OpenTms.PostgreSql.TransportRun;
 /// revenue, cost, margin and progress. Every stored value, the facts raised (and the tenant they ran in) and the
 /// version guards are asserted; a second order in the shared tenant stays invisible to tenant A at every step; a changed
 /// stop on the assigned leg unassigns it with the trip's warning and reprices; a CMR print stores a numbered document;
-/// the preview equals the stored lines; a cancelled order loses its legs and keeps its rate lines. Rows commit in
+/// the preview equals the stored lines; a cancelled order loses its legs and keeps its rate lines; a trip request that
+/// takes one of two freight items puts only that line's leg on its trip (design 61 point 7). Rows commit in
 /// tenant A's own database and the shared tenant's part of the host database; the outbox is left empty.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
@@ -385,6 +386,44 @@ public class TransportRunChainTests : OpenTmsTestBase<TransportRunPostgreSqlTest
         var first = long.Parse(Regex.Match(document.Number, @"\d{6}$").Value);
         long.Parse(Regex.Match(again.Single().Number, @"\d{6}$").Value).ShouldBe(first + 1);
         await DriveAsync(TenantA);
+        (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
+
+        /* The trip request's freight items (design 61 point 7): a two-line order whose request takes the second line only.
+         * That line's leg goes on the requested trip, the first stays unplanned for the Planboard, the order is partly planned. */
+        _events.Clear();
+        var chosenKey = Guid.NewGuid();
+        var twoLines = await InTenantAsync(TenantA, () =>
+        {
+            var dto = Run.CreateDto(s.World, confirm: true, lines: 2);
+            dto.Lines[1].Id = chosenKey;
+            dto.TripRequest = new TransportOrderTripRequestInputDto
+            {
+                TransportTripTypeId = s.World.TripTypeId, DepartureRelationId = s.World.DepotId, DepartureAddressId = s.World.DepotAddressId, ArrivalRelationId = s.World.ShopId, ArrivalAddressId = s.World.ShopAddressId,
+                PlannedDeparture = TransportRunFixture.At(Run.Today, 6), PlannedArrival = TransportRunFixture.At(Run.Today, 18), LineIds = [chosenKey]
+            };
+            return Orders.CreateAsync(dto);
+        });
+        var chosenLine = twoLines.Lines.Single(l => l.Position == 2).Id!.Value;
+        var otherLine = twoLines.Lines.Single(l => l.Position == 1).Id!.Value;
+        twoLines.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([chosenLine], "stored in PostgreSQL with the line's own id");
+        await DriveAsync(TenantA);
+
+        var twoLegs = await InTenantAsync(TenantA, () => Run.LegsOfAsync(twoLines.Id), transactional: false);
+        twoLegs.Count.ShouldBe(2);
+        var chosenLeg = twoLegs.Single(l => l.OrderLineId == chosenLine);
+        var requestedTripId = chosenLeg.TripId.ShouldNotBeNull("the chosen item's leg is on the requested trip");
+        twoLegs.Single(l => l.OrderLineId == otherLine).TripId.ShouldBeNull("the other item's leg stays unplanned");
+        var requestedTrip = await InTenantAsync(TenantA, () => Trips.GetAsync(requestedTripId), transactional: false);
+        requestedTrip.CreatedFromOrderId.ShouldBe(twoLines.Id);
+        requestedTrip.Stops.Count.ShouldBe(2, "the stops of its one leg");
+        _events.Of<LegAssignedEto>(TenantA).Where(e => e.TripId == requestedTripId).Select(e => e.LegId).ShouldBe([chosenLeg.Id]);
+        (await InTenantAsync(TenantA, () => Orders.GetAsync(twoLines.Id), transactional: false)).TripRequest.ShouldNotBeNull().TripId.ShouldBe(requestedTripId);
+        var partly = await InTenantAsync(TenantA, () => Orders.GetSummaryAsync(twoLines.Id), transactional: false);
+        partly.ExecutionProgress.ShouldBe(ExecutionProgress.PartlyPlanned);
+        partly.TripNumbers.ShouldBe(requestedTrip.Number);
+        await ShouldBeUpToDateAsync(TenantA, OrdersConsts.OrderSummaryTargetType, twoLines.Id);
+        await ShouldBeUpToDateAsync(TenantA, PlanningExecutionApplicationModule.TripTargetType, requestedTripId);
+        _events.All.ShouldAllBe(e => e.TenantId == TenantA);
         (await OutboxRowsAsync(PostgreSqlTestDatabases.TransportTenantADatabase)).ShouldBe(0);
     }
 }

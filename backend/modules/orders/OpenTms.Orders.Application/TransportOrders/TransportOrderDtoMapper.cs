@@ -150,6 +150,7 @@ public class TransportOrderDtoMapper : ITransientDependency
                 DriverIds = o.TripRequest.DriverIds.ToList(),
                 AgreedPurchaseAmount = o.TripRequest.AgreedPurchaseAmount,
                 AgreedPurchaseCurrencyCode = o.TripRequest.AgreedPurchaseCurrencyCode,
+                LineIds = o.TripRequest.LineIds?.ToList(),
                 DepartureRelationName = RelationName(o.TripRequest.DepartureRelationId),
                 ArrivalRelationName = RelationName(o.TripRequest.ArrivalRelationId),
                 CarrierRelationName = o.TripRequest.CarrierRelationId == null ? null : RelationName(o.TripRequest.CarrierRelationId),

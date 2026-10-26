@@ -308,9 +308,11 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
         template.SetDescription(input.Description);
         template.SetAttributes(input.Attributes);
         template.SetDefaultStops(input.DefaultStops.Select(TransportOrderInputMapper.DefaultStop).ToList());
-        template.SetLines(input.Lines.Select(TransportOrderInputMapper.TemplateLine).ToList(), GuidGenerator.Create);
+        var lineIds = template.SetLines(input.Lines.Select(TransportOrderInputMapper.TemplateLine).ToList(), GuidGenerator.Create);
         template.SetReferences(input.References.Select(TransportOrderInputMapper.Reference).ToList(), GuidGenerator.Create);
-        template.SetTripRequest(TransportOrderInputMapper.TemplateTripRequest(input.TripRequest));
+        /* The lines got new ids: the trip request's freight items, posted as the lines' posted ids, follow them. */
+        var trip = TransportOrderInputMapper.TemplateTripRequest(input.TripRequest);
+        template.SetTripRequest(trip == null ? null : trip with { LineIds = TripRequestLines.Remap(trip.LineIds, input.Lines.Select(l => l.Id).ToList(), lineIds) });
         template.SetActive(input.IsActive);
     }
 
@@ -452,7 +454,7 @@ public class TransportOrderTemplateAppService : OrdersAppServiceBase, ITransport
                 DepartureTime = t.TripRequest.DepartureTime, ArrivalDayOffset = t.TripRequest.ArrivalDayOffset, ArrivalTime = t.TripRequest.ArrivalTime,
                 CarrierRelationId = t.TripRequest.CarrierRelationId, CarrierContactPersonId = t.TripRequest.CarrierContactPersonId, VehicleCombinationId = t.TripRequest.VehicleCombinationId,
                 VehicleIds = t.TripRequest.VehicleIds.ToList(), DriverIds = t.TripRequest.DriverIds.ToList(), AgreedPurchaseAmount = t.TripRequest.AgreedPurchaseAmount,
-                AgreedPurchaseCurrencyCode = t.TripRequest.AgreedPurchaseCurrencyCode
+                AgreedPurchaseCurrencyCode = t.TripRequest.AgreedPurchaseCurrencyCode, LineIds = t.TripRequest.LineIds?.ToList()
             },
             Schedule = new TemplateScheduleDto
             {

@@ -143,6 +143,28 @@ public class TemplateRuleTests
     }
 
     [Fact]
+    public void The_templates_trip_request_takes_template_lines_and_carries_them_through_order_and_back_design_61_point_7()
+    {
+        var order = Confirmed("TO-1", Line(Freight(quantity: 1), Load(new DateOnly(2026, 10, 20)), Unload(new DateOnly(2026, 10, 21))),
+            Line(Freight(quantity: 2), Load(new DateOnly(2026, 10, 20)), Unload(new DateOnly(2026, 10, 21))));
+        var orderSecond = order.Lines.Single(l => l.Position == 2).Id;
+        order.SetTripRequest(new TripRequestInput(Guid.NewGuid(), DepotId, DepotAddressId, ShopId, ShopAddressId,
+            new DateTimeOffset(2026, 10, 20, 4, 0, 0, TimeSpan.Zero), null, null, null, null, [], [], null, null, [orderSecond]));
+
+        var template = TransportOrderTemplate.FromOrder(Guid.NewGuid(), order, "Copy", Amsterdam, Guid.NewGuid);
+
+        var templateSecond = template.Lines.Single(l => l.Position == 2).Id;
+        template.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([templateSecond], "the order's line maps to the template line in its position");
+        Should.Throw<BusinessException>(() => template.SetTripRequest(template.TripRequest.ToInput() with { LineIds = [orderSecond] }))
+            .Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown);
+
+        /* The draft names its lines by the template line ids; the order's create maps them to the new lines' ids. */
+        var draft = TemplateMaterialiser.ToDraft(template, new DateOnly(2026, 10, 27), Amsterdam);
+        draft.Lines.Select(l => l.Id).ShouldBe(template.Lines.OrderBy(l => l.Position).Select(l => (Guid?)l.Id));
+        draft.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([templateSecond]);
+    }
+
+    [Fact]
     public void A_template_from_an_order_keeps_the_stops_as_offsets_and_the_trip_times_as_times_of_day_scenario_50()
     {
         var order = Confirmed("TO-1", Line(Freight(quantity: 7), Load(new DateOnly(2026, 10, 20)), Unload(new DateOnly(2026, 10, 23))));

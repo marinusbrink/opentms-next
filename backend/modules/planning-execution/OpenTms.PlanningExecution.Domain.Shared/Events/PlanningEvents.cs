@@ -50,14 +50,14 @@ public class TransportTripCreatedEto
 
 /// <summary>
 /// The trip request of a confirmed order was not honoured (design 59 build note 13): a field of the request does not
-/// resolve in Planning (trip type, relation, address, vehicle, combination or driver), no trip was created and the
-/// order's legs stay unplanned. Orders shows it as a warning on the order. Carries the field name, never values.
+/// resolve in Planning (trip type, relation, address, vehicle, combination or driver), or its freight items name no leg
+/// of the order (field "lineIds", design 61 point 7); no trip was created and the order's legs stay unplanned. Orders shows it as a warning on the order. Carries the field name, never values.
 /// </summary>
 public class TransportTripRequestNotHonouredEto
 {
     public Guid OrderId { get; set; }
 
-    /// <summary>The request field that did not resolve, e.g. "transportTripTypeId" or "vehicleIds".</summary>
+    /// <summary>The request field that did not resolve, e.g. "transportTripTypeId", "vehicleIds" or "lineIds".</summary>
     public string? Field { get; set; }
 
     /// <summary>The error code Planning met (today always the reference-data "ReferenceNotFound").</summary>

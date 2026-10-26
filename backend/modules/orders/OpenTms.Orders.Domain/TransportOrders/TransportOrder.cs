@@ -219,9 +219,22 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     // ── trip request ────────────────────────────────────────────────────────────
 
-    /// <summary>Replaces the trip request; null removes it. The trip id Planning reported survives a change.</summary>
+    /// <summary>
+    /// Replaces the trip request; null removes it. The trip id Planning reported survives a change. Its freight items
+    /// (<see cref="TripRequestInput.LineIds"/>) must be lines of this order (<see cref="OrdersErrorCodes.TripRequestLineUnknown"/>).
+    /// </summary>
     public void SetTripRequest(TripRequestInput? input)
-        => TripRequest = input == null ? null : TransportOrderTripRequest.From(input, TripRequest?.TripId, TripRequest);
+    {
+        if (input == null)
+        {
+            TripRequest = null;
+            return;
+        }
+
+        var request = TransportOrderTripRequest.From(input, TripRequest?.TripId, TripRequest);
+        TripRequestLines.EnsureKnown(request.LineIds, Lines.Select(l => l.Id));
+        TripRequest = request;
+    }
 
     /// <summary>Planning's TransportTripCreated handler: idempotent, and a request that was removed meanwhile is left alone.</summary>
     public bool RecordTrip(Guid tripId)
@@ -351,6 +364,7 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
             changes.RemovedLineIds.Add(stale.Id);
         }
 
+        TripRequest?.DropLines(changes.RemovedLineIds);
         return changes;
     }
 
@@ -372,6 +386,7 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void RemoveLine(Guid lineId)
     {
         Lines.Remove(GetLine(lineId));
+        TripRequest?.DropLines([lineId]);
         var position = 1;
         foreach (var line in Lines.OrderBy(l => l.Position).ToList())
         {

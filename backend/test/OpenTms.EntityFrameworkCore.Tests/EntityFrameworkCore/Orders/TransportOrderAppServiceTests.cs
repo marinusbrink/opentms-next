@@ -349,6 +349,87 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         attributes.Attributes.ShouldBe(new Dictionary<string, string> { ["Project"] = "Najaar" });
     }
 
+    // ── the trip request's freight items (design 61 "Order page, revised" point 7) ──
+
+    private static TransportOrderTripRequestInputDto TripRequestOf(OpenTms.TransportRun.TransportRunWorld f, List<Guid>? lineIds = null) => new()
+    {
+        TransportTripTypeId = f.TripTypeId, DepartureRelationId = f.DepotId, DepartureAddressId = f.DepotAddressId, ArrivalRelationId = f.ShopId, ArrivalAddressId = f.ShopAddressId,
+        PlannedDeparture = DateTimeOffset.UtcNow, LineIds = lineIds
+    };
+
+    [Fact]
+    public async Task The_trip_request_names_its_freight_items_by_the_posted_line_ids_on_create_and_refuses_lines_the_order_does_not_have()
+    {
+        Guid otherTenantsLine;
+        using (InTenantB())
+        {
+            var fb = await FixtureAsync();
+            otherTenantsLine = (await Orders.CreateAsync(CreateDto(fb))).Lines.Single().Id!.Value;
+        }
+
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var firstKey = Guid.NewGuid();
+        var secondKey = Guid.NewGuid();
+        var dto = CreateDto(f);
+        dto.Lines = [Line(f, quantity: 1, id: firstKey), Line(f, quantity: 2, id: secondKey)];
+        dto.TripRequest = TripRequestOf(f, [secondKey]);
+
+        var order = await Orders.CreateAsync(dto);
+
+        var second = order.Lines.Single(l => l.Position == 2).Id!.Value;
+        second.ShouldNotBe(secondKey, "a new line gets its own id; the posted id is only its key in the create");
+        order.TripRequest.ShouldNotBeNull().LineIds.ShouldBe([second]);
+        (await Orders.GetAsync(order.Id)).TripRequest!.LineIds.ShouldBe([second], "stored and read back");
+        var lookup = GetRequiredService<OpenTms.Orders.Published.ITransportOrderLookup>();
+        (await lookup.GetTripRequestAsync(order.Id)).ShouldNotBeNull().LineIds.ShouldBe([second], "Planning reads the selection");
+
+        var all = await Orders.UpdateTripRequestAsync(order.Id, new TransportOrderTripRequestUpdateDto { TripRequest = TripRequestOf(f, []), ConcurrencyStamp = order.ConcurrencyStamp });
+        all.TripRequest.ShouldNotBeNull().LineIds.ShouldBeNull("an empty selection means every line");
+        (await lookup.GetTripRequestAsync(order.Id)).ShouldNotBeNull().LineIds.ShouldBeNull();
+
+        var unknown = await Should.ThrowAsync<BusinessException>(() => Orders.UpdateTripRequestAsync(order.Id,
+            new TransportOrderTripRequestUpdateDto { TripRequest = TripRequestOf(f, [second, Guid.NewGuid()]), ConcurrencyStamp = all.ConcurrencyStamp }));
+        unknown.Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown);
+        OrdersErrorCodes.BadRequestCodes.ShouldContain(OrdersErrorCodes.TripRequestLineUnknown, "travels as HTTP 400");
+        (await Should.ThrowAsync<BusinessException>(() => Orders.UpdateTripRequestAsync(order.Id,
+            new TransportOrderTripRequestUpdateDto { TripRequest = TripRequestOf(f, [otherTenantsLine]), ConcurrencyStamp = all.ConcurrencyStamp })))
+            .Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown, "another tenant's line is no line of this order");
+
+        var unknownOnCreate = CreateDto(f);
+        unknownOnCreate.TripRequest = TripRequestOf(f, [Guid.NewGuid()]);
+        (await Should.ThrowAsync<BusinessException>(() => Orders.CreateAsync(unknownOnCreate))).Code.ShouldBe(OrdersErrorCodes.TripRequestLineUnknown);
+        (await Orders.GetListAsync(new TransportOrderListRequestDto())).TotalCount.ShouldBe(1, "the refused create left nothing behind");
+    }
+
+    [Fact]
+    public async Task A_removed_line_leaves_the_trip_requests_freight_items_and_the_last_one_leaves_an_empty_selection()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var order = await Orders.CreateAsync(CreateDto(f, lines: 3));
+        var lines = order.Lines.OrderBy(l => l.Position).Select(l => l.Id!.Value).ToList();
+        var selected = await Orders.UpdateTripRequestAsync(order.Id, new TransportOrderTripRequestUpdateDto { TripRequest = TripRequestOf(f, [lines[0], lines[1]]), ConcurrencyStamp = order.ConcurrencyStamp });
+        selected.TripRequest!.LineIds.ShouldBe([lines[0], lines[1]]);
+
+        /* The full replace drops the first line... */
+        var replaced = await Orders.UpdateLinesAsync(order.Id, new TransportOrderLinesUpdateDto
+        {
+            Lines = LinesOf(selected).Where(l => l.Id != lines[0]).ToList(), ConcurrencyStamp = selected.ConcurrencyStamp
+        });
+        replaced.TripRequest!.LineIds.ShouldBe([lines[1]]);
+
+        /* ...the single delete the second: the selection is empty, not "every line" (Planning creates no trip for it). */
+        var emptied = await Orders.DeleteLineAsync(order.Id, lines[1]);
+        emptied.TripRequest.ShouldNotBeNull().LineIds.ShouldNotBeNull().ShouldBeEmpty();
+        (await GetRequiredService<OpenTms.Orders.Published.ITransportOrderLookup>().GetTripRequestAsync(order.Id)).ShouldNotBeNull().LineIds.ShouldNotBeNull().ShouldBeEmpty();
+
+        /* A request for every line stays one when a line goes. */
+        var every = await Orders.UpdateTripRequestAsync(order.Id, new TransportOrderTripRequestUpdateDto { TripRequest = TripRequestOf(f), ConcurrencyStamp = emptied.ConcurrencyStamp });
+        every.TripRequest!.LineIds.ShouldBeNull();
+        (await Orders.DeleteLineAsync(order.Id, lines[2])).TripRequest!.LineIds.ShouldBeNull();
+    }
+
     // ── the lifecycle ────────────────────────────────────────────────────────
 
     [Fact]

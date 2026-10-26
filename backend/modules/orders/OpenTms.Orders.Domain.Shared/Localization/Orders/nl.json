@@ -470,6 +470,7 @@
     "OpenTms.Orders:RevisionReasonRequired": "Een herziening heeft een reden nodig.",
     "OpenTms.Orders:InvalidAttributes": "De kenmerken overschrijden de grenzen of gebruiken een niet-gedefinieerde sleutel ({key}).",
     "OpenTms.Orders:TooManyTripRequestMembers": "Een ritaanvraag noemt maximaal {max} {field}.",
+    "OpenTms.Orders:TripRequestLineUnknown": "De ritaanvraag noemt een vrachtregel ({lineId}) die de order niet heeft.",
     "OpenTms.Orders:TemplateInactive": "Het sjabloon is inactief.",
     "OpenTms.Orders:MaterialisationInputInvalid": "Kies minstens één datum en 1 tot {max} exemplaren.",
     "OpenTms.Orders:InvalidSchedule": "{field} van de planning valt buiten het bereik.",

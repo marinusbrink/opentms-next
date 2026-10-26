@@ -67,6 +67,12 @@ public class TripRequestDto
 
     public string? AgreedPurchaseCurrencyCode { get; set; }
 
+    /// <summary>
+    /// The order lines whose legs go on the trip (design 61 point 7): null = every line; otherwise only the legs of these
+    /// lines, and an empty list (the selection lost its last line) means no trip.
+    /// </summary>
+    public List<Guid>? LineIds { get; set; }
+
     /// <summary>Set by Orders once Planning reported the created trip.</summary>
     public Guid? TripId { get; set; }
 }

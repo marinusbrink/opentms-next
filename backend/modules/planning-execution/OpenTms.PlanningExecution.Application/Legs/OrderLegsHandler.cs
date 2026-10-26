@@ -19,7 +19,8 @@ namespace OpenTms.PlanningExecution.Legs;
 /// <summary>
 /// Planning's reaction to the Orders facts (design 59 "Generation", design 58 "Events"): a confirmed order gets its legs
 /// and, with a trip request, its trip ("Tevens trip", PO Q9, created once); changed stops or lines regenerate the legs;
-/// a cancelled order loses them. At-least-once delivery: every step is idempotent on the order's current facts.
+/// a cancelled order loses them. The trip takes the legs of the request's freight items only (design 61 point 7), the
+/// other legs stay unplanned. At-least-once delivery: every step is idempotent on the order's current facts.
 /// </summary>
 public class OrderLegsHandler :
     IDistributedEventHandler<TransportOrderConfirmedEto>,
@@ -79,6 +80,19 @@ public class OrderLegsHandler :
             return;
         }
 
+        /* Only the legs of the request's freight items go on the trip (design 61 point 7); null = every line. A selection
+         * that names no leg of the order (it lost its last line) is not honoured: no empty trip, the legs stay unplanned. */
+        var selected = request.LineIds?.ToList();
+        var legs = selected == null
+            ? await _legs.GetListAsync(l => l.OrderId == orderId && l.TripId == null)
+            : await _legs.GetListAsync(l => l.OrderId == orderId && l.TripId == null && selected.Contains(l.OrderLineId));
+        if (selected != null && legs.Count == 0)
+        {
+            Logger.LogWarning("Trip request of order {OrderId} not honoured: its {LineCount} freight items have no unplanned legs; the legs stay unplanned.", orderId, selected.Count);
+            await _events.PublishAsync(new TransportTripRequestNotHonouredEto { OrderId = orderId, Field = "lineIds", Reason = ReferenceDataErrorCodes.ReferenceNotFound });
+            return;
+        }
+
         TransportTrip trip;
         try
         {
@@ -113,7 +127,6 @@ public class OrderLegsHandler :
             return;
         }
 
-        var legs = await _legs.GetListAsync(l => l.OrderId == orderId && l.TripId == null);
         if (legs.Count > 0)
         {
             await _tripOperations.AssignAsync(trip, legs, allowOutsideWindow: true, afterStopId: null, moving: false);

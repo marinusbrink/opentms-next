@@ -470,6 +470,7 @@
     "OpenTms.Orders:RevisionReasonRequired": "A revision needs a reason.",
     "OpenTms.Orders:InvalidAttributes": "The attributes are out of bounds or use an undefined key ({key}).",
     "OpenTms.Orders:TooManyTripRequestMembers": "A trip request names at most {max} {field}.",
+    "OpenTms.Orders:TripRequestLineUnknown": "The trip request names a freight item ({lineId}) the order does not have.",
     "OpenTms.Orders:TemplateInactive": "The template is inactive.",
     "OpenTms.Orders:MaterialisationInputInvalid": "Choose at least one date and 1 to {max} copies.",
     "OpenTms.Orders:InvalidSchedule": "The schedule's {field} is out of range.",

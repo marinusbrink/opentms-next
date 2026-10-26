@@ -1700,6 +1700,9 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                                 .IsRequired()
                                 .HasColumnType("jsonb");
 
+                            b1.Property<string>("LineIds")
+                                .HasColumnType("jsonb");
+
                             b1.Property<DateTimeOffset?>("PlannedArrival")
                                 .HasColumnType("timestamp with time zone");
 
@@ -2173,6 +2176,9 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                             b1.Property<string>("DriverIds")
                                 .IsRequired()
+                                .HasColumnType("jsonb");
+
+                            b1.Property<string>("LineIds")
                                 .HasColumnType("jsonb");
 
                             b1.Property<Guid>("TransportTripTypeId")

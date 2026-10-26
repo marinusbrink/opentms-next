@@ -47,7 +47,10 @@ public static class TransportOrderInputMapper
     public static TripRequestInput? TripRequest(TransportOrderTripRequestInputDto? dto) => dto == null ? null : new TripRequestInput(
         dto.TransportTripTypeId, dto.DepartureRelationId, dto.DepartureAddressId, dto.ArrivalRelationId, dto.ArrivalAddressId, dto.PlannedDeparture,
         dto.PlannedArrival, dto.CarrierRelationId, dto.CarrierContactPersonId, dto.VehicleCombinationId, dto.VehicleIds, dto.DriverIds,
-        dto.AgreedPurchaseAmount, dto.AgreedPurchaseCurrencyCode);
+        dto.AgreedPurchaseAmount, dto.AgreedPurchaseCurrencyCode, LineSelection(dto.LineIds));
+
+    /// <summary>The API's freight-item selection: null or empty = every line (design 61 point 7).</summary>
+    public static IReadOnlyList<Guid>? LineSelection(List<Guid>? lineIds) => lineIds is { Count: > 0 } ? lineIds : null;
 
     public static TemplateStopInput TemplateStop(TemplateStopInputDto dto) => new(
         dto.WaypointTypeId, dto.RelationId, dto.RelationAddressId, dto.ContactPersonId, dto.DayOffset, dto.TimeSlotId, dto.WindowFrom, dto.WindowTill,
@@ -59,7 +62,7 @@ public static class TransportOrderInputMapper
     public static TemplateTripRequestInput? TemplateTripRequest(TemplateTripRequestInputDto? dto) => dto == null ? null : new TemplateTripRequestInput(
         dto.TransportTripTypeId, dto.DepartureRelationId, dto.DepartureAddressId, dto.ArrivalRelationId, dto.ArrivalAddressId, dto.DepartureDayOffset,
         dto.DepartureTime, dto.ArrivalDayOffset, dto.ArrivalTime, dto.CarrierRelationId, dto.CarrierContactPersonId, dto.VehicleCombinationId,
-        dto.VehicleIds, dto.DriverIds, dto.AgreedPurchaseAmount, dto.AgreedPurchaseCurrencyCode);
+        dto.VehicleIds, dto.DriverIds, dto.AgreedPurchaseAmount, dto.AgreedPurchaseCurrencyCode, LineSelection(dto.LineIds));
 
     public static TemplateSchedule Schedule(TemplateScheduleDto dto)
         => TemplateSchedule.Create(dto.Recurrence, dto.Interval, dto.DaysOfWeek, dto.DayOfMonth, dto.HorizonDays, dto.ValidFrom, dto.ValidTill);
