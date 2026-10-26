@@ -227,7 +227,7 @@ function ManualCostLineDialog({ tripId, currency, legs, onClose }: { tripId: str
           </Alert>
         )}
         <FormField label={t("PlanningExecution:Leg")} htmlFor="cost-line-leg" floating="always">
-          {/* DEVIATION(UI-LOOK-004): the trip's own legs: nothing to create in place, a leg is derived from the orders' lines and never created by hand. */}
+          {/* DEVIATION(UI-LOOK-004): the trip's own legs: nothing to create in place, a leg is derived from the orders' lines and never created by hand, approved in docs/designs/61-transport-app.md (Library components, Deviations). */}
           <ReferenceCombobox id="cost-line-leg" value={legId} onChange={setLegId} options={legs.map((leg) => ({ value: leg.id, label: leg.label }))} />
         </FormField>
         <FormField label={t("Orders:Description")} htmlFor="cost-line-description">

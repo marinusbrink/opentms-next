@@ -448,7 +448,7 @@ function RateLineDialog({ kind, orderId, currency, lines, onClose }: RateLineDia
         )}
         {kind !== "fixed" && (
           <FormField label={t("Orders:Line")} htmlFor="rate-line-line" floating="always">
-            {/* DEVIATION(UI-LOOK-004): the order's own lines (or the order itself): nothing to create in place, a line is added on the Lines tab. */}
+            {/* DEVIATION(UI-LOOK-004): the order's own lines (or the order itself): nothing to create in place, a line is added on the Lines tab, approved in docs/designs/61-transport-app.md (Library components, Deviations). */}
             <ReferenceCombobox id="rate-line-line" value={lineId} onChange={setLineId} options={[{ value: "", label: t("Orders:OrderLevel") }, ...lines.filter((l) => l.id).map((l) => ({ value: l.id!, label: l.label }))]} />
           </FormField>
         )}

@@ -114,7 +114,13 @@ address, arrival/departure waypoint types, overnight, position), Price lists and
   API the UI rule gives.
 - `useOpenRecord` (`src/lib/use-open-record.ts`): opens a record route in the app, keeps the list's filters, handles
   "not found" and permission denied with `FeatureUnavailable`/`PermissionDenied`.
-- Deviations: none planned; any needed is marked `DEVIATION(UI-XXX-nnn)` in code and listed in the PR.
+- Deviations (marked `DEVIATION(UI-XXX-nnn)` in code and listed in the PR for the PO's approval):
+  - `UI-LOOK-004`, trip picker of "Outsource origin" (`TripLegsTab`): no "Add new …", a trip is never created in the
+    Transport app (the Planboard creates trips, PO scope decision).
+  - `UI-LOOK-004`, the rate-line "Line" picker on the order's Pricing tab (`PricingTab`): it picks one of the order's own
+    lines (or the order itself); a line is added on the Lines tab, so there is nothing to create in place.
+  - `UI-LOOK-004`, the cost-line "Leg" picker on the trip's Cost and revenue tab (`TripCostRevenueTab`): it picks one of
+    the trip's own legs; legs derive from the orders' lines and are never created by hand.
 
 ### States
 
