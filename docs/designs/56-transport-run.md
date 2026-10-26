@@ -163,6 +163,17 @@ status. `Invoiced` is written by the invoicing run only.
    `AppFeatures.MasterData.PlanningExecution.Trips` gets `ViaDepotRules`, `TripAttributeDefinitions`;
    `AppFeatures.MasterData.Financial.Pricing` gets `PriceLists`, `RelationFinancialSettings`.
 3. `OpenTmsHttpApiModule` maps the new modules' error codes (each module keeps `ConflictCodes`/`BadRequestCodes`).
+4. **The outbox dispatcher runs every event in a transactional unit of work of its own** (`OutboxDispatcher`, built
+   2026-10-26; outbox-per-tenant design). The handlers of this run write their module's tables, request derived values
+   and publish facts of their own, and an outbox publish outside a transaction throws: so each event is published
+   inside `Begin(isTransactional: true, requiresNew: true)` in the raising tenant's context, the unit of work commits,
+   and only then is the outbox row deleted (in a unit of work of its own). A handler that fails rolls back everything it
+   wrote and published; the event stays waiting and blocks the events behind it in that database until the next run
+   (order preserved, AO-10). A crash between the commit and the delete re-delivers the event, which the idempotent
+   handlers absorb (rule 3). `DerivedValuesRequestedHandler` carries `[UnitOfWork]` so it joins that unit of work.
+   Covered by `OutboxPerTenantIntegrationTests` (PostgreSQL), including the failure path: a handler that writes a row
+   and publishes an `OpenTms.*` event, then throws, leaves neither the row nor the new outbox row and keeps the original
+   event waiting; the next run commits both exactly once.
 
 ## API contract
 

@@ -257,6 +257,53 @@ public class OutboxPerTenantIntegrationTests : OpenTmsPostgreSqlTestBase
     }
 
     [Fact]
+    public async Task A_handler_that_writes_and_publishes_then_fails_leaves_neither_behind_and_the_retry_commits_both_once()
+    {
+        /* Review B4: the dispatcher runs every event in a transactional unit of work of its own, committed before the row
+         * is deleted. A handler that wrote a row and published an OpenTms.* event before it failed must leave neither:
+         * the original event stays waiting, the next run handles it once. */
+        var probeId = Guid.NewGuid();
+        var followUpId = Guid.NewGuid();
+        _recorder.FollowUps[probeId] = followUpId;
+        using (_currentTenant.Change(PostgreSqlTestDatabases.TenantAId))
+        {
+            await WithUnitOfWorkAsync(Transactional, () => _eventBus.PublishAsync(new WritingProbeEto { ProbeId = probeId }));
+        }
+
+        try
+        {
+            _recorder.FailNextWritingProbe = true;
+            await DispatchAsync(PostgreSqlTestDatabases.TenantAId);
+
+            _recorder.FailNextWritingProbe.ShouldBeFalse("the handler ran and failed");
+            _recorder.For(probeId).ShouldBeEmpty();
+            (await CountRowsAsync(probeId)).ShouldBe(0, "the handler's row rolled back with its unit of work");
+            (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, followUpId)).ShouldBe(0, "the follow-up event rolled back with it");
+            (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, probeId)).ShouldBe(1, "the original event is still waiting");
+
+            await DispatchAsync(PostgreSqlTestDatabases.TenantAId);
+
+            _recorder.For(probeId).ShouldHaveSingleItem().TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
+            (await CountRowsAsync(probeId)).ShouldBe(1);
+            (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, probeId)).ShouldBe(0, "the original event was deleted after the commit");
+
+            /* The follow-up is a committed outbox row of its own (dispatched now or by the next run), delivered once. */
+            while (await DispatchAsync(PostgreSqlTestDatabases.TenantAId) > 0)
+            {
+            }
+
+            _recorder.For(followUpId).ShouldHaveSingleItem().TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
+            (await CountAsync(PostgreSqlTestDatabases.TenantADatabase, followUpId)).ShouldBe(0);
+            (await CountRowsAsync(probeId)).ShouldBe(1, "no second delivery wrote a second row");
+        }
+        finally
+        {
+            _recorder.FailNextWritingProbe = false;
+            await DeleteRowsAsync(probeId);
+        }
+    }
+
+    [Fact]
     public async Task The_commit_signals_the_dispatcher_with_the_tenant_that_committed()
     {
         while (_signal.TryRead(out _)) { }
@@ -318,6 +365,24 @@ public class OutboxPerTenantIntegrationTests : OpenTmsPostgreSqlTestBase
     private Task<int> DispatchAsync(Guid? tenantId)
     {
         return GetRequiredService<IOutboxDispatcher>().DispatchAsync(tenantId);
+    }
+
+    private static async Task<long> CountRowsAsync(Guid probeId)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(PostgreSqlTestDatabases.TenantADatabase));
+        await connection.OpenAsync();
+        await using var command = new Npgsql.NpgsqlCommand("SELECT count(*) FROM integrations.\"RouteCache\" WHERE \"Key\" = @key", connection);
+        command.Parameters.AddWithValue("key", ProbeRecorder.RowKey(probeId));
+        return (long)(await command.ExecuteScalarAsync())!;
+    }
+
+    private static async Task DeleteRowsAsync(Guid probeId)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(PostgreSqlTestDatabases.TenantADatabase));
+        await connection.OpenAsync();
+        await using var command = new Npgsql.NpgsqlCommand("DELETE FROM integrations.\"RouteCache\" WHERE \"Key\" = @key", connection);
+        command.Parameters.AddWithValue("key", ProbeRecorder.RowKey(probeId));
+        await command.ExecuteNonQueryAsync();
     }
 
     private static Task<long> CountAsync(string database, Guid probeId)
