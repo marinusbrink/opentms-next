@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { toOptions } from "@/apps/transport/components/fields";
 import { defaultAddressIdOf } from "@/apps/transport/components/RelationFields";
-import { STOP_FIELD_CONTROL, StopStrip, stopFieldId } from "@/apps/transport/components/StopStrip";
+import { StopStrip } from "@/apps/transport/components/StopStrip";
+import { STOP_FIELD_CONTROL, stopFieldId } from "@/apps/transport/components/stop-strip-ids";
 import {
   REQUIRED_FLAG,
   emptyFreightEntry,

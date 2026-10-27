@@ -6,6 +6,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { ReferenceCombobox, type ReferenceOption } from "@/components/ui/reference-combobox";
 import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
+import { stopFieldId } from "@/apps/transport/components/stop-strip-ids";
 import { MAX_STOPS, MIN_STOPS, newStop, type EditorMode, type StopField, type StopValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { useRelationAddresses } from "@/domains/master-data/entities";
@@ -38,11 +39,6 @@ export interface StopStripProps {
   requireReference?: boolean;
   requireWindow?: boolean;
 }
-
-export const stopFieldId = (idPrefix: string, index: number, field: string) => `${idPrefix}-stop-${index}-${field}`;
-
-/** The control a stop problem's field is shown at (and focused on). */
-export const STOP_FIELD_CONTROL: Record<StopField, string> = { waypointTypeId: "activity", relationId: "relation", relationAddressId: "address", date: "date", window: "from" };
 
 export function StopStrip({ idPrefix, stops, onChange, mode, readOnly, orderDate, waypointTypeOptions, timeSlotOptions, errors = {}, movable = false, requireReference, requireWindow }: StopStripProps) {
   const { t } = useL();
