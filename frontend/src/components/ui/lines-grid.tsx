@@ -39,9 +39,6 @@ export interface LinesGridProps<TRow> {
    *  and the context menu's Remove hand the removable rows here instead of removing them; the caller confirms and
    *  then changes the rows itself. Absent → rows are removed at once (Close without saving undoes it). */
   onRemoveRequest?: (rows: TRow[]) => void;
-  /** A click on a row (a master list whose selected line shows its detail under the grid, design 61 "Order page,
-   *  revised"); the click still starts the cell's inline edit. */
-  onRowClick?: (row: TRow) => void;
   /** Localized text for the no-rows overlay. */
   emptyText?: string;
   className?: string;
@@ -60,7 +57,6 @@ export function LinesGrid<TRow>({
   onOpen,
   canRemoveRow,
   onRemoveRequest,
-  onRowClick,
   emptyText,
   className,
 }: LinesGridProps<TRow>) {
@@ -207,7 +203,6 @@ export function LinesGrid<TRow>({
           }
           getContextMenuItems={getContextMenuItems}
           onRowDoubleClicked={onOpen ? openRow : undefined}
-          onRowClicked={onRowClick ? (event) => event.data != null && onRowClick(event.data) : undefined}
           onCellKeyDown={onOpen ? openRowOnEnter : undefined}
           suppressContextMenu={readOnly}
           preventDefaultOnContextMenu={!readOnly}

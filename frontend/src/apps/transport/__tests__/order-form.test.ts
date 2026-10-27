@@ -22,11 +22,19 @@ import {
   tripRequestInputOf,
   validateOrder,
   emptyEntry,
-  entryErrors,
+  emptyFreightEntry,
   entryWaypointsOf,
+  freightEntryErrors,
   itemFromEntry,
+  itemFromStrip,
+  lineProblemText,
   lineProblemsOf,
-  nextEntry,
+  nextFreightEntry,
+  stopName,
+  stopProblemsOf,
+  stopProblemText,
+  stripStopsOf,
+  stripWaypointsOf,
   postedLineIdsOf,
   tripLineIdsFor,
   tripLineIdsPosted,
@@ -87,7 +95,7 @@ describe("orderValuesOf / lineInputOf", () => {
     expect(termsInputOf(values.terms)).toEqual({ currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true });
   });
 
-  it("a new item from the fast entry row: From with the date, time and reference, To on the same date; quantity 1; no stop pattern", () => {
+  it("a pasted item: From with the date, time and reference, To on the same date; quantity 1; no stop pattern", () => {
     const acme = { id: "rel-1", code: "ACME", name: "Acme", city: "Utrecht", countryCode: "NL", roles: 1 };
     const beta = { id: "rel-2", code: "BETA", name: "Beta", city: null, countryCode: null, roles: 1 };
     const entry = { ...emptyEntry("2026-10-25"), from: { relation: acme, addressId: "adr-1", city: "Utrecht" }, to: { relation: beta, addressId: "adr-2", city: "Gouda" }, time: "730", transportUnitId: "unit-1", transportUnitName: "Pallet", weightKg: "120", reference: " LOAD-1 " };
@@ -101,24 +109,79 @@ describe("orderValuesOf / lineInputOf", () => {
     /* A template item keeps day offsets. */
     const templateLine = itemFromEntry({ ...entry, date: null, dayOffset: "2" }, { from: null, to: null });
     expect(templateLineInputOf(templateLine).stops?.map((s) => s.dayOffset)).toEqual([2, 2]);
-    /* Enter keeps From, the date, the time and the unit for the next item. */
-    expect(nextEntry(entry)).toMatchObject({ from: entry.from, to: { relation: null }, date: "2026-10-25", time: "730", transportUnitId: "unit-1", quantity: "", weightKg: "", reference: "" });
     expect(newLine().stops).toEqual([]);
     expect(stopValuesOf({ waypointTypeId: "wp", relationId: "r", relationAddressId: "a", dayOffset: 3 }).dayOffset).toBe("3");
   });
 
-  it("the entry needs From, To, the unit and (orders) a date; a bad time or number is named", () => {
-    expect(Object.keys(entryErrors(emptyEntry(null), "order")).sort()).toEqual(["date", "from", "to", "transportUnitId"]);
-    expect(Object.keys(entryErrors(emptyEntry(null), "template")).sort()).toEqual(["from", "to", "transportUnitId"]);
-    expect(entryErrors({ ...emptyEntry("2026-10-25"), time: "25:00", quantity: "x" }, "order")).toMatchObject({ time: "Orders:InvalidTime", quantity: "MasterData:InvalidNumber" });
-  });
-
-  it("the item's waypoint types: the order type's first and last default waypoint, else the first Load and Unload type", () => {
+  it("a pasted item's waypoint types: the order type's first and last default waypoint, else the first Load and Unload type", () => {
     const types = [{ id: "wp-via", name: "Via", activity: 3 }, { id: "wp-unload", name: "Unload", activity: 2 }, { id: "wp-load", name: "Load", activity: 1 }];
     expect(entryWaypointsOf([{ waypointTypeId: "b", name: "B", position: 2 }, { waypointTypeId: "a", name: "A", position: 1 }, { waypointTypeId: "c", name: "C", position: 3 }], types)).toEqual({ from: { id: "a", name: "A" }, to: { id: "c", name: "C" } });
     expect(entryWaypointsOf([], types)).toEqual({ from: { id: "wp-load", name: "Load" }, to: { id: "wp-unload", name: "Unload" } });
     expect(entryWaypointsOf([{ waypointTypeId: "a", name: "A", position: 1 }], types)).toEqual({ from: { id: "a", name: "A" }, to: { id: "wp-unload", name: "Unload" } });
     expect(entryWaypointsOf(undefined, undefined)).toEqual({ from: null, to: null });
+  });
+});
+
+describe("the stop strip and the freight fields of a new item (design 61, legacy tab structure 3)", () => {
+  const types = [{ id: "wp-via", name: "Via", activity: 3 }, { id: "wp-unload", name: "Unload", activity: 2 }, { id: "wp-load", name: "Load", activity: 1 }];
+
+  it("the strip starts with every default waypoint of the order type in order; else Load and Unload; never fewer than two", () => {
+    expect(stripWaypointsOf([{ waypointTypeId: "c", name: "C", position: 3 }, { waypointTypeId: "a", name: "A", position: 1 }, { waypointTypeId: "b", name: "B", position: 2 }], types)).toEqual([
+      { id: "a", name: "A" },
+      { id: "b", name: "B" },
+      { id: "c", name: "C" },
+    ]);
+    expect(stripWaypointsOf([], types)).toEqual([{ id: "wp-load", name: "Load" }, { id: "wp-unload", name: "Unload" }]);
+    expect(stripWaypointsOf([{ waypointTypeId: "a", name: "A", position: 1 }], types)).toEqual([{ id: "a", name: "A" }, null]);
+    expect(stripWaypointsOf(undefined, undefined)).toEqual([null, null]);
+    const stops = stripStopsOf([{ id: "wp-load", name: "Load" }, null], "2026-10-25");
+    expect(stops.map((s) => [s.waypointTypeId, s.waypointTypeName, s.date, s.relationId])).toEqual([
+      ["wp-load", "Load", "2026-10-25", null],
+      [null, "", "2026-10-25", null],
+    ]);
+  });
+
+  it("Add makes an item with a copy of the strip's stops and the freight fields; afterwards only the unit stays", () => {
+    const strip = stripStopsOf([{ id: "wp-load", name: "Load" }, { id: "wp-unload", name: "Unload" }], "2026-10-25").map((s, i) => ({ ...s, relationId: `rel-${i}`, relationName: `R${i}`, relationAddressId: `adr-${i}` }));
+    const entry = { ...emptyFreightEntry(), transportUnitId: "unit-1", transportUnitName: "Pallet", productId: "p-1", productName: "Apples", positions: "2", colli: "10", weightKg: "500", loadingMeters: "1.2", volumeM3: "3" };
+    const item = itemFromStrip(strip, entry);
+    expect(item).toMatchObject({ id: null, transportUnitId: "unit-1", productId: "p-1", quantity: "1", positions: "2", colli: "10", weightKg: "500", loadingMeters: "1.2", volumeM3: "3" });
+    expect(item.stops.map((s) => [s.relationId, s.relationAddressId, s.date])).toEqual([["rel-0", "adr-0", "2026-10-25"], ["rel-1", "adr-1", "2026-10-25"]]);
+    /* A copy: new keys and no ids, so the next item from the same strip is an item of its own. */
+    expect(item.stops.map((s) => s.key)).not.toEqual(strip.map((s) => s.key));
+    expect(item.stops.every((s) => s.id === null)).toBe(true);
+    expect(nextFreightEntry(entry)).toEqual({ ...emptyFreightEntry(), transportUnitId: "unit-1", transportUnitName: "Pallet" });
+  });
+
+  it("the freight fields need the transport unit and numbers; the type's other required flags are marks only", () => {
+    expect(Object.keys(freightEntryErrors(emptyFreightEntry()))).toEqual(["transportUnitId"]);
+    expect(freightEntryErrors({ ...emptyFreightEntry(), transportUnitId: "u", weightKg: "x", colli: "-1" })).toEqual({ weightKg: "MasterData:InvalidNumber", colli: "MasterData:InvalidNumber" });
+  });
+});
+
+describe("stop problems name the stop (design 61, legacy tab structure 9)", () => {
+  const t = (k: string) => ({ "Orders:StopNamed": "Stop {0} ({1})", "Orders:StopNumbered": "Stop {0}", "Orders:StopNeedsAddress": "choose an address" })[k] ?? k;
+
+  it("activity, relation, a usable address, the date (orders) and the window, per stop in order", () => {
+    const [load, unload] = stripStopsOf([{ id: "wp-load", name: "Load" }, { id: "wp-unload", name: "Unload" }], "2026-10-25");
+    const stops = [{ ...load, relationId: "r1", relationAddressId: "a1" }, { ...unload, relationId: "r2", relationAddressId: null, date: null, windowFrom: "25:00" }, { ...unload, waypointTypeId: null, waypointTypeName: "" }];
+    expect(stopProblemsOf(stops, "order")).toEqual([
+      { index: 1, field: "relationAddressId", key: "Orders:StopNeedsAddress" },
+      { index: 1, field: "date", key: "Orders:StopNeedsDate" },
+      { index: 1, field: "window", key: "Orders:InvalidTime" },
+      { index: 2, field: "waypointTypeId", key: "Orders:StopNeedsActivity" },
+      { index: 2, field: "relationId", key: "Orders:StopNeedsRelation" },
+    ]);
+    /* A template has day offsets, no dates. */
+    expect(stopProblemsOf([{ ...stops[1], windowFrom: "" }], "template")).toEqual([{ index: 0, field: "relationAddressId", key: "Orders:StopNeedsAddress" }]);
+    expect(stopProblemText(t, stops, stopProblemsOf(stops, "order")[0])).toBe("Stop 2 (Unload): choose an address");
+    expect(stopName(t, stops[2], 2)).toBe("Stop 3");
+  });
+
+  it("the save refuses a stop without a usable address with the stop's own key", () => {
+    const values = orderValuesOf(stored);
+    const lines = [{ ...values.lines[0], stops: [values.lines[0].stops[0], { ...values.lines[0].stops[1], relationAddressId: null }] }];
+    expect(validateOrder({ ...values, lines }, "order").lines).toBe("Orders:StopNeedsAddress");
   });
 });
 
@@ -161,15 +224,20 @@ describe("Tevens trip per freight item (lineIds)", () => {
 });
 
 describe("lineProblemsOf (the list marks an incomplete item)", () => {
-  it("names a missing unit, fewer than two stops and an incomplete stop", () => {
+  it("names a missing unit, fewer than two stops, an incomplete stop (naming the stop) and a bad number", () => {
     const values = orderValuesOf(stored);
-    const ok = values.lines[0];
-    const problems = lineProblemsOf([ok, { ...ok, key: "a", transportUnitId: null }, { ...ok, key: "b", stops: ok.stops.slice(0, 1) }, { ...ok, key: "c", stops: [ok.stops[0], { ...ok.stops[1], relationAddressId: null }] }]);
+    const ok = { ...values.lines[0], stops: values.lines[0].stops.map((s, i) => ({ ...s, waypointTypeName: i === 0 ? "Load" : "Unload" })) };
+    const incomplete = { ...ok, key: "c", stops: [ok.stops[0], { ...ok.stops[1], relationAddressId: null }] };
+    const problems = lineProblemsOf([ok, { ...ok, key: "a", transportUnitId: null }, { ...ok, key: "b", stops: ok.stops.slice(0, 1) }, incomplete, { ...ok, key: "d", weightMeasurements: ["x", "", ""] }]);
     expect([...problems.entries()]).toEqual([
-      ["a", "Orders:LineNeedsTransportUnit"],
-      ["b", "Orders:LineNeedsTwoStopsHint"],
-      ["c", "Orders:StopIncomplete"],
+      ["a", { key: "Orders:LineNeedsTransportUnit" }],
+      ["b", { key: "Orders:LineNeedsTwoStopsHint" }],
+      ["c", { key: "Orders:StopNeedsAddress", stop: { index: 1, field: "relationAddressId", key: "Orders:StopNeedsAddress" } }],
+      ["d", { key: "MasterData:InvalidNumber" }],
     ]);
+    const t = (k: string) => ({ "Orders:StopNamed": "Stop {0} ({1})", "Orders:StopNeedsAddress": "choose an address" })[k] ?? k;
+    expect(lineProblemText(t, incomplete, problems.get("c")!)).toBe("Stop 2 (Unload): choose an address");
+    expect(lineProblemText(t, ok, problems.get("a")!)).toBe("Orders:LineNeedsTransportUnit");
   });
 });
 

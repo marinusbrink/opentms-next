@@ -16,21 +16,14 @@ import { cn } from "@/lib/utils";
  * strip at the right of the ribbon row (UI-FORM-008) with the error mark (UI-FORM-007); every tab panel mounted in
  * one grid cell so switching tabs never moves anything (UI-DLG-015) and each panel scrolls its own content
  * (UI-DLG-006); the dirty guard on Close and the X (UI-DLG-008); every command disabled while busy (UI-DLG-010). The
- * page root is `flex h-full flex-col` and never scrolls (UI-PAGE-001).
- *
- * A record laid out as one page without content tabs (design 61 "Order page, revised": the order, its freight items
- * and its order-level sections from top to bottom) passes `children` instead of `tabs`: one body that scrolls on its
- * own, under the ribbon, with no tab strip. */
+ * page root is `flex h-full flex-col` and never scrolls (UI-PAGE-001). */
 
 export interface RecordPageProps {
   /** Already translated: "Transport order TO-2026-00012" or t("NewTransportOrder") (UI-DLG-004). */
   title: string;
   badges?: ReactNode;
   commands: RibbonCommand[];
-  /** The tab panels; omit for a one-page record and pass `children`. */
-  tabs?: EntityDialogTab[];
-  /** The body of a record without tabs: rendered in one scrolling panel. */
-  children?: ReactNode;
+  tabs: EntityDialogTab[];
   activeTab?: string;
   onActiveTabChange?: (value: string) => void;
   /** Guards Close and the X (UI-DLG-008). */
@@ -42,7 +35,7 @@ export interface RecordPageProps {
   className?: string;
 }
 
-export function RecordPage({ title, badges, commands, tabs = [], children, activeTab, onActiveTabChange, isDirty = false, isBusy = false, onClose, className }: RecordPageProps) {
+export function RecordPage({ title, badges, commands, tabs, activeTab, onActiveTabChange, isDirty = false, isBusy = false, onClose, className }: RecordPageProps) {
   const { t } = useL();
   const [discardOpen, setDiscardOpen] = useState(false);
   const [uncontrolledTab, setUncontrolledTab] = useState<string | undefined>(tabs[0]?.value);
@@ -86,15 +79,10 @@ export function RecordPage({ title, badges, commands, tabs = [], children, activ
          * tabs, 1440 px), the strip moves to its own line under the ribbon, still end-aligned; nothing is clipped. */}
         <div data-slot="record-page-ribbon" className="flex shrink-0 flex-wrap items-end gap-x-2 border-b bg-background px-3 pt-2">
           <Ribbon commands={ribbonCommands} t={t} />
-          {tabs.length > 0 && <EditorTabStrip tabs={tabs} t={t} />}
+          <EditorTabStrip tabs={tabs} t={t} />
         </div>
         {/* grid-rows-[minmax(0,1fr)]: a layout function, not a size (the one shrinkable row the panels share). */}
         <div data-slot="record-page-body" className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-surface-page">
-          {tabs.length === 0 && (
-            <div data-slot="record-page-panel" data-state="active" className="col-start-1 row-start-1 min-h-0 overflow-y-auto px-6 py-5 outline-none">
-              {children}
-            </div>
-          )}
           {tabs.map((tab) => {
             const active = tab.value === currentTab;
             return (

@@ -18,10 +18,10 @@ import { formattingLocale } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
-/* Paste from Excel (design 61 "Order page, revised" 3): the pasted rows become freight items after a preview that
- * marks the cells it could not match. The rows come from a paste in the fast entry row, or from this dialog's text
+/* Paste from Excel (design 61 "Order page, legacy tab structure" 3): the pasted rows become freight items after a preview that
+ * marks the cells it could not match. The rows come from a paste in the freight item entry, or from this dialog's text
  * field (the Paste command). Relations are looked up on the server by the typed code or name, transport units in their
- * list; a matched relation takes its default (or only) address, as the entry row does. A marked cell stays empty in the
+ * list; a matched relation takes its default (or only) address, as the stop strip does. A marked cell stays empty in the
  * new item and is completed in the item's detail; a row can be dropped before adding (a header row, a total). The
  * preview is a fixed, read-only table inside a dialog (UI-GRID-001 allows a Table there). */
 
@@ -31,16 +31,18 @@ type Row = CheckedRow<RelationOption, UnitOption> & { key: number };
 export interface PasteItemsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Text pasted into the entry row; empty when the dialog was opened from its command. */
+  /** Text pasted into the entry; empty when the dialog was opened from its command. */
   initialText: string;
   mode: EditorMode;
+  /** The order date: the date of a row whose date cell is empty (as the stop strip starts on it). */
+  orderDate: string | null;
   waypoints: EntryWaypoints;
   /** How many items the order can still take. */
   room: number;
   onAdd: (items: LineValues[]) => void;
 }
 
-export function PasteItemsDialog({ open, onOpenChange, initialText, mode, waypoints, room, onAdd }: PasteItemsDialogProps) {
+export function PasteItemsDialog({ open, onOpenChange, initialText, mode, orderDate, waypoints, room, onAdd }: PasteItemsDialogProps) {
   const { t, culture } = useL();
   const queryClient = useQueryClient();
   const units = transportUnits.useLookup(open);
@@ -118,7 +120,7 @@ export function PasteItemsDialog({ open, onOpenChange, initialText, mode, waypoi
             {
               from: await endOf(row.from),
               to: await endOf(row.to),
-              date: row.date.value,
+              date: row.date.value ?? (mode === "order" ? orderDate : null),
               dayOffset: row.dayOffset.ok ? (row.dayOffset.value ?? "0") : "0",
               time: row.time.value ?? "",
               transportUnitId: row.unit.value?.id ?? null,

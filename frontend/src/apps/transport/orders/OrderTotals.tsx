@@ -1,4 +1,3 @@
-import { FormSection } from "@/components/ui/form-section";
 import { Spinner } from "@/components/ui/spinner";
 import { TotalsBlock, type TotalsLine } from "@/apps/transport/components/TotalsBlock";
 import type { PricePreviewState } from "@/apps/transport/orders/use-price-preview";
@@ -6,10 +5,11 @@ import { RATE_LINE_KIND, type RateLineSetDto } from "@/domains/financial/rate-li
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
-/* The order's totals (design 61 "Order page, revised" 6), read-only: the freight items (the sum of the items'
+/* The order's revenue overview (design 61 "Order page, legacy tab structure" 6, on the Financial tab), read-only: the freight items (the sum of the items'
  * stored totals the server reports per item), the order-level lines (fixed price, additional services, discounts and
  * surcharges, other order-level lines), and the total the server holds, with the CalculatingIndicator while they are
- * recalculated (flow 2). The order-level lines themselves are managed in Financial terms. While an unsaved change is
+ * recalculated (flow 2). The order-level lines themselves are managed on the Financial tab, the additional services on
+ * General. While an unsaved change is
  * previewed the preview's figures show instead, dimmed while the next one is asked for (UI-FB-006). */
 
 export interface OrderTotalsProps {
@@ -47,20 +47,18 @@ export function OrderTotals({ rateLines, lineIds, currency, preview }: OrderTota
       ];
 
   return (
-    <FormSection title={t("Orders:Totals")} className="shrink-0">
-      <div className={cn("relative", preview.previewing && "opacity-50")} data-slot="order-totals">
-        {preview.previewing && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <Spinner />
-          </div>
-        )}
-        <TotalsBlock
-          lines={shown}
-          currencyCode={preview.preview?.currencyCode ?? rateLines?.currencyCode ?? currency}
-          state={preview.preview ? undefined : rateLines?.state}
-          footer={preview.preview ? <span className="text-label text-muted-foreground">{t("Orders:PreviewPrices")}</span> : undefined}
-        />
-      </div>
-    </FormSection>
+    <div className={cn("relative", preview.previewing && "opacity-50")} data-slot="order-totals">
+      {preview.previewing && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <Spinner />
+        </div>
+      )}
+      <TotalsBlock
+        lines={shown}
+        currencyCode={preview.preview?.currencyCode ?? rateLines?.currencyCode ?? currency}
+        state={preview.preview ? undefined : rateLines?.state}
+        footer={preview.preview ? <span className="text-label text-muted-foreground">{t("Orders:PreviewPrices")}</span> : undefined}
+      />
+    </div>
   );
 }

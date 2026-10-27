@@ -224,14 +224,20 @@ describe("Platform localization key additions — grid settings failure toasts (
   }
 });
 
-describe("Orders resource additions — the order page by freight item (design 61 \"Order page, revised\"; low risk)", () => {
+describe("Orders resource additions — the order page by freight item and its legacy tabs (design 61; low risk)", () => {
   const KEYS = [
-    "Orders:AddFreightItems", "Orders:AddLineHint", "Orders:CloseItemDetail", "Orders:DateTime", "Orders:FastEntry", "Orders:FreightDetails",
+    "Orders:AddFreightItems", "Orders:AddLineHint", "Orders:DateTime", "Orders:FastEntry", "Orders:FreightDetails",
     "Orders:FromRelation", "Orders:ToRelation", "Orders:ItemPricedAfterSave", "Orders:ItemTotal", "Orders:LineNeedsTwoStopsHint",
     "Orders:OrderLevelLines", "Orders:PasteAmbiguous", "Orders:PasteFreightItems", "Orders:PasteFromExcel", "Orders:PasteInvalid",
     "Orders:PasteMarkedHint", "Orders:PasteNotFound", "Orders:PastePreview", "Orders:PasteRows", "Orders:PasteRowsHint", "Orders:PasteTooManyRows",
-    "Orders:ReferencesAndAttributes", "Orders:Route", "Orders:StopsAndLegs", "Orders:Totals", "Orders:TripRequestItems",
-    "Orders:TripRequestItemsHint", "Orders:TripRequestNoItems",
+    "Orders:Route", "Orders:StopsAndLegs", "Orders:TripRequestItems", "Orders:TripRequestItemsHint", "Orders:TripRequestNoItems",
+    /* The legacy tab structure (PO 2026-10-27). */
+    "Orders:Financial", "Orders:TripRequestTab", "Orders:PlannerRemarks", "Orders:OtherReferences", "Orders:CustomFields",
+    "Orders:PriceCalculation", "Orders:RevenueOverview", "Orders:Invoicing", "Orders:InvoicingRemarksBlock", "Orders:PricedPerFreightItem",
+    "Orders:FixedPriceForOrder", "Orders:RevenueAfterSave", "Orders:RevenueOnOrders", "Orders:AdditionalServicesAfterSave", "Orders:NoRemarks",
+    "Orders:Apply", "Orders:RemoveStop", "Orders:DeleteFreightItem", "Orders:DeleteFreightItemQuestion", "Orders:FreightItemsTotal",
+    "Orders:StopNeedsActivity", "Orders:StopNeedsRelation", "Orders:StopNeedsAddress", "Orders:StopNeedsDate", "Orders:StopNamed",
+    "Orders:StopNumbered", "Orders:ItemProblem",
   ];
   for (const lang of ["en", "nl"]) {
     it(`${lang}: every key has a text without an em dash (UI-FB-007)`, () => {
@@ -242,6 +248,17 @@ describe("Orders resource additions — the order page by freight item (design 6
       }
     });
   }
+
+  it("a stop's message names the stop and a freight item's names the item ({0} the number, {1} the activity or the message)", () => {
+    for (const lang of ["en", "nl"]) {
+      const texts = readAllTexts(lang);
+      expect(texts["Orders:StopNamed"], lang).toContain("{0}");
+      expect(texts["Orders:StopNamed"], lang).toContain("{1}");
+      expect(texts["Orders:StopNumbered"], lang).toContain("{0}");
+      expect(texts["Orders:ItemProblem"], lang).toContain("{1}");
+      expect(texts["Orders:DeleteFreightItemQuestion"], lang).toContain("{0}");
+    }
+  });
 
   it("on screen the API's line is a freight item (PO 2026-10-26)", () => {
     expect(readAllTexts("en")["Orders:Lines"]).toBe("Freight items");

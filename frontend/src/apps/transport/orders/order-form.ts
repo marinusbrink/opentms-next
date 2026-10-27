@@ -21,8 +21,8 @@ import type { MultipleMatches } from "@/domains/financial/rate-lines";
 import { relationOptionOf } from "@/apps/transport/components/RelationFields";
 import { isSameValue, numberError, numberToText, parseInteger, parseNumber, type FieldErrors } from "@/lib/forms/use-form-state";
 
-/* The form model of the order page (design 61 "Order page, revised"), shared by the order page and the template page
- * ("templates use the same page in template mode"). Values are strings where the user types numbers; the DTO mappers
+/* The form model of the order page (design 61 "Order page, legacy tab structure"), shared by the order page and the
+ * template page ("templates use the same page in template mode"). Values are strings where the user types numbers; the DTO mappers
  * below parse on save. A stop carries a date (order) or a day offset (template); the mapper picks the right one. On
  * screen the API's "line" is a freight item; the code keeps the API's name. The order has no stop pattern any more
  * (PO 2026-10-26): `defaultStops` is carried unchanged so a save never drops what an older order stored. */
@@ -306,15 +306,16 @@ export function lineValuesOf(line: TransportOrderLineDto | TemplateLineDto): Lin
   };
 }
 
-/** One end of a freight item typed in the fast entry row: the relation, its default (or only) address and its city. */
+/** One end of a pasted freight item (Paste from Excel): the relation, its default (or only) address and its city. */
 export interface EntryEnd {
   relation: RelationOption | null;
   addressId: string | null;
   city: string;
 }
 
-/** The fast entry row (design 61 "Order page, revised" 3): From, To, date (template: day offset) and time, transport
- * unit, quantity, weight, reference. Extra stops, cargo and container are edited in the item's detail. */
+/** A pasted row (design 61 "Order page, legacy tab structure" 3, Paste from Excel): from relation, to relation, date
+ * (template: day offset) and time, transport unit, quantity, weight, reference. Extra stops, cargo and container are
+ * edited in the item's Edit dialog. */
 export interface ItemEntry {
   from: EntryEnd;
   to: EntryEnd;
@@ -336,22 +337,19 @@ export const EMPTY_END: EntryEnd = { relation: null, addressId: null, city: "" }
 
 export const emptyEntry = (date: string | null): ItemEntry => ({ from: EMPTY_END, to: EMPTY_END, date, dayOffset: "0", time: "", transportUnitId: null, transportUnitName: "", quantity: "", weightKg: "", reference: "" });
 
-/** After Enter added an item: From, date and unit stay for the next one, the rest starts empty. */
-export const nextEntry = (entry: ItemEntry): ItemEntry => ({ ...emptyEntry(entry.date), from: entry.from, dayOffset: entry.dayOffset, time: entry.time, transportUnitId: entry.transportUnitId, transportUnitName: entry.transportUnitName });
-
-/** The waypoint types a new item's first and last stop get: the order type's first and last default waypoint
- * (normally Load and Unload, design 61 "Order page, revised" 3). */
+/** The waypoint types a pasted item's first and last stop get: the order type's first and last default waypoint
+ * (normally Load and Unload). */
 export interface EntryWaypoints {
   from: { id: string; name: string } | null;
   to: { id: string; name: string } | null;
 }
 
-/** The waypoint types for a new item: the order type's first and last default waypoint; without those, the first
+type DefaultWaypoint = { waypointTypeId?: string; name?: string | null; position?: number };
+type WaypointTypeActivity = { id?: string; name?: string | null; activity?: number };
+
+/** The waypoint types for a pasted item: the order type's first and last default waypoint; without those, the first
  * waypoint type whose activity loads and the first that unloads. */
-export function entryWaypointsOf(
-  defaults: readonly { waypointTypeId?: string; name?: string | null; position?: number }[] | null | undefined,
-  types: readonly { id?: string; name?: string | null; activity?: number }[] | undefined,
-): EntryWaypoints {
+export function entryWaypointsOf(defaults: readonly DefaultWaypoint[] | null | undefined, types: readonly WaypointTypeActivity[] | undefined): EntryWaypoints {
   const ordered = [...(defaults ?? [])].filter((w) => w.waypointTypeId).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const of = (w: { waypointTypeId?: string; name?: string | null } | undefined) => (w?.waypointTypeId ? { id: w.waypointTypeId, name: w.name ?? "" } : null);
   const byActivity = (activity: number) => {
@@ -362,22 +360,8 @@ export function entryWaypointsOf(
   return { from: byActivity(1), to: byActivity(2) };
 }
 
-/** The entry's missing fields (UI-FORM-006 on Enter): From, To and the transport unit. */
-export function entryErrors(entry: ItemEntry, mode: EditorMode): Partial<Record<"from" | "to" | "transportUnitId" | "date" | "time" | "quantity" | "weightKg" | "dayOffset", string>> {
-  const errors: Partial<Record<"from" | "to" | "transportUnitId" | "date" | "time" | "quantity" | "weightKg" | "dayOffset", string>> = {};
-  if (!entry.from.relation) errors.from = "MasterData:Required";
-  if (!entry.to.relation) errors.to = "MasterData:Required";
-  if (!entry.transportUnitId) errors.transportUnitId = "MasterData:Required";
-  if (mode === "order" && !entry.date) errors.date = "MasterData:Required";
-  if (mode === "template" && numberError(entry.dayOffset, { integer: true })) errors.dayOffset = "MasterData:InvalidNumber";
-  if (entry.time.trim() && !parseTimeOfDay(entry.time)) errors.time = "Orders:InvalidTime";
-  if (numberError(entry.quantity, { min: 0 })) errors.quantity = "MasterData:InvalidNumber";
-  if (numberError(entry.weightKg, { min: 0 })) errors.weightKg = "MasterData:InvalidNumber";
-  return errors;
-}
-
-/** The freight item the entry row (or a pasted row) adds: two stops, From with the date, time and reference, To on
- * the same date; the quantity defaults to 1. */
+/** The freight item a pasted row adds: two stops, From with the date, time and reference, To on the same date; the
+ * quantity defaults to 1. */
 export function itemFromEntry(entry: ItemEntry, waypoints: EntryWaypoints): LineValues {
   const stop = (end: EntryEnd, waypoint: EntryWaypoints["from"], first: boolean): StopValues => ({
     key: newKey("stop"),
@@ -407,7 +391,123 @@ export function itemFromEntry(entry: ItemEntry, waypoints: EntryWaypoints): Line
   };
 }
 
-/** An empty freight item with the given stops (the fast entry row or a pasted row builds them, `itemFromEntry`). */
+/* ── The stop strip and the freight fields of the item being entered (design 61 "Order page, legacy tab structure" 3) ── */
+
+/** A freight item has at least two stops (the strip's − never goes below). */
+export const MIN_STOPS = 2;
+/** design 56: at most 50 stops per freight item. */
+export const MAX_STOPS = 50;
+
+/** The waypoint types the stop strip starts with: every default waypoint of the order type in its order (number and
+ * activities); without any, the first waypoint type that loads and the first that unloads; never fewer than two rows
+ * (a missing one starts without an activity). */
+export function stripWaypointsOf(defaults: readonly DefaultWaypoint[] | null | undefined, types: readonly WaypointTypeActivity[] | undefined): ({ id: string; name: string } | null)[] {
+  const ordered = [...(defaults ?? [])].filter((w) => w.waypointTypeId).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const list: ({ id: string; name: string } | null)[] =
+    ordered.length > 0
+      ? ordered.map((w) => ({ id: w.waypointTypeId!, name: w.name ?? "" }))
+      : [1, 2].map((activity) => {
+          const type = (types ?? []).find((t) => t.activity === activity && t.id);
+          return type ? { id: type.id!, name: type.name ?? "" } : null;
+        });
+  while (list.length < MIN_STOPS) list.push(null);
+  return list;
+}
+
+/** An empty stop of the strip: the given activity, the order date (template: day 0). */
+export function stripStop(waypoint: { id: string; name: string } | null, date: string | null): StopValues {
+  return { ...newStop(date), waypointTypeId: waypoint?.id ?? null, waypointTypeName: waypoint?.name ?? "" };
+}
+
+/** The strip's starting stops for the order type's waypoints. */
+export const stripStopsOf = (waypoints: readonly ({ id: string; name: string } | null)[], date: string | null): StopValues[] => waypoints.map((w) => stripStop(w, date));
+
+/** The freight fields of the item being entered, in one row next to Add. */
+export interface FreightEntry {
+  transportUnitId: string | null;
+  transportUnitName: string;
+  quantity: string;
+  productId: string | null;
+  productName: string;
+  positions: string;
+  colli: string;
+  weightKg: string;
+  loadingMeters: string;
+  volumeM3: string;
+}
+
+export const emptyFreightEntry = (): FreightEntry => ({ transportUnitId: null, transportUnitName: "", quantity: "", productId: null, productName: "", positions: "", colli: "", weightKg: "", loadingMeters: "", volumeM3: "" });
+
+/** After Add the freight fields clear except the transport unit (the next item is often the same unit). */
+export const nextFreightEntry = (entry: FreightEntry): FreightEntry => ({ ...emptyFreightEntry(), transportUnitId: entry.transportUnitId, transportUnitName: entry.transportUnitName });
+
+export type FreightEntryField = "transportUnitId" | "quantity" | "positions" | "colli" | "weightKg" | "loadingMeters" | "volumeM3";
+
+/** What blocks Add in the freight fields (UI-FORM-006 on Enter): the transport unit (a save needs it) and the numbers'
+ * shape. The order type's required flags are marks only, as on the order (enforced on Confirm). */
+export function freightEntryErrors(entry: FreightEntry): Partial<Record<FreightEntryField, string>> {
+  const errors: Partial<Record<FreightEntryField, string>> = {};
+  if (!entry.transportUnitId) errors.transportUnitId = "MasterData:Required";
+  for (const field of ["quantity", "positions", "colli", "weightKg", "loadingMeters", "volumeM3"] as const) if (numberError(entry[field], { min: 0 })) errors[field] = "MasterData:InvalidNumber";
+  return errors;
+}
+
+/** The freight item Add makes: the freight fields and a copy of the strip's stops (new keys, no ids); the quantity
+ * defaults to 1. The strip keeps its own stops for the next item. */
+export function itemFromStrip(stops: readonly StopValues[], entry: FreightEntry): LineValues {
+  return {
+    ...newLine(stops.map((stop) => ({ ...stop, key: newKey("stop"), id: null }))),
+    transportUnitId: entry.transportUnitId,
+    transportUnitName: entry.transportUnitName,
+    productId: entry.productId,
+    productName: entry.productName,
+    quantity: entry.quantity.trim() || "1",
+    positions: entry.positions.trim(),
+    colli: entry.colli.trim(),
+    weightKg: entry.weightKg.trim(),
+    loadingMeters: entry.loadingMeters.trim(),
+    volumeM3: entry.volumeM3.trim(),
+  };
+}
+
+/* ── What is wrong with a stop: the message names the stop ("Stop 2 (Unload): …", design 61 legacy tab structure 9) ── */
+
+export type StopField = "waypointTypeId" | "relationId" | "relationAddressId" | "date" | "window";
+
+export interface StopProblem {
+  /** 0-based position in the item's stops. */
+  index: number;
+  field: StopField;
+  /** The reason's localization key, without the stop's name. */
+  key: string;
+}
+
+/** Every problem of the stops, in stop order: an activity, a relation, a usable address (one of the relation's,
+ * chosen), the date (order mode: the API's stop date is required) and the window's time shape. */
+export function stopProblemsOf(stops: readonly StopValues[], mode: EditorMode): StopProblem[] {
+  const problems: StopProblem[] = [];
+  stops.forEach((stop, index) => {
+    if (!stop.waypointTypeId) problems.push({ index, field: "waypointTypeId", key: "Orders:StopNeedsActivity" });
+    if (!stop.relationId) problems.push({ index, field: "relationId", key: "Orders:StopNeedsRelation" });
+    else if (!stop.relationAddressId) problems.push({ index, field: "relationAddressId", key: "Orders:StopNeedsAddress" });
+    if (mode === "order" && !stop.date) problems.push({ index, field: "date", key: "Orders:StopNeedsDate" });
+    if ((stop.windowFrom.trim() && !parseTimeOfDay(stop.windowFrom)) || (stop.windowTill.trim() && !parseTimeOfDay(stop.windowTill))) problems.push({ index, field: "window", key: "Orders:InvalidTime" });
+  });
+  return problems;
+}
+
+/** "Stop 2 (Unload)", or "Stop 2" while the stop has no activity. */
+export function stopName(t: (key: string) => string, stop: Pick<StopValues, "waypointTypeName"> | undefined, index: number): string {
+  const name = stop?.waypointTypeName.trim();
+  return (name ? t("Orders:StopNamed").replace("{1}", name) : t("Orders:StopNumbered")).replace("{0}", String(index + 1));
+}
+
+/** "Stop 2 (Unload): choose an address of the relation." */
+export function stopProblemText(t: (key: string) => string, stops: readonly Pick<StopValues, "waypointTypeName">[], problem: StopProblem): string {
+  return `${stopName(t, stops[problem.index], problem.index)}: ${t(problem.key)}`;
+}
+
+/** An empty freight item with the given stops (the stop strip, `itemFromStrip`, or a pasted row, `itemFromEntry`, builds them). */
 export function newLine(stops: StopValues[] = []): LineValues {
   return {
     key: newKey("line"),
@@ -577,7 +677,7 @@ export function defaultTripTypeIdOf(defaultId: string | null | undefined, active
 
 export function tripRequestValuesOf(request: TransportOrderTripRequestDto | TemplateTripRequestInputDto | undefined, lines: LineValues[] = []): TripRequestValues {
   if (!request) return EMPTY_TRIP_REQUEST;
-  /* `lineIds` (design 61 "Order page, revised" 7): null = every item; a stored `[]` (the last chosen item was removed)
+  /* `lineIds` (design 61 "Order page, legacy tab structure" 8): null = every item; a stored `[]` (the last chosen item was removed)
    * means none: shown as nothing ticked, which the validation refuses until the user chooses (never posted back). */
   const lineIds = (request as { lineIds?: string[] | null }).lineIds?.map((id) => id.toLowerCase()) ?? null;
   const r = request as Partial<TransportOrderTripRequestDto & TemplateTripRequestInputDto>;
@@ -871,7 +971,7 @@ export function tripLineIdsFor(values: Pick<OrderValues, "lines" | "tripRequest"
 }
 
 /** The ids a create (or a template save) posts on its lines: the stored id, or a client id for a new line, which the
- * server maps to the line's real id, so the trip request can name a new item (design 61 "Order page, revised" 7). */
+ * server maps to the line's real id, so the trip request can name a new item (design 61 "Order page, legacy tab structure" 8). */
 export function postedLineIdsOf(lines: readonly LineValues[], newId: () => string = () => crypto.randomUUID()): Map<string, string> {
   return new Map(lines.map((line) => [line.key, line.id ?? newId()]));
 }
@@ -1018,10 +1118,9 @@ export function validateOrder(values: OrderValues, mode: EditorMode): FieldError
     if (!line.transportUnitId) errors.lines = "Orders:LineNeedsTransportUnit";
     for (const field of NUMERIC_LINE_FIELDS) if (numberError(line[field] as string)) errors.lines = "MasterData:InvalidNumber";
     for (const measurement of [...line.weightMeasurements, ...line.volumeMeasurements]) if (numberError(measurement, { min: 0 })) errors.lines = "MasterData:InvalidNumber";
-    for (const stop of line.stops) {
-      if (!stop.waypointTypeId || !stop.relationId || !stop.relationAddressId) errors.lines = "Orders:StopIncomplete";
-      if ((stop.windowFrom.trim() && !parseTimeOfDay(stop.windowFrom)) || (stop.windowTill.trim() && !parseTimeOfDay(stop.windowTill))) errors.lines = "Orders:InvalidTime";
-    }
+    /* The freight items tab shows the first item's problem with the stop named (lineProblemText). */
+    const stop = stopProblemsOf(line.stops, mode)[0];
+    if (stop) errors.lines = stop.key;
   }
   for (const reference of values.references) {
     const type = reference.type.trim();
@@ -1041,16 +1140,28 @@ export function validateOrder(values: OrderValues, mode: EditorMode): FieldError
   return errors;
 }
 
-/** What is wrong with each freight item (the list marks the item, design 61 "Order page, revised" 2), by key. */
-export function lineProblemsOf(lines: LineValues[]): Map<string, string> {
-  const problems = new Map<string, string>();
+/** What is wrong with a freight item (the list marks the item); a stop's problem names the stop. */
+export interface LineProblem {
+  key: string;
+  stop?: StopProblem;
+}
+
+/** What is wrong with each freight item, by key: the first problem (design 61 "Order page, legacy tab structure" 3). */
+export function lineProblemsOf(lines: LineValues[], mode: EditorMode = "order"): Map<string, LineProblem> {
+  const problems = new Map<string, LineProblem>();
   for (const line of lines) {
-    if (!line.transportUnitId) problems.set(line.key, "Orders:LineNeedsTransportUnit");
-    else if (line.stops.length < 2) problems.set(line.key, "Orders:LineNeedsTwoStopsHint");
-    else if (line.stops.some((stop) => !stop.waypointTypeId || !stop.relationId || !stop.relationAddressId)) problems.set(line.key, "Orders:StopIncomplete");
-    else if (NUMERIC_LINE_FIELDS.some((field) => numberError(line[field] as string))) problems.set(line.key, "MasterData:InvalidNumber");
+    const stop = stopProblemsOf(line.stops, mode)[0];
+    if (!line.transportUnitId) problems.set(line.key, { key: "Orders:LineNeedsTransportUnit" });
+    else if (line.stops.length < MIN_STOPS) problems.set(line.key, { key: "Orders:LineNeedsTwoStopsHint" });
+    else if (stop) problems.set(line.key, { key: stop.key, stop });
+    else if (NUMERIC_LINE_FIELDS.some((field) => numberError(line[field] as string)) || [...line.weightMeasurements, ...line.volumeMeasurements].some((m) => numberError(m, { min: 0 }))) problems.set(line.key, { key: "MasterData:InvalidNumber" });
   }
   return problems;
+}
+
+/** The text of an item's problem: a stop's names the stop ("Stop 2 (Unload): …"). */
+export function lineProblemText(t: (key: string) => string, line: Pick<LineValues, "stops">, problem: LineProblem): string {
+  return problem.stop ? stopProblemText(t, line.stops, problem.stop) : t(problem.key);
 }
 
 /** Whether a stop's waypoint type loads or unloads, from the type's activity (the required marks per flag). */

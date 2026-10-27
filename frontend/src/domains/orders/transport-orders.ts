@@ -19,6 +19,10 @@ type Schemas = components["schemas"];
 
 export type TransportOrderRow = Schemas["OpenTms.Orders.TransportOrders.TransportOrderRowDto"];
 export type TransportOrderDto = Schemas["OpenTms.Orders.TransportOrders.TransportOrderDto"];
+export type TransportOrderRemarkDto = Schemas["OpenTms.Orders.TransportOrders.TransportOrderRemarkDto"];
+
+/** The kinds of an order's dated remarks (design 58: a revision's reason). */
+export const ORDER_REMARK_KINDS: Record<number, string> = { 1: "Orders:OrderRemarkKind.Revision" };
 export type TransportOrderCreateDto = Schemas["OpenTms.Orders.TransportOrders.TransportOrderCreateDto"];
 export type TransportOrderUpdateDto = Schemas["OpenTms.Orders.TransportOrders.TransportOrderUpdateDto"];
 export type TransportOrderLineDto = Schemas["OpenTms.Orders.TransportOrders.TransportOrderLineDto"];

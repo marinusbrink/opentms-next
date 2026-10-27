@@ -6,23 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
-import { AttributeFields } from "@/apps/transport/components/AttributeFields";
-import { DateField, NumberField, SelectField } from "@/apps/transport/components/fields";
+import { AttributeFields, type AttributeDefinition } from "@/apps/transport/components/AttributeFields";
+import { DateField, NumberField, SelectField, TextAreaField } from "@/apps/transport/components/fields";
 import { MAX_REFERENCES, newReference, type OrderValues, type ReferenceValues } from "@/apps/transport/orders/order-form";
 import { RECURRENCE_DAYS, TEMPLATE_RECURRENCES } from "@/domains/orders/templates";
-import { useOrderAttributeDefinitions } from "@/domains/orders/transport-orders";
+import { ORDER_REMARK_KINDS, type TransportOrderRemarkDto } from "@/domains/orders/transport-orders";
+import { useFormat } from "@/lib/format";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* Order-level sections of the order page (design 61 "Order page, revised" 1): References and attributes, and the
- * template's Schedule (recurrence, interval, weekdays / day of month, horizon, validity). Collapsible FormSections,
- * opened on submit when they hold an error (UI-FORM-006). */
+/* Parts of the order page's tabs (design 61 "Order page, legacy tab structure" 2): the nested tabs of General Other
+ * references, Custom fields and Remarks for the planner, and the template's Schedule tab (recurrence, interval,
+ * weekdays / day of month, horizon, validity). Each shows its one message above its fields (UI-FB-004). */
 
-/** The order's references (design 58: type, value, description; at most 50), edited inline, and the order's
- * attributes (the dynamic fields from the definitions). */
-export function ReferencesSection({ form, open, onOpenChange }: { form: FormContext<OrderValues>; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** Other references (design 58: type, reference, description; at most 50), edited inline: add and remove rows. */
+export function OtherReferences({ form }: { form: FormContext<OrderValues> }) {
   const { t } = useL();
-  const definitions = useOrderAttributeDefinitions(1);
   const columns = useMemo<ColDef<ReferenceValues>[]>(
     () => [
       { field: "type", headerName: `${t("Orders:ReferenceType")} *`, flex: 1, minWidth: 120, editable: !form.readOnly },
@@ -36,10 +35,9 @@ export function ReferencesSection({ form, open, onOpenChange }: { form: FormCont
     form.blur("references");
   };
   return (
-    <FormSection title={t("Orders:ReferencesAndAttributes")} collapsible open={open} onOpenChange={onOpenChange} hasError={form.error("references") != null}>
-      <h4 className="mb-2 text-label font-semibold text-muted-foreground">{t("Orders:References")}</h4>
-      {form.error("references") && <p className="mb-2 text-label text-destructive">{form.error("references")}</p>}
-      <div className="h-40">
+    <div className="flex flex-col gap-2" data-slot="order-references">
+      {form.error("references") && <p className="text-label text-destructive">{form.error("references")}</p>}
+      <div className="h-56">
         <LazyLinesGrid<ReferenceValues>
           rows={form.values.references}
           onRowsChange={setReferences}
@@ -56,12 +54,29 @@ export function ReferencesSection({ form, open, onOpenChange }: { form: FormCont
           }
         />
       </div>
-      <AttributeFields idPrefix={form.id("order")} definitions={definitions.data} value={form.values.attributes} onChange={(next) => form.set("attributes", next)} readOnly={form.readOnly} className="mt-4" />
-    </FormSection>
+    </div>
   );
 }
 
-export function ScheduleSection({ form, open, onOpenChange }: { form: FormContext<OrderValues>; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** The order's attributes (Custom fields): the dynamic fields the order type's definitions give. */
+export function CustomFields({ form, definitions }: { form: FormContext<OrderValues>; definitions: AttributeDefinition[] | undefined }) {
+  return (
+    <div data-slot="order-custom-fields">
+      <AttributeFields idPrefix={form.id("order")} definitions={definitions} value={form.values.attributes} onChange={(next) => form.set("attributes", next)} readOnly={form.readOnly} />
+    </div>
+  );
+}
+
+/** Remarks for the planner (`internalRemarks`). */
+export function PlannerRemarks({ form }: { form: FormContext<OrderValues> }) {
+  return (
+    <div className="grid grid-cols-1" data-slot="planner-remarks">
+      <TextAreaField form={form} field="internalRemarks" labelKey="Orders:PlannerRemarks" maxLength={2500} rows={8} />
+    </div>
+  );
+}
+
+export function ScheduleSection({ form }: { form: FormContext<OrderValues> }) {
   const { t } = useL();
   const schedule = form.values.schedule;
   const set = (change: Partial<OrderValues["schedule"]>) => {
@@ -79,7 +94,7 @@ export function ScheduleSection({ form, open, onOpenChange }: { form: FormContex
   } as unknown as FormContext<OrderValues["schedule"]>;
 
   return (
-    <FormSection title={t("Orders:Schedule")} collapsible open={open} onOpenChange={onOpenChange} hasError={form.error("schedule") != null}>
+    <FormSection title={t("Orders:Schedule")}>
       {form.error("schedule") && <p className="mb-2 text-label text-destructive">{form.error("schedule")}</p>}
       <div className="grid grid-cols-4 gap-x-4 gap-y-3">
         <SelectField form={scheduleForm} field="recurrence" labelKey="Orders:Recurrence" items={TEMPLATE_RECURRENCES.map((r) => ({ value: r.value, label: t(r.key) }))} />
@@ -105,6 +120,31 @@ export function ScheduleSection({ form, open, onOpenChange }: { form: FormContex
           </fieldset>
         )}
       </div>
+    </FormSection>
+  );
+}
+
+/** The Remarks icon tab (UI-FORM-008): the order's dated remarks (a revision's reason), newest first, read-only. */
+export function OrderRemarks({ remarks }: { remarks: TransportOrderRemarkDto[] | null | undefined }) {
+  const { t } = useL();
+  const f = useFormat();
+  const rows = [...(remarks ?? [])].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
+  return (
+    <FormSection title={t("Remarks")}>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("Orders:NoRemarks")}</p>
+      ) : (
+        <ul className="flex flex-col gap-3" data-slot="order-remarks">
+          {rows.map((remark, index) => (
+            <li key={`${remark.at ?? ""}-${index}`} className="flex flex-col gap-1 rounded-md bg-background p-3" data-slot="order-remark">
+              <span className="text-label text-muted-foreground tabular-nums">
+                {[f.dateTime(remark.at), remark.kind != null ? t(ORDER_REMARK_KINDS[remark.kind] ?? "") : null].filter(Boolean).join(" · ")}
+              </span>
+              <p className="text-sm whitespace-pre-wrap">{remark.text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </FormSection>
   );
 }

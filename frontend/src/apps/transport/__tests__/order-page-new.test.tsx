@@ -2,11 +2,12 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The new order (design 61 "Order page, revised" 5: New opens the page directly, no New dialog): the default type
+/* The new order (design 61 "Order page, legacy tab structure" 9: New opens the page directly, no New dialog): the default type
  * (or the one New per type names), today, the cursor in Customer, the customer's financial defaults copied when it
  * is chosen; Save creates the order in one call with its freight items and opens its page; Confirm (Ctrl/⌘+Enter)
  * creates and confirms; a Tevens trip for some of the new items names them by the client ids posted on the lines.
- * And Paste from Excel (3): the rows become items after a preview that marks the unmatched cells. Risk class: Medium. */
+ * And Paste from Excel (3): the rows become items after a preview that marks the unmatched cells; a row without a
+ * date takes the order date. Risk class: Medium. */
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
@@ -39,7 +40,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
 import { toast } from "sonner";
-import { itemRows, lookupItems, ribbonButton, ribbonLabels, section, stubGlobals } from "./transport-test-mocks";
+import { itemRows, lookupItems, openNested, ribbonButton, ribbonLabels, section, stubGlobals, tabLabels } from "./transport-test-mocks";
 import { GET, POST, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ALL = { "Orders.TransportOrders": true, "Orders.TransportOrders.Create": true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Confirm": true, "Financial.RateLines.Update": true };
@@ -56,14 +57,15 @@ beforeEach(() => {
   grants = { ...ALL };
   lookupItems.current = {
     "*-customer": [{ id: "rel-1", name: "Acme" }],
-    "*-entry-from": [{ id: "rel-1", name: "Acme" }],
-    "*-entry-to": [{ id: "rel-2", name: "Beta" }],
+    "*-entry-strip-stop-0-relation": [{ id: "rel-1", name: "Acme" }],
+    "*-entry-strip-stop-1-relation": [{ id: "rel-2", name: "Beta" }],
   };
   resetClient();
   routes.GET["/api/orders/transport-order-type"] = () => ({ rows: [{ id: "type-1", name: "Standard", isDefault: true }, { id: "type-2", name: "Express" }], totalCount: 2, filteredCount: 2 });
   routes.GET["/api/orders/transport-order-type/{id}"] = (init) => ({ id: String(init?.params?.path?.id), name: "Standard", requiredFields: 0, defaultWaypoints: LOAD_UNLOAD });
   routes.GET["/api/orders/transport-order-type/lookup"] = () => [{ id: "type-1", name: "Standard" }, { id: "type-2", name: "Express" }];
   routes.GET["/api/master-data/transport-unit/lookup"] = () => [{ id: "unit-1", code: "PL", name: "Pallet" }];
+  routes.GET["/api/orders/waypoint-type/lookup"] = () => [{ id: "wp-load", name: "Load" }, { id: "wp-unload", name: "Unload" }];
   routes.GET["/api/master-data/relation/{id}/addresses"] = (init) => [{ id: `${String(init?.params?.path?.id)}-main`, addressTypeId: null, city: "Town" }];
   routes.GET["/api/financial/relation-financial-settings/by-relation/{relationId}"] = () => ({ currencyCode: "EUR", paymentTermDays: 14, revenuePriceLists: [{ priceListId: "pl-1", position: 1 }], discountsOrSurcharges: [] });
   routes.GET["/api/planning/transport-trip-type/lookup"] = () => [{ id: "tt-1", name: "Own fleet" }];
@@ -92,26 +94,27 @@ const field = (scope: HTMLElement, suffix: string) => scope.querySelector<HTMLIn
 const entry = () => document.querySelector<HTMLElement>("[data-slot=freight-item-entry]")!;
 const created = (extra: Record<string, unknown> = {}) => ({ id: "o-new", status: 1, number: null, transportOrderTypeId: "type-1", customerRelationId: "rel-1", customerName: "Acme", orderDate: today, concurrencyStamp: "c1", lines: [], financialTerms: { currencyCode: "EUR", priceListIds: [], multipleMatches: 1, discountsOrSurcharges: [] }, ...extra });
 
+/** One item through the stop strip: Load at Acme, Unload at Beta, a pallet; Enter on the last stop's relation. */
 async function addItem() {
-  await waitFor(() => expect(calls(GET, "/api/orders/transport-order-type/{id}").length).toBeGreaterThan(0));
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  fireEvent.change(field(entry(), "entry-from"), { target: { value: "rel-1" } });
-  fireEvent.change(field(entry(), "entry-to"), { target: { value: "rel-2" } });
+  await waitFor(() => expect(field(entry(), "entry-strip-stop-1-activity").value).toBe("wp-unload"));
+  fireEvent.change(field(entry(), "entry-strip-stop-0-relation"), { target: { value: "rel-1" } });
+  fireEvent.change(field(entry(), "entry-strip-stop-1-relation"), { target: { value: "rel-2" } });
   fireEvent.change(field(entry(), "entry-unit"), { target: { value: "unit-1" } });
-  await key(field(entry(), "entry-to"), { key: "Enter" });
+  await key(field(entry(), "entry-strip-stop-1-relation"), { key: "Enter" });
 }
 
 describe("New order: the page opens directly", () => {
-  it("starts with the default type, today and the cursor in Customer; Save, Confirm and Close; no totals yet", async () => {
+  it("starts with the default type, today and the cursor in Customer; Save, Confirm and Close; no Documents tab and no revenue yet", async () => {
     renderNew();
     expect(await screen.findByText("Orders:NewTransportOrder")).toBeInTheDocument();
     expect(field(header(), "transportOrderTypeId").value).toBe("type-1");
     expect(field(header(), "orderDate").value).toBe(today);
     await waitFor(() => expect(document.activeElement?.id).toMatch(/-customer$/));
     expect(ribbonLabels()).toEqual(["Save", "Close", "Orders:Confirm"]);
-    expect(document.querySelector("[data-slot=form-section][aria-label='Orders:Totals']")).toBeNull();
+    expect(tabLabels()).toEqual(["General", "Orders:Financial", "Orders:TripRequestTab", "Remarks", "RecordIdentification"]);
+    expect(section("Orders:RevenueOverview").querySelector("[data-slot=revenue-after-save]")).toHaveTextContent("Orders:RevenueAfterSave");
+    /* Additional services are stored rate lines: they come once the order is saved. */
+    expect(openNested("Financial:AdditionalServices").querySelector("[data-slot=services-after-save]")).toHaveTextContent("Orders:AdditionalServicesAfterSave");
   });
 
   it("New per type starts with that type; without the Create permission the page is denied", async () => {
@@ -149,8 +152,8 @@ describe("New order: the page opens directly", () => {
     await screen.findByText("Orders:NewTransportOrder");
     fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
     await addItem();
-    fireEvent.change(field(entry(), "entry-to"), { target: { value: "rel-2" } });
-    await key(field(entry(), "entry-to"), { key: "Enter" });
+    /* The strip kept its stops: Enter again adds the second item. */
+    await key(field(entry(), "entry-strip-stop-1-relation"), { key: "Enter" });
     await waitFor(() => expect(itemRows()).toHaveLength(2));
     const trip = section("Orders:TripRequest");
     fireEvent.click(within(trip).getByRole("checkbox", { name: "Orders:TripRequestHint" }));
@@ -186,13 +189,13 @@ describe("Paste from Excel", () => {
     };
   });
 
-  it("rows pasted into the entry row open the preview; unmatched cells are marked; Add makes them items with the matched values", async () => {
+  it("rows pasted into the entry open the preview; unmatched cells are marked; Add makes them items with the matched values", async () => {
     renderNew();
     await screen.findByText("Orders:NewTransportOrder");
     await waitFor(() => expect(calls(GET, "/api/orders/transport-order-type/{id}").length).toBeGreaterThan(0));
     const text = ["ACME\tBeta\t26-10-2026\t08:00\tPL\t2\t500\tR1", "acme\tNobody\t27/10/2026\t\tCrate\t1\t\tR2"].join("\n");
     await act(async () => {
-      fireEvent.paste(field(entry(), "entry-reference"), { clipboardData: { getData: () => text } });
+      fireEvent.paste(field(entry(), "entry-strip-stop-0-reference"), { clipboardData: { getData: () => text } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     const preview = await screen.findByRole("dialog");
@@ -215,7 +218,7 @@ describe("Paste from Excel", () => {
   it("the Paste command opens the preview with a text field; a row can be dropped before adding", async () => {
     renderNew();
     await screen.findByText("Orders:NewTransportOrder");
-    fireEvent.click(within(section("Orders:Lines")).getByText("Orders:PasteFromExcel"));
+    fireEvent.click(within(entry()).getByText("Orders:PasteFromExcel"));
     const dialog = await screen.findByRole("dialog");
     const area = within(dialog).getByLabelText(/^Orders:PasteRows/);
     await act(async () => {
@@ -228,6 +231,8 @@ describe("Paste from Excel", () => {
     expect(dialog.querySelectorAll("[data-slot=paste-row]")).toHaveLength(1);
     await click(within(dialog).getByRole("button", { name: "Orders:AddFreightItems" }));
     await waitFor(() => expect(itemRows()).toHaveLength(1));
+    /* No date in the row: the order date (the API needs a date per stop). */
+    expect(itemRows()[0].querySelector("[data-field=when]")?.textContent).toBe(today.split("-").reverse().join("/"));
     expect(itemRows()[0].querySelector("[data-slot=item-problem]")).toBeNull();
   });
 });

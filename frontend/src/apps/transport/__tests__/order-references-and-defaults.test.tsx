@@ -41,7 +41,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
-import { itemRows, lookupItems, openItem, ribbonButton, section, stubGlobals } from "./transport-test-mocks";
+import { itemRows, lookupItems, openItem, openNested, ribbonButton, section, stubGlobals } from "./transport-test-mocks";
 import { GET, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ORDER_GRANTS = { "Orders.TransportOrders": true, "Orders.TransportOrders.Update": true, "PlanningExecution.TransportTrips": true, "Financial.RateLines.Update": true };
@@ -131,7 +131,8 @@ const click = async (element: Element) =>
     fireEvent.click(element);
     await Promise.resolve();
   });
-const referencesSection = () => section("Orders:ReferencesAndAttributes");
+/** General → Other references (a nested tab, design 61 "Order page, legacy tab structure" 2). */
+const referencesSection = () => openNested("Orders:OtherReferences");
 const referenceLines = () => Array.from(referencesSection().querySelectorAll<HTMLElement>("[data-slot=mock-line]"));
 const pickCustomer = (id: string) => fireEvent.change(within(section("Orders:OrderDetails")).getByLabelText(/^Orders:Customer \*/), { target: { value: id } });
 
@@ -170,6 +171,8 @@ describe("Order references (design 58)", () => {
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
     expect(within(referencesSection()).getByText("Orders:ReferenceInvalid")).toBeInTheDocument();
+    /* UI-FORM-007: General and its Other references tab are marked. */
+    expect(Array.from(document.querySelectorAll<HTMLElement>("[data-slot=nested-tabs] [role=tab]")).find((t) => t.textContent?.includes("Orders:OtherReferences"))).toHaveClass("text-destructive");
 
     fireEvent.click(within(referenceLines()[1]).getByText("Remove"));
     fireEvent.click(within(referenceLines()[0]).getByText("Remove"));
@@ -212,7 +215,9 @@ describe("Line measurements (design 58: up to three weighings and volumes per li
     fireEvent.change(within(detail).getAllByLabelText("Orders:WeightMeasurement")[0], { target: { value: "heavy" } });
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
-    expect(within(section("Orders:Lines")).getAllByText("MasterData:InvalidNumber").length).toBeGreaterThan(0);
+    /* The Freight items tab shows the items' message (named per item) and is marked. */
+    expect(document.querySelector("[data-slot=items-message]")).not.toBeNull();
+    expect(Array.from(document.querySelectorAll<HTMLElement>("[data-slot=nested-tabs] [role=tab]")).find((t) => t.textContent?.includes("Orders:Lines"))).toHaveClass("text-destructive");
   });
 });
 

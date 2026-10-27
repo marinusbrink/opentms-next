@@ -2,19 +2,26 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The order page (design 61 "Order page, revised", PO 2026-10-26): one page without content tabs: the header block,
- * the freight items (list, fast entry row, the selected item's detail with its own tabs), the totals and the
- * collapsible order-level sections. Covered: the page states and the layout; the ribbon per status and permission;
- * the section saves with the stamp, the save that stops part-way and the concurrency conflict (unchanged rules); the
- * entry row's keyboard flow (Enter adds and keeps From, date and unit; the default address and the type's default
- * waypoints); the item detail tabs and Esc; the item's rate lines, the order-level lines and the totals with the
- * preview; the Tevens trip with the items on it (lineIds); the legs per item; read-only after confirm; the shortcuts;
- * template mode. New orders and paste are in order-page-new.test.tsx. Risk class: Medium. */
+/* The order page (design 61 "Order page, legacy tab structure", PO 2026-10-26 and 2026-10-27): the main tabs General,
+ * Financial, Tevens trip, Schedule (template) and the icon tabs Documents, Remarks and Record identification; under
+ * General the header and the nested tabs Freight items, Additional services, Remarks for the planner, Other
+ * references and Custom fields. Covered: the page states and the tab strip; the ribbon per status and permission;
+ * the section saves with the stamp, the save that stops part-way and the concurrency conflict (unchanged rules); a
+ * failed submit opens the tab of the first error and marks it; the entry of a new item (the stop strip seeded from the
+ * type's default waypoints, Enter adds with a copy of the stops, the strip kept, the freight fields cleared but the
+ * unit, the cursor back in the last stop's relation; a stop without an address named); the freight items grid
+ * (columns, footer total, Delete asks); Edit freight item (its tabs, Apply keeps, Close restores, a save while open);
+ * the item's rate lines, the Financial tab's blocks and order-level lines and the revenue overview with the preview;
+ * Additional services on a new and a stored order; the Tevens trip with the items on it (lineIds); the legs per item;
+ * the Remarks tab; read-only after confirm; the shortcuts; template mode. New orders and paste are in
+ * order-page-new.test.tsx. Risk class: Medium. */
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders/o1", search: {} }) }));
 /* The save report's keys carry their {0}, so a test sees which section names were filled in. */
-vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => (k.startsWith("Orders:Sections") ? `${k} {0}` : k), culture: "en", isLoading: false }) }));
+/* The stop and item names carry their placeholders, so a test sees which stop a message names. */
+const TEXTS: Record<string, string> = { "Orders:StopNamed": "Stop {0} ({1})", "Orders:StopNumbered": "Stop {0}", "Orders:ItemProblem": "Item {0} · {1}", "Orders:DeleteFreightItemQuestion": "Delete freight item {0}?" };
+vi.mock("@/lib/i18n/LocalizationProvider", () => ({ useL: () => ({ t: (k: string) => (k.startsWith("Orders:Sections") ? `${k} {0}` : (TEXTS[k] ?? k)), culture: "en", isLoading: false }) }));
 
 let grants: Record<string, boolean> = {};
 vi.mock("@/lib/abp/queries", () => ({
@@ -43,7 +50,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
 import { TemplatePage } from "@/apps/transport/pages/TemplatePage";
 import { toast } from "sonner";
-import { fail, gridRows, itemList, itemRows, itemTab, lookupItems, openItem, orderBody, ribbonButton, ribbonLabels, section, stubGlobals } from "./transport-test-mocks";
+import { fail, gridRows, itemList, itemRows, itemTab, lookupItems, openItem, openNested, openTab, panel, ribbonButton, ribbonLabels, section, stubGlobals, tabLabels } from "./transport-test-mocks";
 import { GET, POST, PUT, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "Orders.TransportOrders";
@@ -123,11 +130,15 @@ const key = async (element: Element, init: Record<string, unknown>) =>
 const typeIn = (scope: HTMLElement, label: RegExp | string, value: string) => fireEvent.change(within(scope).getByLabelText(label), { target: { value } });
 const referenceField = () => within(section("Orders:OrderDetails")).getByLabelText(/^Orders:CustomerReference/) as HTMLInputElement;
 const quantityCell = (index = 0) => within(itemRows()[index]).getByLabelText("Orders:Quantity") as HTMLInputElement;
-const closedSection = (caption: string) => document.querySelector<HTMLElement>(`[data-slot=form-section][aria-label='${caption}']`)!;
 const loaded = () => screen.findByText("Orders:TransportOrder TO-2026-00001");
+/** A main tab's trigger in the page's strip. */
+const tabTrigger = (label: string) => Array.from(document.querySelectorAll<HTMLElement>("[data-editor-tab-strip] [role=tab]")).find((t) => t.textContent?.trim() === label || t.getAttribute("aria-label") === label)!;
+const activeTab = () => document.querySelector<HTMLElement>("[data-slot=record-page-panel][data-state=active]")?.getAttribute("aria-label");
+const activeNested = () => Array.from(document.querySelectorAll<HTMLElement>("[data-slot=nested-tabs] [role=tab]")).find((t) => t.getAttribute("aria-selected") === "true")?.textContent?.trim();
+const dialog = () => document.querySelector<HTMLElement>("[role=dialog][data-variant=editor]");
 
 describe("OrderPage – states and layout", () => {
-  it("shows PermissionDenied without the view permission and the skeleton, then one page without content tabs", async () => {
+  it("shows PermissionDenied without the view permission and the skeleton, then the legacy tabs: General first, the icon tabs last", async () => {
     grants = {};
     const { unmount } = renderPage();
     expect(screen.getByRole("status")).toHaveTextContent("PermissionDenied");
@@ -138,12 +149,46 @@ describe("OrderPage – states and layout", () => {
     expect(document.querySelector("[data-slot=record-page-skeleton]")).not.toBeNull();
     await loaded();
     expect(within(header()).getByText("Orders:Status.Open")).toBeInTheDocument();
-    expect(screen.queryAllByRole("tab")).toHaveLength(0);
-    const captions = Array.from(orderBody().querySelectorAll(":scope > [data-slot=form-section]")).map((s) => s.getAttribute("aria-label"));
-    expect(captions).toEqual(["Orders:OrderDetails", "Orders:Lines", "Orders:Totals", "Orders:FinancialTerms", "Orders:TripRequest", "Orders:ReferencesAndAttributes", "Orders:Documents", "RecordIdentification"]);
-    /* The order-level sections start closed; there is no stop pattern on the order any more. */
-    for (const caption of ["Orders:FinancialTerms", "Orders:TripRequest", "Orders:ReferencesAndAttributes", "Orders:Documents", "RecordIdentification"]) expect(closedSection(caption)).toHaveAttribute("data-state", "closed");
+    /* UI-FORM-008: end-aligned at the ribbon row; General, Financial, Tevens trip; then Documents, Remarks and Record
+     * identification as icon-only tabs (their names as tooltips / aria-labels). No Schedule outside template mode. */
+    expect(tabLabels()).toEqual(["General", "Orders:Financial", "Orders:TripRequestTab", "Orders:Documents", "Remarks", "RecordIdentification"]);
+    expect(document.querySelector("[data-editor-tab-strip]")).toHaveClass("justify-end");
+    for (const icon of ["Orders:Documents", "Remarks", "RecordIdentification"]) {
+      expect(tabTrigger(icon).textContent?.trim()).toBe("");
+      expect(tabTrigger(icon).querySelector("svg")).not.toBeNull();
+    }
+    expect(activeTab()).toBe("General");
+    /* General: the header on top, then the nested tabs (start-aligned, text only); no Custom fields without attributes. */
+    const general = panel("General");
+    expect(general.querySelector("[data-slot=order-header]")).not.toBeNull();
+    const nested = Array.from(general.querySelectorAll<HTMLElement>("[data-slot=nested-tabs] [role=tab]")).map((t) => t.textContent?.trim());
+    expect(nested).toEqual(["Orders:Lines", "Financial:AdditionalServices", "Orders:PlannerRemarks", "Orders:OtherReferences"]);
+    expect(general.querySelector("[data-slot=nested-tabs] [role=tablist]")).toHaveClass("justify-start");
+    expect(activeNested()).toBe("Orders:Lines");
+    /* The header shows the number read-only; there is no stop pattern on the order any more. */
+    expect(within(section("Orders:OrderDetails")).getByLabelText("Orders:Number")).toHaveValue("TO-2026-00001");
+    expect(within(section("Orders:OrderDetails")).getByLabelText("Orders:Number")).toBeDisabled();
     expect(screen.queryByText("Orders:DefaultStops")).toBeNull();
+  });
+
+  it("Custom fields is a nested tab once the orders have attribute definitions", async () => {
+    routes.GET["/api/orders/order-attribute-definition"] = (init) => ({ rows: init?.params?.query?.Target === 1 ? [{ id: "d1", key: "dock", name: "Dock", position: 1 }] : [], totalCount: 1, filteredCount: 1 });
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(Array.from(document.querySelectorAll("[data-slot=nested-tabs] [role=tab]")).map((t) => t.textContent?.trim())).toContain("Orders:CustomFields"));
+    expect(openNested("Orders:CustomFields").querySelector("[data-slot=order-custom-fields]")).not.toBeNull();
+  });
+
+  it("the Remarks tab lists the order's dated remarks, newest first, read-only", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { remarks: [{ at: "2026-10-20T08:00:00Z", kind: 1, text: "First reason" }, { at: "2026-10-26T08:00:00Z", kind: 1, text: "Second reason" }] });
+    renderPage();
+    await loaded();
+    const remarks = openTab("Remarks");
+    const items = Array.from(remarks.querySelectorAll("[data-slot=order-remark]")).map((r) => r.textContent);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toContain("Second reason");
+    expect(items[0]).toContain("Orders:OrderRemarkKind.Revision");
+    expect(remarks.querySelector("textarea, input")).toBeNull();
   });
 
   it("shows RecordNotFound for a missing order", async () => {
@@ -172,11 +217,15 @@ describe("OrderPage – states and layout", () => {
     expect(referenceField()).toBeDisabled();
   });
 
-  it("the item list shows position, from → to, date/time, unit, quantity, weight, reference, price and trip", async () => {
+  it("the freight items grid shows position, from → to, date/time, unit, quantity, positions, weight, loading metres, reference, price and trip; the footer the total", async () => {
     routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderLineId: "l1", tripId: "trip-9", tripNumber: "TR-9", position: 1 }], totalCount: 1, filteredCount: 1 });
     renderPage();
     await loaded();
     await waitFor(() => expect(within(itemRows()[0]).getByText("200.00")).toBeInTheDocument());
+    const columns = Array.from(itemList().querySelectorAll("[data-slot=mock-lines-grid-columns] > span")).map((c) => c.getAttribute("data-column"));
+    expect(columns).toEqual(["problem", "position", "route", "when", "transportUnitId", "quantity", "positions", "weightKg", "loadingMeters", "reference", "price", "trips"]);
+    const footer = document.querySelector<HTMLElement>("[data-slot=freight-items] > [data-slot=totals-block]")!;
+    expect(within(footer).getByText("Orders:FreightItemsTotal").nextElementSibling).toHaveTextContent("200.00");
     const row = itemRows()[0];
     const cell = (field: string) => row.querySelector(`[data-field=${field}]`)?.textContent;
     expect(cell("position")).toBe("1");
@@ -249,15 +298,35 @@ describe("OrderPage – saving and the shortcuts", () => {
     expect(within(section("Orders:OrderDetails")).getByText("MasterData:Required")).toBeInTheDocument();
   });
 
-  it("an item without a transport unit is marked in the list; Save refuses, names it and opens that item", async () => {
+  it("an item without a transport unit is marked in the grid; Save refuses, names it and opens General → Freight items", async () => {
     renderPage();
     await loaded();
     fireEvent.change(within(itemRows()[0]).getByLabelText("Orders:TransportUnit *"), { target: { value: "" } });
     expect(itemRows()[0].querySelector("[data-slot=item-problem]")).not.toBeNull();
+    openTab("Orders:Financial");
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
-    expect(within(section("Orders:Lines")).getAllByText("Orders:LineNeedsTransportUnit").length).toBeGreaterThan(0);
-    expect(document.querySelector("[data-slot=line-detail]")).toHaveAttribute("aria-label", "Orders:Line 1");
+    expect(activeTab()).toBe("General");
+    expect(activeNested()).toBe("Orders:Lines");
+    expect(document.querySelector("[data-slot=items-message]")).toHaveTextContent("Item 1 · Orders:LineNeedsTransportUnit");
+    /* UI-FORM-007: the tab and the nested tab with the error are marked. */
+    expect(tabTrigger("General")).toHaveClass("text-destructive");
+    expect(Array.from(document.querySelectorAll<HTMLElement>("[data-slot=nested-tabs] [role=tab]")).find((t) => t.textContent?.trim() === "Orders:Lines")).toHaveClass("text-destructive");
+  });
+
+  it("a stop without a usable address names the stop and its item: \"Stop 2 (Unload): …\"", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { lines: [{ ...order(2).lines[0], stops: [stops("2026-10-25", "2026-10-26")[0], { ...stops("2026-10-25", "2026-10-26")[1], waypointTypeName: "Unload", relationAddressId: null }] }] });
+    renderPage();
+    await loaded();
+    await click(ribbonButton("Save")!);
+    expect(PUT).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-slot=items-message]")).toHaveTextContent("Item 1 · Stop 2 (Unload): Orders:StopNeedsAddress");
+    /* In the item's dialog the message stands under the stop's address, and its Stops tab is marked. */
+    const edit = openItem(0);
+    const stopsTab = Array.from(edit.querySelectorAll<HTMLElement>("[data-editor-tab-strip] [role=tab]")).find((t) => t.textContent?.includes("Orders:StopsAndLegs"))!;
+    expect(stopsTab).toHaveClass("text-destructive");
+    const rows = itemTab("Orders:StopsAndLegs").querySelectorAll<HTMLElement>("[data-slot=stop-row]");
+    expect(within(rows[1]).getByText("Stop 2 (Unload): Orders:StopNeedsAddress")).toBeInTheDocument();
   });
 
   it("Confirm shows the API's refusal in the page (UI-FB-004)", async () => {
@@ -291,13 +360,16 @@ describe("OrderPage – saving and the shortcuts", () => {
   });
 });
 
-describe("OrderPage – the fast entry row (keyboard first)", () => {
+describe("OrderPage – the entry of a new freight item (the stop strip, keyboard first)", () => {
   const entry = () => document.querySelector<HTMLElement>("[data-slot=freight-item-entry]")!;
+  const stopField = (index: number, name: string) => entry().querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-entry-strip-stop-${index}-${name}']`)!;
   const entryField = (suffix: string) => entry().querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-entry-${suffix}']`)!;
+  const stripRows = () => Array.from(entry().querySelectorAll<HTMLElement>("[data-slot=stop-row]"));
   beforeEach(() => {
     lookupItems.current = {
-      "*-entry-from": [{ id: "rel-1", name: "Acme" }],
-      "*-entry-to": [{ id: "rel-2", name: "Beta" }, { id: "rel-3", name: "Gamma" }],
+      "*-entry-strip-stop-0-relation": [{ id: "rel-1", name: "Acme" }],
+      "*-entry-strip-stop-1-relation": [{ id: "rel-2", name: "Beta" }, { id: "rel-3", name: "Gamma" }],
+      "*-entry-strip-stop-2-relation": [{ id: "rel-3", name: "Gamma" }],
     };
     routes.GET["/api/master-data/relation/{id}/addresses"] = (init) => {
       const id = String(init?.params?.path?.id);
@@ -305,100 +377,177 @@ describe("OrderPage – the fast entry row (keyboard first)", () => {
     };
   });
 
-  it("Enter adds the item with the default addresses and the type's Load/Unload, keeps From, date and unit, and the save sends it", async () => {
+  it("the strip starts with the order type's default waypoints on the order date", async () => {
+    routes.GET["/api/orders/transport-order-type/{id}"] = () => ({ id: "type-1", name: "Standard", requiredFields: 1 | 64, defaultWaypoints: [...LOAD_UNLOAD, { waypointTypeId: "wp-unload", name: "Unload", position: 3 }] });
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(stripRows()).toHaveLength(3));
+    expect([0, 1, 2].map((i) => stopField(i, "activity").value)).toEqual(["wp-load", "wp-unload", "wp-unload"]);
+    expect(stopField(0, "date").value).toBe("2026-10-25");
+  });
+
+  it("Enter adds the item with a copy of the strip's stops (default addresses); the strip keeps them, the fields clear but the unit, the cursor goes to the last stop's relation", async () => {
     routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2" });
     renderPage();
     await loaded();
-    await waitFor(() => expect(entryField("date").value).toBe("2026-10-25"));
-    fireEvent.change(entryField("from"), { target: { value: "rel-1" } });
-    fireEvent.change(entryField("to"), { target: { value: "rel-2" } });
-    fireEvent.change(entryField("time"), { target: { value: "0730" } });
+    await waitFor(() => expect(stopField(1, "activity").value).toBe("wp-unload"));
+    fireEvent.change(stopField(0, "relation"), { target: { value: "rel-1" } });
+    fireEvent.change(stopField(0, "from"), { target: { value: "07:30" } });
+    fireEvent.change(stopField(0, "reference"), { target: { value: "L-77" } });
+    fireEvent.change(stopField(1, "relation"), { target: { value: "rel-2" } });
     fireEvent.change(entryField("unit"), { target: { value: "unit-2" } });
     fireEvent.change(entryField("weightKg"), { target: { value: "120" } });
-    fireEvent.change(entryField("reference"), { target: { value: "L-77" } });
-    await key(entryField("reference"), { key: "Enter" });
+    fireEvent.change(entryField("loadingMeters"), { target: { value: "2.4" } });
+    await key(entryField("loadingMeters"), { key: "Enter" });
     await waitFor(() => expect(itemRows()).toHaveLength(2));
     expect(itemRows()[1].querySelector("[data-field=route]")?.textContent).toBe("Acme, City of rel-1 → Beta, City of rel-2");
-    /* From, date, time and unit stay; To and the rest start empty; the cursor is back in To. */
-    expect(entryField("from").value).toBe("rel-1");
-    expect(entryField("to").value).toBe("");
-    expect(entryField("date").value).toBe("2026-10-25");
+    /* The strip keeps its stops; the freight fields clear except the unit; the cursor is in the last stop's relation. */
+    expect(stopField(0, "relation").value).toBe("rel-1");
+    expect(stopField(1, "relation").value).toBe("rel-2");
+    expect(stopField(0, "reference").value).toBe("L-77");
     expect(entryField("unit").value).toBe("unit-2");
     expect(entryField("weightKg").value).toBe("");
-    expect(document.activeElement).toBe(entryField("to"));
+    expect(entryField("loadingMeters").value).toBe("");
+    expect(document.activeElement).toBe(stopField(1, "relation"));
 
-    /* The next one only needs its To: Enter on it. */
-    fireEvent.change(entryField("to"), { target: { value: "rel-3" } });
-    await key(entryField("to"), { key: "Enter" });
+    /* The next one goes elsewhere: only its last stop changes, Enter on it. */
+    fireEvent.change(stopField(1, "relation"), { target: { value: "rel-3" } });
+    await key(stopField(1, "relation"), { key: "Enter" });
     await waitFor(() => expect(itemRows()).toHaveLength(3));
 
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1));
-    const body = lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body as { lines: { id: string | null; transportUnitId: string; quantity: number; weightKg: number | null; stops: Record<string, unknown>[] }[] };
+    const body = lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body as { lines: { id: string | null; transportUnitId: string; quantity: number; weightKg: number | null; loadingMeters: number | null; stops: Record<string, unknown>[] }[] };
     expect(body.lines).toHaveLength(3);
-    expect(body.lines[1]).toMatchObject({ id: null, transportUnitId: "unit-2", quantity: 1, weightKg: 120 });
+    expect(body.lines[1]).toMatchObject({ id: null, transportUnitId: "unit-2", quantity: 1, weightKg: 120, loadingMeters: 2.4 });
     expect(body.lines[1].stops).toEqual([
       expect.objectContaining({ waypointTypeId: "wp-load", relationId: "rel-1", relationAddressId: "rel-1-main", date: "2026-10-25", windowFrom: "07:30:00", reference: "L-77" }),
       expect.objectContaining({ waypointTypeId: "wp-unload", relationId: "rel-2", relationAddressId: "rel-2-main", date: "2026-10-25", reference: null }),
     ]);
+    /* The second item has stops of its own: the same first stop, its own last one; the unit kept, the weight not. */
     expect(body.lines[2].stops.map((s) => s.relationId)).toEqual(["rel-1", "rel-3"]);
+    expect(body.lines[2].stops[0]).toEqual(expect.objectContaining({ reference: "L-77", id: null }));
     expect(body.lines[2]).toMatchObject({ transportUnitId: "unit-2", weightKg: null });
   });
 
-  it("Enter without To or a unit adds nothing and names the missing fields; Enter in an open list never adds", async () => {
+  it("+ adds a stop to the strip and the item gets it; − is not offered below two stops", async () => {
     renderPage();
     await loaded();
-    fireEvent.change(entryField("from"), { target: { value: "rel-1" } });
-    await key(entryField("from"), { key: "Enter" });
-    expect(itemRows()).toHaveLength(1);
-    expect(within(entry()).getAllByText("MasterData:Required")).toHaveLength(2);
-    expect(document.activeElement).toBe(entryField("to"));
+    await waitFor(() => expect(stripRows()).toHaveLength(2));
+    for (const row of stripRows()) expect(within(row).getByRole("button", { name: "Orders:RemoveStop" })).toBeDisabled();
+    fireEvent.click(within(stripRows()[1]).getByRole("button", { name: "Orders:AddStop" }));
+    expect(stripRows()).toHaveLength(3);
+    fireEvent.change(stopField(0, "relation"), { target: { value: "rel-1" } });
+    fireEvent.change(stopField(1, "relation"), { target: { value: "rel-2" } });
+    fireEvent.change(stopField(2, "relation"), { target: { value: "rel-3" } });
+    fireEvent.change(stopField(2, "activity"), { target: { value: "wp-unload" } });
+    fireEvent.change(entryField("unit"), { target: { value: "unit-1" } });
+    await key(entryField("unit"), { key: "Enter" });
+    await waitFor(() => expect(itemRows()).toHaveLength(2));
+    expect(itemRows()[1].querySelector("[data-field=route]")?.textContent).toBe("Acme, City of rel-1 → Gamma, City of rel-3");
+    expect(document.activeElement).toBe(stopField(2, "relation"));
+  });
 
-    fireEvent.change(entryField("to"), { target: { value: "rel-2" } });
+  it("Enter with a stop or the unit missing adds nothing: the message names the stop, the cursor goes there; Enter in an open list never adds", async () => {
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(stopField(1, "activity").value).toBe("wp-unload"));
+    fireEvent.change(stopField(0, "relation"), { target: { value: "rel-1" } });
+    await key(stopField(0, "relation"), { key: "Enter" });
+    expect(itemRows()).toHaveLength(1);
+    expect(within(stripRows()[1]).getByText("Stop 2 (Unload): Orders:StopNeedsRelation")).toBeInTheDocument();
+    expect(document.activeElement).toBe(stopField(1, "relation"));
+
+    fireEvent.change(stopField(1, "relation"), { target: { value: "rel-2" } });
+    await key(stopField(1, "relation"), { key: "Enter" });
+    expect(itemRows()).toHaveLength(1);
+    expect(within(entry()).getByText("MasterData:Required")).toBeInTheDocument();
+    expect(document.activeElement).toBe(entryField("unit"));
+
     fireEvent.change(entryField("unit"), { target: { value: "unit-1" } });
     /* A lookup whose list is open takes Enter itself (it selects). */
-    entryField("to").setAttribute("aria-expanded", "true");
-    await key(entryField("to"), { key: "Enter" });
+    stopField(1, "relation").setAttribute("aria-expanded", "true");
+    await key(stopField(1, "relation"), { key: "Enter" });
     expect(itemRows()).toHaveLength(1);
-    entryField("to").removeAttribute("aria-expanded");
-    await key(entryField("to"), { key: "Enter" });
+    stopField(1, "relation").removeAttribute("aria-expanded");
+    await key(stopField(1, "relation"), { key: "Enter" });
     await waitFor(() => expect(itemRows()).toHaveLength(2));
+  });
+
+  it("Delete asks \"Delete freight item {n}?\" and removes the item only on Delete", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { lines: twoLines() });
+    renderPage();
+    await loaded();
+    fireEvent.click(within(itemRows()[1]).getByRole("button", { name: "Remove" }));
+    const confirm = await screen.findByRole("alertdialog");
+    expect(confirm).toHaveTextContent("Orders:DeleteFreightItem");
+    expect(confirm).toHaveTextContent("Delete freight item 2?");
+    expect(itemRows()).toHaveLength(2);
+    await click(within(confirm).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    expect(itemRows()[0]).toHaveAttribute("data-key");
+    expect(itemRows()[0].querySelector("[data-field=position]")?.textContent).toBe("1");
   });
 });
 
-describe("OrderPage – the item detail (its own tabs, inline under the list)", () => {
-  it("a row click shows the item's detail with Freight details, Stops and legs and Pricing; Esc and the X close it", async () => {
+describe("OrderPage – Edit freight item (a dialog with tabs of its own)", () => {
+  it("a double click opens it with Freight details, Stops and legs and Pricing; details hold cargo, then the nested tabs", async () => {
     renderPage();
     await loaded();
-    expect(document.querySelector("[data-slot=line-detail]")).toBeNull();
-    const detail = openItem(0);
-    expect(within(detail).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Orders:FreightDetails", "Orders:StopsAndLegs", "Orders:Pricing"]);
-    /* Cargo and quantities first, then the collapsible sections. */
-    const captions = Array.from(detail.querySelectorAll("[data-slot=freight-details] > [data-slot=form-section]")).map((s) => s.getAttribute("aria-label"));
-    expect(captions.slice(0, 4)).toEqual(["Orders:Cargo", "Orders:Container", "Orders:Measurements", "Orders:Texts"]);
-    expect((within(detail).getByLabelText(/^Orders:WeightKg/) as HTMLInputElement).value).toBe("500");
-
-    fireEvent.keyDown(within(detail).getByLabelText(/^Orders:WeightKg/), { key: "Escape" });
-    expect(document.querySelector("[data-slot=line-detail]")).toBeNull();
-    openItem(0);
-    fireEvent.click(within(document.querySelector<HTMLElement>("[data-slot=line-detail]")!).getByRole("button", { name: "Close" }));
-    expect(document.querySelector("[data-slot=line-detail]")).toBeNull();
+    expect(dialog()).toBeNull();
+    const edit = openItem(0);
+    expect(edit).toHaveAttribute("data-size", "full");
+    expect(within(edit).getByText("Orders:Line 1")).toBeInTheDocument();
+    expect(Array.from(edit.querySelectorAll("[data-editor-tab-strip] [role=tab]")).map((t) => t.textContent)).toEqual(["Orders:FreightDetails", "Orders:StopsAndLegs", "Orders:Pricing"]);
+    const details = itemTab("Orders:FreightDetails");
+    expect(details.querySelector("[data-slot=freight-details] > [data-slot=form-section]")).toHaveAttribute("aria-label", "Orders:Cargo");
+    expect(Array.from(details.querySelectorAll("[data-slot=nested-tabs] [role=tab]")).map((t) => t.textContent?.trim())).toEqual(["Orders:Container", "Orders:Measurements", "Orders:Texts"]);
+    expect((within(details).getByLabelText(/^Orders:WeightKg/) as HTMLInputElement).value).toBe("500");
+    /* Apply and Close in the ribbon (UI-DLG-005). */
+    expect(Array.from(edit.querySelectorAll("[data-slot=ribbon-button]")).map((b) => b.textContent?.trim())).toEqual(["Orders:Apply", "Close"]);
   });
 
-  it("an edit in the detail is an edit of the item: saved with the items, and the item stays open", async () => {
+  it("Apply keeps the change in the order (saved with the items); Close on a changed item asks and restores it", async () => {
     routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2" });
     renderPage();
     await loaded();
-    const detail = openItem(0);
-    typeIn(detail, /^Orders:Positions/, "4");
+    /* Close: the dirty guard, then the item as it was. */
+    typeIn(openItem(0), /^Orders:Positions/, "9");
+    await click(within(dialog()!).getAllByRole("button", { name: "Close" })[0]);
+    const discard = await screen.findByRole("alertdialog");
+    expect(discard).toHaveTextContent("UnsavedChanges");
+    await click(within(discard).getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(dialog()).toBeNull());
+    expect(within(itemRows()[0]).getByLabelText("Orders:Positions")).toHaveValue("");
+    expect(ribbonButton("Save")).not.toBeNull();
+
+    /* Apply: kept, the page is dirty, and the order's Save stores it. */
+    typeIn(openItem(0), /^Orders:Positions/, "4");
+    await click(within(dialog()!).getByText("Orders:Apply"));
+    await waitFor(() => expect(dialog()).toBeNull());
+    expect(within(itemRows()[0]).getByLabelText("Orders:Positions")).toHaveValue("4");
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1));
     expect(lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body).toEqual(expect.objectContaining({ lines: [expect.objectContaining({ id: "l1", positions: 4 })] }));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
-    expect(document.querySelector("[data-slot=line-detail]")).not.toBeNull();
   });
 
-  it("Stops and legs: the item's stops and, after Confirm, only its own legs; the leg dialog edits a window", async () => {
+  it("Ctrl/⌘+S inside the dialog saves the order; the dialog stays open and Close then restores nothing", async () => {
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2", lines: [{ ...order(2).lines[0], positions: 4 }] });
+    renderPage();
+    await loaded();
+    const edit = openItem(0);
+    typeIn(edit, /^Orders:Positions/, "4");
+    await key(within(edit).getByLabelText(/^Orders:Positions/), { key: "s", ctrlKey: true });
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Orders:TransportOrderSaved"));
+    expect(dialog()).not.toBeNull();
+    await click(within(dialog()!).getAllByRole("button", { name: "Close" })[0]);
+    await waitFor(() => expect(dialog()).toBeNull());
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(within(itemRows()[0]).getByLabelText("Orders:Positions")).toHaveValue("4");
+  });
+
+  it("Stops and legs: the item's stops in the row editor and, after Confirm, only its own legs; the leg dialog edits a window", async () => {
     const at = (date: [number, number, number], time: string) => {
       const [hh, mm] = time.split(":").map(Number);
       return new Date(date[0], date[1] - 1, date[2], hh, mm).toISOString();
@@ -416,20 +565,36 @@ describe("OrderPage – the item detail (its own tabs, inline under the list)", 
     renderPage();
     await loaded();
     openItem(0);
-    const panel = itemTab("Orders:StopsAndLegs");
-    expect(panel.querySelectorAll("[data-slot=stops-editor] [data-slot=mock-line]")).toHaveLength(2);
-    await waitFor(() => expect(panel.querySelectorAll("[data-slot=item-legs] [data-slot=mock-grid-row]")).toHaveLength(1));
-    expect(panel.querySelector("[data-slot=item-legs] [data-slot=mock-grid-row]")).toHaveAttribute("data-id", "leg-1");
-    fireEvent.click(within(panel.querySelector<HTMLElement>("[data-slot=item-legs]")!).getByText("Edit"));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(dialog.querySelector("#leg-destination-window-from")!, { target: { value: "7:15" } });
-    fireEvent.change(dialog.querySelector("#leg-destination-window-till")!, { target: { value: "11:00" } });
+    const stopsPanel = itemTab("Orders:StopsAndLegs");
+    expect(stopsPanel.querySelectorAll("[data-slot=stop-strip] [data-slot=stop-row]")).toHaveLength(2);
+    expect(within(stopsPanel.querySelectorAll<HTMLElement>("[data-slot=stop-row]")[0]).getByRole("button", { name: "Orders:MoveDown" })).toBeInTheDocument();
+    await waitFor(() => expect(stopsPanel.querySelectorAll("[data-slot=item-legs] [data-slot=mock-grid-row]")).toHaveLength(1));
+    expect(stopsPanel.querySelector("[data-slot=item-legs] [data-slot=mock-grid-row]")).toHaveAttribute("data-id", "leg-1");
+    fireEvent.click(within(stopsPanel.querySelector<HTMLElement>("[data-slot=item-legs]")!).getByText("Edit"));
+    await waitFor(() => expect(document.querySelector("#leg-destination-window-from")).not.toBeNull());
+    const legDialog = document.querySelector<HTMLElement>("#leg-destination-window-from")!.closest<HTMLElement>("[role=dialog]")!;
+    fireEvent.change(legDialog.querySelector("#leg-destination-window-from")!, { target: { value: "7:15" } });
+    fireEvent.change(legDialog.querySelector("#leg-destination-window-till")!, { target: { value: "11:00" } });
     await act(async () => {
-      fireEvent.submit(dialog.querySelector("form")!);
+      fireEvent.submit(legDialog.querySelector("form")!);
       await Promise.resolve();
     });
     await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/leg/{id}", expect.anything()));
     expect((lastCall(PUT, "/api/planning/leg/{id}")!.body as Record<string, unknown>).destinationWindow).toEqual({ from: at([2026, 10, 26], "07:15"), till: at([2026, 10, 26], "11:00") });
+  });
+
+  it("a stop moved in the dialog is saved in its new order", async () => {
+    routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await loaded();
+    openItem(0);
+    const stopsPanel = itemTab("Orders:StopsAndLegs");
+    fireEvent.click(within(stopsPanel.querySelectorAll<HTMLElement>("[data-slot=stop-row]")[0]).getByRole("button", { name: "Orders:MoveDown" }));
+    await click(within(dialog()!).getByText("Orders:Apply"));
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/lines")).toHaveLength(1));
+    const body = lastCall(PUT, "/api/orders/transport-order/{id}/lines")!.body as { lines: { stops: { relationId: string }[] }[] };
+    expect(body.lines[0].stops.map((s) => s.relationId)).toEqual(["rel-2", "rel-1"]);
   });
 
   it("before Confirm the legs part says the legs are created on Confirm", async () => {
@@ -440,10 +605,19 @@ describe("OrderPage – the item detail (its own tabs, inline under the list)", 
     expect(itemTab("Orders:StopsAndLegs").querySelector("[data-slot=legs-after-confirm]")).toHaveTextContent("Orders:LegsAfterConfirm");
     expect(calls(GET, "/api/planning/leg")).toHaveLength(0);
   });
+
+  it("a read-only order still opens the item, without Apply and without editable fields", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(3);
+    renderPage();
+    await loaded();
+    const edit = openItem(0);
+    expect(Array.from(edit.querySelectorAll("[data-slot=ribbon-button]")).map((b) => b.textContent?.trim())).toEqual(["Close"]);
+    expect(within(itemTab("Orders:FreightDetails")).getByLabelText(/^Orders:WeightKg/)).toBeDisabled();
+  });
 });
 
 describe("OrderPage – pricing per item, order-level lines and totals", () => {
-  it("the item's Pricing shows its own rate lines and total; Financial terms the order-level lines; Totals the sums", async () => {
+  it("the item's Pricing shows its own rate lines and total; Financial the order-level lines and the revenue overview", async () => {
     renderPage();
     await loaded();
     openItem(0);
@@ -451,17 +625,54 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     await waitFor(() => expect(within(pricing).getByText("PL-NL")).toBeInTheDocument());
     expect(within(pricing).queryByText("Handling")).toBeNull();
     expect(within(pricing.querySelector<HTMLElement>("[data-slot=totals-block]")!).getByText("200.00")).toBeInTheDocument();
+    await click(within(dialog()!).getByText("Orders:Apply"));
 
-    const terms = section("Orders:FinancialTerms");
-    expect(within(terms.querySelector<HTMLElement>("[data-slot=order-level-rate-lines]")!).getByText("Handling")).toBeInTheDocument();
-    expect(within(terms).getByText("Financial:SetFixedPrice")).toBeInTheDocument();
+    const financial = openTab("Orders:Financial");
+    /* The legacy blocks, in order. */
+    expect(Array.from(financial.querySelectorAll("[data-slot=form-section]")).map((b) => b.getAttribute("aria-label"))).toEqual(["Orders:PriceCalculation", "Orders:RevenueOverview", "Orders:Invoicing", "Orders:InvoicingRemarksBlock", "Orders:OrderLevelLines"]);
+    expect(within(financial.querySelector<HTMLElement>("[data-slot=order-level-rate-lines]")!).getByText("Handling")).toBeInTheDocument();
+    expect(within(financial).getByText("Financial:SetFixedPrice")).toBeInTheDocument();
+    /* Additional services are a tab of General now. */
+    expect(within(financial).queryByText("Financial:AddAdditionalService")).toBeNull();
 
-    const totals = section("Orders:Totals").querySelector<HTMLElement>("[data-slot=totals-block]")!;
+    const totals = section("Orders:RevenueOverview").querySelector<HTMLElement>("[data-slot=totals-block]")!;
     const value = (label: string) => within(totals).getByText(label).nextElementSibling?.textContent;
     expect(value("Orders:Lines")).toBe("200.00");
     expect(value("Orders:OrderLevelLines")).toBe("50.00");
     expect(value("Financial:Total")).toBe("250.00");
     expect(within(totals).getByText("EUR")).toBeInTheDocument();
+  });
+
+  it("Price calculation: per freight item clears the fixed price; fixed asks for the amount; Remarks for invoicing is saved with the header", async () => {
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { financialTerms: { ...order(2).financialTerms, fixedPriceAmount: 900 } });
+    routes.PUT["/api/orders/transport-order/{id}"] = () => order(2, { concurrencyStamp: "stamp-2" });
+    renderPage();
+    await loaded();
+    const block = section("Orders:PriceCalculation");
+    const amount = within(block).getByLabelText(/^Orders:FixedPriceAmount/) as HTMLInputElement;
+    expect(amount.value).toBe("900");
+    expect(within(block).getByRole("radio", { name: "Orders:FixedPriceForOrder" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(within(block).getByRole("radio", { name: "Orders:PricedPerFreightItem" }));
+    expect(amount.value).toBe("");
+    expect(amount).toBeDisabled();
+    fireEvent.click(within(block).getByRole("radio", { name: "Orders:FixedPriceForOrder" }));
+    expect(amount).toBeEnabled();
+    fireEvent.change(amount, { target: { value: "750" } });
+    typeIn(section("Orders:InvoicingRemarksBlock"), /^Orders:InvoicingRemarks/, "Invoice with the CMR");
+    await click(ribbonButton("Save")!);
+    await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(1));
+    expect(lastCall(PUT, "/api/orders/transport-order/{id}")!.body).toEqual(expect.objectContaining({ invoicingRemarks: "Invoice with the CMR", financialTerms: expect.objectContaining({ fixedPriceAmount: 750 }) }));
+  });
+
+  it("Additional services (General): a stored order lists its service lines and adds one; a new order says it comes after the save", async () => {
+    routes.GET["/api/financial/rate-line"] = () => ({ ...rateLines, lines: [...rateLines.lines, { id: "r9", orderId: "o1", kind: 5, quantity: 1, unitPrice: 30, amount: 30, additionalServiceName: "Tail lift", position: 3, concurrencyStamp: "r9s", isManual: true }] });
+    renderPage();
+    await loaded();
+    const services = openNested("Financial:AdditionalServices");
+    await waitFor(() => expect(within(services).getByText("Tail lift")).toBeInTheDocument());
+    expect(within(services).queryByText("Handling")).toBeNull();
+    fireEvent.click(within(services).getByText("Financial:AddAdditionalService"));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("a manual line added on the item's Pricing tab belongs to the item", async () => {
@@ -470,10 +681,11 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     await loaded();
     openItem(0);
     fireEvent.click(within(itemTab("Orders:Pricing")).getByText("Financial:AddManualLine"));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText(/^Financial:UnitPrice/), { target: { value: "15" } });
+    await waitFor(() => expect(document.querySelector("[role=dialog][data-variant=action]")).not.toBeNull());
+    const action = document.querySelector<HTMLElement>("[role=dialog][data-variant=action]")!;
+    fireEvent.change(within(action).getByLabelText(/^Financial:UnitPrice/), { target: { value: "15" } });
     await act(async () => {
-      fireEvent.submit(dialog.querySelector("form")!);
+      fireEvent.submit(action.querySelector("form")!);
       await Promise.resolve();
     });
     await waitFor(() => expect(calls(POST, "/api/financial/rate-line/manual")).toHaveLength(1));
@@ -494,7 +706,8 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     const body = lastCall(POST, "/api/orders/transport-order/{id}/preview-prices")!.body as { lines: { quantity: number }[]; customerRelationId: string };
     expect(body.lines[0].quantity).toBe(3);
     expect(body.customerRelationId).toBe("rel-1");
-    await waitFor(() => expect(within(section("Orders:Totals")).getAllByText("300.00")).toHaveLength(2));
+    await waitFor(() => expect(within(section("Orders:RevenueOverview")).getAllByText("300.00")).toHaveLength(2));
+    openTab("General");
     openItem(0);
     const pricing = itemTab("Orders:Pricing");
     expect(pricing.querySelector("[data-slot=price-preview]")).not.toBeNull();
@@ -541,15 +754,15 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     grants = { ...ALL, "Financial.RateLines.Update": false };
     renderPage();
     await loaded();
-    const terms = section("Orders:FinancialTerms");
-    await waitFor(() => expect(within(terms).getByText("Handling")).toBeInTheDocument());
-    expect(terms.querySelector("[data-slot=order-level-rate-lines] [data-slot=mock-lines-grid]")).toHaveAttribute("data-readonly", "true");
+    const lines = section("Orders:OrderLevelLines");
+    await waitFor(() => expect(within(lines).getByText("Handling")).toBeInTheDocument());
+    expect(lines.querySelector("[data-slot=order-level-rate-lines] [data-slot=mock-lines-grid]")).toHaveAttribute("data-readonly", "true");
   });
 });
 
 describe("OrderPage – one call for header and terms, and a save that stops part-way", () => {
   const changeReference = (value: string) => fireEvent.change(referenceField(), { target: { value } });
-  const changePaymentTerm = (value: string) => typeIn(section("Orders:FinancialTerms"), /^Orders:PaymentTermDays/, value);
+  const changePaymentTerm = (value: string) => typeIn(section("Orders:Invoicing"), /^Orders:PaymentTermDays/, value);
   const detailReads = () => calls(GET, "/api/orders/transport-order/{id}").length;
 
   it("a header edit together with a terms edit is one header call that carries the terms", async () => {
@@ -575,18 +788,27 @@ describe("OrderPage – one call for header and terms, and a save that stops par
     expect(calls(PUT, "/api/orders/transport-order/{id}")).toHaveLength(0);
   });
 
-  it("an invalid term in a closed Financial terms section: Save opens it, marks its caption and shows the message", async () => {
+  it("an invalid term while General is open: Save opens Financial, marks its tab and shows the message", async () => {
     renderPage();
     await loaded();
     changePaymentTerm("x");
-    const terms = closedSection("Orders:FinancialTerms");
-    fireEvent.click(within(terms).getByRole("button", { name: /Orders:FinancialTerms/ }));
-    expect(terms).toHaveAttribute("data-state", "closed");
+    openTab("General");
     await click(ribbonButton("Save")!);
     expect(PUT).not.toHaveBeenCalled();
-    expect(terms).toHaveAttribute("data-state", "open");
-    expect(within(terms).getByText("MasterData:InvalidNumber")).toBeInTheDocument();
-    expect(terms.querySelector("h3")).toHaveClass("text-destructive");
+    expect(activeTab()).toBe("Orders:Financial");
+    expect(tabTrigger("Orders:Financial")).toHaveClass("text-destructive");
+    expect(tabTrigger("General")).not.toHaveClass("text-destructive");
+    expect(within(panel("Orders:Financial")).getByText("MasterData:InvalidNumber")).toBeInTheDocument();
+  });
+
+  it("the refusal of a save shows above the tab that is open", async () => {
+    routes.PUT["/api/orders/transport-order/{id}/financial-terms"] = () => fail("Terms refused.");
+    renderPage();
+    await loaded();
+    changePaymentTerm("45");
+    await click(ribbonButton("Save")!);
+    expect(await within(panel("Orders:Financial")).findByText("Terms refused.")).toBeInTheDocument();
+    expect(within(panel("General")).queryByText("Terms refused.")).toBeNull();
   });
 
   it("stops at the first failure, names the saved and the unsaved sections, keeps the rest dirty and retries only those with the new stamp", async () => {
@@ -879,19 +1101,17 @@ describe("OrderPage – Tevens trip (Q9; per freight item)", () => {
     expect(within(trip()).getByRole("checkbox", { name: "Orders:TripRequestHint" })).toHaveAttribute("data-disabled");
   });
 
-  it("a trip request warning is a header badge that opens the Tevens trip section, with the warning in it", async () => {
+  it("a trip request warning is a header badge that opens the Tevens trip tab, with the warning in it", async () => {
     routes.GET["/api/orders/transport-order/{id}"] = () =>
       order(2, { tripRequest: request({ warningCode: "OpenTms.Orders:TripRequestNotHonoured", warningField: "TransportTripType", warningAt: "2026-10-25T09:00:00Z" }) });
     renderPage();
     await loaded();
     const badge = header().querySelector<HTMLElement>("[data-slot=trip-request-warning-badge]")!;
     expect(badge).toHaveTextContent("Orders:TripNotCreated");
-    const box = closedSection("Orders:TripRequest");
-    fireEvent.click(within(box).getByRole("button", { name: /Orders:TripRequest/ }));
-    expect(box).toHaveAttribute("data-state", "closed");
+    expect(activeTab()).toBe("General");
     fireEvent.click(badge);
-    expect(box).toHaveAttribute("data-state", "open");
-    expect(box.querySelector("[data-slot=trip-request-warning]")).toHaveTextContent("OpenTms.Orders:TripRequestNotHonoured");
+    expect(activeTab()).toBe("Orders:TripRequestTab");
+    expect(panel("Orders:TripRequestTab").querySelector("[data-slot=trip-request-warning]")).toHaveTextContent("OpenTms.Orders:TripRequestNotHonoured");
   });
 
   it("shows no badge and no warning without one", async () => {
@@ -949,14 +1169,18 @@ describe("TemplatePage – the same page in template mode", () => {
     grants = { ...ALL, "Orders.TransportOrderTemplates": true, "Orders.TransportOrderTemplates.Update": true };
   });
 
-  it("a template without items cannot create orders yet; with one it can; Schedule is open and there are no totals", async () => {
+  it("a template without items cannot create orders yet; with one it can; a Schedule tab, no Documents, no Remarks, no revenue", async () => {
     routes.GET["/api/orders/transport-order-template/{id}"] = () => template();
     const { unmount } = renderTemplate();
     await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
     expect(ribbonButton("Orders:Materialise")).toHaveAttribute("aria-disabled", "true");
     expect(ribbonButton("Orders:Materialise")).toHaveAttribute("title", "Orders:TemplateHasNoLines");
-    expect(closedSection("Orders:Schedule")).toHaveAttribute("data-state", "open");
-    expect(document.querySelector("[data-slot=form-section][aria-label='Orders:Totals']")).toBeNull();
+    expect(tabLabels()).toEqual(["General", "Orders:Financial", "Orders:TripRequestTab", "Orders:Schedule", "RecordIdentification"]);
+    expect(within(openTab("Orders:Schedule")).getByLabelText(/^Orders:Interval/)).toHaveValue("1");
+    /* The header: the name instead of the number and the date. */
+    expect(within(section("Orders:TransportOrderTemplate")).queryByLabelText("Orders:Number")).toBeNull();
+    expect(within(section("Orders:TransportOrderTemplate")).getByLabelText(/^Orders:Name/)).toHaveValue("Weekly Acme");
+    expect(section("Orders:RevenueOverview").querySelector("[data-slot=revenue-after-save]")).toHaveTextContent("Orders:RevenueOnOrders");
     unmount();
 
     routes.GET["/api/orders/transport-order-template/{id}"] = () => template({ lines: [{ id: "tl1", position: 1, transportUnitId: "unit-1", transportUnitName: "Pallet", quantity: 1, paymentInstruction: 0, stops: [] }] });
@@ -965,27 +1189,25 @@ describe("TemplatePage – the same page in template mode", () => {
     expect(ribbonButton("Orders:Materialise")).not.toHaveAttribute("aria-disabled");
   });
 
-  it("the entry row takes a day offset; the save posts the items with stops as day offsets and the trip's items by posted id", async () => {
+  it("the stop strip takes day offsets; the save posts the items with stops as day offsets and the trip's items by posted id", async () => {
     routes.GET["/api/orders/transport-order-template/{id}"] = () =>
       template({ lines: [{ id: "tl1", position: 1, transportUnitId: "unit-1", transportUnitName: "Pallet", quantity: 1, paymentInstruction: 0, stops: [] }], tripRequest: { transportTripTypeId: "tt-1", departureRelationId: "rel-1", departureAddressId: "adr-1", arrivalRelationId: "rel-2", arrivalAddressId: "adr-2", departureDayOffset: 0, vehicleIds: [], driverIds: [], lineIds: null } });
     routes.PUT["/api/orders/transport-order-template/{id}"] = () => template({ concurrencyStamp: "tstamp-2" });
     routes.GET["/api/master-data/relation/{id}/addresses"] = (init) => [{ id: `${String(init?.params?.path?.id)}-main`, addressTypeId: null, city: "X" }];
-    lookupItems.current = { "*-entry-from": [{ id: "rel-1", name: "Acme" }], "*-entry-to": [{ id: "rel-2", name: "Beta" }] };
+    lookupItems.current = { "*-entry-strip-stop-0-relation": [{ id: "rel-1", name: "Acme" }], "*-entry-strip-stop-1-relation": [{ id: "rel-2", name: "Beta" }] };
     renderTemplate();
     await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
     const entry = document.querySelector<HTMLElement>("[data-slot=freight-item-entry]")!;
     const entryField = (suffix: string) => entry.querySelector<HTMLInputElement | HTMLSelectElement>(`[id$='-entry-${suffix}']`)!;
-    expect(entry.querySelector("[id$='-entry-date']")).toBeNull();
+    expect(entry.querySelector("[id$='-stop-0-date']")).toBeNull();
     /* The order type (its default waypoints) is there before the user types. */
-    await waitFor(() => expect(calls(GET, "/api/orders/transport-order-type/{id}").length).toBeGreaterThan(0));
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    fireEvent.change(entryField("from"), { target: { value: "rel-1" } });
-    fireEvent.change(entryField("to"), { target: { value: "rel-2" } });
-    fireEvent.change(entryField("dayOffset"), { target: { value: "1" } });
+    await waitFor(() => expect(entryField("strip-stop-1-activity").value).toBe("wp-unload"));
+    fireEvent.change(entryField("strip-stop-0-relation"), { target: { value: "rel-1" } });
+    fireEvent.change(entryField("strip-stop-1-relation"), { target: { value: "rel-2" } });
+    fireEvent.change(entryField("strip-stop-0-dayOffset"), { target: { value: "1" } });
+    fireEvent.change(entryField("strip-stop-1-dayOffset"), { target: { value: "1" } });
     fireEvent.change(entryField("unit"), { target: { value: "unit-1" } });
-    await key(entryField("dayOffset"), { key: "Enter" });
+    await key(entryField("strip-stop-1-dayOffset"), { key: "Enter" });
     await waitFor(() => expect(itemRows()).toHaveLength(2));
     /* The first item leaves the trip: the new one goes on it by the id the save posts for it. */
     const items = section("Orders:TripRequest").querySelector<HTMLElement>("[data-slot=trip-request-items]")!;

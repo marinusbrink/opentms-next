@@ -20,13 +20,13 @@ import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
-/* The Tevens trip section of the order page (design 61 "Order page, revised" 7; Q9): a checkbox "Create a trip with
+/* The Tevens trip tab of the order page (design 61 "Order page, legacy tab structure" 8; Q9): a checkbox "Create a trip with
  * this order", then trip type, departure/arrival (relation + address), planned departure, which freight items go on
  * the trip (a checkbox per item, default all: only their legs are put on the trip on Confirm, the others stay
  * unplanned for the Planboard; the trip's stops follow from its legs), and an Advanced disclosure for carrier,
  * vehicles or combination, drivers and the agreed purchase price. Ticking it prefills the empty fields from the items
- * on the trip. After Confirm the section is read-only and shows the created trip as a link. A collapsible
- * FormSection, opened on submit when the request holds an error (UI-FORM-006). */
+ * on the trip. After Confirm the section is read-only and shows the created trip as a link. A failed submit with an
+ * error in the request opens the tab (UI-FORM-006). */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
@@ -35,11 +35,9 @@ export interface TripRequestSectionProps {
   form: FormContext<OrderValues>;
   mode: EditorMode;
   order: TransportOrderDto | undefined;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
 }
 
-export function TripRequestSection({ form, mode, order, open, onOpenChange }: TripRequestSectionProps) {
+export function TripRequestSection({ form, mode, order }: TripRequestSectionProps) {
   const { t } = useL();
   const openRecord = useOpenRecord();
   const request = form.values.tripRequest;
@@ -93,7 +91,7 @@ export function TripRequestSection({ form, mode, order, open, onOpenChange }: Tr
     set({ excludedLineKeys: included ? request.excludedLineKeys.filter((k) => k !== key) : [...request.excludedLineKeys, key] });
 
   return (
-    <FormSection title={t("Orders:TripRequest")} collapsible open={open} onOpenChange={onOpenChange} hasError={form.error("tripRequest") != null} className="shrink-0">
+    <FormSection title={t("Orders:TripRequest")}>
       <div className="mb-3 flex items-center gap-4">
         <label className="flex items-center gap-2 text-label font-semibold text-brand" htmlFor={form.id("trip-enabled")}>
           <Checkbox id={form.id("trip-enabled")} checked={request.enabled} disabled={readOnly} onCheckedChange={(next) => enable(next === true)} />

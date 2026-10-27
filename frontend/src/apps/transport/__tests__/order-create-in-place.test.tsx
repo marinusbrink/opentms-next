@@ -228,7 +228,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     allowCreate("PriceList");
     renderPage();
     await loaded();
-    const pricing = section("Orders:FinancialTerms");
+    const pricing = section("Orders:PriceCalculation");
     saved.PriceList = { id: "pl-cost", code: "C1", name: "Cost list", side: 2 };
     await click(createFor(pricing, "-terms-priceListIds")!);
     await saveStub("PriceList");
@@ -267,7 +267,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     saved.Currency = { id: "c-chf", isoCode: "CHF", name: "Swiss franc" };
     renderPage();
     await loaded();
-    const pricing = section("Orders:FinancialTerms");
+    const pricing = section("Orders:Invoicing");
     const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
     await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
     expect(currency.value).toBe("EUR");
@@ -292,7 +292,7 @@ describe("Transport order page — Add new … in its pickers", () => {
     routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { financialTerms: { currencyCode: "GBP", priceListIds: [], multipleMatches: 1, discountsOrSurcharges: [] } });
     renderPage();
     await loaded();
-    const pricing = section("Orders:FinancialTerms");
+    const pricing = section("Orders:Invoicing");
     const currency = pricing.querySelector<HTMLSelectElement>("select[id$='-terms-currencyCode']")!;
     await waitFor(() => expect(within(currency).getByRole("option", { name: "USD US dollar" })).toBeInTheDocument());
     expect(currency.value).toBe("GBP");

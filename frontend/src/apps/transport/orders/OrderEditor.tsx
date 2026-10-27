@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Archive, CheckCheck, CirclePlay, CircleX, LayoutTemplate, Printer, RefreshCw, RotateCcw, Save, Trash2, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Archive, CheckCheck, CirclePlay, CircleX, LayoutTemplate, MessageSquareText, Paperclip, Printer, RefreshCw, RotateCcw, Save, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import type { RibbonCommand } from "@/components/ui/entity-dialog";
+import type { EntityDialogTab, RibbonCommand } from "@/components/ui/entity-dialog";
+import { NestedTabs } from "@/components/ui/nested-tabs";
 import { RecordPage } from "@/components/ui/record-page";
-import { RecordIdentificationTab } from "@/components/ui/record-identification-tab";
+import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { AdditionalServices } from "@/apps/transport/orders/AdditionalServices";
 import { ApproveDialog } from "@/apps/transport/orders/ApproveDialog";
 import { DocumentsTab } from "@/apps/transport/orders/DocumentsTab";
-import { FinancialTermsSection } from "@/apps/transport/orders/FinancialTermsSection";
-import type { ItemTab } from "@/apps/transport/orders/FreightItemDetail";
+import { FinancialTab } from "@/apps/transport/orders/FinancialTab";
 import { FreightItems } from "@/apps/transport/orders/FreightItems";
 import { OrderHeader } from "@/apps/transport/orders/OrderHeader";
-import { OrderTotals } from "@/apps/transport/orders/OrderTotals";
-import { ReferencesSection, ScheduleSection } from "@/apps/transport/orders/OrderSections";
+import { CustomFields, OrderRemarks, OtherReferences, PlannerRemarks, ScheduleSection } from "@/apps/transport/orders/OrderSections";
 import { TripRequestSection } from "@/apps/transport/orders/TripRequestSection";
 import { usePricePreview } from "@/apps/transport/orders/use-price-preview";
 import {
@@ -26,7 +26,6 @@ import {
   customerChanged,
   defaultStopInputOf,
   lineInputOf,
-  lineProblemsOf,
   mergeSavedSections,
   orderValuesOf,
   referencesInputOf,
@@ -69,6 +68,7 @@ import {
   useUpdateTransportOrderFinancialTerms,
   useUpdateTransportOrderHeader,
   useUpdateTransportOrderTripRequest,
+  useOrderAttributeDefinitions,
   type TransportOrderDto,
   type TransportOrderTripRequestInputDto,
 } from "@/domains/orders/transport-orders";
@@ -79,15 +79,18 @@ import { parseInteger, useFormState } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
 
-/* The order page (design 61 "Order page, revised", PO 2026-10-26): one page without content tabs. From top to bottom
- * the header (number, status, ribbon; customer, order type, order date, customer reference, contact, organisation unit,
- * remarks behind a disclosure), the Freight items (the list, the fast entry row, Paste, the selected item's detail with
- * its own tabs), the Totals, then the collapsible order-level sections Financial terms, Tevens trip, References and
- * attributes, Documents and Record identification. Templates use the same page in template mode (Name instead of
- * number, the Schedule section, stops as day offsets; ribbon Save, Create orders, Delete). A new order is this page
- * without a record (`/transport/orders/new`): the default type, today, the cursor in Customer; Save creates it in one
- * call. Shortcuts the design names (UI-KEY-005): Ctrl/⌘+S saves, Ctrl/⌘+Enter confirms a Draft, Esc closes the item
- * detail; they listen on the page, never on the document.
+/* The order page (design 61 "Order page, legacy tab structure", PO 2026-10-26 and 2026-10-27): the legacy screen's
+ * tabs. Main tabs (UI-FORM-008, end-aligned at the right of the ribbon row): General (the header fields, then the
+ * nested tabs Freight items, Additional services, Remarks for the planner, Other references and Custom fields when
+ * there are order attributes), Financial (the legacy blocks), Tevens trip, Schedule (template only), then the icon
+ * tabs Documents (a stored order), Remarks (the order's dated remarks, read-only) and Record identification. A tab
+ * that holds an invalid field is marked; a failed submit opens the first tab with an error, nested tab included
+ * (UI-FORM-006/007). Freight items are entered on Freight items and edited in the Edit freight item dialog (its own
+ * tabs). Templates use the same page in template mode (Name instead of number and date, the Schedule tab, stops as
+ * day offsets, no Documents and no Remarks; ribbon Save, Create orders, Delete). A new order is this page without a
+ * record (`/transport/orders/new`): the default type, today, the cursor in Customer; Save creates it in one call.
+ * Shortcuts the design names (UI-KEY-005): Ctrl/⌘+S saves, Ctrl/⌘+Enter confirms a Draft; they listen on the page
+ * (the Edit freight item dialog included), never on the document.
  *
  * A save of a stored order runs the changed sections' commands one after the other with the latest concurrency stamp
  * and returns at once; the derived values arrive by push (flow 2). A header change that brings terms with it sends
@@ -104,9 +107,20 @@ import { useCloseRecord, useOpenRecord } from "@/lib/use-open-record";
  * (the recalculation of the previous save wrote the summary and so the stamp) is no one's change: the step runs again
  * once with the newest stamp. */
 
-/** The order-level section that shows a field's error (UI-FORM-006: submit opens the first section with an error). */
-type SectionId = "terms" | "trip" | "references" | "schedule";
-const SECTION_OF_FIELD: Partial<Record<string, SectionId>> = { terms: "terms", tripRequest: "trip", references: "references", attributes: "references", schedule: "schedule" };
+type MainTab = "general" | "financial" | "trip" | "schedule" | "documents" | "remarks" | "identification";
+type GeneralTab = "items" | "services" | "plannerRemarks" | "references" | "custom";
+
+/** The tab (and the nested tab of General) that shows a field's error (UI-FORM-006: submit opens the first tab with
+ * an error); every field not named here is on General's header. */
+const TAB_OF_FIELD: Partial<Record<string, [MainTab, GeneralTab?]>> = {
+  lines: ["general", "items"],
+  references: ["general", "references"],
+  attributes: ["general", "custom"],
+  terms: ["financial"],
+  tripRequest: ["trip"],
+  schedule: ["schedule"],
+};
+const GENERAL_FIELDS = ["transportOrderTypeId", "customer", "orderDate", "name", "customerReference", "lines", "references", "attributes"] as const;
 
 const DRAFT = 1;
 const OPEN = 2;
@@ -145,15 +159,10 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
   const [dialog, setDialog] = useState<"approve" | "revise" | "print" | "cancel" | "delete" | "materialise" | null>(null);
   /** Someone else changed the order while it was being edited: the prompt (Reload / Keep editing), then the banner. */
   const [conflict, setConflict] = useState<"prompt" | "banner" | null>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [itemTab, setItemTab] = useState<ItemTab>("details");
-  const [sections, setSections] = useState<Record<SectionId, boolean>>(() => ({
-    terms: false,
-    trip: (mode === "order" ? order?.tripRequest : template?.tripRequest) != null,
-    references: false,
-    schedule: mode === "template",
-  }));
-  const openSection = (section: SectionId, open = true) => setSections((current) => ({ ...current, [section]: open }));
+  const [activeTab, setActiveTab] = useState<MainTab>("general");
+  const [generalTab, setGeneralTab] = useState<GeneralTab>("items");
+  /** The freight item open in Edit freight item, by form key. */
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
   const isNew = mode === "order" && !order;
   const status = order?.status ?? DRAFT;
@@ -168,11 +177,11 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
   const validate = useCallback((v: OrderValues) => validateOrder(v, mode), [mode]);
   const { form, isDirty, submit, firstErrorField, reset } = useFormState<OrderValues>(initial, validate, formReadOnly);
 
-  /** Takes the server's values (after a save or a reload); the selected item stays selected (by position). */
+  /** Takes the server's values (after a save or a reload); an item open in Edit freight item stays open (by position). */
   const adopt = (values: OrderValues, baseline?: OrderValues) => {
-    const index = form.values.lines.findIndex((line) => line.key === selectedKey);
+    const index = form.values.lines.findIndex((line) => line.key === editingKey);
     reset(values, baseline);
-    if (selectedKey) setSelectedKey(index >= 0 ? (values.lines[index]?.key ?? null) : null);
+    if (editingKey) setEditingKey(index >= 0 ? (values.lines[index]?.key ?? null) : null);
   };
 
   /* The record arrives or changes (a save, a push): the form follows unless the user is editing. */
@@ -239,7 +248,7 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
     queryClient.fetchQuery({ queryKey: transportOrderKeys.detail(orderId), queryFn: () => fetchTransportOrder(orderId), staleTime: 0 }).catch(() => null);
 
   /** The trip request as the API takes it for the lines the server now holds: `lineIds` names the freight items on
-   * the trip (null = all, design 61 "Order page, revised" 7). */
+   * the trip (null = all, design 61 "Order page, legacy tab structure" 8). */
   const tripRequestFor = (values: OrderValues, stored: TransportOrderDto): TransportOrderTripRequestInputDto | undefined => {
     const input = tripRequestInputOf(values.tripRequest);
     if (!input) return undefined;
@@ -344,7 +353,8 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
   };
 
   /**
-   * Creates the new order in one call with everything typed (design 61 "Order page, revised" 5), then shows its page.
+   * Creates the new order in one call with everything typed (design 61 "Order page, legacy tab structure" 9), then
+   * shows its page.
    * The new items carry client ids, so a Tevens trip for some of them names them (the server maps the ids to the
    * lines it creates); `confirmAfter` is Confirm or Ctrl/⌘+Enter on the new page.
    */
@@ -375,7 +385,7 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
       return false;
     }
     const orderId = current.id!;
-    /* The page now shows the stored order: the same editor, so the selected item and the open sections stay. */
+    /* The page now shows the stored order: the same editor, so the open tab and an open item stay. */
     queryClient.setQueryData(transportOrderKeys.detail(orderId), current);
     lastLoadedKey.current = `${current.id}|${current.concurrencyStamp ?? ""}`;
     adopt(orderValuesOf(current));
@@ -399,15 +409,13 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
     toast.success(t("Orders:TransportOrderReloaded"));
   };
 
-  /** Validation failed: open the section of the first error and select the first item with a problem (UI-FORM-006). */
-  const showErrors = (values: OrderValues) => {
+  /** Validation failed: open the tab (and General's nested tab) of the first error (UI-FORM-006). */
+  const showErrors = () => {
     const field = firstErrorField();
-    const section = field ? SECTION_OF_FIELD[field] : undefined;
-    if (section) openSection(section);
-    if (field === "lines") {
-      const problem = [...lineProblemsOf(values.lines).keys()][0];
-      if (problem) setSelectedKey(problem);
-    }
+    if (!field) return;
+    const [main, nested] = TAB_OF_FIELD[field] ?? ["general"];
+    setActiveTab(main);
+    if (nested) setGeneralTab(nested);
   };
 
   /** Validates, then runs the changed sections' commands (or creates the new order); false when it did not save. */
@@ -421,7 +429,7 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
     clearServerError();
     const values = submit(formRef.current);
     if (!values) {
-      showErrors(form.values);
+      showErrors();
       return false;
     }
     if (isNew) return createOrder(values, confirmAfter);
@@ -531,7 +539,8 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
   /* The shortcuts the design names (UI-KEY-005), on the page only: Ctrl/⌘+S saves, Ctrl/⌘+Enter confirms a Draft. */
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const modifier = event.ctrlKey || event.metaKey;
-    if (!modifier || event.altKey || event.shiftKey) return;
+    /* A key the page already handled (it reaches the page once more through the Edit freight item dialog's portal). */
+    if (!modifier || event.altKey || event.shiftKey || event.defaultPrevented) return;
     if (event.key === "s" || event.key === "S") {
       event.preventDefault();
       if (!formReadOnly && !isBusy && conflict == null) void save();
@@ -547,6 +556,105 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
     `${report.saved.length > 0 ? `${t("Orders:SectionsSaved").replace("{0}", report.saved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))} ` : ""}${t("Orders:SectionsNotSaved").replace("{0}", report.notSaved.map((s) => t(SECTION_LABEL_KEYS[s])).join(", "))}`;
   const printable = order ? [{ id: order.id!, number: order.number ?? "", lines: (order.lines ?? []).map((l, index) => ({ id: l.id!, position: l.position ?? index + 1, label: [l.transportUnitName, l.productName].filter(Boolean).join(" · ") })) }] : [];
   const storedLineIds = useMemo(() => form.values.lines.flatMap((line) => (line.id ? [line.id] : [])), [form.values.lines]);
+  const attributeDefinitions = useOrderAttributeDefinitions(1);
+  const hasCustomFields = (attributeDefinitions.data ?? []).length > 0 || Object.keys(form.values.attributes).length > 0;
+  const hasError = (fields: readonly string[]) => fields.some((field) => form.error(field as keyof OrderValues & string) != null);
+
+  /* The page's messages (a conflict, a refused save) show above the active tab's content (UI-FB-004: exactly once). */
+  const withAlerts = (content: ReactNode, tab: MainTab) => (
+    <div className="flex flex-col gap-4" data-slot={`order-tab-${tab}`}>
+      {activeTab === tab && conflict && (
+        <Alert variant="warning" data-slot="order-conflict">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>
+            <p>{t("Orders:OrderChangedByOtherBanner")}</p>
+            {saveReport && <p data-slot="save-report">{reportText(saveReport)}</p>}
+            <div className="mt-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => setConflict("prompt")}>
+                <RefreshCw /> {t("Orders:Reload")}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      {activeTab === tab && serverError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            <p>{serverError}</p>
+            {saveReport && <p data-slot="save-report">{reportText(saveReport)}</p>}
+          </AlertDescription>
+        </Alert>
+      )}
+      {content}
+    </div>
+  );
+
+  const general = (
+    <>
+      <OrderHeader form={form} mode={mode} number={order?.number} type={type.data} stored={mode === "order" && !isNew} autoFocusCustomer={isNew} />
+      <NestedTabs
+        value={generalTab}
+        onValueChange={(value) => setGeneralTab(value as GeneralTab)}
+        tabs={[
+          {
+            value: "items",
+            label: t("Orders:Lines"),
+            hasError: hasError(["lines"]),
+            content: (
+              <FreightItems
+                form={form}
+                mode={mode}
+                type={type.data}
+                orderId={storedId}
+                legsCreated={legsCreated}
+                legs={legs.data}
+                rateLines={rateLines.data}
+                preview={preview}
+                canEditRateLines={can.rateLines && editableStatus}
+                editingKey={editingKey}
+                onEdit={setEditingKey}
+              />
+            ),
+          },
+          {
+            value: "services",
+            label: t("Financial:AdditionalServices"),
+            content: <AdditionalServices orderId={storedId} rateLines={rateLines.data} currency={form.values.terms.currencyCode} editable={can.rateLines && editableStatus && !formReadOnly} />,
+          },
+          { value: "plannerRemarks", label: t("Orders:PlannerRemarks"), content: <PlannerRemarks form={form} /> },
+          { value: "references", label: t("Orders:OtherReferences"), hasError: hasError(["references"]), content: <OtherReferences form={form} /> },
+          ...(hasCustomFields ? [{ value: "custom", label: t("Orders:CustomFields"), hasError: hasError(["attributes"]), content: <CustomFields form={form} definitions={attributeDefinitions.data} /> }] : []),
+        ]}
+      />
+    </>
+  );
+
+  const tabs: EntityDialogTab[] = [
+    { value: "general", label: t("General"), hasError: hasError(GENERAL_FIELDS), content: withAlerts(general, "general") },
+    {
+      value: "financial",
+      label: t("Orders:Financial"),
+      hasError: hasError(["terms"]),
+      content: withAlerts(<FinancialTab form={form} mode={mode} order={order} rateLines={rateLines.data} canEditRateLines={can.rateLines && editableStatus} lineIds={storedLineIds} preview={preview} />, "financial"),
+    },
+    { value: "trip", label: t("Orders:TripRequestTab"), hasError: hasError(["tripRequest"]), content: withAlerts(<TripRequestSection form={form} mode={mode} order={order} />, "trip") },
+    ...(mode === "template" ? [{ value: "schedule", label: t("Orders:Schedule"), hasError: hasError(["schedule"]), content: withAlerts(<ScheduleSection form={form} />, "schedule") }] : []),
+    ...(mode === "order" && !isNew
+      ? [
+          {
+            value: "documents",
+            label: t("Orders:Documents"),
+            icon: Paperclip,
+            content: withAlerts(<DocumentsTab orderId={order?.id} onPrint={can.print && (order?.lines ?? []).length > 0 ? () => void saveIfDirty().then((ok) => ok && setDialog("print")) : undefined} />, "documents"),
+          },
+        ]
+      : []),
+    ...(mode === "order" ? [{ value: "remarks", label: t("Remarks"), icon: MessageSquareText, content: withAlerts(<OrderRemarks remarks={order?.remarks} />, "remarks") }] : []),
+    (() => {
+      const identification = recordIdentificationTab(t, { id: order?.id ?? template?.id, creationTime: order?.creationTime ?? template?.creationTime, lastModificationTime: order?.lastModificationTime ?? template?.lastModificationTime });
+      return { ...identification, content: withAlerts(identification.content, "identification") };
+    })(),
+  ];
 
   return (
     <div ref={formRef} className="h-full" data-slot={mode === "order" ? "order-page" : "template-page"} data-record-id={order?.id ?? template?.id} data-status={orderStatusName(order?.status)} onKeyDown={onKeyDown}>
@@ -556,65 +664,18 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
           mode === "order" ? (
             <>
               {!isNew && <StatusBadge entity="TransportOrder" state={orderStatusName(order?.status)} />}
-              <TripRequestWarningBadge request={order?.tripRequest} onOpen={() => openSection("trip")} />
+              <TripRequestWarningBadge request={order?.tripRequest} onOpen={() => setActiveTab("trip")} />
             </>
           ) : undefined
         }
         commands={commands}
+        tabs={tabs}
+        activeTab={activeTab}
+        onActiveTabChange={(value) => setActiveTab(value as MainTab)}
         isDirty={isDirty}
         isBusy={isBusy}
         onClose={() => closeRecord(mode === "order" ? "TransportOrder" : "TransportOrderTemplate")}
-      >
-        <div className="flex flex-col gap-4" data-slot="order-body">
-          {conflict && (
-            <Alert variant="warning" data-slot="order-conflict">
-              <TriangleAlert aria-hidden="true" />
-              <AlertDescription>
-                <p>{t("Orders:OrderChangedByOtherBanner")}</p>
-                {saveReport && <p data-slot="save-report">{reportText(saveReport)}</p>}
-                <div className="mt-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => setConflict("prompt")}>
-                    <RefreshCw /> {t("Orders:Reload")}
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          {serverError && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                <p>{serverError}</p>
-                {saveReport && <p data-slot="save-report">{reportText(saveReport)}</p>}
-              </AlertDescription>
-            </Alert>
-          )}
-          <OrderHeader form={form} mode={mode} numbered={!!order?.number} type={type.data} stored={mode === "order" && !isNew} autoFocusCustomer={isNew} />
-          <FreightItems
-            form={form}
-            mode={mode}
-            type={type.data}
-            orderId={storedId}
-            legsCreated={legsCreated}
-            legs={legs.data}
-            rateLines={rateLines.data}
-            preview={preview}
-            canEditRateLines={can.rateLines && editableStatus}
-            selectedKey={selectedKey}
-            onSelect={setSelectedKey}
-            tab={itemTab}
-            onTabChange={setItemTab}
-          />
-          {mode === "order" && !isNew && <OrderTotals rateLines={rateLines.data} lineIds={storedLineIds} currency={form.values.terms.currencyCode} preview={preview} />}
-          {mode === "template" && <ScheduleSection form={form} open={sections.schedule} onOpenChange={(next) => openSection("schedule", next)} />}
-          <FinancialTermsSection form={form} mode={mode} order={order} rateLines={rateLines.data} canEditRateLines={can.rateLines && editableStatus} open={sections.terms} onOpenChange={(next) => openSection("terms", next)} />
-          <TripRequestSection form={form} mode={mode} order={order} open={sections.trip} onOpenChange={(next) => openSection("trip", next)} />
-          <ReferencesSection form={form} open={sections.references} onOpenChange={(next) => openSection("references", next)} />
-          {mode === "order" && !isNew && (
-            <DocumentsTab orderId={order?.id} collapsible onPrint={can.print && (order?.lines ?? []).length > 0 ? () => void saveIfDirty().then((ok) => ok && setDialog("print")) : undefined} />
-          )}
-          <RecordIdentificationTab collapsible id={order?.id ?? template?.id} creationTime={order?.creationTime ?? template?.creationTime} lastModificationTime={order?.lastModificationTime ?? template?.lastModificationTime} />
-        </div>
-      </RecordPage>
+      />
       {order?.id && (
         <>
           <ConfirmDialog
