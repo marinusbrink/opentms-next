@@ -164,7 +164,7 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     if (!(props.value && props.value.id === item.id)) props.onChange(item);
   };
 
-  /* A keystroke that came before the results of its term (design 61 "Order page, revised" 3, keyboard first): it
+  /* A keystroke that came before the results of its term (design 61 "Order page, legacy tab structure" 3, keyboard first): it
    * waits for them through the same query the list uses. A later keystroke in this control supersedes it. */
   const keystroke = useRef(0);
   const settleLater = (typed: string, key: "Enter" | "Tab") => {

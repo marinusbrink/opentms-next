@@ -30,9 +30,9 @@ import { parseNumber } from "@/lib/forms/use-form-state";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The stored rate lines on the order page (design 61 "Order page, revised" 2 and 6): one grid for a freight item's
- * lines (its Pricing tab) and one for the order-level lines (Financial terms: manual, additional service, fixed price,
- * D&S), with the kind badge and its provenance tooltip, quantity, unit price and amount. A calculated line's unit
+/* The stored rate lines on the order page (design 61 "Order page, legacy tab structure" 4, 5 and 6): one grid for a freight item's
+ * lines (its Pricing tab in Edit freight item) and one for the order-level lines (the Financial tab: manual, fixed
+ * price, D&S; the Additional services tab of General: additional services), with the kind badge and its provenance tooltip, quantity, unit price and amount. A calculated line's unit
  * price is adjusted inline and a manual line removed with the trash icon; each is its own command on the server
  * (design 57), run at once: these are stored lines, not form state. Reads never calculate (AD-07). */
 
@@ -136,7 +136,8 @@ export interface RateLineDialogProps {
 }
 
 /** Add manual line / Add additional service / Set fixed price: one action dialog (UI-DLG-002, UI-ACT-003, UI-KEY-001).
- * Opened from a freight item's Pricing tab the line belongs to that item; from Financial terms to the order. */
+ * Opened from a freight item's Pricing tab the line belongs to that item; from the Financial or Additional services
+ * tab to the order. */
 export function RateLineDialog({ kind, orderId, orderLineId, currency, onClose }: RateLineDialogProps) {
   const { t } = useL();
   const add = useAddManualRateLine();

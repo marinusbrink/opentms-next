@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { pricePreviewRequestOf, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import { previewPrices, type PricePreviewDto } from "@/domains/orders/transport-orders";
 
-/* The price preview of an unsaved change (pricing §4.3; design 61 "Order page, revised": it applies per freight item
+/* The price preview of an unsaved change (pricing §4.3; design 61 "Order page, legacy tab structure" 4 and 6: it applies per freight item
  * and to the totals): debounced, pure, never stored, and replaced by the stored lines after the save. Only a
  * priceable input is previewed (finding 1): every item has a transport unit and two stops with a relation and an
  * address. Below that, or when the server cannot price it, the page shows a quiet note: never a toast. */

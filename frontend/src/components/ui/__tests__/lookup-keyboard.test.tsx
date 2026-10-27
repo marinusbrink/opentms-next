@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 
-/* Keyboard-first picking (design 61 "Order page, revised" 3, fast entry; UI-KEY-004, UI-LOOK-004) against the real
+/* Keyboard-first picking (design 61 "Order page, legacy tab structure" 3, freight item entry; UI-KEY-004, UI-LOOK-004) against the real
  * Base UI pickers, with the server's answer arriving after the keystrokes as it does in the browser: the first match
  * is highlighted once the results arrive, Enter selects it, Enter waits for results still on their way (and then
  * selects the exact code/name match), Enter opens "Add new …" only for a settled empty result, Tab commits the

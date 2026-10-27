@@ -473,7 +473,7 @@ export function relationLookupPage(
   };
 }
 
-/** The addresses of one relation as a query (the pickers' list, and the default address the order page's fast entry
+/** The addresses of one relation as a query (the pickers' list, and the default address the order page's freight item entry
  *  takes without a picker: `queryClient.fetchQuery(relationAddressesQuery(id))`). */
 export function relationAddressesQuery(id: string | undefined) {
   return {

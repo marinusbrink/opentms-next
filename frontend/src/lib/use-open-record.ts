@@ -65,7 +65,7 @@ export interface OpenRecordOptions {
   omitSearch?: string[];
 }
 
-/** The id a record route takes for a record that does not exist yet (design 61 "Order page, revised" 5: New opens
+/** The id a record route takes for a record that does not exist yet (design 61 "Order page, legacy tab structure" 9: New opens
  * the page directly, `/transport/orders/new`); Save creates the record and the route moves to its id. */
 export const NEW_RECORD_ID = "new";
 

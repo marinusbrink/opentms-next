@@ -18,7 +18,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * clearable, required ones are not (UI-LOOK-006). Over records, `onCreateNew` adds the "Add new …"
  * row of UI-LOOK-004 with the typed text, the same row as EntityLookup's: the list's last option.
  *
- * Keyboard (design 61 "Order page, revised" 3, keyboard first): typing highlights the first match, Enter selects it,
+ * Keyboard (design 61 "Order page, legacy tab structure" 3, keyboard first): typing highlights the first match, Enter selects it,
  * Enter on a term nothing matches opens "Add new …" (then the only option), ArrowDown reaches "Add new …", Tab commits
  * the highlighted match and moves on (UI-KEY-004), Escape closes the list and never clears the value. */
 export interface ReferenceOption {

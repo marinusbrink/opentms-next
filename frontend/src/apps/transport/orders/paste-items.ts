@@ -3,8 +3,8 @@ import { parseDateInput } from "@/lib/format";
 import { numberError } from "@/lib/forms/use-form-state";
 import type { EditorMode } from "@/apps/transport/orders/order-form";
 
-/* Paste from Excel on the order page (design 61 "Order page, revised" 3): rows copied from a spreadsheet arrive as
- * tab-separated text, one row per line, the columns in the fast entry row's order (From, To, Date, Time, Transport
+/* Paste from Excel on the order page (design 61 "Order page, legacy tab structure" 3): rows copied from a spreadsheet arrive as
+ * tab-separated text, one row per line, the columns in this order (From, To, Date, Time, Transport
  * unit, Quantity, Weight, Reference; a template's Date column is the day offset). A date cell may carry the time
  * ("26-10-2026 08:00"); it is used when the Time cell is empty. Relations and units are matched on code or name
  * (exact, case-insensitive); a cell without exactly one match is marked in the preview and stays empty in the item. */

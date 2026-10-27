@@ -159,7 +159,7 @@ describe("OrdersView – command bar (UI-ACT-001, UI-PERM-002)", () => {
     await screen.findByTestId("mock-grid");
     await waitFor(() => expect(barButton("Express")).toBeInTheDocument());
     expect(barButton("Standard")).toBeInTheDocument();
-    /* New opens the order page directly (design 61 "Order page, revised" 5), keeping the list's filter; per type with it. */
+    /* New opens the order page directly (design 61 "Order page, legacy tab structure" 9), keeping the list's filter; per type with it. */
     fireEvent.click(barButton("Express"));
     const perType = navigateMock.mock.calls.at(-1)![0] as { to: string; search: (previous: Record<string, unknown>) => Record<string, unknown> };
     expect(perType.to).toBe("/transport/orders/new");

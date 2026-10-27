@@ -20,9 +20,9 @@ export interface OrderPageProps {
   typeId?: string;
 }
 
-/* Design 61, "Order page, revised": the record page of a transport order (/transport/orders/{id}, Assumption 1), with
+/* Design 61, "Order page, legacy tab structure": the record page of a transport order (/transport/orders/{id}, Assumption 1), with
  * the page states of UI-PAGE-005 (skeleton, not found, error, permission denied, feature off) around the OrderEditor.
- * `/transport/orders/new` is the same page without a record (5: New opens the page directly): the default type (or
+ * `/transport/orders/new` is the same page without a record (9: New opens the page directly): the default type (or
  * the one "New per type" names), today, the cursor in Customer. Both render the OrderEditor at the same place, so
  * after the first Save the editor stays as it is while the route moves to the new id. */
 export function OrderPage({ id, typeId }: OrderPageProps) {

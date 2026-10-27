@@ -5,7 +5,7 @@ import type { TransportOrderFinancialTermsInputDto } from "@/domains/orders/tran
  * The customer's financial defaults as the order's terms (revenue side), as the server copies them (design 58, build
  * note 7; Financial's RelationFinancialSettings): the revenue lists in position order and, given the order date, only
  * the default discounts or surcharges valid on it. The order page copies them when the customer of a new order is
- * chosen, and asks before it does on a stored one (design 61 "Order page, revised" 5: the rule is unchanged).
+ * chosen, and asks before it does on a stored one (design 61 "Order page, legacy tab structure" 6: the rule is unchanged).
  */
 export function termsFromDefaults(defaults: Awaited<ReturnType<typeof fetchRelationFinancialDefaults>>, asOf?: string | null): TransportOrderFinancialTermsInputDto | undefined {
   if (!defaults) return undefined;

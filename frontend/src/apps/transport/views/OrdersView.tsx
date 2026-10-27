@@ -171,7 +171,7 @@ export function OrdersView({ filter }: OrdersViewProps) {
   const commands: AppCommandBarCommand[] = [
     ...(canCreate
       ? [
-          /* New opens the order page directly (design 61 "Order page, revised" 5); New per type names the type. */
+          /* New opens the order page directly (design 61 "Order page, legacy tab structure" 9); New per type names the type. */
           { id: "new", labelKey: "Orders:NewTransportOrder", icon: Plus, isPrimary: true, onClick: () => openNewRecord("TransportOrder", { type: undefined }) },
           ...((types.data ?? []).length > 1 ? (types.data ?? []).map((type) => ({ id: `new-${type.id}`, labelKey: type.name ?? type.code ?? "", icon: Plus, onClick: () => openNewRecord("TransportOrder", { type: type.id }) })) : []),
           ...(canTemplates ? [{ id: "from-template", labelKey: "Orders:NewFromTemplate", icon: LayoutTemplate, onClick: () => setDialog("template") }] : []),

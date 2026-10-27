@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { checkRow, looksLikeRows, matchByCodeOrName, parseDateCell, parsePastedRows, problemCells } from "@/apps/transport/orders/paste-items";
 
-/* Paste from Excel on the order page (design 61 "Order page, revised" 3): tab-separated rows in the fast entry row's
+/* Paste from Excel on the order page (design 61 "Order page, legacy tab structure" 3): tab-separated rows in the paste
  * column order, relations and units matched on code or name, unmatched cells marked. Risk class: Medium. */
 
 describe("parsePastedRows / looksLikeRows", () => {

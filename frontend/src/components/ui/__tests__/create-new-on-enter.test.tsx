@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 
-/* UI-LOOK-004 from the keyboard (design 61 "Order page, revised" 3: in the fast entry row an unknown relation or unit
+/* UI-LOOK-004 from the keyboard (design 61 "Order page, legacy tab structure" 3: in the freight item entry an unknown relation or unit
  * offers "Add new …" from the keyboard): Enter on a typed term with no match opens the create path with that term,
  * as a click on the row does; with a match (or without onCreateNew) Enter keeps its normal meaning and creates
  * nothing. The real Base UI components run here. Risk class: Medium. */

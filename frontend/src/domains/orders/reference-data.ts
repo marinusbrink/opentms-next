@@ -79,8 +79,8 @@ export const timeSlots = createReferenceDataHooks<
   { includeArchived?: boolean }
 >("timeSlots", "/api/orders/time-slot");
 
-/** The active waypoint types with their activity (the lookup has none): the order page's fast entry falls back to the
- *  first Load and the first Unload type when the order type names no default waypoints (design 61 "Order page, revised"). */
+/** The active waypoint types with their activity (the lookup has none): the order page's stop strip falls back to the
+ *  first Load and the first Unload type when the order type names no default waypoints (design 61 "Order page, legacy tab structure" 3). */
 export function useWaypointTypeActivities(enabled = true) {
   return useQuery({
     queryKey: ["referenceData", "waypointTypes", "activities"],
