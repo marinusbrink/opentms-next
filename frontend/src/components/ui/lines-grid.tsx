@@ -35,6 +35,10 @@ export interface LinesGridProps<TRow> {
   /** Rows that may not be removed (design 48: a vehicle's characteristics inherited from its type) get no trash
    *  icon and are skipped by the context menu's Remove; absent → every row is removable. */
   canRemoveRow?: (row: TRow) => boolean;
+  /** Removal that asks first (design 61: a freight item is deleted after "Delete freight item {n}?"): the trash icon
+   *  and the context menu's Remove hand the removable rows here instead of removing them; the caller confirms and
+   *  then changes the rows itself. Absent → rows are removed at once (Close without saving undoes it). */
+  onRemoveRequest?: (rows: TRow[]) => void;
   /** A click on a row (a master list whose selected line shows its detail under the grid, design 61 "Order page,
    *  revised"); the click still starts the cell's inline edit. */
   onRowClick?: (row: TRow) => void;
@@ -55,6 +59,7 @@ export function LinesGrid<TRow>({
   readOnly = false,
   onOpen,
   canRemoveRow,
+  onRemoveRequest,
   onRowClick,
   emptyText,
   className,
@@ -78,11 +83,16 @@ export function LinesGrid<TRow>({
 
   const removeRows = useCallback(
     (targets: TRow[]) => {
-      const ids = new Set(targets.filter((row) => !canRemoveRow || canRemoveRow(row)).map(getRowId));
-      if (ids.size === 0) return;
+      const removable = targets.filter((row) => !canRemoveRow || canRemoveRow(row));
+      if (removable.length === 0) return;
+      if (onRemoveRequest) {
+        onRemoveRequest(removable);
+        return;
+      }
+      const ids = new Set(removable.map(getRowId));
       onRowsChange(rows.filter((row) => !ids.has(getRowId(row))));
     },
-    [canRemoveRow, getRowId, onRowsChange, rows],
+    [canRemoveRow, getRowId, onRemoveRequest, onRowsChange, rows],
   );
 
   const removeLabel = t("Remove");

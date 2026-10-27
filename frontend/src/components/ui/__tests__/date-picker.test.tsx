@@ -119,6 +119,23 @@ describe("DatePicker", () => {
     expect(screen.getByRole("textbox")).toBeDisabled();
   });
 
+  it("the calendar button is no Tab stop: keyboard entry goes from the date to the next field (design 61, legacy tab structure 9)", () => {
+    render(
+      <>
+        <DatePicker id="d" value="2026-03-29" onChange={() => {}} required />
+        <input aria-label="Next field" />
+      </>,
+    );
+    const calendar = screen.getByRole("button", { name: "PickDate" });
+    expect(calendar).toHaveAttribute("tabindex", "-1");
+    /* What the browser's Tab order holds after the date: only elements without a negative tabindex. */
+    const tabbable = Array.from(document.querySelectorAll<HTMLElement>("input, button")).filter((el) => el.tabIndex >= 0 && !el.hasAttribute("disabled"));
+    expect(tabbable.map((el) => el.getAttribute("aria-label") ?? el.id)).toEqual(["d", "Next field"]);
+    /* The mouse still opens it. */
+    fireEvent.click(calendar);
+    expect(calendar).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("forwards the FormField's aria attributes to the input", () => {
     render(<DatePicker id="d" value={null} onChange={() => {}} aria-invalid aria-describedby="d-error" aria-required />);
     const input = screen.getByRole("textbox");

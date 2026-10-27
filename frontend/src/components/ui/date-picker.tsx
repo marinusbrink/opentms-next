@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 /* The library date picker (component map GAP-03, option (a); UI-FMT-002/003/004): a masked Input
  * typed in the culture's date format with the shadcn Calendar (react-day-picker) in a Popover as a
  * convenience. Typing is validated on blur; the value travels as `YYYY-MM-DD` without a time or a
- * timezone shift. Optional pickers clear with an X (UI-LOOK-006); required ones replace the value. */
+ * timezone shift. Optional pickers clear with an X (UI-LOOK-006); required ones replace the value. The calendar
+ * button is skipped by Tab, so keyboard entry moves from the date straight to the next field. */
 
 export interface DatePickerProps {
   id: string;
@@ -157,7 +158,9 @@ export function DatePicker({
           {calendar === "popover" && (
             <Tooltip>
               <TooltipTrigger
-                render={<PopoverTrigger render={<InputGroupButton size="icon-sm" aria-label={t("PickDate")} disabled={disabled} />} />}
+                /* Not a Tab stop (design 61 "Order page, legacy tab structure" 9): Tab goes from the date to the next
+                 * field; the calendar is a mouse convenience, the date is typed. */
+                render={<PopoverTrigger render={<InputGroupButton size="icon-sm" aria-label={t("PickDate")} disabled={disabled} tabIndex={-1} />} />}
               >
                 <CalendarDays aria-hidden="true" />
               </TooltipTrigger>

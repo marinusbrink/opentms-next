@@ -60,7 +60,7 @@ const ROWS: Row[] = [
 
 const columns: ColDef<Row>[] = [{ field: "name" }];
 
-function renderGrid(props: { canRemoveRow?: (row: Row) => boolean; readOnly?: boolean } = {}) {
+function renderGrid(props: { canRemoveRow?: (row: Row) => boolean; readOnly?: boolean; onRemoveRequest?: (rows: Row[]) => void } = {}) {
   const onRowsChange = vi.fn();
   render(<LinesGrid<Row> rows={ROWS} onRowsChange={onRowsChange} getRowId={(r) => r.id} columnDefs={columns} {...props} />);
   return onRowsChange;
@@ -126,5 +126,23 @@ describe("LinesGrid.canRemoveRow", () => {
     for (const row of ROWS) expect(trash(row.id)).toBeNull();
     expect(grid.props!.columnDefs).toHaveLength(1);
     expect(menu(ROWS[1])).toEqual([]);
+  });
+});
+
+describe("LinesGrid.onRemoveRequest (removal that asks first, design 61: Delete freight item {n}?)", () => {
+  it("the trash icon hands the row to the caller and removes nothing itself", () => {
+    const onRemoveRequest = vi.fn();
+    const onRowsChange = renderGrid({ onRemoveRequest });
+    fireEvent.click(trash("cool")!);
+    expect(onRemoveRequest).toHaveBeenCalledWith([ROWS[1]]);
+    expect(onRowsChange).not.toHaveBeenCalled();
+  });
+
+  it("the context menu's Remove hands over only the removable rows of the selection", () => {
+    const onRemoveRequest = vi.fn();
+    const onRowsChange = renderGrid({ onRemoveRequest, canRemoveRow: (row) => !row.inherited });
+    menu(ROWS[0], ROWS)[0].action();
+    expect(onRemoveRequest).toHaveBeenCalledWith([ROWS[1], ROWS[2]]);
+    expect(onRowsChange).not.toHaveBeenCalled();
   });
 });
