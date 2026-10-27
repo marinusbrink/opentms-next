@@ -45,52 +45,77 @@ from template, Copy, Print CMR, Approve (validate dialog), Cancel, Delete, Expor
 Cancel, Delete. Double-click opens the editor (`useOpenRecord`: route `/transport/orders/{id}`, so a record is a URL).
 Derived columns show `CalculatingIndicator` while pending.
 
-### Order page, revised (PO decision 2026-10-26, replaces "Order editor" below)
+### Order page, legacy tab structure (PO decisions 2026-10-26 and 2026-10-27, replaces "Order editor" below)
 
 The PO judged the first order page less usable than the legacy screen: the order → freight item hierarchy was split over
 order-wide tabs (Lines, Pricing, Planning), the order-level stop pattern made no sense once an order's legs can go to
-different trips, and entry was too slow for manual data entry. Binding from now on (the backend and the data model stay;
-"line" in the API is "freight item" on screen):
+different trips, and entry was too slow for manual data entry (2026-10-26). A one-page variant without tabs was then
+rejected ("the tabs are gone, look at the original again", 2026-10-27). The page follows the legacy screen's tab
+structure (`docs/input/transport-assessment/screens.md` §"Tabs, in order") with the improvements below. The backend and
+the data model stay; "line" in the API is "freight item" on screen. Binding:
 
-1. **One page, no top-level tabs for the order's content.** From top to bottom: the header (number, status, ribbon;
-   customer, order type, order date, customer reference, contact, organisation unit, remarks behind a disclosure),
-   **Freight items**, **Totals**, then the order-level sections Financial terms, Tevens trip, References and
-   attributes, Documents, Record identification (collapsible `FormSection`s, not tabs).
-2. **Freight items** is a list (`LinesGrid`): position, from → to (first and last stop: relation, city), date/time,
-   transport unit, quantity, weight, reference, price (the item's stored rate-line total with `CalculatingIndicator`),
-   trip (number link when its legs are on a trip). Selecting an item shows its detail **inline under the list** with
-   three tabs of its own:
-   - **Freight details**: cargo and quantities first (unit, quantity, positions, colli, weight, volume, loading
-     metres, EPQ, load factor, product, product relation code, vehicle type, temperature, required characteristics,
-     payment instruction, barcode), then collapsible Container, Measurements, Texts and documents, Attributes.
-   - **Stops and legs**: the item's stops (waypoint type, relation + address (default address preselected), contact,
-     date, time slot or window, duration, reference, remarks; add, remove, move) and below them the item's **legs**
-     generated from the stops (origin → destination, dates, distance, CO₂, trip link, allocated cost/revenue;
-     editable leg fields and the leg operations as before). Before Confirm the legs part says they are created on
-     Confirm.
-   - **Pricing**: the item's rate lines (kind badge, provenance, quantity, unit price, amount; add manual line,
-     adjust unit price, remove manual) and the item total; the unsaved-change preview applies per item.
-3. **Fast entry row** under the list (keyboard first): From (relation), To (relation), date/time, transport unit,
-   quantity, weight, reference. The relation's default (or only) address is taken; From/To get the order type's first
-   and last default waypoint type (Load/Unload); Tab moves on, **Enter adds the item** and keeps From, date and unit for
-   the next one; an unknown relation or unit offers "Add new …" from the keyboard. Extra stops, cargo and container are
-   edited in the item's detail. **Paste**: rows copied from Excel (tab-separated, columns in the entry row's order;
-   relations and units matched on code or name) become items after a preview that marks unmatched cells.
-4. **No stop pattern on the order.** Stops exist only per freight item. The order type's default waypoints only
-   default the activities of a new item (entry row); the template keeps its stops per item as day offsets.
-5. **New order opens the page directly** (no New dialog): order type = the default type, order date = today, focus on
-   Customer; the financial defaults are copied when the customer is chosen (unchanged rule). Shortcuts: Ctrl/⌘+S
-   save, Ctrl/⌘+Enter confirm (Draft), Esc closes the item detail.
-6. **Totals** (read-only): freight items, order-level lines (fixed price, additional services, D&S), total, with
-   `CalculatingIndicator`; the order-level rate lines (manual, additional service, fixed price, D&S) are managed in
-   the Financial terms section.
-7. **Tevens trip** (order-level section): as before, plus **which freight items go on the trip** (checkbox per item,
-   default all; backend `tripRequest.lineIds`, null = all). Only the legs of the chosen items are put on the trip on
-   Confirm; the other legs stay unplanned for the Planboard. The trip's stops follow from its legs.
+1. **Main tabs** (UI-FORM-008, end-aligned, directly under the command bar): **General**, **Financial**, **Tevens
+   trip**, **Schedule** (template only), then the standard icon tabs **Documents** (`Paperclip`; CMR prints, order only,
+   once stored), **Remarks** (`MessageSquareText`; the order's dated remarks such as revision reasons, read-only) and
+   **Record identification** (`Fingerprint`). Invoices and Callbacks of the legacy screen are out of scope. A tab that
+   holds a validation error is marked; a failed submit opens the first such tab (UI-FORM-006/007).
+2. **General**: the order header on top (number (read-only), order date, organisation unit, order type (locked once
+   numbered), customer (required, "Add new…"), contact, customer reference; template: name instead of number and date),
+   then **nested tabs** (start-aligned, text only, one level): **Freight items**, **Additional services**, **Remarks
+   for the planner** (`internalRemarks`), **Other references** (`references`: type, reference, description; add and
+   remove rows), **Custom fields** (`attributes`; only when the order type defines them).
+3. **Freight items** works like the legacy entry, top to bottom:
+   - a **stop strip for the new freight item**: one row per stop with activity (waypoint type), relation + address (the
+     default or only address preselected, "Add new…"), contact, date, time slot, reference, remarks; at least 2 stops,
+     **+** adds a stop, **−** removes one (never below 2). The strip starts with the order type's default waypoints
+     (number and activities; Load / Unload when the type defines none). The strip belongs to the item being entered,
+     not to the order (no order stop pattern, point 7).
+   - the **freight fields** of the new item in one row (transport unit, quantity, product, positions, colli, weight,
+     loading metres, volume; visible and required per the order type where the type configures it) and **Add**.
+     **Enter adds the item** (when no list is open), keyboard first: Tab moves on, every picker offers "Add new…" from
+     the keyboard (UI-LOOK-004). The new item gets a copy of the strip's stops. After Add the strip keeps its stops
+     (the next item often shares them), the freight fields clear except the transport unit, and focus returns to the
+     last stop's relation. **Paste from Excel** next to Add (tab-separated rows: from relation, to relation, date,
+     transport unit, quantity, weight, reference; relations and units matched on code or name; a preview marks
+     unmatched cells).
+   - the **freight items grid** (`LinesGrid`): position, from → to (first and last stop: relation, city), date, transport
+     unit, quantity, positions, weight, loading metres, reference, price (the item's stored rate-line total with
+     `CalculatingIndicator`), trip (number link when the item's legs are on a trip); footer: the freight items total.
+     Double-click, Enter or the pencil opens **Edit freight item**; Delete asks "Delete freight item {n}?".
+4. **Edit freight item** (`EntityDialog` size `full`, tabs of its own; the order → freight item → legs and pricing
+   hierarchy lives here):
+   - **Freight details**: cargo and quantities (unit, quantity, positions, colli, weight, volume, loading metres, EPQ,
+     load factor, product, product relation code, vehicle type, temperature, required characteristics, payment
+     instruction, barcode), then nested tabs Container, Measurements, Texts and documents, Custom fields.
+   - **Stops and legs**: the item's stops (the same row editor as the strip; add, remove, move) and below them the
+     item's **legs** generated from the stops (origin → destination, dates, distance, CO₂, trip link, allocated
+     cost/revenue; the editable leg fields and leg operations as before). Before Confirm the legs part says they are
+     created on Confirm.
+   - **Pricing**: the item's rate lines (kind badge, provenance, quantity, unit price, amount; add manual line, adjust
+     unit price, remove manual) and the item total; an unsaved change shows the price preview.
+   The dialog edits the item in the order's form: **Apply** keeps the changes, Cancel restores the item as it was when
+   the dialog opened, and the order's Save stores them. Rate-line actions act on the stored item, as before.
+5. **Additional services** (nested tab of General): the order-level rate lines of kind additional service, with Add
+   additional service (picks from the additional-services list, fills ledger account, cost centre and unit price) and
+   Remove; available once the order is stored (before that the tab says so).
+6. **Financial** (legacy blocks): **Price calculation** (fixed price vs priced per freight item, the price lists,
+   "apply only the highest rate on multiple matches"), **Revenue overview** (read-only: fixed price, freight items,
+   additional services, discounts or surcharges, total revenue, with `CalculatingIndicator`), **Invoicing** (currency,
+   VAT, discounts or surcharges with the defaults marked, payment term, freight documents with the invoice), **Remarks
+   for invoicing** (`invoicingRemarks`), and the order-level manual lines and the fixed price with their actions. The
+   financial defaults are copied when the customer is chosen (unchanged rule).
+7. **No stop pattern on the order.** Stops exist only per freight item. The order type's default waypoints only seed
+   the stop strip; the template keeps its stops per item as day offsets.
+8. **Tevens trip** (main tab): as before, plus **which freight items go on the trip** (checkbox per item, default all;
+   backend `tripRequest.lineIds`, null = all). Only the legs of the chosen items are put on the trip on Confirm; the
+   other legs stay unplanned for the Planboard.
+9. **New order opens the page directly** (no New dialog): order type = the default type, order date = today, focus on
+   Customer. Shortcuts: Ctrl/⌘+S save, Ctrl/⌘+Enter confirm (Draft). A stop without a usable address names the stop in
+   its message ("Stop 2 (Unload): …"); a date field's calendar button is not a Tab stop.
 
 The section "Order editor" below is superseded by this one; templates use the same page in template mode.
 
-### Order editor (superseded, see "Order page, revised"; page with tabs, `useOpenRecord`; `EntityDialog size="xl"` for New)
+### Order editor (superseded, see "Order page, legacy tab structure"; page with tabs, `useOpenRecord`; `EntityDialog size="xl"` for New)
 
 Header: number or "New order", `StatusBadge`, ribbon per status (Save, Confirm (Draft), Approve ▾ (for invoicing /
 archive), Revise, Cancel, Print ▾ (CMR, confirmation later), Close) with an unsaved-changes guard.
