@@ -100,10 +100,12 @@ export function FreightItemEntry({ idPrefix, mode, orderDate, type, disabled, on
   const [freightErrors, setFreightErrors] = useState<Partial<Record<FreightEntryField, string>>>({});
   const id = (field: string) => `${idPrefix}-entry-${field}`;
 
-  /* The order type (its default waypoints) arrives or changes: an untouched strip starts again with its waypoints. */
+  /* The order type (its default waypoints) arrives or changes: an untouched strip starts again with its waypoints; a
+   * strip the user already typed in keeps its stops and only gets the activities it has none for yet. */
   const seed = JSON.stringify(waypoints.map((w) => w?.id ?? null));
   useEffect(() => {
     if (!edited.current) setStops(stripStopsOf(waypoints, stripDate), false);
+    else setStops(stopsRef.current.map((stop, index) => (stop.waypointTypeId || !waypoints[index] ? stop : { ...stop, waypointTypeId: waypoints[index]!.id, waypointTypeName: waypoints[index]!.name })), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed names the waypoints; the date follows below
   }, [seed]);
   /* The stops follow the order date until the user types a date of their own. */

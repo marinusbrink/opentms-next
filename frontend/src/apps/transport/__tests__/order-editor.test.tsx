@@ -386,6 +386,32 @@ describe("OrderPage – the entry of a new freight item (the stop strip, keyboar
     expect(stopField(0, "date").value).toBe("2026-10-25");
   });
 
+  it("a strip typed in before the order type arrived keeps its stops and gets the type's activities", async () => {
+    let release: () => void = () => undefined;
+    const typeLoaded = new Promise<void>((resolve) => (release = resolve));
+    const typeRoute = routes.GET["/api/orders/transport-order-type/{id}"];
+    GET.mockImplementation(async (path, init) => {
+      if (path === "/api/orders/transport-order-type/{id}") {
+        await typeLoaded;
+        return { data: typeRoute(init), error: undefined, response: new Response() };
+      }
+      const handler = routes.GET[path];
+      return { data: handler ? handler(init) : /\/(lookup|all|states|addresses)$/.test(path) ? [] : { rows: [], totalCount: 0, filteredCount: 0 }, error: undefined, response: new Response() };
+    });
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(stripRows()).toHaveLength(2));
+    fireEvent.change(stopField(0, "relation"), { target: { value: "rel-1" } });
+    expect(stopField(1, "activity").value).toBe("");
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(stopField(1, "activity").value).toBe("wp-unload"));
+    expect(stopField(0, "activity").value).toBe("wp-load");
+    expect(stopField(0, "relation").value).toBe("rel-1");
+  });
+
   it("Enter adds the item with a copy of the strip's stops (default addresses); the strip keeps them, the fields clear but the unit, the cursor goes to the last stop's relation", async () => {
     routes.PUT["/api/orders/transport-order/{id}/lines"] = () => order(2, { concurrencyStamp: "stamp-2" });
     renderPage();
@@ -433,7 +459,8 @@ describe("OrderPage – the entry of a new freight item (the stop strip, keyboar
   it("+ adds a stop to the strip and the item gets it; − is not offered below two stops", async () => {
     renderPage();
     await loaded();
-    await waitFor(() => expect(stripRows()).toHaveLength(2));
+    await waitFor(() => expect(stopField(1, "activity").value).toBe("wp-unload"));
+    expect(stripRows()).toHaveLength(2);
     for (const row of stripRows()) expect(within(row).getByRole("button", { name: "Orders:RemoveStop" })).toBeDisabled();
     fireEvent.click(within(stripRows()[1]).getByRole("button", { name: "Orders:AddStop" }));
     expect(stripRows()).toHaveLength(3);
