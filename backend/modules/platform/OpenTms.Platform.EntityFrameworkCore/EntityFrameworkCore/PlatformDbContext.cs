@@ -9,6 +9,7 @@ using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
 using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReportDefinitions;
+using OpenTms.Platform.SignIn;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.DistributedEvents;
@@ -50,6 +51,13 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// (docs/designs/tenants-and-editions.md, "Shared data-protection keys").
     /// </summary>
     public DbSet<DataProtectionKeyRecord> DataProtectionKeys { get; set; } = default!;
+
+    /// <summary>
+    /// The sign-in lookup: platform."UserSignInLookups", hashed e-mail addresses to the user's tenant,
+    /// written and read in the host database only (tenant databases keep the table empty;
+    /// docs/designs/62-sign-in-tenant-detection.md).
+    /// </summary>
+    public DbSet<UserSignInLookup> UserSignInLookups { get; set; } = default!;
 
     // Platform master data (docs/designs/54-platform-master-data.md)
     public DbSet<EmailTemplate> EmailTemplates { get; set; } = default!;
@@ -143,6 +151,17 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.ConfigureByConvention();
             b.Property(k => k.FriendlyName).HasMaxLength(DataProtectionKeyRecord.MaxFriendlyNameLength);
             b.Property(k => k.Xml).IsRequired();
+        });
+
+        builder.Entity<UserSignInLookup>(b =>
+        {
+            b.ToTable("UserSignInLookups", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(l => l.Id).ValueGeneratedNever();
+            b.Property(l => l.EmailHash).IsRequired().HasMaxLength(UserSignInLookup.HashLength);
+            /* The sign-in page looks a typed address up; the rebuild replaces a tenant's rows. */
+            b.HasIndex(l => l.EmailHash);
+            b.HasIndex(l => l.UserTenantId);
         });
 
         builder.Entity<NumberSequenceCounter>(b =>

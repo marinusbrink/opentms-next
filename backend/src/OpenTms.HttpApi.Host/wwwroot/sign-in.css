@@ -1,0 +1,511 @@
+/* The account pages (sign-in, forgotten password) of the auth server (docs/designs/62-sign-in-tenant-detection.md,
+ * "Sign-in page"). They run before any tenant is known, so they carry the product's own look: the SPA's font (Geist,
+ * self-hosted) and colours (frontend/src/styles/opentms-theme.css: --brand #0F6CBD; the near-black primary button of
+ * index.css); the logo is FiLogic orange. A sign-in for the API (Swagger UI) is a page of its own, see "API". The photo fills the screen; the brand sits bottom left on its dark tree line, the card on the right one. */
+
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/geist/geist-latin-wght-normal.woff2") format("woff2-variations");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+        U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("/fonts/geist/geist-latin-ext-wght-normal.woff2") format("woff2-variations");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+        U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+.ots-signin {
+    --ots-brand: #0F6CBD;
+    --ots-filogic: #FBA91A;
+    --ots-logo-next: var(--ots-filogic);
+    --ots-ink: #14212B;
+    --ots-muted: #5B6B78;
+    --ots-line: #D3DCE3;
+    --ots-field: #F6F8FA;
+    --ots-primary: oklch(0.205 0 0);
+    --ots-primary-hover: oklch(0.32 0 0);
+    --ots-night: 8 14 20;
+    --ots-radius: 10px;
+
+    margin: 0;
+    min-height: 100dvh;
+    font-family: "Geist", "Segoe UI", system-ui, sans-serif;
+    color: var(--ots-ink);
+    background: #0B1219 url("/images/sign-in/background.jpg") center 62% / cover no-repeat;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.ots-shell {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 100dvh;
+    padding: 2rem clamp(1.5rem, 7vw, 7.5rem) 2rem clamp(1.5rem, 5vw, 5rem);
+    /* Darker towards the brand corner and the card, the road in the middle stays bright. */
+    background:
+        linear-gradient(0deg, rgb(var(--ots-night) / 0.62) 0%, rgb(var(--ots-night) / 0) 45%),
+        linear-gradient(90deg, rgb(var(--ots-night) / 0.35) 0%, rgb(var(--ots-night) / 0) 40%, rgb(var(--ots-night) / 0) 60%, rgb(var(--ots-night) / 0.4) 100%);
+}
+
+.ots-brand {
+    align-self: end;
+    max-width: 30rem;
+    padding-bottom: 1rem;
+    color: #FFFFFF;
+}
+
+.ots-brand .ots-logo {
+    display: block;
+    width: 18rem;
+    height: auto;
+}
+
+.ots-tagline {
+    margin: 1rem 0 0;
+    font-size: 1.125rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: rgb(255 255 255 / 0.86);
+}
+
+/* ---------------------------------------------------------------- card */
+
+.ots-card {
+    width: 26.5rem;
+    max-width: 100%;
+    padding: 2.25rem 2.5rem 2.5rem;
+    /* Slightly see-through on the photo; the blur keeps the form calm to read. */
+    background: rgb(255 255 255 / 0.9);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border-radius: 16px;
+    box-shadow: 0 24px 60px -12px rgb(var(--ots-night) / 0.55), 0 2px 8px rgb(var(--ots-night) / 0.18);
+    animation: ots-card-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes ots-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ots-card {
+        animation: none;
+    }
+}
+
+.ots-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.ots-languages {
+    margin-left: auto;
+    font-size: 0.8125rem;
+    color: var(--ots-muted);
+}
+
+.ots-languages a {
+    color: var(--ots-muted);
+    text-decoration: none;
+}
+
+.ots-languages a:hover {
+    color: var(--ots-brand);
+}
+
+.ots-languages strong {
+    font-weight: 600;
+    color: var(--ots-ink);
+}
+
+/* ABP's own account pages bring a Bootstrap card of their own; inside ours it is just content. */
+.ots-card .card {
+    border: 0;
+    box-shadow: none !important;
+    background: transparent;
+    margin: 0 !important;
+}
+
+.ots-card .card-body {
+    padding: 0 !important;
+}
+
+/* ---------------------------------------------------------------- content */
+
+.ots-card h4,
+.ots-title {
+    margin: 0 0 0.25rem;
+    font-size: 1.625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ots-ink);
+}
+
+.ots-card h5 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--ots-ink);
+}
+
+.ots-card .text-muted,
+.ots-card .form-text {
+    color: var(--ots-muted) !important;
+}
+
+.ots-card .form-label {
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ots-ink);
+}
+
+.ots-card .form-control {
+    height: 2.875rem;
+    padding: 0 0.875rem;
+    font-size: 1rem;
+    color: var(--ots-ink);
+    background: var(--ots-field);
+    border: 1px solid var(--ots-line);
+    border-radius: var(--ots-radius);
+    box-shadow: none;
+}
+
+.ots-card .form-control:focus {
+    background: #FFFFFF;
+    border-color: var(--ots-brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ots-brand) 22%, transparent);
+}
+
+.ots-card .input-group > .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.ots-card .input-group > .btn {
+    width: 2.875rem;
+    color: var(--ots-muted);
+    background: var(--ots-field);
+    border: 1px solid var(--ots-line);
+    border-left: 0;
+    border-radius: 0 var(--ots-radius) var(--ots-radius) 0;
+}
+
+.ots-card .input-group > .btn:hover {
+    color: var(--ots-ink);
+}
+
+.ots-card .form-check-input {
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.125rem;
+    border-color: var(--ots-line);
+}
+
+.ots-card .form-check-input:checked {
+    background-color: var(--ots-brand);
+    border-color: var(--ots-brand);
+}
+
+.ots-card .form-check-label {
+    font-size: 0.9375rem;
+    color: var(--ots-ink);
+}
+
+.ots-card .btn-primary {
+    height: 2.875rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #FFFFFF;
+    background: var(--ots-primary);
+    border: 0;
+    border-radius: var(--ots-radius);
+}
+
+.ots-card .btn-primary:hover,
+.ots-card .btn-primary:focus-visible {
+    background: var(--ots-primary-hover);
+}
+
+.ots-card .btn-primary:focus-visible,
+.ots-card a:focus-visible,
+.ots-languages a:focus-visible {
+    outline: 2px solid var(--ots-brand);
+    outline-offset: 2px;
+}
+
+.ots-card a {
+    color: var(--ots-brand);
+    text-decoration: none;
+}
+
+.ots-card a:hover {
+    text-decoration: underline;
+}
+
+.ots-card .form-text.text-success {
+    color: #1E7B4F !important;
+}
+
+/* ABP's page alerts, quieter: a tinted line instead of a bordered Bootstrap block. */
+.ots-card .alert {
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 2.75rem 0.75rem 0.875rem;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    border: 0;
+    border-radius: var(--ots-radius);
+}
+
+.ots-card .alert-danger {
+    color: #8A1C1C;
+    background: #FBEAEA;
+}
+
+.ots-card .alert-warning {
+    color: #7A4A04;
+    background: #FDF3E1;
+}
+
+.ots-card .alert .btn-close {
+    padding: 0.95rem 0.875rem;
+    font-size: 0.625rem;
+}
+
+.ots-account {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--ots-field);
+    border-radius: 999px;
+}
+
+.ots-account-email {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ots-account a {
+    flex: none;
+    font-size: 0.8125rem;
+}
+
+/* ---------------------------------------------------------------- API (Swagger UI) */
+
+/* Signing in for the API is a page of its own, never mistaken for the app's: no photo but a dark dotted field, the
+ * API's address and specification on the left, a dark card with FiLogic-orange accents on the right. */
+.ots-signin--api {
+    background:
+        radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.07) 1px, transparent 0) 0 0 / 24px 24px,
+        #0B141B;
+}
+
+.ots-shell--api {
+    grid-template-columns: minmax(0, 34rem) auto;
+    justify-content: center;
+    column-gap: clamp(2rem, 7vw, 7rem);
+    padding-inline: clamp(1.5rem, 5vw, 5rem);
+    background: none;
+}
+
+.ots-api-intro {
+    color: #E6EDF2;
+}
+
+.ots-api-intro .ots-logo {
+    display: block;
+    width: 13.5rem;
+    height: auto;
+    color: #FFFFFF;
+}
+
+.ots-api-heading {
+    margin: 2.5rem 0 0;
+    font-size: clamp(2.25rem, 4vw, 3.25rem);
+    font-weight: 650;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: #FFFFFF;
+}
+
+.ots-api-text {
+    max-width: 30rem;
+    margin: 1.25rem 0 0;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: #A9B6C1;
+}
+
+.ots-api-facts {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.625rem 1.25rem;
+    margin: 2.25rem 0 0;
+    padding: 1.125rem 1.25rem;
+    font-size: 0.875rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 12px;
+}
+
+.ots-api-facts dt {
+    font-weight: 500;
+    color: #A9B6C1;
+}
+
+.ots-api-facts dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ots-api-facts code {
+    font-size: 0.8125rem;
+    color: var(--ots-filogic);
+}
+
+.ots-api-facts a {
+    text-decoration: none;
+}
+
+.ots-api-facts a:hover code {
+    text-decoration: underline;
+}
+
+.ots-signin--api .ots-card {
+    --ots-ink: #F3F6F8;
+    --ots-muted: #A9B6C1;
+    --ots-line: rgb(255 255 255 / 0.16);
+    --ots-field: rgb(255 255 255 / 0.07);
+    --ots-brand: var(--ots-filogic);
+    background: #14212B;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    box-shadow: 0 24px 60px -12px rgb(0 0 0 / 0.6);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+/* The heading on the left already says what this is; the card's own title would repeat it. */
+.ots-signin--api .ots-card .ots-title {
+    display: none;
+}
+
+.ots-signin--api .ots-card .form-control:focus {
+    background: rgb(255 255 255 / 0.1);
+}
+
+.ots-signin--api .ots-card .btn-primary {
+    color: #14212B;
+    background: var(--ots-filogic);
+}
+
+.ots-signin--api .ots-card .btn-primary:hover,
+.ots-signin--api .ots-card .btn-primary:focus-visible {
+    background: #FFC04D;
+}
+
+.ots-signin--api .ots-card .input-group > .btn {
+    color: var(--ots-muted);
+}
+
+.ots-signin--api .ots-card .form-text.text-success {
+    color: #7DD3A8 !important;
+}
+
+/* ---------------------------------------------------------------- phone */
+
+@media (max-width: 767.98px) {
+    .ots-signin {
+        background: #FFFFFF;
+    }
+
+    .ots-shell {
+        display: block;
+        padding: 0;
+        background: none;
+    }
+
+    /* The photo becomes a band above the card, cropped on the road. */
+    .ots-brand {
+        display: flex;
+        align-items: flex-end;
+        max-width: none;
+        height: 32dvh;
+        min-height: 12rem;
+        padding: 1.25rem 1.25rem 2rem;
+        background:
+            linear-gradient(0deg, rgb(var(--ots-night) / 0.6) 0%, rgb(var(--ots-night) / 0) 70%),
+            #0B1219 url("/images/sign-in/background.jpg") 50% 78% / cover no-repeat;
+    }
+
+    .ots-brand .ots-logo {
+        width: 13rem;
+    }
+
+    .ots-tagline {
+        display: none;
+    }
+
+    .ots-card {
+        position: relative;
+        width: auto;
+        min-height: 70dvh;
+        margin-top: -1rem;
+        padding: 1.75rem 1.25rem 2rem;
+        border-radius: 20px 20px 0 0;
+        background: #FFFFFF;
+        box-shadow: none;
+    }
+
+    .ots-signin--api {
+        background: #0B141B;
+    }
+
+    .ots-api-intro {
+        padding: 1.75rem 1.25rem 1.5rem;
+    }
+
+    .ots-api-heading {
+        margin-top: 1.5rem;
+        font-size: 2rem;
+    }
+
+    .ots-api-facts {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.125rem;
+    }
+
+    .ots-api-facts dd + dt {
+        margin-top: 0.625rem;
+    }
+
+    .ots-signin--api .ots-card {
+        min-height: 0;
+        margin-top: 0;
+        border-width: 1px 0 0;
+        border-radius: 20px 20px 0 0;
+    }
+}

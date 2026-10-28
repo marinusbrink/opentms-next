@@ -137,12 +137,7 @@ public class ImpersonateModel : PageModel
     /// </summary>
     private const string LandingPath = "admin";
 
-    /// <summary>The SPA: the first allowed redirect URL (App:RedirectAllowedUrls), never a URL from the request.</summary>
-    private string SpaUrl()
-    {
-        var spa = _appUrlOptions.RedirectAllowedUrls.FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
-        return spa == null ? "/" : spa.Trim().TrimEnd('/') + "/";
-    }
+    private string SpaUrl() => OpenTms.SignIn.SpaUrl.Root(_appUrlOptions);
 
     /// <summary>Back to the SPA, which signs in again in the session it had and tells the user.</summary>
     private IActionResult Refuse(string reason)

@@ -1,0 +1,203 @@
+@using System.Globalization
+@using System.Net
+@using Microsoft.AspNetCore.Http.Extensions
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Options
+@using Volo.Abp.AspNetCore.Mvc.UI.Components.LayoutHook
+@using Volo.Abp.AspNetCore.Mvc.UI.Layout
+@using Volo.Abp.AspNetCore.Mvc.UI.MultiTenancy.Localization
+@using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Languages
+@using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Themes.LeptonXLite.Components.PageAlerts
+@using Volo.Abp.AspNetCore.Mvc.UI.Theming
+@using Volo.Abp.AspNetCore.Mvc.UI.Widgets.Components.WidgetScripts
+@using Volo.Abp.AspNetCore.Mvc.UI.Widgets.Components.WidgetStyles
+@using Volo.Abp.Localization
+@using Volo.Abp.MultiTenancy
+@using Volo.Abp.AspNetCore.MultiTenancy
+@using Volo.Abp.Ui.Branding
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper *, Volo.Abp.AspNetCore.Mvc.UI
+@addTagHelper *, Volo.Abp.AspNetCore.Mvc.UI.Bootstrap
+@addTagHelper *, Volo.Abp.AspNetCore.Mvc.UI.Bundling
+@inject IOptions<AbpThemingOptions> ThemingOptions
+@inject ThemeLanguageInfoProvider ThemeLanguageInfoProvider
+@inject ICurrentTenant CurrentTenant
+@inject IOptions<AbpMultiTenancyOptions> MultiTenancyOptions
+@inject ITenantResolveResultAccessor TenantResolveResultAccessor
+@inject IStringLocalizer<AbpUiMultiTenancyResource> MultiTenancyStringLocalizer
+@inject IPageLayout PageLayout
+@inject IBrandingProvider BrandingProvider
+@inject Volo.Abp.AspNetCore.Mvc.UI.Alerts.IAlertManager AlertManager
+@inject IStringLocalizer<OpenTms.Localization.OpenTmsResource> T
+@*
+    LeptonX Lite's account layout (Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite 5.6.0, Themes/LeptonXLite/Layouts/Account.cshtml)
+    restyled for OpenTMS NEXT (docs/designs/62-sign-in-tenant-detection.md, "Sign-in page"): the photo fills the screen,
+    the logo and tagline sit bottom left, and one card on the right holds the languages (one compact line), the alerts,
+    ABP's tenant switch on the account pages that still use it (forgotten password; the sign-in page never does) and
+    the page. A sign-in for the API (Swagger UI) is a page of its own: no photo, the API's address and specification on
+    the left, the card dark. Styles: wwwroot/sign-in.css. The head and the scripts are the theme's; keep them in step when
+    it is upgraded.
+*@
+@{
+    Layout = null;
+    var pageTitle = ViewBag.Title == null ? BrandingProvider.AppName : ViewBag.Title;
+    var logoUrl = BrandingProvider.LogoUrl == null
+        ? null
+        : "--lpx-logo: url(" + (BrandingProvider.LogoUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? BrandingProvider.LogoUrl : Url.Content(BrandingProvider.LogoUrl.EnsureStartsWith('~'))) + ");";
+    var languageInfo = await ThemeLanguageInfoProvider.GetLanguageSwitchViewComponentModelAsync();
+    var returnUrl = WebUtility.UrlEncode(Context.Request.GetEncodedPathAndQuery());
+    if (PageLayout.Content.Title != null)
+    {
+        if (!string.IsNullOrWhiteSpace(pageTitle))
+        {
+            pageTitle = " | " + pageTitle;
+        }
+        pageTitle = PageLayout.Content.Title + pageTitle;
+    }
+    var rtl = CultureHelper.IsRtl ? "rtl" : string.Empty;
+    /* The sign-in page marks a sign-in for the API (Swagger UI) so it looks unlike the SPA's (OpenTms.SignIn.SignInClient). */
+    var isApiSignIn = ViewData[OpenTms.SignIn.SignInClient.ViewDataKey] as string == OpenTms.SignIn.SignInClient.Api;
+    var hasTenantSwitch = MultiTenancyOptions.Value.IsEnabled
+        && (TenantResolveResultAccessor.Result?.AppliedResolvers?.Contains(CookieTenantResolveContributor.ContributorName) == true
+            || TenantResolveResultAccessor.Result?.AppliedResolvers?.Contains(QueryStringTenantResolveContributor.ContributorName) == true);
+}
+
+<!DOCTYPE html>
+
+<html lang="@CultureInfo.CurrentCulture.Name" dir="@rtl">
+
+<head>
+    @await Component.InvokeLayoutHookAsync("Header.First", "Account")
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    @if (!string.IsNullOrWhiteSpace(ThemingOptions.Value.BaseUrl))
+    {
+        <base href="@ThemingOptions.Value.BaseUrl" />
+    }
+
+    <title>@pageTitle</title>
+
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
+
+    <abp-style-bundle name="LeptonXLite.Global" />
+
+    @await Component.InvokeAsync(typeof(WidgetStylesViewComponent))
+
+    <link rel="stylesheet" href="~/sign-in.css" />
+
+    @await RenderSectionAsync("styles", false)
+
+    @await Component.InvokeLayoutHookAsync("Header.Last", "Account")
+
+    @if (logoUrl != null)
+    {
+        <style>
+            :root .abp-account-layout .lpx-brand-logo {
+                @logoUrl
+            }
+        </style>
+    }
+</head>
+
+<body class="abp-account-layout ots-signin @(isApiSignIn ? "ots-signin--api" : "") @rtl">
+    @await Component.InvokeLayoutHookAsync("Body.First", "Account")
+
+    <div class="ots-shell @(isApiSignIn ? "ots-shell--api" : "")">
+        @if (isApiSignIn)
+        {
+            /* The API's own page: no photo, a developer's view of where the token is for. */
+            var apiRoot = $"{Context.Request.Scheme}://{Context.Request.Host}";
+            <header class="ots-api-intro">
+                <partial name="~/Pages/Shared/_OpenTmsNextLogo.cshtml" />
+                <h1 class="ots-api-heading">@T["SignIn:ApiHeading"]</h1>
+                <p class="ots-api-text">@T["SignIn:ApiIntro"]</p>
+                <dl class="ots-api-facts">
+                    <dt>@T["SignIn:ApiBaseUrl"]</dt>
+                    <dd><code>@apiRoot/api</code></dd>
+                    <dt>@T["SignIn:ApiSpec"]</dt>
+                    <dd><a href="~/swagger/v1/swagger.json" target="_blank" rel="noopener"><code>@apiRoot/swagger/v1/swagger.json</code></a></dd>
+                </dl>
+            </header>
+        }
+        else
+        {
+            <header class="ots-brand">
+                <div>
+                    <partial name="~/Pages/Shared/_OpenTmsNextLogo.cshtml" />
+                    <p class="ots-tagline">@T["SignIn:Tagline"]</p>
+                </div>
+            </header>
+        }
+
+        <main class="ots-card">
+            @await Component.InvokeLayoutHookAsync("PageContent.First", "Account")
+
+            <div class="ots-card-top">
+                @if (languageInfo.Languages.Count > 1)
+                {
+                    <nav class="ots-languages" aria-label="@T["SignIn:Language"]">
+                        @foreach (var language in languageInfo.Languages)
+                        {
+                            var code = language.TwoLetterISOLanguageName.ToUpperInvariant();
+                            if (language.CultureName == languageInfo.CurrentLanguage.CultureName)
+                            {
+                                <strong aria-current="true" title="@language.DisplayName">@code</strong>
+                            }
+                            else
+                            {
+                                <a href="@Url.Content($"~/Abp/Languages/Switch?culture={language.CultureName}&uiCulture={language.UiCultureName}&returnUrl={returnUrl}")"
+                                   title="@language.DisplayName" lang="@language.CultureName">@code</a>
+                            }
+                            if (language != languageInfo.Languages.Last())
+                            {
+                                <span aria-hidden="true"> · </span>
+                            }
+                        }
+                    </nav>
+                }
+            </div>
+
+            @if (AlertManager.Alerts.Any())
+            {
+                @await Component.InvokeAsync(typeof(PageAlertsViewComponent))
+            }
+
+            @if (hasTenantSwitch)
+            {
+                <div class="ots-account mb-4">
+                    <div class="ots-account-email">
+                        <span class="text-muted">@MultiTenancyStringLocalizer["Tenant"]:</span>
+                        @if (!CurrentTenant.Id.HasValue)
+                        {
+                            <span>@MultiTenancyStringLocalizer["NotSelected"]</span>
+                        }
+                        else
+                        {
+                            <strong>@(CurrentTenant.Name ?? CurrentTenant.Id.Value.ToString())</strong>
+                        }
+                    </div>
+                    <a id="AbpTenantSwitchLink" href="javascript:;">@MultiTenancyStringLocalizer["Switch"]</a>
+                </div>
+            }
+
+            @RenderBody()
+
+            @await Component.InvokeLayoutHookAsync("PageContent.Last", "Account")
+        </main>
+    </div>
+
+    <abp-script-bundle name="LeptonXLite.Global" />
+    <script src="~/Abp/ApplicationLocalizationScript?cultureName=@CultureInfo.CurrentUICulture.Name"></script>
+    <script type="text/javascript" src="~/Abp/ApplicationConfigurationScript"></script>
+    <script type="text/javascript" src="~/Abp/ServiceProxyScript"></script>
+
+    @await Component.InvokeAsync(typeof(WidgetScriptsViewComponent))
+
+    @await RenderSectionAsync("scripts", false)
+
+    @await Component.InvokeLayoutHookAsync("Body.Last", "Account")
+</body>
+
+</html>

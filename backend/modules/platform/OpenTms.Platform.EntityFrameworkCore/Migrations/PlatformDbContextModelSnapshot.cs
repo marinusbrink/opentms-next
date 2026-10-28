@@ -672,6 +672,28 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.ToTable("ReportDefinitions", "platform");
                 });
 
+            modelBuilder.Entity("OpenTms.Platform.SignIn.UserSignInLookup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EmailHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("UserTenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmailHash");
+
+                    b.HasIndex("UserTenantId");
+
+                    b.ToTable("UserSignInLookups", "platform");
+                });
+
             modelBuilder.Entity("Volo.Abp.EntityFrameworkCore.DistributedEvents.OutgoingEventRecord", b =>
                 {
                     b.Property<Guid>("Id")

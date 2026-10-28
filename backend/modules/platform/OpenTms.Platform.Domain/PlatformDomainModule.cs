@@ -11,6 +11,7 @@ using Volo.Abp;
 using Volo.Abp.Auditing;
 using Volo.Abp.Domain;
 using Volo.Abp.Features;
+using Volo.Abp.Identity;
 using Volo.Abp.Modularity;
 using Volo.Abp.TenantManagement;
 
@@ -19,6 +20,7 @@ namespace OpenTms.Platform;
 [DependsOn(
     typeof(AbpDddDomainModule),
     typeof(AbpFeaturesModule),
+    typeof(AbpIdentityDomainModule),
     typeof(AbpTenantManagementDomainModule),
     typeof(PlatformDomainSharedModule)
 )]

@@ -251,8 +251,9 @@ dotnet run --project backend/src/OpenTms.HttpApi.Host
 cd frontend && npm install && npm run dev
 ```
 
-Login: `admin` / `1q2w3E*` (host); tenant `demo` exists locally with its own database
-and the same seeded credentials. Health: `/health/live`, `/health/ready`. Swagger UI:
+Login by e-mail address: `admin@abp.io` / `1q2w3E*` (host); tenant `demo` exists locally with its own database
+and an `admin` with the same password. The sign-in page finds the tenant from the address; where it is valid in
+several places it asks for the organisation (docs/designs/62-sign-in-tenant-detection.md). Health: `/health/live`, `/health/ready`. Swagger UI:
 `/swagger`.
 
 ```bash

@@ -1,0 +1,134 @@
+@page
+@using Microsoft.AspNetCore.Mvc.Localization
+@using Microsoft.Extensions.Localization
+@using OpenTms.Localization
+@using OpenTms.Pages.Account
+@using OpenTms.SignIn
+@using Volo.Abp.Account.Localization
+@using Volo.Abp.AspNetCore.Mvc.UI.Theming
+@using Volo.Abp.Identity
+@model OpenTms.Pages.Account.OpenTmsLoginModel
+@inject IHtmlLocalizer<AccountResource> L
+@inject IStringLocalizer<OpenTmsResource> T
+@inject IThemeManager ThemeManager
+@* The sign-in page in three steps: e-mail address, password, organisation (docs/designs/62-sign-in-tenant-detection.md). *@
+
+@{
+    Layout = ThemeManager.CurrentTheme.GetAccountLayout();
+}
+
+@section scripts
+{
+    <abp-script-bundle name="@typeof(OpenTmsLoginModel).FullName">
+        <abp-script src="/sign-in.js" />
+    </abp-script-bundle>
+}
+
+<div>
+    <div>
+        <h1 class="ots-title">@T["SignIn:Title"]</h1>
+
+        @if (Model.Step == SignInStep.Email)
+        {
+            @if (Model.EnableLocalLogin)
+            {
+                <form method="post" asp-page-handler="Email" class="mt-4" novalidate>
+                    <input type="hidden" asp-for="ReturnUrl" />
+                    <input type="hidden" asp-for="ReturnUrlHash" />
+                    <div class="mb-3">
+                        <label for="Email" class="form-label">@T["SignIn:EmailLabel"]</label>
+                        <input type="email" id="Email" name="Email" value="@Model.Email" class="form-control"
+                               autocomplete="username email" maxlength="@IdentityUserConsts.MaxEmailLength" autofocus />
+                    </div>
+                    <div class="form-check mb-4">
+                        <input type="checkbox" id="RememberMe" name="RememberMe" value="true" class="form-check-input" @(Model.RememberMe ? "checked" : "") />
+                        <label for="RememberMe" class="form-check-label">@T["SignIn:RememberMe"]</label>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <abp-button type="submit" button-type="Primary" class="btn-lg">@T["SignIn:Next"]</abp-button>
+                    </div>
+                </form>
+            }
+
+            @if (Model.VisibleExternalProviders.Any())
+            {
+                <div class="mt-2">
+                    <h5>@L["OrLoginWith"]</h5>
+                    <form asp-page="./Login" asp-page-handler="ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" asp-route-returnUrlHash="@Model.ReturnUrlHash" method="post">
+                        @foreach (var provider in Model.VisibleExternalProviders)
+                        {
+                            <button type="submit" class="btn btn-primary m-1" name="provider" value="@provider.AuthenticationScheme" title="@L["LogInUsingYourProviderAccount", provider.DisplayName]">@provider.DisplayName</button>
+                        }
+                    </form>
+                </div>
+            }
+
+            @if (!Model.EnableLocalLogin && !Model.VisibleExternalProviders.Any())
+            {
+                <div class="alert alert-warning">
+                    <strong>@L["InvalidLoginRequest"]</strong>
+                    @L["ThereAreNoLoginSchemesConfiguredForThisClient"]
+                </div>
+            }
+        }
+        else
+        {
+            <div class="ots-account">
+                <span class="ots-account-email" id="SignInEmail" title="@Model.Email">@Model.Email</span>
+                <a asp-page="./Login" asp-page-handler="ChangeEmail" asp-route-returnUrl="@Model.ReturnUrl" asp-route-returnUrlHash="@Model.ReturnUrlHash"
+                   >@T["SignIn:ChangeEmail"]</a>
+            </div>
+
+            @if (Model.Step == SignInStep.Password)
+            {
+                <form method="post" asp-page-handler="Password" class="mt-4" novalidate>
+                    <input type="hidden" asp-for="ReturnUrl" />
+                    <input type="hidden" asp-for="ReturnUrlHash" />
+                    @* For password managers: the account this password belongs to. *@
+                    <input type="email" name="Email" value="@Model.Email" autocomplete="username" class="d-none" readonly tabindex="-1" aria-hidden="true" />
+                    <div class="mb-3">
+                        <label for="Password" class="form-label">@T["SignIn:PasswordLabel"]</label>
+                        <div class="input-group">
+                            <input type="password" id="Password" name="Password" class="form-control" autocomplete="current-password"
+                                   maxlength="@IdentityUserConsts.MaxPasswordLength" autofocus />
+                            <button class="btn btn-secondary" type="button" id="PasswordVisibilityButton" aria-label="@T["SignIn:ShowPassword"]">
+                                <i class="fa fa-eye-slash" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-end mb-4">
+                        <a href="@Url.Page("./ForgotPassword", new { returnUrl = Model.ReturnUrl, returnUrlHash = Model.ReturnUrlHash })" class="small">@L["ForgotPassword"]</a>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <abp-button type="submit" button-type="Primary" class="btn-lg">@T["SignIn:SignIn"]</abp-button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <h5 class="mt-4">@T["SignIn:TenantStepTitle"]</h5>
+                <p class="text-muted">@T["SignIn:TenantStepText"]</p>
+                <form method="post" asp-page-handler="SelectTenant" class="mt-3" id="SignInTenantForm"
+                      data-find-url="@Url.Page("./Login", "FindTenant")"
+                      data-min-length="@SignInTenantMatch.MinQueryLength"
+                      data-text-short="@T["SignIn:TenantHintShort", SignInTenantMatch.MinQueryLength]"
+                      data-text-none="@T["SignIn:TenantHintNone"]"
+                      data-text-ambiguous="@T["SignIn:TenantHintAmbiguous"]"
+                      data-text-one="@T["SignIn:TenantHintOne"]"
+                      data-text-expired="@T["SignIn:TenantSelectionExpired"]">
+                    <input type="hidden" asp-for="ReturnUrl" />
+                    <input type="hidden" asp-for="ReturnUrlHash" />
+                    <div class="mb-3">
+                        <label for="TenantQuery" class="form-label">@T["SignIn:TenantLabel"]</label>
+                        <input type="text" id="TenantQuery" name="TenantQuery" value="@Model.TenantQuery" class="form-control"
+                               autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="SignInTenantHint" autofocus />
+                        <div id="SignInTenantHint" class="form-text" aria-live="polite">@T["SignIn:TenantHintShort", SignInTenantMatch.MinQueryLength]</div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <abp-button type="submit" button-type="Primary" class="btn-lg mt-2">@T["SignIn:Continue"]</abp-button>
+                    </div>
+                </form>
+            }
+        }
+    </div>
+</div>

@@ -29,6 +29,7 @@ public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTest
     private const string Migration = "20261025154657_PlatformMasterData";
     private const string ReplacedMigration = "20261016213354_PlatformMasterData";
     private const string PreviousMigration = "20261022234332_AddDerivedValueStates";
+    private const string NextMigration = "20261027092916_AddUserSignInLookups";
 
     private static readonly string[] Tables =
     [
@@ -48,7 +49,7 @@ public class PlatformMasterDataMigrationTests : PlatformMasterDataPostgreSqlTest
             applied.ShouldContain(Migration);
             applied.ShouldNotContain(ReplacedMigration, "the per-language content migration was replaced before it reached main");
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(Migration, "the newest Platform migration");
+            applied[applied.IndexOf(Migration) + 1].ShouldBe(NextMigration, "nothing slipped in after it; the newest one is checked by its own test");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

@@ -1,6 +1,6 @@
 /* Dev Login Helper */
 (() => {
-  const defaultAdminUsername = "admin";
+  const defaultAdminUsername = "admin@abp.io";
   const defaultAdminPassword = "1q2w3E*";
 
   const run = () => {
@@ -9,7 +9,7 @@
     }
 
     const userInput = document.querySelector(
-      'input[name$="UserNameOrEmailAddress"], input[id$="UserNameOrEmailAddress"], input[name$="UserName"], input[id$="UserName"]'
+      'input#Email, input[name$="UserNameOrEmailAddress"], input[id$="UserNameOrEmailAddress"], input[name$="UserName"], input[id$="UserName"]'
     );
     const passwordInput = document.querySelector(
       'input[type="password"][name$="Password"], input[type="password"][id$="Password"]'
@@ -55,7 +55,7 @@
       }
     };
 
-    addHint(userInput, `Default username: ${defaultAdminUsername}`);
+    addHint(userInput, `Default e-mail address: ${defaultAdminUsername}`);
     addHint(passwordInput, `Default password: ${defaultAdminPassword}`);
 
     setTimeout(autoFillDefaults, 150);
