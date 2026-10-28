@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EntityLookup } from "@/components/ui/entity-lookup";
@@ -10,7 +10,7 @@ import { ReferenceCombobox } from "@/components/ui/reference-combobox";
  * Base UI pickers, with the server's answer arriving after the keystrokes as it does in the browser: the first match
  * is highlighted once the results arrive, Enter selects it, Enter waits for results still on their way (and then
  * selects the exact code/name match), Enter opens "Add new …" only for a settled empty result, Tab commits the
- * highlighted match and lets focus move on, Escape never clears the value, and "Add new …" is reachable with
+ * highlighted match and then moves focus on (onto a field the commit enabled), Escape never clears the value, and "Add new …" is reachable with
  * ArrowDown. Risk class: Medium (UI flow of the library pickers every form uses). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -101,6 +101,26 @@ function Lookup(props: { value?: Relation | null; onChange?: (v: Relation | null
   );
 }
 
+/** The lookup followed by a field that depends on it (a stop's address: disabled until the relation is chosen) and an
+ *  independent one, as in the stop strip. */
+function LookupWithDependent(props: { fetchPage: Parameters<typeof Lookup>[0]["fetchPage"]; onChange?: (v: Relation | null) => void }) {
+  const [value, setValue] = useState<Relation | null>(null);
+  return (
+    <>
+      <Lookup
+        value={value}
+        fetchPage={props.fetchPage}
+        onChange={(next) => {
+          setValue(next);
+          props.onChange?.(next);
+        }}
+      />
+      <input aria-label="address" disabled={value == null} readOnly value={value ? `${value.name} address` : ""} />
+      <input aria-label="date" />
+    </>
+  );
+}
+
 describe("EntityLookup from the keyboard, with results arriving after the keystrokes", () => {
   it("highlights the first match once the results arrive, and Enter selects it", async () => {
     const server = gatedServer();
@@ -159,7 +179,7 @@ describe("EntityLookup from the keyboard, with results arriving after the keystr
     await waitFor(() => expect(onCreateNew).toHaveBeenCalledWith("zzz"));
   });
 
-  it("Tab commits the highlighted first match among several and lets focus move on", async () => {
+  it("Tab commits the highlighted first match among several", async () => {
     const server = gatedServer();
     const onChange = vi.fn();
     render(<Lookup fetchPage={server.fetchPage} onChange={onChange} onCreateNew={vi.fn()} />, { wrapper });
@@ -168,18 +188,78 @@ describe("EntityLookup from the keyboard, with results arriving after the keystr
     await server.release();
     await waitFor(() => expect(highlighted()).toBe("Testing Co"));
 
-    expect(press(input(), "Tab")).toBe(false);
+    input().focus();
+    press(input(), "Tab");
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toMatchObject({ id: "r-testing" });
   });
 
-  it("Tab before the results arrive moves on and commits the exact match when they arrive", async () => {
+  it("Tab moves focus onto the field the commit enables (a stop's address), not past it", async () => {
+    const server = gatedServer();
+    render(<LookupWithDependent fetchPage={server.fetchPage} />, { wrapper });
+    input().focus();
+    type(input(), "te");
+    await debounce();
+    await server.release();
+    await waitFor(() => expect(highlighted()).toBe("Testing Co"));
+
+    expect(press(input(), "Tab")).toBe(true);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("address")));
+    expect(screen.getByLabelText("address")).not.toBeDisabled();
+  });
+
+  it("Tab before the results arrive holds focus until the match is committed, then moves onto the enabled field", async () => {
+    const server = gatedServer();
+    const onChange = vi.fn();
+    render(<LookupWithDependent fetchPage={server.fetchPage} onChange={onChange} />, { wrapper });
+    input().focus();
+    type(input(), "test");
+    expect(press(input(), "Tab")).toBe(true);
+    expect(document.activeElement).toBe(input());
+    await debounce();
+    await server.release();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("address")));
+    expect(onChange.mock.calls[0][0]).toMatchObject({ id: "r-test" });
+  });
+
+  it("Tab on a term nothing matches moves on once the empty result is in, committing nothing", async () => {
+    const server = gatedServer();
+    const onChange = vi.fn();
+    render(<LookupWithDependent fetchPage={server.fetchPage} onChange={onChange} />, { wrapper });
+    input().focus();
+    type(input(), "zzz");
+    press(input(), "Tab");
+    await debounce();
+    await server.release();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("date")));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("Shift+Tab with a highlighted match commits it and leaves the move back to the browser", async () => {
+    const server = gatedServer();
+    const onChange = vi.fn();
+    render(<LookupWithDependent fetchPage={server.fetchPage} onChange={onChange} />, { wrapper });
+    input().focus();
+    type(input(), "te");
+    await debounce();
+    await server.release();
+    await waitFor(() => expect(highlighted()).toBe("Testing Co"));
+    let prevented = false;
+    act(() => {
+      prevented = !fireEvent.keyDown(input(), { key: "Tab", shiftKey: true });
+    });
+    expect(prevented).toBe(false);
+    expect(onChange.mock.calls[0][0]).toMatchObject({ id: "r-testing" });
+  });
+
+  it("Tab before the results arrive commits the exact match when they arrive", async () => {
     const server = gatedServer();
     const onChange = vi.fn();
     const onCreateNew = vi.fn();
     render(<Lookup fetchPage={server.fetchPage} onChange={onChange} onCreateNew={onCreateNew} />, { wrapper });
+    input().focus();
     type(input(), "test");
-    expect(press(input(), "Tab")).toBe(false);
+    press(input(), "Tab");
     await debounce();
     await server.release();
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));

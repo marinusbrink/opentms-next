@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Check, Pencil, X } from "lucide-react";
@@ -8,6 +9,7 @@ import { Combobox, ComboboxCollection, ComboboxContent, ComboboxCreateItem, Comb
 import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { focusNextField } from "@/lib/focus-next-field";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
@@ -167,7 +169,16 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
   /* A keystroke that came before the results of its term (design 61 "Order page, legacy tab structure" 3, keyboard first): it
    * waits for them through the same query the list uses. A later keystroke in this control supersedes it. */
   const keystroke = useRef(0);
-  const settleLater = (typed: string, key: "Enter" | "Tab") => {
+  /* Tab with a commit (UI-KEY-004): the browser's own move would run before the commit renders and skip the fields it
+   * enables (a stop's address after its relation), so the move waits for the rendered commit. `from` is the input
+   * whose Tab was held back; focus moves only while it still has focus. */
+  const commitAndMoveOn = (item: T | undefined, from: HTMLElement) => {
+    if (item) flushSync(() => commit(item));
+    queueMicrotask(() => {
+      if (from.ownerDocument.activeElement === from) focusNextField(from);
+    });
+  };
+  const settleLater = (typed: string, key: "Enter" | "Tab", from?: HTMLElement) => {
     const seq = ++keystroke.current;
     void queryClient
       .fetchInfiniteQuery(entityLookupPagesOptions(queryKey, typed, fetchPage))
@@ -175,7 +186,9 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
         if (keystroke.current !== seq) return;
         const found = data.pages.flatMap((page) => page.items);
         const match = bestMatch(found, typed, getLabel);
-        if (match) {
+        if (key === "Tab" && from) {
+          commitAndMoveOn(match, from);
+        } else if (match) {
           if (key === "Enter") {
             setOpen(false);
             setTerm("");
@@ -185,7 +198,9 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
           openCreate(typed);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (key === "Tab" && from && keystroke.current === seq) commitAndMoveOn(undefined, from);
+      });
   };
 
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler: () => void }) => {
@@ -228,12 +243,21 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     }
     /* UI-KEY-004: Tab commits the highlighted match and focus moves on (Base UI closes on Tab without selecting). */
     if (belowMinimum) return;
+    /* Shift+Tab goes back: the fields before this one never depend on it, the browser moves focus as usual. */
+    const from = event.shiftKey ? undefined : event.currentTarget;
     if (!settled && !(chosen && highlighted && !isCreateRow(highlighted))) {
-      settleLater(trimmed, "Tab");
+      if (from) event.preventDefault();
+      settleLater(trimmed, "Tab", from);
       return;
     }
     const match = highlighted && !isCreateRow(highlighted) ? highlighted : undefined;
-    if (match) commit(match);
+    if (!match) return;
+    if (from) {
+      event.preventDefault();
+      commitAndMoveOn(match, from);
+    } else {
+      commit(match);
+    }
   };
 
   const selectedList: T[] = props.multiple ? props.value : props.value ? [props.value] : [];
