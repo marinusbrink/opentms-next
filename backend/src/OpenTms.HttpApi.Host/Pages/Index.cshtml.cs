@@ -1,35 +1,17 @@
-using System.Collections.Generic;
-using System.Globalization;
-using System.Threading.Tasks;
-using Volo.Abp.AspNetCore.Mvc.UI.RazorPages;
-using Volo.Abp.Localization;
-using Volo.Abp.OpenIddict.Applications;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace OpenTms.Pages;
 
-public class IndexModel : AbpPageModel
+/// <summary>
+/// The backend's root (docs/designs/62-sign-in-tenant-detection.md, "Where the browser lands"): Swagger UI. ABP's
+/// template listed the OpenID Connect applications here. Swagger UI has its own sign-in (its Authorize button opens the
+/// API sign-in page), so the root shows no sign-in or welcome page of its own; the view sends the browser on at once.
+/// </summary>
+public class IndexModel : PageModel
 {
-    public List<OpenIddictApplication>? Applications { get; protected set; }
+    public string SwaggerUrl => Url.Content("~/swagger");
 
-    public IReadOnlyList<LanguageInfo>? Languages { get; protected set; }
-
-    public string? CurrentLanguage { get; protected set; }
-
-    protected IOpenIddictApplicationRepository OpenIdApplicationRepository { get; }
-
-    protected ILanguageProvider LanguageProvider { get; }
-
-    public IndexModel(IOpenIddictApplicationRepository openIdApplicationmRepository, ILanguageProvider languageProvider)
+    public void OnGet()
     {
-        OpenIdApplicationRepository = openIdApplicationmRepository;
-        LanguageProvider = languageProvider;
-    }
-
-    public async Task OnGetAsync()
-    {
-        Applications = await OpenIdApplicationRepository.GetListAsync();
-
-        Languages = await LanguageProvider.GetLanguagesAsync();
-        CurrentLanguage = CultureInfo.CurrentCulture.DisplayName;
     }
 }
