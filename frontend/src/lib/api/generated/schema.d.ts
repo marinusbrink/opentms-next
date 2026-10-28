@@ -1269,115 +1269,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/account/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/*+json": components["schemas"]["Volo.Abp.Account.RegisterDto"];
-                    "application/json": components["schemas"]["Volo.Abp.Account.RegisterDto"];
-                    "text/json": components["schemas"]["Volo.Abp.Account.RegisterDto"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Identity.IdentityUserDto"];
-                        "text/json": components["schemas"]["Volo.Abp.Identity.IdentityUserDto"];
-                        "text/plain": components["schemas"]["Volo.Abp.Identity.IdentityUserDto"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Internal Server Error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-                /** @description Not Implemented */
-                501: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/account/reset-password": {
         parameters: {
             query?: never;
@@ -50477,17 +50368,6 @@ export interface components {
             surname?: string | null;
             userName?: string | null;
         };
-        "Volo.Abp.Account.RegisterDto": {
-            appName: string;
-            /** Format: email */
-            emailAddress: string;
-            readonly extraProperties?: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: password */
-            password: string;
-            userName: string;
-        };
         "Volo.Abp.Account.ResetPasswordDto": {
             password: string;
             resetToken: string;
@@ -50949,46 +50829,6 @@ export interface components {
         "Volo.Abp.Http.RemoteServiceValidationErrorInfo": {
             members?: string[] | null;
             message?: string | null;
-        };
-        "Volo.Abp.Identity.IdentityUserDto": {
-            /** Format: int32 */
-            accessFailedCount?: number;
-            concurrencyStamp?: string | null;
-            /** Format: date-time */
-            creationTime?: string;
-            /** Format: uuid */
-            creatorId?: string | null;
-            /** Format: uuid */
-            deleterId?: string | null;
-            /** Format: date-time */
-            deletionTime?: string | null;
-            email?: string | null;
-            emailConfirmed?: boolean;
-            /** Format: int32 */
-            entityVersion?: number;
-            readonly extraProperties?: {
-                [key: string]: unknown;
-            } | null;
-            /** Format: uuid */
-            id?: string;
-            isActive?: boolean;
-            isDeleted?: boolean;
-            /** Format: date-time */
-            lastModificationTime?: string | null;
-            /** Format: uuid */
-            lastModifierId?: string | null;
-            /** Format: date-time */
-            lastPasswordChangeTime?: string | null;
-            lockoutEnabled?: boolean;
-            /** Format: date-time */
-            lockoutEnd?: string | null;
-            name?: string | null;
-            phoneNumber?: string | null;
-            phoneNumberConfirmed?: boolean;
-            surname?: string | null;
-            /** Format: uuid */
-            tenantId?: string | null;
-            userName?: string | null;
         };
         "Volo.Abp.Localization.LanguageInfo": {
             cultureName?: string | null;

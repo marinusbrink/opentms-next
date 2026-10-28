@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { FullScreenSpinner } from "@/app/shell/FullScreenSpinner";
 
+/* The root route: no welcome step. A signed-in user goes on to the dashboard, anyone else straight to the auth
+ * server's sign-in page. Only an auth error stops here, with a button, so a failing sign-in cannot loop. */
 export function Landing() {
   const auth = useAuth();
   const { t } = useL();
@@ -13,28 +15,21 @@ export function Landing() {
   useEffect(() => {
     if (auth.isAuthenticated) {
       void navigate({ to: "/dashboard" });
+    } else if (!auth.isLoading && !auth.activeNavigator && !auth.error) {
+      void auth.signinRedirect();
     }
-  }, [auth.isAuthenticated, navigate]);
+  }, [auth, navigate]);
 
-  if (auth.isLoading || auth.isAuthenticated) {
-    return <FullScreenSpinner />;
-  }
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-100">
-      <div className="w-full max-w-sm rounded-xl border bg-white p-8 text-center shadow-sm">
-        <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand text-lg font-bold text-brand-foreground">
-          {t("AppName").slice(0, 1)}
-        </span>
-        <h1 className="mt-4 text-xl font-semibold">{t("Shell:WelcomeTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("Shell:WelcomeText")}</p>
-        <Button
-          className="mt-6 w-full"
-          onClick={() => void auth.signinRedirect()}
-        >
+  if (auth.error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-100">
+        <p className="text-sm text-destructive">{auth.error.message}</p>
+        <Button variant="outline" onClick={() => void auth.signinRedirect()}>
           {t("Shell:SignIn")}
         </Button>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <FullScreenSpinner />;
 }

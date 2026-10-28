@@ -9,6 +9,8 @@ using OpenTms.PlanningExecution;
 using OpenTms.Platform;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.ReferenceData;
+using OpenTms.SignIn;
+using Microsoft.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.Account;
@@ -38,6 +40,7 @@ public class OpenTmsHttpApiModule : AbpModule
         ConfigureLocalization();
         ConfigureExceptionStatusCodes();
         RemoveBypassedAbpControllers();
+        Configure<MvcOptions>(options => options.Conventions.Add(new RemoveSelfRegistrationEndpointConvention()));
     }
 
     /* ABP's own users, roles, user-lookup and tenant endpoints stay out of the API (docs/designs/tenants-and-editions.md,

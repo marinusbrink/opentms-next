@@ -41,6 +41,8 @@ using Volo.Abp.Studio;
 using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.MultiTenancy;
+using Volo.Abp.MultiTenancy;
+using OpenTms.SignIn;
 using Volo.Abp.AspNetCore.Mvc;
 using Volo.Abp.AspNetCore.Mvc.Libs;
 using Volo.Abp.Autofac;
@@ -118,6 +120,7 @@ public class OpenTmsHttpApiHostModule : AbpModule
         var hostingEnvironment = context.Services.GetHostingEnvironment();
 
         ConfigureImpersonation(context);
+        ConfigureSignInPage();
 
         if (!configuration.GetValue<bool>("App:DisablePII"))
         {
@@ -165,6 +168,17 @@ public class OpenTmsHttpApiHostModule : AbpModule
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
+    }
+
+    /* The sign-in page finds the tenant from the credentials (docs/designs/62-sign-in-tenant-detection.md): it always
+     * runs in the host, resolved right after the signed-in user and before ABP's cookie and query-string resolvers. */
+    private void ConfigureSignInPage()
+    {
+        Configure<AbpTenantResolveOptions>(options =>
+        {
+            var afterCurrentUser = options.TenantResolvers.FindIndex(r => r is CurrentUserTenantResolveContributor) + 1;
+            options.TenantResolvers.Insert(afterCurrentUser, new SignInPageTenantResolveContributor());
+        });
     }
 
     /* "Log in as" (docs/designs/tenants-and-editions.md): ABP's impersonator claims must survive both token
@@ -425,6 +439,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
         app.UseAbpSwaggerUI(options =>
         {
             options.SwaggerEndpoint("/swagger/v1/swagger.json", "OpenTms API");
+            /* The product's favicon instead of Swagger's (docs/designs/62-sign-in-tenant-detection.md, "Logo"). */
+            options.HeadContent += "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />";
 
             var configuration = context.ServiceProvider.GetRequiredService<IConfiguration>();
             options.OAuthClientId(configuration["AuthServer:SwaggerClientId"]);
