@@ -13,7 +13,7 @@ using Volo.Abp.EntityFrameworkCore;
 namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    [Migration("20261029131030_AddUserAccountLinks")]
+    [Migration("20261029133121_AddUserAccountLinks")]
     partial class AddUserAccountLinks
     {
         /// <inheritdoc />
@@ -49,6 +49,11 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("UserSecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<Guid?>("UserTenantId")
                         .HasColumnType("uuid");

@@ -18,8 +18,8 @@ interface TenantPickerDialogProps {
 const EMPTY_SELECTION: GridSelectionDto = { mode: "Explicit", explicitIds: [], filterRequest: null, excludedIds: [] };
 
 /* "Log in to a tenant…" for a Customer Success Manager (PO 2026-10-29, docs/designs/63-user-menu.md): every tenant, in
- * a server-paged grid with its search box, because the list can be long. A click selects; Next (or a double-click)
- * goes on to the existing "Log in as" user picker of that tenant. */
+ * a server-paged grid with its search box, because the list can be long. A click selects; "Log in as…" (the title's
+ * verb, UI-DLG-013; the ellipsis says a step follows) or a double-click goes on to the existing user picker. */
 export function TenantPickerDialog({ open, onClose, onPick }: TenantPickerDialogProps) {
   const { t } = useL();
   const [selection, setSelection] = useState<GridSelectionDto>(EMPTY_SELECTION);
@@ -61,7 +61,7 @@ export function TenantPickerDialog({ open, onClose, onPick }: TenantPickerDialog
             {t("Cancel")}
           </Button>
           <Button onClick={() => selected && onPick(selected)} disabled={!selected}>
-            {t("UserMenu:Next")}
+            {t("Impersonation:LogInAsEllipsis")}
           </Button>
         </>
       }

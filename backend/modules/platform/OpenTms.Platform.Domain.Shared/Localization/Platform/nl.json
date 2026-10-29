@@ -1102,7 +1102,6 @@
     "UserMenu:AllTenantsTitle": "Inloggen bij een tenant",
     "UserMenu:AllTenantsExplanation": "Kies de tenant en daarna de gebruiker als wie u inlogt.",
     "UserMenu:TenantName": "Tenant",
-    "UserMenu:Next": "Volgende",
     "UserMenu:ChangePassword": "Wachtwoord wijzigen",
     "UserMenu:ChangeProfilePicture": "Profielfoto wijzigen",
     "UserMenu:MySettings": "Mijn instellingen",
@@ -1128,6 +1127,8 @@
     "UserMenu:Language": "Taal",
     "UserMenu:LanguageBrowser": "Taal van de browser",
     "UserMenu:SettingsSaved": "Uw instellingen zijn opgeslagen.",
-    "UserMenu:TenantId": "Tenant-ID"
+    "UserMenu:TenantId": "Tenant-ID",
+    "UserMenu:ChangingPassword": "Bezig met wijzigen…",
+    "UserMenu:ChangePicture": "Wijzigen"
   }
 }

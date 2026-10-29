@@ -62,7 +62,7 @@ export function ChangeProfilePictureDialog({ open, onClose }: ChangeProfilePictu
             {t("Cancel")}
           </Button>
           <Button onClick={() => void save()} disabled={pending === undefined || isBusy}>
-            {t("Save")}
+            {isBusy ? t("Saving") : t("UserMenu:ChangePicture")}
           </Button>
         </>
       }

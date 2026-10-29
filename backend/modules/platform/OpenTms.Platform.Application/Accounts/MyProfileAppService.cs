@@ -41,7 +41,7 @@ public class MyProfileAppService : PlatformAppServiceBase, IMyProfileAppService
     public async Task<MyProfileDto> GetAsync()
     {
         var user = await _userManager.GetByIdAsync(CurrentUser.GetId());
-        return await ToDtoAsync(user);
+        return ToDto(user, await _settingManager.GetOrNullForCurrentUserAsync(LocalizationSettingNames.DefaultLanguage, fallback: false));
     }
 
     public async Task<MyProfileDto> UpdateAsync(UpdateMyProfileDto input)
@@ -68,10 +68,13 @@ public class MyProfileAppService : PlatformAppServiceBase, IMyProfileAppService
         }
 
         (await _userManager.UpdateAsync(user)).CheckErrors();
-        await _settingManager.SetForCurrentUserAsync(LocalizationSettingNames.DefaultLanguage, language?.ToLowerInvariant());
+        /* forceToSet: a choice equal to the default ("en") is still the user's own and must survive a default change. */
+        language = language?.ToLowerInvariant();
+        await _settingManager.SetForCurrentUserAsync(LocalizationSettingNames.DefaultLanguage, language, forceToSet: true);
 
         Logger.LogInformation("User {UserId} changed their own settings", user.Id);
-        return await ToDtoAsync(user);
+        /* The value just written, not read back: within this unit of work the setting cache still holds the old one. */
+        return ToDto(user, language);
     }
 
     public async Task<ProfilePictureDto?> GetPictureAsync() =>
@@ -91,14 +94,14 @@ public class MyProfileAppService : PlatformAppServiceBase, IMyProfileAppService
         Logger.LogInformation("User {UserId} removed their own profile picture", user.Id);
     }
 
-    private async Task<MyProfileDto> ToDtoAsync(IdentityUser user) => new()
+    private static MyProfileDto ToDto(IdentityUser user, string? language) => new()
     {
         UserName = user.UserName,
         Email = user.Email,
         Name = user.Name,
         Surname = user.Surname,
         PhoneNumber = user.PhoneNumber,
-        Language = await _settingManager.GetOrNullForCurrentUserAsync(LocalizationSettingNames.DefaultLanguage, fallback: false),
+        Language = language,
         HasProfilePicture = ProfilePictureManager.HasPicture(user)
     };
 

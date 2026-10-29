@@ -76,17 +76,20 @@ public class MyAccountsAppService : PlatformAppServiceBase, IMyAccountsAppServic
             return [];
         }
 
-        var passwordTenants = PasswordTenants();
+        var passwordPlaces = PasswordPlaces();
         var links = await _linkStore.GetLinkedAsync(CurrentTenant.Id, current.Id);
         return places
             .Select(p =>
             {
-                var remembered = links.Any(l => l.TenantId == p.Candidate.TenantId && l.UserId == p.Candidate.UserId);
+                /* The stamps are checked at the switch (reading each target here would ask every tenant database); a
+                 * changed password makes the switch ask after all. */
+                var remembered = links.Any(l => l.Linked.TenantId == p.Candidate.TenantId && l.Linked.UserId == p.Candidate.UserId);
+                var known = passwordPlaces.Any(k => k.TenantId == p.Candidate.TenantId && k.UserId == p.Candidate.UserId);
                 return new MyAccountDto
                 {
                     TenantId = p.Candidate.TenantId,
                     TenantName = p.TenantName,
-                    NeedsPassword = !remembered && !passwordTenants.Contains(p.Candidate.TenantId),
+                    NeedsPassword = !remembered && !known,
                     IsRemembered = remembered
                 };
             })
@@ -107,15 +110,16 @@ public class MyAccountsAppService : PlatformAppServiceBase, IMyAccountsAppServic
                     ?? throw new BusinessException(PlatformErrorCodes.AccountNotAvailable);
         var candidate = place.Candidate;
         var password = string.IsNullOrEmpty(input.Password) ? null : input.Password;
-        var passwordTenants = PasswordTenants();
+        var passwordPlaces = PasswordPlaces();
 
         var target = await CheckTargetAsync(candidate, current.NormalizedEmail!, password);
 
-        if (password == null && !passwordTenants.Contains(candidate.TenantId))
+        /* A known password counts only for the very user it was checked for (an e-mail address can change) and only while
+         * that user's password is unchanged; a remembered link only while neither account's password changed. */
+        if (password == null && !passwordPlaces.Any(p => p.Holds(candidate.TenantId, candidate.UserId, target.SecurityStamp)))
         {
             var links = await _linkStore.GetLinkedAsync(CurrentTenant.Id, current.Id);
-            var linkHolds = links.Any(l =>
-                l.TenantId == candidate.TenantId && l.UserId == candidate.UserId && l.SecurityStamp == target.SecurityStamp);
+            var linkHolds = links.Any(l => l.Holds(current.SecurityStamp, candidate.TenantId, candidate.UserId, target.SecurityStamp));
             if (!linkHolds)
             {
                 throw new BusinessException(PlatformErrorCodes.AccountPasswordRequired);
@@ -129,7 +133,11 @@ public class MyAccountsAppService : PlatformAppServiceBase, IMyAccountsAppServic
                 new LinkedAccount(candidate.TenantId, candidate.UserId, target.SecurityStamp));
         }
 
-        var newPasswordTenants = password == null ? passwordTenants : passwordTenants.Append(candidate.TenantId).ToList();
+        var newPasswordPlaces = password == null
+            ? passwordPlaces
+            : passwordPlaces
+                .Append(new PasswordPlace(candidate.TenantId, candidate.UserId, AccountSwitchClaims.StampHash(target.SecurityStamp)))
+                .ToList();
 
         Logger.LogInformation(
             "Account switch of user {UserId} (tenant {TenantId}) to user {TargetUserId} (tenant {TargetTenantId}), password entered: {PasswordEntered}, remembered: {Remembered}",
@@ -140,7 +148,8 @@ public class MyAccountsAppService : PlatformAppServiceBase, IMyAccountsAppServic
             ExpectedTenantId: CurrentTenant.Id,
             TargetUserId: candidate.UserId,
             TargetTenantId: candidate.TenantId,
-            PasswordTenants: AccountSwitchClaims.Format(newPasswordTenants));
+            PasswordTenants: AccountSwitchClaims.Format(newPasswordPlaces),
+            Nonce: GuidGenerator.Create());
         var root = (await _appUrlProvider.GetUrlAsync(AuthServerApplicationName)).EnsureEndsWith('/');
         return new AccountSwitchRedirectDto
         {
@@ -150,13 +159,18 @@ public class MyAccountsAppService : PlatformAppServiceBase, IMyAccountsAppServic
 
     public async Task ForgetAsync(Guid? tenantId)
     {
+        if (CurrentUser.FindImpersonatorUserId() != null)
+        {
+            throw new BusinessException(PlatformErrorCodes.AccountSwitchWhileImpersonating);
+        }
+
         await _linkStore.ForgetAsync(CurrentTenant.Id, CurrentUser.GetId(), tenantId);
         Logger.LogInformation(
             "User {UserId} (tenant {TenantId}) forgot the remembered switch to tenant {LinkedTenantId}",
             CurrentUser.Id, CurrentTenant.Id, tenantId);
     }
 
-    private IReadOnlyList<Guid?> PasswordTenants() =>
+    private IReadOnlyList<PasswordPlace> PasswordPlaces() =>
         AccountSwitchClaims.Parse(CurrentUser.FindClaim(AccountSwitchClaims.PasswordTenants)?.Value);
 
     private sealed record Place(SignInCandidate Candidate, string? TenantName);

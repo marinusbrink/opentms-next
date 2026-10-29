@@ -38,7 +38,7 @@ public class HostUserAccountLinkStore : IUserAccountLinkStore, ITransientDepende
         _clock = clock;
     }
 
-    public async Task<IReadOnlyList<LinkedAccount>> GetLinkedAsync(Guid? tenantId, Guid userId)
+    public async Task<IReadOnlyList<AccountLink>> GetLinkedAsync(Guid? tenantId, Guid userId)
     {
         // Cross-tenant by design: a link joins two tenants' accounts of one address; rows hold ids and stamps only —
         // docs/designs/63-user-menu.md, DEVIATION(constitution-1).
@@ -47,7 +47,7 @@ public class HostUserAccountLinkStore : IUserAccountLinkStore, ITransientDepende
         {
             var rows = await _repository.GetListAsync(l => l.UserTenantId == tenantId && l.UserId == userId);
             await unitOfWork.CompleteAsync();
-            return rows.Select(l => new LinkedAccount(l.LinkedTenantId, l.LinkedUserId, l.LinkedSecurityStamp)).ToList();
+            return rows.Select(l => new AccountLink(new LinkedAccount(l.LinkedTenantId, l.LinkedUserId, l.LinkedSecurityStamp), l.UserSecurityStamp)).ToList();
         }
     }
 
@@ -69,11 +69,11 @@ public class HostUserAccountLinkStore : IUserAccountLinkStore, ITransientDepende
         if (row == null)
         {
             await _repository.InsertAsync(new UserAccountLink(
-                _guidGenerator.Create(), from.TenantId, from.UserId, to.TenantId, to.UserId, to.SecurityStamp, _clock.Now));
+                _guidGenerator.Create(), from.TenantId, from.UserId, from.SecurityStamp, to.TenantId, to.UserId, to.SecurityStamp, _clock.Now));
         }
         else
         {
-            row.Renew(to.UserId, to.SecurityStamp, _clock.Now);
+            row.Renew(from.SecurityStamp, to.UserId, to.SecurityStamp, _clock.Now);
             await _repository.UpdateAsync(row);
         }
     }

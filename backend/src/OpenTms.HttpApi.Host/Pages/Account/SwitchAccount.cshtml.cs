@@ -1,3 +1,4 @@
+using System;
 using System.Security.Claims;
 using System.Security.Principal;
 using System.Threading.Tasks;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTms.Platform.Accounts;
@@ -19,7 +21,8 @@ namespace OpenTms.Pages.Account;
 /// <summary>
 /// Redeems an account-switch ticket from the user menu (docs/designs/63-user-menu.md). The ticket is honoured only for
 /// the session it was issued to (the auth cookie's user and tenant must be the ticket's expected ones, and the session
-/// must not be impersonating). The session is then switched to the user's account in the other tenant, keeping its
+/// must not be impersonating), and only once. The target is checked again as the switch checked it (same e-mail address,
+/// active tenant, active user that may sign in), since up to five minutes may have passed. The session is then switched to the user's account in the other tenant, keeping its
 /// persistence, with the places whose password the session knows, and the browser goes to the SPA, which signs in again
 /// through the normal code flow, as after "Log in as".
 /// </summary>
@@ -31,6 +34,8 @@ public class SwitchAccountModel : PageModel
     private readonly ICurrentTenant _currentTenant;
     private readonly IOptions<IdentityOptions> _identityOptions;
     private readonly IdentitySecurityLogManager _securityLogManager;
+    private readonly ITenantStore _tenantStore;
+    private readonly IDistributedCache _cache;
     private readonly AppUrlOptions _appUrlOptions;
     private readonly ILogger<SwitchAccountModel> _logger;
 
@@ -40,6 +45,8 @@ public class SwitchAccountModel : PageModel
         ICurrentTenant currentTenant,
         IOptions<IdentityOptions> identityOptions,
         IdentitySecurityLogManager securityLogManager,
+        ITenantStore tenantStore,
+        IDistributedCache cache,
         IOptions<AppUrlOptions> appUrlOptions,
         ILogger<SwitchAccountModel> logger)
     {
@@ -48,6 +55,8 @@ public class SwitchAccountModel : PageModel
         _currentTenant = currentTenant;
         _identityOptions = identityOptions;
         _securityLogManager = securityLogManager;
+        _tenantStore = tenantStore;
+        _cache = cache;
         _appUrlOptions = appUrlOptions.Value;
         _logger = logger;
     }
@@ -81,15 +90,36 @@ public class SwitchAccountModel : PageModel
             return Refuse("session is impersonating");
         }
 
+        /* Single use: a ticket seen in a log or a browser history cannot switch a session again. */
+        var nonceKey = NonceKeyPrefix + redeemed.Nonce.ToString("N");
+        if (await _cache.GetStringAsync(nonceKey) != null)
+        {
+            return Refuse("ticket already redeemed");
+        }
+
+        await _cache.SetStringAsync(nonceKey, "1", new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = NonceLifetime });
+
+        if (redeemed.TargetTenantId is { } targetTenantId && await _tenantStore.FindAsync(targetTenantId) is not { IsActive: true })
+        {
+            return Refuse("target tenant missing or inactive");
+        }
+
+        string? sessionEmail;
+        using (_currentTenant.Change(redeemed.ExpectedTenantId))
+        {
+            sessionEmail = (await _signInManager.UserManager.FindByIdAsync(redeemed.ExpectedUserId.ToString()))?.NormalizedEmail;
+        }
+
         var isPersistent = authentication.Properties?.IsPersistent ?? false;
         using (_currentTenant.Change(redeemed.TargetTenantId))
         {
             await _identityOptions.SetAsync();
             var user = await _signInManager.UserManager.FindByIdAsync(redeemed.TargetUserId.ToString());
-            if (user == null || !user.IsActive || await _signInManager.UserManager.IsLockedOutAsync(user)
+            if (user == null || sessionEmail == null || user.NormalizedEmail != sessionEmail || !user.IsActive
+                || user.ShouldChangePasswordOnNextLogin || await _signInManager.UserManager.IsLockedOutAsync(user)
                 || !await _signInManager.CanSignInAsync(user))
             {
-                return Refuse("target user missing, inactive, locked out or not allowed");
+                return Refuse("target user missing, of another address, inactive, locked out or not allowed");
             }
 
             await _signInManager.SignOutAsync();
@@ -117,6 +147,11 @@ public class SwitchAccountModel : PageModel
     /// showing its start page; the same as "Log in as".
     /// </summary>
     private const string LandingPath = "admin";
+
+    private const string NonceKeyPrefix = "OpenTms:AccountSwitch:Redeemed:";
+
+    /// <summary>As long as a ticket lives, plus a margin for clock differences between instances.</summary>
+    private static readonly TimeSpan NonceLifetime = TimeSpan.FromMinutes(10);
 
     private string SpaUrl() => OpenTms.SignIn.SpaUrl.Root(_appUrlOptions);
 

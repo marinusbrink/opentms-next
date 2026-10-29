@@ -312,6 +312,7 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
     /// </summary>
     private async Task<IActionResult> SignInAsync(SignInChoice choice, bool rememberMe, IReadOnlyList<SignInChoice> passwordPlaces)
     {
+        var passwordPlacesClaim = new Claim(AccountSwitchClaims.PasswordTenants, AccountSwitchClaims.Format(await PasswordPlacesAsync(passwordPlaces)));
         using (CurrentTenant.Change(choice.TenantId))
         {
             await IdentityOptions.SetAsync();
@@ -323,10 +324,7 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 return BackToPassword();
             }
 
-            await SignInManager.SignInWithClaimsAsync(user, rememberMe,
-            [
-                new Claim(AccountSwitchClaims.PasswordTenants, AccountSwitchClaims.Format(passwordPlaces.Select(p => p.TenantId)))
-            ]);
+            await SignInManager.SignInWithClaimsAsync(user, rememberMe, [passwordPlacesClaim]);
             await IdentitySecurityLogManager.SaveAsync(new IdentitySecurityLogContext
             {
                 Identity = IdentitySecurityLogIdentityConsts.Identity,
@@ -347,6 +345,36 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
         return HasLocalReturnUrl
             ? await RedirectSafelyAsync(ReturnUrl, ReturnUrlHash)
             : Redirect(SpaUrl.Root(_appUrlOptions));
+    }
+
+    /// <summary>
+    /// The accounts the password was valid in, each bound to its user and the hash of its current security stamp, read in
+    /// its own tenant (docs/designs/63-user-menu.md). A place that cannot be read is left out: the menu then asks for its
+    /// password.
+    /// </summary>
+    private async Task<List<PasswordPlace>> PasswordPlacesAsync(IReadOnlyList<SignInChoice> choices)
+    {
+        var places = new List<PasswordPlace>();
+        foreach (var choice in choices)
+        {
+            try
+            {
+                using (CurrentTenant.Change(choice.TenantId))
+                {
+                    var user = await UserManager.FindByIdAsync(choice.UserId.ToString());
+                    if (user != null)
+                    {
+                        places.Add(new PasswordPlace(choice.TenantId, user.Id, AccountSwitchClaims.StampHash(user.SecurityStamp)));
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Logger.LogWarning(exception, "Password place in tenant {TenantId} not recorded", choice.TenantId);
+            }
+        }
+
+        return places;
     }
 
     /// <summary>Whether the page has a sign-in request to return to (the OpenID Connect authorize request, or another page of the auth server).</summary>

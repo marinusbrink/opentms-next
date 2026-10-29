@@ -7,13 +7,15 @@ namespace OpenTms.Platform.Accounts;
 /// server may switch the browser session from <see cref="ExpectedUserId"/> (in <see cref="ExpectedTenantId"/>) to
 /// <see cref="TargetUserId"/> (in <see cref="TargetTenantId"/>). <see cref="PasswordTenants"/> is the value the new
 /// session's <see cref="AccountSwitchClaims.PasswordTenants"/> claim takes: the places whose password this session knows.
+/// <see cref="Nonce"/> makes the ticket single-use: the switch page redeems each nonce once.
 /// </summary>
 public sealed record AccountSwitchTicket(
     Guid ExpectedUserId,
     Guid? ExpectedTenantId,
     Guid TargetUserId,
     Guid? TargetTenantId,
-    string PasswordTenants);
+    string PasswordTenants,
+    Guid Nonce);
 
 /// <summary>
 /// Turns a ticket into an opaque, signed, encrypted string that expires after five minutes, and back; the adapter lives

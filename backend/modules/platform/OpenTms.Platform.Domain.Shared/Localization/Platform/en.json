@@ -1102,7 +1102,6 @@
     "UserMenu:AllTenantsTitle": "Log in to a tenant",
     "UserMenu:AllTenantsExplanation": "Choose the tenant, then the user you log in as.",
     "UserMenu:TenantName": "Tenant",
-    "UserMenu:Next": "Next",
     "UserMenu:ChangePassword": "Change password",
     "UserMenu:ChangeProfilePicture": "Change profile picture",
     "UserMenu:MySettings": "My settings",
@@ -1128,6 +1127,8 @@
     "UserMenu:Language": "Language",
     "UserMenu:LanguageBrowser": "Browser language",
     "UserMenu:SettingsSaved": "Your settings have been saved.",
-    "UserMenu:TenantId": "Tenant ID"
+    "UserMenu:TenantId": "Tenant ID",
+    "UserMenu:ChangingPassword": "Changing password…",
+    "UserMenu:ChangePicture": "Change"
   }
 }

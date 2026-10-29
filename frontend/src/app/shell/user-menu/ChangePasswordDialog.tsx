@@ -60,7 +60,7 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
             {t("Cancel")}
           </Button>
           <Button onClick={() => void submit()} disabled={change.isPending}>
-            {t("UserMenu:ChangePassword")}
+            {change.isPending ? t("UserMenu:ChangingPassword") : t("UserMenu:ChangePassword")}
           </Button>
         </>
       }

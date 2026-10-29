@@ -47,6 +47,11 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("UserSecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<Guid?>("UserTenantId")
                         .HasColumnType("uuid");
 

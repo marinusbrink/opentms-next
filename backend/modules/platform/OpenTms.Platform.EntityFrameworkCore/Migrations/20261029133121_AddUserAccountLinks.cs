@@ -19,6 +19,7 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserTenantId = table.Column<Guid>(type: "uuid", nullable: true),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserSecurityStamp = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
                     LinkedTenantId = table.Column<Guid>(type: "uuid", nullable: true),
                     LinkedUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     LinkedSecurityStamp = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),

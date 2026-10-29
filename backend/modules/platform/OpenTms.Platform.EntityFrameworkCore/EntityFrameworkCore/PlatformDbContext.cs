@@ -175,6 +175,7 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
         {
             b.ToTable("UserAccountLinks", PlatformDbProperties.DbSchema);
             b.ConfigureByConvention();
+            b.Property(l => l.UserSecurityStamp).IsRequired().HasMaxLength(UserAccountLink.MaxSecurityStampLength);
             b.Property(l => l.LinkedSecurityStamp).IsRequired().HasMaxLength(UserAccountLink.MaxSecurityStampLength);
             /* One link per (user, other tenant); NULLS NOT DISTINCT so links to and from the host are unique too. */
             b.HasIndex(l => new { l.UserTenantId, l.UserId, l.LinkedTenantId }).IsUnique().AreNullsDistinct(false);
