@@ -5,7 +5,7 @@ import { findAppByPath } from "@/app/apps.config";
 import { useAppFeatures } from "@/app/app-features";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { WaffleLauncher } from "@/app/shell/WaffleLauncher";
-import { UserTenantMenu } from "@/app/shell/UserTenantMenu";
+import { UserMenu } from "@/app/shell/UserMenu";
 import { AppNavPane } from "@/app/shell/AppNavPane";
 import { ImpersonationBanner } from "@/app/shell/ImpersonationBanner";
 import { takeRefusedSwitch } from "@/auth/session-switch";
@@ -64,7 +64,7 @@ export function AppShell() {
           )}
         </div>
         <div className="ml-auto flex items-center">
-          <UserTenantMenu />
+          <UserMenu />
         </div>
       </header>
       <ImpersonationBanner />

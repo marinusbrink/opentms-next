@@ -30,7 +30,7 @@ vi.mock("@/components/ui/opentms-grid", () => ({
   },
 }));
 
-vi.mock("@/apps/tenants/ImpersonateTenantDialog", () => ({
+vi.mock("@/domains/platform/components/ImpersonateTenantDialog", () => ({
   ImpersonateTenantDialog: ({ tenant }: { tenant: { name: string } }) => <div data-testid="impersonate-dialog">{tenant.name}</div>,
 }));
 vi.mock("@/apps/tenants/TenantFormDialog", () => ({ TenantFormDialog: () => null }));
