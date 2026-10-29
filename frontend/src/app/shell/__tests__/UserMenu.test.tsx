@@ -25,8 +25,10 @@ vi.mock("@/lib/abp/queries", () => ({
 let profile: Record<string, unknown> | undefined;
 let pictureUrl: string | null = null;
 const pictureUrlCalls: boolean[] = [];
+const updateMutate = vi.fn();
 vi.mock("@/domains/platform/my-profile", () => ({
   useMyProfile: () => ({ data: profile }),
+  useUpdateMyProfile: () => ({ mutateAsync: updateMutate, isPending: false }),
   useMyProfilePictureUrl: (hasPicture: boolean) => {
     pictureUrlCalls.push(hasPicture);
     return pictureUrl;
@@ -105,10 +107,13 @@ const trigger = () => screen.getByRole("button", { name: "Shell:SignedInAs" });
 const openMenu = async () => {
   await act(async () => fireEvent.click(trigger()));
 };
-const item = (name: string | RegExp) => screen.getByRole("menuitem", { name });
+/* A menu row's accessible name is its label followed by its hint, so a string matches the start of it. */
+const item = (name: string | RegExp) =>
+  screen.getByRole("menuitem", { name: typeof name === "string" ? new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) : name });
 
 beforeEach(() => {
   setUserLanguage.mockReset();
+  updateMutate.mockReset();
   signoutRedirect.mockReset();
   switchMutate.mockReset();
   switchSession.mockReset();
@@ -169,7 +174,8 @@ describe("UserMenu content", () => {
     await openMenu();
     expect(screen.getByText("Jan de Vries")).toBeInTheDocument();
     expect(screen.getByText("jan@example.test")).toBeInTheDocument();
-    expect(screen.getByText(/Shell:Tenant: home/)).toBeInTheDocument();
+    /* The trigger and the header's organisation chip both name it. */
+    expect(screen.getAllByText("home")).toHaveLength(2);
   });
 
   it("lists the other accounts under Switch to, with a lock icon only where a password is needed", async () => {
@@ -191,6 +197,43 @@ describe("UserMenu content", () => {
     await openMenu();
     expect(screen.getByText(/UserMenu:TenantId/)).toBeInTheDocument();
     expect(screen.getByText("t-home")).toBeInTheDocument();
+  });
+
+  it("copies the tenant id", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<UserMenu />);
+    await openMenu();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "UserMenu:CopyTenantId" })));
+    expect(writeText).toHaveBeenCalledWith("t-home");
+  });
+
+  it("the language switch saves the chosen language with the profile and applies it", async () => {
+    config = TENANT_CONFIG({ localization: { languages: [{ cultureName: "nl", displayName: "Nederlands" }, { cultureName: "en", displayName: "English" }] } });
+    updateMutate.mockResolvedValue({ ...profile, language: "nl" });
+    render(<UserMenu />);
+    await openMenu();
+    const group = screen.getByRole("group", { name: "UserMenu:Language" });
+    expect(within(group).getByRole("button", { name: "en" })).toHaveAttribute("aria-pressed", "true");
+    setUserLanguage.mockReset();
+    await act(async () => fireEvent.click(within(group).getByRole("button", { name: "nl" })));
+    expect(updateMutate).toHaveBeenCalledWith({ name: "Jan", surname: "de Vries", phoneNumber: null, language: "nl" });
+    expect(setUserLanguage).toHaveBeenCalledWith("nl");
+  });
+
+  it("the language switch does nothing for the language already shown", async () => {
+    config = TENANT_CONFIG({ localization: { languages: [{ cultureName: "nl" }, { cultureName: "en" }] } });
+    render(<UserMenu />);
+    await openMenu();
+    await act(async () => fireEvent.click(within(screen.getByRole("group", { name: "UserMenu:Language" })).getByRole("button", { name: "en" })));
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("the picture in the header opens Change profile picture", async () => {
+    render(<UserMenu />);
+    await openMenu();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "UserMenu:ChangeProfilePicture" })));
+    expect(screen.getByTestId("picture-dialog")).toBeInTheDocument();
   });
 
   it("shows no tenant id on the host", async () => {

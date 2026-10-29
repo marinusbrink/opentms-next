@@ -1129,6 +1129,13 @@
     "UserMenu:SettingsSaved": "Your settings have been saved.",
     "UserMenu:TenantId": "Tenant ID",
     "UserMenu:ChangingPassword": "Changing password…",
-    "UserMenu:ChangePicture": "Change"
+    "UserMenu:ChangePicture": "Change",
+    "UserMenu:AllTenantsHint": "Any tenant, as one of its users",
+    "UserMenu:ChangePasswordHint": "For your account in this organisation",
+    "UserMenu:ChangeProfilePictureHint": "Shown in the app bar and in user lists",
+    "UserMenu:MySettingsHint": "Name, phone number and language",
+    "UserMenu:SwitchesDirectly": "Switch without a password",
+    "UserMenu:CopyTenantId": "Copy tenant ID",
+    "UserMenu:TenantIdCopied": "Tenant ID copied"
   }
 }

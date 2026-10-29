@@ -38,16 +38,21 @@ against it.
 
 ## The menu
 
-`frontend/src/app/shell/UserMenu.tsx` replaces `UserTenantMenu.tsx`. Trigger: the resolved tenant's name and the
-user's picture (initials without one). Content, top to bottom:
+`frontend/src/app/shell/UserMenu.tsx` replaces `UserTenantMenu.tsx`; its look follows the PO's "modernize this
+context menu" (2026-10-29), in tokens only (UI-TOK-001). Trigger: the resolved tenant's name, the user's picture
+(initials without one) and a chevron. Content, top to bottom:
 
-1. The picture, full name (or user name), e-mail address, the organisation ABP resolved, and its tenant id (PO
-   2026-10-29, after the old OpenTMS menu's "My tenant ID is"; the GUID, selectable in one click; none for the host).
-2. **Switch to**: the other accounts of the address (`GET api/platform/my-accounts`), the host first, then by name;
-   a lock marks one whose password will be asked. A long list scrolls inside the menu. Hidden when there are none and
-   while impersonating.
+1. **Identity header** in the brand colour (identity, not an action: UI-TOK-002): the picture (a click opens Change
+   profile picture), full name (or user name), e-mail address, the organisation ABP resolved as a chip, and its tenant id
+   (PO 2026-10-29, after the old OpenTMS menu's "My tenant ID is"; the GUID, with a copy button; none for the host).
+2. **Switch to**: the other accounts of the address (`GET api/platform/my-accounts`), the host first, then by name, each
+   with a monogram tile and whether it switches directly or asks for its password (lock). A long list scrolls inside the
+   menu. Hidden when there are none and while impersonating.
 3. **Log in to a tenant…** — host side, permission `Platform.Tenants.Impersonation`, not while impersonating.
-4. **My settings**, **Change profile picture**, **Change password**, then **Sign out**.
+4. **My settings**, **Change profile picture**, **Change password**: icon tiles with a one-line hint.
+5. **Language**: an NL · EN switch (the product's languages from ABP's configuration) that saves the user's language as My
+   settings does and applies it at once (PO 2026-10-29: "the user should also be able to switch its preferred language").
+6. **Sign out**, apart at the bottom.
 
 The picture is the one set in the Administration app's user dialog or through Change profile picture: both write the
 same blob through `ProfilePictureManager` (extracted from `UserAppService`). The Administration dialog refreshes the

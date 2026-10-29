@@ -1129,6 +1129,13 @@
     "UserMenu:SettingsSaved": "Uw instellingen zijn opgeslagen.",
     "UserMenu:TenantId": "Tenant-ID",
     "UserMenu:ChangingPassword": "Bezig met wijzigen…",
-    "UserMenu:ChangePicture": "Wijzigen"
+    "UserMenu:ChangePicture": "Wijzigen",
+    "UserMenu:AllTenantsHint": "Elke tenant, als een van zijn gebruikers",
+    "UserMenu:ChangePasswordHint": "Voor uw account bij deze organisatie",
+    "UserMenu:ChangeProfilePictureHint": "Zichtbaar in de balk en in gebruikerslijsten",
+    "UserMenu:MySettingsHint": "Naam, telefoonnummer en taal",
+    "UserMenu:SwitchesDirectly": "Overstappen zonder wachtwoord",
+    "UserMenu:CopyTenantId": "Tenant-ID kopiëren",
+    "UserMenu:TenantIdCopied": "Tenant-ID gekopieerd"
   }
 }

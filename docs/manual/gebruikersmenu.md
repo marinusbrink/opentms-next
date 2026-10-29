@@ -12,9 +12,12 @@ met daarnaast de naam van de organisatie waarin je werkt. Klik erop en het gebru
 gaat open. Daarin:
 
 - zie je je naam, je e-mailadres, de organisatie waarin je nu werkt en het **Tenant-ID** van die
-  organisatie (handig als de support erom vraagt; klik erop om het in één keer te selecteren);
+  organisatie (handig als de support erom vraagt; met het kopieer-icoon ernaast zet je het op het klembord);
 - stap je over naar een andere organisatie waar je met hetzelfde e-mailadres een account hebt;
-- open je **Mijn instellingen**, **Profielfoto wijzigen** en **Wachtwoord wijzigen**;
+- open je **Mijn instellingen**, **Profielfoto wijzigen** en **Wachtwoord wijzigen** (een klik op je foto
+  bovenin opent ook **Profielfoto wijzigen**);
+- wissel je met **NL** / **EN** naast **Taal** direct van taal; die keuze geldt net als in
+  **Mijn instellingen** op elke computer waarop je je aanmeldt;
 - meld je je af met **Uitloggen**.
 
 <!-- SCREENSHOT: het geopende gebruikersmenu met foto, naam, "Overstappen naar" en de menu-items -->
@@ -30,7 +33,7 @@ waar jouw e-mailadres een account heeft.
 1. Klik op de organisatie.
 2. Is je wachtwoord daar hetzelfde als het wachtwoord waarmee je je aanmeldde, dan stap je
    meteen over.
-3. Staat er een slotje achter de naam, dan heb je daar een ander wachtwoord. Er verschijnt
+3. Staat er een slotje achter de naam (en eronder **Vraagt om het wachtwoord**), dan heb je daar een ander wachtwoord. Er verschijnt
    een venster: vul het wachtwoord van die organisatie in en klik op **Overstappen**.
 4. OpenTMS laadt opnieuw, nu in de andere organisatie.
 
