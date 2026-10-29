@@ -11,7 +11,8 @@ Rechtsboven in de blauwe balk staat je profielfoto (of je initialen als je geen 
 met daarnaast de naam van de organisatie waarin je werkt. Klik erop en het gebruikersmenu
 gaat open. Daarin:
 
-- zie je je naam, je e-mailadres en de organisatie waarin je nu werkt;
+- zie je je naam, je e-mailadres, de organisatie waarin je nu werkt en het **Tenant-ID** van die
+  organisatie (handig als de support erom vraagt; klik erop om het in één keer te selecteren);
 - stap je over naar een andere organisatie waar je met hetzelfde e-mailadres een account hebt;
 - open je **Mijn instellingen**, **Profielfoto wijzigen** en **Wachtwoord wijzigen**;
 - meld je je af met **Uitloggen**.

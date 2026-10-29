@@ -1127,6 +1127,7 @@
     "UserMenu:Email": "E-mail address",
     "UserMenu:Language": "Language",
     "UserMenu:LanguageBrowser": "Browser language",
-    "UserMenu:SettingsSaved": "Your settings have been saved."
+    "UserMenu:SettingsSaved": "Your settings have been saved.",
+    "UserMenu:TenantId": "Tenant ID"
   }
 }

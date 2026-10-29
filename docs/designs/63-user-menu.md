@@ -41,7 +41,8 @@ against it.
 `frontend/src/app/shell/UserMenu.tsx` replaces `UserTenantMenu.tsx`. Trigger: the resolved tenant's name and the
 user's picture (initials without one). Content, top to bottom:
 
-1. The picture, full name (or user name), e-mail address, and the organisation ABP resolved.
+1. The picture, full name (or user name), e-mail address, the organisation ABP resolved, and its tenant id (PO
+   2026-10-29, after the old OpenTMS menu's "My tenant ID is"; the GUID, selectable in one click; none for the host).
 2. **Switch to**: the other accounts of the address (`GET api/platform/my-accounts`), the host first, then by name;
    a lock marks one whose password will be asked. A long list scrolls inside the menu. Hidden when there are none and
    while impersonating.

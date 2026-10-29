@@ -117,6 +117,12 @@ export function UserMenu() {
                 <Building2 className="size-3" />
                 {t("Shell:Tenant")}: {resolvedTenantName}
               </p>
+              {/* The tenant's id, for support calls (PO 2026-10-29); selectable in one click. The host has none. */}
+              {config?.currentTenant?.id && (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t("UserMenu:TenantId")}: <span className="font-mono tabular-nums select-all">{config.currentTenant.id}</span>
+                </p>
+              )}
             </div>
           </div>
 

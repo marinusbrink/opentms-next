@@ -1127,6 +1127,7 @@
     "UserMenu:Email": "E-mailadres",
     "UserMenu:Language": "Taal",
     "UserMenu:LanguageBrowser": "Taal van de browser",
-    "UserMenu:SettingsSaved": "Uw instellingen zijn opgeslagen."
+    "UserMenu:SettingsSaved": "Uw instellingen zijn opgeslagen.",
+    "UserMenu:TenantId": "Tenant-ID"
   }
 }
