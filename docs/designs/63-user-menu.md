@@ -59,27 +59,33 @@ menu's profile after a save, since the edited user may be the signed-in one.
   sign-in lookup; it keeps candidates in active tenants and the host, drops the current tenant, and marks each
   `NeedsPassword` (neither in the session's password places nor remembered) and `IsRemembered`.
 - **Password places.** The sign-in page signs in with the claim `opentms_password_tenants` (`AccountSwitchClaims`):
-  the ids of every place the password was valid in ("host" for the host). `CarriedSessionClaims` carries it, with the
+  one entry per place the password was valid in, `tenant|user|stamp-hash` ("host" for the host; the first 16 hex
+  characters of the SHA-256 of that user's security stamp). An entry lets the switch through only for that very user
+  (an e-mail address can change, so the address alone never decides) and only while its stamp is unchanged (a password
+  change ends it). `CarriedSessionClaims` carries it, with the
   impersonator claims, from the auth cookie into the access and identity tokens and through Identity's cookie refresh.
   Ids only, of the user's own accounts.
 - **Switch.** `POST api/platform/my-accounts/switch {tenantId, password?, rememberPassword}`:
   refused while impersonating; the target is read in its own tenant (with that tenant's identity settings, in a unit
   of work of its own) and must have the same address, be active, not have to change its password, and not be locked
   out. A given password is checked there; a wrong one counts towards that account's lockout (committed before the
-  refusal). Without a password the target must be a password place or have a remembered link whose stored security
-  stamp equals its current one; otherwise `OpenTms.Platform:AccountPasswordRequired`, and the SPA asks for it. With a
+  refusal). Without a password the target must be a password place that holds (same tenant, same user, same stamp)
+  or have a remembered link whose two stored security stamps (this account's and the target's) both equal the current
+  ones; otherwise `OpenTms.Platform:AccountPasswordRequired`, and the SPA asks for it. With a
   password and "Remember password" the link is written both ways. The answer is a five-minute ticket
   (`AccountSwitchTicket`, data protection with its own purpose) for `Account/SwitchAccount`; it carries the new
-  password places (the old ones plus the target when a password was entered).
-- **Redeem.** `Pages/Account/SwitchAccount` honours the ticket only for the auth cookie's user and tenant it names and
-  not while impersonating, reads the target again (active, not locked out, may sign in), signs it in with the claim,
+  password places (the old ones plus the target when a password was entered) and a nonce.
+- **Redeem.** `Pages/Account/SwitchAccount` honours the ticket only for the auth cookie's user and tenant it names, not
+  while impersonating, and once (the nonce is kept in the distributed cache for ten minutes). It checks the target again
+  as the switch did, since up to five minutes may have passed: the tenant active, the same normalized e-mail address as
+  the session user, active, not having to change its password, not locked out, allowed to sign in. It then signs it in with the claim,
   keeping the cookie's persistence, writes a security-log entry in the target tenant, and sends the browser to the SPA,
   which signs in again through the code flow, as after "Log in as" (`switchSession`). A refusal returns with
   `?impersonation=refused`, so the SPA restores the previous tenant and tells the user.
 - **Remembered links.** `platform."UserAccountLinks"` (`UserAccountLink`): user and tenant, the linked user and
-  tenant, the linked account's security stamp, the time. Host-owned like `UserSignInLookups`: written and read in the
+  tenant, both accounts' security stamps, the time. Host-owned like `UserSignInLookups`: written and read in the
   host database only (`HostUserAccountLinkStore`), unique per (user, linked tenant) with NULLS NOT DISTINCT. A password
-  change renews the stamp and so ends the link; "Stop remembering" in My settings deletes it both ways
+  change of either account renews its stamp and so ends the link; "Stop remembering" in My settings deletes it both ways
   (`DELETE api/platform/my-accounts/remembered?tenantId=`). `UserAccountLinkCleanup` removes the links of a deleted
   user or tenant after its unit of work commits. Changing one's own phone number does not renew the stamp
   (`IdentityUser.SetPhoneNumber`, not the user manager's).
@@ -98,7 +104,9 @@ well.
 ## My settings, picture, password
 
 - `GET/PUT api/platform/my-profile`: name, surname, phone number (ABP's column lengths), language (one of the
-  product's languages or null). The language is ABP's `Abp.Localization.DefaultLanguage` setting at user level. The
+  product's languages or null). Users cannot change their own e-mail address: ABP's
+  `Abp.Identity.User.IsEmailUpdateEnabled` defaults to false (`DisableSelfEmailUpdateSettingDefinitionProvider`), so
+  ABP's `PUT api/account/my-profile` keeps it too; only an administrator changes it. The language is ABP's `Abp.Localization.DefaultLanguage` setting at user level. The
   SPA's `LocalizationProvider` renders in the user's language when one is set (else the browser's), keeps a copy in
   local storage (`opentms.userLanguage`) so the next start renders in it at once, and sends the culture as
   `Accept-Language`, so server messages match the screen. The menu applies the server's value whenever the profile
@@ -122,7 +130,13 @@ reacts to changes; the links are a host-owned hint like the sign-in lookup. None
 - Only accounts of the signed-in user's own e-mail address are listed or entered; the lookup and the links hold ids,
   hashes and security stamps, no readable personal data.
 - No password is stored anywhere; a remembered switch is bound to both accounts' current passwords through the stamp.
-- The switch needs a fresh, session-bound, purpose-bound ticket; the auth server refuses one issued to another session.
+- The switch needs a fresh, single-use, purpose-bound ticket for the signed-in user; the auth server refuses one issued
+  to another user or tenant. It is bound to the user, not to one browser session: another signed-in session of the same
+  user could redeem it within its five minutes, which gains nothing that user could not do there.
+- A known password or a remembered link opens only the user it was proven for, and only while the passwords are
+  unchanged.
+- **Residual (reported to the PO):** an administrator who changes a user's e-mail address, their own included, makes
+  the menu list the tenants that address has accounts in (names only; entering one still needs its password).
 - A wrong password in the switch counts towards that account's lockout, so the menu is no way around it.
 - Logs carry user and tenant ids only.
 
