@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* "Change profile picture" (docs/designs/63-user-menu.md): the change is staged in the AvatarPicker and saved with the
- * primary: a file uploads, "remove" deletes, nothing staged keeps Save disabled. Risk class: Medium. */
+ * primary ("UserMenu:ChangePicture", the title's verb; "Saving" while busy): a file uploads, "remove" deletes, nothing
+ * staged keeps the primary disabled. Risk class: Medium. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false, setUserLanguage: vi.fn() }),
@@ -11,10 +12,11 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 let currentUrl: string | null = "blob:stored";
 const setMutate = vi.fn();
 const deleteMutate = vi.fn();
+let setPending = false;
 vi.mock("@/domains/platform/my-profile", () => ({
   useMyProfile: () => ({ data: { userName: "jdoe", name: "Jan", surname: "de Vries", hasProfilePicture: currentUrl != null } }),
   useMyProfilePictureUrl: () => currentUrl,
-  useSetMyProfilePicture: () => ({ mutateAsync: setMutate, isPending: false }),
+  useSetMyProfilePicture: () => ({ mutateAsync: setMutate, isPending: setPending }),
   useDeleteMyProfilePicture: () => ({ mutateAsync: deleteMutate, isPending: false }),
 }));
 
@@ -34,19 +36,28 @@ beforeAll(() => {
 import { ChangeProfilePictureDialog } from "@/app/shell/user-menu/ChangeProfilePictureDialog";
 
 const png = new File(["x"], "me.png", { type: "image/png" });
-const save = () => screen.getByRole("button", { name: "Save" });
+const save = () => screen.getByRole("button", { name: "UserMenu:ChangePicture" });
 
 beforeEach(() => {
   currentUrl = "blob:stored";
+  setPending = false;
   setMutate.mockReset();
   deleteMutate.mockReset();
   toastSuccess.mockReset();
 });
 
 describe("ChangeProfilePictureDialog", () => {
-  it("keeps Save disabled until a change is staged", () => {
+  it("keeps the primary disabled until a change is staged", () => {
     render(<ChangeProfilePictureDialog open onClose={() => {}} />);
     expect(save()).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("labels the primary Saving and disables it while the picture is saved", () => {
+    setPending = true;
+    render(<ChangeProfilePictureDialog open onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Saving" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "UserMenu:ChangePicture" })).not.toBeInTheDocument();
   });
 
   it("uploads a chosen picture, toasts and closes", async () => {

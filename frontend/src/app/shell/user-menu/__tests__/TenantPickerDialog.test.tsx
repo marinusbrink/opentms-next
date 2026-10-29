@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* "Log in to a tenant…" (docs/designs/63-user-menu.md): a server-paged grid of tenants through the impersonation
- * endpoint; Next needs exactly one selected, loaded row; a double-click picks directly. The grid is a stand-in that
+ * endpoint; the primary "Log in as…" (Impersonation:LogInAsEllipsis) needs exactly one selected, loaded row; a double-click picks directly. The grid is a stand-in that
  * exposes the callbacks. Risk class: Critical — authorization (server side); this UI part: Medium. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -42,7 +42,7 @@ const ROWS = [
   { id: "t-beta", name: "beta" },
 ];
 const select = (ids: string[]) => act(() => grid!.onSelectionChange({ mode: "Explicit", explicitIds: ids, filterRequest: null, excludedIds: [] }));
-const next = () => screen.getByRole("button", { name: "UserMenu:Next" });
+const next = () => screen.getByRole("button", { name: "Impersonation:LogInAsEllipsis" });
 const loadRows = async () => {
   await act(async () => {
     await grid!.fetchRows({ startRow: 0, endRow: 50 });
@@ -63,7 +63,7 @@ describe("TenantPickerDialog", () => {
     expect(fetchImpersonationTenants).toHaveBeenCalledWith({ startRow: 0, endRow: 50 });
   });
 
-  it("enables Next only with exactly one loaded row selected, and Next picks it", async () => {
+  it("enables Log in as… only with exactly one loaded row selected, and it picks that row", async () => {
     const onPick = vi.fn();
     render(<TenantPickerDialog open onClose={() => {}} onPick={onPick} />);
     await loadRows();

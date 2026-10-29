@@ -10,8 +10,9 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 }));
 
 const changeMutate = vi.fn();
+let changePending = false;
 vi.mock("@/domains/platform/my-profile", () => ({
-  useChangeMyPassword: () => ({ mutateAsync: changeMutate, isPending: false }),
+  useChangeMyPassword: () => ({ mutateAsync: changeMutate, isPending: changePending }),
 }));
 
 const toastSuccess = vi.fn();
@@ -33,11 +34,19 @@ const submit = () =>
   });
 
 beforeEach(() => {
+  changePending = false;
   changeMutate.mockReset();
   toastSuccess.mockReset();
 });
 
 describe("ChangePasswordDialog", () => {
+  it("labels the primary UserMenu:ChangingPassword and disables it while busy", () => {
+    changePending = true;
+    render(<ChangePasswordDialog open onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "UserMenu:ChangingPassword" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "UserMenu:ChangePassword" })).not.toBeInTheDocument();
+  });
+
   it("marks every empty field required and does not call the server", async () => {
     render(<ChangePasswordDialog open onClose={() => {}} />);
     expect(screen.queryByText("FieldRequired")).not.toBeInTheDocument();

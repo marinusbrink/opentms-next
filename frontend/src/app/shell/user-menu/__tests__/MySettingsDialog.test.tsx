@@ -3,7 +3,9 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* "My settings" (docs/designs/63-user-menu.md): prefilled from the profile; the e-mail is read-only; "browser" is sent as
  * language null; the saved language applies at once through setUserLanguage; the remembered accounts can be
- * forgotten one by one. Risk class: Medium (UI flow on the user's own data). */
+ * forgotten one by one. An editor of the user's own record (UI-DLG-002): Save is a ribbon command ("Saving" while busy),
+ * no footer; the languages come from ABP's application configuration plus the browser option; Skeletons until the
+ * profile has loaded. Risk class: Medium (UI flow on the user's own data). */
 
 const setUserLanguage = vi.fn();
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -11,10 +13,16 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 }));
 
 let profile: Record<string, unknown> | undefined;
+let updatePending = false;
 const updateMutate = vi.fn();
 vi.mock("@/domains/platform/my-profile", () => ({
-  useMyProfile: () => ({ data: profile, isLoading: false }),
-  useUpdateMyProfile: () => ({ mutateAsync: updateMutate, isPending: false }),
+  useMyProfile: () => ({ data: profile, isLoading: profile === undefined }),
+  useUpdateMyProfile: () => ({ mutateAsync: updateMutate, isPending: updatePending }),
+}));
+
+let languages: Array<{ cultureName: string; displayName: string }> = [];
+vi.mock("@/lib/abp/queries", () => ({
+  useApplicationConfiguration: () => ({ data: { localization: { languages } } }),
 }));
 
 let accounts: Array<Record<string, unknown>> = [];
@@ -63,6 +71,11 @@ beforeEach(() => {
   updateMutate.mockReset();
   forgetMutate.mockReset();
   toastSuccess.mockReset();
+  updatePending = false;
+  languages = [
+    { cultureName: "nl", displayName: "Nederlands" },
+    { cultureName: "en", displayName: "English" },
+  ];
   profile = { userName: "jdoe", name: "Jan", surname: "de Vries", phoneNumber: "0612345678", email: "jan@example.test", language: "nl" };
   accounts = [];
 });
@@ -160,5 +173,46 @@ describe("MySettingsDialog", () => {
     render(<MySettingsDialog open onClose={() => {}} />);
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "UserMenu:Forget" })));
     expect(screen.getByRole("alert")).toHaveTextContent("Not found.");
+  });
+  it("is an editor: Save is a ribbon command and there is no footer", () => {
+    render(<MySettingsDialog open onClose={() => {}} />);
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-slot='dialog-footer']")).toBeNull();
+  });
+
+  it("labels Save Saving and disables it while the update runs", () => {
+    updatePending = true;
+    render(<MySettingsDialog open onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    /* Ribbon commands are aria-disabled (they stay focusable with their reason as tooltip). */
+    expect(screen.getByRole("button", { name: "Saving" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("shows Skeletons and no fields until the profile has loaded, and Save stays disabled", () => {
+    profile = undefined;
+    render(<MySettingsDialog open onClose={() => {}} />);
+    expect(document.querySelector("[aria-busy='true']")).not.toBeNull();
+    expect(document.querySelectorAll("[data-slot='skeleton']").length).toBeGreaterThan(0);
+    expect(field("ms-name")).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it("offers the browser option plus every language of the application configuration", async () => {
+    languages = [...languages, { cultureName: "de", displayName: "Deutsch" }];
+    render(<MySettingsDialog open onClose={() => {}} />);
+    const trigger = field("ms-language");
+    fireEvent.pointerDown(trigger);
+    fireEvent.mouseDown(trigger);
+    fireEvent.click(trigger);
+    await screen.findByRole("option", { name: "Deutsch" });
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "UserMenu:LanguageBrowser",
+      "Nederlands",
+      "English",
+      "Deutsch",
+    ]);
   });
 });
