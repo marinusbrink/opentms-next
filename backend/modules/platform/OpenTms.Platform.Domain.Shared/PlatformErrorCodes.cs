@@ -33,6 +33,13 @@ public static class PlatformErrorCodes
     public const string DocumentRenderingFailed = Namespace + ":DocumentRenderingFailed";
     public const string ReportDefinitionArchived = Namespace + ":ReportDefinitionArchived";
 
+    /* The user menu's account switch (docs/designs/63-user-menu.md). */
+    public const string AccountPasswordRequired = Namespace + ":AccountPasswordRequired";
+    public const string AccountPasswordIncorrect = Namespace + ":AccountPasswordIncorrect";
+    public const string AccountLockedOut = Namespace + ":AccountLockedOut";
+    public const string AccountNotAvailable = Namespace + ":AccountNotAvailable";
+    public const string AccountSwitchWhileImpersonating = Namespace + ":AccountSwitchWhileImpersonating";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
@@ -43,7 +50,8 @@ public static class PlatformErrorCodes
     public static readonly string[] BadRequestCodes =
     [
         TemplateSyntaxError, UnsupportedCulture, InvalidRegex, TransformationArgumentRequired,
-        DuplicateTransformation, UnknownSortColumn, TooManyRows, NameRequired, FileNamePatternUnknownField
+        DuplicateTransformation, UnknownSortColumn, TooManyRows, NameRequired, FileNamePatternUnknownField,
+        AccountPasswordRequired, AccountPasswordIncorrect, AccountLockedOut, AccountNotAvailable, AccountSwitchWhileImpersonating
     ];
 
     /// <summary>

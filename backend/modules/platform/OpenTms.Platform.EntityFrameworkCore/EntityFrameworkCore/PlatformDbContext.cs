@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Platform.Accounts;
 using OpenTms.Platform.DataProtection;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.DocumentTypes;
@@ -58,6 +59,12 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// docs/designs/62-sign-in-tenant-detection.md).
     /// </summary>
     public DbSet<UserSignInLookup> UserSignInLookups { get; set; } = default!;
+
+    /// <summary>
+    /// Remembered account switches of the user menu: platform."UserAccountLinks", host database only, like the sign-in
+    /// lookup (docs/designs/63-user-menu.md).
+    /// </summary>
+    public DbSet<UserAccountLink> UserAccountLinks { get; set; } = default!;
 
     // Platform master data (docs/designs/54-platform-master-data.md)
     public DbSet<EmailTemplate> EmailTemplates { get; set; } = default!;
@@ -162,6 +169,16 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             /* The sign-in page looks a typed address up; the rebuild replaces a tenant's rows. */
             b.HasIndex(l => l.EmailHash);
             b.HasIndex(l => l.UserTenantId);
+        });
+
+        builder.Entity<UserAccountLink>(b =>
+        {
+            b.ToTable("UserAccountLinks", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(l => l.LinkedSecurityStamp).IsRequired().HasMaxLength(UserAccountLink.MaxSecurityStampLength);
+            /* One link per (user, other tenant); NULLS NOT DISTINCT so links to and from the host are unique too. */
+            b.HasIndex(l => new { l.UserTenantId, l.UserId, l.LinkedTenantId }).IsUnique().AreNullsDistinct(false);
+            b.HasIndex(l => l.LinkedTenantId);
         });
 
         builder.Entity<NumberSequenceCounter>(b =>

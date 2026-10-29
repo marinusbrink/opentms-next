@@ -424,16 +424,20 @@ public class ImpersonationAppServiceTests : OpenTmsTestBase<ImpersonationTestMod
     [Fact]
     public void The_controller_actions_carry_the_same_gates()
     {
-        PolicyOf(typeof(TenantAdministrationController), nameof(TenantAdministrationController.GetUsersAsync))
+        /* The Impersonation permission alone opens them, not the Tenants app (the Customer Success Manager role,
+         * docs/designs/63-user-menu.md): they live on the impersonation controller, not under the Tenants controller. */
+        PolicyOf(typeof(ImpersonationController), nameof(ImpersonationController.GetTenantsAsync))
             .ShouldBe(PlatformPermissions.Tenants.Impersonation);
-        PolicyOf(typeof(TenantAdministrationController), nameof(TenantAdministrationController.ImpersonateAsync))
+        PolicyOf(typeof(ImpersonationController), nameof(ImpersonationController.GetUsersAsync))
+            .ShouldBe(PlatformPermissions.Tenants.Impersonation);
+        PolicyOf(typeof(ImpersonationController), nameof(ImpersonationController.ImpersonateAsync))
             .ShouldBe(PlatformPermissions.Tenants.Impersonation);
         typeof(TenantAdministrationController).GetCustomAttribute<AuthorizeAttribute>()!.Policy.ShouldBe(PlatformPermissions.Tenants.Default);
-        typeof(TenantAdministrationController).GetMethod(nameof(TenantAdministrationController.ImpersonateAsync))!
-            .GetCustomAttribute<HttpPostAttribute>()!.Template.ShouldBe("{id:guid}/impersonate/{userId:guid}");
+        typeof(ImpersonationController).GetMethod(nameof(ImpersonationController.ImpersonateAsync))!
+            .GetCustomAttribute<HttpPostAttribute>()!.Template.ShouldBe("tenants/{id:guid}/users/{userId:guid}");
 
         var returnController = typeof(ImpersonationController);
-        returnController.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull();
+        returnController.GetCustomAttribute<AuthorizeAttribute>()!.Policy.ShouldBeNull();
         returnController.GetMethod(nameof(ImpersonationController.ReturnAsync))!.GetCustomAttribute<HttpPostAttribute>()!.Template.ShouldBe("return");
         returnController.GetCustomAttribute<RouteAttribute>()!.Template.ShouldBe("api/platform/impersonation");
     }

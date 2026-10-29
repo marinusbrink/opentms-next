@@ -6,7 +6,6 @@ using System.IO;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Volo.Abp.BlobStoring;
 using Volo.Abp.Data;
 using OpenTms.Platform.Grid;
 using Volo.Abp;
@@ -23,18 +22,15 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     private readonly IIdentityRoleRepository _roleRepository;
     private readonly IOrganizationUnitRepository _organizationUnitRepository;
     private readonly IdentityUserManager _userManager;
-    private readonly IBlobContainer<ProfilePictureContainer> _profilePictures;
+    private readonly ProfilePictureManager _profilePictures;
     private readonly IOptions<IdentityOptions> _identityOptions;
-
-    /// <summary>Extra property on the user that holds the picture's content type; its presence means "has a picture".</summary>
-    public const string ProfilePictureContentTypeProperty = "ProfilePictureContentType";
 
     public UserAppService(
         IIdentityUserRepository userRepository,
         IIdentityRoleRepository roleRepository,
         IOrganizationUnitRepository organizationUnitRepository,
         IdentityUserManager userManager,
-        IBlobContainer<ProfilePictureContainer> profilePictures,
+        ProfilePictureManager profilePictures,
         IOptions<IdentityOptions> identityOptions)
     {
         _userRepository = userRepository;
@@ -148,7 +144,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         await CheckLastAdminRoleGuardAsync(user, null);
 
         ThrowIfFailed(await _userManager.DeleteAsync(user));
-        await _profilePictures.DeleteAsync(id.ToString("N"));
+        await _profilePictures.DeleteBlobAsync(id);
 
         Logger.LogInformation("User {UserId} deleted by {ActorId}", id, CurrentUser.Id);
     }
@@ -233,42 +229,18 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
 
     // ── Profile picture ───────────────────────────────────────────────────────
 
-    public async Task<ProfilePictureDto?> GetProfilePictureAsync(Guid id)
-    {
-        var user = await FindUserOrThrowAsync(id);
-        var contentType = user.GetProperty<string?>(ProfilePictureContentTypeProperty);
-        if (string.IsNullOrEmpty(contentType))
-            return null;
-
-        var bytes = await _profilePictures.GetAllBytesOrNullAsync(id.ToString("N"));
-        return bytes == null ? null : new ProfilePictureDto { Content = bytes, ContentType = contentType };
-    }
+    public async Task<ProfilePictureDto?> GetProfilePictureAsync(Guid id) =>
+        await _profilePictures.GetAsync(await FindUserOrThrowAsync(id));
 
     public async Task SetProfilePictureAsync(Guid id, ProfilePictureDto input)
     {
-        if (!ProfilePictureDto.AllowedContentTypes.Contains(input.ContentType, StringComparer.OrdinalIgnoreCase))
-            throw new UserFriendlyException(L["Administration:PictureTypeNotAllowed"]);
-        if (input.Content.Length == 0 || input.Content.Length > ProfilePictureDto.MaxBytes)
-            throw new UserFriendlyException(L["Administration:PictureTooLarge"]);
-
-        var user = await FindUserOrThrowAsync(id);
-        await _profilePictures.SaveAsync(id.ToString("N"), input.Content, overrideExisting: true);
-        user.SetProperty(ProfilePictureContentTypeProperty, input.ContentType.ToLowerInvariant());
-        ThrowIfFailed(await _userManager.UpdateAsync(user));
-
+        await _profilePictures.SetAsync(await FindUserOrThrowAsync(id), input);
         Logger.LogInformation("Profile picture set for user {UserId} by {ActorId}", id, CurrentUser.Id);
     }
 
     public async Task DeleteProfilePictureAsync(Guid id)
     {
-        var user = await FindUserOrThrowAsync(id);
-        await _profilePictures.DeleteAsync(id.ToString("N"));
-        if (user.HasProperty(ProfilePictureContentTypeProperty))
-        {
-            user.RemoveProperty(ProfilePictureContentTypeProperty);
-            ThrowIfFailed(await _userManager.UpdateAsync(user));
-        }
-
+        await _profilePictures.DeleteAsync(await FindUserOrThrowAsync(id));
         Logger.LogInformation("Profile picture removed for user {UserId} by {ActorId}", id, CurrentUser.Id);
     }
 

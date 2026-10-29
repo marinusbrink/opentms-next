@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +14,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTms.Localization;
+using OpenTms.Platform.Accounts;
 using OpenTms.SignIn;
 using Volo.Abp.Account.Settings;
 using Volo.Abp.Account.Web;
@@ -210,7 +213,7 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
         switch (resolution.Outcome)
         {
             case SignInResolutionOutcome.Single:
-                return await SignInAsync(resolution.Choices[0], email.RememberMe);
+                return await SignInAsync(resolution.Choices[0], email.RememberMe, resolution.Choices);
 
             case SignInResolutionOutcome.Multiple:
                 Response.Cookies.Append(
@@ -299,14 +302,15 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 CookieOptions(SameSiteMode.Strict, DateTimeOffset.UtcNow.Add(SignInLastTenantProtector.RememberFor)));
         }
 
-        return await SignInAsync(match.Choice, selection.RememberMe);
+        return await SignInAsync(match.Choice, selection.RememberMe, selection.Choices);
     }
 
     /// <summary>
     /// Signs in to the chosen place. The user is read again there: one deactivated or locked out since the password
-    /// was checked (up to five minutes ago, for step 3) is refused.
+    /// was checked (up to five minutes ago, for step 3) is refused. The session remembers every place the password was
+    /// valid in, so the user menu switches there without asking for it again (docs/designs/63-user-menu.md).
     /// </summary>
-    private async Task<IActionResult> SignInAsync(SignInChoice choice, bool rememberMe)
+    private async Task<IActionResult> SignInAsync(SignInChoice choice, bool rememberMe, IReadOnlyList<SignInChoice> passwordPlaces)
     {
         using (CurrentTenant.Change(choice.TenantId))
         {
@@ -319,7 +323,10 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 return BackToPassword();
             }
 
-            await SignInManager.SignInAsync(user, rememberMe);
+            await SignInManager.SignInWithClaimsAsync(user, rememberMe,
+            [
+                new Claim(AccountSwitchClaims.PasswordTenants, AccountSwitchClaims.Format(passwordPlaces.Select(p => p.TenantId)))
+            ]);
             await IdentitySecurityLogManager.SaveAsync(new IdentitySecurityLogContext
             {
                 Identity = IdentitySecurityLogIdentityConsts.Identity,
