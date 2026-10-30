@@ -1,5 +1,7 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0
-COPY bin/Release/net10.0/publish/ app/
+# Runtime image for the Cloud Run job opentms-migrator (docs/designs/gcp-infrastructure.md). The deploy
+# workflow publishes into ./publish first.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
-ENV ASPNETCORE_URLS=http://+:80
+COPY publish/ ./
+USER $APP_UID
 ENTRYPOINT ["dotnet", "OpenTms.DbMigrator.dll"]
