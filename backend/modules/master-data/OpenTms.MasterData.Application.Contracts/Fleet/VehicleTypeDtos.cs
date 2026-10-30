@@ -19,6 +19,7 @@ public class VehicleTypeRowDto
     public double? DefaultWidthCm { get; set; }
     public double? DefaultHeightCm { get; set; }
     public double? DefaultGrossVehicleWeightKg { get; set; }
+    public decimal? CostPricePerKm { get; set; }
 }
 
 public class VehicleTypeDto : MasterDataDetailDtoBase
@@ -31,6 +32,8 @@ public class VehicleTypeDto : MasterDataDetailDtoBase
     public double? DefaultWidthCm { get; set; }
     public double? DefaultHeightCm { get; set; }
     public double? DefaultGrossVehicleWeightKg { get; set; }
+    /// <summary>QP10: the cost price per kilometre of the type's vehicles (4 decimals), null = unknown.</summary>
+    public decimal? CostPricePerKm { get; set; }
     public List<MasterDataLookupDto> TransportCharacteristics { get; set; } = new();
 }
 
@@ -62,6 +65,10 @@ public class VehicleTypeCreateDto
 
     [Range(0, double.MaxValue)]
     public double? DefaultGrossVehicleWeightKg { get; set; }
+
+    /// <summary>QP10: cost price per kilometre, 4 decimals; null = unknown.</summary>
+    [Range(0, 999_999_999_999.9999)]
+    public decimal? CostPricePerKm { get; set; }
 
     public List<Guid> TransportCharacteristicsIds { get; set; } = new();
 }

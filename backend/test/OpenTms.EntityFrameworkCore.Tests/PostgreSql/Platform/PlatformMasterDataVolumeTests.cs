@@ -178,7 +178,9 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
         var reportPurposes = Enum.GetValues<ReportPurpose>();
         for (var i = 0; i < DefinitionCount; i++)
         {
-            var definition = new ReportDefinition(Guid.NewGuid(), TenantA, $"Layout {i:D4}", reportPurposes[i % reportPurposes.Length], Cultures[i % 2], Cultures,
+            /* Culture per block of purposes: the first 2 × purposes rows are each (purpose, culture) once, so one default
+             * per pair holds for any purpose count (design 56 added ConsignmentNote, an even count). */
+            var definition = new ReportDefinition(Guid.NewGuid(), TenantA, $"Layout {i:D4}", reportPurposes[i % reportPurposes.Length], Cultures[(i / reportPurposes.Length) % 2], Cultures,
                 ReportRenderingProvider.PdfGeneratorApi, $"tpl-{i}", "document-{{ number }}");
             definition.SetDefault(i < reportPurposes.Length * 2);
             if (i % 10 == 9)

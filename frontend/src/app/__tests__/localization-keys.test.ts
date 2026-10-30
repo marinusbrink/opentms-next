@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { APPS } from "@/app/apps.config";
+
 // Repo root is four levels up from frontend/src/app/__tests__/
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const REPO_ROOT = resolve((import.meta as any).dirname as string, "../../../..");
@@ -14,6 +16,26 @@ function readPlatformLocale(lang: string): { culture: string; texts: Record<stri
     `backend/modules/platform/OpenTms.Platform.Domain.Shared/Localization/Platform/${lang}.json`,
   );
   return JSON.parse(readFileSync(filePath, "utf-8"));
+}
+
+/** The product resource (app and shell names, the wizard texts): backend/src/OpenTms.Domain.Shared/Localization/OpenTms. */
+function readOpenTmsLocale(lang: string): Record<string, string> {
+  const filePath = resolve(REPO_ROOT, `backend/src/OpenTms.Domain.Shared/Localization/OpenTms/${lang}.json`);
+  return (JSON.parse(readFileSync(filePath, "utf-8")) as { Texts: Record<string, string> }).Texts;
+}
+
+/** Every resource the frontend's t() can resolve a key from: the product resource and every module's. */
+function readAllTexts(lang: string): Record<string, string> {
+  const modules = ["financial", "integrations", "master-data", "orders", "planning-execution", "platform", "reporting"];
+  const names: Record<string, string> = { "master-data": "MasterData", "planning-execution": "PlanningExecution" };
+  const texts: Record<string, string> = { ...readOpenTmsLocale(lang) };
+  for (const module of modules) {
+    const name = names[module] ?? module[0].toUpperCase() + module.slice(1);
+    const filePath = resolve(REPO_ROOT, `backend/modules/${module}/OpenTms.${name}.Domain.Shared/Localization/${name}/${lang}.json`);
+    const parsed = JSON.parse(readFileSync(filePath, "utf-8")) as { texts?: Record<string, string>; Texts?: Record<string, string> };
+    Object.assign(texts, parsed.texts ?? parsed.Texts ?? {});
+  }
+  return texts;
 }
 
 describe("Platform localization key additions (low risk)", () => {
@@ -97,6 +119,97 @@ describe("Platform localization key additions — command bar and role bulk dele
   });
 });
 
+describe("OpenTms resource additions — the Transport app's nav names and the wizard texts (design 61; low risk)", () => {
+  const NAV_KEYS = [
+    "App:Transport.Orders",
+    "App:Transport.Templates",
+    "App:Transport.Trips",
+    "App:Transport.Documents",
+    "App:Transport.View.Today",
+    "App:Transport.View.Tomorrow",
+    "App:Transport.View.ThisWeek",
+    "App:Transport.View.Open",
+    "App:Transport.View.Drafts",
+    "App:Transport.View.All",
+  ];
+  const LIBRARY_KEYS = [
+    "RecordNotFound",
+    "Wizard:Previous",
+    "Wizard:Next",
+    "Wizard:StepOf",
+    "Wizard:Steps",
+    "Wizard:Progress",
+    "Wizard:Task.Waiting",
+    "Wizard:Task.Running",
+    "Wizard:Task.Done",
+    "Wizard:Task.Failed",
+  ];
+
+  for (const lang of ["en", "nl"]) {
+    it(`${lang}.json has every key with a non-empty value and no em dash (UI-FB-007)`, () => {
+      const texts = readOpenTmsLocale(lang);
+      for (const key of [...NAV_KEYS, ...LIBRARY_KEYS]) {
+        expect(texts[key], key).toBeDefined();
+        expect(texts[key].trim().length, key).toBeGreaterThan(0);
+        expect(texts[key], key).not.toContain("—");
+      }
+      expect(texts["Wizard:StepOf"]).toContain("{0}");
+      expect(texts["Wizard:StepOf"]).toContain("{1}");
+      expect(texts["Wizard:Progress"]).toContain("{0}");
+      expect(texts["Wizard:Progress"]).toContain("{1}");
+    });
+  }
+
+  it("the Dutch nav names are the ones the PO gave", () => {
+    const nl = readOpenTmsLocale("nl");
+    expect([nl["App:Transport.Orders"], nl["App:Transport.Templates"], nl["App:Transport.Trips"], nl["App:Transport.Documents"]]).toEqual(["Opdrachten", "Sjablonen", "Ritten", "Documenten"]);
+    expect(NAV_KEYS.filter((k) => k.startsWith("App:Transport.View.")).map((k) => nl[k])).toEqual(["Vandaag", "Morgen", "Deze week", "Open", "Concepten", "Alles"]);
+  });
+});
+
+describe("apps.config nameKeys resolve in a localization resource (nl and en)", () => {
+  /* Keys whose texts arrive with another builder's backend module (design 61: the Orders, Planning & Execution and
+   * Financial resources are theirs). Remove an entry here when its module lands; the test then demands the text. */
+  const PENDING: Record<string, string> = {
+  };
+  /* The StatusBadge label keys of design 61 (Orders:Status.*, PlanningExecution:Status.*) landed with the Transport
+   * screens; nothing is pending any more. A new pending key goes here with its module. */
+  const PENDING_STATUS_KEYS: string[] = [];
+
+  const nameKeys = (): string[] => {
+    const keys: string[] = [];
+    const walk = (views: readonly { nameKey: string; children?: readonly unknown[] }[] | undefined) =>
+      views?.forEach((view) => {
+        keys.push(view.nameKey);
+        walk(view.children as typeof views);
+      });
+    for (const app of APPS) {
+      keys.push(app.nameKey);
+      walk(app.views);
+    }
+    return keys;
+  };
+
+  for (const lang of ["en", "nl"]) {
+    it(`${lang}: every app and nav name has a text, except the allow-listed pending ones`, () => {
+      const texts = readAllTexts(lang);
+      const missing = nameKeys().filter((key) => !(key in PENDING) && !texts[key]?.trim());
+      expect(missing).toEqual([]);
+    });
+
+    it(`${lang}: the allow-list names only keys that are still missing (drop an entry once its module lands)`, () => {
+      const texts = readAllTexts(lang);
+      const landed = [...Object.keys(PENDING), ...PENDING_STATUS_KEYS].filter((key) => texts[key]?.trim());
+      expect(landed).toEqual([]);
+    });
+  }
+
+  it("every pending key is used by apps.config or the StatusBadge registry", () => {
+    const used = new Set(nameKeys());
+    for (const key of Object.keys(PENDING)) expect(used.has(key), key).toBe(true);
+  });
+});
+
 describe("Platform localization key additions — grid settings failure toasts (low risk)", () => {
   const KEYS = ["Grid:SettingsSaveFailed", "Grid:SettingsResetFailed"];
 
@@ -109,4 +222,47 @@ describe("Platform localization key additions — grid settings failure toasts (
       }
     });
   }
+});
+
+describe("Orders resource additions — the order page by freight item and its legacy tabs (design 61; low risk)", () => {
+  const KEYS = [
+    "Orders:AddFreightItems", "Orders:AddLineHint", "Orders:DateTime", "Orders:FastEntry", "Orders:FreightDetails",
+    "Orders:FromRelation", "Orders:ToRelation", "Orders:ItemPricedAfterSave", "Orders:ItemTotal", "Orders:LineNeedsTwoStopsHint",
+    "Orders:OrderLevelLines", "Orders:PasteAmbiguous", "Orders:PasteFreightItems", "Orders:PasteFromExcel", "Orders:PasteInvalid",
+    "Orders:PasteMarkedHint", "Orders:PasteNotFound", "Orders:PastePreview", "Orders:PasteRows", "Orders:PasteRowsHint", "Orders:PasteTooManyRows",
+    "Orders:Route", "Orders:StopsAndLegs", "Orders:TripRequestItems", "Orders:TripRequestItemsHint", "Orders:TripRequestNoItems",
+    /* The legacy tab structure (PO 2026-10-27). */
+    "Orders:Financial", "Orders:TripRequestTab", "Orders:PlannerRemarks", "Orders:OtherReferences", "Orders:CustomFields",
+    "Orders:PriceCalculation", "Orders:RevenueOverview", "Orders:Invoicing", "Orders:InvoicingRemarksBlock", "Orders:PricedPerFreightItem",
+    "Orders:FixedPriceForOrder", "Orders:RevenueAfterSave", "Orders:RevenueOnOrders", "Orders:AdditionalServicesAfterSave", "Orders:NoRemarks",
+    "Orders:Apply", "Orders:RemoveStop", "Orders:DeleteFreightItem", "Orders:DeleteFreightItemQuestion", "Orders:FreightItemsTotal",
+    "Orders:StopNeedsActivity", "Orders:StopNeedsRelation", "Orders:StopNeedsAddress", "Orders:StopNeedsDate", "Orders:StopNamed",
+    "Orders:StopNumbered", "Orders:ItemProblem",
+  ];
+  for (const lang of ["en", "nl"]) {
+    it(`${lang}: every key has a text without an em dash (UI-FB-007)`, () => {
+      const texts = readAllTexts(lang);
+      for (const key of KEYS) {
+        expect(texts[key], key).toBeTruthy();
+        expect(texts[key], key).not.toContain("—");
+      }
+    });
+  }
+
+  it("a stop's message names the stop and a freight item's names the item ({0} the number, {1} the activity or the message)", () => {
+    for (const lang of ["en", "nl"]) {
+      const texts = readAllTexts(lang);
+      expect(texts["Orders:StopNamed"], lang).toContain("{0}");
+      expect(texts["Orders:StopNamed"], lang).toContain("{1}");
+      expect(texts["Orders:StopNumbered"], lang).toContain("{0}");
+      expect(texts["Orders:ItemProblem"], lang).toContain("{1}");
+      expect(texts["Orders:DeleteFreightItemQuestion"], lang).toContain("{0}");
+    }
+  });
+
+  it("on screen the API's line is a freight item (PO 2026-10-26)", () => {
+    expect(readAllTexts("en")["Orders:Lines"]).toBe("Freight items");
+    expect(readAllTexts("nl")["Orders:Lines"]).toBe("Vrachtregels");
+    expect(readAllTexts("nl")["Orders:Line"]).toBe("Vrachtregel");
+  });
 });

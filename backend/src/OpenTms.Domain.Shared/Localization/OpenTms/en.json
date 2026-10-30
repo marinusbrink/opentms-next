@@ -53,6 +53,26 @@
     "Shell:EmptyAppTitle": "Nothing here yet",
     "Shell:EmptyAppText": "This app is a stub — features arrive through the department pipeline.",
     "Shell:ReadsFrom": "Reads from domains",
-    "App:Tenants": "Tenants"
+    "App:Tenants": "Tenants",
+    "App:Transport.Orders": "Orders",
+    "App:Transport.Templates": "Templates",
+    "App:Transport.Trips": "Trips",
+    "App:Transport.Documents": "Documents",
+    "App:Transport.View.Today": "Today",
+    "App:Transport.View.Tomorrow": "Tomorrow",
+    "App:Transport.View.ThisWeek": "This week",
+    "App:Transport.View.Open": "Open",
+    "App:Transport.View.Drafts": "Drafts",
+    "App:Transport.View.All": "All",
+    "RecordNotFound": "This record does not exist or is no longer available.",
+    "Wizard:Previous": "Previous",
+    "Wizard:Next": "Next",
+    "Wizard:StepOf": "Step {0} of {1}",
+    "Wizard:Steps": "Steps",
+    "Wizard:Progress": "{0} of {1} done",
+    "Wizard:Task.Waiting": "Waiting",
+    "Wizard:Task.Running": "Running",
+    "Wizard:Task.Done": "Done",
+    "Wizard:Task.Failed": "Failed"
   }
 }

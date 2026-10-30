@@ -3,7 +3,7 @@ import type { ColDef } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
-import { TransportUnitEditor } from "@/apps/master-data/editors/TransportUnitEditor";
+import { TransportUnitEditor } from "@/domains/master-data/components/TransportUnitEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { transportUnits, type TransportUnitRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

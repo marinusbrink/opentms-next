@@ -122,9 +122,9 @@ public class PdfGeneratorApiHealthCheckTests
     {
         using var provider = ConfigureIntegrationsModule("https://us1.pdfgeneratorapi.com/api/v4/");
 
+        /* Design 60 registers the "routing" check next to this one (RoutingRegistrationTests); this test owns the pdf one. */
         var registration = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
-            .ShouldHaveSingleItem();
-        registration.Name.ShouldBe("pdfgeneratorapi");
+            .Single(r => r.Name == "pdfgeneratorapi");
         registration.Tags.ShouldBe(["external"], ignoreOrder: false, "never 'ready': an outage at the provider must not take the API out of rotation");
     }
 

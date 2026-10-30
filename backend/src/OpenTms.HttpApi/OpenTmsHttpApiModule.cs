@@ -3,7 +3,9 @@ using System.Net;
 using OpenTms.Financial;
 using OpenTms.Localization;
 using OpenTms.MasterData;
+using OpenTms.Integrations;
 using OpenTms.Orders;
+using OpenTms.PlanningExecution;
 using OpenTms.Platform;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.ReferenceData;
@@ -126,6 +128,27 @@ public class OpenTmsHttpApiModule : AbpModule
             }
 
             foreach (var code in FinancialErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            /* Planning & Execution (design 59) and Integrations (design 60). */
+            foreach (var code in PlanningExecutionErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in PlanningExecutionErrorCodes.BadRequestCodes)
+            {
+                options.Map(code, HttpStatusCode.BadRequest);
+            }
+
+            foreach (var code in IntegrationsErrorCodes.ConflictCodes)
+            {
+                options.Map(code, HttpStatusCode.Conflict);
+            }
+
+            foreach (var code in IntegrationsErrorCodes.BadRequestCodes)
             {
                 options.Map(code, HttpStatusCode.BadRequest);
             }

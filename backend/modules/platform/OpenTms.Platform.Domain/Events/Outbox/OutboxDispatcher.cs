@@ -24,6 +24,11 @@ namespace OpenTms.Platform.Events.Outbox;
 /// a crash between publish and delete re-delivers the event, so handlers are idempotent —
 /// constitution rule 3). ABP's own outbox sender is switched off because it only ever reads the
 /// host database; this dispatcher is told which tenant to visit instead.
+/// Every event is handled inside a transactional unit of work of its own, in the raising tenant's
+/// context: the handlers of design 49 (the job request) and of the transport run read and write
+/// their module's tables, request derived values and publish facts of their own, all of which need
+/// the transaction (an outbox publish outside one throws). The unit of work commits before the row
+/// is deleted, so a crash in between re-delivers the event to idempotent handlers.
 /// </summary>
 public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
 {
@@ -111,12 +116,15 @@ public class OutboxDispatcher : IOutboxDispatcher, ITransientDependency
                     try
                     {
                         /* Handlers run in the context of the tenant the event was raised for — also
-                         * for a shared-tier tenant whose row lives in the host database. */
+                         * for a shared-tier tenant whose row lives in the host database — and inside
+                         * one transactional unit of work per event (see the class summary). */
                         using (_currentTenant.Change(eventTenantId))
+                        using (var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true))
                         {
                             await _distributedEventBus
                                 .AsSupportsEventBoxes()
                                 .PublishFromOutboxAsync(outgoingEvent, outboxConfig);
+                            await unitOfWork.CompleteAsync(cancellationToken);
                         }
                     }
                     catch (Exception ex)

@@ -24,6 +24,8 @@ vi.mock("@/lib/abp/queries", () => ({
     data: {
       auth: { grantedPolicies: grants },
       features: { values: features },
+      /* A tenant user: the host has no Master data app (PO 2026-10-29). */
+      currentTenant: { id: "t-1" },
       localization: { languages: [{ cultureName: "nl", displayName: "Nederlands" }] },
     },
   }),
@@ -55,7 +57,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
-import { DriverEditor } from "@/apps/master-data/editors/DriverEditor";
+import { DriverEditor } from "@/domains/master-data/components/DriverEditor";
 import type { DriverDto } from "@/domains/master-data/entities";
 
 type ClientCall = (path: string, init?: { params?: { query?: Record<string, unknown>; path?: Record<string, unknown> }; body?: unknown }) => Promise<unknown>;

@@ -51,6 +51,9 @@ public class Vehicle : MasterDataAggregateRoot
 
     public double? MaxPayloadKg { get; private set; }
 
+    /// <summary>QP10: the vehicle's own cost price per kilometre; null = the type's (the cascade is resolved by the published lookup).</summary>
+    public decimal? CostPricePerKm { get; private set; }
+
     public FuelType? FuelType { get; private set; }
 
     public EuroClass? EuroClass { get; private set; }
@@ -142,6 +145,16 @@ public class Vehicle : MasterDataAggregateRoot
         MaxEpq = NonNegative(dimensions.MaxEpq, "maxEpq");
         MaxLoadingMeters = NonNegative(dimensions.MaxLoadingMeters, "maxLoadingMeters");
         MaxPayloadKg = NonNegative(dimensions.MaxPayloadKg, "maxPayloadKg");
+    }
+
+    public void SetCostPricePerKm(decimal? costPricePerKm)
+    {
+        if (costPricePerKm is < 0)
+        {
+            throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "costPricePerKm").WithData("value", costPricePerKm.Value);
+        }
+
+        CostPricePerKm = costPricePerKm == null ? null : decimal.Round(costPricePerKm.Value, 4, MidpointRounding.AwayFromZero);
     }
 
     public void SetEngine(FuelType? fuelType, EuroClass? euroClass)

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { ColDef } from "ag-grid-community";
 
 import { NumberCell } from "@/components/ui/grid-cells";
-import { CountryEditor } from "@/apps/master-data/editors/CountryEditor";
+import { CountryEditor } from "@/domains/master-data/components/CountryEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { countries, type CountryRow } from "@/domains/master-data/entities";
 import { BoolCell } from "@/components/ui/grid-cells";

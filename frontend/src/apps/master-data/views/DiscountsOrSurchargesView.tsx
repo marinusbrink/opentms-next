@@ -3,7 +3,7 @@ import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
-import { DiscountOrSurchargeEditor } from "@/apps/master-data/editors/DiscountOrSurchargeEditor";
+import { DiscountOrSurchargeEditor } from "@/domains/financial/components/DiscountOrSurchargeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import {
   DIRECTIONS,

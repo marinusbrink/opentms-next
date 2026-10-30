@@ -63,16 +63,19 @@ public class OutboxMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
     {
         var page = await _service.GetListAsync(Request());
 
-        page.TotalCount.ShouldBe(2);
+        /* The test databases: the host (with the two shared-tier tenants: outbox-tenant-shared, transport-run-shared),
+         * tenant A's own database and the committing tests' own database (transport-run-a; PostgreSqlTestDatabases). */
+        page.TotalCount.ShouldBe(3);
         var host = page.Rows[0];
         host.IsHost.ShouldBeTrue();
         host.Key.ShouldBe("host");
         host.DatabaseName.ShouldBe(PostgreSqlTestDatabases.HostDatabase);
-        host.SharedTenantCount.ShouldBe(1);
+        host.SharedTenantCount.ShouldBe(2);
         host.IsReachable.ShouldBeTrue();
         host.PendingCount.ShouldNotBeNull();
 
-        var tenant = page.Rows[1];
+        page.Rows.Skip(1).Select(r => r.TenantId).ShouldBe([PostgreSqlTestDatabases.TenantAId, PostgreSqlTestDatabases.TransportTenantAId], ignoreOrder: true);
+        var tenant = page.Rows.Single(r => r.TenantId == PostgreSqlTestDatabases.TenantAId);
         tenant.TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
         tenant.DatabaseName.ShouldBe(PostgreSqlTestDatabases.TenantADatabase);
         tenant.IsSharedTier.ShouldBeFalse();

@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import type { ColDef } from "ag-grid-community";
 
-import { NumberCell } from "@/components/ui/grid-cells";
-import { VehicleTypeEditor } from "@/apps/master-data/editors/VehicleTypeEditor";
+import { NumberCell, UnitPriceCell } from "@/components/ui/grid-cells";
+import { VehicleTypeEditor } from "@/domains/master-data/components/VehicleTypeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { vehicleTypeKindKey, vehicleTypes, type VehicleTypeRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -20,6 +20,7 @@ export function VehicleTypesView() {
       { field: "maxEpq", headerName: t("MasterData:MaxEpq"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 100 },
       { field: "maxLoadingMeters", headerName: t("MasterData:MaxLoadingMeters"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 150 },
       { field: "defaultGrossVehicleWeightKg", headerName: t("MasterData:DefaultGrossVehicleWeightKg"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 130 },
+      { field: "costPricePerKm", headerName: t("MasterData:CostPricePerKm"), cellRenderer: UnitPriceCell, type: "rightAligned", flex: 1, minWidth: 130 },
       { field: "defaultLengthCm", headerName: t("MasterData:DefaultLengthCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 110, hide: true },
       { field: "defaultWidthCm", headerName: t("MasterData:DefaultWidthCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 110, hide: true },
       { field: "defaultHeightCm", headerName: t("MasterData:DefaultHeightCm"), cellRenderer: NumberCell, type: "rightAligned", flex: 1, minWidth: 110, hide: true },

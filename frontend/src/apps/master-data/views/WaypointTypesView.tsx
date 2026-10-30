@@ -3,7 +3,7 @@ import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell } from "@/components/ui/grid-cells";
-import { WaypointTypeEditor } from "@/apps/master-data/editors/WaypointTypeEditor";
+import { WaypointTypeEditor } from "@/domains/orders/components/WaypointTypeEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { WAYPOINT_ACTIVITIES, waypointTypes, type WaypointTypeRow } from "@/domains/orders/reference-data";
 import { useL } from "@/lib/i18n/LocalizationProvider";

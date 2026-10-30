@@ -72,6 +72,36 @@ public class MasterDataReferences : ITransientDependency
         }
     }
 
+    public async Task EnsureRelationsExistAsync(IReadOnlyCollection<Guid> ids)
+    {
+        var keys = ids.Distinct().ToList();
+        if (keys.Count == 0)
+        {
+            return;
+        }
+
+        var found = (await _lookup.GetRelationsAsync(keys)).Select(r => r.Id).ToHashSet();
+        if (keys.Any(id => !found.Contains(id)))
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "relationId");
+        }
+    }
+
+    /// <summary>Relation id → name, in chunks of the lookup's bound; a relation deleted in Master Data is absent.</summary>
+    public async Task<Dictionary<Guid, string>> GetRelationNamesAsync(IReadOnlyCollection<Guid> ids)
+    {
+        var names = new Dictionary<Guid, string>();
+        foreach (var chunk in ids.Distinct().Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            foreach (var relation in await _lookup.GetRelationsAsync(chunk))
+            {
+                names[relation.Id] = relation.Name;
+            }
+        }
+
+        return names;
+    }
+
     /// <summary>Region id → name; a region deleted in Master Data is absent.</summary>
     public async Task<Dictionary<Guid, string>> GetRegionNamesAsync(IReadOnlyCollection<Guid> ids)
     {

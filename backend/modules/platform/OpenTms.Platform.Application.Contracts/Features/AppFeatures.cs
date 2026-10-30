@@ -14,6 +14,15 @@ public static class AppFeatures
     public const string Dashboard = GroupName + ".Dashboard";
     public const string Planboard = GroupName + ".Planboard";
     public const string Transport = GroupName + ".Transport";
+
+    /// <summary>The Transport app's navigation nodes (design 56; every node a feature, PO 2026-10-14; all default on, PO 2026-10-25).</summary>
+    public static class TransportApp
+    {
+        public const string Orders = Transport + ".Orders";
+        public const string OrderTemplates = Orders + ".Templates";
+        public const string Trips = Transport + ".Trips";
+        public const string Documents = Transport + ".Documents";
+    }
     public const string Finance = GroupName + ".Finance";
     public const string Integrations = GroupName + ".Integrations";
     public const string Reports = GroupName + ".Reports";
@@ -86,6 +95,9 @@ public static class AppFeatures
                 public const string TransportOrderTypes = Default + ".TransportOrderTypes";
                 public const string WaypointTypes = Default + ".WaypointTypes";
                 public const string TimeSlots = Default + ".TimeSlots";
+                public const string ConsignmentNoteProfiles = Default + ".ConsignmentNoteProfiles";
+                public const string ConsignmentNoteFixedDescriptions = Default + ".ConsignmentNoteFixedDescriptions";
+                public const string OrderAttributeDefinitions = Default + ".OrderAttributeDefinitions";
             }
         }
 
@@ -98,6 +110,8 @@ public static class AppFeatures
             {
                 public const string Default = PlanningExecution.Default + ".Trips";
                 public const string TransportTripTypes = Default + ".TransportTripTypes";
+                public const string ViaDepotRules = Default + ".ViaDepotRules";
+                public const string TripAttributeDefinitions = Default + ".TripAttributeDefinitions";
             }
         }
 
@@ -119,6 +133,8 @@ public static class AppFeatures
                 public const string Default = Financial.Default + ".Pricing";
                 public const string AdditionalServices = Default + ".AdditionalServices";
                 public const string DiscountsOrSurcharges = Default + ".DiscountsOrSurcharges";
+                public const string PriceLists = Default + ".PriceLists";
+                public const string RelationFinancialSettings = Default + ".RelationFinancialSettings";
             }
         }
     }

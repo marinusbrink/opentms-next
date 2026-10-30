@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
   </ItemGroup>
 
@@ -16,6 +17,13 @@
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application\OpenTms.Platform.Application.csproj" />
     <ProjectReference Include="..\OpenTms.PlanningExecution.Domain\OpenTms.PlanningExecution.Domain.csproj" />
     <ProjectReference Include="..\OpenTms.PlanningExecution.Application.Contracts\OpenTms.PlanningExecution.Application.Contracts.csproj" />
+    <!-- Published surfaces of the modules Planning reads (design 56 "The three flows, applied"; module boundary rule 2). -->
+    <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Application.Contracts\OpenTms.MasterData.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\financial\OpenTms.Financial.Application.Contracts\OpenTms.Financial.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\financial\OpenTms.Financial.Domain.Shared\OpenTms.Financial.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\integrations\OpenTms.Integrations.Application.Contracts\OpenTms.Integrations.Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

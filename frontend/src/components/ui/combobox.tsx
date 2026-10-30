@@ -9,7 +9,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import { ChevronDownIcon, XIcon, CheckIcon } from "lucide-react"
+import { ChevronDownIcon, XIcon, CheckIcon, PlusIcon } from "lucide-react"
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -66,9 +66,12 @@ function ComboboxInput({
       />
       <InputGroupAddon align="inline-end">
         {showTrigger && (
+          /* No tab stop (the ARIA combobox pattern): Tab goes from the input to the next field, the list opens by
+           * typing, ArrowDown or a click (design 61 fast entry: From → To → date …). */
           <InputGroupButton
             size="icon-xs"
             variant="ghost"
+            tabIndex={-1}
             render={<ComboboxTrigger />}
             data-slot="input-group-button"
             className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
@@ -151,6 +154,34 @@ function ComboboxItem({
       >
         <CheckIcon className="pointer-events-none" />
       </ComboboxPrimitive.ItemIndicator>
+    </ComboboxPrimitive.Item>
+  )
+}
+
+/** The "Add new …" row of UI-LOOK-004 as the list's last option, so ArrowDown reaches it and Enter opens it like a
+ *  click. Its click never selects (the Base UI handler is skipped): `onCreate` opens the entity's editor. */
+function ComboboxCreateItem({
+  value,
+  label,
+  onCreate,
+}: {
+  value: unknown
+  label: React.ReactNode
+  onCreate: () => void
+}) {
+  return (
+    <ComboboxPrimitive.Item
+      value={value}
+      data-slot="combobox-create-item"
+      className="relative mt-1 flex w-full cursor-default items-center gap-2 rounded-md border-t border-border py-1.5 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+      onClick={(event) => {
+        event.preventBaseUIHandler()
+        event.preventDefault()
+        onCreate()
+      }}
+    >
+      <PlusIcon aria-hidden="true" />
+      {label}
     </ComboboxPrimitive.Item>
   )
 }
@@ -281,6 +312,7 @@ export {
   ComboboxContent,
   ComboboxList,
   ComboboxItem,
+  ComboboxCreateItem,
   ComboboxGroup,
   ComboboxLabel,
   ComboboxCollection,

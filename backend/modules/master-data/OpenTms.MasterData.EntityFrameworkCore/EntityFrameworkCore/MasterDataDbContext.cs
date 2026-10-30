@@ -144,6 +144,7 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.ConfigureByConvention();
             b.Property(v => v.Name).HasMaxLength(MasterDataConsts.MaxNameLength).IsRequired();
             b.Property(v => v.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.Property(v => v.CostPricePerKm).HasPrecision(18, 4);
             b.HasMany(v => v.Characteristics).WithOne().HasForeignKey(j => j.VehicleTypeId).OnDelete(DeleteBehavior.Cascade);
             b.HasIndex(v => v.TenantId);
             b.HasIndex(v => new { v.TenantId, v.Name }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
@@ -256,6 +257,7 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.Property(v => v.LicencePlate).HasMaxLength(MasterDataConsts.MaxLicencePlateLength);
             b.Property(v => v.Vin).HasMaxLength(MasterDataConsts.VinLength);
             b.Property(v => v.Description).HasMaxLength(MasterDataConsts.MaxDescriptionLength);
+            b.Property(v => v.CostPricePerKm).HasPrecision(18, 4);
             b.HasOne<VehicleType>().WithMany().HasForeignKey(v => v.VehicleTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Country>().WithMany().HasForeignKey(v => v.RegistrationCountryId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
             b.HasOne<Relation>().WithMany().HasForeignKey(v => v.OwnerRelationId).OnDelete(DeleteBehavior.Restrict);

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import type { EntityLookupPage, EntityLookupQuery } from "@/components/ui/entity-lookup";
 import type { GridRequest, GridResponse, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
 import { fallbackFileName, fileNameFromContentDisposition, saveBlob } from "@/lib/browser";
@@ -317,8 +318,35 @@ export const REPORT_PURPOSES = enumOptions<ReportPurpose>("ReportPurpose", [
   "Invoice",
   "PurchaseOrder",
   "TransportUnitBalance",
+  /* Design 58 (CMR): ReportPurpose.ConsignmentNote = 6. */
+  "ConsignmentNote",
 ]);
 export const reportPurposeKey = keyOf(REPORT_PURPOSES);
+export const CONSIGNMENT_NOTE_PURPOSE: ReportPurpose = 6;
+
+/** The option an EntityLookup over report definitions holds (UI-LOOK-003: the name). */
+export interface ReportDefinitionOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Server-searched pages of the active definitions of one purpose for an EntityLookup (UI-LOOK-001/002: a CMR profile
+ * names its definition, design 58): the lookup carries no purpose, so the list is read with its purpose filter, the
+ * term as its wildcard search and the page as its row range.
+ */
+export function reportDefinitionLookupPage(purpose: ReportPurpose): (q: EntityLookupQuery) => Promise<EntityLookupPage<ReportDefinitionOption>> {
+  return async ({ term, skip, take }) => {
+    const { data, error } = await apiClient.GET("/api/platform/report-definition", {
+      params: { query: { Purpose: purpose, IncludeArchived: false, StartRow: skip, EndRow: skip + take, WildcardSearch: term || undefined, SortBy: "name", SortDir: "asc" } },
+    });
+    if (error) throw error;
+    return {
+      items: (data?.rows ?? []).map((row) => ({ id: row.id ?? "", name: row.name ?? "" })),
+      totalCount: Number(data?.filteredCount ?? data?.totalCount ?? 0),
+    };
+  };
+}
 
 export const REPORT_RENDERING_PROVIDERS = enumOptions<ReportRenderingProvider>("ReportRenderingProvider", ["PdfGeneratorApi"]);
 export const reportRenderingProviderKey = keyOf(REPORT_RENDERING_PROVIDERS);

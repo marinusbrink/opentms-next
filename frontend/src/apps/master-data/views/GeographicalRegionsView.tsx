@@ -3,7 +3,7 @@ import type { ColDef } from "ag-grid-community";
 
 import { NumberCell } from "@/components/ui/grid-cells";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { GeographicalRegionEditor } from "@/apps/master-data/editors/GeographicalRegionEditor";
+import { GeographicalRegionEditor } from "@/domains/master-data/components/GeographicalRegionEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { countries, geographicalRegions, type GeographicalRegionRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

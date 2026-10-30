@@ -54,9 +54,9 @@ vi.mock("@/components/ui/tree-select", async (importOriginal) => ({
 }));
 
 /* The nested editors the covered pickers open. */
-vi.mock("@/apps/master-data/editors/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
-vi.mock("@/apps/master-data/editors/CurrencyEditor", async () => ({ CurrencyEditor: (await import("./create-in-place-test-mocks")).stubEditor("Currency") }));
-vi.mock("@/apps/master-data/editors/RelationCategoryEditor", async () => ({
+vi.mock("@/domains/master-data/components/VehicleTypeEditor", async () => ({ VehicleTypeEditor: (await import("./create-in-place-test-mocks")).stubEditor("VehicleType") }));
+vi.mock("@/domains/master-data/components/CurrencyEditor", async () => ({ CurrencyEditor: (await import("./create-in-place-test-mocks")).stubEditor("Currency") }));
+vi.mock("@/domains/master-data/components/RelationCategoryEditor", async () => ({
   RelationCategoryEditor: (await import("./create-in-place-test-mocks")).stubEditor("RelationCategory"),
 }));
 vi.mock("@/domains/platform/components/OrganizationUnitFormDialog", async () => ({
@@ -69,12 +69,12 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 
-import { CountryEditor } from "@/apps/master-data/editors/CountryEditor";
-import { DriverEditor } from "@/apps/master-data/editors/DriverEditor";
-import { ProductRelationCodeEditor } from "@/apps/master-data/editors/ProductRelationCodeEditor";
-import { RelationEditor } from "@/apps/master-data/editors/RelationEditor";
-import { TransportUnitEditor } from "@/apps/master-data/editors/TransportUnitEditor";
-import { VehicleEditor } from "@/apps/master-data/editors/VehicleEditor";
+import { CountryEditor } from "@/domains/master-data/components/CountryEditor";
+import { DriverEditor } from "@/domains/master-data/components/DriverEditor";
+import { ProductRelationCodeEditor } from "@/domains/master-data/components/ProductRelationCodeEditor";
+import { RelationEditor } from "@/domains/master-data/components/RelationEditor";
+import { TransportUnitEditor } from "@/domains/master-data/components/TransportUnitEditor";
+import { VehicleEditor } from "@/domains/master-data/components/VehicleEditor";
 import { apiClient } from "@/lib/api/client";
 
 import { ALL_CREATE_FEATURES, resetSavedDtos, TYPED_TERM } from "./create-in-place-test-mocks";
@@ -332,7 +332,7 @@ describe("VehicleEditor", () => {
 
 describe("VehicleTypeEditor — characteristics (own dialog)", () => {
   it.each(["Apps.MasterData.General.Fleet.TransportCharacteristics", "Apps.MasterData.General.Fleet"])("the row with the chain on, none with %s off", async (off) => {
-    const { VehicleTypeEditor } = await vi.importActual<typeof import("@/apps/master-data/editors/VehicleTypeEditor")>("@/apps/master-data/editors/VehicleTypeEditor");
+    const { VehicleTypeEditor } = await vi.importActual<typeof import("@/domains/master-data/components/VehicleTypeEditor")>("@/domains/master-data/components/VehicleTypeEditor");
     renderWith(<VehicleTypeEditor mode="create" readOnly={false} {...common} />);
     await waitFor(() => expect(createFor("transportCharacteristicsIds")).not.toBeNull());
     cleanup();

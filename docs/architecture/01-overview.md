@@ -123,7 +123,7 @@ connections it is: who sends what to whom.
 |---|---|---|---|
 | Modular monolith, one ABP module per domain, schema per module | The core's structure | **BUILT** | `backend/modules/*` |
 | Application services as conventional controllers | The command layer: validation, permissions, unit of work | **BUILT** (no domain operations yet) | each module |
-| Domain entities | The facts | Absent on purpose; each arrives via an approved design | each module |
+| Domain entities | The facts | **BUILT** for master data (designs 41–55) and, with designs 56–61, transport orders, legs, trips, price lists and rate lines | each module |
 | Host database + database per tenant | Tenant isolation | **BUILT** | Platform, DbMigrator |
 | Transactional outbox in every database | Fact and event commit together | **BUILT** (PR #33, `docs/designs/outbox-per-tenant.md`) | Platform |
 | Outbox dispatcher over all tenant databases | Publishes stored events | **BUILT** (PR #33); known scale limits, see `03` | Platform + host |

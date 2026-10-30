@@ -36,6 +36,7 @@ public static class PostgreSqlTestDatabases
 {
     private const string HostDatabasePrefix = "OpenTms_Tests_";
     private const string TenantADatabasePostfix = "_TenantA";
+    private const string TransportDatabasePostfix = "_RunA";
 
     /// <summary>PostgreSQL identifiers are at most 63 bytes; the suffix gets what the fixed parts leave.</summary>
     private static readonly int MaxSuffixLength = 63 - HostDatabasePrefix.Length - TenantADatabasePostfix.Length;
@@ -48,11 +49,24 @@ public static class PostgreSqlTestDatabases
     public static readonly string HostDatabase = HostDatabasePrefix + DatabaseSuffix;
     public static readonly string TenantADatabase = HostDatabasePrefix + DatabaseSuffix + TenantADatabasePostfix;
 
+    /// <summary>
+    /// The own database of <see cref="TransportTenantAId"/>: the tests whose rows must commit (the transport-run chain,
+    /// the calculators driven through the real jobs) write there, so tenant A stays a rolled-back-only tenant whose
+    /// counts the volume and seed tests can rely on.
+    /// </summary>
+    public static readonly string TransportTenantADatabase = HostDatabasePrefix + DatabaseSuffix + TransportDatabasePostfix;
+
     /// <summary>Tenant with its own database (<see cref="TenantADatabase"/>). Set once the databases exist.</summary>
     public static Guid TenantAId { get; private set; }
 
     /// <summary>Shared-tier tenant: no connection string, lives in the host database.</summary>
     public static Guid SharedTenantId { get; private set; }
+
+    /// <summary>The committing tests' tenant with its own database (<see cref="TransportTenantADatabase"/>).</summary>
+    public static Guid TransportTenantAId { get; private set; }
+
+    /// <summary>The committing tests' shared-tier tenant (host database): the cross-tier half of their isolation checks.</summary>
+    public static Guid TransportSharedTenantId { get; private set; }
 
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static bool _ready;
@@ -175,7 +189,7 @@ public static class PostgreSqlTestDatabases
     {
         await using var connection = new NpgsqlConnection(ConnectionStringFor("postgres"));
         await connection.OpenAsync();
-        foreach (var database in new[] { HostDatabase, TenantADatabase })
+        foreach (var database in new[] { HostDatabase, TenantADatabase, TransportTenantADatabase })
         {
             await using var command = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", connection);
             await command.ExecuteNonQueryAsync();
@@ -201,10 +215,19 @@ public static class PostgreSqlTestDatabases
             var sharedTenant = await tenantManager.CreateAsync("outbox-tenant-shared");
             await tenantRepository.InsertAsync(sharedTenant);
 
+            var transportA = await tenantManager.CreateAsync("transport-run-a");
+            transportA.SetDefaultConnectionString(ConnectionStringFor(TransportTenantADatabase));
+            await tenantRepository.InsertAsync(transportA);
+
+            var transportShared = await tenantManager.CreateAsync("transport-run-shared");
+            await tenantRepository.InsertAsync(transportShared);
+
             await unitOfWork.CompleteAsync();
 
             TenantAId = tenantA.Id;
             SharedTenantId = sharedTenant.Id;
+            TransportTenantAId = transportA.Id;
+            TransportSharedTenantId = transportShared.Id;
         }
     }
 

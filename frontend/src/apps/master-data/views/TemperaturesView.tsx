@@ -3,7 +3,7 @@ import type { ColDef } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
-import { TemperatureEditor } from "@/apps/master-data/editors/TemperatureEditor";
+import { TemperatureEditor } from "@/domains/master-data/components/TemperatureEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { temperatures, type TemperatureRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

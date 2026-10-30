@@ -17,20 +17,12 @@ export interface FormSectionProps {
 /** The caption's classes, for a section whose caption is a control rather than a heading. */
 export const FORM_SECTION_CAPTION = "text-label font-semibold text-brand";
 
-export function FormSection({
-  title,
-  "aria-label": ariaLabel,
-  children,
-  className,
-}: FormSectionProps) {
+export function FormSection({ title, "aria-label": ariaLabel, children, className }: FormSectionProps) {
   return (
     <section
       data-slot="form-section"
       aria-label={ariaLabel ?? title}
-      className={cn(
-        "rounded-lg border border-border-section bg-surface-section p-4",
-        className,
-      )}
+      className={cn("rounded-lg border border-border-section bg-surface-section p-4", className)}
     >
       {title && <h3 className={cn("mb-3", FORM_SECTION_CAPTION)}>{title}</h3>}
       {children}

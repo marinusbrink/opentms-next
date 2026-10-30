@@ -163,9 +163,9 @@ or the mapping are PO decisions** — agents never create a module per app.
 |---|---|---|
 | Dashboard | `/dashboard` | Reporting |
 | Planboard | `/planboard` | Planning & Execution |
-| Transport | `/transport` | Orders, Planning & Execution |
+| Transport (tenant side only, PO 2026-10-29) | `/transport` | Orders, Planning & Execution |
 | Finance | `/finance` | Financial |
-| Master data | `/master-data` | All domains (their master-data lists, one nav group per domain; PO 2026-10-16); creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004) |
+| Master data (tenant side only, PO 2026-10-29) | `/master-data` | All domains (their master-data lists, one nav group per domain; PO 2026-10-16); creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004) |
 | Integrations | `/integrations` | Integrations |
 | Reports | `/reports` | Reporting |
 | Tenants (host only; views Tenants and Editions) | `/tenants` | Platform |

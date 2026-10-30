@@ -81,8 +81,8 @@ describe("WaffleLauncher – the General domain group", () => {
     /* General's and the other domains' lists sit at depth 5 (Apps.MasterData.<Domain>.<Group>.<List>), Platform's at depth 4. */
     const isList = (k: string) => k.split(".").length === 5 || (k.startsWith("Apps.MasterData.Platform.") && k.split(".").length === 4);
     features = Object.fromEntries(Object.entries(masterDataOn()).map(([k, v]) => [k, isList(k) ? "false" : v]));
-    /* Fifteen under General, nine in Orders, Planning & Execution and Financial (designs 41–53), three under Platform (design 54). */
-    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(27);
+    /* Fifteen under General, sixteen in Orders, Planning & Execution and Financial (designs 41–53, 61), three under Platform (design 54). */
+    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(34);
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);

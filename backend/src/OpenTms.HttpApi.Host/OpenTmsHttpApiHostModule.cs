@@ -339,8 +339,14 @@ public class OpenTmsHttpApiHostModule : AbpModule
             });
             options.ConventionalControllers.Create(typeof(OrdersApplicationModule).Assembly,
                 opts => opts.RootPath = "orders");
-            options.ConventionalControllers.Create(typeof(PlanningExecutionApplicationModule).Assembly,
-                opts => opts.RootPath = "planning");
+            options.ConventionalControllers.Create(typeof(PlanningExecutionApplicationModule).Assembly, opts =>
+            {
+                opts.RootPath = "planning";
+                /* Design 61 "Order page review" point 5: POST ".../leg/{id}/remove-split". A method named "Remove…" would be an
+                 * HTTP DELETE by the convention, so the service names it UndoSplitAtAddressAsync and the URL is mapped here. */
+                opts.UrlActionNameNormalizer = c =>
+                    c.ControllerName == "Leg" && c.ActionNameInUrl == "UndoSplitAtAddress" ? "RemoveSplit" : c.ActionNameInUrl;
+            });
             options.ConventionalControllers.Create(typeof(FinancialApplicationModule).Assembly,
                 opts => opts.RootPath = "financial");
             options.ConventionalControllers.Create(typeof(MasterDataApplicationModule).Assembly,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getApiErrorMessage } from "@/lib/api/errors";
+import { getApiErrorMessage, isConcurrencyConflict, withStatus } from "@/lib/api/errors";
 
 const t = (key: string) => key;
 
@@ -18,5 +18,22 @@ describe("getApiErrorMessage (UI-FB-004)", () => {
     expect(getApiErrorMessage(undefined, t)).toBe("UnexpectedError");
     expect(getApiErrorMessage(new TypeError("Failed to fetch"), t)).toBe("UnexpectedError");
     expect(getApiErrorMessage({ error: { message: "   " } }, t)).toBe("UnexpectedError");
+  });
+});
+
+describe("isConcurrencyConflict / withStatus", () => {
+  it("is ABP's concurrency refusal: 409 without an error code", () => {
+    const error = withStatus({ error: { message: "The data you have submitted has already changed by another user." } }, new Response(null, { status: 409 }));
+    expect(error).toMatchObject({ status: 409 });
+    expect(isConcurrencyConflict(error)).toBe(true);
+    expect(isConcurrencyConflict({ status: 409, error: { code: "Volo.Abp.Data:DbConcurrency" } })).toBe(true);
+  });
+
+  it("is not a domain 409 with its code, another status, or an error without a status", () => {
+    expect(isConcurrencyConflict({ status: 409, error: { code: "OpenTms.Orders:InvalidTransition", message: "x" } })).toBe(false);
+    expect(isConcurrencyConflict({ status: 400, error: { message: "x" } })).toBe(false);
+    expect(isConcurrencyConflict({ error: { message: "x" } })).toBe(false);
+    expect(isConcurrencyConflict(null)).toBe(false);
+    expect(withStatus("text", new Response(null, { status: 409 }))).toBe("text");
   });
 });

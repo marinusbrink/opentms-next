@@ -1,0 +1,307 @@
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/ui/date-picker";
+import { FormField } from "@/components/ui/form-field";
+import { FormSection } from "@/components/ui/form-section";
+import { Input } from "@/components/ui/input";
+import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Wizard, type WizardTask } from "@/components/ui/wizard";
+import { useAppFeatures } from "@/app/app-features";
+import { NewTemplateDialog } from "@/apps/transport/components/NewTemplateDialog";
+import { addDays } from "@/apps/transport/orders/order-form";
+import { MaterialiseDetails } from "@/apps/transport/wizards/MaterialiseDetails";
+import { changedKeys, detailKey, detailSourceOf, hasInvalidValue, overridesFor, type DetailEdits } from "@/apps/transport/wizards/materialise-details";
+import { MAX_COPIES, RECURRENCE_DAYS, copyOrder, materialiseTemplate, useInvalidateOrdersAfterMaterialisation, useTemplate, useTemplateLookup } from "@/domains/orders/templates";
+import { useTransportOrder } from "@/domains/orders/transport-orders";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { useIsGranted } from "@/lib/auth/permissions";
+import { parseInteger } from "@/lib/forms/use-form-state";
+import { toDate, toIsoDate, useFormat } from "@/lib/format";
+import { countText } from "@/lib/i18n/count-text";
+import { useL } from "@/lib/i18n/LocalizationProvider";
+import { useOpenRecord } from "@/lib/use-open-record";
+
+/* The wizard New from template / Copy order (design 61; UI-WIZ-001 to -005): Source (a template, or the order being
+ * copied) → Dates (per weekday over a range, or a calendar with copies per day) → Details (the copies per date; the
+ * per generated order (date × copy) its customer reference and per line the quantity and weight, prefilled from the
+ * source; only what differs is sent as `overrides`) → Confirm with per-date progress through `materialise` /
+ * `copy-order` (design 58 build note 19). */
+
+export interface MaterialiseSource {
+  kind: "template" | "order";
+  id: string;
+  label: string;
+}
+
+export interface MaterialiseWizardProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Preselected source; without one the Source step offers the templates. */
+  source?: MaterialiseSource;
+}
+
+type DatesMode = "weekdays" | "calendar";
+
+export function MaterialiseWizard({ open, onOpenChange, source }: MaterialiseWizardProps) {
+  const { t } = useL();
+  const f = useFormat();
+  const refresh = useInvalidateOrdersAfterMaterialisation();
+  const templates = useTemplateLookup(open && !source);
+  const [templateId, setTemplateId] = useState<string | null>(source?.kind === "template" ? source.id : null);
+  const [datesMode, setDatesMode] = useState<DatesMode>("weekdays");
+  const [from, setFrom] = useState<string | null>(toIsoDate(new Date()));
+  const [till, setTill] = useState<string | null>(addDays(toIsoDate(new Date()), 6));
+  const [weekdays, setWeekdays] = useState<number>(1 | 2 | 4 | 8 | 16);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [copies, setCopies] = useState("1");
+  const [edits, setEdits] = useState<DetailEdits>({});
+  const [tasks, setTasks] = useState<WizardTask[] | undefined>(undefined);
+  const [created, setCreated] = useState(0);
+  /* "Add new template…" (UI-LOOK-004): the New template dialog on top (the Templates node's Create permission and
+   * feature chain, UI-PERM-006). A new template has no lines yet, so materialising it at once would create empty
+   * orders: after its save the wizard closes and the template's page opens (design 61, Assumption 1: New asks the
+   * minimum fields, then opens the page), where its lines and schedule are added; Create orders there runs this
+   * wizard on it. */
+  const features = useAppFeatures();
+  const openRecord = useOpenRecord();
+  const canCreateTemplate = useIsGranted("Orders.TransportOrderTemplates.Create") && features.isFeatureEnabled("Apps.Transport.Orders.Templates");
+  const [newTemplate, setNewTemplate] = useState<{ term: string } | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setTasks(undefined);
+      setCreated(0);
+      setEdits({});
+      setTemplateId(source?.kind === "template" ? source.id : null);
+    }
+  }, [open, source]);
+
+  const templateOptions = useMemo(() => (templates.data ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? "" })), [templates.data]);
+  const sourceLabel = source ? source.label : (templateOptions.find((o) => o.value === templateId)?.label ?? "");
+
+  const dates = useMemo(() => {
+    if (datesMode === "calendar") return [...picked].sort();
+    if (!from || !till || from > till) return [];
+    const result: string[] = [];
+    let current: string | null = from;
+    let guard = 0;
+    while (current && current <= till && guard++ < 366) {
+      const day = toDate(current)?.getDay() ?? -1;
+      const flag = RECURRENCE_DAYS.find((d) => d.day === day)?.flag ?? 0;
+      if ((weekdays & flag) !== 0) result.push(current);
+      current = addDays(current, 1);
+    }
+    return result;
+  }, [datesMode, picked, from, till, weekdays]);
+
+  const copiesValue = parseInteger(copies);
+  const copiesValid = copiesValue != null && !Number.isNaN(copiesValue) && copiesValue >= 1 && copiesValue <= MAX_COPIES;
+  const sourceId = source?.kind === "order" ? source.id : templateId;
+
+  /* The Details step's source: the template (its lines carry their ids) or the order being copied. */
+  const templateRecord = useTemplate(open && source?.kind !== "order" ? (templateId ?? undefined) : undefined);
+  const orderRecord = useTransportOrder(open && source?.kind === "order" ? source.id : undefined);
+  const sourceRecord = source?.kind === "order" ? orderRecord : templateRecord;
+  const detailSource = useMemo(() => detailSourceOf(sourceRecord.data), [sourceRecord.data]);
+  const copyCount = copiesValid ? (copiesValue ?? 1) : 0;
+  const detailsInvalid = dates.some((date) => Array.from({ length: copyCount }, (_, i) => edits[detailKey(date, i)]).some(hasInvalidValue));
+  const changedCount = detailSource ? changedKeys(dates, copyCount, detailSource, edits).length : 0;
+
+  const run = async () => {
+    if (!sourceId) return;
+    setTasks(dates.map((date) => ({ id: date, label: f.date(date), status: "waiting" })));
+    let total = 0;
+    for (const date of dates) {
+      setTasks((prev) => prev?.map((task) => (task.id === date ? { ...task, status: "running" } : task)));
+      try {
+        const overrides = detailSource ? overridesFor(date, copiesValue ?? 1, detailSource, edits) : [];
+        const result = source?.kind === "order" ? await copyOrder(source.id, [date], copiesValue ?? 1, overrides) : await materialiseTemplate(sourceId, [date], copiesValue ?? 1, overrides);
+        total += result.createdOrderIds?.length ?? 0;
+        setCreated(total);
+        setTasks((prev) => prev?.map((task) => (task.id === date ? { ...task, status: "done" } : task)));
+      } catch (err) {
+        setTasks((prev) => prev?.map((task) => (task.id === date ? { ...task, status: "failed", reason: getApiErrorMessage(err, t) } : task)));
+      }
+    }
+    refresh();
+    toast.success(countText(t, "Orders:OrdersCreated", total));
+  };
+
+  const modeItems = [
+    { value: "weekdays", label: t("Orders:DatesPerWeekday") },
+    { value: "calendar", label: t("Orders:DatesFromCalendar") },
+  ];
+
+  return (
+    <Wizard
+      open={open}
+      onOpenChange={onOpenChange}
+      title={source?.kind === "order" ? t("Orders:CopyOrder") : t("Orders:NewFromTemplate")}
+      finishLabel={t("Orders:Materialise")}
+      busyLabel={t("Orders:Creating")}
+      onFinish={run}
+      tasks={tasks}
+      runContent={tasks ? <p className="shrink-0 text-sm text-muted-foreground">{countText(t, "Orders:OrdersCreated", created)}</p> : undefined}
+      steps={[
+        {
+          id: "source",
+          title: t("Orders:Source"),
+          isValid: sourceId != null,
+          content: (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{source?.kind === "order" ? t("Orders:CopyOrderIntro").replace("{0}", source.label) : t("Orders:NewFromTemplateIntro")}</p>
+              {source ? (
+                <FormSection title={t("Orders:Source")}>
+                  <p className="text-sm">{source.label}</p>
+                </FormSection>
+              ) : (
+                <FormSection title={t("Orders:TransportOrderTemplate")}>
+                  <FormField
+                    label={t("Orders:TransportOrderTemplate")}
+                    htmlFor="materialise-template"
+                    required
+                    floating="always"
+                    className="max-w-md"
+                    hint={canCreateTemplate && tasks == null ? t("Orders:NewTemplateOpensItsPage") : undefined}
+                  >
+                    <ReferenceCombobox
+                      id="materialise-template"
+                      value={templateId}
+                      onChange={setTemplateId}
+                      options={templateOptions}
+                      required
+                      onCreateNew={canCreateTemplate && tasks == null ? (term) => setNewTemplate({ term }) : undefined}
+                      createLabel={t("Orders:AddNewTransportOrderTemplate")}
+                    />
+                  </FormField>
+                  {newTemplate && (
+                    <NewTemplateDialog
+                      open
+                      initialName={newTemplate.term}
+                      onOpenChange={(next) => {
+                        if (!next) setNewTemplate(null);
+                      }}
+                      onCreated={(template) => {
+                        setNewTemplate(null);
+                        onOpenChange(false);
+                        openRecord("TransportOrderTemplate", template.id);
+                      }}
+                    />
+                  )}
+                </FormSection>
+              )}
+            </div>
+          ),
+        },
+        {
+          id: "dates",
+          title: t("Orders:Dates"),
+          isValid: dates.length > 0,
+          content: (
+            <div className="flex flex-col gap-4">
+              <FormSection title={t("Orders:Dates")}>
+                <div className="grid grid-cols-4 gap-x-4 gap-y-3">
+                  <FormField label={t("Orders:DatesMode")} htmlFor="materialise-mode" floating="always">
+                    <Select items={modeItems} value={datesMode} onValueChange={(next) => setDatesMode((next as DatesMode) ?? "weekdays")}>
+                      <SelectTrigger id="materialise-mode" className="h-10 w-full bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modeItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                  {datesMode === "weekdays" ? (
+                    <>
+                      <FormField label={t("Financial:From")} htmlFor="materialise-from" required floating="always">
+                        <DatePicker id="materialise-from" value={from} onChange={setFrom} required />
+                      </FormField>
+                      <FormField label={t("Financial:To")} htmlFor="materialise-till" required floating="always">
+                        <DatePicker id="materialise-till" value={till} onChange={setTill} required />
+                      </FormField>
+                      <fieldset className="col-span-4 flex flex-wrap items-center gap-x-4 gap-y-1" aria-label={t("Orders:DaysOfWeek")}>
+                        <legend className="text-label font-medium text-muted-foreground">{t("Orders:DaysOfWeek")}</legend>
+                        {RECURRENCE_DAYS.map((day) => (
+                          <label key={day.flag} className="flex h-8 items-center gap-2 text-sm" htmlFor={`materialise-day-${day.flag}`}>
+                            <Checkbox id={`materialise-day-${day.flag}`} checked={(weekdays & day.flag) !== 0} onCheckedChange={(next) => setWeekdays((v) => (next === true ? v | day.flag : v & ~day.flag))} />
+                            {t(day.key)}
+                          </label>
+                        ))}
+                      </fieldset>
+                    </>
+                  ) : (
+                    <div className="col-span-3">
+                      <Calendar
+                        mode="multiple"
+                        selected={picked.map((d) => toDate(d)!).filter(Boolean)}
+                        onSelect={(next: Date[] | undefined) => setPicked((next ?? []).map(toIsoDate))}
+                      />
+                    </div>
+                  )}
+                </div>
+              </FormSection>
+              <p className="text-label text-muted-foreground" data-slot="materialise-dates">
+                {countText(t, "Orders:DatesSelected", dates.length)}
+                {dates.length > 0 && `: ${dates.slice(0, 10).map((d) => f.date(d)).join(", ")}${dates.length > 10 ? "…" : ""}`}
+              </p>
+            </div>
+          ),
+        },
+        {
+          id: "details",
+          title: t("Orders:Details"),
+          /* The source must have loaded to prefill the details; when it cannot be read the orders are created as the
+           * source is (no details), and the step says so. */
+          isValid: copiesValid && !detailsInvalid && (detailSource != null || sourceRecord.isError),
+          content: (
+            <div className="flex flex-col gap-4">
+              <FormSection title={t("Orders:Details")}>
+                <div className="grid grid-cols-4 gap-x-4 gap-y-3">
+                  <FormField label={t("Orders:Copies")} htmlFor="materialise-copies" required error={copiesValid ? undefined : t("OpenTms.Orders:InvalidCopies").replace("{min}", "1").replace("{max}", String(MAX_COPIES))}>
+                    <Input id="materialise-copies" inputMode="numeric" className="tabular-nums" value={copies} onChange={(e) => setCopies(e.target.value)} />
+                  </FormField>
+                </div>
+              </FormSection>
+              {sourceRecord.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {getApiErrorMessage(sourceRecord.error, t)} {t("Orders:DetailsUnavailable")}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                copyCount > 0 && <MaterialiseDetails dates={dates} copies={copyCount} source={detailSource} edits={edits} onEditsChange={setEdits} />
+              )}
+            </div>
+          ),
+        },
+        {
+          id: "confirm",
+          title: t("Orders:Confirm"),
+          content: (
+            <FormSection title={t("Orders:Summary")}>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+                <dt className="text-label text-muted-foreground">{t("Orders:Source")}</dt>
+                <dd>{sourceLabel}</dd>
+                <dt className="text-label text-muted-foreground">{t("Orders:Dates")}</dt>
+                <dd className="tabular-nums">{dates.length}</dd>
+                <dt className="text-label text-muted-foreground">{t("Orders:Copies")}</dt>
+                <dd className="tabular-nums">{copies}</dd>
+                <dt className="text-label text-muted-foreground">{t("Orders:OrdersWithDetails")}</dt>
+                <dd className="tabular-nums" data-slot="materialise-changed-count">{changedCount}</dd>
+              </dl>
+            </FormSection>
+          ),
+        },
+      ]}
+    />
+  );
+}

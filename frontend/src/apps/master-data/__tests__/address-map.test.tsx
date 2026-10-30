@@ -11,7 +11,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
 }));
 
-import { AddressMap, addressMapUrl } from "@/apps/master-data/components/AddressMap";
+import { AddressMap, addressMapUrl } from "@/domains/master-data/components/AddressMap";
 
 const frame = () => screen.queryByTitle("MasterData:Map") as HTMLIFrameElement | null;
 const hint = () => screen.queryByText("MasterData:MapNoCoordinates");

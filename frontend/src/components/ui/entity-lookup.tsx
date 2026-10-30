@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { Check, Pencil, Plus, X } from "lucide-react";
+import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { Check, Pencil, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Combobox, ComboboxCollection, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxList, ComboboxTrigger } from "@/components/ui/combobox";
+import { Combobox, ComboboxCollection, ComboboxContent, ComboboxCreateItem, ComboboxEmpty, ComboboxInput, ComboboxList, ComboboxTrigger } from "@/components/ui/combobox";
 import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { focusNextField } from "@/lib/focus-next-field";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +19,9 @@ import { cn } from "@/lib/utils";
  * sentinel at the end of the list becomes visible). The component never filters client-side.
  * Closed, the control shows `getLabel` only (UI-LOOK-003); "Add new …" (UI-LOOK-004) and the edit
  * pencil (UI-LOOK-005) appear only with `onCreateNew` / `onEdit`; optional lookups clear with an X
- * (UI-LOOK-006); multiple shows a comma list with "+N" and a checkbox per option (UI-LOOK-007). */
+ * (UI-LOOK-006); multiple shows a comma list with "+N" and a checkbox per option (UI-LOOK-007). The pencil is no Tab
+ * stop, like the list button and the clear button (Tab goes from the input to the next field, UI-KEY-004), and stays
+ * usable in a disabled control: opening the record changes nothing in the form. */
 
 export const ENTITY_LOOKUP_PAGE_SIZE = 25;
 export const ENTITY_LOOKUP_DEBOUNCE_MS = 250;
@@ -43,8 +47,12 @@ interface EntityLookupBaseProps<T extends { id: string }> {
   renderOption?: (item: T) => ReactNode;
   /** Shows "Add new …" with the typed term; omit when the user may not create. */
   onCreateNew?: (term: string) => void;
-  /** Shows the edit pencil for the selected record; omit when the user may not edit. */
+  /** Shows the edit pencil for the selected record; omit when the user may not view it. */
   onEdit?: (item: T) => void;
+  /** The pencil's tooltip, already translated: t("Edit"), or t("Open") when the record opens read-only. */
+  editLabel?: string;
+  /** The name a record got in the editor the pencil opened, shown instead of `getLabel` until the value is replaced. */
+  editedLabel?: (id: string) => string | undefined;
   /** The label of the "Add new …" row, already translated. */
   createLabel?: string;
   disabled?: boolean;
@@ -63,19 +71,35 @@ export type EntityLookupProps<T extends { id: string }> = EntityLookupBaseProps<
     | { multiple: true; value: T[]; onChange: (value: T[]) => void }
   );
 
-/** The paged, server-searched list behind an EntityLookup; `enabled` gates the request (popup open, term long enough). */
-export function useEntityLookupPages<T>(key: string, term: string, fetchPage: (q: EntityLookupQuery) => Promise<EntityLookupPage<T>>, enabled: boolean) {
-  return useInfiniteQuery({
+/** The query behind one term of an EntityLookup: shared by the list and by a keystroke that waits for its results. */
+function entityLookupPagesOptions<T>(key: string, term: string, fetchPage: (q: EntityLookupQuery) => Promise<EntityLookupPage<T>>) {
+  return {
     queryKey: ["entity-lookup", key, term],
-    queryFn: ({ pageParam }) => fetchPage({ term, skip: pageParam, take: ENTITY_LOOKUP_PAGE_SIZE }),
+    queryFn: ({ pageParam }: { pageParam: number }) => fetchPage({ term, skip: pageParam, take: ENTITY_LOOKUP_PAGE_SIZE }),
     initialPageParam: 0,
-    getNextPageParam: (last, pages) => {
+    getNextPageParam: (last: EntityLookupPage<T>, pages: EntityLookupPage<T>[]) => {
       const loaded = pages.reduce((n, page) => n + page.items.length, 0);
       return last.items.length > 0 && loaded < last.totalCount ? loaded : undefined;
     },
-    enabled,
-    placeholderData: keepPreviousData,
+  };
+}
+
+/** The paged, server-searched list behind an EntityLookup; `enabled` gates the request (popup open, term long enough). */
+export function useEntityLookupPages<T>(key: string, term: string, fetchPage: (q: EntityLookupQuery) => Promise<EntityLookupPage<T>>, enabled: boolean) {
+  return useInfiniteQuery({ ...entityLookupPagesOptions(key, term, fetchPage), enabled, placeholderData: keepPreviousData });
+}
+
+/** The id of the "Add new …" row, the list's last option (UI-LOOK-004; ArrowDown reaches it). */
+const CREATE_ROW_ID = "\u0000entity-lookup-create";
+
+/** The row a typed term picks when the user did not choose one: its exact code or name, else the first. */
+function bestMatch<T>(items: readonly T[], term: string, getLabel: (item: T) => string): T | undefined {
+  const typed = term.trim().toLowerCase();
+  const exact = items.find((item) => {
+    const code = (item as { code?: unknown }).code;
+    return getLabel(item).trim().toLowerCase() === typed || (typeof code === "string" && code.trim().toLowerCase() === typed);
   });
+  return exact ?? items[0];
 }
 
 function useDebounced(value: string, delay: number): string {
@@ -91,7 +115,8 @@ const ITEM_CLASS =
   "relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<T>) {
-  const { id, fetchPage, getLabel, renderOption, onCreateNew, onEdit, createLabel, disabled = false, required = false, placeholder, className } = props;
+  const { id, fetchPage, getLabel: labelOf, renderOption, onCreateNew, onEdit, editLabel, editedLabel, createLabel, disabled = false, required = false, placeholder, className } = props;
+  const getLabel = (item: T) => editedLabel?.(item.id) ?? labelOf(item);
   const ariaInvalid = props["aria-invalid"];
   const ariaDescribedBy = props["aria-describedby"];
   const ariaRequired = props["aria-required"];
@@ -107,10 +132,18 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
   const belowMinimum = trimmed.length > 0 && trimmed.length < ENTITY_LOOKUP_MIN_TERM_LENGTH;
   const searchTerm = debounced.trim();
   const canFetch = open && !(searchTerm.length > 0 && searchTerm.length < ENTITY_LOOKUP_MIN_TERM_LENGTH);
-  const query = useEntityLookupPages<T>(`${id}:${instanceKey}`, searchTerm, fetchPage, canFetch);
-  const items: T[] = belowMinimum ? [] : (query.data?.pages.flatMap((page) => page.items) ?? []);
+  const queryKey = `${id}:${instanceKey}`;
+  const query = useEntityLookupPages<T>(queryKey, searchTerm, fetchPage, canFetch);
+  const results: T[] = belowMinimum ? [] : (query.data?.pages.flatMap((page) => page.items) ?? []);
   const loading = canFetch && query.isFetching && !query.isFetchingNextPage;
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
+  /* The list answers the typed term: no debounce, request or previous term's rows in between. */
+  const settled = !belowMinimum && searchTerm === trimmed && query.data !== undefined && !query.isPlaceholderData && !loading;
+  const queryClient = useQueryClient();
+  /* The "Add new …" row is the list's last option; with nothing found it is the only one. */
+  const createRow = useRef({ id: CREATE_ROW_ID } as T).current;
+  const isCreateRow = (item: T | null | undefined) => item != null && item.id === CREATE_ROW_ID;
+  const items: T[] = onCreateNew ? [...results, createRow] : results;
 
   /* UI-LOOK-002: the next page loads when the sentinel at the end of the list becomes visible. */
   useEffect(() => {
@@ -126,13 +159,112 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     return () => observer.disconnect();
   }, [open, hasNextPage, isFetchingNextPage, fetchNextPage, items.length]);
 
-  /* UI-KEY-004: Tab commits. Base UI closes on Tab without selecting, so the highlighted item (or the
-   * only match of a typed term) is handed over before the popup closes. */
-  const highlightedRef = useRef<T | undefined>(undefined);
-  const commitOnTab = (event: React.KeyboardEvent) => {
-    if (event.key !== "Tab" || !open || props.multiple) return;
-    const candidate = highlightedRef.current ?? (trimmed.length > 0 && items.length === 1 ? items[0] : undefined);
-    if (candidate && !(props.value && props.value.id === candidate.id)) props.onChange(candidate);
+  /* The highlighted option and whether the user moved there (keyboard, pointer) or it was highlighted for them. */
+  const highlightedRef = useRef<{ item: T | undefined; chosen: boolean }>({ item: undefined, chosen: false });
+  const openCreate = (typed: string) => {
+    if (!onCreateNew) return;
+    /* The editor opens on top: the list closes first. */
+    setOpen(false);
+    setTerm("");
+    onCreateNew(typed);
+  };
+  const commit = (item: T) => {
+    if (props.multiple) return;
+    if (!(props.value && props.value.id === item.id)) props.onChange(item);
+  };
+
+  /* A keystroke that came before the results of its term (design 61 "Order page, legacy tab structure" 3, keyboard first): it
+   * waits for them through the same query the list uses. A later keystroke in this control supersedes it. */
+  const keystroke = useRef(0);
+  /* Tab with a commit (UI-KEY-004): the browser's own move would run before the commit renders and skip the fields it
+   * enables (a stop's address after its relation), so the move waits for the rendered commit. `from` is the input
+   * whose Tab was held back; focus moves only while it still has focus. */
+  const commitAndMoveOn = (item: T | undefined, from: HTMLElement) => {
+    if (item) flushSync(() => commit(item));
+    queueMicrotask(() => {
+      if (from.ownerDocument.activeElement === from) focusNextField(from);
+    });
+  };
+  const settleLater = (typed: string, key: "Enter" | "Tab", from?: HTMLElement) => {
+    const seq = ++keystroke.current;
+    void queryClient
+      .fetchInfiniteQuery(entityLookupPagesOptions(queryKey, typed, fetchPage))
+      .then((data: InfiniteData<EntityLookupPage<T>, number>) => {
+        if (keystroke.current !== seq) return;
+        const found = data.pages.flatMap((page) => page.items);
+        const match = bestMatch(found, typed, getLabel);
+        if (key === "Tab" && from) {
+          commitAndMoveOn(match, from);
+        } else if (match) {
+          if (key === "Enter") {
+            setOpen(false);
+            setTerm("");
+          }
+          commit(match);
+        } else if (key === "Enter") {
+          openCreate(typed);
+        }
+      })
+      .catch(() => {
+        if (key === "Tab" && from && keystroke.current === seq) commitAndMoveOn(undefined, from);
+      });
+  };
+
+  const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler: () => void }) => {
+    if (event.key !== "Tab") keystroke.current++;
+    if (props.multiple) return;
+    /* UI-KEY-002: Escape closes the list and never clears the value (Base UI clears it on a closed list). */
+    if (event.key === "Escape") {
+      if (!open) event.preventBaseUIHandler();
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== "Tab") return;
+    if (!open) return;
+    const { item: highlighted, chosen } = highlightedRef.current;
+    if (trimmed.length === 0) {
+      /* Nothing typed: Enter is Base UI's (it selects an option the user moved to); Tab commits only such an option. */
+      if (event.key === "Tab" && chosen && highlighted && !isCreateRow(highlighted)) commit(highlighted);
+      return;
+    }
+    if (event.key === "Enter") {
+      /* The user's own choice (also "Add new …" reached with ArrowDown) is Base UI's to select. */
+      if (chosen && highlighted && (settled || isCreateRow(highlighted))) return;
+      event.preventBaseUIHandler();
+      event.preventDefault();
+      event.stopPropagation();
+      if (belowMinimum) return;
+      if (!settled) {
+        settleLater(trimmed, "Enter");
+        return;
+      }
+      /* Settled: the highlighted match (the first, highlighted for the user), or "Add new …" for an empty result. */
+      const match = highlighted && !isCreateRow(highlighted) ? highlighted : results[0];
+      if (match) {
+        setOpen(false);
+        setTerm("");
+        commit(match);
+      } else {
+        openCreate(trimmed);
+      }
+      return;
+    }
+    /* UI-KEY-004: Tab commits the highlighted match and focus moves on (Base UI closes on Tab without selecting). */
+    if (belowMinimum) return;
+    /* Shift+Tab goes back: the fields before this one never depend on it, the browser moves focus as usual. */
+    const from = event.shiftKey ? undefined : event.currentTarget;
+    if (!settled && !(chosen && highlighted && !isCreateRow(highlighted))) {
+      if (from) event.preventDefault();
+      settleLater(trimmed, "Tab", from);
+      return;
+    }
+    const match = highlighted && !isCreateRow(highlighted) ? highlighted : undefined;
+    if (!match) return;
+    if (from) {
+      event.preventDefault();
+      commitAndMoveOn(match, from);
+    } else {
+      commit(match);
+    }
   };
 
   const selectedList: T[] = props.multiple ? props.value : props.value ? [props.value] : [];
@@ -142,7 +274,11 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
   const summary = rest > 0 ? `${visible.join(", ")}, ${t("MoreSelected").replace("{0}", String(rest))}` : visible.join(", ");
   const canClear = !required && !disabled;
 
-  const renderItem = (item: T) => (
+  const createText = createLabel ?? t("AddNew");
+  const renderItem = (item: T) =>
+    isCreateRow(item) ? (
+      <ComboboxCreateItem key={CREATE_ROW_ID} value={item} label={createText} onCreate={() => openCreate(trimmed)} />
+    ) : (
     <ComboboxPrimitive.Item key={item.id} value={item} className={ITEM_CLASS}>
       {props.multiple && (
         <span
@@ -161,15 +297,16 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     </ComboboxPrimitive.Item>
   );
 
+  const status = belowMinimum ? t("TypeToSearch") : loading ? <Spinner aria-label={t("Loading")} /> : t("NoItemsFound");
   const popup = (
     <ComboboxContent>
       {props.multiple && <ComboboxInput placeholder={t("Search")} showTrigger={false} aria-label={t("Search")} />}
-      <ComboboxEmpty>
-        {belowMinimum ? t("TypeToSearch") : loading ? <Spinner aria-label={t("Loading")} /> : t("NoItemsFound")}
-      </ComboboxEmpty>
+      <ComboboxEmpty>{status}</ComboboxEmpty>
       <ComboboxList ref={listRef}>
+        {/* With "Add new …" the list is never empty: the status of an empty result stands above that row. */}
+        {onCreateNew && results.length === 0 && <div data-slot="entity-lookup-status" className="flex w-full justify-center py-2 text-center text-sm text-muted-foreground">{status}</div>}
         <ComboboxCollection>{renderItem}</ComboboxCollection>
-        {items.length > 0 && loading && (
+        {results.length > 0 && loading && (
           <div className="flex justify-center py-2">
             <Spinner aria-label={t("Loading")} />
           </div>
@@ -180,19 +317,6 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
           </div>
         )}
       </ComboboxList>
-      {onCreateNew && (
-        <div className="border-t border-border p-1">
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-start" onClick={() => {
-              /* The editor opens on top: the list closes first. */
-              const typed = trimmed;
-              setOpen(false);
-              setTerm("");
-              onCreateNew(typed);
-            }}>
-            <Plus aria-hidden="true" /> {createLabel ?? t("AddNew")}
-          </Button>
-        </div>
-      )}
     </ComboboxContent>
   );
 
@@ -202,7 +326,10 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     disabled,
     open,
     isItemEqualToValue: (a: T, b: T) => a.id === b.id,
-    itemToStringLabel: getLabel,
+    itemToStringLabel: (item: T) => (isCreateRow(item) ? "" : getLabel(item)),
+    /* The first match is highlighted once the results of a typed term arrive, also when they arrive after the
+     * keystrokes ("always" re-highlights an empty highlight; Base UI types only the boolean). */
+    autoHighlight: (trimmed.length > 0 ? "always" : true) as boolean,
     onOpenChange: (next: boolean) => {
       setOpen(next);
       if (!next) setTerm("");
@@ -210,15 +337,15 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
     onInputValueChange: (next: string, details: { reason: string }) => {
       if (details.reason === "input-change" || details.reason === "input-paste" || details.reason === "input-clear") setTerm(next);
     },
-    onItemHighlighted: (item: T | undefined) => {
-      highlightedRef.current = item;
+    onItemHighlighted: (item: T | undefined, details: { reason: string }) => {
+      highlightedRef.current = { item, chosen: item !== undefined && details.reason !== "none" };
     },
   };
 
   if (props.multiple) {
     const { value, onChange } = props;
     return (
-      <Combobox multiple {...shared} value={value} onValueChange={(next: T[]) => onChange(next)}>
+      <Combobox multiple {...shared} value={value} onValueChange={(next: T[]) => onChange(next.filter((item) => !isCreateRow(item)))}>
         <div className={cn("relative", className)}>
           <ComboboxTrigger
             id={id}
@@ -243,14 +370,14 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
 
   const { value, onChange } = props;
   return (
-    <Combobox {...shared} value={value} onValueChange={(next: T | null) => onChange(next)}>
+    <Combobox {...shared} value={value} onValueChange={(next: T | null) => (isCreateRow(next) ? undefined : onChange(next))}>
       <ComboboxInput
         id={id}
         placeholder={placeholder}
         disabled={disabled}
         showClear={canClear}
         className={className}
-        onKeyDown={commitOnTab}
+        onKeyDown={onInputKeyDown}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
         aria-required={ariaRequired}
@@ -259,10 +386,10 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
           /* UI-LOOK-005: inside the control's right edge, before the clear button (the built-in addon is order-last). */
           <InputGroupAddon align="inline-end" className="order-1 pr-0">
             <Tooltip>
-              <TooltipTrigger render={<InputGroupButton size="icon-sm" aria-label={t("Edit")} disabled={disabled} onClick={() => onEdit(value)} />}>
+              <TooltipTrigger render={<InputGroupButton size="icon-sm" tabIndex={-1} aria-label={editLabel ?? t("Edit")} onClick={() => onEdit(value)} />}>
                 <Pencil aria-hidden="true" />
               </TooltipTrigger>
-              <TooltipContent>{t("Edit")}</TooltipContent>
+              <TooltipContent>{editLabel ?? t("Edit")}</TooltipContent>
             </Tooltip>
           </InputGroupAddon>
         )}

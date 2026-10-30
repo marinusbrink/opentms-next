@@ -3,7 +3,7 @@ import type { ColDef } from "ag-grid-community";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { BoolCell, NumberCell } from "@/components/ui/grid-cells";
-import { CurrencyEditor } from "@/apps/master-data/editors/CurrencyEditor";
+import { CurrencyEditor } from "@/domains/master-data/components/CurrencyEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { currencies, type CurrencyRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

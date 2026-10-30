@@ -51,7 +51,8 @@ export function createAppFeatureChecker(
   apps: readonly AppDefinition[] = APPS,
 ): AppFeatureChecker {
   const on = (feature: string | undefined, app: AppDefinition | undefined) =>
-    feature == null || (isHost && app?.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true");
+    !(isHost && app?.tenantOnly === true) &&
+    (feature == null || (isHost && app?.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true"));
 
   const leafPaths = (app: AppDefinition, view: AppView): string[] => {
     if (!on(view.feature, app)) return [];
@@ -72,20 +73,22 @@ export function createAppFeatureChecker(
   const isAppEnabled = (app: AppDefinition) =>
     on(app.feature, app) && (app.views == null || app.views.length === 0 || visibleViews(app).length > 0);
 
-  /** Every node in tree order. A list's path need not sit under its group's path (Master data), so nodes are
-   * found through the tree, never through the URL. */
-  const allNodes = (views: readonly AppView[] | undefined): AppView[] =>
-    (views ?? []).flatMap((view) => [view, ...allNodes(view.children)]);
+  /** Every node in tree order, each with its ancestors (root first). A list's path need not sit under its group's
+   * path (Master data), so nodes are found through the tree, never through the URL. */
+  const allLineages = (views: readonly AppView[] | undefined, ancestors: AppView[] = []): AppView[][] =>
+    (views ?? []).flatMap((view) => [[...ancestors, view], ...allLineages(view.children, [...ancestors, view])]);
 
-  /** The node a pathname belongs to: the longest matching path; on a tie (the Relations list owns its group's
-   * path) the deeper one, which comes later in tree order. */
-  const nodeFor = (app: AppDefinition, pathname: string): AppView | undefined => {
-    let best: AppView | undefined;
-    for (const node of allNodes(app.views)) {
-      if (matches(node.path, pathname) && (best == null || node.path.length >= best.path.length)) best = node;
+  /** The node a pathname belongs to, with its ancestors: the longest matching path; on a tie (the Relations list
+   * owns its group's path; a saved filter shares its list's path) the deeper one, which comes later in tree order. */
+  const lineageFor = (app: AppDefinition, pathname: string): AppView[] | undefined => {
+    let best: AppView[] | undefined;
+    for (const lineage of allLineages(app.views)) {
+      const node = lineage[lineage.length - 1];
+      if (matches(node.path, pathname) && (best == null || node.path.length >= best[best.length - 1].path.length)) best = lineage;
     }
     return best;
   };
+  const nodeFor = (app: AppDefinition, pathname: string): AppView | undefined => lineageFor(app, pathname)?.at(-1);
 
   return {
     isLoaded,
@@ -99,10 +102,11 @@ export function createAppFeatureChecker(
     },
     isPathEnabled: (app, pathname) => {
       if (!on(app.feature, app)) return false;
-      /* The node's feature name carries its ancestors (dot-prefixes), so checking it checks its group too. A path
-       * that is no node (the app root) is decided by the redirect it leads to. */
-      const node = nodeFor(app, pathname);
-      return node == null || on(node.feature, app);
+      /* A node's feature name carries its ancestors (dot-prefixes), so checking it checks its group too; a node
+       * without a feature (a saved filter of a list, UI-PAGE-004) follows its ancestors. A path that is no node (the
+       * app root) is decided by the redirect it leads to. */
+      const lineage = lineageFor(app, pathname);
+      return lineage == null || lineage.every((node) => on(node.feature, app));
     },
     isFeatureEnabled: (feature) => {
       if (!isLoaded) return false;

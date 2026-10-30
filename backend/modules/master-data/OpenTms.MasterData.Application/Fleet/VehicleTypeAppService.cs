@@ -93,7 +93,8 @@ public class VehicleTypeAppService
             DefaultLengthCm = v.DefaultLengthCm,
             DefaultWidthCm = v.DefaultWidthCm,
             DefaultHeightCm = v.DefaultHeightCm,
-            DefaultGrossVehicleWeightKg = v.DefaultGrossVehicleWeightKg
+            DefaultGrossVehicleWeightKg = v.DefaultGrossVehicleWeightKg,
+            CostPricePerKm = v.CostPricePerKm
         }).ToList());
 
     protected override async Task<VehicleTypeDto> ToDtoAsync(VehicleType v)
@@ -111,6 +112,7 @@ public class VehicleTypeAppService
             DefaultWidthCm = v.DefaultWidthCm,
             DefaultHeightCm = v.DefaultHeightCm,
             DefaultGrossVehicleWeightKg = v.DefaultGrossVehicleWeightKg,
+            CostPricePerKm = v.CostPricePerKm,
             TransportCharacteristics = characteristics
                 .Select(c => new MasterDataLookupDto { Id = c.Id, Name = c.Name, Code = c.Code })
                 .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -161,6 +163,7 @@ public class VehicleTypeAppService
         vehicleType.DefaultWidthCm = input.DefaultWidthCm;
         vehicleType.DefaultHeightCm = input.DefaultHeightCm;
         vehicleType.DefaultGrossVehicleWeightKg = input.DefaultGrossVehicleWeightKg;
+        vehicleType.SetCostPricePerKm(input.CostPricePerKm);
         vehicleType.SetCharacteristics(ids);
     }
 

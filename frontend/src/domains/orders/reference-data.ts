@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
@@ -78,6 +78,21 @@ export const timeSlots = createReferenceDataHooks<
   TimeSlotUpdateDto,
   { includeArchived?: boolean }
 >("timeSlots", "/api/orders/time-slot");
+
+/** The active waypoint types with their activity (the lookup has none): the order page's stop strip falls back to the
+ *  first Load and the first Unload type when the order type names no default waypoints (design 61 "Order page, legacy tab structure" 3). */
+export function useWaypointTypeActivities(enabled = true) {
+  return useQuery({
+    queryKey: ["referenceData", "waypointTypes", "activities"],
+    enabled,
+    staleTime: 60 * 1000,
+    queryFn: async (): Promise<WaypointTypeRow[]> => {
+      const { data, error } = await apiClient.GET("/api/orders/waypoint-type", { params: { query: { StartRow: 0, EndRow: 200, IncludeArchived: false } } });
+      if (error) throw error;
+      return data?.rows ?? [];
+    },
+  });
+}
 
 /** Moves the tenant's one default transport order type (design 51). */
 export function useSetDefaultTransportOrderType() {

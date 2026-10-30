@@ -319,3 +319,12 @@ export function OrganizationUnitFormDialog({
     </>
   );
 }
+
+/** The dialog on one unit by its id (a picker's edit pencil, UI-LOOK-005): the unit's row comes from the tenant's units;
+ *  nothing renders until they are loaded. */
+export function OrganizationUnitByIdDialog({ id, readOnly, onClose, onSuccess }: { id: string | undefined; readOnly: boolean; onClose: () => void; onSuccess: (saved?: OrganizationUnitRow) => void }) {
+  const units = useAllOrganizationUnits();
+  const unit = units.data?.find((u) => u.id === id);
+  if (!unit) return null;
+  return <OrganizationUnitFormDialog mode="edit" open unit={unit} readOnly={readOnly} onClose={onClose} onSuccess={onSuccess} />;
+}

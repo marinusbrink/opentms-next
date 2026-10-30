@@ -19,7 +19,12 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
 
         Off(apps, AppFeatures.Dashboard);
         Off(apps, AppFeatures.Planboard);
-        Off(apps, AppFeatures.Transport);
+        /* The Transport app and its nodes default on (PO 2026-10-25, design 56: deviation from constitution rule 4). */
+        var transportApp = On(apps, AppFeatures.Transport);
+        var transportAppOrders = On(transportApp, AppFeatures.TransportApp.Orders);
+        On(transportAppOrders, AppFeatures.TransportApp.OrderTemplates);
+        On(transportApp, AppFeatures.TransportApp.Trips);
+        On(transportApp, AppFeatures.TransportApp.Documents);
         Off(apps, AppFeatures.Finance);
 
         var masterData = On(apps, AppFeatures.MasterData.Default);
@@ -46,13 +51,19 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
 
         /* The other domains' groups (designs 51–53): the groups default on, the lists off. */
         var orders = On(masterData, AppFeatures.MasterData.Orders.Default);
-        var transportOrders = On(orders, AppFeatures.MasterData.Orders.TransportOrders.Default);
-        Off(transportOrders, AppFeatures.MasterData.Orders.TransportOrders.TransportOrderTypes);
-        Off(transportOrders, AppFeatures.MasterData.Orders.TransportOrders.WaypointTypes);
-        Off(transportOrders, AppFeatures.MasterData.Orders.TransportOrders.TimeSlots);
+        var transportOrderLists = On(orders, AppFeatures.MasterData.Orders.TransportOrders.Default);
+        Off(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.TransportOrderTypes);
+        Off(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.WaypointTypes);
+        Off(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.TimeSlots);
+        /* Design 56's lists default on (PO 2026-10-25). */
+        On(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.ConsignmentNoteProfiles);
+        On(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.ConsignmentNoteFixedDescriptions);
+        On(transportOrderLists, AppFeatures.MasterData.Orders.TransportOrders.OrderAttributeDefinitions);
         var planning = On(masterData, AppFeatures.MasterData.PlanningExecution.Default);
         var trips = On(planning, AppFeatures.MasterData.PlanningExecution.Trips.Default);
         Off(trips, AppFeatures.MasterData.PlanningExecution.Trips.TransportTripTypes);
+        On(trips, AppFeatures.MasterData.PlanningExecution.Trips.ViaDepotRules);
+        On(trips, AppFeatures.MasterData.PlanningExecution.Trips.TripAttributeDefinitions);
         var financial = On(masterData, AppFeatures.MasterData.Financial.Default);
         var invoicing = On(financial, AppFeatures.MasterData.Financial.Invoicing.Default);
         Off(invoicing, AppFeatures.MasterData.Financial.Invoicing.VatPercentages);
@@ -61,6 +72,8 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         var pricing = On(financial, AppFeatures.MasterData.Financial.Pricing.Default);
         Off(pricing, AppFeatures.MasterData.Financial.Pricing.AdditionalServices);
         Off(pricing, AppFeatures.MasterData.Financial.Pricing.DiscountsOrSurcharges);
+        On(pricing, AppFeatures.MasterData.Financial.Pricing.PriceLists);
+        On(pricing, AppFeatures.MasterData.Financial.Pricing.RelationFinancialSettings);
         var platform = On(masterData, AppFeatures.MasterData.Platform.Default);
         Off(platform, AppFeatures.MasterData.Platform.EmailTemplates);
         Off(platform, AppFeatures.MasterData.Platform.ReportDefinitions);

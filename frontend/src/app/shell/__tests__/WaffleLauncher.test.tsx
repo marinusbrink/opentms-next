@@ -70,6 +70,7 @@ describe("WaffleLauncher – permissions", () => {
   });
 
   it("hides apps whose permission is not granted and shows every app without one", () => {
+    tenantId = "t-1";
     render(<WaffleLauncher />);
     openLauncher();
 
@@ -78,6 +79,16 @@ describe("WaffleLauncher – permissions", () => {
     for (const app of APPS.filter((a) => !a.requiredPermission)) {
       expect(names).toContain(app.nameKey);
     }
+  });
+
+  it("the host has no Transport or Master data tile, with every feature on (PO 2026-10-29)", () => {
+    render(<WaffleLauncher />);
+    openLauncher();
+
+    const names = tileNames();
+    expect(names).not.toContain("App:Transport");
+    expect(names).not.toContain("App:MasterData");
+    expect(names).toContain("App:Dashboard");
   });
 
   it("shows the Tenants app with only Platform.Tenants", () => {
@@ -141,7 +152,8 @@ describe("WaffleLauncher – app features", () => {
     const masterDataLists = Object.keys(allFeaturesOn()).filter(
       (f) => (f.split(".").length === 5 && f.startsWith("Apps.MasterData.")) || (f.split(".").length === 4 && f.startsWith("Apps.MasterData.Platform.")),
     );
-    expect(masterDataLists).toHaveLength(27);
+    /* 27 up to design 54, plus the seven lists of the Transport run (design 61). */
+    expect(masterDataLists).toHaveLength(34);
     features = { ...allFeaturesOn(), ...Object.fromEntries(masterDataLists.map((f) => [f, "false"])) };
     render(<WaffleLauncher />);
     openLauncher();

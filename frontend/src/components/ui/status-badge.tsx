@@ -21,6 +21,26 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
     Succeeded: { tone: "success", labelKey: "Tenants:State.Succeeded" },
     Failed: { tone: "danger", labelKey: "Tenants:State.Failed" },
   },
+  /* Design 58 (TransportOrderStatus) and design 59 (TransportTripStatus); the texts live in the Orders and
+   * Planning & Execution resources (design 61). */
+  TransportOrder: {
+    Draft: { tone: "neutral", labelKey: "Orders:Status.Draft" },
+    Open: { tone: "info", labelKey: "Orders:Status.Open" },
+    ReadyForInvoicing: { tone: "warning", labelKey: "Orders:Status.ReadyForInvoicing" },
+    Invoiced: { tone: "success", labelKey: "Orders:Status.Invoiced" },
+    Archived: { tone: "neutral", labelKey: "Orders:Status.Archived" },
+    Cancelled: { tone: "danger", labelKey: "Orders:Status.Cancelled" },
+  },
+  TransportTrip: {
+    Planned: { tone: "neutral", labelKey: "PlanningExecution:Status.Planned" },
+    InProgress: { tone: "info", labelKey: "PlanningExecution:Status.InProgress" },
+    Completed: { tone: "success", labelKey: "PlanningExecution:Status.Completed" },
+    Cancelled: { tone: "danger", labelKey: "PlanningExecution:Status.Cancelled" },
+  },
+  /* Design 61 "Order page review" 3: an open rate line of a charged basis without a price list, until it is priced. */
+  RateLine: {
+    ToBePriced: { tone: "warning", labelKey: "Financial:RateLine.OpenBasis" },
+  },
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {

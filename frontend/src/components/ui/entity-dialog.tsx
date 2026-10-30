@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
  *   the dirty guard is always the same: clicking the backdrop never closes an editor; Esc, the X
  *   and Close ask "Discard changes?" when `isDirty`.
  * - `action`: one operation with parameters. Plain header, a body, a right-aligned footer
- *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy.
+ *   `[Cancel] [Primary]` passed in by the feature. Closes on Esc and backdrop unless busy; an action dialog with
+ *   input (`isDirty`: a wizard past its first step, UI-WIZ-001) asks "Discard changes?" first, like an editor.
  *
  * `size` is a content tier (UI-DLG-003); features never pass a width. While `isBusy`, close
  * requests are ignored and every command is disabled (UI-DLG-010).
@@ -132,12 +133,12 @@ export function EntityDialog({
 
   const requestClose = useCallback(() => {
     if (isBusy) return;
-    if (variant === "editor" && isDirty) {
+    if (isDirty) {
       setDiscardOpen(true);
       return;
     }
     onOpenChange(false);
-  }, [isBusy, isDirty, onOpenChange, variant]);
+  }, [isBusy, isDirty, onOpenChange]);
 
   const handleOpenChange = useCallback(
     (next: boolean, details: { reason: string; cancel: () => void }) => {
@@ -201,7 +202,7 @@ export function EntityDialog({
           </div>
           <div
             data-slot="entity-dialog-ribbon"
-            className="flex shrink-0 items-end gap-2 border-b bg-background px-3 pt-2"
+            className="flex shrink-0 flex-wrap items-end gap-x-2 border-b bg-background px-3 pt-2"
           >
             {editorCommands && editorCommands.length > 0 && <Ribbon commands={editorCommands} t={t} />}
             {hasTabs && <EditorTabStrip tabs={tabs!} t={t} />}
@@ -297,7 +298,7 @@ export function EntityDialog({
         </DialogContent>
       </Dialog>
 
-      {variant === "editor" && (
+      {(variant === "editor" || isDirty) && (
         <ConfirmDialog
           open={discardOpen}
           onOpenChange={setDiscardOpen}
@@ -316,7 +317,7 @@ export function EntityDialog({
 }
 
 /** UI-ACT-002: Save (primary), then Close, then the rest. Close is never written by a feature. */
-function withCloseCommand(commands: RibbonCommand[], onClose: () => void): RibbonCommand[] {
+export function withCloseCommand(commands: RibbonCommand[], onClose: () => void): RibbonCommand[] {
   const primaries = commands.filter((c) => c.isPrimary);
   const editGroup = primaries[0]?.groupKey ?? "Edit";
   const closeCommand: RibbonCommand = {
@@ -331,9 +332,9 @@ function withCloseCommand(commands: RibbonCommand[], onClose: () => void): Ribbo
   return [...primaries.map((c) => ({ ...c, groupKey: c.groupKey ?? editGroup })), closeCommand, ...others];
 }
 
-/* The ribbon (D-13 A, modernised): icon over label, buttons in groups with a caption under
+/* The ribbon (D-13 A, modernised; shared with RecordPage, design 61): icon over label, buttons in groups with a caption under
  * them, a divider between groups. Icons in the brand colour, destructive ones in red. */
-function Ribbon({ commands, t }: { commands: RibbonCommand[]; t: (key: string) => string }) {
+export function Ribbon({ commands, t }: { commands: RibbonCommand[]; t: (key: string) => string }) {
   const groups: { key: string; commands: RibbonCommand[] }[] = [];
   for (const command of commands) {
     const key = command.groupKey ?? "";
@@ -401,12 +402,12 @@ function RibbonButton({ command, t }: { command: RibbonCommand; t: (key: string)
 
 /* UI-FORM-008: end-aligned, General first, the icon-only standard tabs last with tooltips;
  * UI-FORM-007: a tab with errors is red with an alert icon. Old-app look: uppercase, brand ink. */
-function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: string) => string }) {
+export function EditorTabStrip({ tabs, t }: { tabs: EntityDialogTab[]; t: (key: string) => string }) {
   const triggerClass =
     "h-10 flex-none rounded-none border-0 px-4 text-sm font-semibold tracking-wide text-muted-foreground uppercase after:bottom-0 after:bg-brand hover:text-foreground data-active:text-foreground";
   return (
     <TooltipProvider>
-      <TabsList variant="line" className="ml-auto h-auto gap-0 self-end rounded-none p-0">
+      <TabsList variant="line" data-editor-tab-strip="" className="ml-auto h-auto max-w-full flex-wrap justify-end gap-0 self-end rounded-none p-0">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const trigger = (

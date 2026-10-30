@@ -38,7 +38,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { apiClient } from "@/lib/api/client";
-import { ReportDefinitionEditor } from "@/apps/master-data/editors/ReportDefinitionEditor";
+import { ReportDefinitionEditor } from "@/domains/platform/components/ReportDefinitionEditor";
 import { editorDialog, fieldIn, ok, panel, submitEditor, typeIn } from "./platform-test-helpers";
 
 type ClientInit = { params?: { path?: Record<string, unknown> }; body?: unknown; parseAs?: string };

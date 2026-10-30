@@ -11,7 +11,7 @@ import { TreeSelect } from "@/components/ui/tree-select";
 /* UI-LOOK-004 (PO decision 2026-10-16) in the four library pickers: the "Add new …" row exists only with `onCreateNew`,
  * carries `createLabel` (or the default), hands over what the user typed (the tree has no search: ""), and closes the
  * list so the entity's editor opens on top; MultiSelect and EntityLookup also clear their search. The real Base UI
- * components run here. Risk class: Medium (UI flow of a library component every record picker uses). */
+ * components run here (ReferenceCombobox and EntityLookup show the row as the list's last option). Risk class: Medium (UI flow of a library component every record picker uses). */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
@@ -38,6 +38,8 @@ const openPopup = (element: HTMLElement) => {
 };
 const type = (element: HTMLElement, value: string) => fireEvent.input(element, { target: { value }, inputType: "insertText" });
 const createRow = (label: string) => screen.queryByRole("button", { name: label });
+/* ReferenceCombobox and EntityLookup: the row is the list's last option (ArrowDown reaches it). */
+const createOption = (label: string) => screen.queryByRole("option", { name: label });
 
 const LABEL = "Add new thing…";
 
@@ -51,8 +53,8 @@ describe("ReferenceCombobox — Add new", () => {
     render(<ReferenceCombobox id="rc" value={null} onChange={() => {}} options={options} createLabel={LABEL} />);
     openPopup(screen.getByRole("combobox"));
     expect(await screen.findByText("Alpha")).toBeInTheDocument();
-    expect(createRow(LABEL)).toBeNull();
-    expect(createRow("AddNew")).toBeNull();
+    expect(createOption(LABEL)).toBeNull();
+    expect(createOption("AddNew")).toBeNull();
   });
 
   it("shows the row with the label, passes the typed text and closes the list", async () => {
@@ -61,25 +63,25 @@ describe("ReferenceCombobox — Add new", () => {
     const input = screen.getByRole("combobox");
     openPopup(input);
     type(input, "  Zeeland ");
-    const row = await screen.findByRole("button", { name: LABEL });
+    const row = await screen.findByRole("option", { name: LABEL });
     fireEvent.click(row);
     expect(onCreateNew).toHaveBeenCalledTimes(1);
     expect(onCreateNew).toHaveBeenCalledWith("Zeeland");
-    await waitFor(() => expect(createRow(LABEL)).toBeNull());
+    await waitFor(() => expect(createOption(LABEL)).toBeNull());
     expect(input).toHaveAttribute("aria-expanded", "false");
   });
 
   it("falls back to the generic label", async () => {
     render(<ReferenceCombobox id="rc" value={null} onChange={() => {}} options={options} onCreateNew={() => {}} />);
     openPopup(screen.getByRole("combobox"));
-    expect(await screen.findByRole("button", { name: "AddNew" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "AddNew" })).toBeInTheDocument();
   });
 
   it("does not hand over the selected value's label as the typed text", async () => {
     const onCreateNew = vi.fn();
     render(<ReferenceCombobox id="rc" value="a" onChange={() => {}} options={options} onCreateNew={onCreateNew} createLabel={LABEL} />);
     openPopup(screen.getByRole("combobox"));
-    fireEvent.click(await screen.findByRole("button", { name: LABEL }));
+    fireEvent.click(await screen.findByRole("option", { name: LABEL }));
     expect(onCreateNew).toHaveBeenCalledWith("");
   });
 
@@ -89,10 +91,10 @@ describe("ReferenceCombobox — Add new", () => {
     const input = screen.getByRole("combobox");
     openPopup(input);
     type(input, "Zee");
-    fireEvent.click(await screen.findByRole("button", { name: LABEL }));
-    await waitFor(() => expect(createRow(LABEL)).toBeNull());
+    fireEvent.click(await screen.findByRole("option", { name: LABEL }));
+    await waitFor(() => expect(createOption(LABEL)).toBeNull());
     openPopup(input);
-    fireEvent.click(await screen.findByRole("button", { name: LABEL }));
+    fireEvent.click(await screen.findByRole("option", { name: LABEL }));
     expect(onCreateNew).toHaveBeenLastCalledWith("");
   });
 });
@@ -188,9 +190,9 @@ describe("EntityLookup — Add new", () => {
     const input = screen.getByRole("combobox") as HTMLInputElement;
     openPopup(input);
     type(input, "Zeeland");
-    fireEvent.click(await screen.findByRole("button", { name: LABEL }));
+    fireEvent.click(await screen.findByRole("option", { name: LABEL }));
     expect(onCreateNew).toHaveBeenCalledWith("Zeeland");
-    await waitFor(() => expect(createRow(LABEL)).toBeNull());
+    await waitFor(() => expect(createOption(LABEL)).toBeNull());
     expect(input).toHaveAttribute("aria-expanded", "false");
     expect(input).toHaveValue("");
   });
@@ -199,6 +201,6 @@ describe("EntityLookup — Add new", () => {
     render(<EntityLookup<Item> id="el" value={null} onChange={() => {}} fetchPage={fetchPage} getLabel={(r) => r.name} createLabel={LABEL} />, { wrapper });
     openPopup(screen.getByRole("combobox"));
     expect(await screen.findByText("Rotterdam Freight")).toBeInTheDocument();
-    expect(createRow(LABEL)).toBeNull();
+    expect(createOption(LABEL)).toBeNull();
   });
 });

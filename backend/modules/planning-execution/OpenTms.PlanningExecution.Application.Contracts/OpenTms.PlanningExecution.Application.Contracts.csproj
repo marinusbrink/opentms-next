@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
     <ProjectReference Include="..\OpenTms.PlanningExecution.Domain.Shared\OpenTms.PlanningExecution.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Domain.Shared\OpenTms.MasterData.Domain.Shared.csproj" />
   </ItemGroup>
 
 </Project>

@@ -35,9 +35,9 @@ vi.mock("@/components/ui/entity-lookup", () => ({
     </button>
   ),
 }));
-vi.mock("@/apps/master-data/editors/VehicleEditor", () => ({ VehicleEditor: () => <div data-testid="vehicle-editor" /> }));
-vi.mock("@/apps/master-data/editors/VehicleCombinationEditor", () => ({ VehicleCombinationEditor: () => <div data-testid="combination-editor" /> }));
-vi.mock("@/apps/master-data/editors/ProductRelationCodeEditor", () => ({ ProductRelationCodeEditor: () => <div data-testid="code-editor" /> }));
+vi.mock("@/domains/master-data/components/VehicleEditor", () => ({ VehicleEditor: () => <div data-testid="vehicle-editor" /> }));
+vi.mock("@/domains/master-data/components/VehicleCombinationEditor", () => ({ VehicleCombinationEditor: () => <div data-testid="combination-editor" /> }));
+vi.mock("@/domains/master-data/components/ProductRelationCodeEditor", () => ({ ProductRelationCodeEditor: () => <div data-testid="code-editor" /> }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 

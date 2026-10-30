@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { ColDef } from "ag-grid-community";
 
-import { RelationCategoryEditor } from "@/apps/master-data/editors/RelationCategoryEditor";
+import { RelationCategoryEditor } from "@/domains/master-data/components/RelationCategoryEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { relationCategories, type RelationCategoryRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

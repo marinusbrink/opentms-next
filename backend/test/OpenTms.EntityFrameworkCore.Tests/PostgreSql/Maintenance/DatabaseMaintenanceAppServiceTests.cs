@@ -42,8 +42,10 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
     {
         var page = await _service.GetListAsync(Request());
 
-        page.TotalCount.ShouldBe(2);
-        page.Rows.Count.ShouldBe(2);
+        /* The test databases: the host (with the two shared-tier tenants: outbox-tenant-shared, transport-run-shared),
+         * tenant A's own database and the committing tests' own database (transport-run-a; PostgreSqlTestDatabases). */
+        page.TotalCount.ShouldBe(3);
+        page.Rows.Count.ShouldBe(3);
 
         var host = page.Rows[0];
         host.IsHost.ShouldBeTrue();
@@ -51,13 +53,14 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
         host.DatabaseName.ShouldBe(PostgreSqlTestDatabases.HostDatabase);
         host.ServerName.ShouldContain(":");
         host.ServerName.ShouldNotContain("Password", Case.Insensitive);
-        host.SharedTenantCount.ShouldBe(1);
+        host.SharedTenantCount.ShouldBe(2);
         host.IsReachable.ShouldBeTrue();
         host.SizeBytes.ShouldNotBeNull();
         host.SizeBytes.Value.ShouldBeGreaterThan(0);
         host.TransactionsCommitted.ShouldNotBeNull();
 
-        var tenant = page.Rows[1];
+        page.Rows.Skip(1).Select(r => r.TenantId).ShouldBe([PostgreSqlTestDatabases.TenantAId, PostgreSqlTestDatabases.TransportTenantAId], ignoreOrder: true);
+        var tenant = page.Rows.Single(r => r.TenantId == PostgreSqlTestDatabases.TenantAId);
         tenant.IsHost.ShouldBeFalse();
         tenant.TenantId.ShouldBe(PostgreSqlTestDatabases.TenantAId);
         tenant.Key.ShouldBe(PostgreSqlTestDatabases.TenantAId.ToString("D"));
@@ -73,7 +76,7 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
     {
         var searched = await _service.GetListAsync(Request(search: "tenant-a"));
         searched.FilteredCount.ShouldBe(1);
-        searched.TotalCount.ShouldBe(2);
+        searched.TotalCount.ShouldBe(3);
         searched.Rows.ShouldHaveSingleItem().TenantName.ShouldBe("outbox-tenant-a");
 
         var sorted = await _service.GetListAsync(Request(sort: new SortModel("databaseName", "desc")));
@@ -81,7 +84,7 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
 
         var second = await _service.GetListAsync(Request(1, 2));
         second.Rows.ShouldHaveSingleItem();
-        second.TotalCount.ShouldBe(2);
+        second.TotalCount.ShouldBe(3);
     }
 
     [Fact]
@@ -89,9 +92,11 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
     {
         var summary = await _service.GetSummaryAsync();
 
-        summary.DatabaseCount.ShouldBe(2);
-        summary.TenantDatabaseCount.ShouldBe(1);
-        summary.SharedTenantCount.ShouldBe(1);
+        /* The test databases: the host (with the two shared-tier tenants: outbox-tenant-shared, transport-run-shared),
+         * tenant A's own database and the committing tests' own database (transport-run-a; PostgreSqlTestDatabases). */
+        summary.DatabaseCount.ShouldBe(3);
+        summary.TenantDatabaseCount.ShouldBe(2);
+        summary.SharedTenantCount.ShouldBe(2);
         summary.UnreachableCount.ShouldBe(0);
         summary.TotalSizeBytes.ShouldBeGreaterThan(0);
         summary.HostBlobStorage.ShouldNotBeNull();
@@ -107,7 +112,7 @@ public class DatabaseMaintenanceAppServiceTests : OpenTmsPostgreSqlTestBase
         detail.IsHost.ShouldBeTrue();
         detail.DatabaseName.ShouldBe(PostgreSqlTestDatabases.HostDatabase);
         detail.SizeBytes.ShouldNotBeNull();
-        detail.SharedTenantNames.ShouldBe(["outbox-tenant-shared"]);
+        detail.SharedTenantNames.ShouldBe(["outbox-tenant-shared", "transport-run-shared"], ignoreOrder: true);
         detail.Schemas.Select(s => s.SchemaName).ShouldContain("platform");
         detail.Schemas.Select(s => s.SchemaName).ShouldContain("public");
         detail.Schemas.First(s => s.SchemaName == "platform").TableCount.ShouldBeGreaterThan(0);

@@ -75,4 +75,11 @@ describe("ConfirmDialog (UI-DLG-011, UI-ACT-003/005, UI-KEY-003)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("names the closing button with cancelLabel when given (e.g. Keep editing)", () => {
+    const props = renderDialog({ cancelLabel: "Keep editing" });
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

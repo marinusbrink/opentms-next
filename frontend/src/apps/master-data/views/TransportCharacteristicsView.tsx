@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { ColDef } from "ag-grid-community";
 
-import { TransportCharacteristicsEditor } from "@/apps/master-data/editors/TransportCharacteristicsEditor";
+import { TransportCharacteristicsEditor } from "@/domains/master-data/components/TransportCharacteristicsEditor";
 import { MasterDataListView } from "@/apps/master-data/components/MasterDataListView";
 import { transportCharacteristics, type TransportCharacteristicsRow } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";

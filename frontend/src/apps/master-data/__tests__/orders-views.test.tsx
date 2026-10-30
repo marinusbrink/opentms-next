@@ -24,9 +24,9 @@ vi.mock("@/components/ui/opentms-grid", async () => {
   const mocks = await import("./run2-test-mocks");
   return { OpenTmsGrid: mocks.MockOpenTmsGrid };
 });
-vi.mock("@/apps/master-data/editors/TransportOrderTypeEditor", () => ({ TransportOrderTypeEditor: () => <div data-testid="order-type-editor" /> }));
-vi.mock("@/apps/master-data/editors/WaypointTypeEditor", () => ({ WaypointTypeEditor: () => <div data-testid="waypoint-type-editor" /> }));
-vi.mock("@/apps/master-data/editors/TimeSlotEditor", () => ({ TimeSlotEditor: () => <div data-testid="time-slot-editor" /> }));
+vi.mock("@/domains/orders/components/TransportOrderTypeEditor", () => ({ TransportOrderTypeEditor: () => <div data-testid="order-type-editor" /> }));
+vi.mock("@/domains/orders/components/WaypointTypeEditor", () => ({ WaypointTypeEditor: () => <div data-testid="waypoint-type-editor" /> }));
+vi.mock("@/domains/orders/components/TimeSlotEditor", () => ({ TimeSlotEditor: () => <div data-testid="time-slot-editor" /> }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 

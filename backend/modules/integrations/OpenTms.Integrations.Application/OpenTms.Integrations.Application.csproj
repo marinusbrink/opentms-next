@@ -11,8 +11,10 @@
   <ItemGroup>
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
     <PackageReference Include="Volo.Abp.Caching" Version="10.6.0" />
+    <!-- The daily purge of the route cache (design 60). -->
+    <PackageReference Include="Volo.Abp.BackgroundWorkers" Version="10.6.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
-    <!-- The pdfgeneratorapi connection test (design 55). -->
+    <!-- The pdfgeneratorapi connection test (design 55) and the routing check (design 60). -->
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
   </ItemGroup>
 

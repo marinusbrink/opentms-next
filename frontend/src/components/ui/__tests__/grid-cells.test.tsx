@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { AmountCell, BoolCell, DateCell, DateTimeCell, NumberCell, TimestampCell } from "@/components/ui/grid-cells";
+import { AmountCell, BoolCell, DateCell, DateTimeCell, NumberCell, TimestampCell, UnitPriceCell } from "@/components/ui/grid-cells";
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (key: string) => key, culture: "nl", isLoading: false }),
@@ -17,6 +17,13 @@ describe("grid cells (UI-GRID-004, UI-TOK-009)", () => {
 
     const { container: a } = render(<AmountCell value={1234.5} />);
     expect(a.textContent).toBe("1.234,50");
+  });
+
+  it("renders unit prices with 2 to 5 decimals and tabular figures (UI-FMT-006)", () => {
+    const { container: four } = render(<UnitPriceCell value={1.2345} />);
+    expect(four.textContent).toBe("1,2345");
+    expect(four.firstElementChild!.className).toContain("tabular-nums");
+    expect(render(<UnitPriceCell value={1.4} />).container.textContent).toBe("1,40");
   });
 
   it("renders dates numerically and date-times with a 24-hour clock", () => {

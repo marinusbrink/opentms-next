@@ -6,13 +6,15 @@ using Volo.Abp.BackgroundJobs;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.MultiTenancy;
+using Volo.Abp.Uow;
 
 namespace OpenTms.Platform.DerivedValues;
 
 /// <summary>
 /// Flow 2 B (design 49): turns a request into a background job in the Jobs role (today the API host's Hangfire server,
-/// AD-13). Runs in the requesting tenant's context (the outbox dispatcher switches to it). Idempotent: a duplicate
-/// delivery, or a request a newer one has overtaken, enqueues nothing or a job that skips.
+/// AD-13). Runs in the requesting tenant's context (the outbox dispatcher switches to it) and inside a unit of work: the
+/// state read needs a DbContext, which the dispatcher's unit of work per event provides (a direct call opens its own).
+/// Idempotent: a duplicate delivery, or a request a newer one has overtaken, enqueues nothing or a job that skips.
 /// </summary>
 public class DerivedValuesRequestedHandler : IDistributedEventHandler<DerivedValuesRequestedEto>, ITransientDependency
 {
@@ -29,6 +31,7 @@ public class DerivedValuesRequestedHandler : IDistributedEventHandler<DerivedVal
         _currentTenant = currentTenant;
     }
 
+    [UnitOfWork]
     public virtual async Task HandleEventAsync(DerivedValuesRequestedEto eventData)
     {
         var states = (await _store.GetListAsync(eventData.TargetType, eventData.Targets.Select(t => t.TargetId).ToList()))

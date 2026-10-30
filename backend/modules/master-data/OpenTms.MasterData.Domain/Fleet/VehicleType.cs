@@ -24,6 +24,9 @@ public class VehicleType : MasterDataAggregateRoot
 
     public double? DefaultGrossVehicleWeightKg { get; set; }
 
+    /// <summary>QP10: the cost price per kilometre of vehicles of this type (the second step of the vehicle → type → tenant cascade); null = unknown.</summary>
+    public decimal? CostPricePerKm { get; private set; }
+
     /// <summary>Join rows to TransportCharacteristics (assessment §3.3: a join table, no delimited string).</summary>
     public virtual ICollection<VehicleTypeTransportCharacteristics> Characteristics { get; private set; } = new List<VehicleTypeTransportCharacteristics>();
 
@@ -39,6 +42,16 @@ public class VehicleType : MasterDataAggregateRoot
     }
 
     public void SetName(string name) => Name = NormalizeName(name);
+
+    public void SetCostPricePerKm(decimal? costPricePerKm)
+    {
+        if (costPricePerKm is < 0)
+        {
+            throw new Volo.Abp.BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "costPricePerKm").WithData("value", costPricePerKm.Value);
+        }
+
+        CostPricePerKm = costPricePerKm == null ? null : decimal.Round(costPricePerKm.Value, 4, MidpointRounding.AwayFromZero);
+    }
 
     public void SetKind(VehicleTypeKind kind)
     {
