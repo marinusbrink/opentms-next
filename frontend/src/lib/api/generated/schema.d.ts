@@ -44030,6 +44030,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/tenants/{id}/reset-to-dataset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Tenants.TenantResetToDatasetDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Tenants.TenantResetToDatasetDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Tenants.TenantResetToDatasetDto"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/tenants/{id}/retry-provisioning": {
         parameters: {
             query?: never;
@@ -51149,6 +51190,11 @@ export interface components {
             /** Format: date-time */
             creationTime?: string;
             databaseName?: string | null;
+            datasetName?: string | null;
+            /** Format: date-time */
+            datasetResetAt?: string | null;
+            datasetResetError?: string | null;
+            datasetResetState?: string | null;
             /** Format: uuid */
             editionId?: string | null;
             editionName?: string | null;
@@ -51171,10 +51217,18 @@ export interface components {
             /** Format: uuid */
             tenantId?: string;
         };
+        "OpenTms.Platform.Tenants.TenantResetToDatasetDto": {
+            confirmationName: string;
+            dataset: string;
+        };
         "OpenTms.Platform.Tenants.TenantRowDto": {
             /** Format: date-time */
             creationTime?: string;
             databaseName?: string | null;
+            datasetName?: string | null;
+            /** Format: date-time */
+            datasetResetAt?: string | null;
+            datasetResetState?: string | null;
             /** Format: uuid */
             editionId?: string | null;
             editionName?: string | null;
