@@ -34,7 +34,7 @@ const takeRefusedSwitch = vi.fn(() => {
   refused = false;
   return value;
 });
-vi.mock("@/auth/session-switch", () => ({ takeRefusedSwitch: () => takeRefusedSwitch() }));
+vi.mock("@/auth/session-switch", () => ({ takeRefusedSwitch: () => takeRefusedSwitch(), takeSwitchReturnTo: () => undefined }));
 
 import { AppShell } from "@/app/shell/AppShell";
 

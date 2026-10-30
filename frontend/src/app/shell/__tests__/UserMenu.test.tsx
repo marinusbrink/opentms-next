@@ -277,7 +277,7 @@ describe("UserMenu account switch", () => {
     await act(async () => fireEvent.click(item(/acme/)));
 
     expect(switchMutate).toHaveBeenCalledExactlyOnceWith({ tenantId: "t-acme" });
-    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/switch?t=1", { id: "t-acme", name: "acme" });
+    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/switch?t=1", { id: "t-acme", name: "acme" }, window.location.pathname);
     expect(screen.queryByTestId("switch-dialog")).not.toBeInTheDocument();
   });
 
@@ -289,7 +289,7 @@ describe("UserMenu account switch", () => {
     await act(async () => fireEvent.click(item(/Shell:TenantHost/)));
 
     expect(switchMutate).toHaveBeenCalledExactlyOnceWith({ tenantId: null });
-    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/switch?h=1", undefined);
+    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/switch?h=1", undefined, window.location.pathname);
   });
 
   it("opens the password dialog for an account that needs a password, without calling the switch", async () => {

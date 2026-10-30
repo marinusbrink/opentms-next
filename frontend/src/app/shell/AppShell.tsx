@@ -8,7 +8,7 @@ import { WaffleLauncher } from "@/app/shell/WaffleLauncher";
 import { UserMenu } from "@/app/shell/UserMenu";
 import { AppNavPane } from "@/app/shell/AppNavPane";
 import { ImpersonationBanner } from "@/app/shell/ImpersonationBanner";
-import { takeRefusedSwitch } from "@/auth/session-switch";
+import { takeRefusedSwitch, takeSwitchReturnTo } from "@/auth/session-switch";
 import { toast } from "sonner";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { FullScreenSpinner } from "@/app/shell/FullScreenSpinner";
@@ -36,7 +36,8 @@ export function AppShell() {
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated && !auth.activeNavigator) {
-      void auth.signinRedirect({ state: { returnTo: location.pathname } });
+      /* After an account switch the user lands on the screen they switched from, not on the switch's landing route. */
+      void auth.signinRedirect({ state: { returnTo: takeSwitchReturnTo() ?? location.pathname } });
     }
   }, [auth, location.pathname]);
 

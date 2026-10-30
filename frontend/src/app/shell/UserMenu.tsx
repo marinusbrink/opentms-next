@@ -93,7 +93,7 @@ export function UserMenu() {
     }
     try {
       const url = await switchAccount.mutateAsync({ tenantId: account.tenantId ?? null });
-      switchSession(url, account.tenantId ? { id: account.tenantId, name: account.tenantName ?? "" } : undefined);
+      switchSession(url, account.tenantId ? { id: account.tenantId, name: account.tenantName ?? "" } : undefined, window.location.pathname);
     } catch (err) {
       /* A remembered switch ends when either password changes: then the password is asked after all. */
       if (getApiErrorCode(err) === ACCOUNT_PASSWORD_REQUIRED) setDialog({ kind: "switch", account });

@@ -54,7 +54,7 @@ describe("SwitchAccountDialog", () => {
     await act(async () => fireEvent.click(switchButton()));
 
     expect(switchMutate).toHaveBeenCalledExactlyOnceWith({ tenantId: "t-acme", password: "secret", rememberPassword: false });
-    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/s", { id: "t-acme", name: "acme" });
+    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/s", { id: "t-acme", name: "acme" }, window.location.pathname);
   });
 
   it("sends rememberPassword when Remember password is ticked", async () => {
@@ -74,7 +74,7 @@ describe("SwitchAccountDialog", () => {
     await act(async () => fireEvent.click(switchButton()));
 
     expect(switchMutate).toHaveBeenCalledExactlyOnceWith({ tenantId: null, password: "secret", rememberPassword: false });
-    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/h", undefined);
+    expect(switchSession).toHaveBeenCalledExactlyOnceWith("https://auth.example.test/h", undefined, window.location.pathname);
   });
 
   it("Enter in the password field submits", async () => {

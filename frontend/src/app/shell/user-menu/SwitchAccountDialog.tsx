@@ -35,7 +35,7 @@ export function SwitchAccountDialog({ account, name, open, onClose }: SwitchAcco
     setError(null);
     try {
       const url = await switchAccount.mutateAsync({ tenantId: account.tenantId ?? null, password, rememberPassword: remember });
-      switchSession(url, account.tenantId ? { id: account.tenantId, name: account.tenantName ?? "" } : undefined);
+      switchSession(url, account.tenantId ? { id: account.tenantId, name: account.tenantName ?? "" } : undefined, window.location.pathname);
     } catch (err) {
       setError(getApiErrorMessage(err, t));
     }
