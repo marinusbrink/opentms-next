@@ -13,6 +13,9 @@ public sealed class MasterDataTestDataset
 {
     public List<TestRelation> Relations { get; } = new();
 
+    /// <summary>The one relation with the OwnCompany role.</summary>
+    public Guid? OwnCompanyRelationId { get; set; }
+
     /// <summary>ISO alpha-2 → id of the seeded country.</summary>
     public Dictionary<string, Guid> CountryIds { get; } = new(StringComparer.Ordinal);
 
@@ -42,4 +45,5 @@ public sealed record TestRelationAddress(
     string PostalCode,
     string City,
     double Latitude,
-    double Longitude);
+    double Longitude,
+    string? HouseNumberSuffix = null);
