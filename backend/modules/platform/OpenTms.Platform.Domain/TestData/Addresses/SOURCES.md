@@ -12,12 +12,12 @@ WGS84 (ETRS89) decimal degrees with 6 decimals. Addresses are unique per country
 
 | Country | Rows |
 |---|---|
-| NL | {{NL}} |
-| BE | {{BE}} |
-| DE | {{DE}} |
-| **Total** | {{TOTAL}} |
+| NL | 200,000 |
+| BE | 60,000 |
+| DE | 60,000 |
+| **Total** | 320,000 |
 
-## Netherlands (NL) — {{NL}} rows
+## Netherlands (NL) — 200,000 rows
 
 - **Source:** Basisregistratie Adressen en Gebouwen (BAG), collection `verblijfsobject`
 - **Publisher:** Kadaster, served by PDOK
@@ -26,12 +26,12 @@ WGS84 (ETRS89) decimal degrees with 6 decimals. Addresses are unique per country
   credit: "Bron: Kadaster, BAG (via PDOK)".
 - **Selection:** only objects with status *Verblijfsobject in gebruik* and main address status
   *Naamgeving uitgegeven*. Sampled with bbox queries over a randomly shuffled grid covering the whole
-  country, capped per grid cell so cities do not dominate. {{NL_BIZ}} addresses come from a pass filtered on
+  country, capped per grid cell so cities do not dominate. 80,000 (40 %) addresses come from a pass filtered on
   `gebruiksdoel` = industriefunctie, kantoorfunctie or winkelfunctie (non-residential); the rest from a
   pass over all uses (mostly residential). Postal codes are written `1234 AB`; `house_number_suffix` is the
   BAG huisletter, followed by a space and the huisnummertoevoeging when present.
 
-## Belgium (BE) — {{BE}} rows
+## Belgium (BE) — 60,000 rows
 
 - **Source:** BeST Address (Belgian Streets and Addresses), "openaddress" CSV per region
 - **Publisher:** FOD BOSA (Federal Public Service Policy and Support), DG Digital Transformation, compiled
@@ -45,17 +45,17 @@ WGS84 (ETRS89) decimal degrees with 6 decimals. Addresses are unique per country
   "Contains BeST Address data, © FOD BOSA / Digitaal Vlaanderen, SPW, paradigm.brussels, CC BY 4.0
   (modified: sampled and reformatted)".
 - **Selection:** status `current` only; box numbers (units) are dropped and collapsed onto one building
-  address. Random sample per region: Flanders {{BE_VLG}}, Wallonia {{BE_WAL}}, Brussels {{BE_BRU}}. Street and
+  address. Random sample per region: Flanders 32,000, Wallonia 20,000, Brussels 8,000. Street and
   city in the region's language (Flanders Dutch; Wallonia French, German in the German-speaking
   municipalities; Brussels French or Dutch, chosen per address). Coordinates computed from the Lambert 2008
   (EPSG:3812) columns.
 
-## Germany (DE) — {{DE}} rows
+## Germany (DE) — 60,000 rows
 
 Only states that publish house-level addresses *with postal codes* under a permissive licence, and that can
 be downloaded without an order process, are included.
 
-### North Rhine-Westphalia — {{DE_NW}} rows
+### North Rhine-Westphalia — 35,000 rows
 
 - **Source:** Gebäudereferenzen NRW (GEBREF, ASCII, EPSG:25832) for street, number, municipality and
   coordinates; the postal code from the INSPIRE Addresses WFS that is built on the same GEBREF data
@@ -69,7 +69,7 @@ be downloaded without an order process, are included.
 - **Selection:** 900 random anchor addresses across the state, up to 45 addresses from a 500 m window
   around each.
 
-### Berlin — {{DE_BE}} rows
+### Berlin — 15,000 rows
 
 - **Source:** Adressen Regionales Bezugssystem (RBS) Berlin
 - **Publisher:** Amt für Statistik Berlin-Brandenburg; served by Senatsverwaltung für Stadtentwicklung,
@@ -79,7 +79,7 @@ be downloaded without an order process, are included.
   suggested credit: "Amt für Statistik Berlin-Brandenburg, dl-de/zero-2-0".
 - **Selection:** street addresses only (`str_typ` = STRASSE), random sample from the full register.
 
-### Hamburg — {{DE_HH}} rows
+### Hamburg — 10,000 rows
 
 - **Source:** INSPIRE Adressen Hamburg (ALKIS-based), WFS
 - **Publisher:** Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV)
