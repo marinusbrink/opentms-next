@@ -25,10 +25,15 @@ export function switchSession(redirectUrl: string, tenant: StoredTenant | undefi
   if (returnTo) window.sessionStorage.setItem(RETURN_TO_KEY, returnTo);
   else window.sessionStorage.removeItem(RETURN_TO_KEY);
   setStoredTenant(tenant);
+  dropLocalOidcUsers();
+  window.location.assign(redirectUrl);
+}
+
+/** Removes the OIDC user entries (the local tokens) from storage directly, without the OIDC context's events. */
+export function dropLocalOidcUsers(): void {
   for (const key of Object.keys(window.localStorage)) {
     if (key.startsWith(OIDC_USER_PREFIX)) window.localStorage.removeItem(key);
   }
-  window.location.assign(redirectUrl);
 }
 
 /**
