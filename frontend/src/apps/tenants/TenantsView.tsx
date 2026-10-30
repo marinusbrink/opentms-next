@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { LogIn, MailPlus, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Database, DatabaseZap, LogIn, MailPlus, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
@@ -11,9 +11,11 @@ import { StatusCell } from "@/components/ui/status-badge";
 import type { GridRequest, GridRowAction, OpenTmsGridProps } from "@/components/ui/opentms-grid";
 import { DeleteTenantDialog } from "@/apps/tenants/DeleteTenantDialog";
 import { ImpersonateTenantDialog } from "@/domains/platform/components/ImpersonateTenantDialog";
+import { ResetTenantDatasetDialog, type ResetTenantDatasetRequest } from "@/apps/tenants/ResetTenantDatasetDialog";
 import { TenantFormDialog } from "@/apps/tenants/TenantFormDialog";
 import {
   TenantProvisioningStates,
+  TestDatasets,
   useResendTenantInvitation,
   useRetryTenantProvisioning,
   useTenantsGridFetcher,
@@ -45,6 +47,7 @@ export function TenantsView() {
   const canUpdate = useIsGranted("Platform.Tenants.Update");
   const canDelete = useIsGranted("Platform.Tenants.Delete");
   const canImpersonate = useIsGranted("Platform.Tenants.Impersonation");
+  const canResetToDataset = useIsGranted("Platform.Tenants.ResetToDataset");
   const canCreateEdition = useIsGranted("Platform.Editions.Create");
 
   const retryProvisioning = useRetryTenantProvisioning();
@@ -55,6 +58,7 @@ export function TenantsView() {
   const [editor, setEditor] = useState<EditorState>(null);
   const [tenantToDelete, setTenantToDelete] = useState<TenantRow | undefined>();
   const [tenantToEnter, setTenantToEnter] = useState<TenantRow | undefined>();
+  const [resetRequest, setResetRequest] = useState<ResetTenantDatasetRequest | undefined>();
 
   const invalidateGrid = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -66,7 +70,9 @@ export function TenantsView() {
         result.rows.some(
           (row) =>
             row.provisioningState === TenantProvisioningStates.Queued ||
-            row.provisioningState === TenantProvisioningStates.Running,
+            row.provisioningState === TenantProvisioningStates.Running ||
+            row.datasetResetState === TenantProvisioningStates.Queued ||
+            row.datasetResetState === TenantProvisioningStates.Running,
         ),
       );
       return result;
@@ -121,6 +127,11 @@ export function TenantsView() {
       if (!row) return [];
       const failed = row.provisioningState === TenantProvisioningStates.Failed;
       const ready = row.provisioningState === TenantProvisioningStates.Succeeded;
+      /* A tenant from before the Tenants app has no provisioning state and is usable. */
+      const usable = ready || row.provisioningState == null;
+      const resetting =
+        row.datasetResetState === TenantProvisioningStates.Queued ||
+        row.datasetResetState === TenantProvisioningStates.Running;
       return [
         ...(canUpdate
           ? [{ id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => openRecord(row) }]
@@ -150,6 +161,23 @@ export function TenantsView() {
         ...(canImpersonate
           ? [{ id: "impersonate", labelKey: "Impersonation:LogInAsEllipsis", icon: LogIn, onClick: () => setTenantToEnter(row) }]
           : []),
+        ...(canResetToDataset && usable
+          ? [
+              {
+                id: "reset-to-dataset",
+                labelKey: "Tenants:ResetToDataset",
+                icon: DatabaseZap,
+                disabled: resetting,
+                disabledReasonKey: "Tenants:ResetAlreadyRunning",
+                children: [TestDatasets.Average, TestDatasets.Large].map((dataset) => ({
+                  id: `reset-to-dataset-${dataset}`,
+                  labelKey: `Tenants:Dataset:${dataset}`,
+                  icon: Database,
+                  onClick: () => setResetRequest({ tenant: row, dataset }),
+                })),
+              },
+            ]
+          : []),
         ...(canDelete
           ? [
               {
@@ -163,7 +191,17 @@ export function TenantsView() {
           : []),
       ];
     },
-    [canCreate, canDelete, canImpersonate, canUpdate, openRecord, resendInvitation, retryProvisioning, runRowCommand],
+    [
+      canCreate,
+      canDelete,
+      canImpersonate,
+      canResetToDataset,
+      canUpdate,
+      openRecord,
+      resendInvitation,
+      retryProvisioning,
+      runRowCommand,
+    ],
   );
 
   const columnDefs = useMemo<ColDef<TenantRow>[]>(
@@ -178,6 +216,22 @@ export function TenantsView() {
         sortable: false,
         filter: false,
         minWidth: 130,
+      },
+      {
+        colId: "testData",
+        field: "datasetResetState",
+        headerName: t("Tenants:TestData"),
+        valueGetter: ({ data }) => data?.datasetResetState,
+        cellRenderer: ({ data }: { data?: TenantRow }) =>
+          data?.datasetName ? (
+            <span className="flex items-center gap-2">
+              <span>{t(`Tenants:Dataset:${data.datasetName}`)}</span>
+              <StatusCell value={data.datasetResetState} entity="TenantProvisioning" />
+            </span>
+          ) : null,
+        sortable: false,
+        filter: false,
+        minWidth: 260,
       },
       { field: "databaseName", headerName: t("Tenants:Database"), sortable: false, filter: false, minWidth: 220 },
       { field: "serverName", headerName: t("Tenants:Server"), sortable: false, filter: false, minWidth: 160 },
@@ -225,6 +279,12 @@ export function TenantsView() {
           canCreateEdition={canCreateEdition}
         />
       )}
+
+      <ResetTenantDatasetDialog
+        request={resetRequest}
+        onClose={() => setResetRequest(undefined)}
+        onQueued={invalidateGrid}
+      />
 
       {tenantToEnter && (
         <ImpersonateTenantDialog tenant={tenantToEnter} open onClose={() => setTenantToEnter(undefined)} />

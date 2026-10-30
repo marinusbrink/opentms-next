@@ -8,7 +8,10 @@ export interface GridRowAction {
   id: string;
   labelKey: string;
   icon?: LucideIcon;
-  onClick: () => void;
+  /** Not called for an item with `children`: that item only opens its sub-menu. */
+  onClick?: () => void;
+  /** A sub-menu (e.g. "Reset to dataset" › its datasets). */
+  children?: GridRowAction[];
   /** Destructive items render in red and get a separator before them. */
   destructive?: boolean;
   /** Stays in the menu when several rows are selected. Default: false (single row only). */
@@ -34,7 +37,8 @@ export function buildContextMenuItems(
     }
     items.push({
       name: t(action.labelKey),
-      action: action.onClick,
+      action: action.children?.length ? undefined : action.onClick,
+      subMenu: action.children?.length ? buildContextMenuItems(action.children, rowCount, t) : undefined,
       disabled: action.disabled === true,
       tooltip: action.disabled && action.disabledReasonKey ? t(action.disabledReasonKey) : undefined,
       cssClasses: action.destructive ? ["text-destructive"] : undefined,
