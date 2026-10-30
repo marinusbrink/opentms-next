@@ -179,7 +179,10 @@ export function VatPercentageEditor({ mode, id, readOnly, open, onClose, onSaved
                 required
                 disabled={form.readOnly}
                 aria-invalid={form.error("countryCode") != null}
-                {...inPlace.offer("Country", form.readOnly, (r) => form.set("countryCode", r.code))}
+                {...inPlace.offer("Country", form.readOnly, (r) => form.set("countryCode", r.code), {
+                  /* The value is the ISO code: the pencil opens the country of that code. */
+                  editId: (form.values.countryCode && countryLookup.data?.find((c) => c.code === form.values.countryCode)?.id) || null,
+                })}
               />
             </FormField>
             <CheckboxField form={form} field="isArchived" labelKey="MasterData:IsArchived" />

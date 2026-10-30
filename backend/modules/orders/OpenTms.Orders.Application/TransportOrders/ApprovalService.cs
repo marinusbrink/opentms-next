@@ -67,6 +67,10 @@ public class ApprovalService : ITransientDependency
             defaults[key] = await _references.CustomerDefaultsAsync(key.CustomerRelationId, key.OrderDate);
         }
 
+        /* Design 61 build note 6: the bases of the orders' and the defaults' lists, for the effective charged bases. */
+        var listBases = await _references.PriceListBasesAsync(orders.SelectMany(o => o.PriceLists).Select(p => p.PriceListId)
+            .Concat(defaults.Values.OfType<CustomerFinancialDefaults>().SelectMany(d => d.PriceListIds)));
+
         return orders.Select(order =>
         {
             totals.TryGetValue(order.Id, out var total);
@@ -80,7 +84,8 @@ public class ApprovalService : ITransientDependency
                 duplicates.Contains(order.Id),
                 legs[order.Id].Select(l => new ApprovalLegFact(l.OrderLineId, l.DistanceM, l.Destination.ActualAt != null)).ToList(),
                 referenced.All(relations.ContainsKey),
-                defaults[(order.CustomerRelationId, order.OrderDate)]);
+                defaults[(order.CustomerRelationId, order.OrderDate)],
+                listBases);
             return ApprovalEvaluator.Evaluate(facts, rules);
         }).ToList();
     }

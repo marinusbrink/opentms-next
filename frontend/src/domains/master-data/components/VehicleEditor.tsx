@@ -16,7 +16,7 @@ import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCanCreateInPlace, useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
+import { useCanCreateInPlace, useCanOpenInPlace, useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { CheckboxField, NumberField, TextAreaField, TextField, numberError, numberToText, parseNumber } from "@/components/record-editor/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
@@ -222,7 +222,8 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, init
   const canUpdate = useIsGranted("MasterData.Vehicles.Update");
   /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
   const canCreate = useCanCreateInPlace();
-  const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
+  /* The edit pencil's gate (UI-LOOK-005): edit with the relations' Update, read-only with only their view permission. */
+  const relationAccess = useCanOpenInPlace()("Relation");
 
   /* A new vehicle starts with the own company as owner and the tenant's default country (design 48); it waits for
    * both (cached after the first open) so its initial values hold them and an untouched record stays clean. */
@@ -359,7 +360,8 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, init
       )}
       onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ field, mode: "create", term }) : undefined}
       createLabel={t("MasterData:AddNewRelation")}
-      onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ field, mode: "edit", id: r.id }) : undefined}
+      onEdit={relationAccess ? (r) => setRelationDialog({ field, mode: "edit", id: r.id }) : undefined}
+      editLabel={relationAccess === "view" ? t("Open") : undefined}
       required={required}
       aria-invalid={form.error(field) != null}
       disabled={form.readOnly}
@@ -685,12 +687,13 @@ export function VehicleEditor({ mode, id, readOnly, open, onClose, onSaved, init
           mode={relationDialog.mode}
           id={relationDialog.mode === "edit" ? relationDialog.id : undefined}
           initialName={relationDialog.mode === "create" ? relationDialog.term : undefined}
-          readOnly={false}
+          readOnly={relationDialog.mode === "edit" && relationAccess !== "edit"}
           open
           onClose={() => setRelationDialog(null)}
           onSaved={(saved) => {
             const dto = saved as RelationDto | undefined;
-            if (!dto?.id) return;
+            /* A read-only form keeps its values (the pencil opened the relation only to look or edit it there). */
+            if (!dto?.id || (relationDialog.mode === "edit" && readOnly)) return;
             const option: RelationOption = { id: dto.id, code: dto.code ?? "", name: dto.name ?? "", city: null, countryCode: null, roles: dto.roles ?? 0 };
             const field = relationDialog.field;
             apply((values) => ({ ...values, [field]: option }));

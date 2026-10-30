@@ -35,6 +35,7 @@ export type AddManualStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips
 export type UpdateStopDto = Schemas["OpenTms.PlanningExecution.TransportTrips.UpdateStopDto"];
 export type StopActualsDto = Schemas["OpenTms.PlanningExecution.TransportTrips.StopActualsDto"];
 export type OutsourceOriginDto = Schemas["OpenTms.PlanningExecution.TransportTrips.OutsourceOriginDto"];
+export type SplitLineDto = Schemas["OpenTms.PlanningExecution.TransportTrips.SplitLineDto"];
 export type TransportTripPickerDto = Schemas["OpenTms.PlanningExecution.TransportTrips.TransportTripPickerDto"];
 export type TripAttributeDefinitionRow = Schemas["OpenTms.PlanningExecution.TransportTrips.TripAttributeDefinitionRowDto"];
 
@@ -247,6 +248,11 @@ function useTripMutation<TArgs>(run: (args: TArgs) => Promise<TransportTripDto>)
 
 const tripPath = (id: string) => ({ params: { path: { id } } });
 
+/** New trip (design 61 "Trip type defaults" 4): the server fills every empty field from the trip's type (point 2). */
+export function useCreateTransportTrip() {
+  return useTripMutation(async (dto: TransportTripCreateDto) => unwrap(await apiClient.POST("/api/planning/transport-trip", { body: dto })));
+}
+
 export function useUpdateTransportTrip() {
   return useTripMutation(async ({ id, dto }: { id: string; dto: TransportTripUpdateDto }) =>
     unwrap(await apiClient.PUT("/api/planning/transport-trip/{id}", { ...tripPath(id), body: dto })),
@@ -334,6 +340,14 @@ function useTripLegMutation<TArgs>(run: (args: TArgs) => Promise<unknown>) {
 export function useCreateReturnLeg() {
   return useTripLegMutation(async ({ id, legId }: { id: string; legId: string }) =>
     unwrap(await apiClient.POST("/api/planning/transport-trip/{id}/return-leg", { ...tripPath(id), body: { legId } })),
+  );
+}
+
+/** Split quantity (design 61 "Order page review" 5, the existing `split-line`): the leg keeps the rest, a new leg carries
+ *  the quantity, on this trip or on `toTripId`. Returns the new leg. */
+export function useSplitTripLine() {
+  return useTripLegMutation(async ({ id, dto }: { id: string; dto: SplitLineDto }) =>
+    unwrap(await apiClient.POST("/api/planning/transport-trip/{id}/split-line", { ...tripPath(id), body: dto })),
   );
 }
 

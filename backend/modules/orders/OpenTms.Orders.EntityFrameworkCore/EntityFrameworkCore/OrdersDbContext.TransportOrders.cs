@@ -363,6 +363,8 @@ public partial class OrdersDbContext
         t.Property(x => x.MultipleMatches).HasColumnName("MultipleMatches");
         t.Property(x => x.FixedPriceAmount).HasColumnName("FixedPriceAmount").HasPrecision(MoneyPrecision, MoneyScale);
         t.Property(x => x.SendFreightDocumentsWithInvoice).HasColumnName("SendFreightDocumentsWithInvoice");
+        /* Design 61 point 3: the charged bases as a bit mask of QuantitySource values (0 = none, the value of existing rows). */
+        t.Property(x => x.ChargedBasesMask).HasColumnName("ChargedBases");
     }
 
     private static void ConfigureFreight<TOwner>(OwnedNavigationBuilder<TOwner, FreightDetails> f) where TOwner : class

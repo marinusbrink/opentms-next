@@ -44,6 +44,15 @@ public class RateLineDto
     public DateTimeOffset? CalculatedAt { get; set; }
     public long? CalculationVersion { get; set; }
     public string ConcurrencyStamp { get; set; } = string.Empty;
+
+    /// <summary>The trip a cost line belongs to (set for trip and leg anchors; <see cref="TripId"/> is only the trip anchor itself).</summary>
+    public Guid? AnchorTripId { get; set; }
+
+    /// <summary>The number of <see cref="AnchorTripId"/>; filled by the order's cost read (<c>side = Cost</c>), else null.</summary>
+    public string? TripNumber { get; set; }
+
+    /// <summary>The order line (freight item) of the leg a cost line hangs on; filled by the order's cost read, else null.</summary>
+    public Guid? LegOrderLineId { get; set; }
 }
 
 public class RateLineAnchorTotalsDto
@@ -72,13 +81,26 @@ public class RateLineSetDto
     public DerivedValueStateDto? State { get; set; }
 }
 
+/// <summary>
+/// The lines of one order or trip. With <see cref="OrderId"/> and <see cref="Side"/> = <c>Cost</c> (design 61 "Order page
+/// review" point 4): the cost lines of the order's legs on the trips they are on now (leg-anchored lines of those trips;
+/// trip-level lines such as the agreed price are not per freight item and stay out), each with its trip and freight item;
+/// the totals then sum those lines per leg, the state is the trips' cost calculation. Without a side, or <c>Revenue</c>, the
+/// order's own lines as before; for a trip the side is ignored (a trip's lines are all cost).
+/// </summary>
 public class RateLineGetRequestDto
 {
     public Guid? OrderId { get; set; }
     public Guid? TripId { get; set; }
+    public RateSide? Side { get; set; }
 }
 
-/// <summary>The anchor of a new manual line: the root (order or trip) and optionally the child record beneath it.</summary>
+/// <summary>
+/// The anchor of a new manual line: the root (order or trip) and optionally the child record beneath it. A trip's line on a
+/// leg may name the leg's order line too (design 61 point 4, a purchase line of a freight item: <c>tripId</c>,
+/// <c>orderLineId</c> and the item's first <c>legId</c> on that trip); a leg not on that trip, or not of that order line, is
+/// refused with <c>LegNotOnTrip</c>.
+/// </summary>
 public class ManualRateLineCreateDto
 {
     public Guid? OrderId { get; set; }

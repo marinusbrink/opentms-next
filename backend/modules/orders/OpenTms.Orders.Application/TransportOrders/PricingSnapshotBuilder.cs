@@ -65,6 +65,7 @@ public class PricingSnapshotBuilder : ITransientDependency
             CurrencyCode = terms.CurrencyCode,
             VatPercentageId = terms.VatPercentageId,
             PriceListIds = terms.PriceListIds.ToList(),
+            ChargedBases = terms.ChargedBases?.ToList() ?? [],
             MultipleMatches = terms.MultipleMatches,
             DiscountOrSurchargeIds = terms.DiscountsOrSurcharges.Select(d => d.DiscountOrSurchargeId).ToList(),
             FixedPriceAmount = terms.FixedPriceAmount,

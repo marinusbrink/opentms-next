@@ -277,6 +277,198 @@ public class LegGeneratorTests
             .Created.ShouldHaveSingleItem();
     }
 
+    /* ── Design 61 "Via-depot rules on the stop's waypoint type" (OpenTMS's RelationDefaultViaWaypoint /
+     *    GeographicalRegionDefaultViaWaypoint: relation or region plus the stop's waypoint type) ───────────────────── */
+
+    private static (Guid Relation, Guid Address) NewDepot() => (Guid.NewGuid(), Guid.NewGuid());
+
+    private static ViaDepotRule Rule(ViaDepotScope scope, Guid? relationId, Guid? regionId, (Guid Relation, Guid Address) depot, Guid? stopType, int position = 1, bool overnight = false)
+    {
+        var rule = new ViaDepotRule(Guid.NewGuid(), Tenant, scope, relationId, regionId, depot.Relation, depot.Address, DepotIn);
+        rule.SetWaypointTypes(DepotIn, DepotOut);
+        if (stopType != null)
+        {
+            rule.SetStopWaypointType(stopType.Value);
+        }
+
+        rule.SetPosition(position);
+        rule.SetOvernight(overnight);
+        return rule;
+    }
+
+    private LegGenerationResult GenerateWith(LegGenerationInput input, IReadOnlyList<ViaDepotRule> rules, IReadOnlyList<Leg>? existing = null, params (Guid Relation, Guid Address)[] depots)
+    {
+        var known = depots.ToDictionary(d => d.Address, d => Depot(d.Relation, d.Address));
+        return _generator.Generate(input, rules, id => known.GetValueOrDefault(id), _ => null, existing ?? [], Tenant, Guid.NewGuid);
+    }
+
+    [Fact]
+    public void A_rule_applies_only_to_a_stop_with_its_waypoint_type()
+    {
+        var shop = Guid.NewGuid();
+        var region = Guid.NewGuid();
+        var depot = NewDepot();
+        var byRelation = Rule(ViaDepotScope.Relation, shop, null, depot, Unload);
+        var byRegion = Rule(ViaDepotScope.Region, null, region, depot, Unload);
+        var day = new DateOnly(2026, 10, 26);
+
+        foreach (var rule in new[] { byRelation, byRegion })
+        {
+            /* The shop is loaded: the rule names its unloading only. */
+            var loadAtShop = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, Stop(Guid.NewGuid(), shop, Load, "Shop", day, region), Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day)));
+            GenerateWith(loadAtShop, [rule], null, depot).Created.ShouldHaveSingleItem().Source.ShouldBe(LegSource.Generated);
+
+            var unloadAtShop = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", day), Stop(Guid.NewGuid(), shop, Unload, "Shop", day, region)));
+            var split = GenerateWith(unloadAtShop, [rule], null, depot).Created;
+            split.Count.ShouldBe(2);
+            split[0].DestinationRelationId.ShouldBe(depot.Relation);
+            split.ShouldAllBe(l => l.ViaDepotRuleId == rule.Id);
+        }
+
+        /* ViaDepotRule.MatchesStop itself: the type and the scope's key must both match. */
+        byRelation.MatchesStop(Customer, shop, Unload, []).ShouldBeTrue();
+        byRelation.MatchesStop(Customer, shop, Load, []).ShouldBeFalse();
+        byRelation.MatchesStop(Customer, Guid.NewGuid(), Unload, []).ShouldBeFalse();
+        byRegion.MatchesStop(Customer, Guid.NewGuid(), Unload, [region]).ShouldBeTrue();
+        byRegion.MatchesStop(Customer, Guid.NewGuid(), Unload, [Guid.NewGuid()]).ShouldBeFalse();
+        Rule(ViaDepotScope.Customer, Customer, null, depot, Load).MatchesStop(Customer, Guid.NewGuid(), Load, []).ShouldBeTrue();
+        Rule(ViaDepotScope.Customer, Customer, null, depot, Load).MatchesStop(Guid.NewGuid(), Guid.NewGuid(), Load, []).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void A_rule_stored_without_a_stop_type_applies_to_a_stop_of_any_type()
+    {
+        var relation = Guid.NewGuid();
+        var legacy = Rule(ViaDepotScope.Relation, relation, null, NewDepot(), stopType: null);
+
+        legacy.StopWaypointTypeId.ShouldBeNull();
+        legacy.MatchesStop(Customer, relation, Load, []).ShouldBeTrue();
+        legacy.MatchesStop(Customer, relation, Unload, []).ShouldBeTrue();
+        Should.Throw<Volo.Abp.BusinessException>(() => legacy.SetStopWaypointType(Guid.Empty));
+    }
+
+    [Fact]
+    public void The_next_scope_is_a_fallback_only_when_no_rule_of_a_scope_matches_either_stop()
+    {
+        var customerSite = Guid.NewGuid();
+        var deliveryRegion = Guid.NewGuid();
+        var relationDepot = NewDepot();
+        var regionDepot = NewDepot();
+        var day = new DateOnly(2026, 10, 26);
+        var a = Stop(Guid.NewGuid(), customerSite, Load, "A", day);
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day, deliveryRegion);
+        var order = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, a, b));
+        var byRegion = Rule(ViaDepotScope.Region, null, deliveryRegion, regionDepot, Unload);
+
+        /* The relation's rule is for its unloading; its stop here is a load: the region decides. */
+        var relationForUnload = Rule(ViaDepotScope.Relation, customerSite, null, relationDepot, Unload);
+        var fallback = GenerateWith(order, [relationForUnload, byRegion], null, relationDepot, regionDepot).Created;
+        fallback.Count.ShouldBe(2);
+        fallback[0].DestinationRelationId.ShouldBe(regionDepot.Relation);
+        fallback.ShouldAllBe(l => l.ViaDepotRuleId == byRegion.Id);
+
+        /* The relation's rule matches its load: the relation scope decides, the region rule of the other stop is not used. */
+        var relationForLoad = Rule(ViaDepotScope.Relation, customerSite, null, relationDepot, Load);
+        var relationWins = GenerateWith(order, [byRegion, relationForLoad], null, relationDepot, regionDepot).Created;
+        relationWins.Count.ShouldBe(2);
+        relationWins[0].DestinationRelationId.ShouldBe(relationDepot.Relation);
+        relationWins.ShouldNotContain(l => l.DestinationRelationId == regionDepot.Relation || l.OriginRelationId == regionDepot.Relation);
+
+        /* A customer rule sits between the two. */
+        var customerDepot = NewDepot();
+        var byCustomer = Rule(ViaDepotScope.Customer, Customer, null, customerDepot, Unload);
+        GenerateWith(order, [byRegion, byCustomer, relationForUnload], null, relationDepot, regionDepot, customerDepot).Created[0].DestinationRelationId.ShouldBe(customerDepot.Relation);
+    }
+
+    [Fact]
+    public void Each_stop_brings_its_own_depot_origin_side_first()
+    {
+        var pickupRegion = Guid.NewGuid();
+        var deliveryRegion = Guid.NewGuid();
+        var pickupHub = NewDepot();
+        var deliveryHub = NewDepot();
+        var outbound = Rule(ViaDepotScope.Region, null, pickupRegion, pickupHub, Load, overnight: true);
+        var inbound = Rule(ViaDepotScope.Region, null, deliveryRegion, deliveryHub, Unload);
+        var day = new DateOnly(2026, 10, 26);
+        var a = Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", day, pickupRegion);
+        var b = Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day.AddDays(2), deliveryRegion);
+        var order = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 10, a, b));
+
+        /* Rules listed destination first: the origin's depot still comes first. */
+        var result = GenerateWith(order, [inbound, outbound], null, pickupHub, deliveryHub);
+
+        var legs = result.Created;
+        legs.Count.ShouldBe(3);
+        legs.Select(l => l.Position).ShouldBe([1, 2, 3]);
+        legs.ShouldAllBe(l => l.Source == LegSource.ViaDepot && l.Quantity == 10);
+        legs[0].OriginStopId.ShouldBe(a.Snapshot.StopId);
+        legs[0].DestinationRelationId.ShouldBe(pickupHub.Relation);
+        legs[0].DestinationWaypointTypeId.ShouldBe(DepotIn);
+        legs[0].DestinationPlannedDate.ShouldBe(day);
+        legs[0].ViaDepotRuleId.ShouldBe(outbound.Id);
+        legs[1].OriginStopId.ShouldBe(legs[0].DestinationStopId);
+        legs[1].OriginWaypointTypeId.ShouldBe(DepotOut);
+        legs[1].OriginPlannedDate.ShouldBe(day.AddDays(1), "the pickup hub's rule is overnight");
+        legs[1].DestinationRelationId.ShouldBe(deliveryHub.Relation);
+        legs[1].DestinationPlannedDate.ShouldBe(day.AddDays(1));
+        legs[1].ViaDepotRuleId.ShouldBe(inbound.Id);
+        legs[2].OriginStopId.ShouldBe(legs[1].DestinationStopId);
+        legs[2].OriginRelationId.ShouldBe(deliveryHub.Relation);
+        legs[2].DestinationStopId.ShouldBe(b.Snapshot.StopId);
+        legs[2].ViaDepotRuleId.ShouldBe(inbound.Id);
+
+        /* Regeneration finds all three again. */
+        var again = GenerateWith(order, [inbound, outbound], legs, pickupHub, deliveryHub);
+        again.Unchanged.Count.ShouldBe(3);
+        again.Created.ShouldBeEmpty();
+        again.Deleted.ShouldBeEmpty();
+
+        /* The delivery region's rule archived: back to one depot. */
+        inbound.SetArchived(true);
+        var oneDepot = GenerateWith(order, [inbound, outbound], legs, pickupHub, deliveryHub);
+        oneDepot.Remaining.Count().ShouldBe(2);
+        oneDepot.Deleted.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void One_depot_named_by_both_stops_is_visited_once()
+    {
+        var depot = NewDepot();
+        var day = new DateOnly(2026, 10, 26);
+        var order = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, Stop(Guid.NewGuid(), Guid.NewGuid(), Load, "A", day), Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day)));
+
+        /* One customer rule of any type matches both stops. */
+        GenerateWith(order, [Rule(ViaDepotScope.Customer, Customer, null, depot, stopType: null)], null, depot).Created.Count.ShouldBe(2);
+
+        /* Two rules, one per stop, on the same depot address. */
+        GenerateWith(order, [Rule(ViaDepotScope.Customer, Customer, null, depot, Load), Rule(ViaDepotScope.Customer, Customer, null, depot, Unload, position: 2)], null, depot)
+            .Created.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Per_stop_the_first_rule_in_position_order_wins_and_a_depot_at_one_of_the_stops_is_passed_over()
+    {
+        var site = Guid.NewGuid();
+        var first = NewDepot();
+        var second = NewDepot();
+        var day = new DateOnly(2026, 10, 26);
+        var a = Stop(Guid.NewGuid(), site, Load, "A", day);
+        var order = Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, a, Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day)));
+        var one = Rule(ViaDepotScope.Relation, site, null, first, Load, position: 1);
+        var two = Rule(ViaDepotScope.Relation, site, null, second, Load, position: 2);
+
+        GenerateWith(order, [two, one], null, first, second).Created[0].DestinationRelationId.ShouldBe(first.Relation);
+
+        /* The first rule's depot is the loading address itself: the next rule of the scope applies. */
+        var atFirst = Stop(Guid.NewGuid(), first.Relation, Load, "Depot", day);
+        atFirst = new LegGenerationStop { Snapshot = atFirst.Snapshot with { RelationAddressId = first.Address } };
+        var oneAtDepot = Rule(ViaDepotScope.Relation, first.Relation, null, first, Load, position: 1);
+        var twoAtDepot = Rule(ViaDepotScope.Relation, first.Relation, null, second, Load, position: 2);
+        var passedOver = GenerateWith(Order(Guid.NewGuid(), Line(Guid.NewGuid(), 1, atFirst, Stop(Guid.NewGuid(), Guid.NewGuid(), Unload, "B", day))), [oneAtDepot, twoAtDepot], null, first, second).Created;
+        passedOver.Count.ShouldBe(2);
+        passedOver[0].DestinationRelationId.ShouldBe(second.Relation);
+    }
+
     [Fact]
     public void A_line_the_planner_reshaped_keeps_its_legs_and_only_refreshes_the_stop_snapshots()
     {

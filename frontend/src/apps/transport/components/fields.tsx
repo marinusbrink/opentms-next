@@ -139,7 +139,8 @@ export function SelectField<TValues extends object>({ form, field, labelKey, req
   );
 }
 
-/** A record picker over a bounded lookup (UI-LOOK-001: a searched Combobox over a list loaded once). */
+/** A record picker over a bounded lookup (UI-LOOK-001: a searched Combobox over a list loaded once), with "Add new …"
+ * (UI-LOOK-004, not in a read-only form) and the edit pencil (UI-LOOK-005) when they are passed. */
 export function ComboField<TValues extends object>({
   form,
   field,
@@ -150,7 +151,9 @@ export function ComboField<TValues extends object>({
   options,
   onCreateNew,
   createLabel,
-}: BaseProps<TValues> & { options: ReferenceOption[]; onCreateNew?: (term: string) => void; createLabel?: string }) {
+  onEdit,
+  editLabel,
+}: BaseProps<TValues> & { options: ReferenceOption[]; onCreateNew?: (term: string) => void; createLabel?: string; onEdit?: (value: string) => void; editLabel?: string }) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? null;
   return (
@@ -165,6 +168,8 @@ export function ComboField<TValues extends object>({
         aria-invalid={form.error(field) != null}
         onCreateNew={form.readOnly ? undefined : onCreateNew}
         createLabel={createLabel}
+        onEdit={onEdit}
+        editLabel={editLabel}
       />
     </FormField>
   );

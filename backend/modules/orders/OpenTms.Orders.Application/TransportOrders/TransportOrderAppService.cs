@@ -562,6 +562,22 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
         return await _preview.PreviewAsync(snapshot);
     }
 
+    /// <summary>The preview of an order that is not saved yet: the lines, terms and date are taken as Create takes them,
+    /// and Financial prices the snapshot without an order id.</summary>
+    [RequiresFeature(AppFeatures.TransportApp.Orders)]
+    [Authorize(OrdersPermissions.TransportOrders.Create)]
+    public virtual async Task<PricePreviewDto> PreviewNewOrderPricesAsync(NewOrderPricePreviewRequestDto input)
+    {
+        var customerId = input.CustomerRelationId!.Value;
+        var orderDate = input.OrderDate ?? _clock.Today();
+        var terms = input.FinancialTerms != null ? TransportOrderInputMapper.Terms(input.FinancialTerms) : await _references.DefaultTermsAsync(customerId, orderDate);
+        var lines = input.Lines.Select(l => TransportOrderInputMapper.Line(l, null)).ToList();
+        /* The snapshot reads only the customer and the date from the header. */
+        var header = new OrderHeaderInput(Guid.Empty, customerId, null, string.Empty, orderDate, null, null, null, null);
+        var snapshot = await _snapshots.BuildAsync(null, TransportOrderStatus.Draft, header, terms, lines);
+        return await _preview.PreviewAsync(snapshot);
+    }
+
     // ── queries ────────────────────────────────────────────────────────────────
 
     private IQueryable<TransportOrder> ApplyFilters(IQueryable<TransportOrder> query, List<TransportOrderStatus> status, TransportOrderView view, DateOnly? from, DateOnly? to, Guid? customerId, Guid? organizationUnitId, Guid? templateId)

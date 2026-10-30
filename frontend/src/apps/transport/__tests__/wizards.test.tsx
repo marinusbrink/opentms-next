@@ -17,7 +17,7 @@ vi.mock("@/lib/i18n/LocalizationProvider", () => ({
 }));
 let grants: Record<string, boolean> = {};
 let features: Record<string, string> = {};
-vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: features }, auth: { grantedPolicies: grants } } }) }));
+vi.mock("@/lib/abp/queries", () => ({ useApplicationConfiguration: () => ({ data: { features: { values: features }, auth: { grantedPolicies: grants }, currentTenant: { id: "t-1" } } }) }));
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigateMock, useLocation: () => ({ pathname: "/transport/orders", search: {} }) }));
 /* The New template dialog (its own tests cover its fields): a stub that hands back the template its save created. */

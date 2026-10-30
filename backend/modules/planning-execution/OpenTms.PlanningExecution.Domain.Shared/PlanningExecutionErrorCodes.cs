@@ -45,6 +45,15 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The mirrored leg already exists.</summary>
     public const string ReturnLegExists = Namespace + ":ReturnLegExists";
 
+    /// <summary>A leg involved is on a trip: unassign it first (design 61 point 5, split at an address and its removal).</summary>
+    public const string LegOnTrip = Namespace + ":LegOnTrip";
+
+    /// <summary>The leg is not a half of a split at an address, so there is no split to remove.</summary>
+    public const string LegNotSplitAtAddress = Namespace + ":LegNotSplitAtAddress";
+
+    /// <summary>The other half of the split was split again: remove that split first.</summary>
+    public const string SplitAtAddressNested = Namespace + ":SplitAtAddressNested";
+
     /* The request itself is wrong (400). */
 
     public const string TooManyVehicles = Namespace + ":TooManyVehicles";
@@ -88,11 +97,23 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The target trip of a move or outsource must be another trip.</summary>
     public const string SameTrip = Namespace + ":SameTrip";
 
+    /// <summary>A leg is split at an address other than its own origin and destination.</summary>
+    public const string SplitAddressIsLegEnd = Namespace + ":SplitAddressIsLegEnd";
+
+    /// <summary>A leg is split at an address on a date before its origin date or after its destination date.</summary>
+    public const string SplitDateOutsideLeg = Namespace + ":SplitDateOutsideLeg";
+
+    /// <summary>A trip type's default contact person needs its default carrier (design 61 "Trip type defaults").</summary>
+    public const string ContactWithoutCarrier = Namespace + ":ContactWithoutCarrier";
+
+    /// <summary>A trip type's default departure or arrival address needs its relation ({field}; design 61 "Trip type defaults").</summary>
+    public const string AddressWithoutRelation = Namespace + ":AddressWithoutRelation";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         TripNotAssignable, LegOnOtherTrip, LegNotOnTrip, LegOutsideTripWindow, StopHasActuals, InvalidTransition, TripArchived,
-        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists
+        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -100,6 +121,7 @@ public static class PlanningExecutionErrorCodes
     [
         TooManyVehicles, TooManyDrivers, TooManyStops, TooManyLegs, VehicleSourceConflict, InvalidSplit, InvalidAttributes,
         InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
-        ExportTooManyRows, ExportUnknownColumn
+        ExportTooManyRows, ExportUnknownColumn, SplitAddressIsLegEnd, SplitDateOutsideLeg, ContactWithoutCarrier,
+        AddressWithoutRelation
     ];
 }

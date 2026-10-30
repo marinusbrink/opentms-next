@@ -43,7 +43,7 @@ public class PlanningLegsAndTripsMigrationTests : PlanningPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe("20261026013555_PlanningLegSourceKeys", "the newest Planning migration (the Transport follow-ups)");
+            applied.Last().ShouldBe(PlanningTripTypeDefaultsMigrationTests.Migration, "the newest Planning migration (design 61, the trip type defaults)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

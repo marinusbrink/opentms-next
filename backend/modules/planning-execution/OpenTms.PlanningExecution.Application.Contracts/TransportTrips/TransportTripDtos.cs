@@ -199,6 +199,11 @@ public class TransportTripSummaryDto
     public DateTimeOffset? CalculatedAt { get; set; }
 }
 
+/// <summary>
+/// POST: a new trip. Design 61 "Trip type defaults": every group the input leaves empty (carrier, vehicles, drivers,
+/// departure, arrival, stop composition, first/last stop rule, execution) is filled from the type; the planned departure
+/// is required and never filled. Through the API an empty field therefore cannot mean "deliberately none".
+/// </summary>
 public class TransportTripCreateDto
 {
     [Required]
@@ -213,9 +218,11 @@ public class TransportTripCreateDto
     /// <summary>Defaults to the type's.</summary>
     public TripExecution? Execution { get; set; }
 
-    public StopCompositionMode StopCompositionMode { get; set; } = StopCompositionMode.MergeByLocationAndActivity;
+    /// <summary>Null: the type's (design 61 "Trip type defaults").</summary>
+    public StopCompositionMode? StopCompositionMode { get; set; }
 
-    public FirstLastStopRule FirstLastStopRule { get; set; } = FirstLastStopRule.None;
+    /// <summary>Null: the type's (design 61 "Trip type defaults").</summary>
+    public FirstLastStopRule? FirstLastStopRule { get; set; }
 
     public Guid? CarrierRelationId { get; set; }
 

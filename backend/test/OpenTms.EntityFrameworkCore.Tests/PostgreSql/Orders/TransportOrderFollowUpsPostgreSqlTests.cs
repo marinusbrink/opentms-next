@@ -25,7 +25,7 @@ namespace OpenTms.PostgreSql.Orders;
 /// carries another tenant's orders (UI-GRID-013; exports are a classic leak), the trip-request warning Planning reports
 /// lands on the raising tenant's order only and once (design 59 build note 13), the trip request's freight items keep
 /// "every line", a selection and an emptied selection apart in jsonb (design 61 point 7), and the OrdersTripRequestWarning
-/// and OrdersTripRequestLines migrations (expand only; the latter newest). Writes are rolled back. Risk class: Critical (tenant isolation), High (migration).
+/// and OrdersTripRequestLines migrations (expand only, in order). Writes are rolled back. Risk class: Critical (tenant isolation), High (migration).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
 public class TransportOrderFollowUpsPostgreSqlTests : TransportOrdersPostgreSqlTestBase
@@ -201,13 +201,15 @@ public class TransportOrderFollowUpsPostgreSqlTests : TransportOrdersPostgreSqlT
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_lines_migration_is_applied_last_and_adds_one_nullable_jsonb_column_per_trip_request(string? tenant)
+    public async Task The_lines_migration_is_applied_after_the_warning_migration_and_adds_one_nullable_jsonb_column_per_trip_request(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-            applied.Last().ShouldBe(LinesMigration, "the newest Orders migration");
+            applied.ShouldContain(LinesMigration);
+            applied.IndexOf(LinesMigration).ShouldBe(applied.IndexOf(Migration) + 1, "right after OrdersTripRequestWarning");
+            /* No longer the newest: OrdersChargedBasesMigrationTests pins the newest Orders migration. */
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse();
 

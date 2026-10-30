@@ -17,7 +17,8 @@ public enum StopLegRole
 
 /// <summary>
 /// How a leg came to exist (design 59 build note): the generator writes <see cref="Generated"/> and <see cref="ViaDepot"/>
-/// legs and owns them; the planner's operations (trips.md 20–24) create the others, which regeneration keeps.
+/// legs and owns them; the planner's operations (trips.md 20–24, design 61 "Order page review" point 5) create the others,
+/// which regeneration keeps.
 /// </summary>
 public enum LegSource
 {
@@ -25,5 +26,8 @@ public enum LegSource
     ViaDepot = 2,
     Split = 3,
     Return = 4,
-    Outsourced = 5
+    Outsourced = 5,
+
+    /// <summary>One half of a leg split at an address (A→X or X→B, design 61 point 5); <c>SplitFromLegId</c> is the leg it replaced.</summary>
+    SplitAtAddress = 6
 }

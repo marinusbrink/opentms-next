@@ -74,7 +74,12 @@ const stored: TransportOrderDto = {
       ],
     },
   ],
-  financialTerms: { currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true },
+  financialTerms: {
+    currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], priceListNames: ["Tarieven 2026"], priceListBases: [1],
+    /* Design 61 "Order page review" 3: the bases switched on (here not in the legacy order, as an older record may hold them). */
+    chargedBases: [9, 4],
+    multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true,
+  },
   tripRequest: undefined,
 };
 
@@ -92,7 +97,11 @@ describe("orderValuesOf / lineInputOf", () => {
     expect(input).toMatchObject({ id: "l1", transportUnitId: "unit-1", quantity: 2, weightKg: 100.5, paymentInstruction: 0 });
     expect(input.stops?.[0]).toMatchObject({ id: "s1", waypointTypeId: "wp-load", relationId: "rel-1", relationAddressId: "adr-1", date: "2026-10-25", windowFrom: "08:00:00", windowTill: "12:00:00" });
     expect(input.stops?.[1].windowFrom).toBeNull();
-    expect(termsInputOf(values.terms)).toEqual({ currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true });
+    /* The charged bases in the legacy order of the block (weight before distance); each list's basis and name places it in its row. */
+    expect(values.terms.chargedBases).toEqual([4, 9]);
+    expect(values.terms.knownPriceLists).toEqual([{ id: "pl-1", basis: 1, label: "Tarieven 2026" }]);
+    expect(termsInputOf(values.terms)).toEqual({ currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], chargedBases: [4, 9], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 1 }], fixedPriceAmount: null, sendFreightDocumentsWithInvoice: true });
+    expect(termsInputOf(values.terms)).not.toHaveProperty("knownPriceLists");
   });
 
   it("a pasted item: From with the date, time and reference, To on the same date; quantity 1; no stop pattern", () => {

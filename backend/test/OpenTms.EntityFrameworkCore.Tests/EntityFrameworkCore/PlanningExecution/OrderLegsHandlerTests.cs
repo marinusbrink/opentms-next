@@ -79,6 +79,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         {
             Scope = ViaDepotScope.Customer,
             RelationId = a.RelationId,
+            StopWaypointTypeId = Load,
             DepotRelationId = depot.RelationId,
             DepotAddressId = depot.AddressId,
             ArrivalWaypointTypeId = DepotIn,
@@ -111,7 +112,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         var detail = await rules.GetAsync(rule.Id);
         await rules.UpdateAsync(rule.Id, new ViaDepotRuleUpdateDto
         {
-            Scope = detail.Scope, RelationId = detail.RelationId, DepotRelationId = detail.DepotRelationId, DepotAddressId = detail.DepotAddressId,
+            Scope = detail.Scope, RelationId = detail.RelationId, StopWaypointTypeId = detail.StopWaypointTypeId, DepotRelationId = detail.DepotRelationId, DepotAddressId = detail.DepotAddressId,
             ArrivalWaypointTypeId = detail.ArrivalWaypointTypeId, DepartureWaypointTypeId = detail.DepartureWaypointTypeId, Overnight = detail.Overnight,
             Position = detail.Position, IsArchived = true, ConcurrencyStamp = detail.ConcurrencyStamp
         });
@@ -128,7 +129,7 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         var b = await PlaceAsync("B", "B", 52.5, 5.5);
         await GetRequiredService<IViaDepotRuleAppService>().CreateAsync(new ViaDepotRuleCreateDto
         {
-            Scope = ViaDepotScope.Customer, RelationId = a.RelationId, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId, ArrivalWaypointTypeId = DepotIn
+            Scope = ViaDepotScope.Customer, RelationId = a.RelationId, StopWaypointTypeId = Load, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId, ArrivalWaypointTypeId = DepotIn
         });
 
         var orderId = await ConfirmedOrderAsync(a.RelationId, Line(a, b));
@@ -137,6 +138,31 @@ public class OrderLegsHandlerTests : PlanningAppServiceTestBase
         legs.Count.ShouldBe(2);
         legs[0].DestinationWaypointTypeId.ShouldBe(DepotIn);
         legs[1].OriginWaypointTypeId.ShouldBe(DepotOut, "DEPOTIN's successive waypoint type (design 59), read through Orders' published lookup");
+    }
+
+    [Fact]
+    public async Task A_rule_on_the_delivery_relation_applies_to_its_unloading_stop_only()
+    {
+        using var _ = InTenantA();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot, "Utrecht");
+        var a = await PlaceAsync("A", "A", 52.0, 5.0);
+        var b = await PlaceAsync("B", "B", 52.5, 5.5);
+        var rules = GetRequiredService<IViaDepotRuleAppService>();
+        /* Design 61 "Via-depot rules on the stop's waypoint type": goods for B go through the depot; goods from B do not. */
+        var rule = await rules.CreateAsync(new ViaDepotRuleCreateDto
+        {
+            Scope = ViaDepotScope.Relation, RelationId = b.RelationId, StopWaypointTypeId = Unload, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId,
+            ArrivalWaypointTypeId = DepotIn, DepartureWaypointTypeId = DepotOut
+        });
+
+        var toB = (await LegsOfOrderAsync(await ConfirmedOrderAsync(a.RelationId, Line(a, b)))).OrderBy(l => l.Position).ToList();
+        toB.Count.ShouldBe(2);
+        toB[0].DestinationRelationId.ShouldBe(depot.RelationId);
+        toB[1].DestinationRelationId.ShouldBe(b.RelationId);
+        toB.ShouldAllBe(l => l.ViaDepotRuleId == rule.Id);
+
+        var fromB = await LegsOfOrderAsync(await ConfirmedOrderAsync(a.RelationId, Line(b, a)));
+        fromB.ShouldHaveSingleItem().Source.ShouldBe(LegSource.Generated);
     }
 
     [Fact]

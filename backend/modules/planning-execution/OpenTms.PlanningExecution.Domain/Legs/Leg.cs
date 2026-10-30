@@ -131,7 +131,7 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid? ViaDepotRuleId { get; private set; }
 
-    /// <summary>The leg this one was split from (trips.md 20).</summary>
+    /// <summary>The leg this one was split from (trips.md 20), or the leg a split at an address replaced (design 61 point 5).</summary>
     public Guid? SplitFromLegId { get; private set; }
 
     /* Origin snapshot. */
@@ -246,7 +246,10 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public bool IsAssigned => TripId != null;
 
-    /// <summary>The generator owns generated and via legs; the planner's legs (split, return, outsourced) are kept across regenerations.</summary>
+    /// <summary>
+    /// The generator owns generated and via legs; the planner's legs (split, return, outsourced, split at an address) are kept
+    /// across regenerations: a line with one of them counts as reshaped (design 59 build note 3).
+    /// </summary>
     public bool IsGeneratorOwned => Source is LegSource.Generated or LegSource.ViaDepot;
 
     public bool HasCoordinates => Origin.HasCoordinates && Destination.HasCoordinates;
@@ -357,6 +360,34 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void MarkOutsourced() => Source = LegSource.Outsourced;
+
+    /// <summary>Design 61 point 5: a half of <paramref name="legId"/> split at an address.</summary>
+    public void MarkSplitAtAddress(Guid legId)
+    {
+        Source = LegSource.SplitAtAddress;
+        IsViaLeg = false;
+        SplitFromLegId = legId;
+    }
+
+    /// <summary>
+    /// Design 61 point 5, removing a split at an address: the leg the split replaced (soft-deleted then) comes back as A→B with
+    /// the halves' outer ends, their source keys (so the planner's edits do not count as an order change), the quantities and
+    /// the position. It was off every trip when it was split, and stays off.
+    /// </summary>
+    public void RestoreFromSplit(Leg first, Leg second, int position)
+    {
+        Check.NotNull(first, nameof(first));
+        Check.NotNull(second, nameof(second));
+        IsDeleted = false;
+        DeleterId = null;
+        DeletionTime = null;
+        SetOrigin(first.Origin);
+        SetDestination(second.Destination);
+        InheritSourceKeys(first.OriginSourceKey, second.DestinationSourceKey);
+        SetQuantities(first.Quantities);
+        SetPosition(position);
+        Remarks = first.Remarks ?? second.Remarks;
+    }
 
     /// <summary>Regeneration: true when the origin or destination snapshot differs (a changed assigned leg leaves its trip).</summary>
     public bool EndsDifferFrom(LegEndSnapshot origin, LegEndSnapshot destination) => OriginDiffersFrom(origin) || DestinationDiffersFrom(destination);

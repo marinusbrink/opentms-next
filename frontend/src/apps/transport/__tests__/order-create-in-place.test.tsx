@@ -229,16 +229,27 @@ describe("Transport order page — Add new … in its pickers", () => {
     renderPage();
     await loaded();
     const pricing = section("Orders:PriceCalculation");
-    saved.PriceList = { id: "pl-cost", code: "C1", name: "Cost list", side: 2 };
-    await click(createFor(pricing, "-terms-priceListIds")!);
+    /* Design 61 "Order page review" 3: every basis row offers "Add new …"; the new list lands in the row of its own basis.
+     * The order charges no basis yet: the quantity row is added first. */
+    const row = (basis: number) => pricing.querySelector<HTMLElement>(`[data-slot=charged-basis-row][data-basis="${basis}"]`);
+    await click(within(pricing).getByRole("button", { name: /Financial:AddChargedBasis/ }));
+    await click(await screen.findByRole("menuitem", { name: "Financial:ChargedBasis.LineQuantity" }));
+    saved.PriceList = { id: "pl-cost", code: "C1", name: "Cost list", side: 2, basis: 4 };
+    await click(createFor(pricing, "-terms-bases-1-lists")!);
     await saveStub("PriceList");
-    saved.PriceList = { id: "pl-new", code: "PL2", name: "Benelux 2027", side: 1 };
-    await click(createFor(pricing, "-terms-priceListIds")!);
+    /* A cost list neither joins the terms nor adds the row of its basis. */
+    expect(row(4)).toBeNull();
+    saved.PriceList = { id: "pl-new", code: "PL2", name: "Benelux 2027", side: 1, basis: 4 };
+    await click(createFor(pricing, "-terms-bases-1-lists")!);
     expect(editor()).toHaveAttribute("data-initial-name", TYPED_TERM);
     await saveStub("PriceList");
+    expect(within(row(4)!).getByLabelText("PL2 Benelux 2027")).toBeChecked();
+    expect(within(row(1)!).queryByLabelText("PL2 Benelux 2027")).toBeNull();
     await click(ribbonButton("Save")!);
     await waitFor(() => expect(calls(PUT, "/api/orders/transport-order/{id}/financial-terms")).toHaveLength(1));
-    expect((lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body as { priceListIds: string[] }).priceListIds).toEqual(["pl-new"]);
+    const body = lastCall(PUT, "/api/orders/transport-order/{id}/financial-terms")!.body as { priceListIds: string[]; chargedBases: number[] };
+    expect(body.priceListIds).toEqual(["pl-new"]);
+    expect(body.chargedBases).toEqual([1, 4]);
   });
 
   it("Tevens trip: a new vehicle and a new driver join the request (Draft) and are saved with it", async () => {

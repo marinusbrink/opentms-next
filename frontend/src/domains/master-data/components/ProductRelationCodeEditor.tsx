@@ -5,7 +5,7 @@ import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { useCanCreateInPlace, useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { useCanCreateInPlace, useCanOpenInPlace, useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { CheckboxField, TextAreaField, TextField } from "@/components/record-editor/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
@@ -63,7 +63,8 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
   const canDelete = useIsGranted("MasterData.ProductRelationCodes.Delete");
   /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
   const canCreate = useCanCreateInPlace();
-  const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
+  /* The edit pencil's gate (UI-LOOK-005): edit with the relations' Update, read-only with only their view permission. */
+  const relationAccess = useCanOpenInPlace()("Relation");
   const relationPage = useMemo(() => relationLookupPage(), []);
   const productLookup = products.useLookup(open);
   const unitLookup = transportUnits.useLookup(open);
@@ -119,7 +120,8 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
                 )}
                 onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
                 createLabel={t("MasterData:AddNewRelation")}
-                onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
+                onEdit={relationAccess ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
+                editLabel={relationAccess === "view" ? t("Open") : undefined}
                 aria-invalid={form.error("relation") != null}
                 disabled={form.readOnly}
               />
@@ -181,12 +183,13 @@ export function ProductRelationCodeEditor({ mode, id, readOnly, open, onClose, o
           mode={relationDialog.mode}
           id={relationDialog.mode === "edit" ? relationDialog.id : undefined}
           initialName={relationDialog.mode === "create" ? relationDialog.term : undefined}
-          readOnly={false}
+          readOnly={relationDialog.mode === "edit" && relationAccess !== "edit"}
           open
           onClose={() => setRelationDialog(null)}
           onSaved={(saved) => {
             const dto = saved as RelationDto | undefined;
-            if (!dto?.id) return;
+            /* A read-only form keeps its values (the pencil opened the relation only to look or edit it there). */
+            if (!dto?.id || (relationDialog.mode === "edit" && readOnly)) return;
             const option: RelationOption = { id: dto.id, code: dto.code ?? "", name: dto.name ?? "", city: null, countryCode: null, roles: dto.roles ?? 0 };
             setApplyValues((previous) => ({ key: (previous?.key ?? 0) + 1, update: (values) => ({ ...values, relation: option }) }));
           }}

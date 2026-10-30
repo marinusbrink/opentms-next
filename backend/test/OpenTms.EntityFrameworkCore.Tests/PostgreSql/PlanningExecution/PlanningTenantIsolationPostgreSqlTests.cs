@@ -147,6 +147,7 @@ public class PlanningTenantIsolationPostgreSqlTests : PlanningPostgreSqlTestBase
             {
                 Scope = ViaDepotScope.Customer,
                 RelationId = a.RelationId,
+                StopWaypointTypeId = Load,
                 DepotRelationId = depot.RelationId,
                 DepotAddressId = depot.AddressId,
                 ArrivalWaypointTypeId = DepotIn

@@ -7,8 +7,8 @@ import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { CheckboxField, ComboField, DateField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
-import { ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
-import { termsFromDefaults } from "@/apps/transport/orders/financial-defaults";
+import { ContactPersonField, RelationField } from "@/domains/master-data/components/RelationFields";
+import { knownListsOfDefaults, termsFromDefaults } from "@/apps/transport/orders/financial-defaults";
 import { REQUIRED_FLAG, hasFlag, termsValuesOfInput, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
 import { fetchRelationFinancialDefaults } from "@/domains/financial/rate-lines";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
@@ -62,7 +62,7 @@ export function OrderHeader({ form, mode, number, type, stored, autoFocusCustome
   const takeOverDefaults = async (customer: RelationOption) => {
     try {
       const defaults = await fetchRelationFinancialDefaults(customer.id);
-      form.update((values) => (values.customer?.id === customer.id ? { ...values, terms: termsValuesOfInput(termsFromDefaults(defaults, values.orderDate)) } : values));
+      form.update((values) => (values.customer?.id === customer.id ? { ...values, terms: termsValuesOfInput(termsFromDefaults(defaults, values.orderDate), knownListsOfDefaults(defaults)) } : values));
       form.blur("terms");
     } catch (err) {
       toast.error(getApiErrorMessage(err, t));

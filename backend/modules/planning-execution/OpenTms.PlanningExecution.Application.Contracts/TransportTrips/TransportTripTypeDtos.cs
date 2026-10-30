@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using OpenTms.MasterData.Fleet;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp.Application.Services;
@@ -37,6 +38,53 @@ public class TransportTripTypeDto : ReferenceDataDetailDtoBase
     public string NextNumberPreview { get; set; } = string.Empty;
     public bool IsDefault { get; set; }
     public bool IsArchived { get; set; }
+
+    /* Design 61 "Trip type defaults", with the display names the screens preset their pickers with (one batched Master
+     * Data lookup per kind; a row the lookup no longer returns is named "(not found)"). */
+
+    public Guid? DefaultCarrierRelationId { get; set; }
+    public string? DefaultCarrierRelationName { get; set; }
+    public Guid? DefaultCarrierContactPersonId { get; set; }
+    public string? DefaultCarrierContactPersonName { get; set; }
+    public Guid? DefaultVehicleCombinationId { get; set; }
+    public string? DefaultVehicleCombinationName { get; set; }
+    public List<Guid> DefaultVehicleIds { get; set; } = new();
+    /// <summary>The default vehicles in order (the shape of the vehicle picker's option).</summary>
+    public List<TripTypeDefaultVehicleDto> DefaultVehicles { get; set; } = new();
+    public List<Guid> DefaultDriverIds { get; set; } = new();
+    /// <summary>The default drivers in order.</summary>
+    public List<TripTypeDefaultDriverDto> DefaultDrivers { get; set; } = new();
+    public Guid? DefaultDepartureRelationId { get; set; }
+    public string? DefaultDepartureRelationName { get; set; }
+    public Guid? DefaultDepartureAddressId { get; set; }
+    /// <summary>"Street 12, 1234 AB City".</summary>
+    public string? DefaultDepartureAddressLabel { get; set; }
+    public TimeOnly? DefaultDepartureTime { get; set; }
+    public Guid? DefaultArrivalRelationId { get; set; }
+    public string? DefaultArrivalRelationName { get; set; }
+    public Guid? DefaultArrivalAddressId { get; set; }
+    /// <summary>"Street 12, 1234 AB City".</summary>
+    public string? DefaultArrivalAddressLabel { get; set; }
+    public StopCompositionMode DefaultStopCompositionMode { get; set; }
+    public FirstLastStopRule DefaultFirstLastStopRule { get; set; }
+}
+
+/// <summary>A trip type's default vehicle as the vehicle picker shows it (design 61 "Trip type defaults").</summary>
+public class TripTypeDefaultVehicleDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? LicencePlate { get; set; }
+    /// <summary>Null when the vehicle is no longer found.</summary>
+    public VehicleTypeKind? Kind { get; set; }
+    public string? VehicleTypeName { get; set; }
+}
+
+/// <summary>A trip type's default driver (design 61 "Trip type defaults"); the published lookup names drivers only.</summary>
+public class TripTypeDefaultDriverDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class TransportTripTypeCreateDto
@@ -62,6 +110,41 @@ public class TransportTripTypeCreateDto
     public long? NextNumber { get; set; }
 
     public bool IsArchived { get; set; }
+
+    /* Design 61 "Trip type defaults": all optional; Master Data ids validated in the tenant. */
+
+    public Guid? DefaultCarrierRelationId { get; set; }
+
+    /// <summary>Needs <see cref="DefaultCarrierRelationId"/>.</summary>
+    public Guid? DefaultCarrierContactPersonId { get; set; }
+
+    /// <summary>A combination or <see cref="DefaultVehicleIds"/>, never both.</summary>
+    public Guid? DefaultVehicleCombinationId { get; set; }
+
+    /// <summary>Ordered; duplicates are dropped.</summary>
+    [MaxLength(PlanningExecutionConsts.MaxVehiclesPerTrip)]
+    public List<Guid> DefaultVehicleIds { get; set; } = new();
+
+    /// <summary>Ordered; duplicates are dropped.</summary>
+    [MaxLength(PlanningExecutionConsts.MaxDriversPerTrip)]
+    public List<Guid> DefaultDriverIds { get; set; } = new();
+
+    public Guid? DefaultDepartureRelationId { get; set; }
+
+    /// <summary>Needs <see cref="DefaultDepartureRelationId"/> and must be one of its addresses.</summary>
+    public Guid? DefaultDepartureAddressId { get; set; }
+
+    /// <summary>Local time at the departure address.</summary>
+    public TimeOnly? DefaultDepartureTime { get; set; }
+
+    public Guid? DefaultArrivalRelationId { get; set; }
+
+    /// <summary>Needs <see cref="DefaultArrivalRelationId"/> and must be one of its addresses.</summary>
+    public Guid? DefaultArrivalAddressId { get; set; }
+
+    public StopCompositionMode DefaultStopCompositionMode { get; set; } = StopCompositionMode.MergeByLocationAndActivity;
+
+    public FirstLastStopRule DefaultFirstLastStopRule { get; set; } = FirstLastStopRule.None;
 }
 
 public class TransportTripTypeUpdateDto : TransportTripTypeCreateDto, IReferenceDataUpdateDto

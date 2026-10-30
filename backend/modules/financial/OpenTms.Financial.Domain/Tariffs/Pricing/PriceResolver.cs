@@ -19,6 +19,14 @@ public static class PriceResolver
     public const string PriceListDescriptionKey = "Financial:RateLine.PriceList";
     public const string DiscountOrSurchargeDescriptionKey = "Financial:RateLine.DiscountOrSurcharge";
 
+    /// <summary>
+    /// An open line (design 61 "Order page review" point 3): a charged basis without a price list of that basis. Kind
+    /// <see cref="RateLineKind.PriceList"/> without a price list, the line's quantity of the basis (0 while the fact is unknown),
+    /// unit price 0. Identifiable in a read as kind PriceList with <c>PriceListId</c> null; once the user adjusted its unit
+    /// price it is an adjusted line (QP6) and stays.
+    /// </summary>
+    public const string OpenBasisDescriptionKey = "Financial:RateLine.OpenBasis";
+
     public static PriceResolution Resolve(PricingRequest request)
     {
         var result = new PriceResolution();
@@ -64,9 +72,49 @@ public static class PriceResolver
             }
         }
 
-        /* QP6: an adjusted line keeps its unit price and takes the fresh quantity of its list; the fresh line is dropped. */
+        /* Design 61 point 3: a charged basis no list prices by gives every line an open line; never under a fixed price. They
+         * are not pruned by multiple matches (an open line of 0 would win "lowest" over a priced one). */
+        var open = OpenLines(request, appliedBases, warnings);
+        var linesByAnchor = request.Lines.ToDictionary(l => l.AnchorId);
+
+        /* QP6: an adjusted line keeps its unit price and takes the fresh quantity of its list; the fresh line is dropped. An
+         * adjusted open line (no list) matches the fresh open line of its basis; when its basis is no longer charged (or a list
+         * of that basis was chosen, or a fixed price set) it stays and is re-valued from the line's current quantity. It is the
+         * line's line for its basis (legacy "a manually adjusted line exists → keep it", pricing assessment §2): a list of that
+         * basis writes no second line for that line (below). */
+        var adjustedOpen = new HashSet<(RateLineAnchor Anchor, QuantitySource Basis)>();
         foreach (var kept in request.KeptLines.Where(k => k.IsAdjusted && !k.IsManual))
         {
+            if (kept.PriceListId == null)
+            {
+                adjustedOpen.Add((kept.Anchor, kept.QuantitySource));
+                var freshOpen = open.FirstOrDefault(o => o.QuantitySource == kept.QuantitySource && o.Anchor == kept.Anchor);
+                if (freshOpen != null)
+                {
+                    open.Remove(freshOpen);
+                    kept.Revalue(freshOpen.Quantity, request.Now, request.Version);
+                }
+                else
+                {
+                    var current = linesByAnchor.TryGetValue(kept.Anchor.Id, out var openLine) ? openLine.ValueOf(kept.QuantitySource) : null;
+                    kept.Revalue(current is { } value ? RateLine.Round4(value) : kept.Quantity, request.Now, request.Version);
+                }
+
+                if (kept.QuantitySource != QuantitySource.Manual)
+                {
+                    appliedBases.Add(kept.QuantitySource);
+                }
+
+                result.KeptLines.Add(kept);
+                continue;
+            }
+
+            /* Decided in the build (build note 5): an adjusted list line is the line's line for its list's basis, also once that
+             * list is removed while the basis stays charged; the open line of that basis for that line is not written. */
+            var keptBasis = request.PriceLists.FirstOrDefault(p => p.List.Id == kept.PriceListId)?.List.Basis
+                ?? (request.KeptLineListBases.TryGetValue(kept.PriceListId.Value, out var storedBasis) ? storedBasis : kept.QuantitySource);
+            open.RemoveAll(o => o.Anchor == kept.Anchor && o.QuantitySource == keptBasis);
+
             var fresh = calculated.FirstOrDefault(c => c.PriceListId == kept.PriceListId && c.Anchor == kept.Anchor);
             if (fresh != null)
             {
@@ -81,6 +129,14 @@ public static class PriceResolver
             result.KeptLines.Add(kept);
         }
 
+        /* Design 61 point 3, decided in the build (build note 5): no double charge next to an adjusted open line. The lists of its basis drop
+         * their fresh line for that line; the basis stays applied (the list is on the order). */
+        if (adjustedOpen.Count > 0)
+        {
+            var basisOfList = request.PriceLists.GroupBy(p => p.List.Id).ToDictionary(g => g.Key, g => g.First().List.Basis);
+            calculated.RemoveAll(c => c.PriceListId is { } listId && basisOfList.TryGetValue(listId, out var basis) && adjustedOpen.Contains((c.Anchor, basis)));
+        }
+
         /* QP9: multiple matches prune the calculated lines of one anchor only; manual lines are never pruned. */
         if (request.MultipleMatches != MultipleMatches.All)
         {
@@ -91,7 +147,6 @@ public static class PriceResolver
         }
 
         /* QP6: manual lines are re-valued from the current quantity of their source; a typed quantity stays. */
-        var linesByAnchor = request.Lines.ToDictionary(l => l.AnchorId);
         foreach (var kept in request.KeptLines.Where(k => k.IsManual))
         {
             var quantity = kept.Quantity;
@@ -105,6 +160,7 @@ public static class PriceResolver
         }
 
         result.NewLines.AddRange(calculated);
+        result.NewLines.AddRange(open);
 
         /* 7: the discounts and surcharges, by id, over the lines they apply to. */
         ApplyDiscountsAndSurcharges(request, result, appliedBases, warnings);
@@ -130,6 +186,43 @@ public static class PriceResolver
 
         result.Warnings.AddRange(warnings.OrderBy(w => w, StringComparer.Ordinal));
         return result;
+    }
+
+    /// <summary>
+    /// Design 61 "Order page review" point 3: per charged basis that none of the order's lists prices by (whatever their
+    /// currency or validity: the row has a list), one open line per line. A basis that is charged counts as applied for the
+    /// per-kilometre surcharges (scenario 19: a distance charge suppresses the distance surcharge), so it is added to
+    /// <paramref name="appliedBases"/>. A line without a value for the basis gets quantity 0 and the quantity-missing warning.
+    /// </summary>
+    private static List<RateLine> OpenLines(PricingRequest request, HashSet<QuantitySource> appliedBases, HashSet<string> warnings)
+    {
+        var open = new List<RateLine>();
+        if (request.Side != RateSide.Revenue || request.FixedPriceAmount != null || request.ChargedBases.Count == 0)
+        {
+            return open;
+        }
+
+        var listBases = request.PriceLists.Select(p => p.List.Basis).ToHashSet();
+        foreach (var basis in ChargedBases.RevenueBases.Where(b => request.ChargedBases.Contains(b) && !listBases.Contains(b)))
+        {
+            appliedBases.Add(basis);
+            foreach (var line in request.Lines)
+            {
+                var value = line.ValueOf(basis);
+                if (value == null)
+                {
+                    warnings.Add(FinancialErrorCodes.QuantityMissingWarning);
+                }
+
+                var quantity = value is { } known ? RateLine.Round4(known) : 0m;
+                var rateLine = RateLine.Calculated(
+                    request.NewId(), request.TenantId, request.Side, request.LineAnchor(line.AnchorId), RateLineKind.PriceList, request.CurrencyCode,
+                    OpenBasisDescriptionKey, quantity, basis, 0m, 0m);
+                open.Add(rateLine);
+            }
+        }
+
+        return open;
     }
 
     /// <summary>

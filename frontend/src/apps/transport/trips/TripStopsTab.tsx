@@ -16,7 +16,7 @@ import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { toOptions } from "@/apps/transport/components/fields";
 import { joinDateTime, splitDateTime } from "@/apps/transport/orders/order-form";
-import { AddressField, RelationField } from "@/apps/transport/components/RelationFields";
+import { AddressField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { RelationOption } from "@/domains/master-data/entities";

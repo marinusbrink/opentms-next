@@ -70,6 +70,7 @@ describe("WaffleLauncher – permissions", () => {
   });
 
   it("hides apps whose permission is not granted and shows every app without one", () => {
+    tenantId = "t-1";
     render(<WaffleLauncher />);
     openLauncher();
 
@@ -78,6 +79,16 @@ describe("WaffleLauncher – permissions", () => {
     for (const app of APPS.filter((a) => !a.requiredPermission)) {
       expect(names).toContain(app.nameKey);
     }
+  });
+
+  it("the host has no Transport or Master data tile, with every feature on (PO 2026-10-29)", () => {
+    render(<WaffleLauncher />);
+    openLauncher();
+
+    const names = tileNames();
+    expect(names).not.toContain("App:Transport");
+    expect(names).not.toContain("App:MasterData");
+    expect(names).toContain("App:Dashboard");
   });
 
   it("shows the Tenants app with only Platform.Tenants", () => {

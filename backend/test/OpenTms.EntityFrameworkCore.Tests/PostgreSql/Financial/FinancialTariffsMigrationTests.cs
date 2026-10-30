@@ -45,7 +45,7 @@ public class FinancialTariffsMigrationTests : ReferenceDataPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(FinancialRelationSettingsNameMigrationTests.Migration, "the newest Financial migration (review M2 follows FinancialTariffs)");
+            applied.Last().ShouldBe(FinancialRevenueChargedBasesMigrationTests.Migration, "the newest Financial migration (design 61 \"Order page review\": the revenue charged bases)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

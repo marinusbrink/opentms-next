@@ -317,6 +317,18 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         return drivers.Select(d => new MasterDataReferenceDto { Id = d.Id, Name = d.FullName, IsArchived = d.IsArchived }).ToList();
     }
 
+    public virtual async Task<List<MasterDataContactPersonReferenceDto>> GetContactPersonsAsync(IReadOnlyCollection<Guid> ids)
+    {
+        var keys = Bound(ids);
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        var people = await LazyServiceProvider.LazyGetRequiredService<IRepository<RelationContactPerson, Guid>>().GetListAsync(p => keys.Contains(p.Id));
+        return people.Select(p => new MasterDataContactPersonReferenceDto { Id = p.Id, RelationId = p.RelationId, Name = ContactPersonName(p) }).ToList();
+    }
+
     public virtual async Task<MasterDataIncompatibilitiesDto> GetIncompatibilitiesAsync(IReadOnlyCollection<Guid> temperatureIds, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Guid> transportUnitIds)
     {
         return new MasterDataIncompatibilitiesDto
@@ -370,7 +382,7 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
             case MasterDataReferenceKind.Driver:
                 return await ReadAsync<Driver>(keys, d => new MasterDataReferenceDto { Id = d.Id, Name = d.FullName, IsArchived = d.IsArchived });
             case MasterDataReferenceKind.ContactPerson:
-                return await ReadAsync<RelationContactPerson>(keys, p => new MasterDataReferenceDto { Id = p.Id, Name = string.Join(" ", new[] { p.FirstName, p.MiddleName, p.LastName }.Where(part => !string.IsNullOrEmpty(part))) });
+                return await ReadAsync<RelationContactPerson>(keys, p => new MasterDataReferenceDto { Id = p.Id, Name = ContactPersonName(p) });
             default:
                 throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown reference kind.");
         }
@@ -388,6 +400,9 @@ public class MasterDataReferenceLookup : MasterDataAppServiceBase, IMasterDataRe
         var rows = await LazyServiceProvider.LazyGetRequiredService<IRepository<TEntity, Guid>>().GetListAsync(e => keys.Contains(e.Id));
         return rows.Select(map).ToList();
     }
+
+    private static string ContactPersonName(RelationContactPerson p)
+        => string.Join(" ", new[] { p.FirstName, p.MiddleName, p.LastName }.Where(part => !string.IsNullOrEmpty(part)));
 
     private static List<Guid> Bound(IReadOnlyCollection<Guid> ids)
     {

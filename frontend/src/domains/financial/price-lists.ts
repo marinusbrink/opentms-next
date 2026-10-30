@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
@@ -38,6 +38,32 @@ export const QUANTITY_SOURCES = options<QuantitySource>(
 );
 /** The bases a list prices on: every source but "typed". */
 export const PRICE_LIST_BASES = QUANTITY_SOURCES.filter((q) => q.value !== 0);
+
+/** The bases an order is charged by, in the legacy order of the block "Price calculation" (design 61 "Order page
+ *  review" 3; Financial's `ChargedBases.RevenueBases`), each with its row label ("Price by weight"). `Manual` and the
+ *  cost-only `TripDistanceKm` are no revenue bases. */
+export const REVENUE_BASES: EnumOption<QuantitySource>[] = (
+  [
+    [1, "LineQuantity"],
+    [3, "Colli"],
+    [8, "Epq"],
+    [4, "WeightKg"],
+    [9, "DistanceKm"],
+    [2, "Positions"],
+    [13, "PerLine"],
+    [5, "VolumeM3"],
+    [6, "LoadingMeters"],
+    [7, "LoadFactor"],
+    [11, "DurationH"],
+    [12, "VehicleType"],
+    [10, "TollDistanceKm"],
+  ] as const
+).map(([value, name]) => ({ value, key: `Financial:ChargedBasis.${name}` }));
+
+/** Bases in the legacy order, each once, revenue bases only (what the server accepts and returns). */
+export function orderedRevenueBases(bases: readonly QuantitySource[]): QuantitySource[] {
+  return REVENUE_BASES.map((b) => b.value).filter((value) => bases.includes(value));
+}
 
 export type PriceMultiplier = Schemas["OpenTms.Financial.Tariffs.PriceMultiplier"];
 export const PRICE_MULTIPLIERS = options<PriceMultiplier>("PriceMultiplier", ["PerUnit", "PerLine", "PerLineQuantity", "PerLastStop"]);
@@ -100,6 +126,51 @@ export function usePriceListLookup(side: RateSide | undefined, enabled = true) {
       if (error) throw error;
       return data ?? [];
     },
+  });
+}
+
+/* The value of the per-basis rows (PriceListsPerBasis): the chosen lists in their order and the bases switched on. */
+export interface PriceListsPerBasisValue {
+  priceListIds: string[];
+  chargedBases: QuantitySource[];
+}
+
+/** A list the record holds, with its basis and label: places a list the lookups do not return (archived) or not yet
+ *  (one just created in place) in its row. */
+export interface KnownPriceList {
+  id: string;
+  basis: QuantitySource;
+  label: string;
+}
+
+/** The value with a list added (once) and its basis switched on: a list created in place. */
+export function withCreatedList(value: PriceListsPerBasisValue, id: string, basis: QuantitySource | null | undefined): PriceListsPerBasisValue {
+  return {
+    priceListIds: value.priceListIds.includes(id) ? value.priceListIds : [...value.priceListIds, id],
+    chargedBases: basis == null ? value.chargedBases : orderedRevenueBases([...value.chargedBases, basis]),
+  };
+}
+
+/** `known` with a record added or replaced by id. */
+export function withKnownList(known: KnownPriceList[], list: KnownPriceList): KnownPriceList[] {
+  return [...known.filter((k) => k.id !== list.id), list];
+}
+
+/** The lookup of one side's lists per revenue basis (design 61 "Order page review" 3: one row per basis), in the order
+ *  of REVENUE_BASES. Under the entity's key, so a list saved in its editor (also one created in place) refetches them.
+ *  `enabled` per basis: PriceListsPerBasis loads only the bases it shows. */
+export function usePriceListLookupsByBasis(side: RateSide, enabled: boolean | ((basis: QuantitySource) => boolean) = true) {
+  return useQueries({
+    queries: REVENUE_BASES.map((basis) => ({
+      queryKey: referenceDataQueryKey(priceLists.entity, "lookup", side, "basis", basis.value),
+      enabled: typeof enabled === "function" ? enabled(basis.value) : enabled,
+      staleTime: 60 * 1000,
+      queryFn: async () => {
+        const { data, error } = await apiClient.GET("/api/financial/price-list/lookup", { params: { query: { side, basis: basis.value, take: 500 } } });
+        if (error) throw error;
+        return data ?? [];
+      },
+    })),
   });
 }
 

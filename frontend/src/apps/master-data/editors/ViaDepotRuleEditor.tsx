@@ -24,7 +24,8 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The via-depot rule editor (design 59 "ViaDepotRule", design 61): `md`; General (scope; the relation for the Relation
- * and Customer scopes or the region for Region; the depot relation and one of its addresses; the activity on arrival
+ * and Customer scopes or the region for Region; the activity of the order's stop that triggers the rule (design 61
+ * "Via-depot rules on the stop's waypoint type", required); the depot relation and one of its addresses; the activity on arrival
  * and, optionally, on departure; overnight; position; archived), Remarks, Record identification. Relations are
  * EntityLookups (UI-LOOK-001); regions and waypoint types ReferenceComboboxes over their lookups, as designs 51/52
  * decided for those lists. Every picker offers "Add new …" (UI-LOOK-004). */
@@ -36,6 +37,7 @@ interface Values {
   scope: ViaDepotScope;
   relation: RelationOption | null;
   geographicalRegionId: string | null;
+  stopWaypointTypeId: string | null;
   depotRelation: RelationOption | null;
   depotAddressId: string | null;
   arrivalWaypointTypeId: string | null;
@@ -53,6 +55,7 @@ const initialValues = (dto: ViaDepotRuleDto | undefined): Values => ({
   scope: dto?.scope ?? 1,
   relation: toRelation(dto?.relationId, dto?.relationName),
   geographicalRegionId: dto?.geographicalRegionId ?? null,
+  stopWaypointTypeId: dto?.stopWaypointTypeId ?? null,
   depotRelation: toRelation(dto?.depotRelationId, dto?.depotRelationName),
   depotAddressId: dto?.depotAddressId ?? null,
   arrivalWaypointTypeId: dto?.arrivalWaypointTypeId ?? null,
@@ -67,6 +70,8 @@ const validate = (v: Values): FieldErrors<Values> => {
   const errors: FieldErrors<Values> = {};
   if (scopeNeedsRelation(v.scope) && !v.relation) errors.relation = "MasterData:Required";
   if (scopeNeedsRegion(v.scope) && !v.geographicalRegionId) errors.geographicalRegionId = "MasterData:Required";
+  /* A rule stored before the field existed has none (it applies to any activity) and gets one on its next save. */
+  if (!v.stopWaypointTypeId) errors.stopWaypointTypeId = "MasterData:Required";
   if (!v.depotRelation) errors.depotRelation = "MasterData:Required";
   if (!v.depotAddressId) errors.depotAddressId = "MasterData:Required";
   if (!v.arrivalWaypointTypeId) errors.arrivalWaypointTypeId = "MasterData:Required";
@@ -105,6 +110,7 @@ export function ViaDepotRuleEditor({ mode, id, readOnly, open, onClose, onSaved 
         scope: v.scope,
         relationId: scopeNeedsRelation(v.scope) ? (v.relation?.id ?? null) : null,
         geographicalRegionId: scopeNeedsRegion(v.scope) ? v.geographicalRegionId : null,
+        stopWaypointTypeId: v.stopWaypointTypeId!,
         depotRelationId: v.depotRelation!.id,
         depotAddressId: v.depotAddressId!,
         arrivalWaypointTypeId: v.arrivalWaypointTypeId!,
@@ -152,7 +158,7 @@ export function ViaDepotRuleEditor({ mode, id, readOnly, open, onClose, onSaved 
     {
       value: "general",
       labelKey: "General",
-      fields: ["scope", "relation", "geographicalRegionId", "depotRelation", "depotAddressId", "arrivalWaypointTypeId", "departureWaypointTypeId", "overnight", "position", "isArchived"],
+      fields: ["scope", "relation", "geographicalRegionId", "stopWaypointTypeId", "depotRelation", "depotAddressId", "arrivalWaypointTypeId", "departureWaypointTypeId", "overnight", "position", "isArchived"],
       render: (form) => (
         <>
           <FormSection title={t("PlanningExecution:Scope")}>
@@ -177,6 +183,29 @@ export function ViaDepotRuleEditor({ mode, id, readOnly, open, onClose, onSaved 
                   />
                 </FormField>
               )}
+              <FormField
+                label={t("PlanningExecution:StopWaypointType")}
+                htmlFor={form.id("stopWaypointTypeId")}
+                required
+                error={form.error("stopWaypointTypeId")}
+                floating="always"
+                hint={t("PlanningExecution:StopWaypointTypeHint")}
+              >
+                {/* DEVIATION(UI-LOOK-001): waypoint types are a ReferenceCombobox over their lookup (at most 100 per tenant), approved in docs/designs/51-orders-master-data.md (UI design). */}
+                <ReferenceCombobox
+                  id={form.id("stopWaypointTypeId")}
+                  value={form.values.stopWaypointTypeId}
+                  onChange={(next) => {
+                    form.set("stopWaypointTypeId", next);
+                    form.blur("stopWaypointTypeId");
+                  }}
+                  options={typeOptions}
+                  required
+                  aria-invalid={form.error("stopWaypointTypeId") != null}
+                  disabled={form.readOnly}
+                  {...inPlace.offer("WaypointType", form.readOnly, (r) => form.set("stopWaypointTypeId", r.id))}
+                />
+              </FormField>
             </div>
           </FormSection>
           <FormSection title={t("PlanningExecution:DepotRelation")}>

@@ -189,6 +189,16 @@ public class TransportOrderFinancialTerms
     public decimal? FixedPriceAmount { get; private set; }
     public bool SendFreightDocumentsWithInvoice { get; private set; }
 
+    /// <summary>
+    /// The bases the order is charged by (design 61 "Order page review" point 3) as a bit mask of <see cref="QuantitySource"/>
+    /// values (<see cref="Financial.Tariffs.ChargedBases"/>). A basis with a price list of the order counts as on whether or
+    /// not it is in here; one without a list makes the calculation write an open line per order line.
+    /// </summary>
+    public int ChargedBasesMask { get; private set; }
+
+    /// <summary>The switched-on bases, in the legacy order of the block.</summary>
+    public IReadOnlyList<QuantitySource> ChargedBases => Financial.Tariffs.ChargedBases.FromMask(ChargedBasesMask);
+
     protected TransportOrderFinancialTerms()
     {
     }
@@ -225,12 +235,13 @@ public class TransportOrderFinancialTerms
             PaymentTermDays = input.PaymentTermDays,
             MultipleMatches = OrderValues.Defined(input.MultipleMatches, "multipleMatches"),
             FixedPriceAmount = input.FixedPriceAmount,
-            SendFreightDocumentsWithInvoice = input.SendFreightDocumentsWithInvoice
+            SendFreightDocumentsWithInvoice = input.SendFreightDocumentsWithInvoice,
+            ChargedBasesMask = Financial.Tariffs.ChargedBases.ToMask(input.ChargedBases, "chargedBases")
         };
     }
 
     public static FinancialTermsInput Default(string currencyCode = "EUR")
-        => new(currencyCode, null, null, [], MultipleMatches.All, [], null, false);
+        => new(currencyCode, null, null, [], MultipleMatches.All, [], null, false, []);
 }
 
 /// <summary>The "Tevens trip" request (Q9), owned by the order; <see cref="TripId"/> is written by Planning's event.</summary>

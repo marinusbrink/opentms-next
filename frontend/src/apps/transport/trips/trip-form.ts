@@ -1,4 +1,4 @@
-import { relationOptionOf } from "@/apps/transport/components/RelationFields";
+import { relationOptionOf } from "@/domains/master-data/components/RelationFields";
 import { splitDateTime } from "@/apps/transport/orders/order-form";
 import type { RelationOption } from "@/domains/master-data/entities";
 import type { FirstLastStopRule, StopCompositionMode, TransportTripDto, TripExecution } from "@/domains/planning-execution/trips";

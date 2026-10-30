@@ -26,6 +26,13 @@ public class PricingSnapshotDto
 
     public MultipleMatches MultipleMatches { get; set; } = MultipleMatches.All;
 
+    /// <summary>
+    /// The bases the order is charged by (design 61 "Order page review" point 3). Each one without a list of that basis in
+    /// <see cref="PriceListIds"/> gives every line an open line (kind PriceList, no price list, the line's quantity of the
+    /// basis, unit price 0) until the user prices it; none while the order has a fixed price.
+    /// </summary>
+    public List<QuantitySource> ChargedBases { get; set; } = new();
+
     /// <summary>The discounts and surcharges selected on the order (defaults plus manual picks, minus removals).</summary>
     public List<Guid> DiscountOrSurchargeIds { get; set; } = new();
 

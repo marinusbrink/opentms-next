@@ -7,8 +7,9 @@ import { useCreateInPlace, type CreatedRecord } from "@/domains/master-data/comp
 import { relationLookupPage, relations, useRelationAddresses, type RelationDto, type RelationOption } from "@/domains/master-data/entities";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The relation, address and contact-person pickers the Transport app's forms share (design 61: the customer, the
- * stops' relation and explicit address, the trip request's departure and arrival, a trip's carrier): an EntityLookup
+/* The relation, address and contact-person pickers the Transport app's forms and the trip type's defaults share (design
+ * 61: the customer, the stops' relation and explicit address, the trip request's departure and arrival, a trip's
+ * carrier; "Trip type defaults" 3 moved them here from the Transport app): an EntityLookup
  * over the relation lookup page (UI-LOOK-001/002/003, optionally narrowed to a role), the relation's addresses as a
  * ReferenceCombobox (a bounded list of one relation) and its contact persons likewise.
  *
@@ -89,6 +90,8 @@ export interface AddressFieldProps {
   /** When the relation changes to one and the address is empty, select its default address (or its only one). On by
    * default: every relation/address pair in the Transport app wants it; a field that must stay empty passes false. */
   preselectDefault?: boolean;
+  /** Muted help text under the control (UI-FORM-001), e.g. "Choose the relation first". */
+  hint?: string;
 }
 
 /** The address to preselect for a picked relation: its default address (design 43: the one without an address type),
@@ -107,7 +110,7 @@ export function addressLabel(address: { addressTypeName?: string | null; street?
   return address.addressTypeName ? `${line} (${address.addressTypeName})` : line;
 }
 
-export function AddressField({ id, label, relationId, value, onChange, required, disabled, error, className, preselectDefault = true }: AddressFieldProps) {
+export function AddressField({ id, label, relationId, value, onChange, required, disabled, error, className, preselectDefault = true, hint }: AddressFieldProps) {
   const addresses = useRelationAddresses(relationId ?? undefined);
   /* The default address follows a relation picked here, not a stored one on load (that would dirty an untouched form):
    * the relation the field mounted with counts as handled. */
@@ -133,7 +136,7 @@ export function AddressField({ id, label, relationId, value, onChange, required,
   };
   return (
     <>
-      <FormField label={label} htmlFor={id} required={required} error={error} className={className} floating="always">
+      <FormField label={label} htmlFor={id} required={required} error={error} hint={hint} className={className} floating="always">
         <ReferenceCombobox
           id={id}
           value={value}
@@ -158,9 +161,11 @@ export interface ContactPersonFieldProps {
   disabled?: boolean;
   className?: string;
   labelKey?: string;
+  /** Muted help text under the control (UI-FORM-001), e.g. "Choose the carrier first". */
+  hint?: string;
 }
 
-export function ContactPersonField({ id, relationId, value, onChange, disabled, className, labelKey = "Orders:CustomerContactPerson" }: ContactPersonFieldProps) {
+export function ContactPersonField({ id, relationId, value, onChange, disabled, className, labelKey = "Orders:CustomerContactPerson", hint }: ContactPersonFieldProps) {
   const { t } = useL();
   const relation = relations.useDetail(relationId ?? undefined);
   const options = useMemo(
@@ -176,7 +181,7 @@ export function ContactPersonField({ id, relationId, value, onChange, disabled, 
   };
   return (
     <>
-      <FormField label={t(labelKey)} htmlFor={id} className={className} floating="always">
+      <FormField label={t(labelKey)} htmlFor={id} hint={hint} className={className} floating="always">
         <ReferenceCombobox
           id={id}
           value={value}

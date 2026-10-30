@@ -8,9 +8,11 @@ namespace OpenTms.PlanningExecution.ViaDepots;
 
 /// <summary>
 /// A rule that routes a stop pair through a depot (design 59 "ViaDepotRule"; OpenTMS's relation and region default via
-/// waypoints, made explicit): for a relation, the customer of the order, or a geographical region of either stop, the
-/// generated leg is split at the depot. The depot's address is a Master Data id (no foreign key); the waypoint types are
-/// Orders ids. Rules of one scope apply in <see cref="Position"/> order; the first match wins.
+/// waypoints, made explicit): a stop whose relation (or, for the Customer scope, the order's customer) or geographical
+/// region is the rule's, and whose waypoint type is the rule's <see cref="StopWaypointTypeId"/>, sends the generated leg
+/// through the depot (design 61 "Via-depot rules on the stop's waypoint type"). The depot's address is a Master Data id
+/// (no foreign key); the waypoint types are Orders ids. Rules of one scope apply in <see cref="Position"/> order; per stop
+/// the first match wins.
 /// </summary>
 public class ViaDepotRule : ReferenceDataAggregateRoot
 {
@@ -19,6 +21,13 @@ public class ViaDepotRule : ReferenceDataAggregateRoot
     public Guid? RelationId { get; private set; }
 
     public Guid? GeographicalRegionId { get; private set; }
+
+    /// <summary>
+    /// The waypoint type of the order's stop that triggers the rule (e.g. unload): OpenTMS's <c>WaypointTypeId</c>. Required
+    /// for every rule saved through the API; null only on a rule stored before the field existed, which then applies to a
+    /// stop of any type until it is edited.
+    /// </summary>
+    public Guid? StopWaypointTypeId { get; private set; }
 
     public Guid DepotRelationId { get; private set; }
 
@@ -95,19 +104,34 @@ public class ViaDepotRule : ReferenceDataAggregateRoot
         DepartureWaypointTypeId = departureWaypointTypeId;
     }
 
+    public void SetStopWaypointType(Guid stopWaypointTypeId)
+    {
+        if (stopWaypointTypeId == Guid.Empty)
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "stopWaypointTypeId");
+        }
+
+        StopWaypointTypeId = stopWaypointTypeId;
+    }
+
     public void SetOvernight(bool overnight) => Overnight = overnight;
 
     public void SetPosition(int position) => Position = position >= 1 ? position : throw new BusinessException(PlanningExecutionErrorCodes.InvalidPosition).WithData("value", position);
 
     public void SetArchived(bool archived) => IsArchived = archived;
 
-    /// <summary>True when the rule applies to a stop pair of an order (design 59 "Generation").</summary>
-    public bool Matches(Guid customerRelationId, Guid originRelationId, Guid destinationRelationId, System.Collections.Generic.IReadOnlyCollection<Guid> regionIds)
-        => Scope switch
-        {
-            ViaDepotScope.Relation => RelationId == originRelationId || RelationId == destinationRelationId,
-            ViaDepotScope.Customer => RelationId == customerRelationId,
-            ViaDepotScope.Region => GeographicalRegionId != null && regionIds.Contains(GeographicalRegionId.Value),
-            _ => false
-        };
+    /// <summary>
+    /// True when the rule applies to one stop of an order (design 59 "Generation", design 61 "Via-depot rules on the stop's
+    /// waypoint type"): the stop's waypoint type is the rule's (any type for a rule stored without one) and the stop's
+    /// relation (Relation), the order's customer (Customer) or one of the stop's regions (Region) is the rule's.
+    /// </summary>
+    public bool MatchesStop(Guid customerRelationId, Guid stopRelationId, Guid stopWaypointTypeId, System.Collections.Generic.IReadOnlyCollection<Guid> stopRegionIds)
+        => (StopWaypointTypeId == null || StopWaypointTypeId == stopWaypointTypeId)
+           && Scope switch
+           {
+               ViaDepotScope.Relation => RelationId == stopRelationId,
+               ViaDepotScope.Customer => RelationId == customerRelationId,
+               ViaDepotScope.Region => GeographicalRegionId != null && stopRegionIds.Contains(GeographicalRegionId.Value),
+               _ => false
+           };
 }

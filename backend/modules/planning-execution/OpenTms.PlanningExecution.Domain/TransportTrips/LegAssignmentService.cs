@@ -204,5 +204,111 @@ public class LegAssignmentService : DomainService
         return hubLeg;
     }
 
+    /// <summary>
+    /// Design 61 "Order page review" point 5: A→B becomes A→X and X→B at an address. Both halves are the planner's
+    /// (<see cref="LegSource.SplitAtAddress"/>, <c>SplitFromLegId</c> = the leg), carry the leg's quantities, and meet at a
+    /// Planning-only stop whose id derives from the leg and the address (as the via depot's, so a repeated split finds the same
+    /// key). The arrival and departure at X share <paramref name="date"/>. The line's later legs move one position up; the
+    /// caller soft-deletes the leg (it comes back on <see cref="RemoveSplitAtAddress"/>). Refused while the leg is on a trip.
+    /// </summary>
+    /// <param name="legsOfLine">The live legs of the leg's order line (the leg included).</param>
+    public (Leg First, Leg Second) SplitAtAddress(Leg leg, DepotLocation address, Guid arrivalWaypointTypeId, Guid departureWaypointTypeId, DateOnly date, IReadOnlyList<Leg> legsOfLine, Func<Guid> newId)
+    {
+        EnsureOffTrip([leg]);
+        if (IsEndOf(address, leg.Origin) || IsEndOf(address, leg.Destination))
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.SplitAddressIsLegEnd).WithData("legId", leg.Id);
+        }
+
+        /* Decided in the build (design 61 build note 7): X lies between A and B in time too. A side without a date is not checked. */
+        if ((leg.OriginPlannedDate != default && date < leg.OriginPlannedDate) || (leg.DestinationPlannedDate != default && date > leg.DestinationPlannedDate))
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.SplitDateOutsideLeg)
+                .WithData("legId", leg.Id)
+                .WithData("from", leg.OriginPlannedDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))
+                .WithData("till", leg.DestinationPlannedDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        var stopId = Leg.SyntheticStopId("split-at", leg.Id, address.AddressId);
+        var arrival = new LegEndSnapshot(stopId, arrivalWaypointTypeId, address.RelationId, address.AddressId, address.Name, address.City, address.CountryCode,
+            address.Latitude, address.Longitude, address.TimeZoneId, date, null, null, null, null);
+        var departure = arrival with { WaypointTypeId = departureWaypointTypeId };
+
+        var first = new Leg(newId(), leg.TenantId, leg.OrderId, leg.OrderLineId, leg.CustomerRelationId, leg.Position, LegSource.SplitAtAddress, leg.Origin, arrival, leg.Quantities);
+        first.MarkSplitAtAddress(leg.Id);
+        first.SetEditable(leg.OriginReference, null, leg.Remarks, null, null);
+        first.InheritSourceKeys(leg.OriginSourceKey, null);
+
+        var second = new Leg(newId(), leg.TenantId, leg.OrderId, leg.OrderLineId, leg.CustomerRelationId, leg.Position + 1, LegSource.SplitAtAddress, departure, leg.Destination, leg.Quantities);
+        second.MarkSplitAtAddress(leg.Id);
+        second.SetEditable(null, leg.DestinationReference, leg.Remarks, null, null);
+        second.InheritSourceKeys(null, leg.DestinationSourceKey);
+
+        foreach (var later in legsOfLine.Where(l => l.Id != leg.Id && l.Position > leg.Position))
+        {
+            later.SetPosition(later.Position + 1);
+        }
+
+        return (first, second);
+    }
+
+    /// <summary>
+    /// Design 61 point 5, the reverse: the two halves of a split at an address become the leg they replaced again
+    /// (<paramref name="original"/>, soft-deleted since the split; restored with its own id and source), with the halves' outer
+    /// ends, at the first half's position; the line's later legs move one position down. The caller deletes the halves.
+    /// Refused when the leg is not a half (<c>LegNotSplitAtAddress</c>), when the other half was split again
+    /// (<c>SplitAtAddressNested</c>) and while either half is on a trip (<c>LegOnTrip</c>).
+    /// </summary>
+    /// <returns>The restored leg and the two halves to delete.</returns>
+    public (Leg Restored, Leg First, Leg Second) RemoveSplitAtAddress(Leg half, IReadOnlyList<Leg> legsOfLine, Leg original)
+    {
+        var (first, second) = HalvesOf(half, legsOfLine);
+        EnsureOffTrip([first, second]);
+
+        original.RestoreFromSplit(first, second, first.Position);
+        foreach (var later in legsOfLine.Where(l => l.Id != first.Id && l.Id != second.Id && l.Position > second.Position))
+        {
+            later.SetPosition(later.Position - 1);
+        }
+
+        return (original, first, second);
+    }
+
+    /// <summary>The two halves of the split <paramref name="half"/> belongs to, in route order (A→X, X→B).</summary>
+    public static (Leg First, Leg Second) HalvesOf(Leg half, IReadOnlyList<Leg> legsOfLine)
+    {
+        if (half.Source != LegSource.SplitAtAddress || half.SplitFromLegId == null)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.LegNotSplitAtAddress).WithData("legId", half.Id);
+        }
+
+        var pair = legsOfLine.Where(l => l.Source == LegSource.SplitAtAddress && l.SplitFromLegId == half.SplitFromLegId).ToList();
+        if (pair.All(l => l.Id != half.Id))
+        {
+            pair.Add(half);
+        }
+
+        var first = pair.FirstOrDefault(l => pair.Any(o => o.Id != l.Id && o.OriginStopId == l.DestinationStopId));
+        var second = first == null ? null : pair.FirstOrDefault(o => o.Id != first.Id && o.OriginStopId == first.DestinationStopId);
+        if (pair.Count != 2 || first == null || second == null)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.SplitAtAddressNested).WithData("legId", half.Id);
+        }
+
+        return (first, second);
+    }
+
+    private static void EnsureOffTrip(IEnumerable<Leg> legs)
+    {
+        var onTrip = legs.FirstOrDefault(l => l.TripId != null);
+        if (onTrip != null)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.LegOnTrip).WithData("legId", onTrip.Id).WithData("tripId", onTrip.TripId!.Value);
+        }
+    }
+
+    private static bool IsEndOf(DepotLocation address, LegEndSnapshot end)
+        => end.RelationId == address.RelationId && end.RelationAddressId == address.AddressId;
+
     private static double? Minus(double? a, double? b) => a == null ? null : Math.Round(a.Value - (b ?? 0), 5);
 }

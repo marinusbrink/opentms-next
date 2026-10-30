@@ -26,12 +26,15 @@ public sealed record ApprovalFacts(
     bool DuplicateCustomerReference,
     IReadOnlyList<ApprovalLegFact> Legs,
     bool ReferencesExist,
-    CustomerFinancialDefaults? CustomerDefaults = null);
+    CustomerFinancialDefaults? CustomerDefaults = null,
+    IReadOnlyDictionary<Guid, QuantitySource>? PriceListBases = null);
 
 /// <summary>
 /// The customer's financial defaults on the order's date (Financial's relation settings, read through its published
 /// lookup): what an order's terms start from and what the rule <c>FinancialDefaultsMismatch</c> compares them with.
-/// A null part is "no default": the order's own value is fine.
+/// A null part is "no default": the order's own value is fine. <see cref="ChargedBases"/> (design 61 point 3) is copied into a
+/// new order's terms and, like the price lists, compared by the rule (decided in the build, design 61 build note 6): the
+/// effective sets on both sides, the charged bases plus the bases of the lists (a basis with a list counts as on).
 /// </summary>
 public sealed record CustomerFinancialDefaults(
     string? CurrencyCode,
@@ -39,10 +42,13 @@ public sealed record CustomerFinancialDefaults(
     int? PaymentTermDays,
     IReadOnlyList<Guid> PriceListIds,
     MultipleMatches MultipleMatches,
-    IReadOnlyList<Guid> DiscountOrSurchargeIds)
+    IReadOnlyList<Guid> DiscountOrSurchargeIds,
+    IReadOnlyList<QuantitySource>? ChargedBases = null)
 {
     /// <summary>The parts of the order's terms that differ from these defaults, as field names; empty when they agree.</summary>
-    public IReadOnlyList<string> DifferencesWith(TransportOrder order)
+    /// <param name="priceListBases">The basis per price list id of the order's and these defaults' lists; a list without an
+    /// entry adds no basis.</param>
+    public IReadOnlyList<string> DifferencesWith(TransportOrder order, IReadOnlyDictionary<Guid, QuantitySource>? priceListBases = null)
     {
         var differences = new List<string>();
         var terms = order.FinancialTerms;
@@ -71,6 +77,16 @@ public sealed record CustomerFinancialDefaults(
             differences.Add("multipleMatches");
         }
 
+        if (ChargedBases != null)
+        {
+            var defaultBases = Effective(ChargedBases, PriceListIds, priceListBases);
+            var orderBases = Effective(terms.ChargedBases, order.PriceLists.Select(p => p.PriceListId), priceListBases);
+            if (!defaultBases.SetEquals(orderBases))
+            {
+                differences.Add("chargedBases");
+            }
+        }
+
         var onOrder = order.DiscountsOrSurcharges.Select(d => d.DiscountOrSurchargeId).ToHashSet();
         if (DiscountOrSurchargeIds.Any(id => !onOrder.Contains(id)))
         {
@@ -78,6 +94,24 @@ public sealed record CustomerFinancialDefaults(
         }
 
         return differences;
+    }
+
+    /// <summary>The charged bases plus the bases of the lists (design 61 point 3: a basis with a list counts as on).</summary>
+    private static HashSet<QuantitySource> Effective(IEnumerable<QuantitySource> chargedBases, IEnumerable<Guid> priceListIds, IReadOnlyDictionary<Guid, QuantitySource>? priceListBases)
+    {
+        var bases = chargedBases.ToHashSet();
+        if (priceListBases != null)
+        {
+            foreach (var id in priceListIds)
+            {
+                if (priceListBases.TryGetValue(id, out var basis))
+                {
+                    bases.Add(basis);
+                }
+            }
+        }
+
+        return bases;
     }
 }
 
@@ -186,7 +220,7 @@ public static class ApprovalEvaluator
             case ApprovalRule.FinancialDefaultsMismatch:
             {
                 /* Without settings for the customer there is nothing to differ from. */
-                var differences = facts.CustomerDefaults?.DifferencesWith(order) ?? [];
+                var differences = facts.CustomerDefaults?.DifferencesWith(order, facts.PriceListBases) ?? [];
                 return differences.Count == 0 ? null : Warning(rule, "Orders:Approval.FinancialDefaultsMismatch", ("fields", string.Join(", ", differences)));
             }
 

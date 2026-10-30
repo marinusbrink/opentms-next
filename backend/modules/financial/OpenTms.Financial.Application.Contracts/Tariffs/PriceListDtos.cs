@@ -293,7 +293,8 @@ public interface IPriceListAppService : IApplicationService
 {
     Task<GridResponse<PriceListRowDto>> GetListAsync(PriceListListRequestDto input);
     Task<PriceListDto> GetAsync(Guid id);
-    Task<List<ReferenceDataLookupDto>> GetLookupAsync(RateSide? side = null, string? term = null, int take = ReferenceDataConsts.MaxLookupTake);
+    /// <summary>The active lists for a picker; <paramref name="basis"/> narrows them to one basis (design 61 point 3: a row of the block "Price calculation").</summary>
+    Task<List<ReferenceDataLookupDto>> GetLookupAsync(RateSide? side = null, string? term = null, int take = ReferenceDataConsts.MaxLookupTake, QuantitySource? basis = null);
     Task<PriceListDto> CreateAsync(PriceListCreateDto input);
     Task<PriceListDto> UpdateAsync(Guid id, PriceListUpdateDto input);
     Task DeleteAsync(Guid id);

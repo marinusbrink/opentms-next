@@ -102,6 +102,13 @@ public sealed class PricingRequest
 
     public MultipleMatches MultipleMatches { get; init; } = MultipleMatches.All;
 
+    /// <summary>
+    /// The bases the order is charged by (design 61 "Order page review" point 3; revenue only). A basis no list of
+    /// <see cref="PriceLists"/> prices by gives every line one open line (<see cref="PriceResolver.OpenBasisDescriptionKey"/>);
+    /// none while <see cref="FixedPriceAmount"/> is set.
+    /// </summary>
+    public IReadOnlyCollection<QuantitySource> ChargedBases { get; init; } = Array.Empty<QuantitySource>();
+
     /// <summary>The selected discounts and surcharges, with their value rows and regions loaded.</summary>
     public IReadOnlyList<DiscountOrSurcharge> DiscountsOrSurcharges { get; init; } = Array.Empty<DiscountOrSurcharge>();
 
@@ -113,6 +120,12 @@ public sealed class PricingRequest
 
     /// <summary>The stored manual and adjusted lines that survive the calculation (QP6); re-valued, never replaced.</summary>
     public IReadOnlyList<RateLine> KeptLines { get; init; } = Array.Empty<RateLine>();
+
+    /// <summary>
+    /// The basis of each price list a kept adjusted line names, also of a list no longer on the order (design 61 build note 5:
+    /// such a line suppresses the open line of its basis). A list without an entry falls back to the line's quantity source.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, QuantitySource> KeptLineListBases { get; init; } = new Dictionary<Guid, QuantitySource>();
 
     /// <summary>The root the order-level lines hang on (the order or the trip).</summary>
     public RateLineAnchor RootAnchor { get; init; }

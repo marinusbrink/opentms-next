@@ -108,6 +108,10 @@ export interface AddressFieldsProps {
   onCreateCountry?: (term: string) => void;
   /** The label of that row, already translated. */
   createCountryLabel?: string;
+  /** UI-LOOK-005: the edit pencil of the picked country (its id); absent without the view permission. */
+  onEditCountry?: (countryId: string) => void;
+  /** The pencil's tooltip, already translated. */
+  editCountryLabel?: string;
   /** Design 44: asked when the postal code or the house number loses focus; fills only the empty fields. Absent while the feature is off. */
   onLookup?: (row: AddressRow) => Promise<AddressLookupFill | null>;
   /** The postal-code dropdown: lines for what was typed so far in the row's country. Absent while the feature is off. */
@@ -202,6 +206,8 @@ export function AddressFields({
   onCountryPicked,
   onCreateCountry,
   createCountryLabel,
+  onEditCountry,
+  editCountryLabel,
   onLookup,
   onSuggest,
 }: AddressFieldsProps) {
@@ -329,6 +335,8 @@ export function AddressFields({
           disabled={readOnly}
           onCreateNew={readOnly ? undefined : onCreateCountry}
           createLabel={createCountryLabel}
+          onEdit={onEditCountry}
+          editLabel={editCountryLabel}
         />
       </FormField>
       {onSuggest && !readOnly ? (

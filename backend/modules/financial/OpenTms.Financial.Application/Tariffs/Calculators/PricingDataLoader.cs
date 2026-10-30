@@ -105,6 +105,31 @@ public class PricingDataLoader : ITransientDependency
             .ToList();
     }
 
+    /// <summary>
+    /// The basis of each named list, without rules (design 61 build note 5: the kept adjusted lines' lists, also ones no longer
+    /// on the order). Unknown ids are absent; bounded by the kept lines of one order or trip.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, QuantitySource>> GetBasesAsync(IReadOnlyCollection<Guid> ids)
+    {
+        var keys = ids.Distinct().ToList();
+        if (keys.Count == 0)
+        {
+            return new Dictionary<Guid, QuantitySource>();
+        }
+
+        var bases = new Dictionary<Guid, QuantitySource>();
+        foreach (var chunk in keys.Chunk(1_000))
+        {
+            var rows = await _executer.ToListAsync((await _priceLists.GetQueryableAsync()).Where(l => chunk.Contains(l.Id)).Select(l => new { l.Id, l.Basis }));
+            foreach (var row in rows)
+            {
+                bases[row.Id] = row.Basis;
+            }
+        }
+
+        return bases;
+    }
+
     public async Task<PriceListWithRules?> GetPriceListAsync(Guid id)
         => (await GetPriceListsAsync([id])).FirstOrDefault();
 

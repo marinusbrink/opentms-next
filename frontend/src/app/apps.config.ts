@@ -122,6 +122,8 @@ export interface AppDefinition {
   feature?: string;
   /** The host always has this app and its nodes, whatever the feature values (Administration). */
   hostAlwaysEnabled?: boolean;
+  /** The host never has this app, whatever the feature values: it works on a tenant's data (PO 2026-10-29). */
+  tenantOnly?: boolean;
 }
 
 export const APPS: readonly AppDefinition[] = [
@@ -151,6 +153,7 @@ export const APPS: readonly AppDefinition[] = [
     icon: Truck,
     tileClass: "bg-indigo-600",
     feature: "Apps.Transport",
+    tenantOnly: true,
     /* Design 61 (features of design 56, all default on): Orders, Templates, Trips, Documents. The children of Orders
      * and Trips are saved filters of the one list (UI-PAGE-004): nav entries that route to the list's path with
      * `?filter=`; they carry no feature, the list's node decides. Templates' feature chains under Orders
@@ -204,6 +207,7 @@ export const APPS: readonly AppDefinition[] = [
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
+    tenantOnly: true,
     /* PO 2026-10-16: the Master data app holds the master data of EVERY domain, one group per domain in its nav
      * tree (app → domain group → group → list). A domain's group, with its feature and its entry in `domains`,
      * arrives with that domain's first list; a group without children is hidden. The Master Data

@@ -14,6 +14,7 @@ export type LegDto = Schemas["OpenTms.PlanningExecution.Legs.LegDto"];
 export type LegEndSnapshotDto = Schemas["OpenTms.PlanningExecution.Legs.LegEndSnapshotDto"];
 export type LegUpdateDto = Schemas["OpenTms.PlanningExecution.Legs.LegUpdateDto"];
 export type LegSource = Schemas["OpenTms.PlanningExecution.Legs.LegSource"];
+export type LegSplitAtAddressDto = Schemas["OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto"];
 
 export const LEG_SOURCES: { value: LegSource; key: string }[] = [
   { value: 1, key: "PlanningExecution:LegSource.Generated" },
@@ -21,7 +22,10 @@ export const LEG_SOURCES: { value: LegSource; key: string }[] = [
   { value: 3, key: "PlanningExecution:LegSource.Split" },
   { value: 4, key: "PlanningExecution:LegSource.Return" },
   { value: 5, key: "PlanningExecution:LegSource.Outsourced" },
+  { value: 6, key: "PlanningExecution:LegSource.SplitAtAddress" },
 ];
+
+export const LEG_SOURCE = { Generated: 1, ViaDepot: 2, Split: 3, Return: 4, Outsourced: 5, SplitAtAddress: 6 } as const;
 
 export const legKeys = {
   all: ["planning", "legs"] as const,
@@ -85,6 +89,33 @@ export function useUpdateLeg() {
   return useMutation({
     mutationFn: async ({ id, dto }: { id: string; dto: LegUpdateDto }): Promise<LegDto> => {
       const { data, error } = await apiClient.PUT("/api/planning/leg/{id}", { params: { path: { id } }, body: dto });
+      if (error) throw error;
+      return data!;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
+  });
+}
+
+/** Split a leg at an address (design 61 "Order page review" 5): A→B becomes A→X and X→B (`LegSource.SplitAtAddress`);
+ *  refused while the leg is on a trip (`LegOnTrip`). Returns the two legs. */
+export function useSplitLegAtAddress() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, dto }: { id: string; dto: LegSplitAtAddressDto }): Promise<LegDto[]> => {
+      const { data, error } = await apiClient.POST("/api/planning/leg/{id}/split-at-address", { params: { path: { id } }, body: dto });
+      if (error) throw error;
+      return data ?? [];
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
+  });
+}
+
+/** Remove a split at an address, from either half: the two legs become the split leg again. Returns that leg. */
+export function useRemoveLegSplit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<LegDto> => {
+      const { data, error } = await apiClient.POST("/api/planning/leg/{id}/remove-split", { params: { path: { id } } });
       if (error) throw error;
       return data!;
     },

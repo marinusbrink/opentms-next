@@ -308,6 +308,10 @@ namespace OpenTms.Financial.EntityFrameworkCore.Migrations
                         .HasColumnType("character varying(128)")
                         .HasDefaultValue("");
 
+                    b.Property<int>("RevenueChargedBasesMask")
+                        .HasColumnType("integer")
+                        .HasColumnName("RevenueChargedBases");
+
                     b.Property<int>("RevenueMultipleMatches")
                         .HasColumnType("integer");
 

@@ -899,9 +899,10 @@ export function RelationEditor({
   };
 
   /* "Add new country…" in an address' country picker (UI-LOOK-004): the saved country goes on that address
-   * (the default one or an address type's) and its time zone follows, as when a country is picked. */
+   * (the default one or an address type's) and its time zone follows, as when a country is picked. The same offer
+   * gives the picker its edit pencil (UI-LOOK-005). */
   const countryCreate = (form: FormContext<Values>, addressKey: string) => {
-    const { onCreateNew, createLabel } = inPlace.offer(
+    const { onCreateNew, createLabel, onEdit, editLabel } = inPlace.offer(
       "Country",
       form.readOnly,
       (r) => {
@@ -928,7 +929,7 @@ export function RelationEditor({
         setZoneSource({ addressKey, countryId: r.id });
       },
     );
-    return { onCreateCountry: onCreateNew, createCountryLabel: createLabel };
+    return { onCreateCountry: onCreateNew, createCountryLabel: createLabel, onEditCountry: onEdit, editCountryLabel: editLabel };
   };
 
   const renderAddressesBlock = (form: FormContext<Values>) => {

@@ -9,7 +9,8 @@ import { currencies } from "@/domains/master-data/entities";
  * Combobox with client-side search): the order's currency and the agreed purchase currency of a "Tevens trip". The DTOs
  * carry the ISO 4217 code, not the currency's id, so the option value is the code (the currencies lookup's `code`).
  * "Add new …" opens the currency editor on top (UI-LOOK-004) and picks the saved currency's code. A stored code that
- * is no longer in the lookup (an inactive currency) stays selectable under its code, so an untouched form stays clean. */
+ * is no longer in the lookup (an inactive currency) stays selectable under its code, so an untouched form stays clean.
+ * The edit pencil (UI-LOOK-005) opens the currency of that code (none for a code the lookup does not hold). */
 
 export interface CurrencyFieldProps {
   id: string;
@@ -34,6 +35,7 @@ export function CurrencyField({ id, label, value, onChange, required, disabled =
     if (code && !list.some((o) => o.value === code)) list.push({ value: code, label: code });
     return list;
   }, [lookup.data, code]);
+  const currencyId = (code && lookup.data?.find((c) => c.code?.toUpperCase() === code)?.id) || null;
 
   return (
     <>
@@ -49,7 +51,7 @@ export function CurrencyField({ id, label, value, onChange, required, disabled =
         {...inPlace.offer("Currency", disabled, (r) => {
           const created = (r.code ?? (r.dto as { isoCode?: string | null }).isoCode ?? "").toUpperCase();
           if (created) onChange(created);
-        })}
+        }, { editId: currencyId })}
       />
     </FormField>
     {inPlace.dialog}

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTms.Orders.EntityFrameworkCore;
 using OpenTms.Orders.TransportOrders;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.Guids;
 using Xunit;
 using Xunit.Abstractions;
@@ -29,12 +31,14 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
     private readonly ITestOutputHelper _output;
     private readonly IRepository<TransportOrder, Guid> _orders;
     private readonly IGuidGenerator _guids;
+    private readonly IDbContextProvider<OrdersDbContext> _contextProvider;
 
     public TransportOrderVolumeTests(ITestOutputHelper output)
     {
         _output = output;
         _orders = GetRequiredService<IRepository<TransportOrder, Guid>>();
         _guids = GetRequiredService<IGuidGenerator>();
+        _contextProvider = GetRequiredService<IDbContextProvider<OrdersDbContext>>();
     }
 
     [Fact]
@@ -74,18 +78,21 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
     private async Task InsertVolumeAsync(OpenTms.TransportRun.TransportRunWorld f)
     {
         var insert = Stopwatch.StartNew();
+        /* Read once: Today resolves the transient TransportRunFixture (dozens of proxied services, ~15 ms) on every call. */
+        var today = Today;
+        var context = await _contextProvider.GetDbContextAsync();
         var statuses = new[] { TransportOrderStatus.Open, TransportOrderStatus.Open, TransportOrderStatus.Draft, TransportOrderStatus.ReadyForInvoicing, TransportOrderStatus.Invoiced, TransportOrderStatus.Archived };
-        var header = new OrderHeaderInput(f.OrderTypeId, f.CustomerId, null, "Klant Foods", Today, null, null, null, null);
+        var header = new OrderHeaderInput(f.OrderTypeId, f.CustomerId, null, "Klant Foods", today, null, null, null, null);
         var terms = TransportOrderFinancialTerms.Default();
         var batch = new List<TransportOrder>(10_000);
         for (var i = 0; i < OrderCount; i++)
         {
-            var order = new TransportOrder(_guids.Create(), TenantA, header with { OrderDate = Today.AddDays(-(i % 400)), CustomerReference = "REF-" + i, CustomerName = "Klant " + (i % 1000) }, terms, OrderSource.Api, _guids.Create);
+            var order = new TransportOrder(_guids.Create(), TenantA, header with { OrderDate = today.AddDays(-(i % 400)), CustomerReference = "REF-" + i, CustomerName = "Klant " + (i % 1000) }, terms, OrderSource.Api, _guids.Create);
             var status = statuses[i % statuses.Length];
             if (status != TransportOrderStatus.Draft)
             {
                 order.SetLines([new LineInput(null, new FreightInput(f.TransportUnitId, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, PaymentInstruction.NotSet, null, null, null, null, null, null), [], [],
-                    [new StopInput(null, f.LoadTypeId, f.DepotId, f.DepotAddressId, null, Today, null, null, null, null, null, null), new StopInput(null, f.UnloadTypeId, f.ShopId, f.ShopAddressId, null, Today, null, null, null, null, null, null)], null)], _guids.Create);
+                    [new StopInput(null, f.LoadTypeId, f.DepotId, f.DepotAddressId, null, today, null, null, null, null, null, null), new StopInput(null, f.UnloadTypeId, f.ShopId, f.ShopAddressId, null, today, null, null, null, null, null, null)], null)], _guids.Create);
                 order.Confirm($"VOL-{i:D6}", TransportOrderRequiredFields.None, _ => null);
                 if (status is TransportOrderStatus.ReadyForInvoicing or TransportOrderStatus.Invoiced or TransportOrderStatus.Archived)
                 {
@@ -99,11 +106,12 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
             }
 
             order.WriteSummary(new OrderSummary(1000m + i % 500, 600m + i % 300, 400m + (i % 500) - (i % 300), 12.5m, ExecutionProgress.Planned, 1, 2,
-                "DC Venlo " + i.ToString("D5"), "Venlo", Today, "Shop " + (i % 97), "Utrecht", Today.AddDays(1), "R-" + (i % 600)), DateTime.UtcNow);
+                "DC Venlo " + i.ToString("D5"), "Venlo", today, "Shop " + (i % 97), "Utrecht", today.AddDays(1), "R-" + (i % 600)), DateTime.UtcNow);
             batch.Add(order);
             if (batch.Count == 10_000)
             {
                 await _orders.InsertManyAsync(batch, autoSave: true);
+                context.ChangeTracker.Clear();
                 batch.Clear();
             }
         }

@@ -48,6 +48,9 @@ public interface IMasterDataReferenceLookup : IApplicationService
     /// <summary>Drivers by id: display name only (design 43; no contact data leaves Master Data).</summary>
     Task<List<MasterDataReferenceDto>> GetDriversAsync(IReadOnlyCollection<Guid> ids);
 
+    /// <summary>Contact persons by id with the relation they belong to (design 61 "Trip type defaults": a default contact must be its carrier's).</summary>
+    Task<List<MasterDataContactPersonReferenceDto>> GetContactPersonsAsync(IReadOnlyCollection<Guid> ids);
+
     /// <summary>The "do not combine" pairs among the given temperatures, products and transport units (both sides within the input).</summary>
     Task<MasterDataIncompatibilitiesDto> GetIncompatibilitiesAsync(IReadOnlyCollection<Guid> temperatureIds, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Guid> transportUnitIds);
 
@@ -71,6 +74,15 @@ public class MasterDataReferenceDto
     public string Name { get; set; } = string.Empty;
 
     public bool IsArchived { get; set; }
+}
+
+public class MasterDataContactPersonReferenceDto
+{
+    public Guid Id { get; set; }
+
+    public Guid RelationId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
 }
 
 public class MasterDataCodeReferenceDto

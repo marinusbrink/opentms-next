@@ -1630,6 +1630,10 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                             b1.Property<Guid>("TransportOrderId")
                                 .HasColumnType("uuid");
 
+                            b1.Property<int>("ChargedBasesMask")
+                                .HasColumnType("integer")
+                                .HasColumnName("ChargedBases");
+
                             b1.Property<string>("CurrencyCode")
                                 .IsRequired()
                                 .HasMaxLength(3)
@@ -2095,6 +2099,10 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         {
                             b1.Property<Guid>("TransportOrderTemplateId")
                                 .HasColumnType("uuid");
+
+                            b1.Property<int>("ChargedBasesMask")
+                                .HasColumnType("integer")
+                                .HasColumnName("ChargedBases");
 
                             b1.Property<string>("CurrencyCode")
                                 .IsRequired()

@@ -20,7 +20,7 @@ vi.mock("@/components/ui/reference-combobox", async () => ({ ReferenceCombobox: 
 vi.mock("@/components/ui/date-picker", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/components/ui/date-picker")>()), DatePicker: (await import("./transport-test-mocks")).MockDatePicker }));
 
 import { StopStrip } from "@/apps/transport/components/StopStrip";
-import { defaultAddressIdOf } from "@/apps/transport/components/RelationFields";
+import { defaultAddressIdOf } from "@/domains/master-data/components/RelationFields";
 import { newStop, type EditorMode, type StopValues } from "@/apps/transport/orders/order-form";
 import { lookupItems, stubGlobals } from "./transport-test-mocks";
 import { GET, resetClient, routes } from "./test-setup-mocks";

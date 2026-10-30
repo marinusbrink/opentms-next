@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenTms.Financial.Published;
+using OpenTms.Financial.Tariffs;
 using OpenTms.MasterData.Published;
 using OpenTms.Orders.TransportOrders.Approval;
 using OpenTms.Platform.NumberSequences;
@@ -187,7 +188,26 @@ public class OrdersReferences : ITransientDependency
         return new FinancialNames(
             vat.ToDictionary(v => v.Id, v => v.Name),
             priceLists.ToDictionary(p => p.Id, p => p.Name),
-            ds.ToDictionary(d => d.Id, d => d.Name));
+            ds.ToDictionary(d => d.Id, d => d.Name),
+            priceLists.ToDictionary(p => p.Id, p => p.Basis));
+    }
+
+    /// <summary>
+    /// The basis of each price list through Financial's published lookup (design 61 build note 6: the approval rule compares
+    /// the effective charged bases, a basis with a list counts as on). Unknown ids are absent; chunked by the lookup's bound.
+    /// </summary>
+    public async Task<Dictionary<Guid, QuantitySource>> PriceListBasesAsync(IEnumerable<Guid> ids)
+    {
+        var bases = new Dictionary<Guid, QuantitySource>();
+        foreach (var chunk in Keys(ids).Chunk(IFinancialReferenceLookup.MaxKeys))
+        {
+            foreach (var list in await _financial.GetPriceListsAsync(chunk))
+            {
+                bases[list.Id] = list.Basis;
+            }
+        }
+
+        return bases;
     }
 
     /// <summary>
@@ -199,12 +219,13 @@ public class OrdersReferences : ITransientDependency
         var settings = await _financial.GetRelationFinancialSettingsAsync(customerRelationId, orderDate);
         return settings == null
             ? null
-            : new CustomerFinancialDefaults(settings.CurrencyCode, settings.VatPercentageId, settings.PaymentTermDays, settings.RevenuePriceListIds, settings.RevenueMultipleMatches, settings.DiscountOrSurchargeIds);
+            : new CustomerFinancialDefaults(settings.CurrencyCode, settings.VatPercentageId, settings.PaymentTermDays, settings.RevenuePriceListIds, settings.RevenueMultipleMatches, settings.DiscountOrSurchargeIds, settings.RevenueChargedBases);
     }
 
     /// <summary>
     /// The terms an order starts with when the request carries none (design 58): the customer's defaults copied — lists,
-    /// VAT, payment term, the default discounts and surcharges of the date, the currency — else the module's default.
+    /// VAT, payment term, the default discounts and surcharges of the date, the charged bases (design 61 point 3), the
+    /// currency — else the module's default.
     /// </summary>
     public async Task<FinancialTermsInput> DefaultTermsAsync(Guid customerRelationId, DateOnly orderDate)
     {
@@ -222,7 +243,8 @@ public class OrdersReferences : ITransientDependency
             defaults.MultipleMatches,
             defaults.DiscountOrSurchargeIds.Select(id => new DiscountOrSurchargeInput(id, DiscountOrSurchargeSource.Default)).ToList(),
             null,
-            false);
+            false,
+            defaults.ChargedBases?.ToList() ?? []);
     }
 
     public async Task<FinancialNames> FinancialNamesAsync(FinancialTermsInput terms)
@@ -232,7 +254,8 @@ public class OrdersReferences : ITransientDependency
         var priceLists = priceListIds.Count == 0 ? [] : await _financial.GetPriceListsAsync(priceListIds);
         var dsIds = Keys(terms.DiscountsOrSurcharges.Select(d => d.DiscountOrSurchargeId));
         var ds = dsIds.Count == 0 ? [] : await _financial.GetDiscountsOrSurchargesAsync(dsIds);
-        return new FinancialNames(vat.ToDictionary(v => v.Id, v => v.Name), priceLists.ToDictionary(p => p.Id, p => p.Name), ds.ToDictionary(d => d.Id, d => d.Name));
+        return new FinancialNames(vat.ToDictionary(v => v.Id, v => v.Name), priceLists.ToDictionary(p => p.Id, p => p.Name), ds.ToDictionary(d => d.Id, d => d.Name),
+            priceLists.ToDictionary(p => p.Id, p => p.Basis));
     }
 
     // ── the whole draft ────────────────────────────────────────────────────────
@@ -310,7 +333,9 @@ public class OrdersReferences : ITransientDependency
     private static BusinessException NotFound(string field) => new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", field);
 }
 
-public sealed record FinancialNames(IReadOnlyDictionary<Guid, string> VatPercentages, IReadOnlyDictionary<Guid, string> PriceLists, IReadOnlyDictionary<Guid, string> DiscountsOrSurcharges);
+/// <param name="PriceListBases">The basis of each price list (design 61 point 3: the Financial tab shows the lists per basis).</param>
+public sealed record FinancialNames(IReadOnlyDictionary<Guid, string> VatPercentages, IReadOnlyDictionary<Guid, string> PriceLists, IReadOnlyDictionary<Guid, string> DiscountsOrSurcharges,
+    IReadOnlyDictionary<Guid, QuantitySource>? PriceListBases = null);
 
 /// <summary>
 /// Today and the zone the order dates and the templates' times of day live in: the installation's local zone

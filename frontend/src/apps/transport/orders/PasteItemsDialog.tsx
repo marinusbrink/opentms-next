@@ -9,7 +9,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { defaultAddressIdOf } from "@/apps/transport/components/RelationFields";
+import { defaultAddressIdOf } from "@/domains/master-data/components/RelationFields";
 import { EMPTY_END, itemFromEntry, type EditorMode, type EntryEnd, type EntryWaypoints, type LineValues } from "@/apps/transport/orders/order-form";
 import { checkRow, matchByCodeOrName, parsePastedRows, problemCells, type CheckedRow, type Match, type PasteColumn } from "@/apps/transport/orders/paste-items";
 import { relationAddressesQuery, relationLookupPage, transportUnits, type RelationOption } from "@/domains/master-data/entities";

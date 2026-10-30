@@ -21,7 +21,7 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 /// The Transport follow-ups of Planning &amp; Execution against real PostgreSQL, both tenant tiers: the trip export and
 /// the trip picker never show another tenant's trips (exports and lookups are the classic leaks); a planner's edit of a
 /// leg (reference, time window) survives a regeneration from unchanged stops with the leg still on its trip, while a
-/// changed stop still unassigns (design 59); and the PlanningLegSourceKeys migration (expand only, newest). Writes are
+/// changed stop still unassigns (design 59); and the PlanningLegSourceKeys migration (expand only). Writes are
 /// rolled back. Risk class: Critical (tenant isolation, leg generation), High (migration).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
@@ -133,13 +133,13 @@ public class PlanningFollowUpsPostgreSqlTests : PlanningPostgreSqlTestBase
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_migration_is_applied_last_and_nothing_is_pending(string? tenant)
+    public async Task The_migration_is_applied_before_the_newest_and_nothing_is_pending(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await GetRequiredService<IDbContextProvider<PlanningExecutionDbContext>>().GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-            applied.Last().ShouldBe(Migration, "the newest Planning migration");
+            applied.IndexOf(PlanningViaDepotStopWaypointTypeMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1, "followed by the via-depot rules' stop type (design 61), the newest Planning migration");
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse();

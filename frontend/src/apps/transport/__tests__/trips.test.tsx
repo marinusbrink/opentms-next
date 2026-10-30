@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The Trips list and the trip editor page (design 61 "Trips list and editor"): the gates, the designed columns and
- * the URL filter mapped onto the API's view, the command bar without New, the ribbon per status, the header save, the
+ * the URL filter mapped onto the API's view, the command bar (New only with the Create permission), the ribbon per status, the header save, the
  * stops grid with its row actions (move, record actuals, remove manual only), the legs grid and the cost tab. Risk
  * class: Medium. */
 
@@ -40,7 +40,7 @@ import { TripPage } from "@/apps/transport/pages/TripPage";
 import { TripsView } from "@/apps/transport/views/TripsView";
 import { toast } from "sonner";
 import { tripPickerPage } from "@/domains/planning-execution/trips";
-import { barButton, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
+import { barButton, fail, gridRows, lookupItems, panel, ribbonButton, ribbonLabels, stubGlobals } from "./transport-test-mocks";
 import { GET, POST, PUT, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const VIEW = "PlanningExecution.TransportTrips";
@@ -137,11 +137,11 @@ describe("TripsView", () => {
     await waitFor(() => expect(lastCall(GET, "/api/planning/transport-trip")?.params?.query?.HideEmpty).toBe(true));
   });
 
-  it("has no New; Print, Archive, Complete and Cancel follow the selection and the status", async () => {
+  it("no New without the Create permission (new-trip.test.tsx covers New); Print, Archive, Complete and Cancel follow the selection and the status", async () => {
     gridRows.current = tripRows;
     renderWith(<TripsView filter="today" />);
     await screen.findByTestId("mock-grid");
-    expect(screen.queryByText(/NewTransportTrip/)).toBeNull();
+    expect(screen.queryByText("PlanningExecution:NewTrip")).toBeNull();
     expect(barButton("PlanningExecution:ArchiveTrips")).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(screen.getByText("select-first"));
     expect(barButton("PlanningExecution:Complete")).not.toHaveAttribute("aria-disabled");
@@ -455,5 +455,68 @@ describe("TripPage – stops, legs, cost", () => {
     expect(within(totals).getByText("650.00")).toBeInTheDocument();
     expect(within(costs).getByRole("table")).toHaveTextContent("TO-1");
     expect(GET).toHaveBeenCalledWith("/api/financial/rate-line", expect.objectContaining({ params: { query: { TripId: "t1" } } }));
+  });
+});
+
+describe("TripPage – Legs: Split quantity (design 61 \"Order page review\" 5, the existing split-line)", () => {
+  const openSplit = async () => {
+    routes.GET["/api/planning/leg"] = () => ({ rows: [{ id: "leg-1", orderId: "o1", orderNumber: "TO-1", tripPosition: 1, quantity: 6, origin: { name: "Acme" }, destination: { name: "Beta" } }], totalCount: 1, filteredCount: 1 });
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    fireEvent.click(within(legs).getByText("PlanningExecution:SplitQuantity"));
+    return screen.findByRole("dialog");
+  };
+  const submit = async (dialog: HTMLElement) =>
+    act(async () => {
+      fireEvent.submit(dialog.querySelector("form")!);
+      await Promise.resolve();
+    });
+
+  it("refuses a quantity of 0, the whole quantity or more, and text, with the range in the message", async () => {
+    const dialog = await openSplit();
+    for (const value of ["", "0", "6", "7", "abc", "-1"]) {
+      fireEvent.change(dialog.querySelector("#split-quantity")!, { target: { value } });
+      await submit(dialog);
+      expect(within(dialog).getByText("PlanningExecution:SplitQuantityRange")).toBeInTheDocument();
+    }
+    expect(POST).not.toHaveBeenCalledWith("/api/planning/transport-trip/{id}/split-line", expect.anything());
+  });
+
+  it("posts the leg, the quantity and no target trip (the new leg stays on this trip), or the picked trip", async () => {
+    routes.POST["/api/planning/transport-trip/{id}/split-line"] = () => ({ id: "leg-2" });
+    lookupItems.current = { "split-quantity-trip": [{ id: "t9", number: "TR-9", name: "Evening" } as never] };
+    let dialog = await openSplit();
+    fireEvent.change(dialog.querySelector("#split-quantity")!, { target: { value: "2,5" } });
+    await submit(dialog);
+    await waitFor(() => expect(POST).toHaveBeenCalledWith("/api/planning/transport-trip/{id}/split-line", { params: { path: { id: "t1" } }, body: { legId: "leg-1", quantity: 2.5, toTripId: null } }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(within(panel("PlanningExecution:Legs")).getByText("PlanningExecution:SplitQuantity"));
+    dialog = await screen.findByRole("dialog");
+    fireEvent.change(dialog.querySelector("#split-quantity")!, { target: { value: "5.9999" } });
+    fireEvent.change(dialog.querySelector("#split-quantity-trip")!, { target: { value: "t9" } });
+    await submit(dialog);
+    await waitFor(() => expect(POST).toHaveBeenLastCalledWith("/api/planning/transport-trip/{id}/split-line", { params: { path: { id: "t1" } }, body: { legId: "leg-1", quantity: 5.9999, toTripId: "t9" } }));
+  });
+
+  it("shows the server's refusal in the dialog", async () => {
+    routes.POST["/api/planning/transport-trip/{id}/split-line"] = () => fail("The split is invalid", 400);
+    const dialog = await openSplit();
+    fireEvent.change(dialog.querySelector("#split-quantity")!, { target: { value: "1" } });
+    await submit(dialog);
+    expect(await within(dialog).findByText("The split is invalid")).toBeInTheDocument();
+  });
+
+  it("is not offered without the assign permission", async () => {
+    grants = { ...ALL, "PlanningExecution.TransportTrips.AssignLegs": false };
+    renderWith(<TripPage id="t1" />);
+    await screen.findByText("PlanningExecution:TransportTrip TR-1");
+    tab("PlanningExecution:Legs");
+    const legs = panel("PlanningExecution:Legs");
+    await waitFor(() => expect(legs.querySelectorAll("[data-slot=mock-grid-row]")).toHaveLength(1));
+    expect(within(legs).queryByText("PlanningExecution:SplitQuantity")).toBeNull();
   });
 });

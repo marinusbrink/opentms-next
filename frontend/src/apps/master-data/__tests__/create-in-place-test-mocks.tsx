@@ -218,7 +218,7 @@ interface StubShellProps {
   onClose: () => void;
   children?: ReactNode;
   /** The relation editor's extras (the record and tab a child record opens on, a new relation's roles). */
-  extra?: { id?: string; initialTab?: string; initialRoles?: number; newContactPersonName?: string };
+  extra?: { id?: string; initialTab?: string; initialRoles?: number; newContactPersonName?: string; readOnly?: boolean };
 }
 
 function StubShell({ name, initialName, mode, onSave, onClose, children, extra }: StubShellProps) {
@@ -231,6 +231,7 @@ function StubShell({ name, initialName, mode, onSave, onClose, children, extra }
       data-initial-tab={extra?.initialTab ?? ""}
       data-initial-roles={extra?.initialRoles ?? ""}
       data-new-contact-person={extra?.newContactPersonName ?? ""}
+      data-read-only={extra?.readOnly == null ? "" : String(extra.readOnly)}
     >
       <button type="button" onClick={onSave}>
         {`stub-save-${name}`}

@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
+import { Pencil } from "lucide-react";
 
 import {
   Combobox,
@@ -10,13 +11,16 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
+import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* A single-value picker over a static list loaded once (UI-LOOK-001: countries, currencies,
  * time zones; more than 15 options, so a searchable Combobox instead of a Select). The value is
  * the option id; the input shows the label and filters client-side. Optional pickers are
  * clearable, required ones are not (UI-LOOK-006). Over records, `onCreateNew` adds the "Add new …"
- * row of UI-LOOK-004 with the typed text, the same row as EntityLookup's: the list's last option.
+ * row of UI-LOOK-004 with the typed text, the same row as EntityLookup's: the list's last option. `onEdit` adds the
+ * edit pencil of UI-LOOK-005 for the selected record, the same as EntityLookup's (no Tab stop, usable while disabled).
  *
  * Keyboard (design 61 "Order page, legacy tab structure" 3, keyboard first): typing highlights the first match, Enter selects it,
  * Enter on a term nothing matches opens "Add new …" (then the only option), ArrowDown reaches "Add new …", Tab commits
@@ -42,6 +46,10 @@ export interface ReferenceComboboxProps {
   onCreateNew?: (term: string) => void;
   /** The label of that row, already translated, e.g. t("MasterData:AddNewCountry"). */
   createLabel?: string;
+  /** UI-LOOK-005: shows the edit pencil while a value is selected and hands it over; omit when the user may not view the record. */
+  onEdit?: (value: string) => void;
+  /** The pencil's tooltip, already translated: t("Edit"), or t("Open") when the record opens read-only. */
+  editLabel?: string;
 }
 
 export function ReferenceCombobox({
@@ -55,6 +63,8 @@ export function ReferenceCombobox({
   className,
   onCreateNew,
   createLabel,
+  onEdit,
+  editLabel,
   ...aria
 }: ReferenceComboboxProps) {
   const { t } = useL();
@@ -120,7 +130,19 @@ export function ReferenceCombobox({
         aria-invalid={aria["aria-invalid"]}
         aria-describedby={aria["aria-describedby"]}
         aria-required={aria["aria-required"]}
-      />
+      >
+        {selected && onEdit && (
+          /* UI-LOOK-005: inside the control's right edge, before the clear button (the built-in addon is order-last). */
+          <InputGroupAddon align="inline-end" className="order-1 pr-0">
+            <Tooltip>
+              <TooltipTrigger render={<InputGroupButton size="icon-sm" tabIndex={-1} aria-label={editLabel ?? t("Edit")} onClick={() => onEdit(selected.value)} />}>
+                <Pencil aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{editLabel ?? t("Edit")}</TooltipContent>
+            </Tooltip>
+          </InputGroupAddon>
+        )}
+      </ComboboxInput>
       <ComboboxContent>
         <ComboboxEmpty>{t("MasterData:NoOptions")}</ComboboxEmpty>
         <ComboboxList>

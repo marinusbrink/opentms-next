@@ -15,7 +15,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { DateCell } from "@/components/ui/grid-cells";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { useCanCreateInPlace, useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { useCanCreateInPlace, useCanOpenInPlace, useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { CheckboxField, TextAreaField, TextField, emailError } from "@/components/record-editor/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors } from "@/components/record-editor/MasterDataEditor";
@@ -138,7 +138,8 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
   const canAnonymise = useIsGranted("MasterData.Drivers.Anonymise");
   /* The one "Add new …" gate (permission + node feature chain + not read-only, UI-LOOK-004 / UI-PERM-006). */
   const canCreate = useCanCreateInPlace();
-  const canUpdateRelation = useIsGranted("MasterData.Relations.Update");
+  /* The edit pencil's gate (UI-LOOK-005): edit with the relations' Update, read-only with only their view permission. */
+  const relationAccess = useCanOpenInPlace()("Relation");
   const anonymised = detail.data?.isAnonymised === true;
   /* An anonymised record is read-only (design 43): every field disabled, no Save, the notice above the form. */
   const readOnly = readOnlyProp || anonymised;
@@ -278,7 +279,8 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
                   )}
                   onCreateNew={canCreate("Relation", form.readOnly) ? (term) => setRelationDialog({ mode: "create", term }) : undefined}
                   createLabel={t("MasterData:AddNewRelation")}
-                  onEdit={canUpdateRelation && !form.readOnly ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
+                  onEdit={relationAccess ? (r) => setRelationDialog({ mode: "edit", id: r.id }) : undefined}
+                  editLabel={relationAccess === "view" ? t("Open") : undefined}
                   disabled={form.readOnly}
                 />
               </FormField>
@@ -407,12 +409,13 @@ export function DriverEditor({ mode, id, readOnly: readOnlyProp, open, onClose, 
           mode={relationDialog.mode}
           id={relationDialog.mode === "edit" ? relationDialog.id : undefined}
           initialName={relationDialog.mode === "create" ? relationDialog.term : undefined}
-          readOnly={false}
+          readOnly={relationDialog.mode === "edit" && relationAccess !== "edit"}
           open
           onClose={() => setRelationDialog(null)}
           onSaved={(saved) => {
             const dto = saved as RelationDto | undefined;
-            if (!dto?.id) return;
+            /* A read-only form keeps its values (the pencil opened the relation only to look or edit it there). */
+            if (!dto?.id || (relationDialog.mode === "edit" && readOnly)) return;
             const option: RelationOption = { id: dto.id, code: dto.code ?? "", name: dto.name ?? "", city: null, countryCode: null, roles: dto.roles ?? 0 };
             apply((values) => ({ ...values, employer: option }));
           }}

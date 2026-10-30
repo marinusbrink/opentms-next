@@ -17,8 +17,11 @@ import type {
   TransportOrderTripRequestInputDto,
   PricePreviewRequestDto,
 } from "@/domains/orders/transport-orders";
-import type { MultipleMatches } from "@/domains/financial/rate-lines";
-import { relationOptionOf } from "@/apps/transport/components/RelationFields";
+import type { MultipleMatches, QuantitySource } from "@/domains/financial/rate-lines";
+import type { KnownPriceList } from "@/domains/financial/price-lists";
+import { orderedRevenueBases } from "@/domains/financial/price-lists";
+import { relationOptionOf } from "@/domains/master-data/components/RelationFields";
+import { NO_TRIP_TYPE_PRESET, presetFieldsOf, switchTripTypePreset, type TripPresetFields, type TripTypePreset } from "@/domains/planning-execution/trip-type-presets";
 import { isSameValue, numberError, numberToText, parseInteger, parseNumber, type FieldErrors } from "@/lib/forms/use-form-state";
 
 /* The form model of the order page (design 61 "Order page, legacy tab structure"), shared by the order page and the
@@ -111,6 +114,10 @@ export interface TermsValues {
   vatPercentageId: string | null;
   paymentTermDays: string;
   priceListIds: string[];
+  /** The bases switched on (design 61 "Order page review" 3): a basis without a list of it writes open lines. */
+  chargedBases: QuantitySource[];
+  /** The chosen lists' basis and name as the record names them (not sent): places a list in its basis row. */
+  knownPriceLists: KnownPriceList[];
   multipleMatches: MultipleMatches;
   discountsOrSurcharges: { discountOrSurchargeId: string; source: 1 | 2 }[];
   fixedPriceAmount: string;
@@ -559,6 +566,8 @@ export const DEFAULT_TERMS: TermsValues = {
   vatPercentageId: null,
   paymentTermDays: "",
   priceListIds: [],
+  chargedBases: [],
+  knownPriceLists: [],
   multipleMatches: 1,
   discountsOrSurcharges: [],
   fixedPriceAmount: "",
@@ -572,6 +581,12 @@ export function termsValuesOf(terms: TransportOrderFinancialTermsDto | undefined
     vatPercentageId: terms.vatPercentageId ?? null,
     paymentTermDays: numberToText(terms.paymentTermDays),
     priceListIds: terms.priceListIds ?? [],
+    chargedBases: orderedRevenueBases(terms.chargedBases ?? []),
+    /* The read carries each list's basis and name parallel to the ids (build note 1). */
+    knownPriceLists: (terms.priceListIds ?? []).flatMap((id, index) => {
+      const basis = terms.priceListBases?.[index];
+      return basis == null ? [] : [{ id, basis, label: terms.priceListNames?.[index] ?? "" }];
+    }),
     multipleMatches: terms.multipleMatches ?? 1,
     discountsOrSurcharges: (terms.discountsOrSurcharges ?? []).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId, source: (d.source ?? 2) as 1 | 2 })),
     fixedPriceAmount: numberToText(terms.fixedPriceAmount),
@@ -579,15 +594,18 @@ export function termsValuesOf(terms: TransportOrderFinancialTermsDto | undefined
   };
 }
 
-/** Terms as an API input carries them (the customer's defaults, NewOrderDialog.termsFromDefaults) as form values;
- *  none means the module's default, as the server starts an order without the customer's settings (design 58). */
-export function termsValuesOfInput(input: TransportOrderFinancialTermsInputDto | undefined): TermsValues {
+/** Terms as an API input carries them (the customer's defaults, financial-defaults.termsFromDefaults) as form values;
+ *  none means the module's default, as the server starts an order without the customer's settings (design 58).
+ *  `knownPriceLists`: the lists' basis and name where the source knows them (the relation's settings). */
+export function termsValuesOfInput(input: TransportOrderFinancialTermsInputDto | undefined, knownPriceLists: KnownPriceList[] = []): TermsValues {
   if (!input) return DEFAULT_TERMS;
   return {
     currencyCode: input.currencyCode ?? "EUR",
     vatPercentageId: input.vatPercentageId ?? null,
     paymentTermDays: numberToText(input.paymentTermDays),
     priceListIds: input.priceListIds ?? [],
+    chargedBases: orderedRevenueBases(input.chargedBases ?? []),
+    knownPriceLists,
     multipleMatches: input.multipleMatches ?? 1,
     discountsOrSurcharges: (input.discountsOrSurcharges ?? []).map((d) => ({ discountOrSurchargeId: d.discountOrSurchargeId, source: (d.source ?? 1) as 1 | 2 })),
     fixedPriceAmount: numberToText(input.fixedPriceAmount),
@@ -637,16 +655,22 @@ export function joinDateTime(date: string | null, time: string): string | null {
 }
 
 /** The Tevens trip's prefill when the user ticks "Create a trip" (design 61, easier than OpenTMS): only the empty fields
- * are filled, the user can change all of them. Trip type: the tenant's default (or only) type; departure: the first
- * stop of the first line, with its date and window start; arrival: the last stop of the last line. A template carries
- * day offsets instead of dates. */
-export function tripRequestWithDefaults(request: TripRequestValues, allLines: LineValues[], mode: EditorMode, defaultTripTypeId: string | null): TripRequestValues {
+ * are filled, the user can change all of them. Trip type: the tenant's default (or only) type. Then the type's defaults
+ * (`preset`, design 61 "Trip type defaults" 5: the type's departure/arrival win over the stops): carrier and contact,
+ * combination or vehicles, drivers, departure and arrival, departure time. What the type leaves empty comes from the
+ * stops: departure from the first stop of the first line, with its date and window start (the window start only when
+ * the type has no departure time), arrival from the last stop of the last line. A template carries day offsets instead
+ * of dates. */
+export function tripRequestWithDefaults(request: TripRequestValues, allLines: LineValues[], mode: EditorMode, defaultTripTypeId: string | null, preset: TripTypePreset | null = null): TripRequestValues {
   /* Only the freight items that go on the trip give its departure and arrival. */
   const lines = allLines.filter((line) => !request.excludedLineKeys.includes(line.key));
   const first = lines[0]?.stops[0];
   const last = lines.at(-1)?.stops.at(-1);
-  const next = { ...request };
+  const timeWasEmpty = !request.departureTime.trim();
+  let next = { ...request };
   if (!next.transportTripTypeId && defaultTripTypeId) next.transportTripTypeId = defaultTripTypeId;
+  /* Against "no type", the switch fills exactly the empty fields from the type. */
+  if (preset) next = switchTripTypePreset(next, NO_TRIP_TYPE_PRESET, preset);
   if (!next.departureRelation && first?.relationId) {
     next.departureRelation = relationOptionOf(first.relationId, first.relationName);
     next.departureAddressId = first.relationAddressId;
@@ -661,12 +685,27 @@ export function tripRequestWithDefaults(request: TripRequestValues, allLines: Li
         next.departureDate = first.date;
         if (!next.departureTime.trim() && first.windowFrom.trim()) next.departureTime = first.windowFrom.trim();
       }
-    } else if ((next.departureDayOffset.trim() === "" || next.departureDayOffset.trim() === "0") && !next.departureTime.trim()) {
+    } else if ((next.departureDayOffset.trim() === "" || next.departureDayOffset.trim() === "0") && timeWasEmpty) {
       next.departureDayOffset = first.dayOffset.trim() || "0";
-      if (first.windowFrom.trim()) next.departureTime = first.windowFrom.trim();
+      if (!next.departureTime.trim() && first.windowFrom.trim()) next.departureTime = first.windowFrom.trim();
     }
   }
   return next;
+}
+
+/** What `tripRequestWithDefaults` gives an empty request with this preset: the type's values with the stops' fallback,
+ * the value a field holds while the user has not changed it. */
+function effectiveTripRequestPreset(request: TripRequestValues, allLines: LineValues[], mode: EditorMode, preset: TripTypePreset): TripPresetFields {
+  const blank: TripRequestValues = { ...EMPTY_TRIP_REQUEST, enabled: true, excludedLineKeys: request.excludedLineKeys };
+  return presetFieldsOf(tripRequestWithDefaults(blank, allLines, mode, null, preset));
+}
+
+/** Another trip type chosen in the Tevens trip (design 61 "Trip type defaults" 5): the fields that still hold the
+ * previous type's preset (with the stops' fallback) take the new type's, the fields the user changed stay. The type id,
+ * the date or day offset and the other fields are the caller's. `previous` is `NO_TRIP_TYPE_PRESET` when the fields were
+ * filled from the stops only (no type known yet). */
+export function tripRequestForTypeChange(request: TripRequestValues, allLines: LineValues[], mode: EditorMode, previous: TripTypePreset, next: TripTypePreset): TripRequestValues {
+  return switchTripTypePreset(request, effectiveTripRequestPreset(request, allLines, mode, previous), effectiveTripRequestPreset(request, allLines, mode, next));
 }
 
 /** The trip type the Tevens trip starts with: the tenant's default type when it is among the active ones, else the only one. */
@@ -870,6 +909,7 @@ export function termsInputOf(terms: TermsValues): TransportOrderFinancialTermsIn
     vatPercentageId: terms.vatPercentageId,
     paymentTermDays: parseInteger(terms.paymentTermDays),
     priceListIds: terms.priceListIds,
+    chargedBases: orderedRevenueBases(terms.chargedBases),
     multipleMatches: terms.multipleMatches,
     discountsOrSurcharges: terms.discountsOrSurcharges,
     fixedPriceAmount: parseNumber(terms.fixedPriceAmount),

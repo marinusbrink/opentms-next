@@ -18,6 +18,8 @@ public class ViaDepotRuleRowDto
     public string? RelationName { get; set; }
     public Guid? GeographicalRegionId { get; set; }
     public string? GeographicalRegionName { get; set; }
+    /// <summary>The waypoint type of the order's stop that triggers the rule; null only on a rule stored before the field existed (any type).</summary>
+    public Guid? StopWaypointTypeId { get; set; }
     public Guid DepotRelationId { get; set; }
     public string? DepotRelationName { get; set; }
     public Guid DepotAddressId { get; set; }
@@ -37,6 +39,8 @@ public class ViaDepotRuleDto : ReferenceDataDetailDtoBase
     public string? RelationName { get; set; }
     public Guid? GeographicalRegionId { get; set; }
     public string? GeographicalRegionName { get; set; }
+    /// <summary>The waypoint type of the order's stop that triggers the rule; null only on a rule stored before the field existed (any type).</summary>
+    public Guid? StopWaypointTypeId { get; set; }
     public Guid DepotRelationId { get; set; }
     public string? DepotRelationName { get; set; }
     public Guid DepotAddressId { get; set; }
@@ -55,6 +59,10 @@ public class ViaDepotRuleCreateDto
     public Guid? RelationId { get; set; }
 
     public Guid? GeographicalRegionId { get; set; }
+
+    /// <summary>The waypoint type of the order's stop that triggers the rule (design 61 "Via-depot rules on the stop's waypoint type").</summary>
+    [Required]
+    public Guid? StopWaypointTypeId { get; set; }
 
     [Required]
     public Guid DepotRelationId { get; set; }

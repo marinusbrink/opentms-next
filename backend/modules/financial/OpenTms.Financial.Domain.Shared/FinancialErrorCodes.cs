@@ -42,8 +42,11 @@ public static class FinancialErrorCodes
     public const string InvalidValidity = Namespace + ":InvalidValidity";
     public const string AdjustmentRequired = Namespace + ":AdjustmentRequired";
 
+    /// <summary>A trip's manual cost line names a leg that is not on that trip, or not of the order line it names (design 61 point 4).</summary>
+    public const string LegNotOnTrip = Namespace + ":LegNotOnTrip";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
-    public static readonly string[] ConflictCodes = [FixedValidityRowChanged, PriceListInUse, RateLineConflict];
+    public static readonly string[] ConflictCodes = [FixedValidityRowChanged, PriceListInUse, RateLineConflict, LegNotOnTrip];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
     public static readonly string[] BadRequestCodes =

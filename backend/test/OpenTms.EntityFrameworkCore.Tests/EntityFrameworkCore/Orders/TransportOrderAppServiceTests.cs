@@ -12,8 +12,12 @@ using Volo.Abp.SettingManagement;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Data;
+using Volo.Abp.Authorization;
 using Volo.Abp.Domain.Entities;
+using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Validation;
 using Xunit;
+using RateLineKind = OpenTms.Financial.Tariffs.RateLineKind;
 
 namespace OpenTms.EntityFrameworkCore.Orders;
 
@@ -595,6 +599,195 @@ public class TransportOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         snapshot.Lines.Single().Stops[0].City.ShouldBe("Venlo");
         snapshot.Lines.Single().Stops[0].WindowFrom.ShouldNotBeNull("the time slot resolved in the address's zone");
         snapshot.Lines.Single().Stops[0].TimeZoneId.ShouldBe("Europe/Amsterdam");
+    }
+
+    // ── price preview of a new order (Marinus 2026-10-30: review prices before an order is saved) ─────────
+
+    private const decimal Price = TransportRunFixture.RevenueUnitPrice;
+
+    private static List<OpenTms.Financial.Tariffs.Published.PricePreviewLineDto> Priced(OpenTms.Financial.Tariffs.Published.PricePreviewDto preview)
+        => preview.Lines.Where(l => l.Kind == RateLineKind.PriceList).OrderBy(l => l.LinePosition).ToList();
+
+    [Fact]
+    public async Task New_order_preview_prices_the_posted_lines_with_the_customers_list_by_position_and_stores_nothing()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var rateLines = GetRequiredService<IRepository<OpenTms.Financial.Tariffs.RateLine, Guid>>();
+        var ordersBefore = (await Orders.GetListAsync(new TransportOrderListRequestDto())).TotalCount;
+        var rateLinesBefore = await rateLines.GetCountAsync();
+        var eventsBefore = Events.All.Count;
+        var requestsBefore = Requests.All.Count;
+
+        var preview = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+        {
+            CustomerRelationId = f.CustomerId,
+            OrderDate = Today,
+            FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [f.PriceListId] },
+            Lines = [Line(f, quantity: 2), Line(f, quantity: 3)]
+        });
+
+        /* Each unsaved item is named by its 1-based position; it has no id. */
+        var priced = Priced(preview);
+        priced.Count.ShouldBe(2);
+        priced.Select(l => l.LinePosition).ShouldBe(new int?[] { 1, 2 });
+        priced.Select(l => l.Quantity).ShouldBe([2m, 3m]);
+        priced.Select(l => l.Amount).ShouldBe([2m * Price, 3m * Price]);
+        priced.ShouldAllBe(l => l.PriceListId == f.PriceListId);
+        priced.ShouldAllBe(l => l.OrderLineId == null, "an unsaved item has no id (OrderLineId keeps its old behaviour)");
+        preview.LinesAmount.ShouldBe(5m * Price);
+        preview.TotalAmount.ShouldBe(5m * Price);
+        preview.CurrencyCode.ShouldBe("EUR");
+
+        /* Nothing is stored or published: no order, no rate line, no event, no derived-value request. */
+        (await Orders.GetListAsync(new TransportOrderListRequestDto())).TotalCount.ShouldBe(ordersBefore);
+        (await rateLines.GetCountAsync()).ShouldBe(rateLinesBefore);
+        Events.All.Count.ShouldBe(eventsBefore);
+        Requests.All.Count.ShouldBe(requestsBefore);
+
+        /* A missing order date is today: the same answer. */
+        var undated = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+        {
+            CustomerRelationId = f.CustomerId,
+            FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [f.PriceListId] },
+            Lines = [Line(f, quantity: 2), Line(f, quantity: 3)]
+        });
+        undated.TotalAmount.ShouldBe(5m * Price);
+
+        /* No lines yet: an empty preview, not an error. */
+        var empty = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = f.CustomerId });
+        empty.Lines.ShouldBeEmpty();
+        empty.TotalAmount.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task New_order_preview_without_terms_uses_the_customers_defaults_and_posted_terms_override_them()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+
+        /* No terms posted: the customer's financial defaults (its revenue list), as Create copies them. */
+        var defaults = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = f.CustomerId, Lines = [Line(f, quantity: 2)] });
+        var line = defaults.Lines.ShouldHaveSingleItem();
+        line.PriceListId.ShouldBe(f.PriceListId);
+        line.LinePosition.ShouldBe(1);
+        defaults.TotalAmount.ShouldBe(2m * Price);
+
+        /* A customer without financial settings: the module's default terms, so no list and no price. */
+        var bare = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = f.ShopId, Lines = [Line(f, quantity: 2)] });
+        bare.Lines.ShouldNotContain(l => l.Kind == RateLineKind.PriceList);
+        bare.TotalAmount.ShouldBe(0m);
+
+        /* Posted terms without a list override the customer's list. */
+        var noList = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+        {
+            CustomerRelationId = f.CustomerId, FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR" }, Lines = [Line(f, quantity: 2)]
+        });
+        noList.Lines.ShouldNotContain(l => l.Kind == RateLineKind.PriceList);
+        noList.TotalAmount.ShouldBe(0m);
+
+        /* A posted fixed price overrides: an order-level line, named by no position and no item. */
+        var fixedPrice = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+        {
+            CustomerRelationId = f.CustomerId,
+            FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [f.PriceListId], FixedPriceAmount = 500m },
+            Lines = [Line(f, quantity: 2), Line(f, quantity: 3)]
+        });
+        fixedPrice.TotalAmount.ShouldBe(500m, "the posted fixed price overrides the list");
+        var orderLevel = fixedPrice.Lines.Single(l => l.Kind == RateLineKind.FixedPrice);
+        orderLevel.Amount.ShouldBe(500m);
+        orderLevel.LinePosition.ShouldBeNull("an order-level line belongs to no freight item");
+        orderLevel.OrderLineId.ShouldBeNull();
+        Priced(fixedPrice).Select(l => l.LinePosition).ShouldBe(new int?[] { 1, 2 }, "the items' list lines still name their positions");
+    }
+
+    [Fact]
+    public async Task The_stored_order_preview_names_each_item_by_its_position_and_a_saved_item_also_by_its_id()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+        var order = await Orders.CreateAsync(CreateDto(f, lines: 2));
+        var ids = order.Lines.OrderBy(l => l.Position).Select(l => l.Id).ToList();
+
+        /* The stored state: both saved items, by position and by id. */
+        var stored = Priced(await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto()));
+        stored.Select(l => l.LinePosition).ShouldBe(new int?[] { 1, 2 });
+        stored.Select(l => l.OrderLineId).ShouldBe(ids);
+
+        /* An item added on the screen and not saved yet: its position, no id; the saved ones keep theirs. */
+        var posted = LinesOf(order);
+        posted.Add(Line(f, quantity: 5));
+        var added = Priced(await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto { Lines = posted }));
+        added.Select(l => l.LinePosition).ShouldBe(new int?[] { 1, 2, 3 });
+        added.Select(l => l.OrderLineId).ShouldBe([ids[0], ids[1], null]);
+        added[2].Quantity.ShouldBe(5m);
+
+        /* The first item removed on the screen: the second moves up to position 1 and keeps its id. */
+        var removed = Priced(await Orders.PreviewPricesAsync(order.Id, new PricePreviewRequestDto { Lines = [LinesOf(order)[1]] })).ShouldHaveSingleItem();
+        removed.LinePosition.ShouldBe(1);
+        removed.OrderLineId.ShouldBe(ids[1]);
+    }
+
+    [Fact]
+    public async Task New_order_preview_needs_a_customer_and_a_signed_in_user()
+    {
+        using var _ = InTenantA();
+        var f = await FixtureAsync();
+
+        await Should.ThrowAsync<AbpValidationException>(() => Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { Lines = [Line(f)] }));
+
+        /* The permission itself is read by reflection (OpenTms.Application.Tests, NewOrderPricePreviewContractTests): the
+         * SQLite tests grant every policy to a signed-in user, so here only the anonymous caller can be refused. */
+        using (AsBackgroundProcess())
+        {
+            await Should.ThrowAsync<AbpAuthorizationException>(() => Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = f.CustomerId, Lines = [Line(f)] }));
+        }
+    }
+
+    [Fact]
+    public async Task Another_tenant_cannot_price_a_new_order_with_this_tenants_customer_or_price_list()
+    {
+        TransportRunWorld a;
+        using (InTenantA())
+        {
+            a = await FixtureAsync();
+            (await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = a.CustomerId, Lines = [Line(a, quantity: 2)] }))
+                .TotalAmount.ShouldBe(2m * Price, "control: A's customer prices with A's list in A");
+        }
+
+        using (InTenantB())
+        {
+            var b = await FixtureAsync();
+            /* Control: the preview works in B with B's own world, so an empty answer below is the isolation, not a broken preview. */
+            (await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = b.CustomerId, Lines = [Line(b, quantity: 2)] }))
+                .TotalAmount.ShouldBe(2m * Price);
+
+            /* A's customer, A's list and A's stops posted: the lane (A's depot → A's shop) would match if A's list resolved. */
+            var posted = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+            {
+                CustomerRelationId = a.CustomerId,
+                FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [a.PriceListId] },
+                Lines = [Line(a, quantity: 2)]
+            });
+            posted.Lines.ShouldNotContain(l => l.PriceListId == a.PriceListId);
+            posted.Lines.ShouldNotContain(l => l.Kind == RateLineKind.PriceList);
+            posted.TotalAmount.ShouldBe(0m);
+
+            /* A's customer without terms: A's customer settings (with A's list) do not resolve in B. */
+            var defaults = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto { CustomerRelationId = a.CustomerId, Lines = [Line(a, quantity: 2)] });
+            defaults.Lines.ShouldBeEmpty();
+            defaults.TotalAmount.ShouldBe(0m);
+
+            /* A's list next to B's own list on B's stops: only B's list prices. */
+            var mixed = await Orders.PreviewNewOrderPricesAsync(new NewOrderPricePreviewRequestDto
+            {
+                CustomerRelationId = b.CustomerId,
+                FinancialTerms = new TransportOrderFinancialTermsInputDto { CurrencyCode = "EUR", PriceListIds = [a.PriceListId, b.PriceListId] },
+                Lines = [Line(b, quantity: 2)]
+            });
+            mixed.Lines.ShouldNotContain(l => l.PriceListId == a.PriceListId);
+            Priced(mixed).ShouldHaveSingleItem().PriceListId.ShouldBe(b.PriceListId);
+        }
     }
 
     [Fact]

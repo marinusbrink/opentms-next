@@ -178,14 +178,16 @@ describe("TripAttributeDefinitionEditor", () => {
 describe("ViaDepotRuleEditor", () => {
   it("asks for a relation or a region by scope, lists the depot's addresses and posts the rule", async () => {
     renderWith(<ViaDepotRuleEditor mode="create" readOnly={false} open onClose={noop} onSaved={noop} />);
-    /* The arrival and the departure picker both list the waypoint types. */
-    await waitFor(() => expect(within(editorDialog()).getAllByRole("option", { name: "Unload" })).toHaveLength(2));
+    /* The stop's activity, the arrival and the departure picker all list the waypoint types. */
+    await waitFor(() => expect(within(editorDialog()).getAllByRole("option", { name: "Unload" })).toHaveLength(3));
     expect(queryFieldIn(GENERAL, "PlanningExecution:Relation")).not.toBeNull();
     expect(queryFieldIn(GENERAL, "PlanningExecution:GeographicalRegion")).toBeNull();
 
     fireEvent.change(fieldIn(GENERAL, "PlanningExecution:Scope"), { target: { value: "3" } });
     expect(queryFieldIn(GENERAL, "PlanningExecution:Relation")).toBeNull();
     fireEvent.change(fieldIn(GENERAL, "PlanningExecution:GeographicalRegion"), { target: { value: "r-1" } });
+    /* Design 61 "Via-depot rules on the stop's waypoint type": the rule applies to the region's unloading stops. */
+    fireEvent.change(fieldIn(GENERAL, "PlanningExecution:StopWaypointType"), { target: { value: "w-unload" } });
 
     /* No depot yet: the address picker waits for it. */
     expect(fieldIn(GENERAL, "PlanningExecution:DepotAddress")).toBeDisabled();
@@ -203,6 +205,7 @@ describe("ViaDepotRuleEditor", () => {
       scope: 3,
       relationId: null,
       geographicalRegionId: "r-1",
+      stopWaypointTypeId: "w-unload",
       depotRelationId: "rel-2",
       depotAddressId: "a-1",
       arrivalWaypointTypeId: "w-unload",
@@ -214,12 +217,34 @@ describe("ViaDepotRuleEditor", () => {
     });
   });
 
-  it("blocks saving without the depot, its address and the arrival activity", async () => {
+  it("blocks saving without the stop's activity, the depot, its address and the arrival activity", async () => {
     renderWith(<ViaDepotRuleEditor mode="create" readOnly={false} open onClose={noop} onSaved={noop} />);
     fireEvent.change(fieldIn(GENERAL, "PlanningExecution:Relation"), { target: { value: "rel-1" } });
     await submitEditor();
     expect(POST).not.toHaveBeenCalled();
-    expect(within(panel(GENERAL)).getAllByText("MasterData:Required")).toHaveLength(3);
+    expect(within(panel(GENERAL)).getAllByText("MasterData:Required")).toHaveLength(4);
+  });
+
+  it("a rule stored without the stop's activity opens with it empty and needs it before it saves", async () => {
+    const stored = {
+      id: "v1", scope: 1, relationId: "rel-1", relationName: "Shop", geographicalRegionId: null, stopWaypointTypeId: null, depotRelationId: "rel-2", depotRelationName: "Depot",
+      depotAddressId: "a-1", depotAddressCity: "Tilburg", arrivalWaypointTypeId: "w-unload", departureWaypointTypeId: null, overnight: false, position: 1, isArchived: false,
+      description: null, concurrencyStamp: "stamp-v1", creationTime: "2026-10-25T10:00:00Z",
+    };
+    const base = GET.getMockImplementation()!;
+    GET.mockImplementation(async (path, init) => (path === "/api/planning/via-depot-rule/{id}" ? ok(stored) : base(path, init)));
+    renderWith(<ViaDepotRuleEditor mode="edit" id="v1" readOnly={false} open onClose={noop} onSaved={noop} />);
+    await waitFor(() => expect(fieldIn(GENERAL, "PlanningExecution:ArrivalWaypointType")).toHaveValue("w-unload"));
+    expect(fieldIn(GENERAL, "PlanningExecution:StopWaypointType")).toHaveValue("");
+
+    await submitEditor();
+    expect(PUT).not.toHaveBeenCalled();
+    expect(within(panel(GENERAL)).getAllByText("MasterData:Required")).toHaveLength(1);
+
+    fireEvent.change(fieldIn(GENERAL, "PlanningExecution:StopWaypointType"), { target: { value: "w-unload" } });
+    await submitEditor();
+    await waitFor(() => expect(PUT).toHaveBeenCalledWith("/api/planning/via-depot-rule/{id}", expect.anything()));
+    expect(PUT.mock.calls[0][1]!.body).toMatchObject({ stopWaypointTypeId: "w-unload", arrivalWaypointTypeId: "w-unload", concurrencyStamp: "stamp-v1" });
   });
 });
 

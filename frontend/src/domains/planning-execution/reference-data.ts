@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
@@ -51,4 +52,14 @@ export function useSetDefaultTransportTripType() {
       if (error) throw error;
     },
   });
+}
+
+/** The trip type details already loaded (`transportTripTypes.useDetail`), by id: a screen that presets a trip from its
+ * type (design 61 "Trip type defaults" 5) applies a cached type at once and waits for the detail otherwise. */
+export function useCachedTransportTripType() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (id: string | null | undefined): TransportTripTypeDto | undefined => (id ? queryClient.getQueryData<TransportTripTypeDto>(referenceDataQueryKey("transportTripTypes", "detail", id)) : undefined),
+    [queryClient],
+  );
 }

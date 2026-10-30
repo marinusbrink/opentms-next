@@ -1,21 +1,22 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { TripRequestWarningAlert } from "@/apps/transport/components/TripRequestWarning";
-import { AddressField, ContactPersonField, RelationField } from "@/apps/transport/components/RelationFields";
-import { defaultTripTypeIdOf, tripRequestWithDefaults, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";
+import { AddressField, ContactPersonField, RelationField } from "@/domains/master-data/components/RelationFields";
+import { DriversField, VehicleCombinationField, VehiclesField } from "@/domains/master-data/components/ResourceFields";
+import { defaultTripTypeIdOf, tripRequestForTypeChange, tripRequestWithDefaults, type EditorMode, type OrderValues, type TripRequestValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
-import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
+import type { DriverOption, VehicleOption } from "@/domains/master-data/entities";
 import type { TransportOrderDto } from "@/domains/orders/transport-orders";
-import { transportTripTypes, useDefaultTransportTripTypeId } from "@/domains/planning-execution/reference-data";
+import { transportTripTypes, useCachedTransportTripType, useDefaultTransportTripTypeId, type TransportTripTypeDto } from "@/domains/planning-execution/reference-data";
+import { MAX_TRIP_DRIVERS, MAX_TRIP_VEHICLES, NO_TRIP_TYPE_PRESET, mergeOptions, optionsOfIds, tripTypePresetOf, type TripTypePreset } from "@/domains/planning-execution/trip-type-presets";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
@@ -24,9 +25,11 @@ import { useOpenRecord } from "@/lib/use-open-record";
  * this order", then trip type, departure/arrival (relation + address), planned departure, which freight items go on
  * the trip (a checkbox per item, default all: only their legs are put on the trip on Confirm, the others stay
  * unplanned for the Planboard; the trip's stops follow from its legs), and an Advanced disclosure for carrier,
- * vehicles or combination, drivers and the agreed purchase price. Ticking it prefills the empty fields from the items
- * on the trip. After Confirm the section is read-only and shows the created trip as a link. A failed submit with an
- * error in the request opens the tab (UI-FORM-006). */
+ * vehicles or combination, drivers and the agreed purchase price. Ticking it prefills the empty fields from the trip
+ * type's defaults and, for what the type leaves empty, from the items on the trip; choosing another type switches the
+ * fields that still hold the previous type's preset (design 61 "Trip type defaults" 5). After Confirm the section is
+ * read-only and shows the created trip as a link. A failed submit with an error in the request opens the tab
+ * (UI-FORM-006). */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
@@ -56,19 +59,74 @@ export function TripRequestSection({ form, mode, order }: TripRequestSectionProp
   const typeLookup = transportTripTypes.useLookup();
   const typeOptions = useMemo(() => toOptions(typeLookup.data), [typeLookup.data]);
   const defaultType = useDefaultTransportTripTypeId(!readOnly);
-  const combinationLookup = vehicleCombinations.useLookup(advanced);
-  const combinationOptions = useMemo(() => toOptions(combinationLookup.data), [combinationLookup.data]);
-  const vehiclePage = useMemo(() => vehicleLookupPage(), []);
+  const defaultTypeId = defaultTripTypeIdOf(defaultType.data, (typeLookup.data ?? []).map((type) => type.id ?? "").filter(Boolean));
 
   const set = (change: Partial<OrderValues["tripRequest"]>) => {
     form.set("tripRequest", { ...request, ...change });
     form.blur("tripRequest");
   };
-  /* Ticking "Create a trip" prefills the empty fields from the order (design 61 "Tevens trip": easier than OpenTMS). */
+
+  /* The trip type's defaults (design 61 "Trip type defaults" 5). The detail of the chosen type, or before ticking of
+   * the type ticking will choose, so a tick presets at once. `applied` is the preset the fields were last given: a
+   * switch compares each field with it. A stored request counts as holding its type's preset; a type whose detail is
+   * not loaded yet is applied when it arrives. */
+  const detailTypeId = readOnly ? null : request.enabled ? request.transportTripTypeId : (request.transportTripTypeId ?? defaultTypeId);
+  const typeDetail = transportTripTypes.useDetail(detailTypeId ?? undefined);
+  const cachedType = useCachedTransportTripType();
+  const applied = useRef<{ typeId: string | null; preset: TripTypePreset; settled: boolean; applyOnLoad: boolean }>({
+    typeId: request.transportTripTypeId,
+    preset: NO_TRIP_TYPE_PRESET,
+    settled: false,
+    applyOnLoad: false,
+  });
+  /* The preset's records show with their names; a preset carrier, vehicle or driver opens Advanced so it is seen. */
+  const showPreset = (preset: TripTypePreset, next: TripRequestValues) => {
+    if (preset.vehicles.length > 0) setVehicles((known) => mergeOptions(known, preset.vehicles));
+    if (preset.drivers.length > 0) setDrivers((known) => mergeOptions(known, preset.drivers));
+    if (next.carrierRelation != null || next.vehicleCombinationId != null || next.vehicleIds.length > 0 || next.driverIds.length > 0) setAdvanced(true);
+  };
+  /* Another type's preset; a switch that removes the carrier takes its agreed price with it, as clearing the carrier does. */
+  const switchedType = (before: TripRequestValues, typeId: string | null, lines: OrderValues["lines"], previous: TripTypePreset, preset: TripTypePreset): TripRequestValues => {
+    const next = tripRequestForTypeChange({ ...before, transportTripTypeId: typeId }, lines, mode, previous, preset);
+    return next.carrierRelation == null && before.carrierRelation != null ? { ...next, agreedPurchaseAmount: "", agreedPurchaseCurrencyCode: "" } : next;
+  };
+  useEffect(() => {
+    const current = applied.current;
+    if (current.settled || !typeDetail.data || !detailTypeId || current.typeId !== detailTypeId) return;
+    const preset = tripTypePresetOf(typeDetail.data);
+    applied.current = { typeId: current.typeId, preset, settled: true, applyOnLoad: false };
+    if (!current.applyOnLoad || !request.enabled) return;
+    const next = switchedType(request, request.transportTripTypeId, form.values.lines, current.preset, preset);
+    showPreset(preset, next);
+    form.set("tripRequest", next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeDetail.data, detailTypeId]);
+
+  const chooseType = (typeId: string | null) => {
+    const previous = applied.current.preset;
+    const cached = typeId ? cachedType(typeId) : undefined;
+    if (!typeId || !cached) {
+      applied.current = { typeId, preset: previous, settled: !typeId, applyOnLoad: typeId != null };
+      return set({ transportTripTypeId: typeId });
+    }
+    const preset = tripTypePresetOf(cached);
+    applied.current = { typeId, preset, settled: true, applyOnLoad: false };
+    const next = switchedType(request, typeId, form.values.lines, previous, preset);
+    showPreset(preset, next);
+    form.set("tripRequest", next);
+    form.blur("tripRequest");
+  };
+  /* Ticking "Create a trip" prefills the empty fields from the type and the order (design 61 "Tevens trip": easier than
+   * OpenTMS; "Trip type defaults" 5: the type's departure/arrival win). */
   const enable = (enabled: boolean) => {
     if (!enabled) return set({ enabled: false });
-    const activeTypeIds = (typeLookup.data ?? []).map((type) => type.id ?? "").filter(Boolean);
-    set(tripRequestWithDefaults({ ...request, enabled: true }, form.values.lines, mode, defaultTripTypeIdOf(defaultType.data, activeTypeIds)));
+    const typeId = request.transportTripTypeId ?? defaultTypeId;
+    const cached = cachedType(typeId);
+    const preset = cached ? tripTypePresetOf(cached) : null;
+    applied.current = { typeId, preset: preset ?? NO_TRIP_TYPE_PRESET, settled: preset != null || typeId == null, applyOnLoad: preset == null && typeId != null };
+    const next = tripRequestWithDefaults({ ...request, enabled: true }, form.values.lines, mode, defaultTypeId, preset);
+    if (preset) showPreset(preset, next);
+    set(next);
   };
   /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved lands in the latest request. */
   const inPlace = useCreateInPlace();
@@ -76,7 +134,7 @@ export function TripRequestSection({ form, mode, order }: TripRequestSectionProp
     form.update((values) => ({ ...values, tripRequest: { ...values.tripRequest, ...change(values.tripRequest) } }));
   const requestForm = {
     values: request,
-    set: (field: string, value: unknown) => set({ [field]: value }),
+    set: (field: string, value: unknown) => (field === "transportTripTypeId" ? chooseType((value as string | null) ?? null) : set({ [field]: value })),
     update: () => undefined,
 /* The section shows its one message above the fields (UI-FB-004: exactly once), not under each field. */
     error: () => undefined,
@@ -113,7 +171,15 @@ export function TripRequestSection({ form, mode, order }: TripRequestSectionProp
             labelKey="Orders:TransportTripType"
             required
             options={typeOptions}
-            {...inPlace.offer("TransportTripType", readOnly, (r) => setLatest(() => ({ transportTripTypeId: r.id })))}
+            {...inPlace.offer<TransportTripTypeDto>("TransportTripType", readOnly, (r) => {
+              /* The new type's defaults preset the trip like a chosen type's (its editor returns the detail). */
+              const previous = applied.current.preset;
+              const preset = tripTypePresetOf(r.dto);
+              applied.current = { typeId: r.id, preset, settled: true, applyOnLoad: false };
+              setVehicles((known) => mergeOptions(known, preset.vehicles));
+              setDrivers((known) => mergeOptions(known, preset.drivers));
+              form.update((values) => ({ ...values, tripRequest: switchedType(values.tripRequest, r.id, values.lines, previous, preset) }));
+            })}
           />
           {mode === "order" ? (
             <FormField label={t("Orders:PlannedDeparture")} htmlFor={form.id("trip-departureDate")} required floating="always">
@@ -167,50 +233,45 @@ export function TripRequestSection({ form, mode, order }: TripRequestSectionProp
                 disabled={readOnly}
               />
               <ContactPersonField id={form.id("trip-carrierContact")} labelKey="PlanningExecution:CarrierContactPerson" relationId={request.carrierRelation?.id} value={request.carrierContactPersonId} onChange={(next) => set({ carrierContactPersonId: next })} disabled={readOnly} />
-              <ComboField
-                form={requestForm}
-                field="vehicleCombinationId"
-                labelKey="Orders:VehicleCombination"
-                options={combinationOptions}
-                disabled={request.vehicleIds.length > 0}
-                {...inPlace.offer("VehicleCombination", readOnly || request.vehicleIds.length > 0, (r) => setLatest(() => ({ vehicleCombinationId: r.id, vehicleIds: [] })))}
+              <VehicleCombinationField
+                id={form.id("trip-vehicleCombinationId")}
+                label={t("Orders:VehicleCombination")}
+                value={request.vehicleCombinationId}
+                onChange={(next) => set({ vehicleCombinationId: next, ...(next ? { vehicleIds: [] } : {}) })}
+                onCreated={(id) => setLatest(() => ({ vehicleCombinationId: id, vehicleIds: [] }))}
+                stored={{ id: request.vehicleCombinationId, name: typeDetail.data?.defaultVehicleCombinationId === request.vehicleCombinationId ? typeDetail.data?.defaultVehicleCombinationName : null }}
+                disabled={readOnly || request.vehicleIds.length > 0}
               />
-              <FormField label={t("Orders:Vehicles")} htmlFor={form.id("trip-vehicles")} floating="always">
-                <EntityLookup<VehicleOption>
-                  id={form.id("trip-vehicles")}
-                  multiple
-                  value={request.vehicleIds.map((id) => vehicles.find((v) => v.id === id) ?? { id, name: id, licencePlate: null, kind: 1, vehicleTypeName: null })}
-                  onChange={(next) => {
-                    setVehicles(next);
-                    set({ vehicleIds: next.slice(0, 3).map((v) => v.id), vehicleCombinationId: next.length > 0 ? null : request.vehicleCombinationId });
-                  }}
-                  fetchPage={vehiclePage}
-                  getLabel={(v) => v.name}
-                  disabled={readOnly || request.vehicleCombinationId != null}
-                  {...inPlace.offer<VehicleDto>("Vehicle", readOnly || request.vehicleCombinationId != null || request.vehicleIds.length >= 3, (r) => {
-                    setVehicles((known) => [...known.filter((v) => v.id !== r.id), { id: r.id, name: r.name, licencePlate: r.dto.licencePlate ?? null, kind: r.dto.kind ?? 1, vehicleTypeName: r.dto.vehicleTypeName ?? null }]);
-                    setLatest((current) => ({ vehicleIds: withId(current.vehicleIds, r.id).slice(0, 3), vehicleCombinationId: null }));
-                  })}
-                />
-              </FormField>
-              <FormField label={t("Orders:Drivers")} htmlFor={form.id("trip-drivers")} floating="always">
-                <EntityLookup<DriverOption>
-                  id={form.id("trip-drivers")}
-                  multiple
-                  value={request.driverIds.map((id) => drivers.find((d) => d.id === id) ?? { id, name: id, code: "" })}
-                  onChange={(next) => {
-                    setDrivers(next);
-                    set({ driverIds: next.slice(0, 3).map((d) => d.id) });
-                  }}
-                  fetchPage={driverLookupPage}
-                  getLabel={(d) => d.name}
-                  disabled={readOnly}
-                  {...inPlace.offer("Driver", readOnly || request.driverIds.length >= 3, (r) => {
-                    setDrivers((known) => [...known.filter((d) => d.id !== r.id), { id: r.id, name: r.name, code: r.code ?? "" }]);
-                    setLatest((current) => ({ driverIds: withId(current.driverIds, r.id).slice(0, 3) }));
-                  })}
-                />
-              </FormField>
+              <VehiclesField
+                id={form.id("trip-vehicles")}
+                label={t("Orders:Vehicles")}
+                value={optionsOfIds(request.vehicleIds, vehicles, (id) => ({ id, name: id, licencePlate: null, kind: 1, vehicleTypeName: null }))}
+                onChange={(next) => {
+                  setVehicles((known) => mergeOptions(known, next));
+                  set({ vehicleIds: next.map((v) => v.id), vehicleCombinationId: next.length > 0 ? null : request.vehicleCombinationId });
+                }}
+                onAdd={(vehicle) => {
+                  setVehicles((known) => mergeOptions(known, [vehicle]));
+                  setLatest((current) => ({ vehicleIds: withId(current.vehicleIds, vehicle.id).slice(0, MAX_TRIP_VEHICLES), vehicleCombinationId: null }));
+                }}
+                max={MAX_TRIP_VEHICLES}
+                disabled={readOnly || request.vehicleCombinationId != null}
+              />
+              <DriversField
+                id={form.id("trip-drivers")}
+                label={t("Orders:Drivers")}
+                value={optionsOfIds(request.driverIds, drivers, (id) => ({ id, name: id, code: "" }))}
+                onChange={(next) => {
+                  setDrivers((known) => mergeOptions(known, next));
+                  set({ driverIds: next.map((d) => d.id) });
+                }}
+                onAdd={(driver) => {
+                  setDrivers((known) => mergeOptions(known, [driver]));
+                  setLatest((current) => ({ driverIds: withId(current.driverIds, driver.id).slice(0, MAX_TRIP_DRIVERS) }));
+                }}
+                max={MAX_TRIP_DRIVERS}
+                disabled={readOnly}
+              />
               <NumberField
                 form={requestForm}
                 field="agreedPurchaseAmount"

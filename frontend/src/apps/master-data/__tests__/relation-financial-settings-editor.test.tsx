@@ -25,6 +25,7 @@ vi.mock("@/components/ui/select", async () => {
 });
 vi.mock("@/components/ui/reference-combobox", async () => ({ ReferenceCombobox: (await import("./run2-test-mocks")).MockReferenceCombobox }));
 vi.mock("@/components/ui/entity-lookup", async () => ({ EntityLookup: (await import("./transport-test-mocks")).MockEntityLookup }));
+vi.mock("@/components/ui/multi-select", async () => ({ MultiSelect: (await import("./run2-test-mocks")).MockMultiSelect }));
 vi.mock("@/components/ui/lines-grid-lazy", async () => ({ LazyLinesGrid: (await import("./transport-test-mocks")).MockLinesGridFn }));
 vi.mock("@/components/ui/date-picker", async () => ({
   DatePicker: (await import("./transport-test-mocks")).MockDatePicker,
@@ -67,16 +68,18 @@ const GENERAL = "General";
 const LISTS = "Financial:PriceLists";
 const DISCOUNTS = "Financial:DefaultDiscountsOrSurcharges";
 
+/* Design 61 "Order page review" 3: the revenue lists are looked up per basis (R1 by weight, R2 by quantity). */
 const REVENUE_LISTS = [
-  { id: "pl-r1", code: "R1", name: "Benelux" },
-  { id: "pl-r2", code: "R2", name: "Germany" },
+  { id: "pl-r1", code: "R1", name: "Benelux", basis: 4 },
+  { id: "pl-r2", code: "R2", name: "Germany", basis: 1 },
 ];
 const COST_LISTS = [{ id: "pl-c1", code: "C1", name: "Carrier X" }];
 const DISCOUNT_ITEMS = [{ id: "ds-1", code: "FUEL", name: "Fuel surcharge" }];
 
 const EXISTING = {
   id: "s1", relationId: "rel-1", relationName: "Acme",
-  revenuePriceLists: [{ priceListId: "pl-r2", code: "R2", name: "Germany", position: 1 }],
+  revenuePriceLists: [{ priceListId: "pl-r2", code: "R2", name: "Germany", position: 1, basis: 1 }],
+  revenueChargedBases: [3],
   costPriceLists: [],
   revenueMultipleMatches: 2, costMultipleMatches: 1,
   discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", name: "Fuel surcharge", validFrom: "2026-01-01", validTill: null }],
@@ -90,8 +93,11 @@ beforeEach(() => {
   settingsByRelation = null;
   GET.mockReset().mockImplementation(async (path, init) => {
     switch (path) {
-      case "/api/financial/price-list/lookup":
-        return ok(init?.params?.query?.side === 1 ? REVENUE_LISTS : COST_LISTS);
+      case "/api/financial/price-list/lookup": {
+        const query = init?.params?.query ?? {};
+        if (query.side !== 1) return ok(COST_LISTS);
+        return ok(REVENUE_LISTS.filter((l) => query.basis == null || l.basis === query.basis).map(({ basis: _basis, ...l }) => l));
+      }
       case "/api/financial/discount-or-surcharge/lookup":
         return ok(DISCOUNT_ITEMS);
       case "/api/financial/relation-financial-settings/by-relation/{relationId}":
@@ -112,6 +118,15 @@ const bodyOf = (mock: Mock<ClientCall>) => mock.mock.calls[0][1]!.body as Record
 const lines = (tabLabel: string) => Array.from(panel(tabLabel).querySelectorAll<HTMLElement>("[data-slot=line]"));
 const matchesSelects = () => within(panel(LISTS)).getAllByLabelText(/^Financial:MultipleMatches(?![A-Za-z.])/, { selector: "select" }) as HTMLSelectElement[];
 const noop = () => undefined;
+/* A row of the block "Price calculation" (PriceListsPerBasis, a row per charged basis): its lists and its remove button;
+ * "Add price basis" adds one. */
+const basisRow = (basis: number) => panel(LISTS).querySelector<HTMLElement>(`[data-slot=charged-basis-row][data-basis="${basis}"]`)!;
+const shownBases = () => Array.from(panel(LISTS).querySelectorAll<HTMLElement>("[data-slot=charged-basis-row]")).map((r) => Number(r.dataset.basis));
+const removeBasis = (basis: number, label: string) => within(basisRow(basis)).getByRole("button", { name: `Financial:RemoveChargedBasis: ${label}` });
+const addBasis = async (label: string) => {
+  fireEvent.click(within(panel(LISTS)).getByRole("button", { name: /Financial:AddChargedBasis/ }));
+  fireEvent.click(await screen.findByRole("menuitem", { name: label }));
+};
 
 describe("RelationFinancialSettingsEditor — create", () => {
   it("needs a relation, then upserts by relation without a stamp with the lists in order and the discounts", async () => {
@@ -128,14 +143,21 @@ describe("RelationFinancialSettingsEditor — create", () => {
     tab(LISTS);
     /* Two "several matching lists" rules: the revenue side's first, the cost side's second. */
     fireEvent.change(matchesSelects()[0], { target: { value: "3" } });
-    const [addRevenue, addCost] = within(panel(LISTS)).getAllByRole("button", { name: /Financial:AddPriceList/ });
-    fireEvent.click(addRevenue);
-    fireEvent.click(addRevenue);
-    fireEvent.click(addCost);
-    const revenueInputs = within(panel(LISTS)).getAllByLabelText(/^Financial:PriceList \d$/);
-    fireEvent.change(revenueInputs[0], { target: { value: "pl-r2" } });
-    fireEvent.change(revenueInputs[1], { target: { value: "pl-r1" } });
-    fireEvent.change(revenueInputs[2], { target: { value: "pl-c1" } });
+    /* The revenue lists per basis: none yet; R2 in an added quantity row, R1 in an added weight row, distance added
+     * without a list. */
+    expect(shownBases()).toEqual([]);
+    await addBasis("Financial:ChargedBasis.LineQuantity");
+    await waitFor(() => expect(within(basisRow(1)).getByLabelText("R2 Germany")).toBeInTheDocument());
+    fireEvent.click(within(basisRow(1)).getByLabelText("R2 Germany"));
+    await addBasis("Financial:ChargedBasis.WeightKg");
+    await waitFor(() => expect(within(basisRow(4)).getByLabelText("R1 Benelux")).toBeInTheDocument());
+    fireEvent.click(within(basisRow(4)).getByLabelText("R1 Benelux"));
+    await addBasis("Financial:ChargedBasis.DistanceKm");
+    expect(shownBases()).toEqual([1, 4, 9]);
+    expect(within(basisRow(1)).queryByLabelText("R1 Benelux")).toBeNull();
+    /* The cost side keeps its plain list. */
+    fireEvent.click(within(panel(LISTS)).getByRole("button", { name: /Financial:AddPriceList/ }));
+    fireEvent.change(within(panel(LISTS)).getAllByLabelText(/^Financial:PriceList \d$/)[0], { target: { value: "pl-c1" } });
 
     tab(DISCOUNTS);
     fireEvent.click(within(panel(DISCOUNTS)).getByRole("button", { name: /Financial:AddDiscountOrSurcharge/ }));
@@ -147,6 +169,7 @@ describe("RelationFinancialSettingsEditor — create", () => {
     expect(POST.mock.calls[0][1]!.params).toEqual({ path: { relationId: "rel-1" } });
     expect(bodyOf(POST)).toEqual({
       revenuePriceListIds: ["pl-r2", "pl-r1"],
+      revenueChargedBases: [1, 4, 9],
       costPriceListIds: ["pl-c1"],
       revenueMultipleMatches: 3,
       costMultipleMatches: 1,
@@ -185,12 +208,16 @@ describe("RelationFinancialSettingsEditor — create", () => {
     await waitFor(() => expect(fieldIn(GENERAL, "Financial:PaymentTermDays").value).toBe("30"));
     expect(screen.getByText("Financial:SettingsExistForRelationHint")).toBeInTheDocument();
     tab(LISTS);
-    expect(lines(LISTS)).toHaveLength(1);
+    /* No cost list; the revenue lists are rows per basis, not lines. */
+    expect(lines(LISTS)).toHaveLength(0);
     expect(matchesSelects()[0].value).toBe("2");
+    /* The stored list in its basis row, the stored colli basis as a row without a list, no other rows. */
+    await waitFor(() => expect(within(basisRow(1)).getByLabelText("R2 Germany")).toBeChecked());
+    expect(shownBases()).toEqual([1, 3]);
 
     await submitEditor();
     await waitFor(() => expect(POST).toHaveBeenCalled());
-    expect(bodyOf(POST)).toMatchObject({ revenuePriceListIds: ["pl-r2"], revenueMultipleMatches: 2, paymentTermDays: 30, concurrencyStamp: "stamp-s1" });
+    expect(bodyOf(POST)).toMatchObject({ revenuePriceListIds: ["pl-r2"], revenueChargedBases: [3], revenueMultipleMatches: 2, paymentTermDays: 30, concurrencyStamp: "stamp-s1" });
   });
 });
 
@@ -223,5 +250,7 @@ describe("RelationFinancialSettingsEditor — edit", () => {
     expect(Array.from(editorDialog().querySelectorAll<HTMLElement>("[data-slot=ribbon-button]")).some((b) => b.textContent?.includes("Save"))).toBe(false);
     tab(LISTS);
     expect(within(panel(LISTS)).queryByRole("button", { name: /Financial:AddPriceList/ })).toBeNull();
+    expect(removeBasis(3, "Financial:ChargedBasis.Colli")).toBeDisabled();
+    await waitFor(() => expect(within(basisRow(1)).getByLabelText("R2 Germany")).toBeDisabled());
   });
 });

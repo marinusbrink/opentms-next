@@ -5179,6 +5179,7 @@ export interface paths {
                     side?: components["schemas"]["OpenTms.Financial.Tariffs.RateSide"];
                     term?: string;
                     take?: number;
+                    basis?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"];
                 };
                 header?: never;
                 path?: never;
@@ -6647,6 +6648,7 @@ export interface paths {
                 query?: {
                     OrderId?: string;
                     TripId?: string;
+                    Side?: components["schemas"]["OpenTms.Financial.Tariffs.RateSide"];
                 };
                 header?: never;
                 path?: never;
@@ -27652,6 +27654,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/transport-order/preview-new-order-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Orders.TransportOrders.NewOrderPricePreviewRequestDto"];
+                    "application/json": components["schemas"]["OpenTms.Orders.TransportOrders.NewOrderPricePreviewRequestDto"];
+                    "text/json": components["schemas"]["OpenTms.Orders.TransportOrders.NewOrderPricePreviewRequestDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Financial.Tariffs.Published.PricePreviewDto"];
+                        "text/json": components["schemas"]["OpenTms.Financial.Tariffs.Published.PricePreviewDto"];
+                        "text/plain": components["schemas"]["OpenTms.Financial.Tariffs.Published.PricePreviewDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/transport-order/validate-approval": {
         parameters: {
             query?: never;
@@ -31843,6 +31954,222 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planning/leg/{id}/remove-split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"];
+                        "text/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"];
+                        "text/plain": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planning/leg/{id}/split-at-address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto"];
+                    "application/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto"];
+                    "text/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"][];
+                        "text/json": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"][];
+                        "text/plain": components["schemas"]["OpenTms.PlanningExecution.Legs.LegDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+                /** @description Not Implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/json": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                        "text/plain": components["schemas"]["Volo.Abp.Http.RemoteServiceErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -44174,6 +44501,7 @@ export interface components {
             /** Format: uuid */
             relationId?: string;
             relationName?: string | null;
+            revenueChargedBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             revenueMultipleMatches?: components["schemas"]["OpenTms.Financial.Tariffs.MultipleMatches"];
             revenuePriceLists?: components["schemas"]["OpenTms.Financial.Invoicing.RelationPriceListDto"][] | null;
             sendFreightDocumentsWithInvoice?: boolean;
@@ -44206,6 +44534,7 @@ export interface components {
             discountsOrSurcharges?: components["schemas"]["OpenTms.Financial.Invoicing.RelationDiscountOrSurchargeInputDto"][] | null;
             /** Format: int32 */
             paymentTermDays?: number | null;
+            revenueChargedBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             revenueMultipleMatches?: components["schemas"]["OpenTms.Financial.Tariffs.MultipleMatches"];
             revenuePriceListIds?: string[] | null;
             sendFreightDocumentsWithInvoice?: boolean;
@@ -44213,6 +44542,7 @@ export interface components {
             vatPercentageId?: string | null;
         };
         "OpenTms.Financial.Invoicing.RelationPriceListDto": {
+            basis?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"];
             code?: string | null;
             name?: string | null;
             /** Format: int32 */
@@ -44874,6 +45204,8 @@ export interface components {
             /** Format: uuid */
             discountOrSurchargeId?: string | null;
             kind?: components["schemas"]["OpenTms.Financial.Tariffs.RateLineKind"];
+            /** Format: int32 */
+            linePosition?: number | null;
             /** Format: uuid */
             orderLineId?: string | null;
             /** Format: uuid */
@@ -44903,6 +45235,8 @@ export interface components {
             additionalServiceName?: string | null;
             /** Format: double */
             amount?: number;
+            /** Format: uuid */
+            anchorTripId?: string | null;
             appliesAfterOthers?: boolean;
             /** Format: date-time */
             calculatedAt?: string | null;
@@ -44925,6 +45259,8 @@ export interface components {
             /** Format: uuid */
             legId?: string | null;
             /** Format: uuid */
+            legOrderLineId?: string | null;
+            /** Format: uuid */
             orderId?: string | null;
             /** Format: uuid */
             orderLineId?: string | null;
@@ -44946,6 +45282,7 @@ export interface components {
             stopId?: string | null;
             /** Format: uuid */
             tripId?: string | null;
+            tripNumber?: string | null;
             /** Format: double */
             unitPrice?: number;
             /** Format: uuid */
@@ -46812,6 +47149,14 @@ export interface components {
          * @enum {integer}
          */
         "OpenTms.Orders.TransportOrders.MeasurementKind": 1 | 2;
+        "OpenTms.Orders.TransportOrders.NewOrderPricePreviewRequestDto": {
+            /** Format: uuid */
+            customerRelationId: string;
+            financialTerms?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsInputDto"];
+            lines?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderLineInputDto"][] | null;
+            /** Format: date */
+            orderDate?: string | null;
+        };
         "OpenTms.Orders.TransportOrders.OrderApprovalDto": {
             canApprove?: boolean;
             currentStatus?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderStatus"];
@@ -47368,6 +47713,7 @@ export interface components {
             wildcardSearch?: string | null;
         };
         "OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsDto": {
+            chargedBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             currencyCode: string;
             discountsOrSurcharges?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderDiscountOrSurchargeDto"][] | null;
             /** Format: double */
@@ -47375,6 +47721,7 @@ export interface components {
             multipleMatches?: components["schemas"]["OpenTms.Financial.Tariffs.MultipleMatches"];
             /** Format: int32 */
             paymentTermDays?: number | null;
+            priceListBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             priceListIds?: string[] | null;
             priceListNames?: string[] | null;
             sendFreightDocumentsWithInvoice?: boolean;
@@ -47383,6 +47730,7 @@ export interface components {
             vatPercentageName?: string | null;
         };
         "OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsInputDto": {
+            chargedBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             currencyCode: string;
             discountsOrSurcharges?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderDiscountOrSurchargeInputDto"][] | null;
             /** Format: double */
@@ -47396,6 +47744,7 @@ export interface components {
             vatPercentageId?: string | null;
         };
         "OpenTms.Orders.TransportOrders.TransportOrderFinancialTermsUpdateDto": {
+            chargedBases?: components["schemas"]["OpenTms.Financial.Tariffs.QuantitySource"][] | null;
             concurrencyStamp: string;
             currencyCode: string;
             discountsOrSurcharges?: components["schemas"]["OpenTms.Orders.TransportOrders.TransportOrderDiscountOrSurchargeInputDto"][] | null;
@@ -48196,7 +48545,19 @@ export interface components {
          * Format: int32
          * @enum {integer}
          */
-        "OpenTms.PlanningExecution.Legs.LegSource": 1 | 2 | 3 | 4 | 5;
+        "OpenTms.PlanningExecution.Legs.LegSource": 1 | 2 | 3 | 4 | 5 | 6;
+        "OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto": {
+            /** Format: uuid */
+            arrivalWaypointTypeId: string;
+            /** Format: date */
+            date?: string | null;
+            /** Format: uuid */
+            departureWaypointTypeId?: string | null;
+            /** Format: uuid */
+            relationAddressId: string;
+            /** Format: uuid */
+            relationId: string;
+        };
         "OpenTms.PlanningExecution.Legs.LegTimeWindowDto": {
             /** Format: date-time */
             from?: string | null;
@@ -48557,7 +48918,27 @@ export interface components {
         };
         "OpenTms.PlanningExecution.TransportTrips.TransportTripTypeCreateDto": {
             code: string;
+            /** Format: uuid */
+            defaultArrivalAddressId?: string | null;
+            /** Format: uuid */
+            defaultArrivalRelationId?: string | null;
+            /** Format: uuid */
+            defaultCarrierContactPersonId?: string | null;
+            /** Format: uuid */
+            defaultCarrierRelationId?: string | null;
+            /** Format: uuid */
+            defaultDepartureAddressId?: string | null;
+            /** Format: uuid */
+            defaultDepartureRelationId?: string | null;
+            /** Format: time */
+            defaultDepartureTime?: string | null;
+            defaultDriverIds?: string[] | null;
             defaultExecution?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripExecution"];
+            defaultFirstLastStopRule?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.FirstLastStopRule"];
+            defaultStopCompositionMode?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.StopCompositionMode"];
+            /** Format: uuid */
+            defaultVehicleCombinationId?: string | null;
+            defaultVehicleIds?: string[] | null;
             description?: string | null;
             isArchived?: boolean;
             names: {
@@ -48575,7 +48956,36 @@ export interface components {
             creationTime?: string;
             /** Format: uuid */
             creatorId?: string | null;
+            /** Format: uuid */
+            defaultArrivalAddressId?: string | null;
+            defaultArrivalAddressLabel?: string | null;
+            /** Format: uuid */
+            defaultArrivalRelationId?: string | null;
+            defaultArrivalRelationName?: string | null;
+            /** Format: uuid */
+            defaultCarrierContactPersonId?: string | null;
+            defaultCarrierContactPersonName?: string | null;
+            /** Format: uuid */
+            defaultCarrierRelationId?: string | null;
+            defaultCarrierRelationName?: string | null;
+            /** Format: uuid */
+            defaultDepartureAddressId?: string | null;
+            defaultDepartureAddressLabel?: string | null;
+            /** Format: uuid */
+            defaultDepartureRelationId?: string | null;
+            defaultDepartureRelationName?: string | null;
+            /** Format: time */
+            defaultDepartureTime?: string | null;
+            defaultDriverIds?: string[] | null;
+            defaultDrivers?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripTypeDefaultDriverDto"][] | null;
             defaultExecution?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripExecution"];
+            defaultFirstLastStopRule?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.FirstLastStopRule"];
+            defaultStopCompositionMode?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.StopCompositionMode"];
+            /** Format: uuid */
+            defaultVehicleCombinationId?: string | null;
+            defaultVehicleCombinationName?: string | null;
+            defaultVehicleIds?: string[] | null;
+            defaultVehicles?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripTypeDefaultVehicleDto"][] | null;
             description?: string | null;
             /** Format: uuid */
             id?: string;
@@ -48610,7 +49020,27 @@ export interface components {
         "OpenTms.PlanningExecution.TransportTrips.TransportTripTypeUpdateDto": {
             code: string;
             concurrencyStamp: string;
+            /** Format: uuid */
+            defaultArrivalAddressId?: string | null;
+            /** Format: uuid */
+            defaultArrivalRelationId?: string | null;
+            /** Format: uuid */
+            defaultCarrierContactPersonId?: string | null;
+            /** Format: uuid */
+            defaultCarrierRelationId?: string | null;
+            /** Format: uuid */
+            defaultDepartureAddressId?: string | null;
+            /** Format: uuid */
+            defaultDepartureRelationId?: string | null;
+            /** Format: time */
+            defaultDepartureTime?: string | null;
+            defaultDriverIds?: string[] | null;
             defaultExecution?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.TripExecution"];
+            defaultFirstLastStopRule?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.FirstLastStopRule"];
+            defaultStopCompositionMode?: components["schemas"]["OpenTms.PlanningExecution.TransportTrips.StopCompositionMode"];
+            /** Format: uuid */
+            defaultVehicleCombinationId?: string | null;
+            defaultVehicleIds?: string[] | null;
             description?: string | null;
             isArchived?: boolean;
             names: {
@@ -48805,6 +49235,19 @@ export interface components {
             /** Format: date-time */
             at?: string | null;
         };
+        "OpenTms.PlanningExecution.TransportTrips.TripTypeDefaultDriverDto": {
+            /** Format: uuid */
+            id?: string;
+            name?: string | null;
+        };
+        "OpenTms.PlanningExecution.TransportTrips.TripTypeDefaultVehicleDto": {
+            /** Format: uuid */
+            id?: string;
+            kind?: components["schemas"]["OpenTms.MasterData.Fleet.VehicleTypeKind"];
+            licencePlate?: string | null;
+            name?: string | null;
+            vehicleTypeName?: string | null;
+        };
         "OpenTms.PlanningExecution.TransportTrips.TripVehicleDto": {
             licencePlate?: string | null;
             name?: string | null;
@@ -48860,6 +49303,8 @@ export interface components {
             /** Format: uuid */
             relationId?: string | null;
             scope?: components["schemas"]["OpenTms.PlanningExecution.Legs.ViaDepotScope"];
+            /** Format: uuid */
+            stopWaypointTypeId: string;
         };
         "OpenTms.PlanningExecution.ViaDepots.ViaDepotRuleDto": {
             /** Format: uuid */
@@ -48895,6 +49340,8 @@ export interface components {
             relationId?: string | null;
             relationName?: string | null;
             scope?: components["schemas"]["OpenTms.PlanningExecution.Legs.ViaDepotScope"];
+            /** Format: uuid */
+            stopWaypointTypeId?: string | null;
         };
         "OpenTms.PlanningExecution.ViaDepots.ViaDepotRuleRowDto": {
             /** Format: uuid */
@@ -48921,6 +49368,8 @@ export interface components {
             relationId?: string | null;
             relationName?: string | null;
             scope?: components["schemas"]["OpenTms.PlanningExecution.Legs.ViaDepotScope"];
+            /** Format: uuid */
+            stopWaypointTypeId?: string | null;
         };
         "OpenTms.PlanningExecution.ViaDepots.ViaDepotRuleUpdateDto": {
             /** Format: uuid */
@@ -48942,6 +49391,8 @@ export interface components {
             /** Format: uuid */
             relationId?: string | null;
             scope?: components["schemas"]["OpenTms.PlanningExecution.Legs.ViaDepotScope"];
+            /** Format: uuid */
+            stopWaypointTypeId: string;
         };
         "OpenTms.Platform.Administration.AdministrationOrganizationUnitCreateDto": {
             displayName: string;

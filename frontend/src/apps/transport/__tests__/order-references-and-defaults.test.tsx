@@ -72,7 +72,8 @@ const order = (status: number, extra: Record<string, unknown> = {}) => ({
       stops: [],
     },
   ],
-  financialTerms: { currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 2 }], sendFreightDocumentsWithInvoice: false },
+  /* Design 61 "Order page review" 3: the order charges colli without a list of that basis. */
+  financialTerms: { currencyCode: "EUR", vatPercentageId: "vat-1", paymentTermDays: 30, priceListIds: ["pl-1"], chargedBases: [3], multipleMatches: 1, discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 2 }], sendFreightDocumentsWithInvoice: false },
   ...extra,
 });
 
@@ -87,6 +88,8 @@ const DEFAULTS = {
     { priceListId: "pl-b", position: 2 },
     { priceListId: "pl-a", position: 1 },
   ],
+  /* Design 61 "Order page review" 3: the bases the customer is charged by, here out of the legacy order (distance, quantity). */
+  revenueChargedBases: [9, 1],
   discountsOrSurcharges: [
     { discountOrSurchargeId: "ds-valid", validFrom: "2026-01-01", validTill: null },
     { discountOrSurchargeId: "ds-expired", validFrom: "2025-01-01", validTill: "2025-12-31" },
@@ -244,6 +247,7 @@ describe("Customer change on a stored order: take over the financial defaults? (
           vatPercentageId: "vat-2",
           paymentTermDays: 14,
           priceListIds: ["pl-a", "pl-b"],
+          chargedBases: [1, 9],
           multipleMatches: 2,
           discountsOrSurcharges: [{ discountOrSurchargeId: "ds-valid", source: 1 }],
           fixedPriceAmount: null,
@@ -269,6 +273,7 @@ describe("Customer change on a stored order: take over the financial defaults? (
       vatPercentageId: null,
       paymentTermDays: null,
       priceListIds: [],
+      chargedBases: [],
       multipleMatches: 1,
       discountsOrSurcharges: [],
       fixedPriceAmount: null,
@@ -294,6 +299,7 @@ describe("Customer change on a stored order: take over the financial defaults? (
           vatPercentageId: "vat-1",
           paymentTermDays: 30,
           priceListIds: ["pl-1"],
+          chargedBases: [3],
           multipleMatches: 1,
           discountsOrSurcharges: [{ discountOrSurchargeId: "ds-1", source: 2 }],
           fixedPriceAmount: null,

@@ -19,7 +19,9 @@ import { cn } from "@/lib/utils";
  * sentinel at the end of the list becomes visible). The component never filters client-side.
  * Closed, the control shows `getLabel` only (UI-LOOK-003); "Add new …" (UI-LOOK-004) and the edit
  * pencil (UI-LOOK-005) appear only with `onCreateNew` / `onEdit`; optional lookups clear with an X
- * (UI-LOOK-006); multiple shows a comma list with "+N" and a checkbox per option (UI-LOOK-007). */
+ * (UI-LOOK-006); multiple shows a comma list with "+N" and a checkbox per option (UI-LOOK-007). The pencil is no Tab
+ * stop, like the list button and the clear button (Tab goes from the input to the next field, UI-KEY-004), and stays
+ * usable in a disabled control: opening the record changes nothing in the form. */
 
 export const ENTITY_LOOKUP_PAGE_SIZE = 25;
 export const ENTITY_LOOKUP_DEBOUNCE_MS = 250;
@@ -45,8 +47,12 @@ interface EntityLookupBaseProps<T extends { id: string }> {
   renderOption?: (item: T) => ReactNode;
   /** Shows "Add new …" with the typed term; omit when the user may not create. */
   onCreateNew?: (term: string) => void;
-  /** Shows the edit pencil for the selected record; omit when the user may not edit. */
+  /** Shows the edit pencil for the selected record; omit when the user may not view it. */
   onEdit?: (item: T) => void;
+  /** The pencil's tooltip, already translated: t("Edit"), or t("Open") when the record opens read-only. */
+  editLabel?: string;
+  /** The name a record got in the editor the pencil opened, shown instead of `getLabel` until the value is replaced. */
+  editedLabel?: (id: string) => string | undefined;
   /** The label of the "Add new …" row, already translated. */
   createLabel?: string;
   disabled?: boolean;
@@ -109,7 +115,8 @@ const ITEM_CLASS =
   "relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<T>) {
-  const { id, fetchPage, getLabel, renderOption, onCreateNew, onEdit, createLabel, disabled = false, required = false, placeholder, className } = props;
+  const { id, fetchPage, getLabel: labelOf, renderOption, onCreateNew, onEdit, editLabel, editedLabel, createLabel, disabled = false, required = false, placeholder, className } = props;
+  const getLabel = (item: T) => editedLabel?.(item.id) ?? labelOf(item);
   const ariaInvalid = props["aria-invalid"];
   const ariaDescribedBy = props["aria-describedby"];
   const ariaRequired = props["aria-required"];
@@ -379,10 +386,10 @@ export function EntityLookup<T extends { id: string }>(props: EntityLookupProps<
           /* UI-LOOK-005: inside the control's right edge, before the clear button (the built-in addon is order-last). */
           <InputGroupAddon align="inline-end" className="order-1 pr-0">
             <Tooltip>
-              <TooltipTrigger render={<InputGroupButton size="icon-sm" aria-label={t("Edit")} disabled={disabled} onClick={() => onEdit(value)} />}>
+              <TooltipTrigger render={<InputGroupButton size="icon-sm" tabIndex={-1} aria-label={editLabel ?? t("Edit")} onClick={() => onEdit(value)} />}>
                 <Pencil aria-hidden="true" />
               </TooltipTrigger>
-              <TooltipContent>{t("Edit")}</TooltipContent>
+              <TooltipContent>{editLabel ?? t("Edit")}</TooltipContent>
             </Tooltip>
           </InputGroupAddon>
         )}

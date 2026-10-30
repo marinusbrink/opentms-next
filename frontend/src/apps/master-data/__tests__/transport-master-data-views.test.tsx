@@ -222,12 +222,15 @@ describe("TripAttributeDefinitionsView", () => {
 describe("ViaDepotRulesView", () => {
   it("renders the designed columns with the Master Data names not sortable", async () => {
     grants = { "PlanningExecution.ViaDepotRules": true };
+    GET.mockImplementation(async (path) => (path === "/api/orders/waypoint-type/lookup" ? ok([{ id: "w-unload", code: "UNLOAD", name: "Unload" }]) : ok({ rows: [], totalCount: 0, filteredCount: 0 })));
     renderView(<ViaDepotRulesView />);
     expect((await screen.findByTestId("mock-grid")).getAttribute("data-grid-id")).toBe("masterData.viaDepotRules");
+    /* The stop's activity is named from the waypoint types' lookup. */
+    await waitFor(() => expect(listCalls("/api/orders/waypoint-type/lookup")).toHaveLength(1));
     expect(columns()).toEqual([
-      "scope", "relationName", "geographicalRegionName", "depotRelationName", "depotAddressCity", "overnight", "position", "isArchived (hidden)", "description (hidden)",
+      "scope", "relationName", "geographicalRegionName", "stopWaypointTypeId", "depotRelationName", "depotAddressCity", "overnight", "position", "isArchived (hidden)", "description (hidden)",
     ]);
-    expect(unsortable()).toEqual(["relationName", "geographicalRegionName", "depotRelationName", "depotAddressCity", "description"]);
+    expect(unsortable()).toEqual(["relationName", "geographicalRegionName", "stopWaypointTypeId", "depotRelationName", "depotAddressCity", "description"]);
     await waitFor(() => expect(listCalls("/api/planning/via-depot-rule")).toHaveLength(1));
   });
 });

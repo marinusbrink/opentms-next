@@ -300,12 +300,23 @@ public class TransportOrderFinancialTermsInputDto
     public decimal? FixedPriceAmount { get; set; }
 
     public bool SendFreightDocumentsWithInvoice { get; set; }
+
+    /// <summary>
+    /// The bases the order is charged by (design 61 "Order page review" point 3): the rows of the block "Price calculation"
+    /// that are switched on, each once, revenue bases only (not <c>Manual</c>, not the cost-only <c>TripDistanceKm</c>). A
+    /// basis with one of <see cref="PriceListIds"/> counts as on either way; a basis in here without such a list makes the
+    /// calculation write an open line per freight item for it. Reads return them in the legacy order of the block.
+    /// </summary>
+    public List<QuantitySource> ChargedBases { get; set; } = new();
 }
 
 public class TransportOrderFinancialTermsDto : TransportOrderFinancialTermsInputDto
 {
     public string? VatPercentageName { get; set; }
     public List<string> PriceListNames { get; set; } = new();
+
+    /// <summary>The basis of each of <see cref="TransportOrderFinancialTermsInputDto.PriceListIds"/>, in the same order (null for a list that no longer exists).</summary>
+    public List<QuantitySource?> PriceListBases { get; set; } = new();
     public new List<TransportOrderDiscountOrSurchargeDto> DiscountsOrSurcharges { get; set; } = new();
 }
 
@@ -580,6 +591,17 @@ public class PricePreviewRequestDto
     public Guid? CustomerRelationId { get; set; }
 }
 
+/// <summary>A new, never-saved order as it stands on the screen: nothing falls back to a stored order; terms left out
+/// are the customer's defaults and a missing date is today, as Create has them.</summary>
+public class NewOrderPricePreviewRequestDto
+{
+    [Required]
+    public Guid? CustomerRelationId { get; set; }
+    public DateOnly? OrderDate { get; set; }
+    public TransportOrderFinancialTermsInputDto? FinancialTerms { get; set; }
+    public List<TransportOrderLineInputDto> Lines { get; set; } = new();
+}
+
 public interface ITransportOrderAppService : IApplicationService
 {
     Task<GridResponse<TransportOrderRowDto>> GetListAsync(TransportOrderListRequestDto input);
@@ -606,5 +628,6 @@ public interface ITransportOrderAppService : IApplicationService
     Task<ApprovalValidationDto> ValidateApprovalAsync(ApprovalValidateRequestDto input);
     Task<ApprovalOutcomeDto> ApproveManyAsync(ApprovalApproveRequestDto input);
     Task<PricePreviewDto> PreviewPricesAsync(Guid id, PricePreviewRequestDto input);
+    Task<PricePreviewDto> PreviewNewOrderPricesAsync(NewOrderPricePreviewRequestDto input);
     Task<TransportOrderSummaryDto> GetSummaryAsync(Guid id);
 }

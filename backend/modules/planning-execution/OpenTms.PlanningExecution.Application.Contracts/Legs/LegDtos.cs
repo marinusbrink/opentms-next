@@ -185,6 +185,27 @@ public class LegListRequestDto : ReferenceDataListRequestDto
     public Guid? CustomerRelationId { get; set; }
 }
 
+/// <summary>
+/// Design 61 "Order page review" point 5: split a leg A→B at an address X into A→X and X→B. The arrival activity at X is
+/// required; the departure activity defaults to the arrival's successive activity (design 51), else the arrival activity;
+/// the date of both ends at X defaults to the leg's origin planned date (as a via depot's).
+/// </summary>
+public class LegSplitAtAddressDto
+{
+    [Required]
+    public Guid RelationId { get; set; }
+
+    [Required]
+    public Guid RelationAddressId { get; set; }
+
+    [Required]
+    public Guid ArrivalWaypointTypeId { get; set; }
+
+    public Guid? DepartureWaypointTypeId { get; set; }
+
+    public DateOnly? Date { get; set; }
+}
+
 public interface ILegAppService : IApplicationService
 {
     Task<GridResponse<LegDto>> GetListAsync(LegListRequestDto input);
@@ -192,4 +213,10 @@ public interface ILegAppService : IApplicationService
     Task<LegDto> GetAsync(Guid id);
 
     Task<LegDto> UpdateAsync(Guid id, LegUpdateDto input);
+
+    /// <summary><c>POST /api/planning/leg/{id}/split-at-address</c>: returns the two new legs, A→X then X→B.</summary>
+    Task<List<LegDto>> SplitAtAddressAsync(Guid id, LegSplitAtAddressDto input);
+
+    /// <summary><c>POST /api/planning/leg/{id}/remove-split</c> on either half: returns the restored leg A→B.</summary>
+    Task<LegDto> UndoSplitAtAddressAsync(Guid id);
 }

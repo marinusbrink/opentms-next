@@ -43,6 +43,45 @@ public class MasterDataReferences : ITransientDependency
         return rows.ToDictionary(r => r.Id, r => r.Name);
     }
 
+    /// <summary>Relations by id with their archived flag (design 61 "Trip type defaults": a vanished default is skipped).</summary>
+    public async Task<Dictionary<Guid, MasterDataReferenceDto>> RelationsAsync(IEnumerable<Guid?> ids)
+    {
+        var keys = ids.Where(id => id is { } g && g != Guid.Empty).Select(id => id!.Value).Distinct().ToList();
+        var rows = new List<MasterDataReferenceDto>();
+        foreach (var chunk in keys.Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetRelationsAsync(chunk));
+        }
+
+        return rows.ToDictionary(r => r.Id);
+    }
+
+    /// <summary>Contact persons by id with the relation they belong to.</summary>
+    public async Task<Dictionary<Guid, MasterDataContactPersonReferenceDto>> ContactPersonsAsync(IEnumerable<Guid?> ids)
+    {
+        var keys = ids.Where(id => id is { } g && g != Guid.Empty).Select(id => id!.Value).Distinct().ToList();
+        var rows = new List<MasterDataContactPersonReferenceDto>();
+        foreach (var chunk in keys.Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetContactPersonsAsync(chunk));
+        }
+
+        return rows.ToDictionary(r => r.Id);
+    }
+
+    /// <summary>Drivers by id with their archived flag.</summary>
+    public async Task<Dictionary<Guid, MasterDataReferenceDto>> DriversAsync(IEnumerable<Guid> ids)
+    {
+        var keys = ids.Where(id => id != Guid.Empty).Distinct().ToList();
+        var rows = new List<MasterDataReferenceDto>();
+        foreach (var chunk in keys.Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetDriversAsync(chunk));
+        }
+
+        return rows.ToDictionary(d => d.Id);
+    }
+
     public async Task EnsureRelationsExistAsync(IEnumerable<Guid?> ids, string field)
     {
         var keys = ids.Where(id => id is { } g && g != Guid.Empty).Select(id => id!.Value).Distinct().ToList();

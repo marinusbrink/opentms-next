@@ -147,6 +147,7 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
         settings.SetPriceLists(RateSide.Revenue, input.RevenuePriceListIds, GuidGenerator.Create);
         settings.SetPriceLists(RateSide.Cost, input.CostPriceListIds, GuidGenerator.Create);
         settings.SetMultipleMatches(input.RevenueMultipleMatches, input.CostMultipleMatches);
+        settings.SetRevenueChargedBases(input.RevenueChargedBases);
         settings.SetDiscountsOrSurcharges(input.DiscountsOrSurcharges.Select(d => (d.DiscountOrSurchargeId, d.ValidFrom, d.ValidTill)).ToList(), GuidGenerator.Create);
         settings.VatPercentageId = input.VatPercentageId;
         settings.SetPaymentTermDays(input.PaymentTermDays);
@@ -208,7 +209,7 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
         List<RelationPriceListDto> Lists(RateSide side) => s.PriceLists.Where(p => p.Side == side).OrderBy(p => p.Position).Select(p =>
         {
             var list = lists.FirstOrDefault(l => l.Id == p.PriceListId);
-            return new RelationPriceListDto { PriceListId = p.PriceListId, Code = list?.Code, Name = list?.Name, Position = p.Position };
+            return new RelationPriceListDto { PriceListId = p.PriceListId, Code = list?.Code, Name = list?.Name, Position = p.Position, Basis = list?.Basis };
         }).ToList();
 
         return new RelationFinancialSettingsDto
@@ -220,6 +221,7 @@ public class RelationFinancialSettingsAppService : FinancialAppServiceBase, IRel
             CostPriceLists = Lists(RateSide.Cost),
             RevenueMultipleMatches = s.RevenueMultipleMatches,
             CostMultipleMatches = s.CostMultipleMatches,
+            RevenueChargedBases = s.RevenueChargedBases.ToList(),
             DiscountsOrSurcharges = s.DiscountsOrSurcharges.OrderBy(d => d.ValidFrom).Select(d => new RelationDiscountOrSurchargeDto
             {
                 DiscountOrSurchargeId = d.DiscountOrSurchargeId,

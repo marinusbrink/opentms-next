@@ -91,7 +91,8 @@ public sealed record FinancialTermsInput(
     MultipleMatches MultipleMatches,
     IReadOnlyList<DiscountOrSurchargeInput> DiscountsOrSurcharges,
     decimal? FixedPriceAmount,
-    bool SendFreightDocumentsWithInvoice);
+    bool SendFreightDocumentsWithInvoice,
+    IReadOnlyList<QuantitySource>? ChargedBases = null);
 
 /// <summary>
 /// "Tevens trip" (PO decision Q9): the trip Planning creates on Confirm. <paramref name="LineIds"/> (design 61 "Order page,

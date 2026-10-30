@@ -41,6 +41,7 @@ public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
             Lines = lines,
             PriceLists = await _loader.GetPriceListsAsync(snapshot.PriceListIds, PricingDataLoader.LanesOf(lines)),
             MultipleMatches = snapshot.MultipleMatches,
+            ChargedBases = snapshot.ChargedBases ?? [],
             DiscountsOrSurcharges = await _loader.GetDiscountsOrSurchargesAsync(snapshot.DiscountOrSurchargeIds),
             Vat = await _loader.GetVatAsync(snapshot.VatPercentageId),
             FixedPriceAmount = snapshot.FixedPriceAmount,
@@ -55,6 +56,7 @@ public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
         var resolution = PriceResolver.Resolve(request);
         var totals = RateLineTotals.Of(rootId, resolution.NewLines);
         var synthetic = lines.Where(l => snapshot.Lines.All(s => s.LineId != l.AnchorId)).Select(l => l.AnchorId).ToHashSet();
+        var positions = snapshot.Lines.ToDictionary(s => s.LineId ?? PricingLines.SyntheticId(s.Position), s => s.Position);
 
         return new PricePreviewDto
         {
@@ -62,6 +64,7 @@ public class PricePreviewService : FinancialAppServiceBase, IPricePreviewService
             Lines = resolution.NewLines.OrderBy(l => l.Position).Select(l => new PricePreviewLineDto
             {
                 OrderLineId = l.OrderLineId != null && !synthetic.Contains(l.OrderLineId.Value) ? l.OrderLineId : null,
+                LinePosition = l.OrderLineId != null && positions.TryGetValue(l.OrderLineId.Value, out var position) ? position : null,
                 Kind = l.Kind,
                 DescriptionKey = l.DescriptionKey,
                 Quantity = l.Quantity,

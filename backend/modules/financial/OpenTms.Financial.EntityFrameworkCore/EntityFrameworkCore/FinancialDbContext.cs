@@ -275,6 +275,8 @@ public class FinancialDbContext : AbpDbContext<FinancialDbContext>
             b.ConfigureByConvention();
             b.Property(s => s.CurrencyCode).HasMaxLength(ReferenceDataConsts.IsoCurrencyCodeLength);
             b.Property(s => s.RelationName).IsRequired().HasMaxLength(FinancialConsts.MaxRelationNameLength).HasDefaultValue(string.Empty);
+            /* Design 61 point 3: the revenue charged bases as a bit mask of QuantitySource values (0 = none, the value of existing rows). */
+            b.Property(s => s.RevenueChargedBasesMask).HasColumnName("RevenueChargedBases");
             b.HasOne<VatPercentage>().WithMany().HasForeignKey(s => s.VatPercentageId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(s => s.PriceLists).WithOne().HasForeignKey(p => p.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(s => s.DiscountsOrSurcharges).WithOne().HasForeignKey(d => d.RelationFinancialSettingsId).OnDelete(DeleteBehavior.Cascade);

@@ -5,7 +5,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { ReferenceCombobox, type ReferenceOption } from "@/components/ui/reference-combobox";
-import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
+import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/domains/master-data/components/RelationFields";
 import { stopFieldId } from "@/apps/transport/components/stop-strip-ids";
 import { MAX_STOPS, MIN_STOPS, newStop, type EditorMode, type StopField, type StopValues } from "@/apps/transport/orders/order-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";

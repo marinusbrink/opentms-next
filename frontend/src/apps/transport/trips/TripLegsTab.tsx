@@ -1,29 +1,42 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { ExternalLink, Pencil, Repeat, Split, Truck, Unlink } from "lucide-react";
+import { Divide, ExternalLink, Pencil, Repeat, Split, Truck, Unlink } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { AmountCell, BoolCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
 import { EntityLookup } from "@/components/ui/entity-lookup";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { LegDialog } from "@/apps/transport/components/LegDialog";
-import { AddressField, RelationField } from "@/apps/transport/components/RelationFields";
+import { AddressField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
 import type { RelationOption } from "@/domains/master-data/entities";
 import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
-import { tripPickerPage, TRANSPORT_TRIP_STATUSES, useCarryOutSeparately, useCreateReturnLeg, useOutsourceOrigin, useUnassignLegs, type TransportTripDto, type TripPickerOption } from "@/domains/planning-execution/trips";
+import {
+  tripPickerPage,
+  TRANSPORT_TRIP_STATUSES,
+  useCarryOutSeparately,
+  useCreateReturnLeg,
+  useOutsourceOrigin,
+  useSplitTripLine,
+  useUnassignLegs,
+  type TransportTripDto,
+  type TripPickerOption,
+} from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
+import { parseNumber } from "@/lib/forms/use-form-state";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
 /* The Legs tab of the trip editor (design 61): an OpenTmsGrid of the trip's legs with the editable reference, remarks
  * planned dates and time windows in the shared LegDialog, the row actions Unassign, Carry out separately, Return leg, Outsource origin
- * (design 59 commands) and the link to the order; double click opens the order. */
+ * (design 59 commands), Split quantity (design 61 "Order page review" 5: `split-line`) and the link to the order; double
+ * click opens the order. */
 
 export interface TripLegsTabProps {
   trip: TransportTripDto;
@@ -37,6 +50,7 @@ export function TripLegsTab({ trip, canAssign, canEditLegs }: TripLegsTabProps) 
   const openRecord = useOpenRecord();
   const [editing, setEditing] = useState<LegDto | null>(null);
   const [outsourcing, setOutsourcing] = useState<LegDto | null>(null);
+  const [splitting, setSplitting] = useState<LegDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const unassign = useUnassignLegs();
   const separately = useCarryOutSeparately();
@@ -100,6 +114,7 @@ export function TripLegsTab({ trip, canAssign, canEditLegs }: TripLegsTabProps) 
                     { id: "separately", labelKey: "PlanningExecution:CarryOutSeparately", icon: Split, disabled: leg?.isCarriedOutSeparately === true, disabledReasonKey: "PlanningExecution:AlreadySeparate", onClick: () => run(separately.mutateAsync({ id: trip.id!, legId: leg.id! }), "PlanningExecution:TransportTripSaved") },
                     { id: "return", labelKey: "PlanningExecution:ReturnLeg", icon: Repeat, onClick: () => run(returnLeg.mutateAsync({ id: trip.id!, legId: leg.id! }), "PlanningExecution:ReturnLegCreated") },
                     { id: "outsource", labelKey: "PlanningExecution:OutsourceOrigin", icon: Truck, onClick: () => setOutsourcing(leg) },
+                    { id: "splitQuantity", labelKey: "PlanningExecution:SplitQuantity", icon: Divide, onClick: () => setSplitting(leg) },
                   ]
                 : []),
             ];
@@ -108,6 +123,7 @@ export function TripLegsTab({ trip, canAssign, canEditLegs }: TripLegsTabProps) 
       </div>
       {editing && <LegDialog leg={editing} title={`${t("PlanningExecution:Leg")} ${editing.orderNumber ?? ""}`} idPrefix="trip-leg" onClose={() => setEditing(null)} />}
       {outsourcing && <OutsourceDialog tripId={trip.id!} leg={outsourcing} onClose={() => setOutsourcing(null)} />}
+      {splitting && <SplitQuantityDialog tripId={trip.id!} leg={splitting} onClose={() => setSplitting(null)} />}
     </div>
   );
 }
@@ -177,6 +193,95 @@ function OutsourceDialog({ tripId, leg, onClose }: { tripId: string; leg: LegDto
             fetchPage={tripPage}
             required
             aria-invalid={submitted && !toTrip}
+            getLabel={(trip) => [trip.number, trip.name].filter(Boolean).join(" · ")}
+            renderOption={(trip) => (
+              <div className="flex flex-col">
+                <span className="font-medium">{[trip.number, trip.name].filter(Boolean).join(" · ")}</span>
+                <span className="text-label text-muted-foreground">
+                  {[f.date(trip.tripDate), t(TRANSPORT_TRIP_STATUSES.find((s) => s.value === trip.status)?.key ?? ""), trip.carrierName].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+            )}
+          />
+        </FormField>
+      </form>
+    </EntityDialog>
+  );
+}
+
+/** Split quantity (design 59 `split-line`): a new leg takes the quantity, on this trip or on the target trip; the leg
+ *  keeps the rest. The quantity lies above 0 and below the leg's quantity. */
+function SplitQuantityDialog({ tripId, leg, onClose }: { tripId: string; leg: LegDto; onClose: () => void }) {
+  const { t } = useL();
+  const f = useFormat();
+  const split = useSplitTripLine();
+  const [quantity, setQuantity] = useState("");
+  const [toTrip, setToTrip] = useState<TripPickerOption | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const tripPage = useMemo(() => tripPickerPage(tripId), [tripId]);
+  const max = leg.quantity ?? 0;
+  const value = parseNumber(quantity);
+  const valid = value != null && !Number.isNaN(value) && value > 0 && value < max;
+  const quantityError = submitted && !valid ? t("PlanningExecution:SplitQuantityRange").replace("{0}", f.number(max, { maxDecimals: 4 })) : undefined;
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    if (!valid) return;
+    setError(null);
+    try {
+      await split.mutateAsync({ id: tripId, dto: { legId: leg.id!, quantity: value, toTripId: toTrip?.id ?? null } });
+      toast.success(t("PlanningExecution:QuantitySplit"));
+      onClose();
+    } catch (err) {
+      setError(getApiErrorMessage(err, t));
+    }
+  };
+
+  return (
+    <EntityDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      variant="action"
+      size="sm"
+      title={t("PlanningExecution:SplitQuantity")}
+      isBusy={split.isPending}
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={split.isPending}>
+            {t("Cancel")}
+          </Button>
+          <Button type="submit" form="split-quantity-form" disabled={split.isPending}>
+            {split.isPending ? t("Saving") : t("PlanningExecution:Split")}
+          </Button>
+        </>
+      }
+    >
+      <form id="split-quantity-form" onSubmit={(e) => void submit(e)} noValidate className="grid grid-cols-1 gap-3">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <FormField
+          label={t("PlanningExecution:Quantity")}
+          htmlFor="split-quantity"
+          required
+          error={quantityError}
+          hint={t("PlanningExecution:SplitQuantityHint").replace("{0}", f.number(max, { maxDecimals: 4 }))}
+        >
+          <Input id="split-quantity" inputMode="decimal" className="tabular-nums" value={quantity} onChange={(e) => setQuantity(e.target.value)} aria-invalid={quantityError != null} autoFocus />
+        </FormField>
+        <FormField label={t("PlanningExecution:TargetTripId")} htmlFor="split-quantity-trip" hint={t("PlanningExecution:SplitTargetTripHint")}>
+          {/* DEVIATION(UI-LOOK-004): no "Add new …" in the trip picker: a trip is never created in the Transport app (no New, the Planboard creates trips, PO), approved in docs/designs/61-transport-app.md (Trips list and editor). */}
+          <EntityLookup<TripPickerOption>
+            id="split-quantity-trip"
+            value={toTrip}
+            onChange={setToTrip}
+            fetchPage={tripPage}
             getLabel={(trip) => [trip.number, trip.name].filter(Boolean).join(" · ")}
             renderOption={(trip) => (
               <div className="flex flex-col">

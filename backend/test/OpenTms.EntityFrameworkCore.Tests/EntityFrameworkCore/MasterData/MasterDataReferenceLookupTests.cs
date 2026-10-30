@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTms.MasterData;
 using OpenTms.MasterData.Published;
 using OpenTms.MasterData.Reference;
 using OpenTms.MasterData.Regions;
 using OpenTms.MasterData.Relations;
 using OpenTms.MasterData.Transport;
 using Shouldly;
+using Volo.Abp;
 using Xunit;
 
 namespace OpenTms.EntityFrameworkCore.MasterData;
@@ -15,7 +17,8 @@ namespace OpenTms.EntityFrameworkCore.MasterData;
 /// <summary>
 /// The published lookup's additions of design 58 (module boundary rule 3): relation addresses with the relation's name,
 /// postal fields, zone and the geographical regions they lie in (the relation's own regions plus the postal-code ranges),
-/// the generic reference read per kind, and the own company. Tenant-filtered like every read. Risk class: Critical.
+/// the generic reference read per kind, and the own company; and design 61's contact persons with their relation (a trip
+/// type's default contact must be its carrier's). Tenant-filtered like every read. Risk class: Critical.
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class MasterDataReferenceLookupTests : MasterDataAppServiceTestBase
@@ -99,6 +102,71 @@ public class MasterDataReferenceLookupTests : MasterDataAppServiceTestBase
             (await Lookup.GetRelationAddressesAsync([addressId])).ShouldBeEmpty();
             (await Lookup.GetReferencesAsync(MasterDataReferenceKind.TransportUnit, [unitId])).ShouldBeEmpty();
             (await Lookup.GetOwnCompanyAsync()).ShouldBeNull();
+        }
+    }
+
+    private async Task<(Guid RelationId, List<Guid> ContactIds)> RelationWithContactsAsync(string code, RelationRoles roles, params (string First, string? Middle, string Last)[] people)
+    {
+        var relations = GetRequiredService<IRelationAppService>();
+        var relation = await relations.CreateAsync(new RelationCreateDto
+        {
+            Code = code, Name = code, Roles = roles,
+            ContactPersons = people.Select(p => new RelationContactPersonDto { FirstName = p.First, MiddleName = p.Middle, LastName = p.Last, Role = ContactPersonRole.Planning }).ToList()
+        });
+        var contacts = (await relations.GetAsync(relation.Id)).ContactPersons;
+        return (relation.Id, people.Select(p => contacts.Single(c => c.FirstName == p.First).Id!.Value).ToList());
+    }
+
+    [Fact]
+    public async Task Contact_persons_come_with_their_relation_and_name_and_unknown_ids_are_absent()
+    {
+        using var _ = InTenantA();
+        var (carrier, carrierContacts) = await RelationWithContactsAsync("CARR", RelationRoles.Carrier, ("Jan", "van", "Dijk"), ("Kees", null, "Visser"));
+        var (customer, customerContacts) = await RelationWithContactsAsync("KLANT", RelationRoles.Customer, ("Anna", null, "Bakker"));
+        var (jan, kees, anna) = (carrierContacts[0], carrierContacts[1], customerContacts[0]);
+
+        var rows = await Lookup.GetContactPersonsAsync([jan, kees, anna, Guid.NewGuid(), Guid.Empty, jan, carrier]);
+
+        rows.Select(r => (r.Id, r.RelationId, r.Name)).ShouldBe(
+            [(jan, carrier, "Jan van Dijk"), (kees, carrier, "Kees Visser"), (anna, customer, "Anna Bakker")], ignoreOrder: true,
+            "each contact once with its own relation; an unknown id, the empty id and a relation's id are absent");
+        (await Lookup.GetContactPersonsAsync([Guid.NewGuid()])).ShouldBeEmpty();
+        (await Lookup.GetContactPersonsAsync([])).ShouldBeEmpty();
+        (await Lookup.GetContactPersonsAsync([Guid.Empty])).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Contact_persons_refuse_more_than_the_bound()
+    {
+        using var _ = InTenantA();
+        var atBound = Enumerable.Range(0, IMasterDataReferenceLookup.MaxKeys).Select(_ => Guid.NewGuid()).ToList();
+        (await Lookup.GetContactPersonsAsync(atBound)).ShouldBeEmpty("exactly the bound is read");
+
+        var tooMany = Enumerable.Range(0, IMasterDataReferenceLookup.MaxKeys + 1).Select(_ => Guid.NewGuid()).ToList();
+        var error = await Should.ThrowAsync<BusinessException>(() => Lookup.GetContactPersonsAsync(tooMany));
+        error.Code.ShouldBe(MasterDataErrorCodes.TooManyRows);
+        error.Data["max"].ShouldBe(IMasterDataReferenceLookup.MaxKeys);
+
+        /* Duplicates count once: the bound is on distinct ids. */
+        (await Lookup.GetContactPersonsAsync(atBound.Concat(atBound).ToList())).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Another_tenants_contact_persons_are_absent()
+    {
+        Guid contactOfA;
+        using (InTenantA())
+        {
+            contactOfA = (await RelationWithContactsAsync("CARR", RelationRoles.Carrier, ("Kees", null, "Visser"))).ContactIds.Single();
+            (await Lookup.GetContactPersonsAsync([contactOfA])).ShouldHaveSingleItem("visible in its own tenant");
+        }
+
+        using (InTenantB())
+        {
+            var (relationOfB, contactsOfB) = await RelationWithContactsAsync("CARR", RelationRoles.Carrier, ("Anna", null, "Bakker"));
+            (await Lookup.GetContactPersonsAsync([contactOfA])).ShouldBeEmpty("tenant A's contact does not exist for tenant B");
+            var mixed = (await Lookup.GetContactPersonsAsync([contactOfA, contactsOfB[0]])).ShouldHaveSingleItem();
+            (mixed.Id, mixed.RelationId).ShouldBe((contactsOfB[0], relationOfB));
         }
     }
 }

@@ -560,8 +560,46 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("CreatorId");
 
+                    b.Property<Guid?>("DefaultArrivalAddressId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultArrivalRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultCarrierContactPersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultCarrierRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultDepartureAddressId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultDepartureRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly?>("DefaultDepartureTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("DefaultDriverIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
                     b.Property<int>("DefaultExecution")
                         .HasColumnType("integer");
+
+                    b.Property<int>("DefaultFirstLastStopRule")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DefaultStopCompositionMode")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("DefaultVehicleCombinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DefaultVehicleIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
 
                     b.Property<Guid?>("DeleterId")
                         .HasColumnType("uuid")
@@ -956,6 +994,9 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 
                     b.Property<int>("Scope")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("StopWaypointTypeId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")

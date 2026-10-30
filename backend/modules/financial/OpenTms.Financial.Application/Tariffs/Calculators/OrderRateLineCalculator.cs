@@ -63,6 +63,8 @@ public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDepend
         var vat = await _loader.GetVatAsync(snapshot.VatPercentageId);
         var tree = await _writer.GetTreeAsync(root, RateSide.Revenue);
         var emitsFixedPrice = snapshot.FixedPriceAmount != null;
+        var keptLines = tree.Lines.Where(l => l.IsManual || l.IsAdjusted).ToList();
+        var keptListBases = await _loader.GetBasesAsync(keptLines.Where(l => l.IsAdjusted && l.PriceListId != null).Select(l => l.PriceListId!.Value).ToList());
 
         var request = new PricingRequest
         {
@@ -72,10 +74,12 @@ public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDepend
             Lines = lines,
             PriceLists = priceLists,
             MultipleMatches = snapshot.MultipleMatches,
+            ChargedBases = snapshot.ChargedBases ?? [],
             DiscountsOrSurcharges = discounts,
             Vat = vat,
             FixedPriceAmount = snapshot.FixedPriceAmount,
-            KeptLines = tree.Lines.Where(l => l.IsManual || l.IsAdjusted).ToList(),
+            KeptLines = keptLines,
+            KeptLineListBases = keptListBases,
             RootAnchor = root,
             LineAnchor = lineId => RateLineAnchor.OrderLine(context.TargetId, lineId),
             TenantId = _currentTenant.Id,

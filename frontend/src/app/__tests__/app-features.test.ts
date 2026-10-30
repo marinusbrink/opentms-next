@@ -326,6 +326,22 @@ describe("createAppFeatureChecker – host side", () => {
   it("the tenant side never gets the host exemption", () => {
     expect(tenant({ "Apps.Administration": "false" }).isAppEnabled(admin)).toBe(false);
   });
+
+  it("Transport and Master data are tenant-only (PO 2026-10-29): off on the host with every feature on", () => {
+    expect(APPS.filter((app) => app.tenantOnly).map((app) => app.id)).toEqual(["transport", "master-data"]);
+    for (const app of [transport, masterData]) {
+      const values = allOn(app);
+      expect(host(values).isAppEnabled(app), app.id).toBe(false);
+      expect(host(values).visibleViews(app), app.id).toEqual([]);
+      expect(host(values).firstEnabledPath(app), app.id).toBeUndefined();
+      expect(host(values).isPathEnabled(app, app.path), app.id).toBe(false);
+      expect(host(values).isFeatureEnabled(app.feature!), app.id).toBe(false);
+      expect(tenant(values).isAppEnabled(app), app.id).toBe(true);
+    }
+    expect(host(allOn(transport)).isPathEnabled(transport, "/transport/orders")).toBe(false);
+    expect(host(allOn(masterData)).isFeatureEnabled("Apps.MasterData.General.Relations")).toBe(false);
+    expect(host(on("Apps.Dashboard")).isAppEnabled(dashboard)).toBe(true);
+  });
 });
 
 describe("createAppFeatureChecker – firstEnabledPath", () => {

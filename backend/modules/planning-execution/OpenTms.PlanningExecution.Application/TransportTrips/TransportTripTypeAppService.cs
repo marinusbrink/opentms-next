@@ -62,6 +62,8 @@ public class TransportTripTypeAppService
     [Authorize(PlanningExecutionPermissions.TransportTripTypes.Update)]
     public Task SetDefaultAsync(Guid id) => SetDefaultInternalAsync(id);
 
+    private TripTypeDefaults Defaults => LazyServiceProvider.LazyGetRequiredService<TripTypeDefaults>();
+
     protected override IQueryable<TransportTripType> ApplyFilters(IQueryable<TransportTripType> query, ArchivableListRequestDto request)
         => request.IncludeArchived ? query : query.Where(t => !t.IsArchived);
 
@@ -119,6 +121,7 @@ public class TransportTripTypeAppService
             IsDefault = t.IsDefault,
             IsArchived = t.IsArchived
         };
+        await Defaults.DescribeAsync(t, dto, L["PlanningExecution:NotFound"].Value);
         MapAudit(t, dto);
         return dto;
     }
@@ -131,6 +134,7 @@ public class TransportTripTypeAppService
     {
         var code = ReferenceDataAggregateRoot.NormalizeCode(input.Code);
         await EnsureUniqueAsync(t => t.Code == code, "code", code);
+        await Defaults.ValidateAsync(input);
         var type = new TransportTripType(GuidGenerator.Create(), CurrentTenant.Id, code, ToLocalizedName(input.Names), ToNumberSequenceFormat(input.Numbering));
         Apply(type, input);
 
@@ -153,6 +157,7 @@ public class TransportTripTypeAppService
             type.SetCode(code);
         }
 
+        await Defaults.ValidateAsync(input);
         type.SetName(ToLocalizedName(input.Names));
         type.SetNumbering(ToNumberSequenceFormat(input.Numbering));
         Apply(type, input);
@@ -164,6 +169,14 @@ public class TransportTripTypeAppService
         type.SetDescription(input.Description);
         type.SetDefaultExecution(input.DefaultExecution);
         type.SendToFleetManagementSystem = input.SendToFleetManagementSystem;
+
+        /* Design 61 "Trip type defaults": the Master Data ids were validated in the tenant before. */
+        type.SetDefaultCarrier(input.DefaultCarrierRelationId, input.DefaultCarrierContactPersonId);
+        type.SetDefaultVehicles(input.DefaultVehicleCombinationId, input.DefaultVehicleIds);
+        type.SetDefaultDrivers(input.DefaultDriverIds);
+        type.SetDefaultDeparture(input.DefaultDepartureRelationId, input.DefaultDepartureAddressId, input.DefaultDepartureTime);
+        type.SetDefaultArrival(input.DefaultArrivalRelationId, input.DefaultArrivalAddressId);
+        type.SetDefaultComposition(input.DefaultStopCompositionMode, input.DefaultFirstLastStopRule);
     }
 
     protected override Task AfterWriteAsync(TransportTripType type, TransportTripTypeCreateDto input)

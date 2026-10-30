@@ -631,7 +631,7 @@
     "Orders:InvoicingRemarksBlock": "Opmerkingen m.b.t. facturatie",
     "Orders:PricedPerFreightItem": "De vrachtregels zijn individueel geprijsd",
     "Orders:FixedPriceForOrder": "Deze order heeft een vast bedrag",
-    "Orders:RevenueAfterSave": "De omzet wordt berekend zodra de order is opgeslagen.",
+    "Orders:RevenueAfterSave": "Kies de klant en maak de vrachtitems compleet voor een prijsvoorbeeld; de omzet wordt berekend zodra de order is opgeslagen.",
     "Orders:RevenueOnOrders": "De omzet wordt berekend op de orders die het sjabloon aanmaakt.",
     "Orders:AdditionalServicesAfterSave": "Additionele diensten voegt u toe zodra de order is opgeslagen.",
     "Orders:NoRemarks": "Nog geen opmerkingen"

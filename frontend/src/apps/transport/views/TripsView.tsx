@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { Archive, CircleCheck, CircleX, Printer } from "lucide-react";
+import { Archive, CircleCheck, CircleX, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAppFeatures } from "@/app/app-features";
@@ -20,6 +20,7 @@ import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { WarningsCell } from "@/apps/transport/components/WarningsCell";
+import { NewTripDialog } from "@/apps/transport/trips/NewTripDialog";
 import { ArchiveTripsWizard } from "@/apps/transport/wizards/ArchiveTripsWizard";
 import { PrintCmrWizard } from "@/apps/transport/wizards/PrintCmrWizard";
 import { relationLookupPage, type RelationOption } from "@/domains/master-data/entities";
@@ -53,7 +54,8 @@ export interface TripsViewProps {
 /* Design 61, "Trips list and editor": the trips grid (number, status, date, name, type, carrier, vehicles, drivers,
  * planned departure/arrival, stops, legs, customers, orders, distance, load factor, CO₂, cost, revenue, warnings;
  * archived hidden) with the filters view, date range, status, carrier, organisation unit, hide empty, and the command
- * bar Print CMR, Archive (wizard), Cancel, Complete; no New (the Planboard, PO). Derived columns show the
+ * bar New (design 61 "Trip type defaults" 4, PO 2026-10-29: superseding "no New"; the trip page opens after the save),
+ * Print CMR, Archive (wizard), Cancel, Complete. Derived columns show the
  * CalculatingIndicator while pending (flow 2). Export (UI-GRID-013) sends the list's request with the chosen columns and
  * rows to the server export and saves the xlsx. */
 export function TripsView({ filter }: TripsViewProps) {
@@ -62,6 +64,7 @@ export function TripsView({ filter }: TripsViewProps) {
   const features = useAppFeatures();
   const openRecord = useOpenRecord();
   const canView = useIsGranted("PlanningExecution.TransportTrips");
+  const canCreate = useIsGranted("PlanningExecution.TransportTrips.Create");
   const canCancel = useIsGranted("PlanningExecution.TransportTrips.Cancel");
   const canComplete = useIsGranted("PlanningExecution.TransportTrips.Complete");
   const canArchive = useIsGranted("PlanningExecution.TransportTrips.Archive");
@@ -76,7 +79,7 @@ export function TripsView({ filter }: TripsViewProps) {
   const [selection, setSelection] = useState<GridSelectionDto | null>(null);
   const [rowsById, setRowsById] = useState<Map<string, TransportTripRow>>(new Map());
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<"print" | "archive" | "cancel" | "complete" | null>(null);
+  const [dialog, setDialog] = useState<"new" | "print" | "archive" | "cancel" | "complete" | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [exportContext, setExportContext] = useState<GridExportContext | null>(null);
 
@@ -172,6 +175,7 @@ export function TripsView({ filter }: TripsViewProps) {
   const selectOne = (row: TransportTripRow) => setSelection({ mode: "Explicit", explicitIds: [row.id!], filterRequest: null, excludedIds: [] });
   const openStatus = (row: TransportTripRow | undefined) => row?.status === 1 || row?.status === 2;
   const commands: AppCommandBarCommand[] = [
+    ...(canCreate ? [{ id: "new", labelKey: "PlanningExecution:NewTrip", icon: Plus, isPrimary: true, onClick: () => setDialog("new") }] : []),
     ...(canPrint ? [{ id: "print", labelKey: "Orders:PrintConsignmentNote", icon: Printer, requiresSelection: true, disabled: !singleId, disabledReasonKey: "PlanningExecution:SelectOneTrip", onClick: () => setDialog("print") }] : []),
     ...(canArchive ? [{ id: "archive", labelKey: "PlanningExecution:ArchiveTrips", icon: Archive, requiresSelection: true, disabled: selectedRows.length === 0, disabledReasonKey: "PlanningExecution:SelectTrips", onClick: () => setDialog("archive") }] : []),
     ...(canComplete ? [{ id: "complete", labelKey: "PlanningExecution:Complete", icon: CircleCheck, requiresSelection: true, disabled: !openStatus(single), disabledReasonKey: "PlanningExecution:SelectOneOpenTrip", onClick: () => setDialog("complete") }] : []),
@@ -215,6 +219,7 @@ export function TripsView({ filter }: TripsViewProps) {
           }
         />
       </div>
+      {canCreate && dialog === "new" && <NewTripDialog open onOpenChange={(next) => setDialog(next ? "new" : null)} onCreated={refresh} />}
       {single && <PrintCmrWizard open={dialog === "print"} onOpenChange={(next) => setDialog(next ? "print" : null)} trip={{ id: single.id!, number: single.number ?? "" }} />}
       <ArchiveTripsWizard open={dialog === "archive"} onOpenChange={(next) => { setDialog(next ? "archive" : null); if (!next) refresh(); }} trips={selectedRows} />
       <GridExportDialog

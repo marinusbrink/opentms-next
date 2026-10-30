@@ -34,6 +34,15 @@ public class RelationFinancialSettings : FullAuditedAggregateRoot<Guid>, IMultiT
 
     public MultipleMatches CostMultipleMatches { get; private set; } = MultipleMatches.All;
 
+    /// <summary>
+    /// The revenue bases charged by default (design 61 "Order page review" point 3) as a bit mask (<see cref="ChargedBases"/>);
+    /// Orders copies them with the other defaults when the customer is chosen.
+    /// </summary>
+    public int RevenueChargedBasesMask { get; private set; }
+
+    /// <summary>The revenue bases switched on, in the legacy order of the block.</summary>
+    public IReadOnlyList<QuantitySource> RevenueChargedBases => ChargedBases.FromMask(RevenueChargedBasesMask);
+
     /// <summary>Null = the tenant's default VAT category.</summary>
     public Guid? VatPercentageId { get; set; }
 
@@ -71,6 +80,10 @@ public class RelationFinancialSettings : FullAuditedAggregateRoot<Guid>, IMultiT
         RevenueMultipleMatches = FinancialValues.Defined(revenue, "revenueMultipleMatches");
         CostMultipleMatches = FinancialValues.Defined(cost, "costMultipleMatches");
     }
+
+    /// <summary>Each basis once, revenue bases only (<see cref="ChargedBases.ToMask"/>).</summary>
+    public void SetRevenueChargedBases(IReadOnlyCollection<QuantitySource>? bases)
+        => RevenueChargedBasesMask = ChargedBases.ToMask(bases, "revenueChargedBases");
 
     public MultipleMatches MultipleMatchesFor(RateSide side) => side == RateSide.Cost ? CostMultipleMatches : RevenueMultipleMatches;
 

@@ -244,7 +244,10 @@ export function PriceListEditor({ mode: requestedMode, id: requestedId, readOnly
                   required
                   aria-invalid={form.error("currencyCode") != null}
                   disabled={form.readOnly}
-                  {...inPlace.offer("Currency", form.readOnly, (r) => form.set("currencyCode", r.code))}
+                  {...inPlace.offer("Currency", form.readOnly, (r) => form.set("currencyCode", r.code), {
+                    /* The value is the ISO code: the pencil opens the currency of that code. */
+                    editId: (form.values.currencyCode && currencyLookup.data?.find((c) => c.code === form.values.currencyCode)?.id) || null,
+                  })}
                 />
               </FormField>
               <FormField label={t("Financial:ValidFrom")} htmlFor={form.id("validFrom")} required error={form.error("validFrom")} floating="always">

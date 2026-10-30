@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Localization;
+using OpenTms.Financial.Tariffs;
 using OpenTms.MasterData.Published;
 using OpenTms.Orders.Localization;
 using OpenTms.PlanningExecution.Published;
@@ -277,6 +278,8 @@ public class TransportOrderDtoMapper : ITransientDependency
         PaymentTermDays = terms.PaymentTermDays,
         PriceListIds = terms.PriceListIds.ToList(),
         PriceListNames = terms.PriceListIds.Select(id => names.PriceLists.GetValueOrDefault(id, NotFound)).ToList(),
+        PriceListBases = terms.PriceListIds.Select(id => names.PriceListBases != null && names.PriceListBases.TryGetValue(id, out var basis) ? basis : (QuantitySource?)null).ToList(),
+        ChargedBases = terms.ChargedBases?.ToList() ?? [],
         MultipleMatches = terms.MultipleMatches,
         DiscountsOrSurcharges = terms.DiscountsOrSurcharges.Select(d => new TransportOrderDiscountOrSurchargeDto
         {

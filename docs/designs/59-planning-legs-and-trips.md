@@ -38,10 +38,15 @@ matched to existing ones on the unique key: unchanged → keep id and trip; chan
 changed snapshot on an assigned leg → **unassign** (stop composition rerun, `LegUnassigned`, trip warning
 `LegChangedAfterPlanning`); a leg no longer generated → deleted (unassigned first). `TransportOrderCancelled` deletes all.
 Publishes `LegsGeneratedEto { OrderId, LegIds[] }` and requests `PlanningExecution.Leg` per leg (routing).
+*Amended by design 61 "Via-depot rules on the stop's waypoint type" (PO 2026-10-29):* a rule matches one **stop** (its
+relation, the order's customer or one of its regions, and its waypoint type = the rule's `StopWaypointTypeId`); per pair
+the first scope with a match for either stop decides, each stop brings at most one depot, origin side first, so a pair can
+run origin → depot → depot → destination.
 
 ### ViaDepotRule
 
-`Scope` enum `{ Relation = 1, Customer, Region }`, `RelationId?` / `GeographicalRegionId?`, `DepotRelationId`,
+`Scope` enum `{ Relation = 1, Customer, Region }`, `RelationId?` / `GeographicalRegionId?`, `StopWaypointTypeId?` (design 61:
+the stop's waypoint type that triggers the rule; required through the API, null only on a rule stored before), `DepotRelationId`,
 `DepotAddressId`, `ArrivalWaypointTypeId`, `DepartureWaypointTypeId?`, `Overnight` bool, `Position`, `IsArchived`. List in
 the Master data app under Planning & Execution → Trips.
 
@@ -68,6 +73,11 @@ the Master data app under Planning & Execution → Trips.
 | `PlannedDistanceM`, `ActualDistanceM` int? | | actual by command |
 | stored derived | `PlannedDurationS`, `LoadFactor` decimal(9,4)?, `LoadingMeters` double?, `Co2Kg`, `Warnings` jsonb (`[{ code, legId?, stopId?, data }]`), `CostAmount`, `RevenueAmount` decimal(18,2)?, `CalculatedAt` | `TripCalculator` |
 | child `Stops` → `TripStop` | `Position`, `WaypointTypeId`, `RelationId`, `RelationAddressId`, `Name/City` snapshot, `IsManual`, `PlannedArrival/Departure`, `EstimatedArrival/Departure`, `ActualArrival/Departure` DateTimeOffset?, `PlannedCumulativeDistanceM`, `ActualCumulativeDistanceM` int?, `Remarks`; child `TripStopLeg` (`LegId`, `Role` Origin/Destination; unique per leg and role) | |
+
+**Amended 2026-10-29 (design 61 "Trip type defaults"):** "default from the type" now covers more than the execution. The
+type carries the defaults of a new trip (carrier and contact, combination or vehicles, drivers, departure relation, address
+and time, arrival relation and address, stop composition mode, first/last stop rule), and `Create` fills every group the
+input leaves empty from them, on both the API path and the order path.
 
 ### Lifecycle and commands
 

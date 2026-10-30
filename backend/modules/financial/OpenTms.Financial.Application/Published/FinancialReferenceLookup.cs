@@ -56,6 +56,7 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
             RelationId = settings.RelationId,
             RevenuePriceListIds = settings.PriceListIdsFor(RateSide.Revenue).ToList(),
             RevenueMultipleMatches = settings.RevenueMultipleMatches,
+            RevenueChargedBases = settings.RevenueChargedBases.ToList(),
             DiscountOrSurchargeIds = settings.DiscountOrSurchargeIdsOn(asOf).ToList(),
             VatPercentageId = settings.VatPercentageId,
             PaymentTermDays = settings.PaymentTermDays,
@@ -111,7 +112,7 @@ public class FinancialReferenceLookup : FinancialAppServiceBase, IFinancialRefer
         }
 
         var rows = await _priceLists.GetListAsync(p => keys.Contains(p.Id), cancellationToken: cancellationToken);
-        return rows.Select(p => new PriceListReferenceDto { Id = p.Id, Code = p.Code, Name = p.Name, IsArchived = p.IsArchived, Side = p.Side, CurrencyCode = p.CurrencyCode }).ToList();
+        return rows.Select(p => new PriceListReferenceDto { Id = p.Id, Code = p.Code, Name = p.Name, IsArchived = p.IsArchived, Side = p.Side, CurrencyCode = p.CurrencyCode, Basis = p.Basis }).ToList();
     }
 
     private static List<Guid> Bounded(IReadOnlyCollection<Guid> ids)

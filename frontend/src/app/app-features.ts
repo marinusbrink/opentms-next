@@ -51,7 +51,8 @@ export function createAppFeatureChecker(
   apps: readonly AppDefinition[] = APPS,
 ): AppFeatureChecker {
   const on = (feature: string | undefined, app: AppDefinition | undefined) =>
-    feature == null || (isHost && app?.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true");
+    !(isHost && app?.tenantOnly === true) &&
+    (feature == null || (isHost && app?.hostAlwaysEnabled === true) || featureChain(feature).every((f) => values[f] === "true"));
 
   const leafPaths = (app: AppDefinition, view: AppView): string[] => {
     if (!on(view.feature, app)) return [];

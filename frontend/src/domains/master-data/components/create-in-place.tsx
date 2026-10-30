@@ -3,7 +3,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { useAppFeatures } from "@/app/app-features";
 
-import { OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
+import { OrganizationUnitByIdDialog, OrganizationUnitFormDialog } from "@/domains/platform/components/OrganizationUnitFormDialog";
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import type { EntityEditorProps } from "@/components/record-editor/editor-props";
 import { AdditionalServiceEditor } from "@/domains/financial/components/AdditionalServiceEditor";
@@ -66,6 +66,15 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * parent there is no row. `roles` gives a new relation the roles of the picker that created it (a customer picker
  * creates a customer, so the role-narrowed lookup finds it again).
  *
+ * The same `offer` gives the picker the edit pencil (UI-LOOK-005, design 61 "Order page review" 2): `onEdit` opens the
+ * selected record's editor on top, in edit mode with the entity's Update permission and read-only (`editLabel`
+ * "Open") with only its view permission, both derived from the Create permission (`<Base>.Create` → `<Base>`,
+ * `<Base>.Update`; a child record's is the parent's Update, so the parent's), and only while the node's feature chain is
+ * on. The form underneath keeps its state: the pencil never touches it, whether it is read-only or not. A child record
+ * opens its parent's editor on the matching tab. After a save the lookups are refetched, and `editedLabel` gives an
+ * EntityLookup, whose value (with its name) lives in the form, the saved name until the form reloads. A picker whose
+ * value is not the record's id (a currency picked by its ISO code) passes `{ editId }`.
+ *
  * It lives in the Master Data domain folder, beside the editors it opens, because two apps use it (the Master data
  * app's editors and the Transport app's forms, design 61) and an app never imports another app (CLAUDE.md, frontend
  * structure). Its table is the one place a domain folder reaches into the others' editors (Orders, Financial,
@@ -81,10 +90,16 @@ export interface CreatedRecord<TDto = unknown> {
   dto: TDto;
 }
 
-/** Spread onto EntityLookup / ReferenceCombobox / MultiSelect / TreeSelect. */
+/** Spread onto EntityLookup / ReferenceCombobox / MultiSelect / TreeSelect (MultiSelect has no pencil: several values). */
 export interface CreateInPlaceProps {
   onCreateNew?: (term: string) => void;
   createLabel: string;
+  /** UI-LOOK-005: opens the selected record (an EntityLookup's item, or the id a ReferenceCombobox / TreeSelect holds). */
+  onEdit?: (selected: string | { id: string }) => void;
+  /** The pencil's tooltip: t("Edit"), or t("Open") with only the view permission. */
+  editLabel?: string;
+  /** The name a record got in the editor the pencil opened (EntityLookup: its value holds the old one). */
+  editedLabel?: (id: string) => string | undefined;
 }
 
 interface Saved {
@@ -110,15 +125,26 @@ export interface CreateInPlaceOptions {
   roles?: number;
 }
 
+/** What `offer` takes besides the term options. */
+export interface OfferOptions extends CreateInPlaceOptions {
+  /** The record the pencil opens when the control's value is not its id (a currency or country held by its code);
+   *  null: none (no pencil). */
+  editId?: string | null;
+}
+
 interface EntityEntry {
-  /** The Create permission (Update of the parent for a child record); without it the picker has no "Add new …" row. */
+  /** The Create permission (Update of the parent for a child record); without it the picker has no "Add new …" row.
+   *  The pencil's view and Update permissions derive from it (see `accessOf`). */
   permission: string;
   /** A child of another record: the row needs `options.parentId`, and the parent's editor opens on it. */
   parent?: true;
   /** The feature of the entity's navigation node (apps.config.ts); it and every ancestor must be on. */
   feature: string;
   labelKey: string;
-  /** Renders the editor in create mode. The editor component is looked up only when this renders (the getters
+  /** No pencil: the contract has no read of one record by id (Platform users). */
+  noEdit?: true;
+  /** Renders the editor in create mode, or (the pencil) in edit mode on `props.id`, read-only per `props.readOnly`.
+   *  The editor component is looked up only when this renders (the getters
    *  in ENTITIES), never at module load: the editors import this hook, so a binding read during the import cycle
    *  could still be uninitialised (a `const X = memo(…)` editor would throw). */
   render: (props: EntityEditorProps, options: CreateInPlaceOptions) => ReactNode;
@@ -142,13 +168,19 @@ const relationEditor = (extra: (props: EntityEditorProps, options: CreateInPlace
   return <Editor {...props} {...extra(props, options)} />;
 };
 
-/** Adds the record to the entity's cached lookup (masterDataQueryKey(entity, "lookup")) when it is loaded. */
+/** Puts the record into the entity's cached lookup (masterDataQueryKey(entity, "lookup")) when it is loaded: a new one
+ *  is added, an edited one gets its new code and name. */
 const intoLookup =
   (entity: string) =>
   (queryClient: QueryClient, record: CreatedRecord<Saved>) =>
     queryClient.setQueryData<LookupItem[]>(masterDataQueryKey(entity, "lookup"), (items) =>
-      items && !items.some((i) => i.id === record.id) ? [...items, { id: record.id, code: record.code, name: record.name }] : items,
+      !items
+        ? items
+        : items.some((i) => i.id === record.id)
+          ? items.map((i) => (i.id === record.id ? { ...i, code: record.code, name: record.name } : i))
+          : [...items, { id: record.id, code: record.code, name: record.name }],
     );
+
 
 const named = (dto: Saved) => ({ code: dto.code ?? null, name: dto.name ?? "" });
 const localized = (code: (dto: Saved) => string | null | undefined) => (dto: Saved, culture: string) => ({
@@ -207,7 +239,8 @@ const ENTITIES = {
     insert: intoLookup("relations"),
   },
   /* A relation's address and contact person (design 43: parts of the relation aggregate, saved with it). The relation
-   * editor opens in edit mode on the picked relation; the relation's queries are refetched by its save. */
+   * editor opens in edit mode on the picked relation (the pencil too, on the tab that holds the picked one, read-only
+   * without the relation's Update); the relation's queries are refetched by its save. */
   RelationAddress: {
     permission: "MasterData.Relations.Update",
     parent: true,
@@ -222,7 +255,14 @@ const ENTITIES = {
     parent: true,
     feature: "Apps.MasterData.General.Relations.Relations",
     labelKey: "MasterData:AddNewContactPerson",
-    render: relationEditor((props, options) => ({ mode: "edit", id: options.parentId ?? undefined, initialName: undefined, initialTab: "contactPersons", newContactPersonName: props.initialName ?? "" })),
+    render: relationEditor((props, options) => ({
+      mode: "edit",
+      id: options.parentId ?? undefined,
+      initialName: undefined,
+      initialTab: "contactPersons",
+      /* "Add new …" opens the new contact person's dialog; the pencil opens the tab only. */
+      newContactPersonName: props.mode === "create" ? (props.initialName ?? "") : undefined,
+    })),
     toRecord: named,
     insert: () => undefined,
   },
@@ -403,10 +443,14 @@ const ENTITIES = {
     permission: "Platform.Administration.OrganizationUnits.Create",
     feature: "Apps.Administration.OrganizationUnits",
     labelKey: "Administration:AddNewOrganizationUnit",
-    render: ({ onClose, onSaved, initialName }) => (
-      <OrganizationUnitFormDialog mode="create" open initialName={initialName} onClose={onClose} onSuccess={(saved) => onSaved(saved)} />
-    ),
+    render: ({ mode, id, readOnly, onClose, onSaved, initialName }) =>
+      mode === "edit" ? (
+        <OrganizationUnitByIdDialog id={id} readOnly={readOnly} onClose={onClose} onSuccess={(saved) => onSaved(saved)} />
+      ) : (
+        <OrganizationUnitFormDialog mode="create" open initialName={initialName} onClose={onClose} onSuccess={(saved) => onSaved(saved)} />
+      ),
     toRecord: (d) => ({ code: d.code ?? null, name: d.displayName ?? "" }),
+    /* An edit's save refetches the units itself (and hands back no row). */
     insert: (queryClient, record) =>
       queryClient.setQueryData<OrganizationUnitRow[]>(["administration", "organization-units", "all"], (rows) =>
         rows && !rows.some((r) => r.id === record.id) ? [...rows, record.dto as OrganizationUnitRow] : rows,
@@ -416,6 +460,7 @@ const ENTITIES = {
     permission: "Platform.Administration.Users.Create",
     feature: "Apps.Administration.Users",
     labelKey: "Administration:AddNewUser",
+    noEdit: true,
     render: ({ onClose, onSaved, initialName }) => (
       <UserFormDialog mode="create" open initialName={initialName} onClose={onClose} onSuccess={(saved) => onSaved(saved)} />
     ),
@@ -432,13 +477,9 @@ export function withId(ids: string[], id: string): string[] {
   return ids.includes(id) ? ids : [...ids, id];
 }
 
-interface Pending {
-  seq: number;
-  entity: CreatableEntity;
-  term: string;
-  options: CreateInPlaceOptions;
-  onCreated: (record: CreatedRecord<never>) => void;
-}
+type Pending =
+  | { kind: "create"; seq: number; entity: CreatableEntity; term: string; options: CreateInPlaceOptions; onCreated: (record: CreatedRecord<never>) => void }
+  | { kind: "edit"; seq: number; entity: CreatableEntity; id: string; readOnly: boolean; options: CreateInPlaceOptions };
 
 /** The one "may this picker offer Add new …" gate: not read-only, the entity's Create permission, and its node's
  *  whole feature chain on (UI-PERM-006). For pickers that keep their own create dialog; `offer` uses it too. */
@@ -452,25 +493,57 @@ export function useCanCreateInPlace(): (entity: CreatableEntity, readOnly: boole
   };
 }
 
+/** How the pencil may open a record: "edit" with the Update permission, "view" with only the view permission, null
+ *  without either. Every module names them `<Base>`, `<Base>.Create`, `<Base>.Update`; the entry holds the Create one
+ *  (a child record the parent's Update), so the base is that name without its last part. */
+export type InPlaceAccess = "edit" | "view" | null;
+
+/** The pencil's gate (UI-LOOK-005): the access above, the node's whole feature chain on, and for a child record its
+ *  parent picked. Not the form's read-only state: viewing a record changes nothing in the form. For pickers that keep
+ *  their own editor dialog; `offer` uses it too. */
+export function useCanOpenInPlace(): (entity: CreatableEntity, options?: CreateInPlaceOptions) => InPlaceAccess {
+  const isGranted = useIsGrantedChecker();
+  const features = useAppFeatures();
+  return (entity, options) => {
+    const entry: EntityEntry = ENTITIES[entity];
+    if (entry.noEdit || (entry.parent && !options?.parentId) || !features.isFeatureEnabled(entry.feature)) return null;
+    const base = entry.permission.replace(/\.(Create|Update)$/, "");
+    return isGranted(`${base}.Update`) ? "edit" : isGranted(base) ? "view" : null;
+  };
+}
+
 export function useCreateInPlace() {
   const { t, culture } = useL();
   const queryClient = useQueryClient();
   const canCreate = useCanCreateInPlace();
+  const canOpen = useCanOpenInPlace();
   const [pending, setPending] = useState<Pending | null>(null);
+  /* The names records got in an editor the pencil opened, by id (see `editedLabel`). */
+  const [edited, setEdited] = useState<Record<string, string>>({});
   const seq = useRef(0);
   /* `offer` stays the same function across renders (grid column definitions depend on it); it reads the latest
    * gate and texts when it is called, which is during render. */
-  const latest = useRef({ canCreate, t });
-  latest.current = { canCreate, t };
+  const latest = useRef({ canCreate, canOpen, t, edited });
+  latest.current = { canCreate, canOpen, t, edited };
 
   const offer = useCallback(
-    <TDto = unknown,>(entity: CreatableEntity, readOnly: boolean, onCreated: (record: CreatedRecord<TDto>) => void, options: CreateInPlaceOptions = {}): CreateInPlaceProps => {
+    <TDto = unknown,>(entity: CreatableEntity, readOnly: boolean, onCreated: (record: CreatedRecord<TDto>) => void, options: OfferOptions = {}): CreateInPlaceProps => {
       const entry: EntityEntry = ENTITIES[entity];
+      const { editId, ...termOptions } = options;
+      const access = editId === null ? null : latest.current.canOpen(entity, termOptions);
       return {
         createLabel: latest.current.t(entry.labelKey),
-        onCreateNew: latest.current.canCreate(entity, readOnly, options)
-          ? (term: string) => setPending({ seq: ++seq.current, entity, term, options, onCreated: onCreated as (record: CreatedRecord<never>) => void })
+        onCreateNew: latest.current.canCreate(entity, readOnly, termOptions)
+          ? (term: string) => setPending({ kind: "create", seq: ++seq.current, entity, term, options: termOptions, onCreated: onCreated as (record: CreatedRecord<never>) => void })
           : undefined,
+        onEdit: access
+          ? (selected) => {
+              const id = editId ?? (typeof selected === "string" ? selected : selected.id);
+              if (id) setPending({ kind: "edit", seq: ++seq.current, entity, id, readOnly: access === "view", options: termOptions });
+            }
+          : undefined,
+        editLabel: access ? latest.current.t(access === "edit" ? "Edit" : "Open") : undefined,
+        editedLabel: (id: string) => latest.current.edited[id],
       };
     },
     [],
@@ -479,26 +552,46 @@ export function useCreateInPlace() {
   let dialog: ReactNode = null;
   if (pending) {
     const entry: EntityEntry = ENTITIES[pending.entity];
+    const toRecord = (saved: unknown): CreatedRecord<Saved> | null => {
+      const dto = saved as Saved | undefined;
+      return dto?.id ? { id: dto.id, ...entry.toRecord(dto, culture), dto } : null;
+    };
     dialog = (
       <Fragment key={pending.seq}>
-        {entry.render({
-          mode: "create",
-          readOnly: false,
-          open: true,
-          initialName: pending.term,
-          onClose: () => setPending(null),
-          onSaved: (saved) => {
-            const dto = saved as Saved | undefined;
-            if (!dto?.id) return;
-            const record: CreatedRecord<Saved> = { id: dto.id, ...entry.toRecord(dto, culture), dto };
-            entry.insert(queryClient, record);
-            void queryClient.invalidateQueries({ queryKey: ["entity-lookup"] });
-            pending.onCreated(record as CreatedRecord<never>);
-          },
-        }, pending.options)}
+        {pending.kind === "create"
+          ? entry.render({
+              mode: "create",
+              readOnly: false,
+              open: true,
+              initialName: pending.term,
+              onClose: () => setPending(null),
+              onSaved: (saved) => {
+                const record = toRecord(saved);
+                if (!record) return;
+                entry.insert(queryClient, record);
+                void queryClient.invalidateQueries({ queryKey: ["entity-lookup"] });
+                pending.onCreated(record as CreatedRecord<never>);
+              },
+            }, pending.options)
+          : entry.render({
+              mode: "edit",
+              id: pending.id,
+              readOnly: pending.readOnly,
+              open: true,
+              onClose: () => setPending(null),
+              /* A save (or a delete, without a record): the pickers' lists show the record as it is now; the form
+               * underneath keeps its values. A child record's save hands back its parent: nothing to rename. */
+              onSaved: (saved) => {
+                void queryClient.invalidateQueries({ queryKey: ["entity-lookup"] });
+                const record = toRecord(saved);
+                if (!record) return;
+                entry.insert(queryClient, record);
+                if (!entry.parent) setEdited((names) => ({ ...names, [record.id]: record.name }));
+              },
+            }, pending.options)}
       </Fragment>
     );
   }
 
-  return { offer, canCreate, dialog };
+  return { offer, canCreate, canOpen, dialog };
 }

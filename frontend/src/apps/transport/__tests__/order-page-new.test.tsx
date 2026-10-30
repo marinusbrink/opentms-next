@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The new order (design 61 "Order page, legacy tab structure" 9: New opens the page directly, no New dialog): the default type
  * (or the one New per type names), today, the cursor in Customer, the customer's financial defaults copied when it
@@ -40,7 +40,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
 import { toast } from "sonner";
-import { itemRows, lookupItems, openNested, ribbonButton, ribbonLabels, section, stubGlobals, tabLabels } from "./transport-test-mocks";
+import { fail, itemRows, itemTab, lookupItems, openItem, openNested, openTab, ribbonButton, ribbonLabels, section, stubGlobals, tabLabels } from "./transport-test-mocks";
 import { GET, POST, calls, lastCall, resetClient, routes } from "./test-setup-mocks";
 
 const ALL = { "Orders.TransportOrders": true, "Orders.TransportOrders.Create": true, "Orders.TransportOrders.Update": true, "Orders.TransportOrders.Confirm": true, "Financial.RateLines.Update": true };
@@ -176,6 +176,147 @@ describe("New order: the page opens directly", () => {
     await click(ribbonButton("Save")!);
     expect(await screen.findByText("The order date is in a closed period.")).toBeInTheDocument();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+});
+
+/* Review prices before the first save (Marinus 2026-10-30): a new order is previewed as it stands once a customer is
+ * chosen, through preview-new-order-prices; the grid, the freight items total, the revenue overview and the item's
+ * Pricing show the preview, an item named by its position (linePosition). Risk class: Medium (UI) over a High read. */
+describe("New order: the price preview before the first save", () => {
+  const NEW_PREVIEW = "/api/orders/transport-order/preview-new-order-prices";
+  const STORED_PREVIEW = "/api/orders/transport-order/{id}/preview-prices";
+  const preview = () => ({
+    currencyCode: "EUR",
+    linesAmount: 250,
+    discountsAndSurchargesAmount: 5,
+    totalAmount: 255,
+    lines: [
+      { orderLineId: null, linePosition: 1, kind: 1, quantity: 1, unitPrice: 120, amount: 120, priceListId: "pl-1" },
+      { orderLineId: null, linePosition: 2, kind: 1, quantity: 1, unitPrice: 130, amount: 130, priceListId: "pl-1" },
+      { orderLineId: null, linePosition: null, kind: 4, quantity: 1, unitPrice: 5, amount: 5, discountOrSurchargeId: "ds-1" },
+    ],
+    warnings: [],
+  });
+  const advance = async () =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+  const itemsTotal = () => document.querySelector<HTMLElement>("[data-slot=freight-items] > [data-slot=totals-block]")!;
+  const priceCell = (index: number) => itemRows()[index].querySelector("[data-field=price]")?.textContent;
+  /** Two priceable items through the stop strip (Enter again adds the second with the same stops). */
+  async function addTwoItems() {
+    await addItem();
+    await key(field(entry(), "entry-strip-stop-1-relation"), { key: "Enter" });
+    await waitFor(() => expect(itemRows()).toHaveLength(2));
+  }
+
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is not previewed before a customer is chosen; then once, after the debounce, as it stands, never through the stored-order route", async () => {
+    routes.POST[NEW_PREVIEW] = preview;
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    await addItem();
+    await waitFor(() => expect(itemRows()).toHaveLength(1));
+    await advance();
+    expect(calls(POST, NEW_PREVIEW)).toHaveLength(0);
+    /* Without a customer and a preview the item says it is priced after the save. */
+    openItem(0);
+    expect(itemTab("Orders:Pricing").querySelector("[data-slot=item-priced-after-save]")).toHaveTextContent("Orders:ItemPricedAfterSave");
+    fireEvent.keyDown(document.querySelector("[role=dialog][data-variant=editor]")!, { key: "Escape" });
+
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    expect(calls(POST, NEW_PREVIEW)).toHaveLength(0);
+    await waitFor(() => expect(calls(GET, "/api/financial/relation-financial-settings/by-relation/{relationId}")).toHaveLength(1));
+    await advance();
+    await waitFor(() => expect(calls(POST, NEW_PREVIEW).length).toBeGreaterThan(0));
+    const body = lastCall(POST, NEW_PREVIEW)!.body as { customerRelationId: string; orderDate: string; financialTerms: { priceListIds: string[] }; lines: { id?: string | null; transportUnitId: string; stops: { relationId: string; relationAddressId: string }[] }[] };
+    expect(body.customerRelationId).toBe("rel-1");
+    expect(body.orderDate).toBe(today);
+    expect(body.financialTerms.priceListIds).toEqual(["pl-1"]);
+    expect(body.lines).toHaveLength(1);
+    expect(body.lines[0].id ?? null).toBeNull();
+    expect(body.lines[0].transportUnitId).toBe("unit-1");
+    expect(body.lines[0].stops.map((s) => [s.relationId, s.relationAddressId])).toEqual([["rel-1", "rel-1-main"], ["rel-2", "rel-2-main"]]);
+    expect(calls(POST, STORED_PREVIEW)).toHaveLength(0);
+    expect(calls(POST, "/api/orders/transport-order")).toHaveLength(0);
+  });
+
+  it("a customer without priceable items is not previewed", async () => {
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await waitFor(() => expect(calls(GET, "/api/financial/relation-financial-settings/by-relation/{relationId}")).toHaveLength(1));
+    await advance();
+    expect(calls(POST, NEW_PREVIEW)).toHaveLength(0);
+    expect(section("Orders:RevenueOverview").querySelector("[data-slot=revenue-after-save]")).toHaveTextContent("Orders:RevenueAfterSave");
+  });
+
+  it("the preview fills the grid's amounts by position, the freight items total, the revenue overview and the item's Pricing", async () => {
+    routes.POST[NEW_PREVIEW] = preview;
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await addTwoItems();
+    await advance();
+    await waitFor(() => expect(priceCell(0)).toBe("120.00"));
+    expect(priceCell(1)).toBe("130.00");
+    /* The freight items total sums the items' preview lines (not the order-level line) and says it is a preview. */
+    expect(within(itemsTotal()).getByText("Orders:FreightItemsTotal").nextElementSibling).toHaveTextContent("250.00");
+    expect(within(itemsTotal()).getByText("Orders:PreviewPrices")).toBeInTheDocument();
+
+    const revenue = section("Orders:RevenueOverview");
+    expect(revenue.querySelector("[data-slot=revenue-after-save]")).toBeNull();
+    const totals = revenue.querySelector<HTMLElement>("[data-slot=order-totals]")!;
+    expect(totals).not.toBeNull();
+    expect(within(totals).getByText("255.00")).toBeInTheDocument();
+    expect(within(totals).getByText("Orders:PreviewPrices")).toBeInTheDocument();
+
+    openTab("General");
+    openItem(1);
+    const pricing = itemTab("Orders:Pricing");
+    expect(pricing.querySelector("[data-slot=item-priced-after-save]")).toBeNull();
+    expect(pricing.querySelector("[data-slot=price-preview]")).not.toBeNull();
+    const lines = pricing.querySelector<HTMLElement>("[data-slot=item-preview-lines]")!;
+    expect(lines.children).toHaveLength(1);
+    expect(lines).toHaveTextContent("130.00");
+    expect(within(pricing.querySelector<HTMLElement>("[data-slot=totals-block]")!).getByText("130.00")).toBeInTheDocument();
+    /* An unsaved item has no stored lines to edit and no purchase prices. */
+    expect(within(pricing).queryByText("Financial:AddManualLine")).toBeNull();
+    expect(calls(POST, STORED_PREVIEW)).toHaveLength(0);
+  });
+
+  it("an item without preview lines of its own shows 0.00 in the grid while the preview stands", async () => {
+    routes.POST[NEW_PREVIEW] = () => ({ ...preview(), linesAmount: 120, totalAmount: 125, lines: preview().lines.filter((l) => l.linePosition !== 2) });
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await addTwoItems();
+    await advance();
+    await waitFor(() => expect(priceCell(0)).toBe("120.00"));
+    expect(priceCell(1)).toBe("0.00");
+    expect(within(itemsTotal()).getByText("Orders:FreightItemsTotal").nextElementSibling).toHaveTextContent("120.00");
+  });
+
+  it("a refused preview says the price is unavailable in the revenue overview and the item's Pricing, never a toast", async () => {
+    routes.POST[NEW_PREVIEW] = () => fail("Your request is not valid!");
+    renderNew();
+    await screen.findByText("Orders:NewTransportOrder");
+    fireEvent.change(field(header(), "customer"), { target: { value: "rel-1" } });
+    await addItem();
+    await advance();
+    await waitFor(() => expect(calls(POST, NEW_PREVIEW).length).toBeGreaterThan(0));
+    await waitFor(() => expect(section("Orders:RevenueOverview").querySelector("[data-slot=revenue-after-save]")).toHaveTextContent("Orders:PricePreviewUnavailable"));
+    openTab("General");
+    openItem(0);
+    expect(itemTab("Orders:Pricing").querySelector("[data-slot=item-priced-after-save]")).toHaveTextContent("Orders:PricePreviewUnavailable");
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
 

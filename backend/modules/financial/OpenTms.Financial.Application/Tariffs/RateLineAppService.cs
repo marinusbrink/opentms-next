@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.Financial.Permissions;
 using OpenTms.Financial.Tariffs.Calculators;
+using OpenTms.PlanningExecution.Published;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Permissions;
@@ -30,6 +31,7 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
     private readonly IRepository<AdditionalService, Guid> _services;
     private readonly IDerivedValueStateStore _states;
     private readonly IDerivedValueScheduler _scheduler;
+    private readonly ILegReader _legs;
 
     public RateLineAppService(
         IRepository<RateLine, Guid> lines,
@@ -37,7 +39,8 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
         IRepository<DiscountOrSurcharge, Guid> discounts,
         IRepository<AdditionalService, Guid> services,
         IDerivedValueStateStore states,
-        IDerivedValueScheduler scheduler)
+        IDerivedValueScheduler scheduler,
+        ILegReader legs)
     {
         _lines = lines;
         _priceLists = priceLists;
@@ -45,19 +48,70 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
         _services = services;
         _states = states;
         _scheduler = scheduler;
+        _legs = legs;
     }
 
     [Authorize(FinancialPermissions.RateLines.Default)]
     public virtual async Task<RateLineSetDto> GetAsync(RateLineGetRequestDto input)
     {
         var root = RootOf(input.OrderId, input.TripId);
-        var lines = await TreeAsync(root);
-        var totals = lines.Count == 0 ? null : RateLineTotals.Of(root.Id, lines);
-        var state = await _states.FindAsync(root.Kind == RateLineAnchorKind.Order ? OrderRateLineCalculator.TargetType : TripRateLineCalculator.TargetType, root.Id);
+        if (root.Kind == RateLineAnchorKind.Order && input.Side == RateSide.Cost)
+        {
+            return await GetOrderCostAsync(root.Id);
+        }
 
+        var lines = await TreeAsync(root);
+        var state = await _states.FindAsync(root.Kind == RateLineAnchorKind.Order ? OrderRateLineCalculator.TargetType : TripRateLineCalculator.TargetType, root.Id);
+        return await SetOfAsync(root.Id, lines.OrderBy(l => l.Position).ToList(), state);
+    }
+
+    /// <summary>
+    /// Design 61 "Order page review" point 4: the purchase prices of an order's freight items. The order's legs come through
+    /// Planning's published reader (tenant-filtered there); the lines are the cost lines anchored on those legs within the trip
+    /// each leg is on now (a line left behind on a trip the leg moved away from is that trip's, not the item's). Bounded:
+    /// one query per thousand legs, an order's legs are few.
+    /// </summary>
+    private async Task<RateLineSetDto> GetOrderCostAsync(Guid orderId)
+    {
+        var legs = (await _legs.GetByOrderAsync(orderId)).Where(l => l.TripId != null).ToDictionary(l => l.Id);
+        var lines = new List<RateLine>();
+        foreach (var chunk in legs.Keys.Chunk(1_000))
+        {
+            lines.AddRange(await _lines.GetListAsync(l => l.Side == RateSide.Cost && l.LegId != null && chunk.Contains(l.LegId.Value)));
+        }
+
+        lines = lines.Where(l => legs[l.LegId!.Value].TripId == l.AnchorTripId)
+            .OrderBy(l => legs[l.LegId!.Value].Position).ThenBy(l => legs[l.LegId!.Value].TripNumber).ThenBy(l => l.Position)
+            .ToList();
+
+        /* The calculation state shown is the least advanced of the trips' cost calculations. */
+        DerivedValueState? state = null;
+        foreach (var tripId in legs.Values.Select(l => l.TripId!.Value).Distinct())
+        {
+            var tripState = await _states.FindAsync(TripRateLineCalculator.TargetType, tripId);
+            if (tripState != null && (state == null || tripState.CalculatedVersion < tripState.RequestedVersion))
+            {
+                state = tripState;
+            }
+        }
+
+        var set = await SetOfAsync(orderId, lines, state);
+        foreach (var dto in set.Lines)
+        {
+            var leg = legs[dto.LegId!.Value];
+            dto.TripNumber = leg.TripNumber;
+            dto.LegOrderLineId = leg.OrderLineId;
+        }
+
+        return set;
+    }
+
+    private async Task<RateLineSetDto> SetOfAsync(Guid rootId, List<RateLine> lines, DerivedValueState? state)
+    {
+        var totals = lines.Count == 0 ? null : RateLineTotals.Of(rootId, lines);
         return new RateLineSetDto
         {
-            Lines = await ToDtosAsync(lines.OrderBy(l => l.Position).ToList()),
+            Lines = await ToDtosAsync(lines),
             Totals = totals == null ? new RateLineSetTotalsDto() : new RateLineSetTotalsDto
             {
                 ByAnchor = totals.ByChild.Select(p => new RateLineAnchorTotalsDto { AnchorId = p.Key, Amount = p.Value }).ToList(),
@@ -96,6 +150,10 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
         var root = RootOf(input.OrderId, input.TripId);
         var anchor = AnchorOf(root, input.OrderLineId, input.StopId, input.LegId);
         var side = root.Kind == RateLineAnchorKind.Trip ? RateSide.Cost : input.Side;
+        if (anchor.Kind == RateLineAnchorKind.Leg)
+        {
+            await EnsureLegOnTripAsync(root.Id, anchor.Id, input.OrderLineId);
+        }
 
         Guid? serviceId = null;
         if (input.Kind == RateLineKind.AdditionalService)
@@ -157,11 +215,13 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
     public virtual async Task DeleteAsync(Guid id)
     {
         var line = await _lines.GetAsync(id);
-        if (!line.IsManual)
+        if (!line.IsManual && !IsOpenLine(line))
         {
             throw new BusinessException(FinancialErrorCodes.CalculatedLineReadOnly);
         }
 
+        /* Design 61 point 3, decided in the build (build note 5): an open line may be removed, adjusted or not. The next calculation writes a
+         * fresh unadjusted open line while its basis is still charged without a list (legacy behaviour). */
         await _lines.DeleteAsync(line, autoSave: true);
         await RequestAsync(line.Anchor, "LineDeleted");
     }
@@ -240,17 +300,16 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
         return orderId != null ? RateLineAnchor.Order(orderId.Value) : RateLineAnchor.Trip(tripId!.Value);
     }
 
+    /// <summary>
+    /// The anchor beneath the root: on an order its line or stop (one of them); on a trip its leg, where the leg's order line
+    /// may be named alongside (design 61 point 4; checked by <see cref="EnsureLegOnTripAsync"/>), never an order line alone.
+    /// </summary>
     private static RateLineAnchor AnchorOf(RateLineAnchor root, Guid? orderLineId, Guid? stopId, Guid? legId)
     {
-        var children = new[] { orderLineId, stopId, legId }.Count(id => id != null);
-        if (children > 1)
-        {
-            throw new BusinessException(FinancialErrorCodes.AnchorRequired);
-        }
-
         if (root.Kind == RateLineAnchorKind.Order)
         {
-            if (legId != null)
+            var children = new[] { orderLineId, stopId, legId }.Count(id => id != null);
+            if (children > 1 || legId != null)
             {
                 throw new BusinessException(FinancialErrorCodes.AnchorRequired);
             }
@@ -260,13 +319,27 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
                 : root;
         }
 
-        if (orderLineId != null || stopId != null)
+        if (stopId != null || (orderLineId != null && legId == null))
         {
             throw new BusinessException(FinancialErrorCodes.AnchorRequired);
         }
 
         return legId != null ? RateLineAnchor.Leg(root.Id, legId.Value) : root;
     }
+
+    /// <summary>A trip's line on a leg: the leg is on that trip now and, when named, of that order line (through Planning's published reader).</summary>
+    private async Task EnsureLegOnTripAsync(Guid tripId, Guid legId, Guid? orderLineId)
+    {
+        var leg = (await _legs.GetAsync([legId])).FirstOrDefault(l => l.Id == legId);
+        if (leg == null || leg.TripId != tripId || (orderLineId != null && leg.OrderLineId != orderLineId.Value))
+        {
+            throw new BusinessException(FinancialErrorCodes.LegNotOnTrip).WithData("legId", legId).WithData("tripId", tripId);
+        }
+    }
+
+    /// <summary>An open line (design 61 point 3): a calculated revenue line of kind PriceList without a price list.</summary>
+    private static bool IsOpenLine(RateLine line)
+        => !line.IsManual && line.Side == RateSide.Revenue && line.Kind == RateLineKind.PriceList && line.PriceListId == null;
 
     private Task<List<RateLine>> TreeAsync(RateLineAnchor root)
         => root.Kind == RateLineAnchorKind.Order
@@ -322,7 +395,8 @@ public class RateLineAppService : FinancialAppServiceBase, IRateLineAppService
             VatPercentageId = l.VatPercentageId,
             CalculatedAt = l.CalculatedAt,
             CalculationVersion = l.CalculationVersion,
-            ConcurrencyStamp = l.ConcurrencyStamp
+            ConcurrencyStamp = l.ConcurrencyStamp,
+            AnchorTripId = l.AnchorTripId
         }).ToList();
     }
 }

@@ -34,6 +34,9 @@ public class PricePreviewLineDto
 {
     public System.Guid? OrderLineId { get; set; }
 
+    /// <summary>The 1-based position of the freight item in the posted snapshot, saved or not; null for an order-level line.</summary>
+    public int? LinePosition { get; set; }
+
     public RateLineKind Kind { get; set; }
 
     public string? DescriptionKey { get; set; }

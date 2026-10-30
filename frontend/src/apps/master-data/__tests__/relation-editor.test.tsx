@@ -40,6 +40,8 @@ vi.mock("@/lib/abp/queries", () => ({
     data: {
       auth: { grantedPolicies: grants },
       features: { values: features },
+      /* A tenant user: the host has no Master data app (PO 2026-10-29). */
+      currentTenant: { id: "t-1" },
       localization: {
         languages: [
           { cultureName: "nl", displayName: "Nederlands" },

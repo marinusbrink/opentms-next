@@ -56,8 +56,9 @@ public sealed class LegGenerationResult
 }
 
 /// <summary>
-/// Design 59 "Generation" (orders.md §4 made correct): one leg per consecutive stop pair of a line, split at a depot when a
-/// via-depot rule matches (relation of either stop → customer → region of either stop; position order within a scope),
+/// Design 59 "Generation" (orders.md §4 made correct): one leg per consecutive stop pair of a line, routed through the
+/// depots of the via-depot rules its stops match (relation → customer → region, on the stop's waypoint type; position order
+/// within a scope; up to one depot per stop, design 61),
 /// matched to the existing legs on the unique key (line, origin stop, destination stop). Pure: the handler loads and saves.
 /// A line the planner reshaped (a split, return or outsourced leg) keeps its legs; only their stop snapshots are refreshed.
 /// </summary>
@@ -119,7 +120,11 @@ public class LegGenerator : DomainService
 
     private sealed record PlannedLeg(LegSource Source, Guid? RuleId, LegEndSnapshot Origin, LegEndSnapshot Destination);
 
-    /// <summary>The legs a line should have: consecutive pairs, each split at its depot when a rule matches.</summary>
+    /// <summary>
+    /// The legs a line should have: consecutive pairs, each routed through the depots its stops' rules name (design 61
+    /// "Via-depot rules on the stop's waypoint type"): origin → the origin stop's depot → the destination stop's depot →
+    /// destination. Each leg carries the rule of the depot it arrives at; the last one the rule of the depot it leaves.
+    /// </summary>
     private static List<PlannedLeg> Plan(LegGenerationInput input, LegGenerationLine line, IReadOnlyList<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf, Func<Guid, Guid?> successorOf)
     {
         var planned = new List<PlannedLeg>();
@@ -127,25 +132,87 @@ public class LegGenerator : DomainService
         {
             var a = line.Stops[i];
             var b = line.Stops[i + 1];
-            var regions = a.RegionIds.Concat(b.RegionIds).Distinct().ToList();
-            var rule = rules.FirstOrDefault(r => r.Matches(input.CustomerRelationId, a.Snapshot.RelationId, b.Snapshot.RelationId, regions));
-            var depot = rule == null ? null : depotOf(rule.DepotAddressId);
-
-            if (rule == null || depot == null || IsSamePlace(depot, a.Snapshot) || IsSamePlace(depot, b.Snapshot))
+            var vias = ViasOf(input, a, b, rules, depotOf);
+            if (vias.Count == 0)
             {
                 planned.Add(new PlannedLeg(LegSource.Generated, null, a.Snapshot, b.Snapshot));
                 continue;
             }
 
-            var viaStopId = Leg.SyntheticStopId("via", rule.Id, a.Snapshot.StopId, b.Snapshot.StopId);
-            var arrival = DepotEnd(depot, viaStopId, rule.ArrivalWaypointTypeId, a.Snapshot.PlannedDate);
-            var departureType = rule.DepartureWaypointTypeId ?? successorOf(rule.ArrivalWaypointTypeId) ?? rule.ArrivalWaypointTypeId;
-            var departure = DepotEnd(depot, viaStopId, departureType, rule.Overnight ? a.Snapshot.PlannedDate.AddDays(1) : a.Snapshot.PlannedDate);
-            planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, a.Snapshot, arrival));
-            planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, departure, b.Snapshot));
+            var from = a.Snapshot;
+            var date = a.Snapshot.PlannedDate;
+            foreach (var (rule, depot) in vias)
+            {
+                var viaStopId = Leg.SyntheticStopId("via", rule.Id, a.Snapshot.StopId, b.Snapshot.StopId);
+                planned.Add(new PlannedLeg(LegSource.ViaDepot, rule.Id, from, DepotEnd(depot, viaStopId, rule.ArrivalWaypointTypeId, date)));
+                if (rule.Overnight)
+                {
+                    date = date.AddDays(1);
+                }
+
+                var departureType = rule.DepartureWaypointTypeId ?? successorOf(rule.ArrivalWaypointTypeId) ?? rule.ArrivalWaypointTypeId;
+                from = DepotEnd(depot, viaStopId, departureType, date);
+            }
+
+            planned.Add(new PlannedLeg(LegSource.ViaDepot, vias[^1].Rule.Id, from, b.Snapshot));
         }
 
         return planned;
+    }
+
+    /// <summary>
+    /// The depots of one stop pair, as OpenTMS resolved them (orders.md §4, step 3): scope by scope (relation → customer →
+    /// region; <paramref name="rules"/> come ordered), the first rule in position order that matches the origin stop and
+    /// the first that matches the destination stop; the first scope with a match for either stop decides, so the next
+    /// scope is a fallback only. A rule whose depot is one of the pair's own places does not count. Origin side first; one
+    /// depot named by both sides is visited once.
+    /// </summary>
+    private static List<(ViaDepotRule Rule, DepotLocation Depot)> ViasOf(LegGenerationInput input, LegGenerationStop a, LegGenerationStop b, IReadOnlyList<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf)
+    {
+        foreach (var scope in rules.Select(r => r.Scope).Distinct())
+        {
+            var inScope = rules.Where(r => r.Scope == scope).ToList();
+            var origin = FirstUsable(input, a, a, b, inScope, depotOf);
+            var destination = FirstUsable(input, b, a, b, inScope, depotOf);
+            if (origin == null && destination == null)
+            {
+                continue;
+            }
+
+            var vias = new List<(ViaDepotRule Rule, DepotLocation Depot)>();
+            if (origin != null)
+            {
+                vias.Add(origin.Value);
+            }
+
+            if (destination != null && destination.Value.Depot.AddressId != origin?.Depot.AddressId)
+            {
+                vias.Add(destination.Value);
+            }
+
+            return vias;
+        }
+
+        return [];
+    }
+
+    private static (ViaDepotRule Rule, DepotLocation Depot)? FirstUsable(LegGenerationInput input, LegGenerationStop stop, LegGenerationStop a, LegGenerationStop b, List<ViaDepotRule> rules, Func<Guid, DepotLocation?> depotOf)
+    {
+        foreach (var rule in rules)
+        {
+            if (!rule.MatchesStop(input.CustomerRelationId, stop.Snapshot.RelationId, stop.Snapshot.WaypointTypeId, stop.RegionIds))
+            {
+                continue;
+            }
+
+            var depot = depotOf(rule.DepotAddressId);
+            if (depot != null && !IsSamePlace(depot, a.Snapshot) && !IsSamePlace(depot, b.Snapshot))
+            {
+                return (rule, depot);
+            }
+        }
+
+        return null;
     }
 
     private static bool IsSamePlace(DepotLocation depot, LegEndSnapshot stop)

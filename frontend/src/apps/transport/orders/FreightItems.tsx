@@ -29,7 +29,8 @@ import { useOpenRecord } from "@/lib/use-open-record";
  * item (the stop strip, the freight fields, Add and Paste from Excel), then the freight items grid (LinesGrid):
  * position, from → to (first and last stop: relation, city), date (template: day offset), transport unit, quantity,
  * positions, weight, loading metres, reference (the first stop's), price (the item's stored rate-line total with the
- * CalculatingIndicator) and trip (a link when the item's legs are on a trip); unit, quantities and reference are edited
+ * CalculatingIndicator; while a price preview stands, the item's preview total, matched on its position, so a new order
+ * shows its prices before the first save) and trip (a link when the item's legs are on a trip); unit, quantities and reference are edited
  * in the cell; the footer gives the freight items total. Double-click, Enter or the pencil opens Edit freight item
  * (FreightItemDialog); Delete asks "Delete freight item {n}?". An item with a problem is marked in the grid; once the
  * items were touched or submitted, the first problem shows above the grid, a stop's naming the stop. */
@@ -92,6 +93,14 @@ export function FreightItems({ form, mode, type, orderId, legsCreated, legs, rat
     }
     return (id: string | null) => (id ? (byAnchor.get(id.toLowerCase()) ?? sums.get(id.toLowerCase()) ?? null) : null);
   }, [rateLines]);
+  const previewPriceOf = useMemo(() => {
+    if (!preview.preview) return null;
+    const sums = new Map<number, number>();
+    for (const line of preview.preview.lines ?? []) {
+      if (line.linePosition != null) sums.set(line.linePosition, (sums.get(line.linePosition) ?? 0) + (line.amount ?? 0));
+    }
+    return (position: number) => sums.get(position) ?? 0;
+  }, [preview.preview]);
   const tripsOf = useMemo(() => {
     const byLine = new Map<string, { id: string; number: string }[]>();
     for (const leg of legs ?? []) {
@@ -119,12 +128,12 @@ export function FreightItems({ form, mode, type, orderId, legsCreated, legs, rat
           route: [end(first), end(last)].filter(Boolean).join(" → "),
           when,
           reference: first?.reference ?? "",
-          price: priceOf(line.id),
+          price: previewPriceOf ? previewPriceOf(index + 1) : priceOf(line.id),
           trips: tripsOf(line.id),
           problem: problem ? lineProblemText(t, line, problem) : null,
         };
       }),
-    [form.values.lines, mode, f, t, priceOf, tripsOf, problems],
+    [form.values.lines, mode, f, t, priceOf, previewPriceOf, tripsOf, problems],
   );
 
   const setLines = useCallback(
@@ -257,7 +266,13 @@ export function FreightItems({ form, mode, type, orderId, legsCreated, legs, rat
         />
       </div>
       {mode === "order" && rows.length > 0 && (
-        <TotalsBlock lines={[{ label: t("Orders:FreightItemsTotal"), value: itemsTotal, grand: true }]} currencyCode={rateLines?.currencyCode ?? form.values.terms.currencyCode} state={state} className="self-end" />
+        <TotalsBlock
+          lines={[{ label: t("Orders:FreightItemsTotal"), value: itemsTotal, grand: true }]}
+          currencyCode={preview.preview?.currencyCode ?? rateLines?.currencyCode ?? form.values.terms.currencyCode}
+          state={preview.preview ? undefined : state}
+          footer={preview.preview ? <span className="text-label text-muted-foreground">{t("Orders:PreviewPrices")}</span> : undefined}
+          className="self-end"
+        />
       )}
       <FreightItemDialog
         form={form}

@@ -655,8 +655,8 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     await click(within(dialog()!).getByText("Orders:Apply"));
 
     const financial = openTab("Orders:Financial");
-    /* The legacy blocks, in order. */
-    expect(Array.from(financial.querySelectorAll("[data-slot=form-section]")).map((b) => b.getAttribute("aria-label"))).toEqual(["Orders:PriceCalculation", "Orders:RevenueOverview", "Orders:Invoicing", "Orders:InvoicingRemarksBlock", "Orders:OrderLevelLines"]);
+    /* The legacy blocks: the left column, the right column, then the order-level lines (PO 2026-10-28). */
+    expect(Array.from(financial.querySelectorAll("[data-slot=form-section]")).map((b) => b.getAttribute("aria-label"))).toEqual(["Orders:PriceCalculation", "Orders:Invoicing", "Orders:RevenueOverview", "Orders:InvoicingRemarksBlock", "Orders:OrderLevelLines"]);
     expect(within(financial.querySelector<HTMLElement>("[data-slot=order-level-rate-lines]")!).getByText("Handling")).toBeInTheDocument();
     expect(within(financial).getByText("Financial:SetFixedPrice")).toBeInTheDocument();
     /* Additional services are a tab of General now. */
@@ -739,6 +739,58 @@ describe("OrderPage – pricing per item, order-level lines and totals", () => {
     const pricing = itemTab("Orders:Pricing");
     expect(pricing.querySelector("[data-slot=price-preview]")).not.toBeNull();
     expect(within(pricing.querySelector<HTMLElement>("[data-slot=totals-block]")!).getByText("300.00")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("a stored order that is not changed is never previewed: the grid and the freight items total show the stored amounts", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(itemRows()[0].querySelector("[data-field=price]")?.textContent).toBe("200.00"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(0);
+    expect(calls(POST, "/api/orders/transport-order/preview-new-order-prices")).toHaveLength(0);
+    const footer = document.querySelector<HTMLElement>("[data-slot=freight-items] > [data-slot=totals-block]")!;
+    expect(within(footer).getByText("Orders:FreightItemsTotal").nextElementSibling).toHaveTextContent("200.00");
+    expect(within(footer).queryByText("Orders:PreviewPrices")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("while a change is previewed the grid's amounts come from the preview lines by position, the total too", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes.GET["/api/orders/transport-order/{id}"] = () => order(2, { lines: twoLines() });
+    routes.POST["/api/orders/transport-order/{id}/preview-prices"] = () => ({
+      currencyCode: "EUR",
+      linesAmount: 420,
+      discountsAndSurchargesAmount: 0,
+      totalAmount: 420,
+      lines: [
+        { orderLineId: "l1", linePosition: 1, kind: 1, amount: 300 },
+        { orderLineId: "l2", linePosition: 2, kind: 1, amount: 120 },
+      ],
+      warnings: [],
+    });
+    renderPage();
+    await loaded();
+    await waitFor(() => expect(itemRows()).toHaveLength(2));
+    fireEvent.change(quantityCell(), { target: { value: "3" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    await waitFor(() => expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(1));
+    expect(calls(POST, "/api/orders/transport-order/preview-new-order-prices")).toHaveLength(0);
+    await waitFor(() => expect(itemRows()[0].querySelector("[data-field=price]")?.textContent).toBe("300.00"));
+    expect(itemRows()[1].querySelector("[data-field=price]")?.textContent).toBe("120.00");
+    const footer = document.querySelector<HTMLElement>("[data-slot=freight-items] > [data-slot=totals-block]")!;
+    expect(within(footer).getByText("Orders:FreightItemsTotal").nextElementSibling).toHaveTextContent("420.00");
+    expect(within(footer).getByText("Orders:PreviewPrices")).toBeInTheDocument();
+    /* The second item's Pricing tab shows only its own preview line (matched by position). */
+    openItem(1);
+    const lines = itemTab("Orders:Pricing").querySelector<HTMLElement>("[data-slot=item-preview-lines]")!;
+    expect(lines.children).toHaveLength(1);
+    expect(lines).toHaveTextContent("120.00");
     vi.useRealTimers();
   });
 
@@ -1214,6 +1266,22 @@ describe("TemplatePage – the same page in template mode", () => {
     renderTemplate();
     await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
     expect(ribbonButton("Orders:Materialise")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("a template is never previewed, however it changes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes.GET["/api/orders/transport-order-template/{id}"] = () =>
+      template({ lines: [{ id: "tl1", position: 1, transportUnitId: "unit-1", transportUnitName: "Pallet", quantity: 1, paymentInstruction: 0, stops: [{ id: "ts1", position: 1, waypointTypeId: "wp-load", relationId: "rel-1", relationAddressId: "adr-1", dayOffset: 0 }, { id: "ts2", position: 2, waypointTypeId: "wp-unload", relationId: "rel-2", relationAddressId: "adr-2", dayOffset: 1 }] }] });
+    renderTemplate();
+    await screen.findByText("Orders:TransportOrderTemplate Weekly Acme");
+    fireEvent.change(quantityCell(), { target: { value: "4" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    expect(calls(POST, "/api/orders/transport-order/{id}/preview-prices")).toHaveLength(0);
+    expect(calls(POST, "/api/orders/transport-order/preview-new-order-prices")).toHaveLength(0);
+    expect(section("Orders:RevenueOverview").querySelector("[data-slot=revenue-after-save]")).toHaveTextContent("Orders:RevenueOnOrders");
+    vi.useRealTimers();
   });
 
   it("the stop strip takes day offsets; the save posts the items with stops as day offsets and the trip's items by posted id", async () => {

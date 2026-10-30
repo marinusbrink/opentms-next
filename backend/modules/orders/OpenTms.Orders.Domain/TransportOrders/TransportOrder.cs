@@ -215,7 +215,7 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         FinancialTerms.CurrencyCode, FinancialTerms.VatPercentageId, FinancialTerms.PaymentTermDays,
         PriceLists.OrderBy(p => p.Position).Select(p => p.PriceListId).ToList(), FinancialTerms.MultipleMatches,
         DiscountsOrSurcharges.OrderBy(d => d.Position).Select(d => new DiscountOrSurchargeInput(d.DiscountOrSurchargeId, d.Source)).ToList(),
-        FinancialTerms.FixedPriceAmount, FinancialTerms.SendFreightDocumentsWithInvoice);
+        FinancialTerms.FixedPriceAmount, FinancialTerms.SendFreightDocumentsWithInvoice, FinancialTerms.ChargedBases.ToList());
 
     // ── trip request ────────────────────────────────────────────────────────────
 

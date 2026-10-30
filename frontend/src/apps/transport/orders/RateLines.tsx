@@ -10,14 +10,19 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toOptions } from "@/apps/transport/components/fields";
 import { additionalServices } from "@/domains/financial/reference-data";
 import {
-  QUANTITY_SOURCES,
   RATE_LINE_KIND,
   RATE_LINE_KINDS,
   RATE_SIDE,
+  isOpenRateLine,
+  isToBePriced,
+  quantitySourceLabel,
+  rateLineDescription,
+  rateLineProvenance,
   useAddManualRateLine,
   useRemoveRateLine,
   useSetFixedPrice,
@@ -29,12 +34,37 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { parseNumber } from "@/lib/forms/use-form-state";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
+import { useOpenRecord } from "@/lib/use-open-record";
 
 /* The stored rate lines on the order page (design 61 "Order page, legacy tab structure" 4, 5 and 6): one grid for a freight item's
  * lines (its Pricing tab in Edit freight item) and one for the order-level lines (the Financial tab: manual, fixed
  * price, D&S; the Additional services tab of General: additional services), with the kind badge and its provenance tooltip, quantity, unit price and amount. A calculated line's unit
  * price is adjusted inline and a manual line removed with the trash icon; each is its own command on the server
- * (design 57), run at once: these are stored lines, not form state. Reads never calculate (AD-07). */
+ * (design 57), run at once: these are stored lines, not form state. Reads never calculate (AD-07).
+ * An open line (design 61 "Order page review" 3: a charged basis without a price list) shows the badge "To be priced"
+ * and its basis as the description until its unit price is adjusted; it can be removed like a manual line. */
+
+/** The kind cell: the kind badge, or "To be priced" for an open line not priced yet, with the provenance tooltip. */
+export function RateLineKindCell({ value, data }: { value: number | undefined; data: RateLineDto | undefined }) {
+  const { t } = useL();
+  const kindLabel = t(RATE_LINE_KINDS.find((k) => k.value === value)?.key ?? "");
+  const tip = data ? rateLineProvenance(t, data) || kindLabel : "";
+  if (data && isToBePriced(data))
+    return (
+      <Tooltip>
+        <TooltipTrigger render={<span className="inline-flex" data-slot="to-be-priced" />}>
+          <StatusBadge entity="RateLine" state="ToBePriced" />
+        </TooltipTrigger>
+        <TooltipContent>{tip}</TooltipContent>
+      </Tooltip>
+    );
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Badge variant="secondary" />}>{kindLabel}</TooltipTrigger>
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export type RateLineRow = RateLineDto & { key: string };
 
@@ -46,27 +76,18 @@ export interface RateLinesGridProps {
   /** A command's refusal, shown where the user is (UI-FB-004). */
   onError: (message: string | null) => void;
   heightClass?: string;
+  /** The cost lines of a freight item (design 61 "Order page review" 4): the trip (a link) and the basis columns. */
+  withTripAndBasis?: boolean;
 }
 
-export function RateLinesGrid({ rows: lines, currency, editable, toolbar, onError, heightClass = "h-48" }: RateLinesGridProps) {
+export function RateLinesGrid({ rows: lines, currency, editable, toolbar, onError, heightClass = "h-48", withTripAndBasis = false }: RateLinesGridProps) {
   const { t } = useL();
   const f = useFormat();
+  const openRecord = useOpenRecord();
   const update = useUpdateRateLine();
   const remove = useRemoveRateLine();
   const rows = useMemo<RateLineRow[]>(() => [...lines].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).map((line) => ({ ...line, key: line.id ?? "" })), [lines]);
 
-  const kindLabel = (kind: number | undefined) => t(RATE_LINE_KINDS.find((k) => k.value === kind)?.key ?? "");
-  const descriptionOf = (row: RateLineDto) => row.description || row.priceListCode || row.discountOrSurchargeName || row.additionalServiceName || (row.descriptionKey ? t(row.descriptionKey) : "");
-  const provenance = (row: RateLineDto) =>
-    [
-      row.priceListCode ? `${t("Financial:PriceList")}: ${row.priceListCode}` : null,
-      row.priceListRuleId ? `${t("Financial:Rule")}: ${row.priceListRuleId.slice(0, 8)}` : null,
-      row.columnPosition != null ? `${t("Financial:Columns")}: ${row.columnPosition}` : null,
-      row.quantitySource != null ? `${t("Financial:Quantity")}: ${t(QUANTITY_SOURCES.find((q) => q.value === row.quantitySource)?.key ?? "")}` : null,
-      row.isAdjusted ? t("Financial:Adjusted") : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
 
   const columns = useMemo<ColDef<RateLineRow>[]>(
     () => [
@@ -75,20 +96,31 @@ export function RateLinesGrid({ rows: lines, currency, editable, toolbar, onErro
         headerName: t("Financial:ValueKind"),
         minWidth: 130,
         flex: 1,
-        cellRenderer: (p: { value: number | undefined; data: RateLineRow | undefined }) => (
-          <Tooltip>
-            <TooltipTrigger render={<Badge variant="secondary" />}>{kindLabel(p.value)}</TooltipTrigger>
-            <TooltipContent>{p.data ? provenance(p.data) || kindLabel(p.value) : ""}</TooltipContent>
-          </Tooltip>
-        ),
+        cellRenderer: RateLineKindCell,
       },
-      { colId: "description", headerName: t("Orders:Description"), flex: 2, minWidth: 180, valueGetter: (p) => (p.data ? descriptionOf(p.data) : "") },
+      ...(withTripAndBasis
+        ? [
+            {
+              field: "tripNumber",
+              headerName: t("PlanningExecution:Trip"),
+              minWidth: 110,
+              flex: 1,
+              cellRenderer: (p: { value: string | null | undefined; data: RateLineRow | undefined }) =>
+                p.data?.anchorTripId ? (
+                  <button type="button" className="text-brand hover:underline" onClick={() => openRecord("TransportTrip", p.data!.anchorTripId!)}>
+                    {p.value || p.data.anchorTripId.slice(0, 8)}
+                  </button>
+                ) : null,
+            } satisfies ColDef<RateLineRow>,
+          ]
+        : []),
+      { colId: "description", headerName: t("Orders:Description"), flex: 2, minWidth: 180, valueGetter: (p) => (p.data ? rateLineDescription(t, p.data) : "") },
+      ...(withTripAndBasis ? [{ colId: "basis", headerName: t("Financial:Basis"), flex: 1, minWidth: 120, valueGetter: (p) => quantitySourceLabel(t, p.data?.quantitySource) } satisfies ColDef<RateLineRow>] : []),
       { field: "quantity", headerName: t("Financial:Quantity"), flex: 1, minWidth: 90, type: "rightAligned", cellClass: "tabular-nums", editable: (p) => editable && p.data?.isManual === true, valueFormatter: (p: ValueFormatterParams<RateLineRow, number>) => f.number(p.value, { maxDecimals: 4 }) },
       { field: "unitPrice", headerName: t("Financial:UnitPrice"), flex: 1, minWidth: 100, type: "rightAligned", cellClass: "tabular-nums", editable: (p) => editable && p.data?.kind !== RATE_LINE_KIND.FixedPrice, valueFormatter: (p: ValueFormatterParams<RateLineRow, number>) => f.unitPrice(p.value) },
       { field: "amount", headerName: `${t("Financial:Amount")} (${currency})`, flex: 1, minWidth: 110, type: "rightAligned", cellClass: "tabular-nums", valueFormatter: (p: ValueFormatterParams<RateLineRow, number>) => f.amount(p.value) },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, f, editable, currency],
+    [t, f, editable, currency, withTripAndBasis, openRecord],
   );
 
   const onRowsChange = (next: RateLineRow[]) => {
@@ -118,7 +150,7 @@ export function RateLinesGrid({ rows: lines, currency, editable, toolbar, onErro
         getRowId={(row) => row.key}
         columnDefs={columns}
         readOnly={!editable}
-        canRemoveRow={(row) => row.isManual === true}
+        canRemoveRow={(row) => row.isManual === true || isOpenRateLine(row)}
         emptyText={t("Financial:NoRateLines")}
         toolbar={toolbar}
       />

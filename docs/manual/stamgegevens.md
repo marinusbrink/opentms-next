@@ -198,20 +198,54 @@ gearchiveerd kenmerk kan niet meer worden ingevuld; de waarden die al op orders 
 
 Onder **Planning & uitvoering › Ritten** staan, naast de ritsoorten, de via-depotregels en de ritkenmerken.
 
+### Standaardwaarden voor nieuwe ritten
+
+Het scherm van een ritsoort heeft een tabblad **Standaardwaarden voor nieuwe ritten**. Een nieuwe rit van deze
+ritsoort krijgt deze waarden waar hij ze leeg laat: bij **Nieuwe rit** in de lijst Ritten en bij de "Tevens rit" van
+een order of sjabloon staan ze al ingevuld zodra u de ritsoort kiest, en wat daar leeg blijft vult het systeem bij
+het opslaan aan. Alle velden zijn optioneel:
+
+- **Vervoerder** (relaties met de rol vervoerder) en **Contactpersoon** van die vervoerder (kies eerst de
+  vervoerder; haalt u de vervoerder weg of kiest u een andere, dan vervalt de contactpersoon). Alleen een
+  contactpersoon van de gekozen vervoerder wordt geaccepteerd. Krijgt een nieuwe rit de vervoerder van de ritsoort,
+  dan wordt hij uitbesteed, tenzij bij de rit zelf een andere uitvoering is gekozen.
+- **Voertuigcombinatie** of **Voertuigen** (maximaal drie), niet allebei: kiest u het een, dan vervalt het ander.
+- **Chauffeurs** (maximaal drie).
+- **Vertrekrelatie**, **Vertrekadres** (een adres van die relatie; kies eerst de relatie) en **Vertrektijd**
+  (de plaatselijke tijd op het vertrekadres, als uu:mm).
+- **Aankomstrelatie** en **Aankomstadres**.
+- **Stopsamenstelling** en **Eerste en laatste stop**: hoe de stops van een nieuwe rit worden samengesteld.
+
+Elke keuzelijst heeft **Nieuw … toevoegen…** en het potlood om het gekozen record te openen. Is een standaardwaarde
+inmiddels gearchiveerd of verwijderd, dan slaat het systeem hem bij een nieuwe rit over.
+
 ### Via-depotregels
 
-Een via-depotregel laat de trajecten van een order via een depot lopen in plaats van rechtstreeks: het eerste
-traject eindigt op het depot, het volgende vertrekt daar.
+Een via-depotregel laat de trajecten van een order via een depot lopen in plaats van rechtstreeks: het traject
+eindigt op het depot en het volgende vertrekt daar. Een regel hoort bij een stop van de order: bijvoorbeeld "alles
+wat bij relatie X gelost wordt, gaat via ons depot in Tilburg".
 
-- **Bereik** zegt voor welke orders de regel geldt: een **Relatie** (een laad- of losadres van die relatie), een
-  **Klant** (alle orders van die klant) of een **Regio** (een adres in die geografische regio). Bij relatie en klant
-  kiest u de relatie, bij regio de regio.
+- **Bereik** zegt bij welke stops de regel hoort: een **Relatie** (een stop bij die relatie), een **Klant** (een stop
+  van een order van die klant) of een **Regio** (een stop met een adres in die geografische regio). Bij relatie en
+  klant kiest u de relatie, bij regio de regio.
+- **Activiteit van de stop** is verplicht: de regel geldt alleen voor een stop met die activiteit, bijvoorbeeld
+  *Lossen*. Een regel voor het lossen bij een relatie geldt dus niet als bij die relatie geladen wordt. Een regel van
+  vóór deze keuze heeft nog geen activiteit en geldt voor elke stop; bij de eerstvolgende wijziging vult u hem in.
 - **Depot** is de relatie van het depot, **Depotadres** een van de adressen van die relatie (kies eerst het depot).
   Een nieuw adres voegt u toe in het scherm van de relatie.
 - **Activiteit bij aankomst op het depot** is verplicht; **Activiteit bij vertrek van het depot** is optioneel
-  (leeg: dezelfde als bij aankomst). **Overnachting op het depot** betekent dat de goederen een nacht op het depot
-  blijven.
-- **Positie**: passen meerdere regels, dan geldt de eerste in positievolgorde.
+  (leeg: de opvolgende activiteit van de aankomstactiviteit, anders dezelfde). **Overnachting op het depot** betekent
+  dat de goederen een nacht op het depot blijven.
+- **Positie**: passen bij een stop meerdere regels van hetzelfde bereik, dan geldt de eerste in positievolgorde.
+
+Zo kiest het systeem de depots voor elk traject tussen twee stops:
+
+1. Eerst de regels met bereik **Relatie**, dan **Klant**, dan **Regio**. Het volgende bereik telt alleen als geen
+   regel van het vorige bereik bij een van beide stops past.
+2. Per stop geldt hooguit één regel. Passen er regels bij beide stops, dan loopt het traject via twee depots: eerst
+   het depot van de vertrekstop, dan dat van de aankomststop (bijvoorbeeld laden in A → hub bij A → hub bij B → lossen
+   in B). Noemen beide hetzelfde depot, dan gaat het traject er één keer langs.
+3. Een depot dat het adres van een van de twee stops zelf is, telt niet mee; dan geldt de volgende regel.
 
 ### Ritkenmerken
 
@@ -279,9 +313,18 @@ verwijderd. Kiest u bij **Nieuw** een relatie die al instellingen heeft, dan bew
 - **Algemeen**: de relatie (vast zodra de instellingen bestaan), de **Btw** (leeg: de standaard btw), de
   **Betaaltermijn (dagen)**, de valuta (leeg: de valuta van de relatie), **Standaard vaste prijs** en
   **Vrachtdocumenten met de factuur meesturen**.
-- **Prijslijsten**: de **Prijslijsten omzet** en de **Prijslijsten kosten**, elk in volgorde en elke lijst één keer
-  per kant (maximaal 20). Per kant bepaalt **Meerdere passende lijsten** wat er gebeurt als meer dan één lijst een
-  prijs geeft: **Alle toepassen**, **Hoogste wint** of **Laagste wint**.
+- **Prijslijsten**: de **Prijslijsten omzet** staan, zoals op het tabblad Financieel van een order, per
+  prijsgrondslag die de relatie gebruikt in één regel (*Prijs op basis van aantallen*, *colli*, *EPQ*, *gewicht*,
+  *afstand*, *posities*, *Vaste prijs voor vrachtregel*, *volume*, *laadmeters*, *beladingsgraad*, *reistijd*,
+  *soort voertuig* of *tolafstand*), elk met een keuzelijst met de omzetprijslijsten van die grondslag en een
+  kruisje om de regel (met zijn prijslijsten) te verwijderen. Een grondslag voegt u toe met **Prijsgrondslag
+  toevoegen**. Een grondslag zonder prijslijst geeft op de orders van deze relatie een open regel *Te prijzen*
+  per vrachtregel. Een nieuwe prijslijst (*Nieuwe prijslijst toevoegen…*) komt in de regel van zijn eigen
+  grondslag. De **Prijslijsten kosten** staan in
+  volgorde in een tabel, elke lijst één keer. Per kant maximaal 20 lijsten; per kant bepaalt **Meerdere passende
+  lijsten** wat er gebeurt als meer dan één lijst een prijs geeft: **Alle toepassen**, **Hoogste wint** of
+  **Laagste wint**. Kiest u bij een nieuwe order deze relatie als klant, dan neemt de order de omzetprijslijsten
+  en de prijsgrondslagen over.
 - **Standaard kortingen en toeslagen**: elke nieuwe order van deze relatie begint met deze kortingen en toeslagen,
   binnen hun geldigheid (*Geldig vanaf* verplicht, *Geldig tot* optioneel).
 

@@ -31,6 +31,8 @@ public class RelationPriceListDto
     public string? Code { get; set; }
     public string? Name { get; set; }
     public int Position { get; set; }
+    /// <summary>The fact the list prices by (design 61 point 3: the revenue lists are shown per basis); null when the list no longer exists.</summary>
+    public QuantitySource? Basis { get; set; }
 }
 
 public class RelationDiscountOrSurchargeInputDto
@@ -53,6 +55,8 @@ public class RelationFinancialSettingsDto : ReferenceDataDetailDtoBase
     public List<RelationPriceListDto> CostPriceLists { get; set; } = new();
     public MultipleMatches RevenueMultipleMatches { get; set; }
     public MultipleMatches CostMultipleMatches { get; set; }
+    /// <summary>The revenue bases charged by default (design 61 point 3), in the legacy order of the block "Price calculation".</summary>
+    public List<QuantitySource> RevenueChargedBases { get; set; } = new();
     public List<RelationDiscountOrSurchargeDto> DiscountsOrSurcharges { get; set; } = new();
     public Guid? VatPercentageId { get; set; }
     public string? VatPercentageName { get; set; }
@@ -74,6 +78,13 @@ public class RelationFinancialSettingsUpsertDto
     public MultipleMatches RevenueMultipleMatches { get; set; } = MultipleMatches.All;
 
     public MultipleMatches CostMultipleMatches { get; set; } = MultipleMatches.All;
+
+    /// <summary>
+    /// The revenue bases switched on (design 61 point 3): each once, revenue bases only (not <c>Manual</c>, not the cost-only
+    /// <c>TripDistanceKm</c>). A basis with one of <see cref="RevenuePriceListIds"/> counts as on either way. The cost side
+    /// keeps its plain list.
+    /// </summary>
+    public List<QuantitySource> RevenueChargedBases { get; set; } = new();
 
     [MaxLength(FinancialConsts.MaxRelationDiscountsOrSurcharges)]
     public List<RelationDiscountOrSurchargeInputDto> DiscountsOrSurcharges { get; set; } = new();

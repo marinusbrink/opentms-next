@@ -6,21 +6,21 @@ import { useNavigate } from "@tanstack/react-router";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EntityDialog } from "@/components/ui/entity-dialog";
-import { EntityLookup } from "@/components/ui/entity-lookup";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
-import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { AttributeFields } from "@/apps/transport/components/AttributeFields";
-import { DateField, NumberField, SelectField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
-import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/apps/transport/components/RelationFields";
+import { DateField, NumberField, SelectField, TextAreaField, TextField } from "@/apps/transport/components/fields";
+import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/domains/master-data/components/RelationFields";
 import type { TripValues } from "@/apps/transport/trips/trip-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { RATE_LINE_KIND, useTripRateLines } from "@/domains/financial/rate-lines";
-import { driverLookupPage, vehicleCombinations, vehicleLookupPage, type DriverOption, type RelationOption, type VehicleDto, type VehicleOption } from "@/domains/master-data/entities";
+import { DriversField, VehicleCombinationField, VehiclesField } from "@/domains/master-data/components/ResourceFields";
+import type { DriverOption, RelationOption, VehicleOption } from "@/domains/master-data/entities";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { TRIP_EXECUTIONS } from "@/domains/planning-execution/reference-data";
+import { MAX_TRIP_DRIVERS, MAX_TRIP_VEHICLES } from "@/domains/planning-execution/trip-type-presets";
 import { FIRST_LAST_STOP_RULES, STOP_COMPOSITION_MODES, useSetTripCarrier, useSetTripDrivers, useSetTripVehicles, useTripAttributeDefinitions, type TransportTripDto } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import type { FormContext } from "@/lib/forms/use-form-state";
@@ -189,20 +189,17 @@ function ResourceDialog({ kind, trip, onClose }: { kind: "carrier" | "vehicles" 
   const [vehicles, setVehiclesValue] = useState<VehicleOption[]>((trip.vehicles ?? []).map((v) => ({ id: v.vehicleId ?? "", name: v.name ?? "", licencePlate: v.licencePlate ?? null, kind: 1, vehicleTypeName: null })));
   const [drivers, setDriversValue] = useState<DriverOption[]>((trip.drivers ?? []).map((d) => ({ id: d.driverId ?? "", name: d.name ?? "", code: "" })));
   const [error, setError] = useState<string | null>(null);
-  const combinations = vehicleCombinations.useLookup(kind === "vehicles");
-  const combinationOptions = useMemo(() => toOptions(combinations.data), [combinations.data]);
-  const vehiclePage = useMemo(() => vehicleLookupPage(), []);
   const busy = setCarrier.isPending || setVehicles.isPending || setDrivers.isPending;
-  /* "Add new …" in every picker (UI-LOOK-004): the record its editor saved is picked (at most three vehicles / drivers). */
-  const inPlace = useCreateInPlace();
+  /* "Add new …" in every picker (UI-LOOK-004, inside the shared pickers): the record its editor saved is picked (at most
+   * three vehicles / drivers). */
   const title = kind === "carrier" ? t("PlanningExecution:Carrier") : kind === "vehicles" ? t("PlanningExecution:Vehicles") : t("PlanningExecution:Drivers");
 
   const save = async () => {
     setError(null);
     try {
       if (kind === "carrier") await setCarrier.mutateAsync({ id: trip.id!, carrierRelationId: carrier?.id ?? null, carrierContactPersonId: contactId });
-      else if (kind === "vehicles") await setVehicles.mutateAsync({ id: trip.id!, vehicleCombinationId: combinationId, vehicleIds: combinationId ? [] : vehicles.slice(0, 3).map((v) => v.id) });
-      else await setDrivers.mutateAsync({ id: trip.id!, driverIds: drivers.slice(0, 3).map((d) => d.id) });
+      else if (kind === "vehicles") await setVehicles.mutateAsync({ id: trip.id!, vehicleCombinationId: combinationId, vehicleIds: combinationId ? [] : vehicles.slice(0, MAX_TRIP_VEHICLES).map((v) => v.id) });
+      else await setDrivers.mutateAsync({ id: trip.id!, driverIds: drivers.slice(0, MAX_TRIP_DRIVERS).map((d) => d.id) });
       toast.success(t("PlanningExecution:TransportTripSaved"));
       onClose();
     } catch (err) {
@@ -245,58 +242,47 @@ function ResourceDialog({ kind, trip, onClose }: { kind: "carrier" | "vehicles" 
         )}
         {kind === "vehicles" && (
           <>
-            <FormField label={t("PlanningExecution:VehicleCombination")} htmlFor="trip-combination" floating="always">
-              <ReferenceCombobox
-                id="trip-combination"
-                value={combinationId}
-                onChange={(next) => {
-                  setCombinationId(next);
-                  if (next) setVehiclesValue([]);
-                }}
-                options={combinationOptions}
-                {...inPlace.offer("VehicleCombination", busy, (r) => {
-                  setCombinationId(r.id);
-                  setVehiclesValue([]);
-                })}
-              />
-            </FormField>
-            <FormField label={t("PlanningExecution:Vehicles")} htmlFor="trip-vehicles" floating="always">
-              <EntityLookup<VehicleOption>
-                id="trip-vehicles"
-                multiple
-                value={vehicles}
-                onChange={(next) => {
-                  setVehiclesValue(next.slice(0, 3));
-                  if (next.length > 0) setCombinationId(null);
-                }}
-                fetchPage={vehiclePage}
-                getLabel={(v) => v.name}
-                disabled={combinationId != null}
-                {...inPlace.offer<VehicleDto>("Vehicle", busy || combinationId != null || vehicles.length >= 3, (r) => {
-                  setVehiclesValue((current) => (current.some((v) => v.id === r.id) ? current : [...current, { id: r.id, name: r.name, licencePlate: r.dto.licencePlate ?? null, kind: r.dto.kind ?? 1, vehicleTypeName: r.dto.vehicleTypeName ?? null }].slice(0, 3)));
-                  setCombinationId(null);
-                })}
-              />
-            </FormField>
+            <VehicleCombinationField
+              id="trip-combination"
+              label={t("PlanningExecution:VehicleCombination")}
+              value={combinationId}
+              onChange={(next) => {
+                setCombinationId(next);
+                if (next) setVehiclesValue([]);
+              }}
+              stored={{ id: trip.vehicleCombinationId, name: trip.vehicleCombinationName }}
+              createDisabled={busy}
+            />
+            <VehiclesField
+              id="trip-vehicles"
+              label={t("PlanningExecution:Vehicles")}
+              value={vehicles}
+              onChange={(next) => {
+                setVehiclesValue(next);
+                if (next.length > 0) setCombinationId(null);
+              }}
+              onAdd={(vehicle) => {
+                setVehiclesValue((current) => (current.some((v) => v.id === vehicle.id) ? current : [...current, vehicle].slice(0, MAX_TRIP_VEHICLES)));
+                setCombinationId(null);
+              }}
+              max={MAX_TRIP_VEHICLES}
+              disabled={combinationId != null}
+              createDisabled={busy}
+            />
           </>
         )}
         {kind === "drivers" && (
-          <FormField label={t("PlanningExecution:Drivers")} htmlFor="trip-drivers" floating="always">
-            <EntityLookup<DriverOption>
-              id="trip-drivers"
-              multiple
-              value={drivers}
-              onChange={(next) => setDriversValue(next.slice(0, 3))}
-              fetchPage={driverLookupPage}
-              getLabel={(d) => d.name}
-              {...inPlace.offer("Driver", busy || drivers.length >= 3, (r) =>
-                setDriversValue((current) => (current.some((d) => d.id === r.id) ? current : [...current, { id: r.id, name: r.name, code: r.code ?? "" }].slice(0, 3))),
-              )}
-            />
-          </FormField>
+          <DriversField
+            id="trip-drivers"
+            label={t("PlanningExecution:Drivers")}
+            value={drivers}
+            onChange={setDriversValue}
+            onAdd={(driver) => setDriversValue((current) => (current.some((d) => d.id === driver.id) ? current : [...current, driver].slice(0, MAX_TRIP_DRIVERS)))}
+            max={MAX_TRIP_DRIVERS}
+            createDisabled={busy}
+          />
         )}
       </div>
-      {inPlace.dialog}
     </EntityDialog>
   );
 }

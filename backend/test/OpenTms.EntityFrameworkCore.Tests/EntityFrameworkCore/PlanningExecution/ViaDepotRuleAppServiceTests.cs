@@ -10,11 +10,12 @@ using OpenTms.Platform.ReferenceData;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
+using Volo.Abp.Validation;
 using Xunit;
 
 namespace OpenTms.EntityFrameworkCore.PlanningExecution;
 
-/// <summary>ViaDepotRuleAppService on SQLite (design 59 "ViaDepotRule", design-50 shape): scope rules, references, list, archive, delete, isolation. Risk class: High.</summary>
+/// <summary>ViaDepotRuleAppService on SQLite (design 59 "ViaDepotRule", design-50 shape; design 61 "Via-depot rules on the stop's waypoint type"): scope rules, references and waypoint types, list, archive, delete, isolation. Risk class: High.</summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class ViaDepotRuleAppServiceTests : PlanningAppServiceTestBase
 {
@@ -25,6 +26,7 @@ public class ViaDepotRuleAppServiceTests : PlanningAppServiceTestBase
         Scope = scope,
         RelationId = relationId,
         GeographicalRegionId = regionId,
+        StopWaypointTypeId = Unload,
         DepotRelationId = depot.RelationId,
         DepotAddressId = depot.AddressId,
         ArrivalWaypointTypeId = DepotIn,
@@ -70,12 +72,13 @@ public class ViaDepotRuleAppServiceTests : PlanningAppServiceTestBase
 
         var update = new ViaDepotRuleUpdateDto
         {
-            Scope = ViaDepotScope.Relation, RelationId = customer.RelationId, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId,
+            Scope = ViaDepotScope.Relation, RelationId = customer.RelationId, StopWaypointTypeId = Load, DepotRelationId = depot.RelationId, DepotAddressId = depot.AddressId,
             ArrivalWaypointTypeId = DepotIn, Overnight = true, Position = 3, IsArchived = true, Description = "Night runs", ConcurrencyStamp = rule.ConcurrencyStamp
         };
         var updated = await Rules.UpdateAsync(rule.Id, update);
         updated.Scope.ShouldBe(ViaDepotScope.Relation);
         updated.Overnight.ShouldBeTrue();
+        updated.StopWaypointTypeId.ShouldBe(Load);
         updated.DepartureWaypointTypeId.ShouldBeNull();
         updated.IsArchived.ShouldBeTrue();
         updated.Description.ShouldBe("Night runs");
@@ -90,6 +93,56 @@ public class ViaDepotRuleAppServiceTests : PlanningAppServiceTestBase
         result.DeletedCount.ShouldBe(2, "an explicit selection names its rows regardless of the archive filter");
         await Should.ThrowAsync<EntityNotFoundException>(() => Rules.GetAsync(rule.Id));
         await Should.ThrowAsync<EntityNotFoundException>(() => Rules.DeleteAsync(second.Id));
+    }
+
+    [Fact]
+    public async Task The_stop_waypoint_type_is_required_and_every_waypoint_type_must_be_an_Orders_one()
+    {
+        using var _ = InTenantA();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var customer = await PlaceAsync("CUST", "Customer", 52, 5);
+        ViaDepotRuleCreateDto With(Action<ViaDepotRuleCreateDto> change)
+        {
+            var dto = Dto(ViaDepotScope.Relation, customer.RelationId, null, depot);
+            change(dto);
+            return dto;
+        }
+
+        /* Design 61 "Via-depot rules on the stop's waypoint type": a rule saved through the API always names it. */
+        await Should.ThrowAsync<AbpValidationException>(() => Rules.CreateAsync(With(d => d.StopWaypointTypeId = null)));
+        foreach (var (field, change) in new (string, Action<ViaDepotRuleCreateDto>)[]
+                 {
+                     ("stopWaypointTypeId", d => d.StopWaypointTypeId = Guid.NewGuid()),
+                     ("arrivalWaypointTypeId", d => d.ArrivalWaypointTypeId = Guid.NewGuid()),
+                     ("departureWaypointTypeId", d => d.DepartureWaypointTypeId = Guid.NewGuid())
+                 })
+        {
+            var refused = await Should.ThrowAsync<BusinessException>(() => Rules.CreateAsync(With(change)));
+            refused.Code.ShouldBe(ReferenceDataErrorCodes.ReferenceNotFound);
+            refused.Data["field"].ShouldBe(field);
+        }
+
+        var created = await Rules.CreateAsync(With(_ => { }));
+        created.StopWaypointTypeId.ShouldBe(Unload);
+        (await Rules.GetListAsync(List())).Rows.ShouldHaveSingleItem().StopWaypointTypeId.ShouldBe(Unload);
+    }
+
+    [Fact]
+    public async Task Another_tenants_waypoint_type_is_refused()
+    {
+        Guid otherTenantsUnload;
+        using (InTenantB())
+        {
+            otherTenantsUnload = (await OrdersMasterDataAsync()).Unload;
+        }
+
+        using var _ = InTenantA();
+        var depot = await PlaceAsync("DEPOT", "Depot", 52.09, 5.12, RelationRoles.Depot);
+        var dto = Dto(ViaDepotScope.Relation, depot.RelationId, null, depot);
+        dto.StopWaypointTypeId = otherTenantsUnload;
+        var refused = await Should.ThrowAsync<BusinessException>(() => Rules.CreateAsync(dto));
+        refused.Code.ShouldBe(ReferenceDataErrorCodes.ReferenceNotFound);
+        refused.Data["field"].ShouldBe("stopWaypointTypeId");
     }
 
     [Fact]

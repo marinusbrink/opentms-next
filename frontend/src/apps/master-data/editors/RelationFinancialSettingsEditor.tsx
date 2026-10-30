@@ -16,7 +16,19 @@ import type { EntityEditorProps } from "@/components/record-editor/editor-props"
 import { CheckboxField, EnumSelectField, NumberField, numberError, numberToText, parseInteger } from "@/components/record-editor/fields";
 import { MasterDataEditor, type EditorTab, type FieldErrors, type FormContext } from "@/components/record-editor/MasterDataEditor";
 import { dateOnly, newLineKey } from "@/components/record-editor/validity-rows";
-import { MULTIPLE_MATCHES, usePriceListLookup, type MultipleMatches, type RateSide } from "@/domains/financial/price-lists";
+import { PriceListsPerBasis } from "@/domains/financial/components/PriceListsPerBasis";
+import {
+  MULTIPLE_MATCHES,
+  orderedRevenueBases,
+  usePriceListLookup,
+  withCreatedList,
+  withKnownList,
+  type KnownPriceList,
+  type MultipleMatches,
+  type PriceListDto,
+  type QuantitySource,
+  type RateSide,
+} from "@/domains/financial/price-lists";
 import { discountsOrSurcharges, vatPercentages } from "@/domains/financial/reference-data";
 import {
   MAX_RELATION_DISCOUNTS_OR_SURCHARGES,
@@ -32,7 +44,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The relation financial settings editor (design 57 §UI, design 61): `md`; General (the relation as an EntityLookup,
  * fixed once the settings exist; VAT, payment term, currency, fixed price by default, documents with the invoice),
- * Price lists (the revenue and the cost lists as lines in their order, each side's "several matching lists" rule),
+ * Price lists (the revenue lists per basis in the legacy rows with their switch, design 61 "Order page review" 3:
+ * `revenueChargedBases`; the cost lists as lines in their order; each side's "several matching lists" rule),
  * Discounts and surcharges (the defaults with their validity), Record identification. The settings are created on the
  * first edit and upserted with the stamp afterwards; picking a relation that has settings already edits those. */
 
@@ -50,7 +63,9 @@ interface DiscountLine {
 
 interface Values {
   relation: RelationOption | null;
-  revenuePriceLists: ListLine[];
+  /** The revenue lists in their order and the bases switched on (PriceListsPerBasis). */
+  revenuePriceListIds: string[];
+  revenueChargedBases: QuantitySource[];
   costPriceLists: ListLine[];
   revenueMultipleMatches: MultipleMatches;
   costMultipleMatches: MultipleMatches;
@@ -72,7 +87,8 @@ const toRelation = (id: string | null | undefined, name: string | null | undefin
 
 const valuesOf = (dto: RelationFinancialSettingsDto | undefined): Values => ({
   relation: toRelation(dto?.relationId, dto?.relationName),
-  revenuePriceLists: (dto?.revenuePriceLists ?? []).map((l) => ({ key: newLineKey(), priceListId: l.priceListId ?? null })),
+  revenuePriceListIds: [...(dto?.revenuePriceLists ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).flatMap((l) => (l.priceListId ? [l.priceListId] : [])),
+  revenueChargedBases: orderedRevenueBases(dto?.revenueChargedBases ?? []),
   costPriceLists: (dto?.costPriceLists ?? []).map((l) => ({ key: newLineKey(), priceListId: l.priceListId ?? null })),
   revenueMultipleMatches: dto?.revenueMultipleMatches ?? 1,
   costMultipleMatches: dto?.costMultipleMatches ?? 1,
@@ -102,8 +118,7 @@ const validateFor =
   (v: Values): FieldErrors<Values> => {
     const errors: FieldErrors<Values> = {};
     if (mode === "create" && !v.relation) errors.relation = "MasterData:Required";
-    const revenue = listError(v.revenuePriceLists);
-    if (revenue) errors.revenuePriceLists = revenue;
+    if (v.revenuePriceListIds.length > MAX_RELATION_PRICE_LISTS) errors.revenuePriceListIds = "Financial:TooManyPriceListsHint";
     const cost = listError(v.costPriceLists);
     if (cost) errors.costPriceLists = cost;
     const lines = v.discountsOrSurcharges;
@@ -146,7 +161,6 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
   const initialValues = useCallback((dto: RelationFinancialSettingsDto | undefined) => valuesOf(dto), []);
   const validate = useMemo(() => validateFor(mode), [mode]);
 
-  const revenueLookup = usePriceListLookup(1 as RateSide, open);
   const costLookup = usePriceListLookup(2 as RateSide, open);
   const discountLookup = discountsOrSurcharges.useLookup(open);
   const vatLookup = vatPercentages.useLookup(open);
@@ -172,7 +186,16 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
     },
     [],
   );
-  const revenueOptions = useMemo(() => listOptions(revenueLookup.data, existing?.revenuePriceLists), [listOptions, revenueLookup.data, existing]);
+  /* The stored revenue lists with their basis (an archived one the lookups no longer return), and the ones created here. */
+  const [createdRevenueLists, setCreatedRevenueLists] = useState<KnownPriceList[]>([]);
+  const knownRevenueLists = useMemo(
+    () =>
+      createdRevenueLists.reduce(
+        withKnownList,
+        (existing?.revenuePriceLists ?? []).flatMap((l) => (l.priceListId && l.basis != null ? [{ id: l.priceListId, basis: l.basis, label: [l.code, l.name].filter(Boolean).join(" ") }] : [])),
+      ),
+    [existing, createdRevenueLists],
+  );
   const costOptions = useMemo(() => listOptions(costLookup.data, existing?.costPriceLists), [listOptions, costLookup.data, existing]);
   const discountOptions = useMemo(() => {
     const options = (discountLookup.data ?? []).map((d) => ({ value: d.id ?? "", label: [d.code, d.name].filter(Boolean).join(" ") }));
@@ -187,7 +210,8 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
       return await upsert.mutateAsync({
         relationId: targetRelationId,
         dto: {
-          revenuePriceListIds: v.revenuePriceLists.map((l) => l.priceListId!),
+          revenuePriceListIds: v.revenuePriceListIds,
+          revenueChargedBases: orderedRevenueBases(v.revenueChargedBases),
           costPriceListIds: v.costPriceLists.map((l) => l.priceListId!),
           revenueMultipleMatches: v.revenueMultipleMatches,
           costMultipleMatches: v.costMultipleMatches,
@@ -207,7 +231,7 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
 
   /* Records created from a grid cell reach their row through applyValues (the columns live outside the tabs). */
   const createPriceListFor = useCallback(
-    (side: "revenuePriceLists" | "costPriceLists") => (term: string, row: ListLine) =>
+    (side: "costPriceLists") => (term: string, row: ListLine) =>
       inPlace.offer("PriceList", readOnly, (r) => apply((v) => ({ ...v, [side]: v[side].map((x) => (x.key === row.key ? { ...x, priceListId: r.id } : x)) }))).onCreateNew?.(term),
     [inPlace, readOnly, apply],
   );
@@ -220,7 +244,7 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
   const canCreateDiscount = inPlace.canCreate("DiscountOrSurcharge", readOnly);
 
   const listColumns = useCallback(
-    (options: { value: string; label: string }[], side: "revenuePriceLists" | "costPriceLists"): ColDef<ListLine>[] => [
+    (options: { value: string; label: string }[], side: "costPriceLists"): ColDef<ListLine>[] => [
       { colId: "position", headerName: t("Financial:Position"), width: 90, valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, type: "rightAligned" },
       {
         field: "priceListId",
@@ -234,7 +258,6 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
     ],
     [t, readOnly, canCreatePriceList, createPriceListFor],
   );
-  const revenueColumns = useMemo(() => listColumns(revenueOptions, "revenuePriceLists"), [listColumns, revenueOptions]);
   const costColumns = useMemo(() => listColumns(costOptions, "costPriceLists"), [listColumns, costOptions]);
   const discountColumns = useMemo<ColDef<DiscountLine>[]>(
     () => [
@@ -255,7 +278,7 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
 
   const linesGrid = <TRow extends { key: string }>(
     form: FormContext<Values>,
-    field: "revenuePriceLists" | "costPriceLists" | "discountsOrSurcharges",
+    field: "costPriceLists" | "discountsOrSurcharges",
     columns: ColDef<TRow>[],
     addLabelKey: string,
     newLine: () => TRow,
@@ -341,7 +364,10 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
                 onChange={(next) => form.set("currencyCode", next)}
                 options={currencyOptions}
                 disabled={form.readOnly}
-                {...inPlace.offer("Currency", form.readOnly, (r) => form.set("currencyCode", r.code))}
+                {...inPlace.offer("Currency", form.readOnly, (r) => form.set("currencyCode", r.code), {
+                  /* The value is the ISO code: the pencil opens the currency of that code. */
+                  editId: (form.values.currencyCode && currencyLookup.data?.find((c) => c.code === form.values.currencyCode)?.id) || null,
+                })}
               />
             </FormField>
             <div className="flex flex-col">
@@ -355,14 +381,37 @@ export function RelationFinancialSettingsEditor({ mode, relationId, readOnly, op
     {
       value: "priceLists",
       labelKey: "Financial:PriceLists",
-      fields: ["revenuePriceLists", "costPriceLists", "revenueMultipleMatches", "costMultipleMatches"],
+      fields: ["revenuePriceListIds", "revenueChargedBases", "costPriceLists", "revenueMultipleMatches", "costMultipleMatches"],
       render: (form) => (
         <>
           <FormSection title={t("Financial:RevenuePriceLists")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <EnumSelectField form={form} field="revenueMultipleMatches" labelKey="Financial:MultipleMatches" items={matchItems} required />
             </div>
-            {linesGrid<ListLine>(form, "revenuePriceLists", revenueColumns, "Financial:AddPriceList", () => ({ key: newLineKey(), priceListId: null }), MAX_RELATION_PRICE_LISTS)}
+            <div className="mt-3 flex flex-col gap-2">
+              {form.error("revenuePriceListIds") && <p className="text-label text-destructive">{form.error("revenuePriceListIds")}</p>}
+              <PriceListsPerBasis
+                idPrefix={form.id("revenueBases")}
+                value={{ priceListIds: form.values.revenuePriceListIds, chargedBases: form.values.revenueChargedBases }}
+                onChange={(next) => {
+                  form.set("revenuePriceListIds", next.priceListIds);
+                  form.set("revenueChargedBases", next.chargedBases);
+                  form.blur("revenuePriceListIds");
+                }}
+                known={knownRevenueLists}
+                disabled={form.readOnly}
+                enabled={open}
+                createInPlace={inPlace.offer<PriceListDto>("PriceList", readOnly, (r) => {
+                  /* A cost list made here is not one of the revenue lists; a revenue list joins the row of its basis. */
+                  if (r.dto.side !== 1) return;
+                  if (r.dto.basis != null) setCreatedRevenueLists((known) => withKnownList(known, { id: r.id, basis: r.dto.basis!, label: [r.code, r.name].filter(Boolean).join(" ") }));
+                  apply((v) => {
+                    const next = withCreatedList({ priceListIds: v.revenuePriceListIds, chargedBases: v.revenueChargedBases }, r.id, r.dto.basis);
+                    return { ...v, revenuePriceListIds: next.priceListIds, revenueChargedBases: next.chargedBases };
+                  });
+                })}
+              />
+            </div>
           </FormSection>
           <FormSection title={t("Financial:CostPriceLists")}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">

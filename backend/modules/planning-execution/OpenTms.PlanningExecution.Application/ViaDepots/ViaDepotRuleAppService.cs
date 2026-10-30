@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.MasterData.Published;
+using OpenTms.Orders.Published;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.Localization;
 using OpenTms.PlanningExecution.Permissions;
@@ -24,12 +25,14 @@ public class ViaDepotRuleAppService
 {
     private readonly IMasterDataReferenceLookup _masterData;
     private readonly MasterDataReferences _references;
+    private readonly ITransportOrderLookup _orderLookup;
 
-    public ViaDepotRuleAppService(IRepository<ViaDepotRule, Guid> repository, IMasterDataReferenceLookup masterData, MasterDataReferences references)
+    public ViaDepotRuleAppService(IRepository<ViaDepotRule, Guid> repository, IMasterDataReferenceLookup masterData, MasterDataReferences references, ITransportOrderLookup orderLookup)
         : base(repository)
     {
         _masterData = masterData;
         _references = references;
+        _orderLookup = orderLookup;
         LocalizationResource = typeof(PlanningExecutionResource);
     }
 
@@ -90,6 +93,7 @@ public class ViaDepotRuleAppService
             RelationName = r.RelationId != null ? relations.GetValueOrDefault(r.RelationId.Value, NotFound) : null,
             GeographicalRegionId = r.GeographicalRegionId,
             GeographicalRegionName = r.GeographicalRegionId != null ? regions.GetValueOrDefault(r.GeographicalRegionId.Value, NotFound) : null,
+            StopWaypointTypeId = r.StopWaypointTypeId,
             DepotRelationId = r.DepotRelationId,
             DepotRelationName = relations.GetValueOrDefault(r.DepotRelationId, NotFound),
             DepotAddressId = r.DepotAddressId,
@@ -115,6 +119,7 @@ public class ViaDepotRuleAppService
             RelationName = row.RelationName,
             GeographicalRegionId = r.GeographicalRegionId,
             GeographicalRegionName = row.GeographicalRegionName,
+            StopWaypointTypeId = r.StopWaypointTypeId,
             DepotRelationId = r.DepotRelationId,
             DepotRelationName = row.DepotRelationName,
             DepotAddressId = r.DepotAddressId,
@@ -151,6 +156,7 @@ public class ViaDepotRuleAppService
 
     private static void Apply(ViaDepotRule rule, ViaDepotRuleCreateDto input)
     {
+        rule.SetStopWaypointType(input.StopWaypointTypeId ?? Guid.Empty);
         rule.SetWaypointTypes(input.ArrivalWaypointTypeId, input.DepartureWaypointTypeId);
         rule.SetOvernight(input.Overnight);
         rule.SetPosition(input.Position);
@@ -170,6 +176,17 @@ public class ViaDepotRuleAppService
         if (!addresses.TryGetValue(input.DepotAddressId, out var address) || address.RelationId != input.DepotRelationId)
         {
             throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "depotAddressId").WithData("value", input.DepotAddressId);
+        }
+
+        /* The waypoint types are Orders ids, checked through its published lookup (as the split at an address does). */
+        var typeFields = new (string Field, Guid? Id)[] { ("stopWaypointTypeId", input.StopWaypointTypeId), ("arrivalWaypointTypeId", input.ArrivalWaypointTypeId), ("departureWaypointTypeId", input.DepartureWaypointTypeId) };
+        var known = (await _orderLookup.GetWaypointTypesAsync(typeFields.Where(f => f.Id != null).Select(f => f.Id!.Value).Distinct().ToList())).Select(t => t.Id).ToHashSet();
+        foreach (var (field, id) in typeFields)
+        {
+            if (id != null && !known.Contains(id.Value))
+            {
+                throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", field).WithData("value", id.Value);
+            }
         }
     }
 }

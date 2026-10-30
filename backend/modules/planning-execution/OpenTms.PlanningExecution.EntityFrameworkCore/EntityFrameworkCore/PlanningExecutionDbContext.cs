@@ -61,6 +61,9 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.Property(t => t.Name).HasLocalizedNameColumn();
             b.Property(t => t.Description).HasMaxLength(ReferenceDataConsts.MaxDescriptionLength);
             b.HasNumbering(t => t.Numbering);
+            /* Design 61 "Trip type defaults": Master Data ids without a foreign key; the id lists as jsonb arrays. */
+            b.Property(t => t.DefaultVehicleIds).HasGuidListColumn();
+            b.Property(t => t.DefaultDriverIds).HasGuidListColumn();
             b.HasIndex(t => t.TenantId);
             b.HasIndex(t => new { t.TenantId, t.Code }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             /* The one default per tenant (assessment §3.8). */

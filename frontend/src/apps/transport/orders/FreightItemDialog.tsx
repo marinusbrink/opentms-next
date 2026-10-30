@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { Check, ExternalLink, Pencil, Plus } from "lucide-react";
+import { Check, ExternalLink, Merge, Pencil, Plus, Split } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,15 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { AttributeFields } from "@/apps/transport/components/AttributeFields";
 import { ComboField, NumberField, SelectField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
 import { LegDialog } from "@/apps/transport/components/LegDialog";
-import { RelationField } from "@/apps/transport/components/RelationFields";
+import { RelationField } from "@/domains/master-data/components/RelationFields";
 import { StopStrip } from "@/apps/transport/components/StopStrip";
 import { TotalsBlock } from "@/apps/transport/components/TotalsBlock";
 import { REQUIRED_FLAG, hasFlag, lineProblemsOf, stopProblemText, stopProblemsOf, type EditorMode, type LineValues, type OrderValues } from "@/apps/transport/orders/order-form";
+import { ItemPurchasePrices } from "@/apps/transport/orders/ItemPurchasePrices";
 import { RateLineDialog, RateLinesGrid } from "@/apps/transport/orders/RateLines";
+import { RemoveSplitDialog, SplitLegDialog } from "@/apps/transport/orders/SplitLegDialog";
 import type { PricePreviewState } from "@/apps/transport/orders/use-price-preview";
-import { RATE_LINE_KINDS, type RateLineSetDto } from "@/domains/financial/rate-lines";
+import { RATE_LINE_KINDS, isOpenRateLine, quantitySourceLabel, type RateLineSetDto } from "@/domains/financial/rate-lines";
 import { useCreateInPlace, withId } from "@/domains/master-data/components/create-in-place";
 import {
   productRelationCodes,
@@ -37,8 +39,9 @@ import {
 } from "@/domains/master-data/entities";
 import { timeSlots, waypointTypes } from "@/domains/orders/reference-data";
 import { PAYMENT_INSTRUCTIONS, useOrderAttributeDefinitions } from "@/domains/orders/transport-orders";
-import { legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
+import { LEG_SOURCE, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
 import { tripStatusName } from "@/domains/planning-execution/trips";
+import { useIsGranted } from "@/lib/auth/permissions";
 import { isSameValue, type FormContext } from "@/lib/forms/use-form-state";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -51,7 +54,9 @@ import { useOpenRecord } from "@/lib/use-open-record";
  * - Stops and legs: the item's stops in the same row editor as the stop strip (add, remove, move) and under them the
  *   item's legs, read from Planning and filtered to the item; before Confirm the legs part says they are created on
  *   Confirm (template: Stops, as day offsets, no legs);
- * - Pricing (order only): the item's stored rate lines and its total, with the preview of an unsaved change.
+ * - Pricing (order only): the item's stored rate lines and its total, with the preview of an unsaved change, and under
+ *   them the item's purchase prices (its cost lines on its trips, design 61 "Order page review" 4).
+ * The legs grid offers Split leg at … and Remove split (design 61 "Order page review" 5).
  * The dialog edits the item in the order's form, live (the price preview follows): Apply keeps the changes, Close
  * (X, Esc) on a changed item asks "Discard changes?" and restores the item as it was when the dialog opened; the
  * order's Save stores them. A save while the dialog is open (Ctrl/⌘+S) makes the saved item the one Close restores.
@@ -112,7 +117,7 @@ export function FreightItemDialog({ form, mode, lineKey, flags, onClose, orderId
       hasError: stopsHaveError || (shown && problem?.key === "Orders:LineNeedsTwoStopsHint"),
       content: <StopsAndLegs form={form} mode={mode} line={line} flags={flags} onChange={update} showErrors={shown} orderId={orderId} legsCreated={legsCreated} legs={legs} />,
     },
-    ...(mode === "order" ? [{ value: "pricing", label: t("Orders:Pricing"), content: <ItemPricing form={form} line={line} orderId={orderId} rateLines={rateLines} preview={preview} canEditRateLines={canEditRateLines} /> }] : []),
+    ...(mode === "order" ? [{ value: "pricing", label: t("Orders:Pricing"), content: <ItemPricing form={form} line={line} position={index + 1} orderId={orderId} rateLines={rateLines} preview={preview} canEditRateLines={canEditRateLines} legs={legs} /> }] : []),
   ];
 
   return (
@@ -370,12 +375,16 @@ function StopsAndLegs({ form, mode, line, flags, onChange, showErrors, orderId, 
 }
 
 /** The item's legs (design 59: generated from its stops), filtered from the order's legs; the leg fields are edited in
- * the shared LegDialog, a planned leg opens its trip. */
+ * the shared LegDialog, a planned leg opens its trip. Split leg at … and Remove split (design 61 "Order page review" 5)
+ * need PlanningExecution.Legs.Update and a leg that is not on a trip (Remove split: neither half). */
 function ItemLegs({ lineId, legs }: { lineId: string; legs: LegDto[] | undefined }) {
   const { t } = useL();
   const f = useFormat();
   const openRecord = useOpenRecord();
+  const canSplit = useIsGranted("PlanningExecution.Legs.Update");
   const [editing, setEditing] = useState<LegDto | null>(null);
+  const [splitting, setSplitting] = useState<LegDto | null>(null);
+  const [unsplitting, setUnsplitting] = useState<LegDto | null>(null);
   const rows = useMemo(() => (legs ?? []).filter((leg) => leg.orderLineId?.toLowerCase() === lineId.toLowerCase()), [legs, lineId]);
   /* A new fetcher when the order's legs were read again (a leg edit, a push): the grid shows the item's rows. */
   const fetchRows = useMemo(() => async () => ({ rows, totalCount: rows.length, filteredCount: rows.length }), [rows]);
@@ -410,12 +419,27 @@ function ItemLegs({ lineId, legs }: { lineId: string; legs: LegDto[] | undefined
           if (row.tripId) openRecord("TransportTrip", row.tripId);
           else setEditing(row);
         }}
-        rowActions={(selected) => [
-          { id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => setEditing(selected[0]) },
-          ...(selected[0]?.tripId ? [{ id: "trip", labelKey: "PlanningExecution:OpenTrip", icon: ExternalLink, onClick: () => openRecord("TransportTrip", selected[0].tripId!) }] : []),
-        ]}
+        rowActions={(selected) => {
+          const leg = selected[0];
+          /* Both halves of a split at an address come from the same leg; either may be the one on a trip. */
+          const halves = leg?.splitFromLegId ? rows.filter((r) => r.source === LEG_SOURCE.SplitAtAddress && r.splitFromLegId?.toLowerCase() === leg.splitFromLegId!.toLowerCase()) : [];
+          return [
+            { id: "edit", labelKey: "Edit", icon: Pencil, onClick: () => setEditing(leg) },
+            ...(leg?.tripId ? [{ id: "trip", labelKey: "PlanningExecution:OpenTrip", icon: ExternalLink, onClick: () => openRecord("TransportTrip", leg.tripId!) }] : []),
+            ...(canSplit && leg
+              ? [
+                  { id: "split", labelKey: "PlanningExecution:SplitLegAt", icon: Split, disabled: !!leg.tripId, disabledReasonKey: "PlanningExecution:LegIsOnTrip", onClick: () => setSplitting(leg) },
+                  ...(leg.source === LEG_SOURCE.SplitAtAddress
+                    ? [{ id: "removeSplit", labelKey: "PlanningExecution:RemoveSplit", icon: Merge, disabled: [leg, ...halves].some((h) => !!h.tripId), disabledReasonKey: "PlanningExecution:LegIsOnTrip", onClick: () => setUnsplitting(leg) }]
+                    : []),
+                ]
+              : []),
+          ];
+        }}
       />
       {editing && <LegDialog leg={editing} title={`${t("PlanningExecution:Leg")} ${editing.position ?? ""}`} idPrefix="leg" onClose={() => setEditing(null)} />}
+      {splitting && <SplitLegDialog leg={splitting} onClose={() => setSplitting(null)} />}
+      {unsplitting && <RemoveSplitDialog leg={unsplitting} onClose={() => setUnsplitting(null)} />}
     </div>
   );
 }
@@ -423,14 +447,19 @@ function ItemLegs({ lineId, legs }: { lineId: string; legs: LegDto[] | undefined
 interface ItemPricingProps {
   form: FormContext<OrderValues>;
   line: LineValues;
+  /** The item's 1-based position among the order's items: the preview names an unsaved item by it. */
+  position: number;
   orderId: string | undefined;
   rateLines: RateLineSetDto | undefined;
   preview: PricePreviewState;
   canEditRateLines: boolean;
+  legs: LegDto[] | undefined;
 }
 
-/** The item's rate lines and total; while an unsaved change is previewed, the preview's lines for the item instead. */
-function ItemPricing({ form, line, orderId, rateLines, preview, canEditRateLines }: ItemPricingProps) {
+/** The item's rate lines and total; while an unsaved change is previewed, the preview's lines for the item instead (an
+ * item not saved yet, on a new order too, has only the preview). Under them the purchase prices (stored cost lines:
+ * never previewed). */
+function ItemPricing({ form, line, position, orderId, rateLines, preview, canEditRateLines, legs }: ItemPricingProps) {
   const { t } = useL();
   const f = useFormat();
   const [dialog, setDialog] = useState(false);
@@ -438,10 +467,10 @@ function ItemPricing({ form, line, orderId, rateLines, preview, canEditRateLines
   const currency = rateLines?.currencyCode ?? form.values.terms.currencyCode;
   const id = line.id?.toLowerCase();
   const stored = useMemo(() => (rateLines?.lines ?? []).filter((r) => id && r.orderLineId?.toLowerCase() === id), [rateLines, id]);
-  const previewLines = useMemo(() => (preview.preview?.lines ?? []).filter((r) => id && r.orderLineId?.toLowerCase() === id), [preview.preview, id]);
+  const previewLines = useMemo(() => (preview.preview?.lines ?? []).filter((r) => (r.linePosition != null ? r.linePosition === position : id && r.orderLineId?.toLowerCase() === id)), [preview.preview, position, id]);
   const storedTotal = id ? (rateLines?.totals?.byAnchor?.find((a) => a.anchorId?.toLowerCase() === id)?.amount ?? stored.reduce((sum, r) => sum + (r.amount ?? 0), 0)) : null;
 
-  if (!orderId || !line.id) return <p className="text-label text-muted-foreground" data-slot="item-priced-after-save">{t("Orders:ItemPricedAfterSave")}</p>;
+  if ((!orderId || !line.id) && !preview.preview) return <p className="text-label text-muted-foreground" data-slot="item-priced-after-save">{t(preview.failed ? "Orders:PricePreviewUnavailable" : "Orders:ItemPricedAfterSave")}</p>;
 
   return (
     <div className="flex flex-col gap-3" data-slot="item-pricing">
@@ -458,7 +487,9 @@ function ItemPricing({ form, line, orderId, rateLines, preview, canEditRateLines
           <dl className="flex flex-col gap-1 text-sm" data-slot="item-preview-lines">
             {previewLines.map((r, index) => (
               <div key={index} className="flex justify-between gap-6">
-                <dt className="text-muted-foreground">{r.descriptionKey ? t(r.descriptionKey) : t(RATE_LINE_KINDS.find((k) => k.value === r.kind)?.key ?? "")}</dt>
+                <dt className="text-muted-foreground">
+                  {[r.descriptionKey ? t(r.descriptionKey) : t(RATE_LINE_KINDS.find((k) => k.value === r.kind)?.key ?? ""), isOpenRateLine(r) ? quantitySourceLabel(t, r.quantitySource) : null].filter(Boolean).join(" · ")}
+                </dt>
                 <dd className="text-right tabular-nums">{f.amount(r.amount)}</dd>
               </div>
             ))}
@@ -486,7 +517,8 @@ function ItemPricing({ form, line, orderId, rateLines, preview, canEditRateLines
           <TotalsBlock lines={[{ label: t("Orders:ItemTotal"), value: storedTotal, grand: true }]} currencyCode={currency} state={rateLines?.state} />
         </>
       )}
-      {dialog && <RateLineDialog kind="manual" orderId={orderId} orderLineId={line.id} currency={currency} onClose={() => setDialog(false)} />}
+      {orderId && line.id && <ItemPurchasePrices orderId={orderId} line={{ ...line, id: line.id }} legs={legs} editable={canEditRateLines && !form.readOnly} />}
+      {orderId && dialog && <RateLineDialog kind="manual" orderId={orderId} orderLineId={line.id} currency={currency} onClose={() => setDialog(false)} />}
     </div>
   );
 }

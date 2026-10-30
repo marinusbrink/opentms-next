@@ -37,6 +37,10 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
     Completed: { tone: "success", labelKey: "PlanningExecution:Status.Completed" },
     Cancelled: { tone: "danger", labelKey: "PlanningExecution:Status.Cancelled" },
   },
+  /* Design 61 "Order page review" 3: an open rate line of a charged basis without a price list, until it is priced. */
+  RateLine: {
+    ToBePriced: { tone: "warning", labelKey: "Financial:RateLine.OpenBasis" },
+  },
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {

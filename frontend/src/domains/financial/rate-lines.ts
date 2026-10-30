@@ -68,11 +68,12 @@ export const rateLineKeys = {
   all: ["financial", "rateLines"] as const,
   ofOrder: (orderId: string | undefined) => ["financial", "rateLines", "order", orderId?.toLowerCase()] as const,
   ofTrip: (tripId: string | undefined) => ["financial", "rateLines", "trip", tripId?.toLowerCase()] as const,
+  ofOrderCost: (orderId: string | undefined) => ["financial", "rateLines", "orderCost", orderId?.toLowerCase()] as const,
   priceListLookup: (side: RateSide | undefined) => ["financial", "priceLists", "lookup", side] as const,
   relationDefaults: (relationId: string | undefined) => ["financial", "relationFinancialSettings", relationId?.toLowerCase()] as const,
 };
 
-async function fetchRateLines(query: { OrderId?: string; TripId?: string }): Promise<RateLineSetDto> {
+async function fetchRateLines(query: { OrderId?: string; TripId?: string; Side?: RateSide }): Promise<RateLineSetDto> {
   const { data, error } = await apiClient.GET("/api/financial/rate-line", { params: { query } });
   if (error) throw error;
   return data ?? {};
@@ -84,6 +85,53 @@ export function useOrderRateLines(orderId: string | undefined) {
 
 export function useTripRateLines(tripId: string | undefined) {
   return useQuery({ queryKey: rateLineKeys.ofTrip(tripId), enabled: tripId != null, queryFn: () => fetchRateLines({ TripId: tripId }) });
+}
+
+/** The cost lines on an order's legs, within the trip each leg is on now (design 61 "Order page review" 4, build note 3):
+ *  every line carries its trip (`anchorTripId`, `tripNumber`) and the freight item of its leg (`legOrderLineId`). */
+export function useOrderCostLines(orderId: string | undefined, enabled = true) {
+  return useQuery({ queryKey: rateLineKeys.ofOrderCost(orderId), enabled: enabled && orderId != null, queryFn: () => fetchRateLines({ OrderId: orderId, Side: RATE_SIDE.Cost }) });
+}
+
+/** Watches the trips' cost lines (flow 2): a recalculation of one of the trips refetches the order's cost lines. */
+export function useOrderCostLineUpdates(orderId: string | undefined, tripIds: readonly (string | null | undefined)[]) {
+  useRecordUpdates("Financial.TripRateLines", tripIds, { queryKeysFor: () => [rateLineKeys.ofOrderCost(orderId)] });
+}
+
+/** An open line (design 61 "Order page review" 3, build note 2): a charged basis without a price list of that basis, kind
+ *  PriceList without a list. Never adjusted it is "To be priced"; adjusted it is kept and re-valued (QP6). Both may be
+ *  removed like a manual line. */
+export function isOpenRateLine(line: { kind?: RateLineKind; priceListId?: string | null; priceListCode?: string | null }): boolean {
+  return line.kind === RATE_LINE_KIND.PriceList && !line.priceListId && !line.priceListCode;
+}
+
+export function isToBePriced(line: { kind?: RateLineKind; priceListId?: string | null; priceListCode?: string | null; isAdjusted?: boolean }): boolean {
+  return isOpenRateLine(line) && line.isAdjusted !== true;
+}
+
+/** The label of a line's basis ("Weight (kg)"). */
+export function quantitySourceLabel(t: (key: string) => string, source: number | null | undefined): string {
+  return source == null ? "" : t(QUANTITY_SOURCES.find((q) => q.value === source)?.key ?? "");
+}
+
+/** The description a rate line shows: typed, or what produced it; an open line its basis. */
+export function rateLineDescription(t: (key: string) => string, row: RateLineDto): string {
+  if (isOpenRateLine(row) && !row.description) return quantitySourceLabel(t, row.quantitySource);
+  return row.description || row.priceListCode || row.discountOrSurchargeName || row.additionalServiceName || (row.descriptionKey ? t(row.descriptionKey) : "");
+}
+
+/** The provenance tooltip of a rate line: list, rule, column, basis, adjusted. */
+export function rateLineProvenance(t: (key: string) => string, row: RateLineDto): string {
+  return [
+    row.priceListCode ? `${t("Financial:PriceList")}: ${row.priceListCode}` : null,
+    row.priceListRuleId ? `${t("Financial:Rule")}: ${row.priceListRuleId.slice(0, 8)}` : null,
+    row.columnPosition != null ? `${t("Financial:Columns")}: ${row.columnPosition}` : null,
+    row.quantitySource != null ? `${t("Financial:Quantity")}: ${quantitySourceLabel(t, row.quantitySource)}` : null,
+    isOpenRateLine(row) ? t("Financial:OpenLineHint") : null,
+    row.isAdjusted ? t("Financial:Adjusted") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** Watches an order's rate lines (flow 2): a recalculation refetches the set. */

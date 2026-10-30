@@ -8,7 +8,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { toOptions } from "@/apps/transport/components/fields";
-import { defaultAddressIdOf } from "@/apps/transport/components/RelationFields";
+import { defaultAddressIdOf } from "@/domains/master-data/components/RelationFields";
 import { StopStrip } from "@/apps/transport/components/StopStrip";
 import { STOP_FIELD_CONTROL, stopFieldId } from "@/apps/transport/components/stop-strip-ids";
 import {

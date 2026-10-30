@@ -32,6 +32,13 @@ naam en druk op Enter zolang de lijst *Geen resultaten* toont. Zie *Nieuw record
 Stamgegevens. Alleen de leg van een kostenregel (die volgen uit de orders) heeft de regel niet: daar valt
 niets nieuws te maken.
 
+Staat er in zo'n keuzelijst met één waarde iets gekozen, dan staat rechts in het veld een **potlood**. Het
+opent het gekozen record bovenop de order: om te wijzigen als u dat record mag wijzigen (de tooltip zegt
+*Bewerken*), anders alleen om te bekijken (*Openen*). Een adres of contactpersoon opent het scherm van de
+relatie op het tabblad waar het staat. Uw niet-opgeslagen wijzigingen in de order blijven staan; na het
+opslaan van het record toont de keuzelijst de nieuwe naam. Keuzelijsten met meerdere waarden (zoals de
+prijslijsten) en lijsten met vaste waarden hebben geen potlood.
+
 ## Berekende waarden
 
 Opslaan gaat direct: het systeem berekent prijzen, afstanden, CO₂, kosten, marge en voortgang daarna
@@ -255,14 +262,46 @@ Het venster heeft drie tabbladen:
   kant de referentie, de geplande datum en het **tijdvenster** (*Van* en *Tot*, als UU:MM op die datum;
   laat u beide leeg, dan geldt de hele dag), en de opmerking. Vóór het bevestigen staat hier dat de legs
   bij het bevestigen worden aangemaakt.
+
+  Met het recht *Legs wijzigen* geeft rechtsklikken op een leg ook:
+  - **Leg splitsen op …**: de leg van A naar B wordt twee legs, van A naar X en van X naar B. Kies de
+    relatie en het adres X, de **activiteit bij aankomst** op X, de **activiteit bij vertrek** (standaard de
+    activiteit die in Stamgegevens op de aankomstactiviteit volgt) en de **datum** (standaard de
+    herkomstdatum van de leg). Een nieuwe relatie, een nieuw adres of een nieuwe activiteit voegt u hier
+    toe met **Nieuw … toevoegen…**, en het potlood opent de gekozen.
+  - **Splitsing opheffen** (alleen bij een leg die door zo'n splitsing is ontstaan, op elk van beide
+    helften): de twee legs worden weer de ene leg van A naar B.
+
+  Beide kunnen niet zolang een leg die erbij hoort op een rit staat: de actie is dan grijs en de tooltip
+  zegt dat u de leg eerst van de rit moet halen. De splitsing gebeurt direct, los van **Opslaan**; de
+  afstanden en de prijzen van de nieuwe legs worden daarna opnieuw berekend.
 - **Prijzen**: de tariefregels van deze vrachtregel met het soort regel als label (houdt u de muis erboven,
   dan ziet u waar de prijs vandaan komt), aantal, eenheidsprijs en bedrag, en het totaal van de
   vrachtregel. Met het recht *Tariefregels wijzigen* voegt u een handmatige regel toe (**Regel
   toevoegen**), past u de eenheidsprijs van een berekende regel aan en verwijdert u een handmatige regel;
   dat gebeurt direct, los van **Opslaan**. Past u iets aan zonder op te slaan, dan staat hier na een
   ogenblik een **voorbeeld** van de nieuwe prijzen; een voorbeeld komt er pas als elke vrachtregel een
-  transporteenheid heeft en minstens twee stops met relatie en adres. Een nieuwe vrachtregel krijgt zijn
-  prijs na het opslaan.
+  transporteenheid heeft en minstens twee stops met relatie en adres. Een nieuwe vrachtregel, ook op een
+  nieuwe order, toont zo ook een voorbeeld van zijn prijzen; de echte prijs krijgt hij na het opslaan.
+
+  Staat op het tabblad Financieel een basis aan zonder prijslijst (zie *Financieel*), dan krijgt de
+  vrachtregel voor die basis een **open regel** met het label **Te prijzen**: de hoeveelheid van de
+  vrachtregel voor die basis (bijvoorbeeld het gewicht), eenheidsprijs 0 en als omschrijving de basis. U
+  prijst hem door de eenheidsprijs aan te passen; daarna is het een aangepaste regel die bij een
+  herberekening blijft staan (met de hoeveelheid van dat moment), ook als u de basis weer uitzet. Een open
+  regel die u nooit hebt aangepast, verdwijnt als u de basis uitzet. Een open regel verwijdert u net als een
+  handmatige regel met de prullenbak.
+
+  Daaronder staan de **Inkooptarieven** van de vrachtregel (met het recht *Tariefregels*): de
+  kostenregels van deze vrachtregel op al zijn ritten, met het soort regel als label (met de herkomst als
+  tooltip), het ritnummer (klik erop om de rit te openen), omschrijving, basis, aantal, eenheidsprijs en
+  bedrag, en het totaal. Met het recht *Tariefregels wijzigen* voegt u met **Inkoopregel toevoegen** een
+  regel toe (omschrijving, basis, aantal, eenheidsprijs en de rit; het aantal staat al op de waarde van de
+  vrachtregel voor de gekozen basis, en als de vrachtregel op één rit staat, is die rit al gekozen), past u
+  de eenheidsprijs van een berekende regel aan en verwijdert u een handmatige regel, direct en los van
+  **Opslaan**. Zolang de vrachtregel nog op geen enkele rit staat, staat hier dat de inkooptarieven
+  verschijnen zodra de vrachtregel op een rit staat; voor een rit die met de order wordt aangemaakt, legt
+  u de prijs vast als afgesproken inkoopprijs op het tabblad *Tevens rit*.
 
 Wat u in het venster wijzigt, is direct een wijziging van de order. **Toepassen** sluit het venster en
 houdt de wijzigingen; **Sluiten** (of het kruisje of Esc) vraagt bij wijzigingen eerst *Niet-opgeslagen
@@ -289,15 +328,27 @@ order is opgeslagen.
 
 ### Financieel
 
-Het tabblad heeft de blokken van het oude scherm:
+Het tabblad heeft de blokken van het oude scherm, in twee kolommen: links de prijsberekening en de facturatie,
+rechts het omzetoverzicht en de opmerkingen voor de facturatie; daaronder de regels op orderniveau.
 
-- **Prijsberekening**: kies of de vrachtregels individueel worden geprijsd of dat de order een **vast
-  bedrag** heeft (vul dan het bedrag in; kiest u weer voor individueel prijzen, dan vervalt het bedrag), de
-  prijslijsten en wat er gebeurt als meerdere tarieven passen.
+- **Prijsberekening**: kies of de order een **vast bedrag** heeft (vul dan het bedrag in) of dat de vrachtregels
+  individueel worden geprijsd (dan vervalt het bedrag) en wat er gebeurt als meerdere tarieven passen.
+  Daaronder staat per **prijsgrondslag** die de order gebruikt één regel, in de volgorde van het oude scherm:
+  *Prijs op basis van aantallen*, *colli*, *EPQ*, *gewicht*, *afstand*, *posities*, *Vaste prijs voor
+  vrachtregel*, *volume*, *laadmeters*, *beladingsgraad*, *reistijd*, *soort voertuig* of *tolafstand*. Elke
+  regel heeft een keuzelijst met de omzetprijslijsten van die grondslag (meestal één) en een kruisje om de
+  regel te verwijderen; daarmee vervallen ook de prijslijsten van die regel. Een grondslag voegt u toe met
+  **Prijsgrondslag toevoegen**; de cursor springt dan naar de keuzelijst van de nieuwe regel. Heeft een regel
+  geen prijslijst, dan krijgt elke vrachtregel voor die grondslag een open regel **Te prijzen** (zie *Het
+  venster Vrachtregel*, Prijzen). Een nieuwe prijslijst maakt u met *Nieuwe prijslijst toevoegen…* in een van
+  de keuzelijsten; hij komt in de regel van zijn eigen grondslag. Bij een vast bedrag zijn de regels niet te
+  wijzigen.
 - **Omzetoverzicht**, alleen te lezen: de vrachtregels, een vaste prijs, de regels op orderniveau, de extra
   diensten, de kortingen en toeslagen en het totaal, met de valuta één keer erbij en een draaiend symbool
-  zolang de prijzen worden herberekend. Tijdens een voorbeeld staan hier de voorbeeldbedragen. Bij een
-  nieuwe order staat hier dat de omzet wordt berekend zodra de order is opgeslagen.
+  zolang de prijzen worden herberekend. Tijdens een voorbeeld staan hier de voorbeeldbedragen. Ook een
+  nieuwe order, die nog nooit is opgeslagen, toont hier een **voorbeeld** zodra de klant gekozen is en elke
+  vrachtregel compleet is; zo ziet u de prijzen al vóór het opslaan. De omzet zelf wordt berekend zodra de
+  order is opgeslagen.
 - **Facturatie**: valuta (een keuzelijst van de valuta's uit Stamgegevens; een ontbrekende voegt u toe met
   *Nieuwe valuta toevoegen…*), btw, kortingen en toeslagen (die van de klant zijn gemarkeerd als *standaard
   klant*), betaaltermijn en of de vrachtdocumenten met de factuur meegaan.
@@ -306,16 +357,23 @@ Het tabblad heeft de blokken van het oude scherm:
   de kortingen en toeslagen, met **Regel toevoegen** en **Vaste prijs instellen** (of weer verwijderen).
 
 De financiële standaarden van de klant worden overgenomen als u de klant kiest (zie *Algemeen: de
-ordergegevens*).
+ordergegevens*), ook welke bases aanstaan en de prijslijsten per basis.
 
 ### Tevens rit
 
 Zet het vinkje *Maak bij het bevestigen direct een rit aan voor deze order* aan. Het systeem vult de lege
-velden dan alvast in: het standaard rittype (of het enige rittype), het vertrek met de relatie en het adres
-van de eerste stop van de eerste vrachtregel op de rit, de aankomst met die van de laatste stop van de
-laatste vrachtregel op de rit, en als geplande vertrekdatum de datum van die eerste stop (met het begin van
-het tijdvenster als tijd, als dat is ingevuld). Controleer de voorstellen en pas ze zo nodig aan; wat u al
-had ingevuld, blijft staan.
+velden dan alvast in: het standaard rittype (of het enige rittype) en de standaardwaarden van dat rittype
+(vervoerder en contactpersoon, voertuigcombinatie of voertuigen, chauffeurs, vertrek, aankomst en vertrektijd; zie
+*Standaardwaarden voor nieuwe ritten* in de handleiding Stamgegevens). Wat het rittype leeg laat, komt uit de order:
+het vertrek met de relatie en het adres van de eerste stop van de eerste vrachtregel op de rit, de aankomst met die
+van de laatste stop van de laatste vrachtregel op de rit, en als geplande vertrekdatum de datum van die eerste stop.
+Als tijd geldt de vertrektijd van het rittype; heeft het rittype geen vertrektijd, dan het begin van het tijdvenster
+van die eerste stop (als dat is ingevuld). Bij een sjabloon telt de dagverschuiving van de eerste stop. Een
+voorgestelde vervoerder, voertuigen of chauffeurs ziet u onder **Geavanceerd**, dat dan openklapt. Controleer de
+voorstellen en pas ze zo nodig aan; wat u al had ingevuld, blijft staan.
+
+Kiest u daarna een ander rittype, dan krijgen de velden die nog het voorstel van het vorige rittype bevatten het
+voorstel van het nieuwe; velden die u zelf hebt gewijzigd, blijven staan.
 
 Onder **Vrachtregels op de rit** staat per vrachtregel een vinkje; standaard gaan ze allemaal mee. Alleen
 de legs van de aangevinkte vrachtregels gaan bij het bevestigen op de rit; de andere blijven ongepland
@@ -402,7 +460,8 @@ kopiëren** openen hetzelfde stappenvenster:
 
 ## De lijst Ritten
 
-Ritten maakt u niet in deze lijst aan: dat gebeurt op het Planbord, of via de "Tevens rit" van een order.
+Een rit maakt u met **Nieuwe rit** in de actiebalk (als u ritten mag aanmaken), op het Planbord, of via de
+"Tevens rit" van een order.
 De lijst toont nummer, status, datum, naam, rittype, vervoerder, voertuigen, chauffeurs, gepland vertrek
 en geplande aankomst, het aantal stops en legs, klanten, orders, afstand, beladingsgraad, CO₂, kosten,
 opbrengst en waarschuwingen (een driehoekje; de muis erboven toont welke). Gearchiveerde ritten staan er
@@ -411,6 +470,16 @@ vervoerder, organisatie-eenheid en *Verberg lege ritten*. **Exporteren** (het do
 boven de lijst) werkt als bij de lijst Opdrachten: zichtbare of alle kolommen, de rijen van het filter of
 alle rijen (gearchiveerde ritten blijven buiten de export). Tijden staan in uw tijdzone, de afstand in km en
 de beladingsgraad als percentage; CO₂ gaat mee in kg.
+
+**Nieuwe rit** opent een venster met het rittype (het standaard rittype is al gekozen), de ritdatum (vandaag),
+het geplande vertrek (datum en tijd, verplicht), naam, uitvoering, vervoerder en contactpersoon, voertuigcombinatie
+of voertuigen (een combinatie of maximaal drie voertuigen, niet allebei: kiest u het een, dan vervalt het ander),
+chauffeurs (maximaal drie), vertrek en aankomst (relatie en adres), stopsamenstelling en eerste en laatste stop. Het
+rittype vult alles in wat het als standaardwaarde heeft, ook de vertrektijd op de ritdatum; de datum van het
+geplande vertrek volgt de ritdatum zolang u hem niet zelf hebt veranderd. Kiest u een ander rittype, dan krijgen de
+velden die nog het voorstel van het vorige rittype bevatten het voorstel van het nieuwe; wat u zelf hebt gewijzigd,
+blijft staan. Wat leeg blijft, vult het systeem bij het opslaan aan uit het rittype. Na **Opslaan** opent de
+ritpagina van de nieuwe rit; legs wijst u daar of later op het Planbord toe.
 
 In de actiebalk staan voor de geselecteerde rit(ten) **Vrachtbrief afdrukken**, **Ritten archiveren**,
 **Afronden** en **Rit annuleren**. **Ritten archiveren** opent een stappenvenster met de geselecteerde
@@ -437,7 +506,10 @@ tijden met de geplande. Bij annuleren gaan de legs van de rit af.
   Rechtsklikken geeft: **Bewerken** (per kant de referentie, geplande datum en het tijdvenster, en de
   opmerking; zoals op het tabblad Planning van de order), **Legs losmaken** (van de rit halen), **Apart
   uitvoeren** (eigen stops voor deze leg), **Retourleg** (een leg terug van bestemming naar herkomst) en
-  **Herkomstactiviteit uitbesteden** (het ophalen door een andere rit via een hub laten doen). Bij
+  **Herkomstactiviteit uitbesteden** (het ophalen door een andere rit via een hub laten doen) en
+  **Hoeveelheid splitsen** (een deel van de hoeveelheid naar een nieuwe leg: vul een hoeveelheid in boven 0
+  en onder de hoeveelheid van de leg, en kies eventueel een **doelrit**; laat u die leeg, dan blijft de
+  nieuwe leg op deze rit). Bij
   uitbesteden kiest u de hub (relatie en adres) en de **doelrit** uit een zoeklijst van geplande en lopende
   ritten (zoeken op nummer, naam, vervoerder of plaats); de rit van de leg zelf staat er niet in.
 - **Stops**: de stops in volgorde met activiteit, relatie, plaats, geplande, verwachte en werkelijke

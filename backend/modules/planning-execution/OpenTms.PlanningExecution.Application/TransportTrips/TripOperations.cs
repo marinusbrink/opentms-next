@@ -43,6 +43,7 @@ public class TripOperations : ITransientDependency
     private readonly MasterDataReferences _masterData;
     private readonly ITransportOrderLookup _orders;
     private readonly IClock _clock;
+    private readonly TripTypeDefaults _typeDefaults;
 
     public TripOperations(
         IRepository<TransportTrip, Guid> trips,
@@ -56,7 +57,8 @@ public class TripOperations : ITransientDependency
         LegAssignmentService assignment,
         MasterDataReferences masterData,
         ITransportOrderLookup orders,
-        IClock clock)
+        IClock clock,
+        TripTypeDefaults typeDefaults)
     {
         _trips = trips;
         _legs = legs;
@@ -70,6 +72,7 @@ public class TripOperations : ITransientDependency
         _masterData = masterData;
         _orders = orders;
         _clock = clock;
+        _typeDefaults = typeDefaults;
     }
 
     public Guid NewId() => _guids.Create();
@@ -102,11 +105,19 @@ public class TripOperations : ITransientDependency
         return legs;
     }
 
-    /// <summary>Creates a trip: the type's defaults, a number from the type's sequence, the Master Data ids validated.</summary>
-    public async Task<TransportTrip> CreateAsync(TransportTripCreateDto input, Guid? createdFromOrderId, decimal? agreedPurchaseAmount, string? agreedPurchaseCurrencyCode)
+    /// <summary>
+    /// Creates a trip: every group the input leaves empty filled from the type (design 61 "Trip type defaults"; the
+    /// application service and the order's trip request on Confirm both come through here), a number from the type's
+    /// sequence, the Master Data ids validated.
+    /// </summary>
+    public async Task<TransportTrip> CreateAsync(TransportTripCreateDto request, Guid? createdFromOrderId, decimal? agreedPurchaseAmount, string? agreedPurchaseCurrencyCode)
     {
-        var type = await _types.FindAsync(input.TransportTripTypeId)
-                   ?? throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "transportTripTypeId").WithData("value", input.TransportTripTypeId);
+        var type = await _types.FindAsync(request.TransportTripTypeId)
+                   ?? throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "transportTripTypeId").WithData("value", request.TransportTripTypeId);
+        var input = await _typeDefaults.FillAsync(request, type);
+        var execution = input.Execution!.Value;
+        var stopCompositionMode = input.StopCompositionMode!.Value;
+        var firstLastStopRule = input.FirstLastStopRule!.Value;
         await _masterData.EnsureRelationsExistAsync([input.CarrierRelationId, input.DepartureRelationId, input.ArrivalRelationId], "relations");
 
         await ValidateVehiclesAsync(input.VehicleCombinationId, input.VehicleIds);
@@ -115,11 +126,11 @@ public class TripOperations : ITransientDependency
         /* The number is drawn last: a refused request leaves no gap (the counter is taken inside the transaction). */
         var tripDate = input.TripDate ?? DateOnly.FromDateTime(input.PlannedDeparture.Date);
         var number = await _numbers.NextAsync(type.SequenceKey, type.Numbering);
-        var trip = new TransportTrip(_guids.Create(), _currentTenant.Id, number, type.Id, tripDate, input.Execution ?? type.DefaultExecution,
-            input.StopCompositionMode, input.FirstLastStopRule, input.PlannedDeparture);
+        var trip = new TransportTrip(_guids.Create(), _currentTenant.Id, number, type.Id, tripDate, execution,
+            stopCompositionMode, firstLastStopRule, input.PlannedDeparture);
         trip.SetHeader(input.Name, tripDate, input.PlannedDeparture, input.PlannedArrival, input.DepartureRelationId, input.DepartureAddressId,
             input.ArrivalRelationId, input.ArrivalAddressId, input.Remarks, input.DriverInstructions, input.OrganizationUnitId,
-            input.Execution ?? type.DefaultExecution, input.StopCompositionMode, input.FirstLastStopRule, input.Attributes);
+            execution, stopCompositionMode, firstLastStopRule, input.Attributes);
         trip.SetCarrier(input.CarrierRelationId, input.CarrierContactPersonId);
         trip.SetVehicles(input.VehicleCombinationId, input.VehicleIds);
         trip.SetDrivers(input.DriverIds);

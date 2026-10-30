@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +12,9 @@ import { cn } from "@/lib/utils";
  * select: the control shows the chosen node's label (UI-LOOK-003); optional ones clear with an
  * X (UI-LOOK-006). Nodes in `disabledIds` (a unit itself and its subtree when picking a new
  * parent) show but cannot be chosen. With `onCreateNew` the list ends with the "Add new …" row of
- * UI-LOOK-004, the same row as EntityLookup's; the tree has no search, so the term is empty. */
+ * UI-LOOK-004, the same row as EntityLookup's; the tree has no search, so the term is empty. With `onEdit` the selected
+ * node shows the edit pencil of UI-LOOK-005 before the clear button, as in EntityLookup (no Tab stop, usable while
+ * disabled). */
 
 export interface TreeSelectNode {
   id: string;
@@ -35,6 +38,10 @@ export interface TreeSelectProps {
   onCreateNew?: (term: string) => void;
   /** The label of that row, already translated, e.g. t("Administration:AddNewOrganizationUnit"). */
   createLabel?: string;
+  /** UI-LOOK-005: shows the edit pencil while a node is selected and hands its id over; omit when the user may not view it. */
+  onEdit?: (value: string) => void;
+  /** The pencil's tooltip, already translated: t("Edit"), or t("Open") when the record opens read-only. */
+  editLabel?: string;
 }
 
 /** Builds the tree from a flat list of parent references; roots are the items without a known parent. */
@@ -100,6 +107,8 @@ export function TreeSelect({
   className,
   onCreateNew,
   createLabel,
+  onEdit,
+  editLabel,
 }: TreeSelectProps) {
   const { t } = useL();
   const [open, setOpen] = useState(false);
@@ -108,6 +117,7 @@ export function TreeSelect({
 
   const selectedLabel = useMemo(() => (value ? findLabel(nodes, value) : undefined), [nodes, value]);
   const canClear = !required && !disabled && value != null;
+  const canEdit = onEdit != null && value != null;
 
   const toggle = (nodeId: string) =>
     setExpanded((prev) => {
@@ -183,6 +193,8 @@ export function TreeSelect({
           className={cn(
             "flex h-10 w-full min-w-0 items-center rounded-lg border border-input bg-background px-2.5 pr-8 text-left text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50",
             ariaInvalid && "border-destructive",
+            (canClear || canEdit) && "pr-14",
+            canClear && canEdit && "pr-20",
           )}
         >
           <span className="truncate">{selectedLabel ?? (value ? value : "")}</span>
@@ -199,6 +211,26 @@ export function TreeSelect({
           >
             <X />
           </Button>
+        )}
+        {canEdit && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  tabIndex={-1}
+                  aria-label={editLabel ?? t("Edit")}
+                  onClick={() => onEdit(value)}
+                  className={cn("absolute top-1/2 -translate-y-1/2", canClear ? "right-14" : "right-7")}
+                />
+              }
+            >
+              <Pencil aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{editLabel ?? t("Edit")}</TooltipContent>
+          </Tooltip>
         )}
       </div>
       <PopoverContent align="start" className="max-h-80 w-80 overflow-auto p-1">

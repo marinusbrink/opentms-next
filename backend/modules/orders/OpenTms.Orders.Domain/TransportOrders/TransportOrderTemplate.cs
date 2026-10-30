@@ -151,7 +151,7 @@ public class TransportOrderTemplate : FullAuditedAggregateRoot<Guid>, IMultiTena
         FinancialTerms.CurrencyCode, FinancialTerms.VatPercentageId, FinancialTerms.PaymentTermDays,
         PriceLists.OrderBy(p => p.Position).Select(p => p.PriceListId).ToList(), FinancialTerms.MultipleMatches,
         DiscountsOrSurcharges.OrderBy(d => d.Position).Select(d => new DiscountOrSurchargeInput(d.DiscountOrSurchargeId, d.Source)).ToList(),
-        FinancialTerms.FixedPriceAmount, FinancialTerms.SendFreightDocumentsWithInvoice);
+        FinancialTerms.FixedPriceAmount, FinancialTerms.SendFreightDocumentsWithInvoice, FinancialTerms.ChargedBases.ToList());
 
     /// <summary>Replaces the trip request; null removes it. Its freight items must be lines of this template (call after <see cref="SetLines"/>).</summary>
     public void SetTripRequest(TemplateTripRequestInput? input)

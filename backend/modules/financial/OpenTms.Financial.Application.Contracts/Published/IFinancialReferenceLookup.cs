@@ -41,6 +41,9 @@ public class RelationFinancialSettingsReferenceDto
 
     public MultipleMatches RevenueMultipleMatches { get; set; } = MultipleMatches.All;
 
+    /// <summary>The revenue bases charged by default (design 61 point 3), in the legacy order; Orders copies them into an order's terms.</summary>
+    public List<QuantitySource> RevenueChargedBases { get; set; } = new();
+
     /// <summary>The default discounts and surcharges valid on the date asked for.</summary>
     public List<Guid> DiscountOrSurchargeIds { get; set; } = new();
 
@@ -72,4 +75,7 @@ public class PriceListReferenceDto : FinancialReferenceDto
     public RateSide Side { get; set; }
 
     public string CurrencyCode { get; set; } = "EUR";
+
+    /// <summary>The fact the list prices by (design 61 point 3: the order's lists are shown per basis).</summary>
+    public QuantitySource Basis { get; set; }
 }

@@ -49,6 +49,7 @@ export type ApprovalOutcomeDto = Schemas["OpenTms.Orders.TransportOrders.Approva
 export type OrderApprovalDto = Schemas["OpenTms.Orders.TransportOrders.OrderApprovalDto"];
 export type ApprovalResultDto = Schemas["OpenTms.Orders.TransportOrders.ApprovalResultDto"];
 export type PricePreviewRequestDto = Schemas["OpenTms.Orders.TransportOrders.PricePreviewRequestDto"];
+export type NewOrderPricePreviewRequestDto = Schemas["OpenTms.Orders.TransportOrders.NewOrderPricePreviewRequestDto"];
 export type PricePreviewDto = Schemas["OpenTms.Financial.Tariffs.Published.PricePreviewDto"];
 export type OrderAttributeDefinitionRow = Schemas["OpenTms.Orders.TransportOrders.OrderAttributeDefinitionRowDto"];
 export type OrderAttributeTarget = Schemas["OpenTms.Orders.TransportOrders.OrderAttributeTarget"];
@@ -415,4 +416,9 @@ export function useApproveMany() {
 /** The price preview of an unsaved change (pricing §4.3): pure, nothing is stored. */
 export async function previewPrices(id: string, request: PricePreviewRequestDto): Promise<PricePreviewDto> {
   return unwrap(await apiClient.POST("/api/orders/transport-order/{id}/preview-prices", { params: { path: { id } }, body: request }));
+}
+
+/** The price preview of a new order that is not saved yet: the customer and the items as they stand on the screen. */
+export async function previewNewOrderPrices(request: NewOrderPricePreviewRequestDto): Promise<PricePreviewDto> {
+  return unwrap(await apiClient.POST("/api/orders/transport-order/preview-new-order-prices", { body: request }));
 }

@@ -66,13 +66,18 @@ public class PriceListAppService
     public Task<PriceListDto> GetAsync(Guid id) => GetInternalAsync(id);
 
     [Authorize(FinancialPermissions.PriceLists.Default)]
-    public async Task<List<ReferenceDataLookupDto>> GetLookupAsync(RateSide? side = null, string? term = null, int take = ReferenceDataConsts.MaxLookupTake)
+    public async Task<List<ReferenceDataLookupDto>> GetLookupAsync(RateSide? side = null, string? term = null, int take = ReferenceDataConsts.MaxLookupTake, QuantitySource? basis = null)
     {
         var all = await Repository.GetQueryableAsync();
         var query = ApplyLookupFilter(all);
         if (side != null)
         {
             query = query.Where(p => p.Side == side.Value);
+        }
+
+        if (basis != null)
+        {
+            query = query.Where(p => p.Basis == basis.Value);
         }
 
         var normalized = NormalizeTerm(term);

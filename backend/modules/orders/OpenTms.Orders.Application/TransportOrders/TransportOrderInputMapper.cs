@@ -42,7 +42,7 @@ public static class TransportOrderInputMapper
         : new FinancialTermsInput(
             dto.CurrencyCode, dto.VatPercentageId, dto.PaymentTermDays, dto.PriceListIds, dto.MultipleMatches,
             dto.DiscountsOrSurcharges.Select(d => new DiscountOrSurchargeInput(d.DiscountOrSurchargeId, d.Source)).ToList(),
-            dto.FixedPriceAmount, dto.SendFreightDocumentsWithInvoice);
+            dto.FixedPriceAmount, dto.SendFreightDocumentsWithInvoice, dto.ChargedBases);
 
     public static TripRequestInput? TripRequest(TransportOrderTripRequestInputDto? dto) => dto == null ? null : new TripRequestInput(
         dto.TransportTripTypeId, dto.DepartureRelationId, dto.DepartureAddressId, dto.ArrivalRelationId, dto.ArrivalAddressId, dto.PlannedDeparture,
