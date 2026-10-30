@@ -33,4 +33,10 @@ public interface ITenantAdministrationAppService : IApplicationService
 
     /// <summary>Queues a new set-password invitation for the tenant administrator.</summary>
     Task ResendInvitationAsync(Guid id);
+
+    /// <summary>
+    /// Queues "Reset to dataset": the tenant's business data is deleted and replaced by a generated test dataset
+    /// (docs/designs/65-tenant-test-datasets.md). Users, settings and reference data stay.
+    /// </summary>
+    Task ResetToDatasetAsync(Guid id, TenantResetToDatasetDto input);
 }

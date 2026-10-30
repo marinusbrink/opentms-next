@@ -1169,6 +1169,22 @@
     "UserMenu:MySettingsHint": "Naam, telefoonnummer en taal",
     "UserMenu:SwitchesDirectly": "Overstappen zonder wachtwoord",
     "UserMenu:CopyTenantId": "Tenant-ID kopiëren",
-    "UserMenu:TenantIdCopied": "Tenant-ID gekopieerd"
+    "UserMenu:TenantIdCopied": "Tenant-ID gekopieerd",
+    "Permission:Tenants.ResetToDataset": "Tenant terugzetten naar een testdataset",
+    "Tenants:ResetToDataset": "Terugzetten naar dataset",
+    "Tenants:Dataset:Average": "Testset gemiddeld volume",
+    "Tenants:Dataset:Large": "Testset groot volume",
+    "Tenants:Dataset:AverageDescription": "5.000 relaties en een normaal willekeurig aantal van elk ander recordtype",
+    "Tenants:Dataset:LargeDescription": "150.000 relaties en meer dan 1.000 van elk ander recordtype",
+    "Tenants:ResetDialogTitle": "{0} terugzetten naar de {1}?",
+    "Tenants:ResetDialogWarning": "Alle bedrijfsgegevens van deze tenant (relaties, wagenpark, chauffeurs, tarieven, orders, ritten enzovoort) worden definitief verwijderd en vervangen door gegenereerde testgegevens. Gebruikers, rollen, instellingen en referentiegegevens blijven. Dit kan niet ongedaan worden gemaakt.",
+    "Tenants:ResetDialogTypeName": "Typ de tenantnaam {0} ter bevestiging",
+    "Tenants:ResetConfirm": "Verwijderen en terugzetten",
+    "Tenants:ResetQueued": "Het terugzetten is gestart; de lijst toont wanneer het klaar is",
+    "Tenants:UnknownDataset": "Onbekende testdataset.",
+    "Tenants:ConfirmationNameMismatch": "De getypte naam komt niet overeen met de tenant.",
+    "Tenants:ResetOnlyWhenReady": "Alleen een ingerichte tenant kan naar een dataset worden teruggezet.",
+    "Tenants:ResetAlreadyRunning": "Deze tenant wordt al teruggezet.",
+    "Tenants:TestData": "Testgegevens"
   }
 }

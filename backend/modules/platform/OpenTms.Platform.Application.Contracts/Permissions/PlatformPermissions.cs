@@ -19,6 +19,9 @@ public static class PlatformPermissions
 
         /// <summary>"Log in as" a user of a tenant (docs/designs/tenants-and-editions.md).</summary>
         public const string Impersonation = Default + ".Impersonation";
+
+        /// <summary>"Reset to dataset": replaces a tenant's business data by a test dataset (docs/designs/65-tenant-test-datasets.md).</summary>
+        public const string ResetToDataset = Default + ".ResetToDataset";
     }
 
     /// <summary>Derived values recalculated in the background (docs/designs/49-derived-values-and-live-updates.md).</summary>

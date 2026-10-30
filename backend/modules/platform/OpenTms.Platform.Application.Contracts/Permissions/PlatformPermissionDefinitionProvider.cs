@@ -27,6 +27,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         tenants.AddChild(PlatformPermissions.Tenants.Update, L("Permission:Tenants.Update"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Delete, L("Permission:Tenants.Delete"), host);
         tenants.AddChild(PlatformPermissions.Tenants.Impersonation, L("Permission:Tenants.Impersonation"), host);
+        tenants.AddChild(PlatformPermissions.Tenants.ResetToDataset, L("Permission:Tenants.ResetToDataset"), host);
 
         var editions = group.AddPermission(PlatformPermissions.Editions.Default, L("Permission:Editions"), host);
         editions.AddChild(PlatformPermissions.Editions.Create, L("Permission:Editions.Create"), host);
