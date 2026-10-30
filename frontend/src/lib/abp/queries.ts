@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAuth } from "react-oidc-context";
 import { apiClient } from "@/lib/api/client";
 import { getStoredTenant } from "@/auth/tenant";
@@ -39,13 +39,7 @@ export function useLocalizationData(cultureName: string) {
       return data;
     },
     staleTime: Infinity,
+    /* A language change keeps the old texts on screen until the new ones arrive, instead of a loading screen. */
+    placeholderData: keepPreviousData,
   });
-}
-
-export async function findTenantByName(name: string) {
-  const { data, error } = await apiClient.GET("/api/abp/multi-tenancy/tenants/by-name/{name}", {
-    params: { path: { name } },
-  });
-  if (error) throw error;
-  return data;
 }

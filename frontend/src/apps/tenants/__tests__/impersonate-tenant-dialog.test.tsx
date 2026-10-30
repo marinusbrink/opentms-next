@@ -49,7 +49,7 @@ class MockResizeObserver {
 }
 beforeAll(() => vi.stubGlobal("ResizeObserver", MockResizeObserver));
 
-import { ImpersonateTenantDialog } from "@/apps/tenants/ImpersonateTenantDialog";
+import { ImpersonateTenantDialog } from "@/domains/platform/components/ImpersonateTenantDialog";
 
 const TENANT = { id: "t-acme", name: "acme" } as never;
 const select = (ids: string[], mode = "Explicit") =>

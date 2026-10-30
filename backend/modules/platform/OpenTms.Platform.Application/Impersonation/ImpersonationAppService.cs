@@ -45,6 +45,29 @@ public class ImpersonationAppService : PlatformAppServiceBase, IImpersonationApp
     }
 
     [Authorize(PlatformPermissions.Tenants.Impersonation)]
+    public async Task<GridResponse<ImpersonationTenantRowDto>> GetTenantsAsync(GridRequest request)
+    {
+        HostOnlyGuard.Ensure(CurrentTenant);
+        var filter = string.IsNullOrWhiteSpace(request.WildcardSearch) ? null : request.WildcardSearch.Trim();
+        var direction = string.Equals(request.SortModels.FirstOrDefault()?.Sort, "desc", StringComparison.OrdinalIgnoreCase) ? " desc" : " asc";
+
+        var total = await _tenantRepository.GetCountAsync();
+        var filtered = filter == null ? total : await _tenantRepository.GetCountAsync(filter);
+        var tenants = await _tenantRepository.GetListAsync(
+            sorting: "Name" + direction,
+            maxResultCount: Math.Max(0, request.EndRow - request.StartRow),
+            skipCount: request.StartRow,
+            filter: filter);
+
+        return new GridResponse<ImpersonationTenantRowDto>
+        {
+            Rows = tenants.Select(t => new ImpersonationTenantRowDto { Id = t.Id, Name = t.Name }).ToList(),
+            TotalCount = total,
+            FilteredCount = filtered
+        };
+    }
+
+    [Authorize(PlatformPermissions.Tenants.Impersonation)]
     public async Task<GridResponse<TenantUserRowDto>> GetTenantUsersAsync(Guid tenantId, GridRequest request)
     {
         HostOnlyGuard.Ensure(CurrentTenant);

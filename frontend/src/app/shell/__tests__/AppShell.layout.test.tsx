@@ -29,8 +29,8 @@ vi.mock("@/app/shell/WaffleLauncher", () => ({
 /* The "Log in as" banner has its own tests (ImpersonationBanner.test.tsx, AppShell.impersonation.test.tsx). */
 vi.mock("@/app/shell/ImpersonationBanner", () => ({ ImpersonationBanner: () => null }));
 
-vi.mock("@/app/shell/UserTenantMenu", () => ({
-  UserTenantMenu: () => <div data-testid="user-tenant-menu" />,
+vi.mock("@/app/shell/UserMenu", () => ({
+  UserMenu: () => <div data-testid="user-tenant-menu" />,
 }));
 
 vi.mock("@/app/shell/AppNavPane", () => ({

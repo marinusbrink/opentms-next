@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { settleSessionSwitch, switchSession, takeRefusedSwitch } from "@/auth/session-switch";
+import { settleSessionSwitch, switchSession, takeRefusedSwitch, takeSwitchReturnTo } from "@/auth/session-switch";
 import { getStoredTenant, setStoredTenant } from "@/auth/tenant";
 
 /* The SPA side of "Log in as" (docs/designs/tenants-and-editions.md, D14 step 3): before leaving for the auth server it
@@ -125,4 +125,31 @@ describe("settleSessionSwitch", () => {
     expect(window.location.search).toBe("?impersonation=other");
     expect(takeRefusedSwitch()).toBe(false);
   });
+
+  it("remembers the path an account switch returns to, once, and only a local one", () => {
+    switchSessionWithoutLeaving("/planboard");
+    expect(takeSwitchReturnTo()).toBe("/planboard");
+    expect(takeSwitchReturnTo()).toBeUndefined();
+
+    switchSessionWithoutLeaving("//evil.example.test/x");
+    expect(takeSwitchReturnTo()).toBeUndefined();
+    switchSessionWithoutLeaving("https://evil.example.test/");
+    expect(takeSwitchReturnTo()).toBeUndefined();
+  });
+
+  it("a switch without a return path forgets an earlier one", () => {
+    switchSessionWithoutLeaving("/planboard");
+    switchSessionWithoutLeaving(undefined);
+    expect(takeSwitchReturnTo()).toBeUndefined();
+  });
 });
+
+/** switchSession navigates away; jsdom cannot, so location.assign is stubbed for the call. */
+function switchSessionWithoutLeaving(returnTo: string | undefined) {
+  vi.stubGlobal("location", { ...window.location, assign: vi.fn() });
+  try {
+    switchSession("https://auth.example.test/x", undefined, returnTo);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}

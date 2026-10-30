@@ -77,6 +77,15 @@ gebruiker én onder je eigen naam.
 
 <!-- SCREENSHOT: de gele balk "U bent ingelogd als … namens …" met de knop Terug naar host -->
 
+### De rol Customer Success Manager
+
+Aan de hostkant bestaat de vaste rol **Customer Success Manager**. Deze rol heeft alleen het
+recht **Inloggen als tenantgebruiker**, niet de app Tenants zelf. Wie de rol heeft, ziet in het
+gebruikersmenu rechtsboven **Inloggen bij een tenant…**: een doorzoekbare lijst van alle
+tenants, waarna je de gebruiker kiest zoals hierboven (zie [Het gebruikersmenu](gebruikersmenu.md)).
+Je kent de rol toe in [Gebruikers en rollen](beheer-gebruikers-en-rollen.md); de rol zelf kun je
+niet hernoemen of verwijderen.
+
 ---
 
 ## Een tenant wijzigen

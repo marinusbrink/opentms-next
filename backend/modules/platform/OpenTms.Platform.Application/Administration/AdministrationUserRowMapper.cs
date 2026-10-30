@@ -33,7 +33,7 @@ internal static class AdministrationUserRowMapper
             ShouldChangePasswordOnNextLogin = user.ShouldChangePasswordOnNextLogin,
             LockoutEnabled = user.LockoutEnabled,
             IsLockedOut = user.LockoutEnabled && user.LockoutEnd != null && user.LockoutEnd > now,
-            HasProfilePicture = !string.IsNullOrEmpty(user.GetProperty<string?>(UserAppService.ProfilePictureContentTypeProperty)),
+            HasProfilePicture = ProfilePictureManager.HasPicture(user),
             RoleNames = roleNames,
             OrganizationUnitIds = user.OrganizationUnits.Select(ou => ou.OrganizationUnitId).ToList(),
             CreationTime = user.CreationTime

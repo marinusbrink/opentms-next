@@ -11,12 +11,19 @@ import { getStoredTenant, setStoredTenant, type StoredTenant } from "@/auth/tena
 
 const PREVIOUS_TENANT_KEY = "opentms.sessionSwitch.previousTenant";
 const REFUSED_KEY = "opentms.sessionSwitch.refused";
+const RETURN_TO_KEY = "opentms.sessionSwitch.returnTo";
 
 /** The OIDC user store is localStorage (app/providers.tsx); its entries are keyed "oidc.user:<authority>:<client>". */
 const OIDC_USER_PREFIX = "oidc.user:";
 
-export function switchSession(redirectUrl: string, tenant: StoredTenant | undefined): void {
+/**
+ * `returnTo` is the SPA path to land on once the new session has signed in (the user menu's account switch keeps the
+ * screen the user was on, design 63); without it the auth server's landing route applies.
+ */
+export function switchSession(redirectUrl: string, tenant: StoredTenant | undefined, returnTo?: string): void {
   window.sessionStorage.setItem(PREVIOUS_TENANT_KEY, JSON.stringify(getStoredTenant() ?? null));
+  if (returnTo) window.sessionStorage.setItem(RETURN_TO_KEY, returnTo);
+  else window.sessionStorage.removeItem(RETURN_TO_KEY);
   setStoredTenant(tenant);
   for (const key of Object.keys(window.localStorage)) {
     if (key.startsWith(OIDC_USER_PREFIX)) window.localStorage.removeItem(key);
@@ -50,4 +57,11 @@ export function takeRefusedSwitch(): boolean {
   const refused = window.sessionStorage.getItem(REFUSED_KEY) === "1";
   window.sessionStorage.removeItem(REFUSED_KEY);
   return refused;
+}
+
+/** The path a switch asked to return to, once; only a local path ("/…", never "//…" or a URL). */
+export function takeSwitchReturnTo(): string | undefined {
+  const returnTo = window.sessionStorage.getItem(RETURN_TO_KEY);
+  window.sessionStorage.removeItem(RETURN_TO_KEY);
+  return returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : undefined;
 }

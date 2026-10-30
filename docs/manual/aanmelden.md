@@ -59,6 +59,9 @@ gewoon een andere naam; de ingevulde naam verdwijnt zodra je typt.
 
 Deze stap blijft vijf minuten geldig. Wacht je langer, dan vul je je wachtwoord opnieuw in.
 
+Eenmaal binnen stap je via het gebruikersmenu rechtsboven over naar je andere organisaties,
+zonder opnieuw aan te melden (zie [Het gebruikersmenu](gebruikersmenu.md)).
+
 <!-- SCREENSHOT: de stap "Welke organisatie?" met "Gevonden: …" onder het veld -->
 
 ---

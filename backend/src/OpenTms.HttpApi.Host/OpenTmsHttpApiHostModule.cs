@@ -204,7 +204,7 @@ public class OpenTmsHttpApiHostModule : AbpModule
                 var identity = refreshing.NewPrincipal?.Identities.FirstOrDefault();
                 if (identity != null)
                 {
-                    foreach (var claim in ImpersonationClaims.From(refreshing.CurrentPrincipal))
+                    foreach (var claim in OpenTms.Accounts.CarriedSessionClaims.From(refreshing.CurrentPrincipal))
                     {
                         identity.AddClaim(new System.Security.Claims.Claim(claim.Type, claim.Value));
                     }

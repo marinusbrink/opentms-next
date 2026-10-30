@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-router", () => ({
   Outlet: () => <div data-testid="outlet" />,
 }));
 vi.mock("@/app/shell/WaffleLauncher", () => ({ WaffleLauncher: () => null }));
-vi.mock("@/app/shell/UserTenantMenu", () => ({ UserTenantMenu: () => null }));
+vi.mock("@/app/shell/UserMenu", () => ({ UserMenu: () => null }));
 vi.mock("@/app/shell/AppNavPane", () => ({ AppNavPane: () => null }));
 vi.mock("@/app/shell/ImpersonationBanner", () => ({ ImpersonationBanner: () => <div data-testid="impersonation-banner" /> }));
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
@@ -34,7 +34,7 @@ const takeRefusedSwitch = vi.fn(() => {
   refused = false;
   return value;
 });
-vi.mock("@/auth/session-switch", () => ({ takeRefusedSwitch: () => takeRefusedSwitch() }));
+vi.mock("@/auth/session-switch", () => ({ takeRefusedSwitch: () => takeRefusedSwitch(), takeSwitchReturnTo: () => undefined }));
 
 import { AppShell } from "@/app/shell/AppShell";
 
