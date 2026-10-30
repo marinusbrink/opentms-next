@@ -4,8 +4,8 @@
 
 One process does everything: `OpenTms.HttpApi.Host` serves the API, hosts the OpenIddict
 auth server and runs the Hangfire server. `OpenTms.DbMigrator` is the only other executable.
-There is no Redis, no SignalR and no deployment configuration; the last is absent on purpose
-(`/CLAUDE.md`, "Deliberately absent").
+There is no Redis. Deployment to GCP is Terraform in `infra/` (PO decision 2026-10-30,
+`docs/designs/gcp-infrastructure.md`): staging and prod, each its own project, the Api role only.
 
 ## One image, four roles (DECIDED, AD-11; not built)
 

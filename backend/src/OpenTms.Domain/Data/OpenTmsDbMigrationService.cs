@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Platform.Data;
@@ -35,17 +36,20 @@ public class OpenTmsDbMigrationService : ITransientDependency
     private readonly IEnumerable<IDbSchemaMigrator> _dbSchemaMigrators;
     private readonly ITenantRepository _tenantRepository;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IConfiguration _configuration;
 
     public OpenTmsDbMigrationService(
         IDataSeeder dataSeeder,
         ITenantRepository tenantRepository,
         ICurrentTenant currentTenant,
-        IEnumerable<IDbSchemaMigrator> dbSchemaMigrators)
+        IEnumerable<IDbSchemaMigrator> dbSchemaMigrators,
+        IConfiguration configuration)
     {
         _dataSeeder = dataSeeder;
         _tenantRepository = tenantRepository;
         _currentTenant = currentTenant;
         _dbSchemaMigrators = dbSchemaMigrators;
+        _configuration = configuration;
 
         Logger = NullLogger<OpenTmsDbMigrationService>.Instance;
     }
@@ -174,10 +178,17 @@ public class OpenTmsDbMigrationService : ITransientDependency
         Logger.LogInformation("Executing {Target} database seed...", tenant == null ? "host" : tenant.Name + " tenant");
 
         await _dataSeeder.SeedAsync(new DataSeedContext(tenant?.Id)
-            .WithProperty(IdentityDataSeedContributor.AdminEmailPropertyName,
-                OpenTmsConsts.AdminEmailDefaultValue)
-            .WithProperty(IdentityDataSeedContributor.AdminPasswordPropertyName,
-                OpenTmsConsts.AdminPasswordDefaultValue)
+            .WithProperty(IdentityDataSeedContributor.AdminEmailPropertyName, AdminEmail)
+            .WithProperty(IdentityDataSeedContributor.AdminPasswordPropertyName, AdminPassword)
         );
     }
+
+    /* A deployed environment sets its own administrator (docs/designs/gcp-infrastructure.md: Seed:HostAdminEmail from
+     * Terraform, Seed:HostAdminPassword from Secret Manager); the well-known defaults are for local development only.
+     * Seeding never changes an existing user, so these take effect on the first run against an empty database. */
+    internal string AdminEmail => NonBlank(_configuration["Seed:HostAdminEmail"]) ?? OpenTmsConsts.AdminEmailDefaultValue;
+
+    internal string AdminPassword => NonBlank(_configuration["Seed:HostAdminPassword"]) ?? OpenTmsConsts.AdminPasswordDefaultValue;
+
+    private static string? NonBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }
