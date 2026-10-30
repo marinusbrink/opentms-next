@@ -36,3 +36,15 @@ export function isConcurrencyConflict(error: unknown): boolean {
   const code = e.error && typeof e.error === "object" ? e.error.code : undefined;
   return code == null || code === "" || (typeof code === "string" && /concurrency/i.test(code));
 }
+
+/** The ABP business error code (`error.error.code`), for the few flows that branch on it; undefined otherwise. */
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object") {
+    const abp = (error as Record<string, unknown>)["error"];
+    if (abp && typeof abp === "object") {
+      const code = (abp as Record<string, unknown>)["code"];
+      if (typeof code === "string" && code) return code;
+    }
+  }
+  return undefined;
+}

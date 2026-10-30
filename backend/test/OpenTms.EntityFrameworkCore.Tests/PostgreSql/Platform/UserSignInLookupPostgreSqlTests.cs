@@ -160,8 +160,10 @@ public class UserSignInLookupPostgreSqlTests : OpenTmsPostgreSqlTestBase
             {
                 var context = await GetRequiredService<IDbContextProvider<PlatformDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-                applied.Last().ShouldBe("20261027092916_AddUserSignInLookups", "the newest Platform migration");
-                applied[^2].ShouldBe("20261025154657_PlatformMasterData");
+                /* Design 63 (user menu) added AddUserAccountLinks on top of this design's migration. */
+                applied.Last().ShouldBe("20261029133121_AddUserAccountLinks", "the newest Platform migration");
+                applied[^2].ShouldBe("20261027092916_AddUserSignInLookups");
+                applied[^3].ShouldBe("20261025154657_PlatformMasterData");
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse();
             }

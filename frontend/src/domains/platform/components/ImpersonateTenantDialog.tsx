@@ -9,12 +9,12 @@ import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import type { GridRequest, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { switchSession } from "@/auth/session-switch";
 import { fetchTenantUsers, useStartImpersonation, type TenantUserRow } from "@/domains/platform/impersonation";
-import type { TenantRow } from "@/domains/platform/tenants";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 interface ImpersonateTenantDialogProps {
-  tenant: TenantRow;
+  /** The tenant to log in to: a row of the Tenants app or of the user menu's tenant list. */
+  tenant: { id?: string | null; name?: string | null };
   open: boolean;
   onClose: () => void;
 }
@@ -23,7 +23,8 @@ const EMPTY_SELECTION: GridSelectionDto = { mode: "Explicit", explicitIds: [], f
 
 /* "Log in as" (PO 2026-10-14, docs/designs/tenants-and-editions.md): an action dialog (UI-DLG-002) with a picker
  * grid of the tenant's users. A click selects; the primary needs exactly one user; a double-click on a row chooses
- * it directly. The browser then leaves for the auth server, which switches the session. */
+ * it directly. The browser then leaves for the auth server, which switches the session. Shared by the Tenants app and
+ * the user menu's "Log in to a tenant…" (docs/designs/63-user-menu.md). */
 export function ImpersonateTenantDialog({ tenant, open, onClose }: ImpersonateTenantDialogProps) {
   const { t } = useL();
   const start = useStartImpersonation();

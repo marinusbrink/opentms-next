@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -12,6 +14,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTms.Localization;
+using OpenTms.Platform.Accounts;
 using OpenTms.SignIn;
 using Volo.Abp.Account.Settings;
 using Volo.Abp.Account.Web;
@@ -210,7 +213,7 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
         switch (resolution.Outcome)
         {
             case SignInResolutionOutcome.Single:
-                return await SignInAsync(resolution.Choices[0], email.RememberMe);
+                return await SignInAsync(resolution.Choices[0], email.RememberMe, resolution.Choices);
 
             case SignInResolutionOutcome.Multiple:
                 Response.Cookies.Append(
@@ -299,15 +302,17 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 CookieOptions(SameSiteMode.Strict, DateTimeOffset.UtcNow.Add(SignInLastTenantProtector.RememberFor)));
         }
 
-        return await SignInAsync(match.Choice, selection.RememberMe);
+        return await SignInAsync(match.Choice, selection.RememberMe, selection.Choices);
     }
 
     /// <summary>
     /// Signs in to the chosen place. The user is read again there: one deactivated or locked out since the password
-    /// was checked (up to five minutes ago, for step 3) is refused.
+    /// was checked (up to five minutes ago, for step 3) is refused. The session remembers every place the password was
+    /// valid in, so the user menu switches there without asking for it again (docs/designs/63-user-menu.md).
     /// </summary>
-    private async Task<IActionResult> SignInAsync(SignInChoice choice, bool rememberMe)
+    private async Task<IActionResult> SignInAsync(SignInChoice choice, bool rememberMe, IReadOnlyList<SignInChoice> passwordPlaces)
     {
+        var passwordPlacesClaim = new Claim(AccountSwitchClaims.PasswordTenants, AccountSwitchClaims.Format(await PasswordPlacesAsync(passwordPlaces)));
         using (CurrentTenant.Change(choice.TenantId))
         {
             await IdentityOptions.SetAsync();
@@ -319,7 +324,7 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 return BackToPassword();
             }
 
-            await SignInManager.SignInAsync(user, rememberMe);
+            await SignInManager.SignInWithClaimsAsync(user, rememberMe, [passwordPlacesClaim]);
             await IdentitySecurityLogManager.SaveAsync(new IdentitySecurityLogContext
             {
                 Identity = IdentitySecurityLogIdentityConsts.Identity,
@@ -340,6 +345,36 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
         return HasLocalReturnUrl
             ? await RedirectSafelyAsync(ReturnUrl, ReturnUrlHash)
             : Redirect(SpaUrl.Root(_appUrlOptions));
+    }
+
+    /// <summary>
+    /// The accounts the password was valid in, each bound to its user and the hash of its current security stamp, read in
+    /// its own tenant (docs/designs/63-user-menu.md). A place that cannot be read is left out: the menu then asks for its
+    /// password.
+    /// </summary>
+    private async Task<List<PasswordPlace>> PasswordPlacesAsync(IReadOnlyList<SignInChoice> choices)
+    {
+        var places = new List<PasswordPlace>();
+        foreach (var choice in choices)
+        {
+            try
+            {
+                using (CurrentTenant.Change(choice.TenantId))
+                {
+                    var user = await UserManager.FindByIdAsync(choice.UserId.ToString());
+                    if (user != null)
+                    {
+                        places.Add(new PasswordPlace(choice.TenantId, user.Id, AccountSwitchClaims.StampHash(user.SecurityStamp)));
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                Logger.LogWarning(exception, "Password place in tenant {TenantId} not recorded", choice.TenantId);
+            }
+        }
+
+        return places;
     }
 
     /// <summary>Whether the page has a sign-in request to return to (the OpenID Connect authorize request, or another page of the auth server).</summary>

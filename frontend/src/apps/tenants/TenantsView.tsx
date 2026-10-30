@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusCell } from "@/components/ui/status-badge";
 import type { GridRequest, GridRowAction, OpenTmsGridProps } from "@/components/ui/opentms-grid";
 import { DeleteTenantDialog } from "@/apps/tenants/DeleteTenantDialog";
-import { ImpersonateTenantDialog } from "@/apps/tenants/ImpersonateTenantDialog";
+import { ImpersonateTenantDialog } from "@/domains/platform/components/ImpersonateTenantDialog";
 import { TenantFormDialog } from "@/apps/tenants/TenantFormDialog";
 import {
   TenantProvisioningStates,

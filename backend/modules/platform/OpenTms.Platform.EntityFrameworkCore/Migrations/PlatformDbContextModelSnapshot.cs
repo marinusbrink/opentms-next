@@ -25,6 +25,48 @@ namespace OpenTms.Platform.EntityFrameworkCore.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("OpenTms.Platform.Accounts.UserAccountLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("LinkedSecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("LinkedTenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LinkedUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserSecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("UserTenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkedTenantId");
+
+                    b.HasIndex("UserTenantId", "UserId", "LinkedTenantId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("UserTenantId", "UserId", "LinkedTenantId"), false);
+
+                    b.ToTable("UserAccountLinks", "platform");
+                });
+
             modelBuilder.Entity("OpenTms.Platform.DataProtection.DataProtectionKeyRecord", b =>
                 {
                     b.Property<Guid>("Id")

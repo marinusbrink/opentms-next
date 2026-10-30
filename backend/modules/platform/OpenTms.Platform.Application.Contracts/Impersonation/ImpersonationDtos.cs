@@ -15,6 +15,13 @@ public record TenantUserRowDto
     public bool IsActive { get; init; }
 }
 
+/// <summary>A tenant a host user with the Impersonation permission may log in to (the user menu's tenant list).</summary>
+public record ImpersonationTenantRowDto
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = default!;
+}
+
 /// <summary>Where the browser goes next: the auth server's page that switches the session.</summary>
 public record ImpersonationRedirectDto
 {
@@ -28,6 +35,12 @@ public record ImpersonationRedirectDto
 /// </summary>
 public interface IImpersonationAppService : IApplicationService
 {
+    /// <summary>
+    /// The tenants, paged and searchable by name: the user menu's list for a Customer Success Manager
+    /// (docs/designs/63-user-menu.md). Needs only the Impersonation permission, not the Tenants app.
+    /// </summary>
+    Task<GridResponse<ImpersonationTenantRowDto>> GetTenantsAsync(GridRequest request);
+
     Task<GridResponse<TenantUserRowDto>> GetTenantUsersAsync(Guid tenantId, GridRequest request);
 
     Task<ImpersonationRedirectDto> StartAsync(Guid tenantId, Guid userId);

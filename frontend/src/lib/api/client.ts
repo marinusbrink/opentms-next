@@ -30,11 +30,23 @@ export function setTenantProvider(provider: () => string | undefined): void {
   tenantProvider = provider;
 }
 
-const authAndTenantMiddleware: Middleware = {
+/** Set by the localization layer: the culture the screen renders in, sent as Accept-Language. */
+let cultureProvider: (() => string | undefined) | undefined;
+
+export function setCultureProvider(provider: () => string | undefined): void {
+  cultureProvider = provider;
+}
+
+const authTenantAndCultureMiddleware: Middleware = {
   onRequest({ request }) {
     const token = accessTokenProvider?.();
     if (token) {
       request.headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    const culture = cultureProvider?.();
+    if (culture) {
+      request.headers.set("Accept-Language", culture);
     }
 
     const tenant = tenantProvider?.();
@@ -47,4 +59,4 @@ const authAndTenantMiddleware: Middleware = {
 };
 
 export const apiClient = createClient<paths>({ baseUrl: API_BASE_URL });
-apiClient.use(authAndTenantMiddleware);
+apiClient.use(authTenantAndCultureMiddleware);

@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
-using OpenTms.Platform.Impersonation;
 using OpenTms.Platform.Permissions;
 using OpenTms.Platform.Tenants;
 
@@ -18,14 +17,10 @@ namespace OpenTms.Controllers.Platform;
 public class TenantAdministrationController : OpenTmsController
 {
     private readonly ITenantAdministrationAppService _tenantAppService;
-    private readonly IImpersonationAppService _impersonationAppService;
 
-    public TenantAdministrationController(
-        ITenantAdministrationAppService tenantAppService,
-        IImpersonationAppService impersonationAppService)
+    public TenantAdministrationController(ITenantAdministrationAppService tenantAppService)
     {
         _tenantAppService = tenantAppService;
-        _impersonationAppService = impersonationAppService;
     }
 
     [HttpGet("")]
@@ -102,34 +97,4 @@ public class TenantAdministrationController : OpenTmsController
         await _tenantAppService.ResendInvitationAsync(id);
         return NoContent();
     }
-
-    /// <summary>The tenant's users for the "Log in as" dialog.</summary>
-    [HttpGet("{id:guid}/users")]
-    [Authorize(PlatformPermissions.Tenants.Impersonation)]
-    [ProducesResponseType(typeof(GridResponse<TenantUserRowDto>), 200)]
-    public async Task<ActionResult<GridResponse<TenantUserRowDto>>> GetUsersAsync(
-        Guid id,
-        [FromQuery] int startRow = 0,
-        [FromQuery] int endRow = 50,
-        [FromQuery] string? wildcardSearch = null,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDir = null)
-    {
-        var request = new GridRequest
-        {
-            StartRow = startRow,
-            EndRow = endRow,
-            WildcardSearch = wildcardSearch,
-            SortModels = sortBy != null ? new List<SortModel> { new(sortBy, sortDir ?? "asc") } : new List<SortModel>()
-        };
-
-        return Ok(await _impersonationAppService.GetTenantUsersAsync(id, request));
-    }
-
-    /// <summary>"Log in as" a user of this tenant: returns the auth-server URL that switches the browser session.</summary>
-    [HttpPost("{id:guid}/impersonate/{userId:guid}")]
-    [Authorize(PlatformPermissions.Tenants.Impersonation)]
-    [ProducesResponseType(typeof(ImpersonationRedirectDto), 200)]
-    public async Task<ActionResult<ImpersonationRedirectDto>> ImpersonateAsync(Guid id, Guid userId) =>
-        Ok(await _impersonationAppService.StartAsync(id, userId));
 }

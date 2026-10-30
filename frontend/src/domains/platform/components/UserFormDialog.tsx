@@ -18,6 +18,7 @@ import { buildTree } from "@/components/ui/tree-select";
 import { TreeView } from "@/components/ui/tree-view";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
 import { useAllRoles } from "@/domains/platform/administration-roles";
+import { myProfileQueryKey } from "@/domains/platform/my-profile";
 import {
   profilePictureQueryKey,
   useCreateUser,
@@ -212,6 +213,8 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
       if (pendingPicture !== undefined && userId) {
         void queryClient.invalidateQueries({ queryKey: profilePictureQueryKey(userId) });
       }
+      /* The user may be the signed-in user: the user menu shows their name and picture (design 63). */
+      void queryClient.invalidateQueries({ queryKey: myProfileQueryKey });
       onSuccess(createdUser);
       onClose();
       toast.success(t("Administration:UserSaved"));
