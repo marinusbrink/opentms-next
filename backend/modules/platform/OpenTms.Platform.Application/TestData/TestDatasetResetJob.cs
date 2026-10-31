@@ -61,14 +61,16 @@ public class TestDatasetResetJob : AsyncBackgroundJob<TestDatasetResetArgs>, ITr
             return;
         }
 
-        var profile = TestDatasetProfile.Get(args.Dataset);
         var contributors = _contributors.OrderBy(c => c.Order).ToList();
         var stopwatch = Stopwatch.StartNew();
-        Logger.LogInformation("Dataset reset {Dataset} started for tenant {TenantId}", profile.Name, tenant.Id);
+        Logger.LogInformation("Dataset reset {Dataset} started for tenant {TenantId}", args.Dataset, tenant.Id);
         await _stateWriter.SetDatasetResetStateAsync(tenant.Id, TestDatasetResetState.Running);
 
         try
         {
+            /* Inside the try: Hangfire keeps queued arguments across deploys, and a dataset removed meanwhile must end in
+             * Failed, not leave the tenant Queued (which refuses every new reset). */
+            var profile = TestDatasetProfile.Get(args.Dataset);
             var context = new TestDatasetContext(
                 tenant.Id,
                 profile,
@@ -97,14 +99,14 @@ public class TestDatasetResetJob : AsyncBackgroundJob<TestDatasetResetArgs>, ITr
             await _stateWriter.SetDatasetResetStateAsync(tenant.Id, TestDatasetResetState.Succeeded, args.RequestId);
             Logger.LogInformation(
                 "Dataset reset {Dataset} succeeded for tenant {TenantId} in {Elapsed}s",
-                profile.Name, tenant.Id, (int)stopwatch.Elapsed.TotalSeconds);
+                args.Dataset, tenant.Id, (int)stopwatch.Elapsed.TotalSeconds);
         }
         catch (Exception ex)
         {
             /* Not rethrown: a Hangfire retry would overlap a new reset started from the Failed state. */
             await _stateWriter.SetDatasetResetStateAsync(
                 tenant.Id, TestDatasetResetState.Failed, args.RequestId, $"{ex.GetType().Name}: {ex.Message}");
-            Logger.LogError(ex, "Dataset reset {Dataset} FAILED for tenant {TenantId}", profile.Name, tenant.Id);
+            Logger.LogError(ex, "Dataset reset {Dataset} FAILED for tenant {TenantId}", args.Dataset, tenant.Id);
         }
     }
 }
