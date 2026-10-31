@@ -11,7 +11,8 @@ namespace OpenTms.RecordUpdates;
 /// <summary>
 /// The live record-update hub of design 49, at <c>/signalr-hubs/record-updates</c> (ABP's convention for an
 /// <see cref="AbpHub"/>). A screen watches the records it shows; the server pushes <c>recordUpdated</c> with ids, a
-/// version and a status, never data. Who may join which group is <see cref="RecordUpdateWatchPolicy"/>'s decision.
+/// version and a status, never data. Design 67: a screen may also watch a whole record type (<see cref="WatchType"/>) and
+/// then receives routing hints with each notice. Who may join which group is <see cref="RecordUpdateWatchPolicy"/>'s decision.
 /// </summary>
 [Authorize]
 public class RecordUpdatesHub : AbpHub
@@ -41,6 +42,20 @@ public class RecordUpdatesHub : AbpHub
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, group);
         }
     }
+
+    /// <summary>Watches every record of <paramref name="targetType"/> in the caller's tenant (design 67).</summary>
+    public virtual async Task WatchType(string targetType)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, await TypeGroupAsync(targetType));
+    }
+
+    public virtual async Task UnwatchType(string targetType)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, await TypeGroupAsync(targetType));
+    }
+
+    private async Task<string> TypeGroupAsync(string targetType)
+        => await _policy.ResolveTypeGroupAsync(targetType) ?? throw new HubException(NotAllowedCode);
 
     private async Task<IReadOnlyList<string>> GroupsAsync(string targetType, List<Guid> targetIds)
         => await _policy.ResolveGroupsAsync(targetType, targetIds) ?? throw new HubException(NotAllowedCode);

@@ -5,7 +5,9 @@ import { API_BASE_URL, currentAccessToken } from "@/lib/api/client";
 /* Live record updates (docs/designs/49-derived-values-and-live-updates.md): one SignalR connection per browser tab,
  * started on the first watch. A screen watches the records it shows; the server pushes "recordUpdated" with the
  * record's type, id, version and calculation status, never data. Watches are reference-counted (two components on one
- * trip share one group) and re-sent after a reconnect, because a new connection has no groups. */
+ * trip share one group) and re-sent after a reconnect, because a new connection has no groups.
+ * Design 67 (docs/designs/67-platform-record-type-channel.md) adds the type channel: watchType(targetType) receives every
+ * notice of that type in the user's tenant, with routing hints (dates, organisation unit, resources, removed). */
 
 export const HUB_PATH = "/signalr-hubs/record-updates";
 export const MAX_WATCH_PER_CALL = 200;
@@ -14,12 +16,26 @@ export const MAX_WATCH_PER_CALL = 200;
 export const DerivedValueStatus = { Pending: 1, UpToDate: 2, Failed: 3 } as const;
 export type DerivedValueStatus = (typeof DerivedValueStatus)[keyof typeof DerivedValueStatus];
 
+/** Routing hints of a notice (design 67): ids and dates only, never data. */
+export interface RecordUpdateHints {
+  /** ISO date (yyyy-MM-dd) or null. */
+  from: string | null;
+  /** ISO date (yyyy-MM-dd) or null. */
+  till: string | null;
+  organizationUnitId: string | null;
+  resourceIds: string[] | null;
+  /** The record left the type's set (deleted, or no longer matching). */
+  removed: boolean;
+}
+
 export interface RecordUpdateMessage {
   targetType: string;
   targetId: string;
   version: number | null;
   /** Null for a plain "changed by someone else" notice. */
   status: DerivedValueStatus | null;
+  /** Null (or absent) when the notice carries no hints. */
+  hints?: RecordUpdateHints | null;
 }
 
 type Listener = (message: RecordUpdateMessage) => void;
@@ -39,6 +55,7 @@ export class RecordUpdatesClient {
   private connection: RecordUpdatesConnection | undefined;
   private starting: Promise<void> | undefined;
   private readonly counts = new Map<string, { targetType: string; id: string; count: number }>();
+  private readonly typeCounts = new Map<string, number>();
   private readonly listeners = new Set<Listener>();
   private readonly reconnectListeners = new Set<() => void>();
 
@@ -82,6 +99,24 @@ export class RecordUpdatesClient {
     };
   }
 
+  /** Watches every record of the type (design 67) until the returned function is called. */
+  watchType(targetType: string): () => void {
+    const count = this.typeCounts.get(targetType) ?? 0;
+    this.typeCounts.set(targetType, count + 1);
+    if (count === 0) void this.sendType("WatchType", targetType);
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const current = this.typeCounts.get(targetType) ?? 0;
+      if (current <= 1) {
+        this.typeCounts.delete(targetType);
+        if (current === 1 && this.connection?.state === HubConnectionState.Connected) void this.sendType("UnwatchType", targetType);
+      } else this.typeCounts.set(targetType, current - 1);
+    };
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -98,6 +133,11 @@ export class RecordUpdatesClient {
     const result = new Map<string, string[]>();
     for (const { targetType, id } of this.counts.values()) result.set(targetType, [...(result.get(targetType) ?? []), id]);
     return result;
+  }
+
+  /** The record types currently watched as a whole (for tests and diagnostics). */
+  watchedTypes(): string[] {
+    return [...this.typeCounts.keys()];
   }
 
   private async ensureStarted(): Promise<RecordUpdatesConnection> {
@@ -128,6 +168,7 @@ export class RecordUpdatesClient {
 
   private async rewatchAll(): Promise<void> {
     for (const [targetType, ids] of this.watched()) await this.send("Watch", targetType, ids);
+    for (const targetType of this.watchedTypes()) await this.sendType("WatchType", targetType);
   }
 
   private async send(method: "Watch" | "Unwatch", targetType: string, ids: string[]): Promise<void> {
@@ -136,6 +177,15 @@ export class RecordUpdatesClient {
       for (const part of chunks(ids, MAX_WATCH_PER_CALL)) await connection.invoke(method, targetType, part);
     } catch (error) {
       /* Best effort (design 49, assumption 4): without a live connection the screen still shows what it fetched. */
+      console.warn(`Record updates: ${method} ${targetType} failed`, error);
+    }
+  }
+
+  private async sendType(method: "WatchType" | "UnwatchType", targetType: string): Promise<void> {
+    try {
+      const connection = await this.ensureStarted();
+      await connection.invoke(method, targetType);
+    } catch (error) {
       console.warn(`Record updates: ${method} ${targetType} failed`, error);
     }
   }

@@ -8,7 +8,9 @@ namespace OpenTms.Platform.DerivedValues;
 /// The registry of design 49: which target types have a calculator, and which permission lets a user watch a type's
 /// records live. A module registers in its own <c>ConfigureServices</c>:
 /// <code>Configure&lt;DerivedValueOptions&gt;(o =&gt; o.AddCalculator&lt;TripCostCalculator&gt;("PlanningExecution.TransportTrip", PlanningExecutionPermissions.Trips.Default));</code>
-/// A malformed or duplicate target type fails at start-up.
+/// A type that only sends change notices (design 67, e.g. a planboard row) registers without a calculator:
+/// <code>Configure&lt;DerivedValueOptions&gt;(o =&gt; o.AddWatchable("PlanningExecution.TransportTrip", PlanningExecutionPermissions.Trips.Default));</code>
+/// <see cref="Find"/> returns either kind. A malformed or duplicate target type fails at start-up.
 /// </summary>
 public partial class DerivedValueOptions
 {

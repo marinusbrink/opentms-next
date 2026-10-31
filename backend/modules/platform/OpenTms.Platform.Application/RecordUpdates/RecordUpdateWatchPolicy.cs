@@ -13,7 +13,8 @@ namespace OpenTms.Platform.RecordUpdates;
 /// <summary>
 /// Which hub groups a client may join (design 49): only a registered target type, only with that type's watch
 /// permission, at most <see cref="DerivedValueConsts.MaxWatchPerCall"/> records per call, and always in the caller's own
-/// tenant (the group name carries <see cref="ICurrentTenant"/>, never a value from the client).
+/// tenant (the group name carries <see cref="ICurrentTenant"/>, never a value from the client). Design 67 adds the type
+/// group: every record of a registered type, under the same permission and tenant rules.
 /// </summary>
 public class RecordUpdateWatchPolicy : ITransientDependency
 {
@@ -39,5 +40,20 @@ public class RecordUpdateWatchPolicy : ITransientDependency
         }
 
         return ids.Select(id => RecordUpdate.GroupName(_currentTenant.Id, definition.TargetType, id)).ToList();
+    }
+
+    /// <summary>
+    /// The type group to join or leave (design 67): every notice of <paramref name="targetType"/> in the caller's own
+    /// tenant, or null when the type is not registered or the caller lacks its watch permission.
+    /// </summary>
+    public virtual async Task<string?> ResolveTypeGroupAsync(string? targetType)
+    {
+        var definition = _options.Find(targetType);
+        if (definition == null || !await _permissionChecker.IsGrantedAsync(definition.WatchPermission))
+        {
+            return null;
+        }
+
+        return RecordUpdate.TypeGroupName(_currentTenant.Id, definition.TargetType);
     }
 }
