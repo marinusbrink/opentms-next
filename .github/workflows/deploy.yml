@@ -1,0 +1,132 @@
+name: Deploy
+
+# Every merge to main that passes CI goes to staging and then to prod with a canary
+# (department design §5, PO decision 2026-10-30; docs/designs/gcp-infrastructure.md).
+# Migrations run before the new revision gets traffic, so they must be expand-only.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  REGION: europe-west4
+  REGISTRY: europe-west4-docker.pkg.dev/ryd-platform/opentms
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  DEPLOYER: gh-deployer@ryd-platform.iam.gserviceaccount.com
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Auth-server login-page assets (abp install-libs)
+        working-directory: backend
+        run: |
+          dotnet tool install -g Volo.Abp.Studio.Cli
+          abp install-libs
+          test -f src/OpenTms.HttpApi.Host/wwwroot/libs/abp/core/abp.js
+      - name: Publish
+        run: |
+          for project in OpenTms.HttpApi.Host OpenTms.DbMigrator; do
+            dotnet publish "backend/src/$project" -c Release -r linux-x64 --self-contained false \
+              -p:PublishReadyToRun=true -o "backend/src/$project/publish" --nologo
+          done
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push images
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -t "$REGISTRY/opentms-api:$SHA" backend/src/OpenTms.HttpApi.Host
+          docker build -t "$REGISTRY/opentms-migrator:$SHA" backend/src/OpenTms.DbMigrator
+          docker push "$REGISTRY/opentms-api:$SHA"
+          docker push "$REGISTRY/opentms-migrator:$SHA"
+
+  staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Project
+        run: echo "PROJECT=$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' infra/environments/staging.tfvars)" >> "$GITHUB_ENV"
+      - name: Start the database
+        run: infra/scripts/staging-database.sh start "$PROJECT" opentms-staging
+      - name: Migrate
+        run: |
+          gcloud run jobs update opentms-migrator --image "$REGISTRY/opentms-migrator:$SHA" --project "$PROJECT" --region "$REGION" --quiet
+          gcloud run jobs execute opentms-migrator --wait --project "$PROJECT" --region "$REGION" --quiet
+      - name: Deploy API
+        run: gcloud run deploy opentms-api --image "$REGISTRY/opentms-api:$SHA" --project "$PROJECT" --region "$REGION" --quiet
+      - name: Build and deploy SPA
+        run: |
+          api_url="$(gcloud run services describe opentms-api --project "$PROJECT" --region "$REGION" --format=json \
+            | jq -r '.spec.template.spec.containers[0].env[] | select(.name == "AuthServer__Authority") | .value')"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -t "$REGISTRY/opentms-web:$SHA-staging" --build-arg "VITE_API_URL=$api_url" \
+            --build-arg "VITE_AG_GRID_LICENSE_KEY=${{ secrets.AG_GRID_LICENSE_KEY }}" frontend
+          docker push "$REGISTRY/opentms-web:$SHA-staging"
+          gcloud run deploy opentms-web --image "$REGISTRY/opentms-web:$SHA-staging" --project "$PROJECT" --region "$REGION" --quiet
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors "$api_url/health/ready"
+
+  prod:
+    needs: staging
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Project
+        run: echo "PROJECT=$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' infra/environments/prod.tfvars)" >> "$GITHUB_ENV"
+      - name: Build SPA
+        run: |
+          api_url="$(gcloud run services describe opentms-api --project "$PROJECT" --region "$REGION" --format=json \
+            | jq -r '.spec.template.spec.containers[0].env[] | select(.name == "AuthServer__Authority") | .value')"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker build -t "$REGISTRY/opentms-web:$SHA-prod" --build-arg "VITE_API_URL=$api_url" \
+            --build-arg "VITE_AG_GRID_LICENSE_KEY=${{ secrets.AG_GRID_LICENSE_KEY }}" frontend
+          docker push "$REGISTRY/opentms-web:$SHA-prod"
+      - name: Migrate
+        run: |
+          gcloud run jobs update opentms-migrator --image "$REGISTRY/opentms-migrator:$SHA" --project "$PROJECT" --region "$REGION" --quiet
+          gcloud run jobs execute opentms-migrator --wait --project "$PROJECT" --region "$REGION" --quiet
+      - name: Canary API
+        run: infra/scripts/canary.sh "$PROJECT" "$REGION" opentms-api "$REGISTRY/opentms-api:$SHA"
+      - name: Deploy SPA
+        run: gcloud run deploy opentms-web --image "$REGISTRY/opentms-web:$SHA-prod" --project "$PROJECT" --region "$REGION" --quiet

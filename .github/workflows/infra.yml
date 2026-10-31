@@ -1,0 +1,128 @@
+name: Infra
+
+# Terraform for every environment in infra/environments/*.tfvars (docs/designs/gcp-infrastructure.md):
+# plan on a PR, apply on main (prod waits for the PO's approval in the GitHub environment "prod-infra"),
+# nightly drift check. infra/bootstrap is applied by hand by the PO, never here.
+
+on:
+  pull_request:
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to apply (name of an infra/environments/*.tfvars file)
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  environments:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        name: List environments
+        run: |
+          if [[ -n "${{ inputs.environment }}" ]]; then
+            test -f "infra/environments/${{ inputs.environment }}.tfvars" || { echo "::error::No infra/environments/${{ inputs.environment }}.tfvars"; exit 1; }
+            names='["${{ inputs.environment }}"]'
+          else
+            # staging (and any other) before prod, so prod applies last.
+            names="$(find infra/environments -name '*.tfvars' -exec basename {} .tfvars \; | sort | awk '$0=="prod"{p=1;next}{print}END{if(p)print "prod"}' | jq -R . | jq -sc .)"
+          fi
+          echo "list=${names}" >> "$GITHUB_OUTPUT"
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.x
+      - name: Format
+        run: terraform -chdir=infra fmt -check -recursive
+      - name: Validate
+        run: |
+          for dir in infra/bootstrap infra/env; do
+            terraform -chdir="$dir" init -backend=false -input=false >/dev/null
+            terraform -chdir="$dir" validate
+          done
+      - name: Shell scripts
+        run: shellcheck infra/scripts/*.sh
+
+  plan:
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    needs: [environments, check]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJson(needs.environments.outputs.list) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: gh-terraform-plan@ryd-platform.iam.gserviceaccount.com
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.x
+          terraform_wrapper: false
+      - name: Init
+        run: terraform -chdir=infra/env init -input=false -backend-config="prefix=opentms/env/${{ matrix.environment }}"
+      - name: Plan
+        run: |
+          set +e
+          # -lock=false: the planner may only read the state bucket.
+          terraform -chdir=infra/env plan -input=false -lock=false -no-color -detailed-exitcode \
+            -var-file="../environments/${{ matrix.environment }}.tfvars" > plan.txt
+          code=$?
+          set -e
+          { echo "### ${{ matrix.environment }}"; echo '```'; tail -c 60000 plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat plan.txt
+          if [[ $code == 1 ]]; then exit 1; fi
+          if [[ $code == 2 && "${{ github.event_name }}" == "schedule" ]]; then
+            echo "::error::Drift in ${{ matrix.environment }}: the live infrastructure differs from main."
+            exit 1
+          fi
+
+  apply:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [environments, check]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        environment: ${{ fromJson(needs.environments.outputs.list) }}
+    # "prod-infra" carries the PO's required review; other environments have no protection rule.
+    environment: ${{ matrix.environment }}-infra
+    concurrency:
+      group: terraform-${{ matrix.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: gh-terraform-apply@ryd-platform.iam.gserviceaccount.com
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.x
+          terraform_wrapper: false
+      - name: Init
+        run: terraform -chdir=infra/env init -input=false -backend-config="prefix=opentms/env/${{ matrix.environment }}"
+      - name: Apply
+        run: terraform -chdir=infra/env apply -input=false -auto-approve -var-file="../environments/${{ matrix.environment }}.tfvars"

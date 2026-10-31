@@ -37216,6 +37216,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/email-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Emailing.EmailSettingsDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Emailing.EmailSettingsDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Emailing.EmailSettingsDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Emailing.UpdateEmailSettingsDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Emailing.UpdateEmailSettingsDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Emailing.UpdateEmailSettingsDto"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/email-settings/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Platform.Emailing.SendTestEmailDto"];
+                    "application/json": components["schemas"]["OpenTms.Platform.Emailing.SendTestEmailDto"];
+                    "text/json": components["schemas"]["OpenTms.Platform.Emailing.SendTestEmailDto"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Emailing.TestEmailResultDto"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Emailing.TestEmailResultDto"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Emailing.TestEmailResultDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/logbook/functional": {
         parameters: {
             query?: never;
@@ -50597,6 +50700,58 @@ export interface components {
             senderAddress?: string | null;
             subject: string;
             to?: string | null;
+        };
+        "OpenTms.Platform.Emailing.EmailDeliveryStatus": {
+            fromAddress?: string | null;
+            fromName?: string | null;
+            isConfigured?: boolean;
+            isWebhookConfigured?: boolean;
+            serverTokenSource?: components["schemas"]["OpenTms.Platform.Emailing.EmailSettingSource"];
+            trackLinks?: string | null;
+            trackOpens?: boolean;
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.Platform.Emailing.EmailMessageStatus": 0 | 1 | 2 | 3 | 4 | 5 | 6;
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.Platform.Emailing.EmailSettingSource": 0 | 1 | 2;
+        "OpenTms.Platform.Emailing.EmailSettingsDto": {
+            effective?: components["schemas"]["OpenTms.Platform.Emailing.EmailDeliveryStatus"];
+            fromAddress?: string | null;
+            fromName?: string | null;
+            hasServerToken?: boolean;
+            hasWebhookPassword?: boolean;
+            trackLinks?: string | null;
+            trackOpens?: boolean | null;
+            webhookUrl?: string | null;
+            webhookUsername?: string | null;
+        };
+        "OpenTms.Platform.Emailing.SendTestEmailDto": {
+            /** Format: email */
+            to: string;
+        };
+        "OpenTms.Platform.Emailing.TestEmailResultDto": {
+            error?: string | null;
+            providerMessageId?: string | null;
+            status?: components["schemas"]["OpenTms.Platform.Emailing.EmailMessageStatus"];
+            succeeded?: boolean;
+        };
+        "OpenTms.Platform.Emailing.UpdateEmailSettingsDto": {
+            clearServerToken?: boolean;
+            clearWebhookPassword?: boolean;
+            /** Format: email */
+            fromAddress?: string | null;
+            fromName?: string | null;
+            serverToken?: string | null;
+            trackLinks?: string | null;
+            trackOpens?: boolean | null;
+            webhookPassword?: string | null;
+            webhookUsername?: string | null;
         };
         "OpenTms.Platform.Grid.ColumnFilterModel": {
             filter?: string | null;

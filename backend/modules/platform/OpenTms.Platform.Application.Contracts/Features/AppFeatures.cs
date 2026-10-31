@@ -147,6 +147,9 @@ public static class AppFeatures
         public const string OrganizationUnits = Default + ".OrganizationUnits";
         public const string Maintenance = Default + ".Maintenance";
 
+        /// <summary>The host's e-mail settings (design 64): host only, so a tenant never sees it whatever this value.</summary>
+        public const string Email = Default + ".Email";
+
         public static class AuditLogs
         {
             public const string Default = Administration.Default + ".AuditLogs";

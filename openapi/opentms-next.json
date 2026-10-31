@@ -18836,6 +18836,183 @@
         ],
         "type": "object"
       },
+      "OpenTms.Platform.Emailing.EmailDeliveryStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "fromAddress": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fromName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "isConfigured": {
+            "type": "boolean"
+          },
+          "isWebhookConfigured": {
+            "type": "boolean"
+          },
+          "serverTokenSource": {
+            "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailSettingSource"
+          },
+          "trackLinks": {
+            "nullable": true,
+            "type": "string"
+          },
+          "trackOpens": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Emailing.EmailMessageStatus": {
+        "enum": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.Platform.Emailing.EmailSettingSource": {
+        "enum": [
+          0,
+          1,
+          2
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.Platform.Emailing.EmailSettingsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailDeliveryStatus"
+          },
+          "fromAddress": {
+            "nullable": true,
+            "type": "string"
+          },
+          "fromName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "hasServerToken": {
+            "type": "boolean"
+          },
+          "hasWebhookPassword": {
+            "type": "boolean"
+          },
+          "trackLinks": {
+            "nullable": true,
+            "type": "string"
+          },
+          "trackOpens": {
+            "nullable": true,
+            "type": "boolean"
+          },
+          "webhookUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "webhookUsername": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Emailing.SendTestEmailDto": {
+        "additionalProperties": false,
+        "properties": {
+          "to": {
+            "format": "email",
+            "maxLength": 512,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "OpenTms.Platform.Emailing.TestEmailResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "nullable": true,
+            "type": "string"
+          },
+          "providerMessageId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailMessageStatus"
+          },
+          "succeeded": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Emailing.UpdateEmailSettingsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "clearServerToken": {
+            "type": "boolean"
+          },
+          "clearWebhookPassword": {
+            "type": "boolean"
+          },
+          "fromAddress": {
+            "format": "email",
+            "maxLength": 512,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "fromName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "serverToken": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "trackLinks": {
+            "nullable": true,
+            "type": "string"
+          },
+          "trackOpens": {
+            "nullable": true,
+            "type": "boolean"
+          },
+          "webhookPassword": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "webhookUsername": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.Platform.Grid.ColumnFilterModel": {
         "additionalProperties": false,
         "properties": {
@@ -84304,6 +84481,112 @@
         ]
       }
     },
+    "/api/platform/administration/email-settings": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailSettingsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailSettingsDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.EmailSettingsDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "EmailSettingsAdministration"
+        ]
+      },
+      "put": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.UpdateEmailSettingsDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.UpdateEmailSettingsDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.UpdateEmailSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "EmailSettingsAdministration"
+        ]
+      }
+    },
+    "/api/platform/administration/email-settings/test": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.SendTestEmailDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.SendTestEmailDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Emailing.SendTestEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.TestEmailResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.TestEmailResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Emailing.TestEmailResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "EmailSettingsAdministration"
+        ]
+      }
+    },
     "/api/platform/administration/logbook/functional": {
       "get": {
         "parameters": [
@@ -95447,6 +95730,9 @@
     },
     {
       "name": "EmailSettings"
+    },
+    {
+      "name": "EmailSettingsAdministration"
     },
     {
       "name": "EmailTemplate"

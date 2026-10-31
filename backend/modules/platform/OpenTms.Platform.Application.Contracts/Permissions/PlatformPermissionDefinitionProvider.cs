@@ -100,6 +100,11 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         maintenance.AddChild(PlatformPermissions.Administration.Maintenance.Health, L("Permission:Administration.Maintenance.Health"), MultiTenancySides.Host);
         var backgroundJobs = maintenance.AddChild(PlatformPermissions.Administration.Maintenance.BackgroundJobs, L("Permission:Administration.Maintenance.BackgroundJobs"), MultiTenancySides.Host);
         backgroundJobs.AddChild(PlatformPermissions.Administration.Maintenance.BackgroundJobsManage, L("Permission:Administration.Maintenance.BackgroundJobs.Manage"), MultiTenancySides.Host);
+
+        /* E-mail settings (design 64): host only, one configuration of the mail service for every tenant. */
+        var emailSettings = group.AddPermission(PlatformPermissions.Administration.EmailSettings.Default, L("Permission:Administration.EmailSettings"), MultiTenancySides.Host);
+        emailSettings.AddChild(PlatformPermissions.Administration.EmailSettings.Update, L("Permission:Administration.EmailSettings.Update"), MultiTenancySides.Host);
+        emailSettings.AddChild(PlatformPermissions.Administration.EmailSettings.SendTest, L("Permission:Administration.EmailSettings.SendTest"), MultiTenancySides.Host);
     }
 
     private static LocalizableString L(string name)

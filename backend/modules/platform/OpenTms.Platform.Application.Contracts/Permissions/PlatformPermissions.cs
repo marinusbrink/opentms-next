@@ -143,5 +143,13 @@ public static class PlatformPermissions
             public const string BackgroundJobs = Default + ".BackgroundJobs";
             public const string BackgroundJobsManage = BackgroundJobs + ".Manage";
         }
+
+        /// <summary>The host's e-mail settings (design 64): host only; one configuration for every tenant.</summary>
+        public static class EmailSettings
+        {
+            public const string Default = GroupName + ".Administration.EmailSettings";
+            public const string Update = Default + ".Update";
+            public const string SendTest = Default + ".SendTest";
+        }
     }
 }

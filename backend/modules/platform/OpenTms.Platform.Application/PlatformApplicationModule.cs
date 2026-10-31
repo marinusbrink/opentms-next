@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using OpenTms.Platform.Emailing;
 using OpenTms.Platform.DocumentRendering;
 using Volo.Abp.Application;
 using Volo.Abp.AuditLogging;
@@ -32,6 +34,10 @@ public class PlatformApplicationModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        /* Design 64: ABP's mail goes through the send log; the mail service is Integrations' (it replaces the provider). */
+        context.Services.TryAddTransient<IEmailDeliveryProvider, NotConfiguredEmailDeliveryProvider>();
+        context.Services.Replace(ServiceDescriptor.Transient<IEmailSender, SendLogEmailSender>());
+
         /* Edition feature values go through ABP's own feature-management endpoint; reading and writing them under
          * provider "E" needs this permission (docs/designs/tenants-and-editions.md). */
         Configure<FeatureManagementOptions>(options =>

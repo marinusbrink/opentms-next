@@ -5,6 +5,7 @@ using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.DocumentTypes;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.EmailTemplates;
+using OpenTms.Platform.Emailing;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Instances;
@@ -85,6 +86,15 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
     /// </summary>
     public DbSet<DerivedValueState> DerivedValueStates { get; set; } = default!;
 
+    /// <summary>The send log: platform."EmailMessages", one row per mail in its tenant's database (design 64).</summary>
+    public DbSet<EmailMessage> EmailMessages { get; set; } = default!;
+
+    /// <summary>
+    /// Mail-service message id → tenant: platform."EmailMessageRoutes", written and read in the host database only
+    /// (tenant databases keep the table empty), like the sign-in lookup (design 64).
+    /// </summary>
+    public DbSet<EmailMessageRoute> EmailMessageRoutes { get; set; } = default!;
+
     public PlatformDbContext(DbContextOptions<PlatformDbContext> options)
         : base(options)
     {
@@ -126,6 +136,33 @@ public class PlatformDbContext : AbpDbContext<PlatformDbContext>, IHasEventOutbo
             b.HasIndex(x => new { x.TenantId, x.UserId, x.GridId })
                 .IsUnique()
                 .AreNullsDistinct(false);
+        });
+
+        builder.Entity<EmailMessage>(b =>
+        {
+            b.ToTable("EmailMessages", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.To).IsRequired().HasMaxLength(EmailMessageConsts.MaxAddressListLength);
+            b.Property(x => x.Cc).HasMaxLength(EmailMessageConsts.MaxAddressListLength);
+            b.Property(x => x.Bcc).HasMaxLength(EmailMessageConsts.MaxAddressListLength);
+            b.Property(x => x.ReplyTo).HasMaxLength(EmailMessageConsts.MaxReplyToLength);
+            b.Property(x => x.Subject).IsRequired().HasMaxLength(EmailMessageConsts.MaxSubjectLength);
+            b.Property(x => x.Tag).HasMaxLength(EmailMessageConsts.MaxTagLength);
+            b.Property(x => x.LastError).HasMaxLength(EmailMessageConsts.MaxLastErrorLength);
+            b.Property(x => x.ProviderMessageId).HasMaxLength(EmailMessageConsts.MaxProviderMessageIdLength);
+            b.Property(x => x.BounceType).HasMaxLength(EmailMessageConsts.MaxBounceTypeLength);
+            b.Property(x => x.BounceDescription).HasMaxLength(EmailMessageConsts.MaxBounceDescriptionLength);
+            b.HasIndex(x => x.ProviderMessageId);
+            /* The later send-log screen lists newest first per status. */
+            b.HasIndex(x => new { x.TenantId, x.Status, x.CreationTime });
+        });
+
+        builder.Entity<EmailMessageRoute>(b =>
+        {
+            b.ToTable("EmailMessageRoutes", PlatformDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.ProviderMessageId).IsRequired().HasMaxLength(EmailMessageConsts.MaxProviderMessageIdLength);
+            b.HasIndex(x => x.ProviderMessageId).IsUnique();
         });
 
         builder.Entity<ApplicationInstance>(b =>

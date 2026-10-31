@@ -5,9 +5,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
+using OpenTms.Integrations.Emailing.Postmark;
 using OpenTms.Integrations.Routing;
 using OpenTms.Platform;
 using OpenTms.Platform.DocumentRendering;
+using OpenTms.Platform.Emailing;
 using Volo.Abp;
 using Volo.Abp.Application;
 using Volo.Abp.BackgroundWorkers;
@@ -40,6 +42,7 @@ public class IntegrationsApplicationModule : AbpModule
 
         ConfigurePdfGeneratorApi(context);
         ConfigureRouting(context);
+        ConfigurePostmark(context);
     }
 
     public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
@@ -97,5 +100,22 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddTransient<IRouteFunction>(services => services.GetRequiredService<ValhallaFunctionProvider>());
         context.Services.AddHealthChecks()
             .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
+    }
+
+    /* Design 64: Postmark behind Platform's IEmailDeliveryProvider. The token and the webhook password come from the
+     * secret store into "Integrations:Postmark"; the typed client carries the base URL and the 30-second timeout of one
+     * attempt (the send job retries). Replaces Platform's "not configured" provider. The health check is "external". */
+    private static void ConfigurePostmark(ServiceConfigurationContext context)
+    {
+        context.Services.Configure<PostmarkOptions>(context.Services.GetConfiguration().GetSection(PostmarkOptions.SectionName));
+        context.Services.AddHttpClient<PostmarkEmailDeliveryProvider>((services, client) =>
+        {
+            var baseUrl = services.GetRequiredService<IOptions<PostmarkOptions>>().Value.BaseUrl;
+            client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+            client.Timeout = PostmarkEmailDeliveryProvider.Timeout;
+        });
+        context.Services.Replace(ServiceDescriptor.Transient<IEmailDeliveryProvider>(services => services.GetRequiredService<PostmarkEmailDeliveryProvider>()));
+        context.Services.AddHealthChecks()
+            .AddCheck<PostmarkHealthCheck>(PostmarkHealthCheck.Name, tags: [PostmarkHealthCheck.Tag]);
     }
 }

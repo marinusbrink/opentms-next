@@ -132,14 +132,15 @@ public class RoutingRegistrationTests
     }
 
     [Fact]
-    public void The_routing_check_is_registered_with_only_the_external_tag_next_to_the_pdfgeneratorapi_one()
+    public void The_routing_check_is_registered_with_only_the_external_tag_next_to_the_other_external_checks()
     {
         using var provider = Configure();
 
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         var routing = registrations.Single(r => r.Name == RoutingHealthCheck.Name);
         routing.Tags.ShouldBe(["external"], ignoreOrder: false, "never 'ready': an outage at the engine must not take the API out of rotation");
-        registrations.Select(r => r.Name).ShouldBe(["pdfgeneratorapi", "routing"], ignoreOrder: true);
+        registrations.Select(r => r.Name).ShouldBe(["pdfgeneratorapi", "routing", "postmark"], ignoreOrder: true);
+        registrations.ShouldAllBe(r => r.Tags.SetEquals(new[] { "external" }), "design 64's postmark check is external like the others");
     }
 
     [Fact]
