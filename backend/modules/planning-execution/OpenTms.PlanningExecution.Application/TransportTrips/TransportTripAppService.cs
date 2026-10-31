@@ -24,9 +24,12 @@ namespace OpenTms.PlanningExecution.TransportTrips;
 /// <summary>
 /// Design 59 "TransportTripAppService": the trip grids, the editor's detail and every command of the lifecycle. Each
 /// command is one unit of work: the aggregate changes, the facts go to the outbox, the calculation is requested (flow 2).
-/// Reads never calculate (AD-07). Feature: the Transport app's Trips node (design 56, default on).
+/// Reads never calculate (AD-07). Feature: the Transport app's Trips node (design 56, default on) or the Planboard app
+/// (design 68 D7). ABP requires every <c>[RequiresFeature]</c> of a method and its class, so the two attributes
+/// (Transport or Planboard) on the class and (Trips or Planboard) on each method together mean
+/// (Transport and Trips) or Planboard. Every committed command notifies the record channel (design 68 "Live updates").
 /// </summary>
-[RequiresFeature(AppFeatures.Transport)]
+[RequiresFeature(AppFeatures.Transport, AppFeatures.Planboard)]
 public class TransportTripAppService : PlanningExecutionAppServiceBase, ITransportTripAppService
 {
     private readonly IRepository<TransportTrip, Guid> _trips;
@@ -60,9 +63,11 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     private const string Trips = AppFeatures.TransportApp.Trips;
 
+    private PlanningRecordNotices Notices => _ops.Notices;
+
     /* Reads */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
     public virtual async Task<GridResponse<TransportTripRowDto>> GetListAsync(TransportTripListRequestDto input)
     {
@@ -96,7 +101,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
     /// requested columns in their order, times in the tenant's zone. Read page by page with one batch of lookups per
     /// page; refused above the tenant's row cap before anything is read.
     /// </summary>
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
     public virtual async Task<IRemoteStreamContent> ExportAsync(TransportTripExportRequestDto input)
     {
@@ -146,7 +151,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
     /// The trip picker (design 61 "Outsource origin": the target trip): paged, not archived, the statuses asked for
     /// (default Planned and InProgress), the trip date range, the search key, one trip left out; nearest departure first.
     /// </summary>
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
     public virtual async Task<GridResponse<TransportTripPickerDto>> GetPickerAsync(TransportTripPickerRequestDto input)
     {
@@ -246,6 +251,24 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         if (input.OrganizationUnitId != null)
         {
             query = query.Where(t => t.OrganizationUnitId == input.OrganizationUnitId);
+        }
+
+        /* Design 68: the Planboard's trips pane filters by its organisation units and refetches changed rows by id. */
+        if (input.OrganizationUnitIds is { Count: > 0 })
+        {
+            var units = input.OrganizationUnitIds.Distinct().ToList();
+            query = query.Where(t => t.OrganizationUnitId != null && units.Contains(t.OrganizationUnitId.Value));
+        }
+
+        if (input.Ids is { Count: > 0 })
+        {
+            if (input.Ids.Count > PlanningExecutionConsts.MaxPlanboardPageSize)
+            {
+                throw new BusinessException(PlanningExecutionErrorCodes.TooManyIds).WithData("max", PlanningExecutionConsts.MaxPlanboardPageSize);
+            }
+
+            var ids = input.Ids.Distinct().ToList();
+            query = query.Where(t => ids.Contains(t.Id));
         }
 
         if (input.HideEmpty)
@@ -383,7 +406,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     private static TripWarningDto MapWarning(TripWarning w) => new() { Code = w.Code, LegId = w.LegId, StopId = w.StopId, Data = w.Data };
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
     public virtual Task<TransportTripDto> GetAsync(Guid id) => ToDtoAsync(id);
 
@@ -522,7 +545,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         };
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Default)]
     public virtual async Task<TransportTripSummaryDto> GetSummaryAsync(Guid id)
     {
@@ -554,7 +577,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     /* Create and header */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Create)]
     public virtual async Task<TransportTripDto> CreateAsync(TransportTripCreateDto input)
     {
@@ -564,11 +587,12 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(trip.Id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Update)]
     public virtual async Task<TransportTripDto> UpdateAsync(Guid id, TransportTripUpdateDto input)
     {
         var trip = await _ops.GetWithDetailsAsync(id);
+        await Notices.TripAsync(trip);
         if (input.TripDate != trip.TripDate)
         {
             var type = await _types.GetAsync(trip.TransportTripTypeId);
@@ -616,7 +640,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Update)]
     public virtual async Task<TransportTripDto> SetCarrierAsync(Guid id, TripCarrierDto input)
     {
@@ -628,31 +652,26 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Update)]
     public virtual async Task<TransportTripDto> SetVehiclesAsync(Guid id, TripVehiclesDto input)
     {
         var trip = await _ops.GetWithDetailsAsync(id);
-        await _ops.ValidateVehiclesAsync(input.VehicleCombinationId, input.VehicleIds);
-        trip.SetVehicles(input.VehicleCombinationId, input.VehicleIds);
-        await _ops.ChangedAsync(trip, TripChangeKind.Vehicles, recalculate: true);
-        /* The legs' routes depend on the vehicle profile (toll, truck routing). */
-        var legIds = await AsyncExecuter.ToListAsync((await _legs.GetQueryableAsync()).Where(l => l.TripId == id).Select(l => l.Id));
-        if (legIds.Count > 0)
-        {
-            await LazyServiceProvider.LazyGetRequiredService<Platform.DerivedValues.IDerivedValueScheduler>()
-                .RequestManyAsync(PlanningExecutionApplicationModule.LegTargetType, legIds, "VehiclesChanged");
-        }
+        await Notices.TripAsync(trip);
+        await _ops.SetVehiclesAsync(trip, input.VehicleCombinationId, input.VehicleIds);
+        /* The legs' routes depend on the vehicle profile (toll, truck routing): requested there too. */
+        await _ops.VehiclesChangedAsync(trip);
 
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Update)]
     public virtual async Task<TransportTripDto> SetDriversAsync(Guid id, TripDriversDto input)
     {
         var trip = await _ops.GetWithDetailsAsync(id);
+        await Notices.TripAsync(trip);
         await _ops.ValidateDriversAsync(input.DriverIds);
         trip.SetDrivers(input.DriverIds);
         await _ops.ChangedAsync(trip, TripChangeKind.Drivers, recalculate: false);
@@ -662,7 +681,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     /* Legs */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<TransportTripDto> AssignLegsAsync(Guid id, AssignLegsDto input)
     {
@@ -673,7 +692,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<TransportTripDto> UnassignLegsAsync(Guid id, UnassignLegsDto input)
     {
@@ -684,7 +703,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<TransportTripDto> MoveLegsAsync(Guid id, MoveLegsDto input)
     {
@@ -708,7 +727,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     /* Stops */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.ManageStops)]
     public virtual async Task<TransportTripDto> AddStopAsync(Guid id, AddManualStopDto input)
     {
@@ -726,7 +745,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.ManageStops)]
     public virtual async Task<TransportTripDto> UpdateStopAsync(Guid id, Guid stopId, UpdateStopDto input)
     {
@@ -754,7 +773,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.ManageStops)]
     public virtual async Task<TransportTripDto> DeleteStopAsync(Guid id, Guid stopId)
     {
@@ -765,7 +784,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.ManageStops)]
     public virtual async Task<TransportTripDto> RecordStopActualsAsync(Guid id, Guid stopId, StopActualsDto input)
     {
@@ -778,7 +797,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
     /* Lifecycle */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Start)]
     public virtual async Task<TransportTripDto> StartAsync(Guid id, TripTimestampDto input)
     {
@@ -789,7 +808,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Complete)]
     public virtual async Task<TransportTripDto> CompleteAsync(Guid id, TripTimestampDto input)
     {
@@ -800,7 +819,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Cancel)]
     public virtual async Task<TransportTripDto> CancelAsync(Guid id)
     {
@@ -825,29 +844,31 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Archive)]
     public virtual async Task<TransportTripDto> ArchiveAsync(Guid id)
     {
         var trip = await _ops.GetWithDetailsAsync(id);
         trip.Archive();
         await _trips.UpdateAsync(trip);
+        await Notices.TripAsync(trip);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Archive)]
     public virtual async Task<TransportTripDto> UnarchiveAsync(Guid id)
     {
         var trip = await _ops.GetWithDetailsAsync(id);
         trip.Unarchive();
         await _trips.UpdateAsync(trip);
+        await Notices.TripAsync(trip);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Delete)]
     public virtual async Task DeleteAsync(Guid id)
     {
@@ -860,11 +881,12 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         }
 
         await _trips.DeleteAsync(trip);
+        await Notices.TripAsync(trip, deleted: true);
     }
 
     /* The four leg operations (trips.md 20–24) */
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<LegDto> SplitLineAsync(Guid id, SplitLineDto input)
     {
@@ -888,11 +910,14 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
                 .RequestAsync(PlanningExecutionApplicationModule.LegTargetType, clone.Id, "LegSplit");
         }
 
+        await Notices.TripAsync(trip);
+        await Notices.LegsAsync([leg, clone]);
+
         await CurrentUnitOfWork!.SaveChangesAsync();
         return (await _legMapper.MapAsync([clone])).Single();
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<LegDto> ReturnLegAsync(Guid id, LegReferenceDto input)
     {
@@ -910,11 +935,12 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         await _ops.AfterLegsChangedAsync(trip, [leg.OrderId], "ReturnLegCreated");
         await LazyServiceProvider.LazyGetRequiredService<Platform.DerivedValues.IDerivedValueScheduler>()
             .RequestAsync(PlanningExecutionApplicationModule.LegTargetType, returnLeg.Id, "ReturnLegCreated");
+        await Notices.LegAsync(returnLeg);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return (await _legMapper.MapAsync([returnLeg])).Single();
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.ManageStops)]
     public virtual async Task<TransportTripDto> CarryOutSeparatelyAsync(Guid id, LegReferenceDto input)
     {
@@ -925,11 +951,12 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         _assignment.CarryOutSeparately(trip, leg, legsOnTrip, _ops.NewId);
         await _legs.UpdateAsync(leg, autoSave: true);
         await _ops.ChangedAsync(trip, TripChangeKind.Stops, recalculate: true);
+        await Notices.LegAsync(leg);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
 
-    [RequiresFeature(AppFeatures.Transport, Trips, RequiresAll = true)]
+    [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
     public virtual async Task<LegDto> OutsourceOriginAsync(Guid id, OutsourceOriginDto input)
     {
@@ -957,6 +984,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         await _ops.AfterLegsChangedAsync(target, [leg.OrderId], "OriginOutsourced");
         await LazyServiceProvider.LazyGetRequiredService<Platform.DerivedValues.IDerivedValueScheduler>()
             .RequestManyAsync(PlanningExecutionApplicationModule.LegTargetType, [hubLeg.Id, leg.Id], "OriginOutsourced");
+        await Notices.LegsAsync([hubLeg, leg]);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return (await _legMapper.MapAsync([hubLeg])).Single();
     }

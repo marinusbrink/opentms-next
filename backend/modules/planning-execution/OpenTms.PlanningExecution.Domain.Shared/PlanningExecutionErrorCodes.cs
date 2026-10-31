@@ -54,6 +54,12 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The other half of the split was split again: remove that split first.</summary>
     public const string SplitAtAddressNested = Namespace + ":SplitAtAddressNested";
 
+    /// <summary>A Planboard resource change names a resource the trip does not carry ({resourceId}).</summary>
+    public const string ResourceNotOnTrip = Namespace + ":ResourceNotOnTrip";
+
+    /// <summary>The tenant has no active transport trip type to create a trip with.</summary>
+    public const string NoTripType = Namespace + ":NoTripType";
+
     /* The request itself is wrong (400). */
 
     public const string TooManyVehicles = Namespace + ":TooManyVehicles";
@@ -109,11 +115,24 @@ public static class PlanningExecutionErrorCodes
     /// <summary>A trip type's default departure or arrival address needs its relation ({field}; design 61 "Trip type defaults").</summary>
     public const string AddressWithoutRelation = Namespace + ":AddressWithoutRelation";
 
+    /// <summary>A Scheduler window must end after it starts and span at most {max} days.</summary>
+    public const string InvalidSchedulerWindow = Namespace + ":InvalidSchedulerWindow";
+
+    /// <summary>A vehicle of another kind than the Scheduler mode takes ({field}: a trailer for the trailer mode, a motor vehicle for the tractor mode).</summary>
+    public const string ResourceKindMismatch = Namespace + ":ResourceKindMismatch";
+
+    /// <summary>At most {max} ids per request.</summary>
+    public const string TooManyIds = Namespace + ":TooManyIds";
+
+    /// <summary>The leg list cannot be grouped by {groupBy}.</summary>
+    public const string UnknownGroupBy = Namespace + ":UnknownGroupBy";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         TripNotAssignable, LegOnOtherTrip, LegNotOnTrip, LegOutsideTripWindow, StopHasActuals, InvalidTransition, TripArchived,
-        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested
+        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested,
+        ResourceNotOnTrip, NoTripType
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -122,6 +141,6 @@ public static class PlanningExecutionErrorCodes
         TooManyVehicles, TooManyDrivers, TooManyStops, TooManyLegs, VehicleSourceConflict, InvalidSplit, InvalidAttributes,
         InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
         ExportTooManyRows, ExportUnknownColumn, SplitAddressIsLegEnd, SplitDateOutsideLeg, ContactWithoutCarrier,
-        AddressWithoutRelation
+        AddressWithoutRelation, InvalidSchedulerWindow, ResourceKindMismatch, TooManyIds, UnknownGroupBy
     ];
 }

@@ -313,6 +313,18 @@
     "PlanningExecution:VehiclesOrCombinationHint": "A vehicle combination or up to {0} vehicles, not both.",
     "PlanningExecution:DriversHint": "Up to {0} drivers.",
     "OpenTms.PlanningExecution:ContactWithoutCarrier": "Choose the carrier before its contact person",
-    "OpenTms.PlanningExecution:AddressWithoutRelation": "Choose the relation before its address ({field})"
+    "OpenTms.PlanningExecution:AddressWithoutRelation": "Choose the relation before its address ({field})",
+    "OpenTms.PlanningExecution:ResourceNotOnTrip": "The trip does not carry this resource; refresh the planboard and try again",
+    "OpenTms.PlanningExecution:NoTripType": "There is no active transport trip type to create the trip with",
+    "OpenTms.PlanningExecution:InvalidSchedulerWindow": "The period must end after it starts and span at most {max} days",
+    "OpenTms.PlanningExecution:ResourceKindMismatch": "This vehicle does not fit this row ({field})",
+    "OpenTms.PlanningExecution:TooManyIds": "At most {max} records per request",
+    "OpenTms.PlanningExecution:UnknownGroupBy": "The list cannot be grouped by \"{groupBy}\"",
+    "PlanningExecution:PlanboardResourceMode.Tractor": "Tractor",
+    "PlanningExecution:PlanboardResourceMode.Trailer": "Trailer",
+    "PlanningExecution:PlanboardResourceMode.Driver": "Driver",
+    "PlanningExecution:PlanboardTripField.Name": "Name",
+    "PlanningExecution:PlanboardTripField.Remarks": "Remarks",
+    "PlanningExecution:PlanboardTripField.DriverInstructions": "Driver instructions"
   }
 }

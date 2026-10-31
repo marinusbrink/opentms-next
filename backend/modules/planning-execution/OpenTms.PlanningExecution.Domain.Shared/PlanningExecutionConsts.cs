@@ -61,4 +61,18 @@ public static class PlanningExecutionConsts
 
     /// <summary>The attribute definition key (OpenTMS custom property name).</summary>
     public const int MaxAttributeDefinitionKeyLength = MaxAttributeKeyLength;
+
+    /* Design 68 (Planboard): the bounds of its reads (D1, 200 ms at the volume dataset). */
+
+    /// <summary>The longest Scheduler window in days.</summary>
+    public const int MaxSchedulerWindowDays = 14;
+
+    /// <summary>The largest page of rows (Scheduler resources, refetch ids, leg groups).</summary>
+    public const int MaxPlanboardPageSize = 200;
+
+    /// <summary>The bars one Scheduler read returns at most; more set <c>BarsTruncated</c>.</summary>
+    public const int MaxSchedulerBars = 2000;
+
+    /// <summary>The longest leg group key (a city or an id).</summary>
+    public const int MaxGroupKeyLength = 128;
 }

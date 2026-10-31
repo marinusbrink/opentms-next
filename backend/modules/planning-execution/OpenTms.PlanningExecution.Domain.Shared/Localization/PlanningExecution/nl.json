@@ -313,6 +313,18 @@
     "PlanningExecution:VehiclesOrCombinationHint": "Een voertuigcombinatie of hoogstens {0} voertuigen, niet allebei.",
     "PlanningExecution:DriversHint": "Hoogstens {0} chauffeurs.",
     "OpenTms.PlanningExecution:ContactWithoutCarrier": "Kies eerst de vervoerder, dan de contactpersoon",
-    "OpenTms.PlanningExecution:AddressWithoutRelation": "Kies eerst de relatie, dan het adres ({field})"
+    "OpenTms.PlanningExecution:AddressWithoutRelation": "Kies eerst de relatie, dan het adres ({field})",
+    "OpenTms.PlanningExecution:ResourceNotOnTrip": "De rit heeft deze resource niet; ververs het planbord en probeer het opnieuw",
+    "OpenTms.PlanningExecution:NoTripType": "Er is geen actief rittype om de rit mee aan te maken",
+    "OpenTms.PlanningExecution:InvalidSchedulerWindow": "De periode moet na het begin eindigen en mag hoogstens {max} dagen beslaan",
+    "OpenTms.PlanningExecution:ResourceKindMismatch": "Dit voertuig past niet in deze rij ({field})",
+    "OpenTms.PlanningExecution:TooManyIds": "Hoogstens {max} records per verzoek",
+    "OpenTms.PlanningExecution:UnknownGroupBy": "De lijst kan niet worden gegroepeerd op \"{groupBy}\"",
+    "PlanningExecution:PlanboardResourceMode.Tractor": "Trekker",
+    "PlanningExecution:PlanboardResourceMode.Trailer": "Oplegger",
+    "PlanningExecution:PlanboardResourceMode.Driver": "Chauffeur",
+    "PlanningExecution:PlanboardTripField.Name": "Naam",
+    "PlanningExecution:PlanboardTripField.Remarks": "Opmerkingen",
+    "PlanningExecution:PlanboardTripField.DriverInstructions": "Chauffeursinstructies"
   }
 }

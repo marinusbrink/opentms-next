@@ -116,6 +116,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.Ignore(t => t.ArrivalDate);
             b.Ignore(t => t.OrderedStops);
             b.Ignore(t => t.LegIds);
+            b.Ignore(t => t.VehicleIdsInOrder);
+            b.Ignore(t => t.DriverIdsInOrder);
             b.Property(t => t.Number).HasMaxLength(PlanningExecutionConsts.MaxNumberLength).IsRequired();
             b.Property(t => t.Name).HasMaxLength(PlanningExecutionConsts.MaxNameLength);
             b.Property(t => t.Remarks).HasMaxLength(PlanningExecutionConsts.MaxRemarksLength);
@@ -141,6 +143,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.HasIndex(t => new { t.TenantId, t.Status, t.TripDate });
             b.HasIndex(t => new { t.TenantId, t.CarrierRelationId });
             b.HasIndex(t => new { t.TenantId, t.PlannedDepartureUtc });
+            /* Design 68 §1: the Scheduler's window overlap reads both ends. */
+            b.HasIndex(t => new { t.TenantId, t.PlannedArrivalUtc });
             b.HasIndex(t => new { t.TenantId, t.CreatedFromOrderId });
             b.HasIndex(t => t.TransportTripTypeId);
             b.HasIndex(t => t.Number, "IX_TransportTrips_Number_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
@@ -154,6 +158,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.ConfigureByConvention();
             b.HasKey(v => new { v.TripId, v.Position });
             b.HasIndex(v => v.VehicleId);
+            /* Design 68 §1: the Scheduler's bars per vehicle row. */
+            b.HasIndex(v => new { v.TenantId, v.VehicleId });
         });
 
         builder.Entity<TripDriver>(b =>
@@ -162,6 +168,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.ConfigureByConvention();
             b.HasKey(d => new { d.TripId, d.Position });
             b.HasIndex(d => d.DriverId);
+            /* Design 68 §1: the Scheduler's bars per driver row. */
+            b.HasIndex(d => new { d.TenantId, d.DriverId });
         });
 
         builder.Entity<TripStop>(b =>

@@ -178,19 +178,44 @@ public class MasterDataReferences : ITransientDependency
         return rows.ToDictionary(d => d.Id, d => d.Name);
     }
 
+    /// <summary>Vehicle display names ("name (plate)"), one batched lookup per 500 ids (design 68 Scheduler names).</summary>
+    public async Task<Dictionary<Guid, string>> VehicleNamesAsync(IEnumerable<Guid> ids)
+    {
+        var keys = ids.Where(id => id != Guid.Empty).Distinct().ToList();
+        var rows = new List<MasterDataReferenceDto>();
+        foreach (var chunk in keys.Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetReferencesAsync(MasterDataReferenceKind.Vehicle, chunk));
+        }
+
+        return rows.ToDictionary(r => r.Id, r => r.Name);
+    }
+
+    /// <summary>The relation marked as the own company, or null.</summary>
+    public async Task<Guid?> OwnCompanyIdAsync() => (await _lookup.GetOwnCompanyAsync())?.Id;
+
     public Task<MasterDataIncompatibilitiesDto> IncompatibilitiesAsync(IReadOnlyCollection<Guid> temperatureIds, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Guid> transportUnitIds)
         => _lookup.GetIncompatibilitiesAsync(temperatureIds, productIds, transportUnitIds);
 
-    /// <summary>The vehicle ids of a trip: the combination's active members, or the trip's own vehicle ids.</summary>
+    /// <summary>
+    /// The vehicle ids of a trip: its stored vehicle rows (design 68 §1: a combination's members are stored too), else, for a
+    /// trip saved with a combination before its members were stored, the combination's active members.
+    /// </summary>
     public async Task<List<Guid>> TripVehicleIdsAsync(Guid? combinationId, IEnumerable<Guid> vehicleIds)
     {
+        var stored = vehicleIds.ToList();
+        if (stored.Count > 0)
+        {
+            return stored;
+        }
+
         if (combinationId != null)
         {
             var combinations = await CombinationsAsync([combinationId]);
             return combinations.TryGetValue(combinationId.Value, out var combination) ? combination.VehicleIds : [];
         }
 
-        return vehicleIds.ToList();
+        return stored;
     }
 
     /// <summary>

@@ -454,6 +454,12 @@ public class TransportTripListRequestDto : ReferenceDataListRequestDto
 
     public Guid? OrganizationUnitId { get; set; }
 
+    /// <summary>Design 68: trips of any of these organisation units (the Planboard's trips pane); empty = all.</summary>
+    public List<Guid>? OrganizationUnitIds { get; set; }
+
+    /// <summary>Design 68: only these trips (live-update refetch), at most 200.</summary>
+    public List<Guid>? Ids { get; set; }
+
     /// <summary>Null: only trips that are not archived; true: only archived; false: not archived.</summary>
     public bool? IsArchived { get; set; }
 

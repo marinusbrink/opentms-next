@@ -175,6 +175,10 @@ public class OrderLegGeneration : ITransientDependency
             await _trips.RecomposeAsync(trip, [orderId], "LegChangedAfterPlanning");
         }
 
+        /* Design 68 "Live updates": the legs this order's facts created, changed or deleted (sent after the commit). */
+        await _trips.Notices.LegsAsync(result.Created.Concat(result.Updated));
+        await _trips.Notices.LegsAsync(result.Deleted, deleted: true);
+
         var changed = result.Created.Count + result.Updated.Count + result.Deleted.Count;
         if (changed == 0)
         {

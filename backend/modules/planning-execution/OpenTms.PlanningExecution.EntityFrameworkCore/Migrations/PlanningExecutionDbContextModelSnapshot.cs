@@ -513,6 +513,8 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Number"), false);
 
+                    b.HasIndex("TenantId", "PlannedArrivalUtc");
+
                     b.HasIndex("TenantId", "PlannedDepartureUtc");
 
                     b.HasIndex("TenantId", "Status", "TripDate");
@@ -771,6 +773,8 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 
                     b.HasIndex("DriverId");
 
+                    b.HasIndex("TenantId", "DriverId");
+
                     b.ToTable("TripDrivers", "planning", t =>
                         {
                             t.HasCheckConstraint("CK_TripDrivers_Position", "\"Position\" >= 1 AND \"Position\" <= 3");
@@ -897,6 +901,9 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("FromCombination")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("TenantId")
                         .HasColumnType("uuid")
                         .HasColumnName("TenantId");
@@ -907,6 +914,8 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     b.HasKey("TripId", "Position");
 
                     b.HasIndex("VehicleId");
+
+                    b.HasIndex("TenantId", "VehicleId");
 
                     b.ToTable("TripVehicles", "planning", t =>
                         {

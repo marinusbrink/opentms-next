@@ -183,6 +183,47 @@ public class LegListRequestDto : ReferenceDataListRequestDto
     public DateOnly? DateTo { get; set; }
 
     public Guid? CustomerRelationId { get; set; }
+
+    /// <summary>
+    /// Design 68, assumption 1: the organisation units of the unplanned list. A leg is filtered by its order's organisation
+    /// unit snapshot where it carries one; legs carry none yet, so every leg shows under every unit (legacy behaviour).
+    /// </summary>
+    public List<Guid>? OrganizationUnitIds { get; set; }
+
+    /// <summary>Design 68: only these legs (live-update refetch), at most 200.</summary>
+    public List<Guid>? Ids { get; set; }
+
+    /// <summary>
+    /// Design 68, PO decision D18: the grouping of the unplanned list, one of <c>origindate</c>, <c>customer</c>,
+    /// <c>origincity</c>, <c>destinationcity</c>. <c>GET leg/groups</c> returns the groups with their counts; the list itself
+    /// returns the legs of the group <see cref="GroupKey"/> names.
+    /// </summary>
+    [MaxLength(32)]
+    public string? GroupBy { get; set; }
+
+    /// <summary>The key of one group as <c>GET leg/groups</c> returns it (a date yyyy-MM-dd, a customer id, a city; empty = none).</summary>
+    [MaxLength(PlanningExecutionConsts.MaxGroupKeyLength)]
+    public string? GroupKey { get; set; }
+}
+
+/// <summary>One group of the unplanned leg list (design 68, D18): its key, a display label and the number of legs.</summary>
+public class LegGroupDto
+{
+    /// <summary>The value to send back as <see cref="LegListRequestDto.GroupKey"/>; empty for the legs without a value.</summary>
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>The customer's name for the customer grouping; the key otherwise; null for the empty group.</summary>
+    public string? Label { get; set; }
+
+    public long Count { get; set; }
+}
+
+/// <summary>Design 68 §7: part of an unplanned leg's quantity moves to a new unplanned leg of the same line.</summary>
+public class LegSplitLineDto
+{
+    /// <summary>The quantity the new leg takes (0 &lt; q &lt; the leg's quantity).</summary>
+    [Required]
+    public decimal Quantity { get; set; }
 }
 
 /// <summary>
@@ -219,4 +260,13 @@ public interface ILegAppService : IApplicationService
 
     /// <summary><c>POST /api/planning/leg/{id}/remove-split</c> on either half: returns the restored leg A→B.</summary>
     Task<LegDto> UndoSplitAtAddressAsync(Guid id);
+
+    /// <summary><c>GET /api/planning/leg/groups</c>: the groups of the list (design 68, D18), paged by StartRow/EndRow.</summary>
+    Task<GridResponse<LegGroupDto>> GetGroupsAsync(LegListRequestDto input);
+
+    /// <summary><c>POST /api/planning/leg/{id}/split-line</c> on an unplanned leg (design 68 §7): returns the new leg.</summary>
+    Task<LegDto> SplitLineAsync(Guid id, LegSplitLineDto input);
+
+    /// <summary><c>POST /api/planning/leg/{id}/return-leg</c> on an unplanned leg (design 68 §7): returns the mirrored leg.</summary>
+    Task<LegDto> ReturnLegAsync(Guid id);
 }
