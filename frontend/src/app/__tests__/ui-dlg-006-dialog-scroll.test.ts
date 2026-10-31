@@ -32,6 +32,11 @@ const BOUNDED = /(?<![\w-])(?:[a-z0-9-]+:)*(?:min-h-0|max-h-[\w[\]().%-]+)(?![\w
 /** Scroll regions in feature code, keyed by file and the exact token, each with why it is a region inside a panel. */
 const ALLOWED: { file: string; token: string; reason: string }[] = [
   {
+    file: "apps/admin/email/EmailSettingsView.tsx",
+    token: "overflow-auto",
+    reason: "UI-PAGE-006: the body of a settings page (design 64, the host's e-mail settings) is min-h-0 flex-1 overflow-auto under its command bar",
+  },
+  {
     file: "apps/transport/wizards/MaterialiseDetails.tsx",
     token: "overflow-y-auto",
     reason: "the list of orders to create (dates x copies, up to hundreds) beside the chosen order's details in the wizard's Details step: capped at max-h-72",

@@ -12,7 +12,7 @@ namespace OpenTms.EntityFrameworkCore.Platform.Features;
 
 /// <summary>
 /// The app and navigation feature definitions through the real definition manager (PO decision 2026-10-14,
-/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group): 66 toggles in the "Apps" group, each a child of the node
+/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group; design 64, the host-only E-mail view): 67 toggles in the "Apps" group, each a child of the node
 /// above it so an edition's Features tab shows the tree, with the PO's defaults; the old ad-hoc features are gone.
 /// Risk class: High — a wrong default switches a screen on or off for every tenant without a stored value.
 /// </summary>
@@ -92,15 +92,16 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.Administration.AuditLogs.FunctionalLogbook"] = ("Apps.Administration.AuditLogs", "true"),
         ["Apps.Administration.AuditLogs.TechnicalLogbook"] = ("Apps.Administration.AuditLogs", "true"),
         ["Apps.Administration.Maintenance"] = ("Apps.Administration", "false"),
+        ["Apps.Administration.Email"] = ("Apps.Administration", "false"),
     };
 
     [Fact]
-    public async Task The_Apps_group_holds_exactly_the_66_tree_features()
+    public async Task The_Apps_group_holds_exactly_the_67_tree_features()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var group = (await manager.GetGroupsAsync()).Single(g => g.Name == AppFeatures.GroupName);
 
-        Expected.Count.ShouldBe(66);
+        Expected.Count.ShouldBe(67);
         group.GetFeaturesWithChildren().Select(f => f.Name).ShouldBe(Expected.Keys, ignoreOrder: true);
         group.Features.Select(f => f.Name).ShouldBe(Expected.Where(e => e.Value.Parent == null).Select(e => e.Key), ignoreOrder: true);
     }

@@ -130,13 +130,13 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 66 features as the backend's AppFeatures", () => {
+  it("names the same 67 features as the backend's AppFeatures", () => {
     /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(66);
-    expect(new Set(names).size).toBe(66);
+    expect(names).toHaveLength(67);
+    expect(new Set(names).size).toBe(67);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(66);
+    expect(backend).toHaveLength(67);
     expect([...names].sort()).toEqual([...backend].sort());
   });
 
@@ -247,7 +247,7 @@ describe("createAppFeatureChecker – tenant side", () => {
   });
 
   it("Administration on a tenant respects its values", () => {
-    const checker = tenant({ ...allOn(admin), "Apps.Administration.Users": "false", "Apps.Administration.Maintenance": "false" });
+    const checker = tenant({ ...allOn(admin), "Apps.Administration.Users": "false", "Apps.Administration.Maintenance": "false", "Apps.Administration.Email": "false" });
     expect(checker.visibleViews(admin).map((v) => v.path)).toEqual(["/admin/roles", "/admin/organization-units", "/admin/logbook"]);
     expect(tenant({}).isAppEnabled(admin)).toBe(false);
   });
@@ -311,9 +311,10 @@ describe("createAppFeatureChecker – host side", () => {
   it("a hostAlwaysEnabled app ignores its feature values on the host", () => {
     const checker = host({ "Apps.Administration": "false", "Apps.Administration.Users": "false" });
     expect(checker.isAppEnabled(admin)).toBe(true);
-    expect(checker.visibleViews(admin)).toHaveLength(5);
+    expect(checker.visibleViews(admin)).toHaveLength(6);
     expect(checker.isPathEnabled(admin, "/admin/users")).toBe(true);
     expect(checker.isPathEnabled(admin, "/admin/maintenance")).toBe(true);
+    expect(checker.isPathEnabled(admin, "/admin/email")).toBe(true);
     expect(checker.firstEnabledPath(admin)).toBe("/admin/users");
   });
 
