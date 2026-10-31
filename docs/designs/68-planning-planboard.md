@@ -107,6 +107,19 @@ on the record channel after commit.
 `LegAppService`: `POST /api/planning/leg/{id}/split-line` and `/return-leg` for an unplanned leg (same rules as on a
 trip, without the trip checks).
 
+## As built (2026-10-31)
+
+ABP's conventional controllers give the routes their shape: commands are `POST /api/planning/planboard/{id}/reschedule`,
+`/{id}/change-resource`, `/{id}/driver`, `/{id}/set-field`, `/{id}/assign-legs`, `/{id}/unassign-legs`, `/{id}/complete`,
+`/{id}/optimize-stops` (explicit controller for the 202) and `POST /api/planning/planboard/trip`; reads are
+`GET scheduler`, `scheduler-bars`, `{id}/map`, `map-trips`, `unplanned-near`, `resource-drivers`, `resource-vehicles`;
+leg groups are `GET /api/planning/leg/groups`; working patterns are `PUT /api/planning/resource-availability/patterns`
+with kind and resource in the body. Every `?ids=` filter of a GET takes at most 100 ids (`MaxIdsPerQuery`: 100 GUIDs keep
+the request line under Kestrel's 8 KB), including the availability list's `resourceIds`. The Planboard's Orders pane
+reads `GET /api/orders/planboard-order` (Orders, gated on `Apps.Planboard.Orders`; filters on the first-to-last stop
+dates and several organisation units), because the Transport order list is gated on the Transport app. The trip row
+carries `ConcurrencyStamp`, `Remarks` and `DriverInstructions` for the trips pane's inline edits.
+
 ## API contract — reads
 
 All reads are SQL projections, keyset or offset paging ≤ 200 rows, nothing calculated.
