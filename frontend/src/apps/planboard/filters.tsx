@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { clampRange, defaultBoardRange, isValidRange, MAX_BOARD_RANGE_DAYS, type PlanboardRange } from "@/apps/planboard/range";
-import { usePaneSettings } from "@/apps/planboard/settings-store";
+import { usePaneSettings, usePersistedBoardFilters, type StoredBoardFilters } from "@/apps/planboard/settings-store";
 
 /* The board-wide filters of the Planboard (design 70, "Workspace"): the date range (at most 92 days, default today …
  * today + 6) and the organisation units. Every pane follows them unless its own "Use board filter" toggle is off; then
@@ -32,6 +32,10 @@ export function PlanboardFiltersProvider({ children, initial }: { children: Reac
     [],
   );
   const setBoardOrganizationUnitIds = useCallback((ids: readonly string[]) => setBoard((b) => ({ ...b, organizationUnitIds: [...new Set(ids)] })), []);
+
+  /* The board filters live in the layout record (design 70 "Persistence"): restored once, saved on every change. */
+  const persisted = useMemo<StoredBoardFilters>(() => ({ range: board.range, organizationUnitIds: [...board.organizationUnitIds] }), [board]);
+  usePersistedBoardFilters(persisted, useCallback((stored: StoredBoardFilters) => setBoard({ range: stored.range, organizationUnitIds: stored.organizationUnitIds }), []));
 
   const value = useMemo(() => ({ board, setBoardRange, setBoardOrganizationUnitIds }), [board, setBoardRange, setBoardOrganizationUnitIds]);
   return <PlanboardFiltersContext.Provider value={value}>{children}</PlanboardFiltersContext.Provider>;

@@ -73,9 +73,39 @@ function isBounds(value: unknown): value is MapBounds {
 /**
  * The computed value of a theme token (`--brand`, `--tone-danger-fg`, …) for MapLibre paint properties, which cannot
  * read CSS variables. The brand is set at runtime by the tenant theme, so read it when painting, not at module load.
+ * MapLibre parses only hex, rgb(a), hsl(a) and named colours; tokens written in another syntax (the shadcn tokens are
+ * oklch) are converted to rgba through a one-pixel canvas. Without a canvas (tests) the raw value is returned.
  */
 export function tokenColor(token: `--${string}`, element: Element = document.documentElement): string {
-  return getComputedStyle(element).getPropertyValue(token).trim();
+  return toMapColor(getComputedStyle(element).getPropertyValue(token).trim());
+}
+
+const mapColors = new Map<string, string>();
+let colorCanvas: CanvasRenderingContext2D | null | undefined;
+
+/** A CSS colour as MapLibre can parse it (hex, rgb and hsl pass unchanged; anything else becomes `rgba(…)`). */
+export function toMapColor(value: string): string {
+  if (!value || /^(#|rgba?\(|hsla?\()/i.test(value)) return value;
+  const cached = mapColors.get(value);
+  if (cached) return cached;
+  if (colorCanvas === undefined) {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      colorCanvas = canvas.getContext("2d", { willReadFrequently: true });
+    } catch {
+      colorCanvas = null;
+    }
+  }
+  if (!colorCanvas) return value;
+  colorCanvas.clearRect(0, 0, 1, 1);
+  colorCanvas.fillStyle = value;
+  colorCanvas.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = colorCanvas.getImageData(0, 0, 1, 1).data;
+  const result = `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 1000) / 1000})`;
+  mapColors.set(value, result);
+  return result;
 }
 
 export interface MapViewProps {
