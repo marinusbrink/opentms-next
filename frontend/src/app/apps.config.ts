@@ -420,6 +420,15 @@ export const APPS: readonly AppDefinition[] = [
         ],
       },
       { nameKey: "Administration:Maintenance", path: "/admin/maintenance", icon: Wrench, feature: "Apps.Administration.Maintenance" },
+      /* Design 64: the host's e-mail settings, one configuration for every tenant. Host only through its host-side
+       * permission; its feature exists because every nav node has one, and is off for tenants. */
+      {
+        nameKey: "Administration:EmailSettings",
+        path: "/admin/email",
+        icon: Mail,
+        feature: "Apps.Administration.Email",
+        requiredPermission: "Platform.Administration.EmailSettings",
+      },
     ],
   },
 ];

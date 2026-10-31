@@ -65,4 +65,4 @@ reacts to the event, and it changes data through a command (flow 3 in `02-flows.
   describes as the anti-corruption layer (**PROPOSED**, AP-16).
 - **Data:** each fact in the schema of the domain that owns it. Which domain owns positions
   (Planning & Execution has "realtime status" and "track & trace"; Master Data has vehicles)
-  and email status (Platform has mail) is **OPEN** (AO-12).
+  is **OPEN** (AO-12). E-mail status belongs to Platform (**DECIDED**, AD-20; built in design 64).

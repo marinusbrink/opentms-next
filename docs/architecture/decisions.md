@@ -28,6 +28,7 @@ Dates are the session in which the PO decided. "Detail" names the file that expl
 | AD-17 | This architecture is built into opentms-next. No new repository. | 2026-10-09 | — | — |
 | AD-18 | ABP's application services are the command layer. No separate command pipeline. (Follows from the department's "ABP conventions over own inventions".) | 2026-10-09 | Yes | `01` |
 | AD-19 | The logistics operating system is a **separate app** in the app bar, named **LOS**: it runs the planning department through AI agents and workflows. It replaces the working name "Steering". The old "LOS" in the domain map's Reporting row is retired. | 2026-10-10 | No | `06`, `/CLAUDE.md` |
+| AD-20 | Platform owns the e-mail send log and its delivery status (was AO-12 for e-mail). The mail-service adapter and its webhook live in Integrations. | 2026-10-30 | Yes (design 64) | `07`, `05` |
 | AD-20 | Allocated values (cost, revenue, CO₂ per leg) are stored on Planning & Execution's legs as derived values written by a Planning calculator that reads Financial's published rate-line contract; anchors of rate lines are ids without foreign keys. Closes AO-11 (PO 2026-10-25, transport assessment Q1). | 2026-10-25 | Design 56–59 (this PR) | `04`, design 56 |
 
 ## Proposed, not confirmed by the PO (AP)
@@ -70,7 +71,7 @@ A design that depends on one of these reports it on the issue and stops.
 | AO-08 | Cloud Tasks instead of Hangfire for one-off work. | `05` |
 | AO-09 | The fixed list of report types that become an event. | `07` |
 | AO-10 | What happens to an event that keeps failing (no dead-letter store exists). | `03` |
-| AO-12 | Which domain owns vehicle positions and email status. | `07` |
+| AO-12 | Which domain owns vehicle positions. (E-mail status: decided, AD-20.) | `07` |
 | AO-13 | Whether "per client" in the autonomy ladder means the tenant or the tenant's own customers. | `06` |
 
 ## Superseded: do not use

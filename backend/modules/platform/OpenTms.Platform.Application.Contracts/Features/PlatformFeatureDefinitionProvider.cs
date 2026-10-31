@@ -90,11 +90,15 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(auditLogs, AppFeatures.Administration.AuditLogs.FunctionalLogbook);
         On(auditLogs, AppFeatures.Administration.AuditLogs.TechnicalLogbook);
         Off(administration, AppFeatures.Administration.Maintenance);
+        /* Design 64: a host-only view; off, and its host-side permissions keep it from tenants anyway. */
+        Off(administration, AppFeatures.Administration.Email);
 
         /* Behaviour features, outside the app tree. Document rendering (design 50) is off by default: switched on per
          * tenant or edition once the deployment holds the provider's key and secret. */
         var platformGroup = context.AddGroup(PlatformFeatures.GroupName, L("Feature:" + PlatformFeatures.GroupName));
         Off(platformGroup, PlatformFeatures.DocumentRendering);
+        /* E-mail delivery (design 64) likewise, once the deployment holds the mail service's token. */
+        Off(platformGroup, PlatformFeatures.EmailDelivery);
     }
 
     private static FeatureDefinition On(FeatureGroupDefinition group, string name) => Add(group, name, "true");

@@ -84,11 +84,15 @@ public class AuthorizationCoverageTests
     }
 
     /// <summary>
-    /// The deliberate anonymous HTTP endpoints of our own assemblies ("Type.Method", or "Type" for a whole class). Empty:
-    /// the anonymous endpoints of the product (account login pages, application configuration, localization, health)
+    /// The deliberate anonymous HTTP endpoints of our own assemblies ("Type.Method", or "Type" for a whole class). The
+    /// other anonymous endpoints of the product (account login pages, application configuration, localization, health)
     /// are ABP's or mapped endpoints, not ours. Adding one here is a design decision.
     /// </summary>
-    private static readonly HashSet<string> AnonymousHttpEndpoints = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> AnonymousHttpEndpoints = new(StringComparer.Ordinal)
+    {
+        /* Design 64: Postmark's delivery webhooks; Postmark has no OpenTMS identity, the processor checks its Basic credentials. */
+        "OpenTms.Controllers.Integrations.PostmarkWebhookController.ReceiveAsync"
+    };
 
     /// <summary>The published readers known today; the guard fails when it no longer finds them (a moved namespace).</summary>
     private static readonly string[] KnownPublishedReaders =

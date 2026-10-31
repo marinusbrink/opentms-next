@@ -31,7 +31,9 @@ navigatiepaneel links heeft twee onderdelen:
    daarvoor het recht nodig om edities aan te maken.
 4. Vul het **E-mailadres beheerder** in. Op dat adres ontvangt de beheerder van de tenant
    een e-mail met een link om zelf een wachtwoord te kiezen. Er wordt nooit een wachtwoord
-   gemaild.
+   gemaild. De e-mail wordt alleen echt verstuurd als de functie **E-mailverzending** voor de
+   tenant aan staat; staat die uit, dan wordt de uitnodiging alleen gelogd. Je kunt de
+   uitnodiging later opnieuw versturen.
 5. Onder **Database** zie je de connection string die de tenant krijgt. Die wordt
    gegenereerd en kun je niet wijzigen. Het wachtwoord is verborgen; de x'en in de naam
    worden bij het opslaan een deel van het tenant-id.
@@ -172,6 +174,7 @@ Financieel, verschijnen hier zodra hun eerste lijst er is.
 | Technisch logboek | `Apps.Administration.AuditLogs.TechnicalLogbook` | Groep Auditlogboeken | aan |
 | Onderhoud | `Apps.Administration.Maintenance` | App Beheer | uit |
 | Adres opzoeken op postcode | `Integrations.AddressLookup` | | uit |
+| E-mailverzending | `Platform.EmailDelivery` | | uit |
 | Instellingenbeheer inschakelen | `SettingManagement.Enable` | | aan |
 | E-mailinstellingen mogen wijzigen | `SettingManagement.AllowChangingEmailSettings` | Instellingenbeheer inschakelen | uit |
 

@@ -10,9 +10,9 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(Array.isArray(adminApp.views)).toBe(true);
   });
 
-  it("admin app has five views: Users, Roles, Organization units, Audit logs with the two logbooks, and Maintenance", () => {
-    expect(adminApp.views).toHaveLength(5);
-    const [users, roles, organizationUnits, auditLogs, maintenance] = adminApp.views!;
+  it("admin app has six views: Users, Roles, Organization units, Audit logs with the two logbooks, Maintenance and E-mail", () => {
+    expect(adminApp.views).toHaveLength(6);
+    const [users, roles, organizationUnits, auditLogs, maintenance, email] = adminApp.views!;
     expect(users.path).toBe("/admin/users");
     expect(users.nameKey).toBe("Administration:Users");
     expect(roles.path).toBe("/admin/roles");
@@ -28,6 +28,11 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(technicalLogbook.nameKey).toBe("Administration:TechnicalLogbook");
     expect(maintenance.path).toBe("/admin/maintenance");
     expect(maintenance.nameKey).toBe("Administration:Maintenance");
+    /* Design 64: host only through its host-side permission. */
+    expect(email.path).toBe("/admin/email");
+    expect(email.nameKey).toBe("Administration:EmailSettings");
+    expect(email.feature).toBe("Apps.Administration.Email");
+    expect(email.requiredPermission).toBe("Platform.Administration.EmailSettings");
   });
 
   it("each admin view has a non-null icon (React component)", () => {

@@ -67,6 +67,7 @@ const adminSubRoutes = [
   "/admin/logbook/functional",
   "/admin/logbook/technical",
   "/admin/maintenance",
+  "/admin/email",
 ].map((path) =>
   createRoute({
     getParentRoute: () => shellRoute,

@@ -70,8 +70,5 @@ public class OpenTmsDomainModule : AbpModule
 
 
 
-#if DEBUG
-        context.Services.Replace(ServiceDescriptor.Singleton<IEmailSender, NullEmailSender>());
-#endif
     }
 }

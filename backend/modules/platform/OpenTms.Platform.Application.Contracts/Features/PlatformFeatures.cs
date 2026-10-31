@@ -14,4 +14,11 @@ public static class PlatformFeatures
     /// Platform, not Integrations, because Platform's renderer checks it and Platform references no domain module.
     /// </summary>
     public const string DocumentRendering = GroupName + ".DocumentRendering";
+
+    /// <summary>
+    /// E-mail delivery through the send log and the mail service (design 64): a tenant's mail is sent and tracked, off
+    /// until the deployment holds the mail service's token and webhook credentials (constitution rule 4). Off: the mail is
+    /// logged, not sent, as before.
+    /// </summary>
+    public const string EmailDelivery = GroupName + ".EmailDelivery";
 }
