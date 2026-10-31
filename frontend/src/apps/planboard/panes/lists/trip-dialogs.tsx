@@ -9,11 +9,10 @@ import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { ContactPersonField, RelationField, relationOptionOf } from "@/domains/master-data/components/RelationFields";
 import { DriversField, VehicleCombinationField, VehiclesField } from "@/domains/master-data/components/ResourceFields";
 import type { DriverOption, RelationOption, VehicleOption } from "@/domains/master-data/entities";
-import { PLANBOARD_TRIP_FIELD, usePlanboardCompleteTrip, useSetTripField } from "@/domains/planning-execution/planboard-lists";
+import { usePlanboardCompleteTrip } from "@/domains/planning-execution/planboard-lists";
 import { MAX_TRIP_DRIVERS, MAX_TRIP_VEHICLES } from "@/domains/planning-execution/trip-type-presets";
 import { useSetTripCarrier, useSetTripDrivers, useSetTripVehicles, useTransportTrip, type TransportTripDto, type TransportTripRow } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
@@ -21,9 +20,8 @@ import { parseTimeOfDay } from "@/domains/orders/reference-data";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The dialogs of the trips pane (design 70 "Transport trips"): complete with the actual departure and arrival (the
- * Planboard's complete command, P:Q17), the trip's carrier / vehicles / drivers (the existing set commands of design 59)
- * and its remarks and driver instructions (the header-field command; the list row carries neither, so the dialog reads
- * the trip). Errors show inside the dialog (UI-FB-004); success closes, confirms and hands over to the pane's refresh. */
+ * Planboard's complete command, P:Q17, with the row's concurrency stamp) and the trip's carrier / vehicles / drivers (the
+ * existing set commands of design 59). Remarks and driver instructions are edited inline in the pane. Errors show inside the dialog (UI-FB-004); success closes, confirms and hands over to the pane's refresh. */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
@@ -80,7 +78,7 @@ export function CompleteTripDialog({ trip, onClose, onDone }: { trip: TransportT
     }
     setError(null);
     try {
-      await complete.mutateAsync({ tripId: trip.id!, actualDeparture, actualArrival });
+      await complete.mutateAsync({ tripId: trip.id!, concurrencyStamp: trip.concurrencyStamp, actualDeparture, actualArrival });
       toast.success(t("PlanningExecution:TransportTripCompleted"));
       onClose();
       onDone();
@@ -228,68 +226,6 @@ function TripResourcesForm({ trip, kind, title, onClose, onDone }: { trip: Trans
             createDisabled={busy}
           />
         )}
-      </form>
-    </EntityDialog>
-  );
-}
-
-/** Remarks and driver instructions of a trip (the header-field command, one call per changed field). */
-export function TripRemarksDialog({ tripId, onClose, onDone }: { tripId: string; onClose: () => void; onDone: () => void }) {
-  const { t } = useL();
-  const trip = useTransportTrip(tripId);
-  const title = t("Planboard:Lists.EditRemarks");
-  if (!trip.data) {
-    return (
-      <EntityDialog open onOpenChange={(next) => !next && onClose()} variant="action" size="sm" title={title} footer={<Button type="button" variant="outline" onClick={onClose}>{t("Cancel")}</Button>}>
-        {trip.isError ? <ErrorAlert message={getApiErrorMessage(trip.error, t)} /> : <Skeleton className="h-24 w-full" />}
-      </EntityDialog>
-    );
-  }
-  return <TripRemarksForm trip={trip.data} title={title} onClose={onClose} onDone={onDone} />;
-}
-
-function TripRemarksForm({ trip, title, onClose, onDone }: { trip: TransportTripDto; title: string; onClose: () => void; onDone: () => void }) {
-  const { t } = useL();
-  const setField = useSetTripField();
-  const [remarks, setRemarks] = useState(trip.remarks ?? "");
-  const [instructions, setInstructions] = useState(trip.driverInstructions ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const busy = setField.isPending;
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    try {
-      /* One unit of work per field; the second reads the stamp the first one left. */
-      if (remarks.trim() !== (trip.remarks ?? "").trim()) await setField.mutateAsync({ tripId: trip.id!, field: PLANBOARD_TRIP_FIELD.Remarks, value: remarks.trim() || null });
-      if (instructions.trim() !== (trip.driverInstructions ?? "").trim())
-        await setField.mutateAsync({ tripId: trip.id!, field: PLANBOARD_TRIP_FIELD.DriverInstructions, value: instructions.trim() || null });
-      toast.success(t("PlanningExecution:TransportTripSaved"));
-      onClose();
-      onDone();
-    } catch (err) {
-      setError(getApiErrorMessage(err, t));
-    }
-  };
-
-  return (
-    <EntityDialog
-      open
-      onOpenChange={(next) => !next && onClose()}
-      variant="action"
-      size="sm"
-      title={`${title} ${trip.number ?? ""}`}
-      isBusy={busy}
-      footer={<DialogFooter busy={busy} onCancel={onClose} form="planboard-trip-remarks" label={t("Save")} busyLabel={t("Saving")} />}
-    >
-      <form id="planboard-trip-remarks" onSubmit={(e) => void submit(e)} noValidate className="grid grid-cols-1 gap-3">
-        <ErrorAlert message={error} />
-        <FormField label={t("PlanningExecution:Remarks")} htmlFor="planboard-trip-remarks-text" floating="always">
-          <Textarea id="planboard-trip-remarks-text" rows={3} maxLength={2500} value={remarks} onChange={(e) => setRemarks(e.target.value)} disabled={busy} />
-        </FormField>
-        <FormField label={t("PlanningExecution:DriverInstructions")} htmlFor="planboard-trip-instructions" floating="always">
-          <Textarea id="planboard-trip-instructions" rows={3} maxLength={2500} value={instructions} onChange={(e) => setInstructions(e.target.value)} disabled={busy} />
-        </FormField>
       </form>
     </EntityDialog>
   );

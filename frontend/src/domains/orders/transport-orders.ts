@@ -175,6 +175,37 @@ export async function fetchTransportOrders(request: GridRequest, filters: Transp
   return toPage<TransportOrderRow>(data);
 }
 
+/** The filters of the Planboard's Orders pane (`GET /api/orders/planboard-order`): the planned range (dates) and
+ * every chosen organisation unit; no unit means every unit. */
+export interface PlanboardOrderListFilters {
+  status?: TransportOrderStatus[];
+  plannedFrom?: string;
+  plannedTo?: string;
+  organizationUnitIds?: string[];
+}
+
+/** One page of the Planboard's Orders pane: the orders planned in the range, on any of the units. */
+export async function fetchPlanboardOrders(request: GridRequest, filters: PlanboardOrderListFilters): Promise<GridResponse<TransportOrderRow>> {
+  const sort = request.sortModels[0];
+  const { data, error } = await apiClient.GET("/api/orders/planboard-order", {
+    params: {
+      query: {
+        StartRow: request.startRow,
+        EndRow: request.endRow,
+        WildcardSearch: request.wildcardSearch ?? undefined,
+        SortBy: sort?.colId,
+        SortDir: sort?.sort,
+        Status: filters.status && filters.status.length > 0 ? filters.status : undefined,
+        PlannedFrom: filters.plannedFrom || undefined,
+        PlannedTo: filters.plannedTo || undefined,
+        OrganizationUnitIds: filters.organizationUnitIds && filters.organizationUnitIds.length > 0 ? filters.organizationUnitIds : undefined,
+      },
+    },
+  });
+  if (error) throw error;
+  return toPage<TransportOrderRow>(data);
+}
+
 /** The grid fetcher of the Orders list; stable while the filters are the same (the grid refetches on a new one). */
 export function useTransportOrdersGridFetcher(filters: TransportOrderListFilters) {
   const key = JSON.stringify(filters);

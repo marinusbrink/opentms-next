@@ -16,6 +16,22 @@ gebruiker; de volgende keer staan ze weer zo.
 Wijzigingen van collega's verschijnen vanzelf in de lijsten. Kom je terug in het venster of was
 de verbinding even weg, dan halen de lijsten opnieuw op wat je ziet.
 
+### Een rit openen
+
+Dubbelklik je ergens op het planbord op een rit (of kies je **Rit openen**), dan opent de rit in
+de Transport-app. Heeft je organisatie de Transport-app niet, dan schuift rechts een paneel open
+met de rit: de gegevens van de rit, de voertuigen en chauffeurs, de stops en de legs. Dat paneel
+is alleen om te lezen; wijzigen doe je in de lijsten en de planner van het planbord. Sluit het
+met het kruisje of Esc.
+
+### Legs buiten het ritvenster
+
+Sleep je legs naar een rit terwijl hun datums buiten het venster van die rit vallen, dan vraagt
+het planbord eerst **Buiten het ritvenster plannen?** en noemt het het venster van de rit. Kies
+**Toch plannen** om de legs toch aan de rit toe te voegen, of breek af: dan blijven de legs waar
+ze waren. Dit geldt overal waar je legs op een rit zet: in *Transportritten*, de planner en de
+kaart.
+
 ---
 
 ## Transportritten
@@ -26,19 +42,20 @@ De ritten waarvan de geplande uitvoering in de periode valt (gearchiveerde ritte
   planbord en is de nieuwe rit geselecteerd.
 - **Klik** op een rit om hem te selecteren: *Ritstops*, *Legs* en de kaart tonen dan die rit.
   Selecteer je meerdere ritten, dan blijven zij de laatst enkel geselecteerde rit tonen.
-- **Dubbelklik** (of Enter) opent de rit in de Transport-app.
-- **Naam**: ga op de cel staan en klik op het potlood. Enter of verder klikken slaat op, Esc
-  breekt af.
+- **Dubbelklik** (of Enter) opent de rit (zie *Een rit openen*).
+- **Naam**, **Opmerkingen** en **Chauffeursinstructies**: ga op de cel staan en klik op het
+  potlood. Enter of verder klikken slaat op, Esc breekt af.
 - **Vervoerder**, **Voertuigen** en **Chauffeurs**: het potlood in de cel opent een klein venster
   om ze te wijzigen (alleen bij geplande of lopende ritten).
-- Met de rechtermuisknop: **Rit openen**, **Opmerkingen en chauffeursinstructies**, **Middelen**
+- Met de rechtermuisknop: **Rit openen**, **Middelen**
   (vervoerder, voertuigen, chauffeurs), **Starten**, **Afronden** (je vult het werkelijke vertrek
   en de werkelijke aankomst in; stops zonder werkelijke tijden krijgen die ingevuld), **Stops
   optimaliseren** (de nieuwe volgorde verschijnt zodra de berekening klaar is), **Archiveren**
   (afgeronde of geannuleerde ritten), **Rit annuleren** en **Verwijderen**. Annuleren en
   verwijderen vragen eerst om bevestiging.
 - **Sleep legs** uit *Te plannen legs* op een rit om ze toe te wijzen. Komen ze uit *Legs* (van
-  een andere rit), dan worden ze verplaatst.
+  een andere rit), dan worden ze verplaatst. Vallen ze buiten het ritvenster, dan vraagt het
+  planbord eerst of je ze toch wilt plannen.
 - **Sleep een chauffeur** uit *Resources* op een rit om hem toe te voegen (maximaal drie).
 
 Kolommen met berekende waarden (beladingsgraad, afstand, CO₂, kosten, opbrengst) tonen een
@@ -48,9 +65,10 @@ draaiend teken zolang de berekening loopt.
 
 ## Transportorders
 
-De transportorders met een orderdatum in de periode, alleen om te lezen. Dubbelklik opent de
-order in de Transport-app. Kies je precies één organisatie-eenheid, dan toont de lijst alleen
-de orders van die eenheid; bij meerdere eenheden toont hij alle orders.
+De transportorders die in de periode gepland staan, alleen om te lezen. Het gaat om de geplande
+datums van de stops, niet om de orderdatum: een order staat in de lijst als de periode van zijn
+eerste tot zijn laatste stop de periode van het planbord raakt. Kies je organisatie-eenheden,
+dan toont de lijst de orders van al die eenheden. Dubbelklik opent de order in de Transport-app.
 
 Selecteer je één order, dan kun je in *Te plannen legs* **Alleen order …** aanvinken om alleen de
 ongeplande legs van die order te zien.
@@ -98,7 +116,9 @@ De legs zonder rit met een herkomstdatum in de periode.
 - Selecteer legs met de vinkjes en **sleep** ze aan het greepje naar een rit, een rij of balk in
   de planner of de kaart.
 - Met de rechtermuisknop: **Transportorder openen**, **Regel splitsen** (een deel van het aantal
-  gaat naar een nieuwe leg) en **Retourleg**.
+  gaat naar een nieuwe leg), **Leg splitsen op …** en **Retourleg**.
+- **Leg splitsen op …** maakt van de leg twee legs die elkaar treffen op een adres dat je kiest,
+  bijvoorbeeld een depot of overslagpunt. Beide legs blijven in *Te plannen legs* staan.
 - Organisatie-eenheden filteren deze lijst niet: legs hebben (nog) geen eenheid.
 
 ---
@@ -148,9 +168,15 @@ zonder rit en de bezetting.
 - **Sleep over een lege plek** in een rij om daar een nieuwe rit te maken. Je kiest het
   rittype; het standaard rittype staat al klaar.
 - **Sleep legs** uit *Te plannen legs* op een lege plek in een rij: er komt een
-  nieuwe rit met die legs. Laat je ze op een balk los, dan gaan ze naar die rit.
+  nieuwe rit met die legs. Laat je ze op een balk los, dan gaan ze naar die rit. Vallen ze buiten
+  het ritvenster, dan vraagt het planbord eerst of je ze toch wilt plannen.
 - **Sleep een chauffeur** uit *Resources* op een balk om hem aan de rit toe te voegen (maximaal
   drie chauffeurs per rit).
+- **Sleep een chauffeur** op een lege plek in een rij: het venster voor een nieuwe rit opent op
+  die plek, met die chauffeur al ingevuld. Na het opslaan staat de chauffeur op de nieuwe rit.
+  Mag je geen ritten maken, dan kun je een chauffeur alleen op een balk loslaten.
+- **Sleep een balk naar de kaart** aan het greepje vooraan op de balk: de kaart toont dan die
+  rit.
 
 Wijzigingen van collega's verschijnen vanzelf in de planner.
 
@@ -170,6 +196,8 @@ De kaart toont de geselecteerde rit en, als je dat wilt, de andere ritten van de
   tolkilometers en de CO₂-uitstoot. Met **Tol per traject** klap je de toltrajecten uit.
 - **Alle ritten**: elke rit van de periode als lijn van de eerste naar de laatste stop. Klik op
   een lijn om die rit te selecteren.
+- **Een rit uit de planner**: sleep een balk aan zijn greepje naar de kaart om die rit te
+  tonen.
 - **Ongeplande legs in de buurt**: zet dit aan en kies een straal. De ongeplande
   legs bij de stops van de rit verschijnen als ruitjes. Klik op een ruitje en kies
   **Aan rit toevoegen**, of sleep het ruitje naar de samenvatting van de rit.

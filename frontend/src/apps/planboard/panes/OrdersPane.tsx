@@ -10,17 +10,15 @@ import type { GridRequest, GridSelectionDto } from "@/components/ui/opentms-grid
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
-import { EXECUTION_PROGRESSES, ORDER_VIEWS, fetchTransportOrders, orderStatusName, type TransportOrderRow, type TransportOrderStatus } from "@/domains/orders/transport-orders";
+import { EXECUTION_PROGRESSES, fetchPlanboardOrders, orderStatusName, type TransportOrderRow, type TransportOrderStatus } from "@/domains/orders/transport-orders";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
-/* Design 70, "Transport orders": the orders of the board's range (or the pane's own) on Orders' existing list endpoint,
- * read-only; double click or Open opens the order page in the Transport app. A single selected order is offered to Legs
- * to schedule as its "this order" filter.
- *
- * The Orders list filters on one organisation unit only: with exactly one unit chosen the list filters on it, with
- * several it shows every unit (reported; the endpoint takes no list of units). */
+/* Design 70, "Transport orders": the orders planned in the board's range (or the pane's own) on any of the chosen
+ * organisation units, read from Orders' Planboard list (`GET /api/orders/planboard-order`), read-only; double click or
+ * Open opens the order page in the Transport app. A single selected order is offered to Legs to schedule as its "this
+ * order" filter. */
 
 const GRID_ID = "orders.planboard.transportOrders";
 
@@ -36,7 +34,7 @@ export default function OrdersPane({ instanceId }: PlanboardPaneProps) {
   const fetchRows = useCallback(
     async (request: GridRequest) => {
       const { range: r, organizationUnitIds: units } = JSON.parse(filtersKey) as { range: { from: string; till: string }; organizationUnitIds: string[] };
-      const page = await fetchTransportOrders(request, { view: ORDER_VIEWS.all, dateFrom: r.from, dateTo: r.till, organizationUnitId: units.length === 1 ? units[0] : undefined });
+      const page = await fetchPlanboardOrders(request, { plannedFrom: r.from, plannedTo: r.till, organizationUnitIds: units });
       page.rows.forEach((row) => row.id && rows.current.set(row.id, row));
       return page;
     },

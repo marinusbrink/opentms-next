@@ -76,6 +76,16 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     token: "overflow-y-auto",
     reason: "the tags list: a min-h-0 flex-1 region under the fixed caption, hint and filter of the Tags panel",
   },
+  {
+    file: "apps/planboard/panes/ResourcesPane.tsx",
+    token: "overflow-y-auto",
+    reason: "the resource list of the Resources pane (design 70): a min-h-0 flex-1 region of the pane's flex column, above its fixed pager",
+  },
+  {
+    file: "apps/planboard/panes/resources/ResourceDetailPanel.tsx",
+    token: "overflow-y-auto",
+    reason: "the selected resource's availability (design 70): a min-h-0 flex-1 region under the fixed header of the h-full side panel",
+  },
 ];
 
 interface Occurrence {

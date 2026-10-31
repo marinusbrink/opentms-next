@@ -14,6 +14,7 @@ import { APPS, type AppDefinition, type AppView } from "@/app/apps.config";
 
 const masterData = APPS.find((a) => a.id === "master-data")!;
 const transport = APPS.find((a) => a.id === "transport")!;
+const planboard = APPS.find((a) => a.id === "planboard")!;
 const admin = APPS.find((a) => a.id === "admin")!;
 const dashboard = APPS.find((a) => a.id === "dashboard")!;
 const tenants = APPS.find((a) => a.id === "tenants")!;
@@ -130,13 +131,14 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 67 features as the backend's AppFeatures", () => {
-    /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists. */
+  it("names the same 75 features as the backend's AppFeatures", () => {
+    /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists; design 66/70
+     * (PO decision D7) add the Planboard's eight pane nodes. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(67);
-    expect(new Set(names).size).toBe(67);
+    expect(names).toHaveLength(75);
+    expect(new Set(names).size).toBe(75);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(67);
+    expect(backend).toHaveLength(75);
     expect([...names].sort()).toEqual([...backend].sort());
   });
 
@@ -328,9 +330,9 @@ describe("createAppFeatureChecker – host side", () => {
     expect(tenant({ "Apps.Administration": "false" }).isAppEnabled(admin)).toBe(false);
   });
 
-  it("Transport and Master data are tenant-only (PO 2026-10-29): off on the host with every feature on", () => {
-    expect(APPS.filter((app) => app.tenantOnly).map((app) => app.id)).toEqual(["transport", "master-data"]);
-    for (const app of [transport, masterData]) {
+  it("Planboard, Transport and Master data are tenant-only (PO 2026-10-29, design 70): off on the host with every feature on", () => {
+    expect(APPS.filter((app) => app.tenantOnly).map((app) => app.id)).toEqual(["planboard", "transport", "master-data"]);
+    for (const app of [planboard, transport, masterData]) {
       const values = allOn(app);
       expect(host(values).isAppEnabled(app), app.id).toBe(false);
       expect(host(values).visibleViews(app), app.id).toEqual([]);
@@ -341,6 +343,7 @@ describe("createAppFeatureChecker – host side", () => {
     }
     expect(host(allOn(transport)).isPathEnabled(transport, "/transport/orders")).toBe(false);
     expect(host(allOn(masterData)).isFeatureEnabled("Apps.MasterData.General.Relations")).toBe(false);
+    expect(host(allOn(planboard)).isFeatureEnabled("Apps.Planboard.Scheduler")).toBe(false);
     expect(host(on("Apps.Dashboard")).isAppEnabled(dashboard)).toBe(true);
   });
 });

@@ -71,7 +71,6 @@ export function PlanboardToolbar({ enabledTypes, onAddPane, onResetLayout, ready
       <label htmlFor="planboard-units-filter" className="text-label text-muted-foreground">
         {t("Planboard:OrganizationUnits")}
       </label>
-      {/* DEVIATION(UI-LOOK-004): the board's organisation-unit filter, not a form picker (the rule excludes filters), approved in docs/designs/70-planboard-app.md ("Workspace": the board-wide organisation units filter). */}
       <MultiSelect
         id="planboard-units-filter"
         className="w-56"

@@ -11,8 +11,8 @@ import { transportTripKeys, type TransportTripDto, type TransportTripRow } from 
  * (plain, grouped by the D18 whitelist with counts, one group's legs, `?ids=`), and the narrow Planboard commands the
  * list panes run (header field, assign / unassign / move legs, add driver, complete with ATD and ATA, optimise stops) plus
  * the split-line and return-leg commands on an unplanned leg. Every Planboard command carries the trip's concurrency
- * stamp; the list rows carry none, so a command reads the trip first (`readTripStamp`) and a stale stamp is refused by the
- * server (409). After a command the trip's detail, its legs and the leg lists are refetched; the panes patch their rows. */
+ * stamp: the trips list row's (`TransportTripRowDto.concurrencyStamp`) where the caller has the row, otherwise read fresh
+ * from the trip (`readTripStamp`); a stale stamp is refused by the server (409). After a command the trip's detail, its legs and the leg lists are refetched; the panes patch their rows. */
 
 type Schemas = components["schemas"];
 
@@ -196,6 +196,11 @@ export async function readTripStamp(queryClient: QueryClient, tripId: string): P
   return trip.concurrencyStamp ?? "";
 }
 
+/** The stamp a command carries: the caller's (the trips list row's) when it has one, otherwise read fresh. */
+async function stampFor(queryClient: QueryClient, tripId: string, given: string | null | undefined): Promise<string> {
+  return given ? given : readTripStamp(queryClient, tripId);
+}
+
 /** After a command on trips: their details, their legs and the leg lists are stale. */
 function invalidateTrips(queryClient: QueryClient, tripIds: readonly (string | null | undefined)[]) {
   for (const id of tripIds) {
@@ -213,8 +218,8 @@ const tripPath = (id: string) => ({ params: { path: { id } } });
 export function useSetTripField() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tripId, field, value }: { tripId: string; field: PlanboardTripField; value: string | null }): Promise<PlanboardChangeDto> => {
-      const concurrencyStamp = await readTripStamp(queryClient, tripId);
+    mutationFn: async ({ tripId, field, value, concurrencyStamp: rowStamp }: { tripId: string; field: PlanboardTripField; value: string | null; concurrencyStamp?: string | null }): Promise<PlanboardChangeDto> => {
+      const concurrencyStamp = await stampFor(queryClient, tripId, rowStamp);
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/set-field", { ...tripPath(tripId), body: { field, value, concurrencyStamp } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),
@@ -225,8 +230,8 @@ export function useSetTripField() {
 export function useAssignLegsToTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tripId, legIds, allowOutsideWindow }: { tripId: string; legIds: string[]; allowOutsideWindow?: boolean }): Promise<PlanboardChangeDto> => {
-      const concurrencyStamp = await readTripStamp(queryClient, tripId);
+    mutationFn: async ({ tripId, legIds, allowOutsideWindow, concurrencyStamp: rowStamp }: { tripId: string; legIds: string[]; allowOutsideWindow?: boolean; concurrencyStamp?: string | null }): Promise<PlanboardChangeDto> => {
+      const concurrencyStamp = await stampFor(queryClient, tripId, rowStamp);
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/assign-legs", { ...tripPath(tripId), body: { legIds, concurrencyStamp, allowOutsideWindow } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),
@@ -237,8 +242,8 @@ export function useAssignLegsToTrip() {
 export function useUnassignLegsFromTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tripId, legIds }: { tripId: string; legIds: string[] }): Promise<PlanboardChangeDto> => {
-      const concurrencyStamp = await readTripStamp(queryClient, tripId);
+    mutationFn: async ({ tripId, legIds, concurrencyStamp: rowStamp }: { tripId: string; legIds: string[]; concurrencyStamp?: string | null }): Promise<PlanboardChangeDto> => {
+      const concurrencyStamp = await stampFor(queryClient, tripId, rowStamp);
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/unassign-legs", { ...tripPath(tripId), body: { legIds, concurrencyStamp } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),
@@ -259,8 +264,8 @@ export function useMoveLegsToTrip() {
 export function useAddTripDriver() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tripId, driverId }: { tripId: string; driverId: string }): Promise<PlanboardChangeDto> => {
-      const concurrencyStamp = await readTripStamp(queryClient, tripId);
+    mutationFn: async ({ tripId, driverId, concurrencyStamp: rowStamp }: { tripId: string; driverId: string; concurrencyStamp?: string | null }): Promise<PlanboardChangeDto> => {
+      const concurrencyStamp = await stampFor(queryClient, tripId, rowStamp);
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/driver", { ...tripPath(tripId), body: { driverId, concurrencyStamp } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),
@@ -271,8 +276,8 @@ export function useAddTripDriver() {
 export function usePlanboardCompleteTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tripId, actualDeparture, actualArrival }: { tripId: string; actualDeparture: string; actualArrival: string }): Promise<PlanboardChangeDto> => {
-      const concurrencyStamp = await readTripStamp(queryClient, tripId);
+    mutationFn: async ({ tripId, actualDeparture, actualArrival, concurrencyStamp: rowStamp }: { tripId: string; actualDeparture: string; actualArrival: string; concurrencyStamp?: string | null }): Promise<PlanboardChangeDto> => {
+      const concurrencyStamp = await stampFor(queryClient, tripId, rowStamp);
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/complete", { ...tripPath(tripId), body: { actualDeparture, actualArrival, concurrencyStamp } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),

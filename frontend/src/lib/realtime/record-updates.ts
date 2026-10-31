@@ -11,6 +11,8 @@ import { API_BASE_URL, currentAccessToken } from "@/lib/api/client";
 
 export const HUB_PATH = "/signalr-hubs/record-updates";
 export const MAX_WATCH_PER_CALL = 200;
+/** The pause before a new connection when automatic reconnect gave up and records are still watched. */
+export const RESTART_DELAY_MS = 15_000;
 
 /** Mirrors OpenTms.Platform.DerivedValues.DerivedValueStatus. */
 export const DerivedValueStatus = { Pending: 1, UpToDate: 2, Failed: 3 } as const;
@@ -54,6 +56,9 @@ function chunks<T>(items: T[], size: number): T[][] {
 export class RecordUpdatesClient {
   private connection: RecordUpdatesConnection | undefined;
   private starting: Promise<void> | undefined;
+  /** Set when a connection closed for good: the next one has no groups, so it re-joins every watch and screens refetch. */
+  private rejoinOnStart = false;
+  private restartTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly counts = new Map<string, { targetType: string; id: string; count: number }>();
   private readonly typeCounts = new Map<string, number>();
   private readonly listeners = new Set<Listener>();
@@ -148,10 +153,13 @@ export class RecordUpdatesClient {
         void this.rewatchAll();
         this.reconnectListeners.forEach((l) => l());
       });
-      /* Automatic reconnect gave up: start again on the next watch, and refetch then. */
+      /* Automatic reconnect gave up: start a new connection on the next watch, or after a pause while anything is still
+       * watched, and re-join every group and refetch then (a new connection has no groups). */
       connection.onclose(() => {
         this.connection = undefined;
         this.starting = undefined;
+        this.rejoinOnStart = true;
+        this.scheduleRestart();
       });
       this.connection = connection;
     }
@@ -163,7 +171,21 @@ export class RecordUpdatesClient {
       });
     }
     if (this.starting) await this.starting;
+    if (this.rejoinOnStart && connection.state === HubConnectionState.Connected) {
+      this.rejoinOnStart = false;
+      void this.rewatchAll();
+      this.reconnectListeners.forEach((l) => l());
+    }
     return connection;
+  }
+
+  private scheduleRestart(): void {
+    if (this.restartTimer !== undefined) return;
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = undefined;
+      if (this.connection || (this.counts.size === 0 && this.watchedTypes().length === 0)) return;
+      void this.ensureStarted().catch(() => this.scheduleRestart());
+    }, RESTART_DELAY_MS);
   }
 
   private async rewatchAll(): Promise<void> {
