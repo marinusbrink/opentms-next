@@ -80,10 +80,13 @@ export function createAppFeatureChecker(
 
   /** The node a pathname belongs to, with its ancestors: the longest matching path; on a tie (the Relations list
    * owns its group's path; a saved filter shares its list's path) the deeper one, which comes later in tree order. */
+  /* A node with a `search` is a preset or command on its path, never the route itself (a saved filter follows its list;
+   * a Planboard pane node, design 70, must not decide whether the whole workspace is on), so it is skipped here. */
   const lineageFor = (app: AppDefinition, pathname: string): AppView[] | undefined => {
     let best: AppView[] | undefined;
     for (const lineage of allLineages(app.views)) {
       const node = lineage[lineage.length - 1];
+      if (node.search != null) continue;
       if (matches(node.path, pathname) && (best == null || node.path.length >= best[best.length - 1].path.length)) best = lineage;
     }
     return best;

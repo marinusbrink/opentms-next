@@ -1,0 +1,77 @@
+/* The Planboard workspace's dockview theme (design 70, "Workspace"; UI-TOK-001): dockview's CSS variables mapped onto
+ * the tokens of opentms-theme.css. Loaded with the lazy Planboard chunk only (imported by PlanboardWorkspace). The
+ * class is the `className` of the dockview theme object in PlanboardWorkspace.tsx. */
+
+.dockview-theme-opentms {
+  /* Surfaces: the panes are the page background, the tab strips the command-bar surface. */
+  --dv-group-view-background-color: var(--background);
+  --dv-tabs-and-actions-container-background-color: var(--surface-page);
+  --dv-tabs-and-actions-container-font-size: var(--grid-font-size);
+  --dv-tabs-and-actions-container-height: var(--grid-row-height);
+  --dv-tab-font-size: inherit;
+  --dv-tab-close-icon-size: inherit;
+  --dv-tab-margin: 0;
+  --dv-spacing-padding: 0;
+  --dv-border-radius: 0;
+  --dv-tab-border-radius: 0;
+  --dv-sash-border-radius: 0;
+  --dv-dropdown-border-radius: var(--radius-md);
+
+  /* Tabs: the visible tab is the pane's own surface; hidden tabs are muted. */
+  --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--surface-page);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--surface-page);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-tab-divider-color: var(--border);
+  --dv-icon-hover-background-color: var(--accent);
+  --dv-tabs-container-scrollbar-color: var(--muted-foreground);
+  --dv-scrollbar-background-color: var(--border);
+
+  /* Separators and sashes: a hairline in the border token; the brand while dragging a sash. */
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-paneview-active-outline-color: var(--ring);
+  --dv-sash-color: var(--border);
+  --dv-active-sash-color: var(--brand);
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0.3s;
+
+  /* Drag and drop of panes: the drop zone is a translucent brand wash with a brand edge. */
+  --dv-drag-over-background-color: color-mix(in oklab, var(--brand) 18%, transparent);
+  --dv-drag-over-border-color: var(--brand);
+  --dv-drag-over-border: none;
+  --dv-edge-dock-indicator-color: var(--brand);
+  --dv-dnd-compass-color: var(--brand);
+  --dv-dnd-compass-cell-color: var(--brand-subtle);
+  --dv-dnd-compass-active-cell-color: var(--brand);
+  --dv-dnd-compass-edge-cell-color: var(--brand-soft);
+
+  /* Menus and floating groups take the popover tokens. */
+  --dv-context-menu-background-color: var(--popover);
+  --dv-context-menu-color: var(--popover-foreground);
+  --dv-floating-titlebar-background-color: var(--surface-page);
+  --dv-floating-border: 1px solid var(--border); /* hairline, as the border token's other uses */
+  --dv-floating-group-border: 1px solid var(--border); /* hairline */
+  --dv-floating-box-shadow: var(--shadow-lg, none);
+  --dv-overlay-z-index: 40; /* below the shell's dialogs and popovers (z-50) */
+
+  color: var(--foreground);
+  font-family: inherit;
+}
+
+/* UI-TOK-002: the active tab indicator is the brand colour. */
+.dockview-theme-opentms .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -2px 0 var(--brand); /* 2px indicator, as the app's other tab strips */
+}
+
+.dockview-theme-opentms .dv-groupview.dv-inactive-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -2px 0 var(--border); /* 2px indicator in the neutral border token */
+}
+
+.dockview-theme-opentms .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--border); /* hairline */
+}
