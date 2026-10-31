@@ -54,12 +54,16 @@ public class AppFeatureLocalizationTests
     }
 
     [Fact]
-    public void The_constants_name_exactly_67_distinct_features()
+    public void The_constants_name_exactly_75_distinct_features()
     {
-        /* 35 nodes up to design 48, plus the Platform domain group and its four lists (design 49). */
+        /* 35 nodes up to design 48, plus the Platform domain group and its four lists (design 49), ... 67 up to design 64;
+         * designs 66/68 add the Planboard's eight panes (the app constant itself already existed). */
         var all = AllAppFeatures();
-        all.Count.ShouldBe(67);
-        all.Distinct().Count().ShouldBe(67);
+        all.Count.ShouldBe(75);
+        all.Distinct().Count().ShouldBe(75);
+        all.Where(n => n.StartsWith(AppFeatures.Planboard + ".", System.StringComparison.Ordinal)).ShouldBe(
+            [AppFeatures.PlanboardApp.Trips, AppFeatures.PlanboardApp.Scheduler, AppFeatures.PlanboardApp.Orders, AppFeatures.PlanboardApp.Stops,
+             AppFeatures.PlanboardApp.Legs, AppFeatures.PlanboardApp.LegsToSchedule, AppFeatures.PlanboardApp.Map, AppFeatures.PlanboardApp.Resources], ignoreOrder: true);
         all.ShouldAllBe(name => name.StartsWith("Apps."));
     }
 

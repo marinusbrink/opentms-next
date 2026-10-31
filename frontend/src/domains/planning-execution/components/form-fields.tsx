@@ -1,13 +1,15 @@
+import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/ui/date-picker";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { ReferenceCombobox, type ReferenceOption } from "@/components/ui/reference-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* The typed field helpers the shared Planning dialogs use (the New trip dialog, design 70: shared by the Transport app
- * and the Planboard). They render exactly like the Transport app's own helpers (apps/transport/components/fields.tsx),
- * which a domain component may not import (an app never imports another app, and a domain never imports an app). */
+/* Small typed field helpers over FormField for the Transport app's forms (UI-FORM-001/002/010, UI-LOOK-001):
+ * numbers are kept as strings in the form state and parsed on save, so typing stays free. */
 
 interface BaseProps<TValues extends object> {
   form: FormContext<TValues>;
@@ -15,11 +17,17 @@ interface BaseProps<TValues extends object> {
   labelKey: string;
   required?: boolean;
   className?: string;
+  /** A business-state block on top of read-only (UI-PERM-005). */
   disabled?: boolean;
   hint?: string;
 }
 
-export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, disabled, hint }: BaseProps<TValues> & { maxLength?: number }) {
+interface TextProps<TValues extends object> extends BaseProps<TValues> {
+  maxLength?: number;
+  upper?: boolean;
+}
+
+export function TextField<TValues extends object>({ form, field, labelKey, required, maxLength, className, upper, disabled, hint }: TextProps<TValues>) {
   const { t } = useL();
   const value = (form.values[field] as unknown as string | null | undefined) ?? "";
   return (
@@ -29,9 +37,67 @@ export function TextField<TValues extends object>({ form, field, labelKey, requi
         value={value}
         maxLength={maxLength}
         disabled={form.readOnly || disabled}
+        onChange={(e) => form.set(field, (upper ? e.target.value.toUpperCase() : e.target.value) as TValues[typeof field])}
+        onBlur={() => form.blur(field)}
+      />
+    </FormField>
+  );
+}
+
+export function NumberField<TValues extends object>({ form, field, labelKey, required, className, disabled, hint }: BaseProps<TValues>) {
+  const { t } = useL();
+  const value = (form.values[field] as unknown as string | null | undefined) ?? "";
+  return (
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} hint={hint} className={className}>
+      <Input
+        id={form.id(field)}
+        inputMode="decimal"
+        className="tabular-nums"
+        value={value}
+        disabled={form.readOnly || disabled}
         onChange={(e) => form.set(field, e.target.value as TValues[typeof field])}
         onBlur={() => form.blur(field)}
       />
+    </FormField>
+  );
+}
+
+export function TextAreaField<TValues extends object>({ form, field, labelKey, maxLength, className, disabled, rows = 3 }: TextProps<TValues> & { rows?: number }) {
+  const { t } = useL();
+  const value = (form.values[field] as unknown as string | null | undefined) ?? "";
+  return (
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} error={form.error(field)} className={className} floating="always">
+      <Textarea
+        id={form.id(field)}
+        value={value}
+        maxLength={maxLength}
+        rows={rows}
+        disabled={form.readOnly || disabled}
+        onChange={(e) => form.set(field, e.target.value as TValues[typeof field])}
+        onBlur={() => form.blur(field)}
+      />
+    </FormField>
+  );
+}
+
+export function CheckboxField<TValues extends object>({ form, field, labelKey, className, disabled }: BaseProps<TValues>) {
+  const { t } = useL();
+  const checked = Boolean(form.values[field]);
+  return (
+    <label className={`flex h-10 items-center gap-2 text-sm ${className ?? ""}`} htmlFor={form.id(field)}>
+      <Checkbox id={form.id(field)} checked={checked} disabled={form.readOnly || disabled} onCheckedChange={(next) => form.set(field, (next === true) as TValues[typeof field])} />
+      {t(labelKey)}
+    </label>
+  );
+}
+
+/** A date-only field (`YYYY-MM-DD` in the state; UI-FMT-004). */
+export function DateField<TValues extends object>({ form, field, labelKey, required, className, disabled }: BaseProps<TValues>) {
+  const { t } = useL();
+  const value = (form.values[field] as unknown as string | null | undefined) ?? null;
+  return (
+    <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} className={className} floating="always">
+      <DatePicker id={form.id(field)} value={value} onChange={(next) => form.set(field, next as TValues[typeof field])} required={required} disabled={form.readOnly || disabled} />
     </FormField>
   );
 }
@@ -41,17 +107,17 @@ interface SelectItemDef {
   label: string;
 }
 
-/** A fixed enum (UI-LOOK-001: a Select). Values travel as strings inside the Select. */
-export function SelectField<TValues extends object>({ form, field, labelKey, required, className, disabled, items }: BaseProps<TValues> & { items: SelectItemDef[] }) {
+/** A fixed enum or small reference list (UI-LOOK-001: a Select). Values travel as strings inside the Select. */
+export function SelectField<TValues extends object>({ form, field, labelKey, required, className, disabled, items, allowEmpty }: BaseProps<TValues> & { items: SelectItemDef[]; allowEmpty?: boolean }) {
   const { t } = useL();
   const value = form.values[field] as unknown as number | string | null | undefined;
-  /* The caller's localized enum table (never records: UI-LOOK-001). */
-  const all = [...items.map((item) => ({ value: String(item.value), label: item.label }))];
+  const EMPTY = "";
+  const all = [...(allowEmpty ? [{ value: EMPTY, label: "" }] : []), ...items.map((item) => ({ value: String(item.value), label: item.label }))];
   return (
     <FormField label={t(labelKey)} htmlFor={form.id(field)} required={required} error={form.error(field)} className={className} floating="always">
       <Select
         items={all}
-        value={value == null ? "" : String(value)}
+        value={value == null ? EMPTY : String(value)}
         onValueChange={(next) => {
           const picked = items.find((item) => String(item.value) === next);
           form.set(field, (picked ? picked.value : null) as TValues[typeof field]);
@@ -73,7 +139,8 @@ export function SelectField<TValues extends object>({ form, field, labelKey, req
   );
 }
 
-/** A record picker over a bounded lookup, with "Add new …" (UI-LOOK-004) and the edit pencil (UI-LOOK-005) when passed. */
+/** A record picker over a bounded lookup (UI-LOOK-001: a searched Combobox over a list loaded once), with "Add new …"
+ * (UI-LOOK-004, not in a read-only form) and the edit pencil (UI-LOOK-005) when they are passed. */
 export function ComboField<TValues extends object>({
   form,
   field,
@@ -108,7 +175,9 @@ export function ComboField<TValues extends object>({
   );
 }
 
-/** Lookup items as combobox options. */
-export function toOptions(items: { id?: string; name?: string | null; code?: string | null }[] | undefined): ReferenceOption[] {
-  return (items ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? item.code ?? "" }));
+/** Lookup items as combobox options; a stored id whose row is gone (archived, deleted) keeps its name (design 51). */
+export function toOptions(items: { id?: string; name?: string | null; code?: string | null }[] | undefined, stored?: { id: string | null | undefined; name: string | null | undefined }): ReferenceOption[] {
+  const options = (items ?? []).map((item) => ({ value: item.id ?? "", label: item.name ?? item.code ?? "" }));
+  if (stored?.id && !options.some((o) => o.value === stored.id)) options.push({ value: stored.id, label: stored.name ?? "" });
+  return options;
 }
