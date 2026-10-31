@@ -780,6 +780,8 @@ public class PlanboardAppService : PlanningExecutionAppServiceBase, IPlanboardAp
         EnsureKind(vehicles, input.ToResourceId, input.Mode, "toResourceId");
         if (input.FromResourceId != null)
         {
+            /* The replaced vehicle is of the pane's mode too: a tractor row's drop never replaces a trailer. */
+            EnsureKind(vehicles, input.FromResourceId.Value, input.Mode, "fromResourceId");
             Replace(current, input.FromResourceId, input.ToResourceId, append: false);
         }
         else

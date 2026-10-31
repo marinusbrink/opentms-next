@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, GridApi, RowClickedEvent } from "ag-grid-community";
 import { ArrowDown, ArrowUp, ClipboardCheck, GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
-import { DRAG_COLUMN, latenessMinutes, lower } from "@/apps/planboard/panes/lists/grid-helpers";
+import { DRAG_COLUMN, latenessMinutes, lower, useGridApiCapture } from "@/apps/planboard/panes/lists/grid-helpers";
 import { InlineTextCell, LatenessBadge, TripWarningsCell } from "@/apps/planboard/panes/lists/grid-support";
 import { PaneMessage } from "@/apps/planboard/panes/lists/PaneMessage";
 import { AddManualStopDialog, RecordActualsDialog } from "@/apps/planboard/panes/lists/stop-leg-dialogs";
@@ -28,11 +28,16 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 /* Design 70, "Trip stops": the stops of the focused trip (the last trip selected on its own, P:Q16) from the trip itself:
  * position, activity, name, city, window, planned, estimated and actual times, a lateness badge (the stored estimate after
  * the window's end) and remarks. Drag a stop onto another to move it there (the existing stop move), edit the remarks in
- * place, record actuals, add or remove a manual stop. The trip's live notices refetch it. */
+ * place, record actuals, add or remove a manual stop. The trip's live notices refetch it. Stop selection is two-way with
+ * the map (design 70 "Map"): a row click selects the stop on the selection bus, and the bus's stop is highlighted here
+ * and scrolled into view. */
 
 const GRID_ID = "planning.planboard.tripStops";
 /** A stop dragged inside this pane (never leaves it, so it is not one of the board's payloads in dnd.ts). */
 const DND_STOP = "application/x-opentms-stop";
+/** The class of the selected stop's row (highlighted through the container, like the drop targets of grid-helpers). */
+const SELECTED_STOP_CLASS = "planboard-stop-selected";
+const SELECTED_STOP_STYLE = "[&_.ag-row.planboard-stop-selected]:bg-brand-subtle!";
 
 /** The window of a stop: the earliest start and the earliest end of its legs' windows (the end the stop must meet). */
 function stopWindow(stop: TripStopDto): { from: string | null; till: string | null } {
@@ -75,6 +80,7 @@ function StopsGrid({ trip }: { trip: TransportTripDto }) {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<TripStopDto | null>(null);
   const waypointLookup = waypointTypes.useLookup();
+  const { selectedStopId, setSelectedStopId } = usePlanboardSelection();
   const stops = useMemo(() => [...(trip.stops ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)), [trip.stops]);
   const open = trip.status === 1 || trip.status === 2;
   const editable = canManage && open && !trip.isArchived;
@@ -83,6 +89,46 @@ function StopsGrid({ trip }: { trip: TransportTripDto }) {
     () => async (_request: GridRequest): Promise<GridResponse<TripStopDto>> => ({ rows: stops, totalCount: stops.length, filteredCount: stops.length }),
     [stops],
   );
+
+  /* Two-way stop selection: the grid marks the bus's stop through a row class rule and a row click sets it. A stop
+   * selected before its row is loaded is scrolled to once the rows arrive (modelUpdated). */
+  const grid = useGridApiCapture<TripStopDto>();
+  const selectedRef = useRef(selectedStopId);
+  selectedRef.current = selectedStopId;
+  const pendingScroll = useRef(false);
+  const scrollToSelected = useCallback((api: GridApi<TripStopDto>) => {
+    const wanted = lower(selectedRef.current);
+    if (!wanted) return false;
+    let found = false;
+    api.forEachNode((node) => {
+      if (found || lower(node.data?.id) !== wanted) return;
+      found = true;
+      api.ensureNodeVisible(node, "middle");
+    });
+    return found;
+  }, []);
+  const onGridReady = useCallback(
+    (api: GridApi<TripStopDto>) => {
+      grid.capture(api);
+      api.setGridOption("rowClassRules", { [SELECTED_STOP_CLASS]: (p) => p.data?.id != null && lower(p.data.id) === lower(selectedRef.current) });
+      api.addEventListener("rowClicked", (event: RowClickedEvent<TripStopDto>) => {
+        if (event.data?.id) setSelectedStopId(event.data.id);
+      });
+      api.addEventListener("modelUpdated", () => {
+        if (pendingScroll.current && scrollToSelected(api)) pendingScroll.current = false;
+      });
+      pendingScroll.current = selectedRef.current != null;
+    },
+    [grid, setSelectedStopId, scrollToSelected],
+  );
+  useEffect(() => {
+    pendingScroll.current = selectedStopId != null;
+    const api = grid.current();
+    if (!api) return;
+    /* The class rule is evaluated when a row renders: redraw the rendered rows so the mark moves. */
+    api.redrawRows();
+    if (scrollToSelected(api)) pendingScroll.current = false;
+  }, [grid, selectedStopId, scrollToSelected]);
 
   const run = useCallback(
     async (action: Promise<unknown>, successKey: string) => {
@@ -221,8 +267,8 @@ function StopsGrid({ trip }: { trip: TransportTripDto }) {
         commands={commands}
         trailing={<span className="text-label text-muted-foreground">{[trip.number, trip.name].filter(Boolean).join(" · ")}</span>}
       />
-      <div className="min-h-0 flex-1 px-2 pb-2" {...dropHandlers}>
-        <LazyOpenTmsGrid<TripStopDto> gridId={GRID_ID} columnDefs={columns} fetchRows={fetchRows} rowActions={editable ? rowActions : undefined} />
+      <div className={`min-h-0 flex-1 px-2 pb-2 ${SELECTED_STOP_STYLE}`} {...dropHandlers}>
+        <LazyOpenTmsGrid<TripStopDto> gridId={GRID_ID} columnDefs={columns} fetchRows={fetchRows} rowActions={editable ? rowActions : undefined} onGridReady={onGridReady} />
       </div>
       {actuals && <RecordActualsDialog tripId={trip.id!} stop={actuals} onClose={() => setActuals(null)} />}
       {adding && <AddManualStopDialog tripId={trip.id!} stopCount={stops.length} onClose={() => setAdding(false)} />}

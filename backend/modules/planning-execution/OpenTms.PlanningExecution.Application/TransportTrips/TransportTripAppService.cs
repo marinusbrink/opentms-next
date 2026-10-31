@@ -365,6 +365,9 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             return new TransportTripRowDto
             {
                 Id = t.Id,
+                Remarks = t.Remarks,
+                DriverInstructions = t.DriverInstructions,
+                ConcurrencyStamp = t.ConcurrencyStamp,
                 Number = t.Number,
                 Name = t.Name,
                 TripDate = t.TripDate,

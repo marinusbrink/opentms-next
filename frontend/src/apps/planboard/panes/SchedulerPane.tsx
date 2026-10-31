@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { planboardDragKind, readDragPayload } from "@/apps/planboard/dnd";
+import { planboardDragKind, readDragPayload, setDragPayload } from "@/apps/planboard/dnd";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import type { PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { BarContent } from "@/apps/planboard/panes/scheduler/BarContent";
 import { CreateTripDialog } from "@/apps/planboard/panes/scheduler/CreateTripDialog";
@@ -31,6 +32,7 @@ import {
 import { SchedulerHeader } from "@/apps/planboard/panes/scheduler/SchedulerHeader";
 import { usePlanboardSelection } from "@/apps/planboard/selection";
 import { usePaneSettings } from "@/apps/planboard/settings-store";
+import { useOpenPlanboardTrip } from "@/apps/planboard/trip-peek";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -60,16 +62,20 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
-import { useOpenRecord } from "@/lib/use-open-record";
 
 /* Design 70, the Scheduler pane (several instances, each with its own settings under `planboard.pane.<instanceId>`):
  * a page of resource rows of the chosen mode against the pane's window (≤ 14 days), bars per trip coloured by status,
  * blocks as background, the conflict outline. A drag in time reschedules, a drag to another row changes the resource
  * (both: two commands in that order); a drop that creates a conflict or lands on a block asks first (D10: warn, never
- * block). Completed and cancelled trips are read-only. Click selects (selection bus), double-click opens the trip,
- * an empty stretch creates a trip; legs dropped on a row create a trip with them, on a bar they are assigned; a driver
- * dropped on a bar is added. Moves are optimistic and reconciled with the returned stamp; live notices refetch only the
- * bars that concern the pane; a reconnect or window focus refetches the page. */
+ * block). Completed and cancelled trips are read-only. Click selects (selection bus), double-click opens the trip
+ * (trip-peek.tsx), an empty stretch creates a trip; legs dropped on a row create a trip with them, on a bar they are
+ * assigned (outside the trip's window after a confirmation); a driver dropped on a bar is added, on an empty stretch it
+ * creates a trip there (the create dialog) with that driver. A bar's grip drags the trip out (`DND_TRIP`, e.g. onto the
+ * map). Moves are optimistic and reconciled with the returned stamp; live notices refetch only the bars that concern the
+ * pane and, debounced, the page for the KPI strip; a reconnect or window focus refetches the page. */
+
+/** How long after the last live bar refetch the page is refetched for the KPI strip. */
+const KPI_REFRESH_DEBOUNCE_MS = 2000;
 
 const PERMISSION = "PlanningExecution.TransportTrips";
 
@@ -89,13 +95,15 @@ interface CreateAt {
   resourceId: string;
   resourceName: string;
   start: Date;
+  /** A driver dropped on the empty stretch: added to the new trip. */
+  driverId?: string;
 }
 
 function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const { t } = useL();
   const f = useFormat();
   const queryClient = useQueryClient();
-  const openRecord = useOpenRecord();
+  const openTrip = useOpenPlanboardTrip();
   const selection = usePlanboardSelection();
   const canUpdate = useIsGranted(`${PERMISSION}.Update`);
   const canCreate = useIsGranted(`${PERMISSION}.Create`);
@@ -171,11 +179,25 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const resourceIds = useMemo(() => pageResourceIds(data), [data]);
   const tripIds = useMemo(() => pageTripIds(data), [data]);
   const refetchPage = scheduler.refetch;
+  /* The KPI strip comes with the page: after live bar refetches the page is refetched once things are quiet (2 s). */
+  const kpiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleKpiRefresh = useCallback(() => {
+    if (kpiTimer.current) clearTimeout(kpiTimer.current);
+    kpiTimer.current = setTimeout(() => {
+      kpiTimer.current = null;
+      void refetchPage();
+    }, KPI_REFRESH_DEBOUNCE_MS);
+  }, [refetchPage]);
+  useEffect(() => () => void (kpiTimer.current && clearTimeout(kpiTimer.current)), []);
   usePlanboardLiveUpdates({
     targetType: PLANBOARD_RECORD_TYPES.trip,
     filter: { range, resourceIds, knownIds: tripIds },
     enabled: data != null,
-    onIds: (ids) => void refreshBars(ids.filter((id) => !inFlight.current.has(id.toLowerCase()))),
+    onIds: (ids) => {
+      const wanted = ids.filter((id) => !inFlight.current.has(id.toLowerCase()));
+      if (wanted.length === 0) return;
+      void refreshBars(wanted).then(scheduleKpiRefresh);
+    },
     onResync: () => void refetchPage(),
   });
   usePlanboardLiveUpdates({
@@ -192,6 +214,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const addDriver = useAddTripDriver();
   const assignLegs = useAssignLegsToTrip();
   const createTrip = useCreatePlanboardTrip();
+  const { run: runOutsideWindow, dialog: outsideWindowDialog } = useOutsideWindowConfirm();
 
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [createAt, setCreateAt] = useState<CreateAt | null>(null);
@@ -265,9 +288,9 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const onEventDoubleClick = useCallback(
     (eventId: string) => {
       const parsed = parseBarEventId(eventId);
-      if (parsed) openRecord("TransportTrip", parsed.tripId);
+      if (parsed) openTrip(parsed.tripId);
     },
-    [openRecord],
+    [openTrip],
   );
 
   const onSelectEmpty = useCallback(
@@ -282,7 +305,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
     (types: readonly string[]) => {
       const kind = planboardDragKind(types);
       if (kind === "legs") return canCreate || canAssign;
-      if (kind === "driver") return canUpdate;
+      if (kind === "driver") return canUpdate || canCreate;
       return false;
     },
     [canCreate, canAssign, canUpdate],
@@ -302,9 +325,14 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
         if (payload.kind === "legs") {
           if (bar?.id) {
             if (!canAssign) return;
-            await assignLegs.mutateAsync({ tripId: bar.id, legIds: payload.legIds, concurrencyStamp: bar.concurrencyStamp ?? "" });
+            const tripId = bar.id;
+            /* Legs outside the trip's window ask first and are retried with allowOutsideWindow (outside-window.tsx). */
+            const result = await runOutsideWindow((allowOutsideWindow) =>
+              assignLegs.mutateAsync({ tripId, legIds: payload.legIds, concurrencyStamp: barOf(tripId)?.concurrencyStamp ?? bar.concurrencyStamp ?? "", allowOutsideWindow }),
+            );
+            if (result.cancelled) return;
             toast.success(t("Planboard:Scheduler.LegsAssigned").replace("{0}", bar.number ?? ""));
-            await refreshBars([bar.id]);
+            await refreshBars([tripId]);
           } else {
             if (!canCreate) return;
             const change = await createTrip.mutateAsync({ mode: settings.mode, resourceId, plannedDeparture: start.toISOString(), legIds: payload.legIds });
@@ -313,9 +341,16 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
           }
         } else if (payload.kind === "driver") {
           if (!bar?.id) {
-            toast.error(t("Planboard:Scheduler.DropDriverOnBar"));
+            /* An empty stretch: a new trip there with this driver (mode Driver: on the row's driver, else on the row's
+             * vehicle, the driver added after). Without the create permission the driver goes on a bar only. */
+            if (!canCreate) {
+              toast.error(t("Planboard:Scheduler.DropDriverOnBar"));
+              return;
+            }
+            setCreateAt({ resourceId, resourceName: rowName(resourceId), start, driverId: payload.driverId });
             return;
           }
+          if (!canUpdate) return;
           await addDriver.mutateAsync({ tripId: bar.id, driverId: payload.driverId, concurrencyStamp: bar.concurrencyStamp ?? "" });
           toast.success(t("Planboard:Scheduler.DriverAdded").replace("{0}", bar.number ?? ""));
           await refreshBars([bar.id]);
@@ -325,13 +360,39 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
         if (bar?.id) await refreshBars([bar.id]);
       }
     },
-    [barOf, t, canAssign, canCreate, assignLegs, createTrip, addDriver, settings.mode, refreshBars],
+    [barOf, t, canAssign, canCreate, canUpdate, assignLegs, createTrip, addDriver, settings.mode, refreshBars, runOutsideWindow, rowName],
   );
 
   const readOnly = useCallback((event: SchedulerEvent<BarData>) => !canUpdate || isReadOnlyStatus(event.data?.bar.status), [canUpdate]);
+  const dragTripLabel = t("Planboard:Scheduler.DragTrip");
   const eventContent = useCallback(
-    (event: SchedulerEvent<BarData>) => (event.data ? <BarContent data={event.data} fields={settings.barFields} names={names} mode={settings.mode} /> : event.title),
-    [settings.barFields, names, settings.mode],
+    (event: SchedulerEvent<BarData>) =>
+      event.data ? (
+        <span className="flex min-w-0 items-center gap-0.5">
+          {/* The grip drags the trip out of the Scheduler (HTML5 drag and drop, DND_TRIP); stopping the pointer events
+              keeps FullCalendar from starting its own move of the bar. */}
+          <span
+            draggable
+            role="button"
+            aria-label={dragTripLabel}
+            title={dragTripLabel}
+            className="inline-flex shrink-0 cursor-grab items-center opacity-70"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onDragStart={(e) => {
+              e.stopPropagation();
+              setDragPayload(e.dataTransfer, { kind: "trip", tripId: event.data!.tripId });
+            }}
+          >
+            <GripVertical className="size-3" aria-hidden="true" />
+          </span>
+          <BarContent data={event.data} fields={settings.barFields} names={names} mode={settings.mode} />
+        </span>
+      ) : (
+        event.title
+      ),
+    [settings.barFields, names, settings.mode, dragTripLabel],
   );
   const resourceLabel = useCallback(
     (resource: { id: string; title: string }) => {
@@ -440,12 +501,15 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
         />
       )}
 
+      {outsideWindowDialog}
       {createAt && (
         <CreateTripDialog
           mode={settings.mode}
           resourceId={createAt.resourceId}
           resourceName={createAt.resourceName}
           start={createAt.start}
+          driverId={createAt.driverId}
+          driverName={createAt.driverId ? (names[createAt.driverId] ?? names[createAt.driverId.toLowerCase()]) : undefined}
           onClose={() => setCreateAt(null)}
           onCreated={(change) => {
             if (change.id) {

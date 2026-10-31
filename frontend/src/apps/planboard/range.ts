@@ -70,6 +70,18 @@ export function clampRange(range: PlanboardRange, maxDays = MAX_BOARD_RANGE_DAYS
   return { from, till };
 }
 
+/**
+ * The stored board range as it is restored on reload (design 70 "Persistence"): kept as it is while it still contains
+ * today; otherwise its length (at most `maxDays`) starting today, so the board never opens on a period in the past or
+ * far ahead.
+ */
+export function restoredRange(stored: PlanboardRange, today: Date = new Date(), maxDays = MAX_BOARD_RANGE_DAYS): PlanboardRange {
+  const todayIso = toIsoDate(today);
+  if (isValidRange(stored, maxDays) && stored.from <= todayIso && todayIso <= stored.till) return { from: stored.from, till: stored.till };
+  const days = Math.min(Math.max(1, rangeDays(stored) || DEFAULT_BOARD_RANGE_DAYS), maxDays);
+  return { from: todayIso, till: addDays(todayIso, days - 1) };
+}
+
 /** Whether a record's dates (either end may be unknown) overlap the range; a record without dates overlaps. */
 export function overlapsRange(range: PlanboardRange, from: string | null | undefined, till: string | null | undefined): boolean {
   const start = from ?? till;

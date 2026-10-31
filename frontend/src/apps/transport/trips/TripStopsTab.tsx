@@ -14,7 +14,7 @@ import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { toOptions } from "@/apps/transport/components/fields";
+import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { joinDateTime, splitDateTime } from "@/apps/transport/orders/order-form";
 import { AddressField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";

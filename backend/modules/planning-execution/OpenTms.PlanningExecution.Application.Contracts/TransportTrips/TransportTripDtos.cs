@@ -46,6 +46,11 @@ public class TransportTripRowDto
     public decimal? RevenueAmount { get; set; }
     public List<TripWarningDto> Warnings { get; set; } = new();
     public DateTimeOffset? CalculatedAt { get; set; }
+
+    /* Design 70 (Planboard trips pane): the inline-edited texts and the stamp its narrow commands send back. */
+    public string? Remarks { get; set; }
+    public string? DriverInstructions { get; set; }
+    public string ConcurrencyStamp { get; set; } = string.Empty;
 }
 
 public class TripWarningDto

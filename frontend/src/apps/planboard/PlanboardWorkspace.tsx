@@ -25,6 +25,7 @@ import {
   type PlanboardPaneType,
 } from "@/apps/planboard/panes/registry";
 import { paneSettingsKey, PLANBOARD_LAYOUT_KEY, usePlanboardSettings } from "@/apps/planboard/settings-store";
+import { PlanboardTripPeekHost } from "@/apps/planboard/trip-peek";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The Planboard workspace (design 70, "Workspace", PO decision D14): a dockview layout of panes under the toolbar. The
@@ -163,13 +164,14 @@ export function PlanboardWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PlanboardToolbar enabledTypes={enabledTypes} onAddPane={addPane} onResetLayout={resetLayout} ready={ready} />
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
         <DockviewReact
           theme={OPENTMS_DOCKVIEW_THEME}
           components={components}
           watermarkComponent={EmptyWorkspace}
           onReady={(event) => setApi(event.api)}
         />
+        <PlanboardTripPeekHost />
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ColDef, GridApi, ValueGetterParams } from "ag-grid-community";
+import type { ColDef, GridApi } from "ag-grid-community";
 import { Archive, CircleCheck, CircleX, ListOrdered, MessageSquareText, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePaneFilters } from "@/apps/planboard/filters";
+import { isCancelledOutcome, useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
 import { lower, ROW_DROP_CLASS, useGridApiCapture, useRowDropTarget } from "@/apps/planboard/panes/lists/grid-helpers";
 import { DialogEditCell, InlineTextCell, TripWarningsCell } from "@/apps/planboard/panes/lists/grid-support";
@@ -11,6 +12,7 @@ import { PaneFilterBar } from "@/apps/planboard/panes/lists/PaneFilterBar";
 import { CompleteTripDialog, TripRemarksDialog, TripResourcesDialog, type TripResourceKind } from "@/apps/planboard/panes/lists/trip-dialogs";
 import type { PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { usePlanboardSelection } from "@/apps/planboard/selection";
+import { useOpenPlanboardTrip } from "@/apps/planboard/trip-peek";
 import type { PlanboardDragPayload } from "@/apps/planboard/dnd";
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { CalculatingIndicator } from "@/components/ui/calculating-indicator";
@@ -48,12 +50,12 @@ import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { DerivedValueStatus } from "@/lib/realtime/record-updates";
 import { useDerivedValueStates, useRecordUpdates } from "@/lib/realtime/use-record-updates";
-import { useOpenRecord } from "@/lib/use-open-record";
 
 /* Design 70, "Transport trips": the trips of the board's range and organisation units (or the pane's own, "Use board
  * filter" off) in a server-side OpenTmsGrid. Inline edit of the name (the Planboard's header-field command); remarks and
  * driver instructions through a small dialog (the list row carries neither); carrier, vehicles and drivers through the
- * pencil in their cells (the existing set commands). Row actions: open (the trip page in the Transport app), edit, start,
+ * pencil in their cells (the existing set commands). Row actions: open (the trip page in the Transport app, or the
+ * read-only peek without it: trip-peek.tsx), edit, start,
  * complete (ATD and ATA), optimise stops (202, a toast), archive, cancel, delete. New trip in the command bar. A row is a
  * drop target for legs (assign, or move when they come from another trip) and for a driver (add). The selection feeds
  * the board's selection bus; live notices refetch only the rows they concern. */
@@ -69,7 +71,7 @@ type Confirm = { kind: "cancel" | "archive" | "delete"; row: TransportTripRow };
 export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   const { t } = useL();
   const f = useFormat();
-  const openRecord = useOpenRecord();
+  const openTrip = useOpenPlanboardTrip();
   const selection = usePlanboardSelection();
   const paneFilters = usePaneFilters(instanceId);
 
@@ -227,11 +229,14 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   const archiveTrip = useArchiveTrip();
   const deleteTrip = useDeleteTrip();
 
-  /** A list-level action: toast on failure (UI-FB-004), the toast and the row patch on success. */
+  const outsideWindow = useOutsideWindowConfirm();
+
+  /** A list-level action: toast on failure (UI-FB-004), the toast and the row patch on success; nothing when the user
+   * cancelled (a leg drop outside the trip's window they did not confirm). */
   const run = useCallback(
     async (action: () => Promise<unknown>, successKey: string, tripIds: (string | null | undefined)[]) => {
       try {
-        await action();
+        if (isCancelledOutcome(await action())) return false;
         toast.success(t(successKey));
         void refreshTrips(tripIds);
         return true;
@@ -250,10 +255,16 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
     onDrop: (rowId: string, payload: PlanboardDragPayload) => {
       if (payload.kind === "legs") {
         if (payload.fromTripId && lower(payload.fromTripId) === lower(rowId)) return;
+        /* A drop outside the target trip's window asks first and retries with allowOutsideWindow (outside-window.tsx). */
         if (payload.fromTripId) {
-          void run(() => moveLegs.mutateAsync({ fromTripId: payload.fromTripId!, toTripId: rowId, legIds: payload.legIds }), "Planboard:Lists.LegsMoved", [rowId, payload.fromTripId]);
+          const fromTripId = payload.fromTripId;
+          void run(
+            () => outsideWindow.run((allowOutsideWindow) => moveLegs.mutateAsync({ fromTripId, toTripId: rowId, legIds: payload.legIds, allowOutsideWindow })),
+            "Planboard:Lists.LegsMoved",
+            [rowId, fromTripId],
+          );
         } else {
-          void run(() => assignLegs.mutateAsync({ tripId: rowId, legIds: payload.legIds }), "Planboard:Lists.LegsAssigned", [rowId]);
+          void run(() => outsideWindow.run((allowOutsideWindow) => assignLegs.mutateAsync({ tripId: rowId, legIds: payload.legIds, allowOutsideWindow })), "Planboard:Lists.LegsAssigned", [rowId]);
         }
       } else if (payload.kind === "driver") {
         void run(() => addDriver.mutateAsync({ tripId: rowId, driverId: payload.driverId }), "Planboard:Lists.DriverAdded", [rowId]);
@@ -281,16 +292,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
     const resourceCell = (resource: TripResourceKind, text: (row: TransportTripRow) => string) => (p: { data: TransportTripRow | undefined }) =>
       p.data ? <DialogEditCell text={text(p.data)} canEdit={canUpdate && isOpen(p.data)} onEdit={() => setDialog({ kind: "resources", id: p.data!.id!, resource })} /> : null;
     return [
-      {
-        field: "number",
-        headerName: t("PlanningExecution:Number"),
-        minWidth: 120,
-        /* Hands the grid api to the pane (see grid-support.tsx). */
-        valueGetter: (p: ValueGetterParams<TransportTripRow>) => {
-          grid.capture(p.api);
-          return p.data?.number;
-        },
-      },
+      { field: "number", headerName: t("PlanningExecution:Number"), minWidth: 120 },
       { field: "status", headerName: t("PlanningExecution:Status"), minWidth: 120, cellRenderer: (p: { value: TransportTripStatus | undefined }) => <StatusCell entity="TransportTrip" value={tripStatusName(p.value)} /> },
       { field: "tripDate", headerName: t("PlanningExecution:TripDate"), minWidth: 110, cellRenderer: DateCell },
       {
@@ -336,7 +338,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
       { field: "actualDeparture", headerName: t("PlanningExecution:ActualDeparture"), minWidth: 140, hide: true, cellRenderer: DateTimeCell },
       { field: "actualArrival", headerName: t("PlanningExecution:ActualArrival"), minWidth: 140, hide: true, cellRenderer: DateTimeCell },
     ];
-  }, [t, f, grid, calculating, canUpdate, setFieldAsync, refreshTrips]);
+  }, [t, f, calculating, canUpdate, setFieldAsync, refreshTrips]);
 
   if (!canView) return <PermissionDenied />;
 
@@ -348,7 +350,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
     const id = row?.id;
     if (!row || !id) return [];
     return [
-      { id: "open", labelKey: "PlanningExecution:OpenTrip", onClick: () => openRecord("TransportTrip", id) },
+      { id: "open", labelKey: "PlanningExecution:OpenTrip", onClick: () => openTrip(id) },
       ...(canUpdate ? [{ id: "remarks", labelKey: "Planboard:Lists.EditRemarks", icon: MessageSquareText, disabled: row.isArchived === true, disabledReasonKey: "OpenTms.PlanningExecution:InvalidTransition", onClick: () => setDialog({ kind: "remarks", id }) }] : []),
       ...(canUpdate && isOpen(row)
         ? [
@@ -413,7 +415,8 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
           columnDefs={columns}
           fetchRows={fetchRows}
           onSelectionChange={onSelectionChange}
-          onOpen={(row) => row.id && openRecord("TransportTrip", row.id)}
+          onGridReady={grid.capture}
+          onOpen={(row) => row.id && openTrip(row.id)}
           rowActions={rowActions}
           filters={<PaneFilterBar instanceId={instanceId} paneFilters={paneFilters} />}
         />
@@ -432,6 +435,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
       {dialog?.kind === "complete" && <CompleteTripDialog trip={dialog.row} onClose={() => setDialog(null)} onDone={() => void refreshTrips([dialog.row.id])} />}
       {dialog?.kind === "resources" && <TripResourcesDialog tripId={dialog.id} kind={dialog.resource} onClose={() => setDialog(null)} onDone={() => void refreshTrips([dialog.id])} />}
       {dialog?.kind === "remarks" && <TripRemarksDialog tripId={dialog.id} onClose={() => setDialog(null)} onDone={() => void refreshTrips([dialog.id])} />}
+      {outsideWindow.dialog}
       {confirm && confirmProps && (
         <ConfirmDialog
           open

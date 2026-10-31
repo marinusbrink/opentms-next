@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
-import { ComboField, NumberField, TextField, toOptions } from "@/apps/transport/components/fields";
+import { ComboField, NumberField, TextField, toOptions } from "@/domains/planning-execution/components/form-fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import { TripRequestWarningAlert } from "@/apps/transport/components/TripRequestWarning";
 import { AddressField, ContactPersonField, RelationField } from "@/domains/master-data/components/RelationFields";

@@ -134,6 +134,9 @@ export interface OpenTmsGridProps<TRow> {
   treeData?: GridTreeDataOptions<TRow>;
   /** UI-GRID-016: a picker grid toggles the selection on row click. */
   clickSelects?: boolean;
+  /** Hands the grid api to the caller once the grid is ready (a pane that patches rows in place, scrolls to a row or
+   * listens to grid events). Called before the saved column settings load; the api is gone again on unmount. */
+  onGridReady?: (api: GridApi<TRow>) => void;
   className?: string;
 }
 
@@ -238,12 +241,16 @@ export function OpenTmsGrid<TRow>({
   onExport,
   treeData,
   clickSelects = false,
+  onGridReady: onGridReadyProp,
   className,
 }: OpenTmsGridProps<TRow>) {
   const { t } = useL();
 
   // Grid API ref
   const gridApiRef = useRef<GridApi<TRow> | null>(null);
+  /* The caller's ready callback through a ref: the grid's own onGridReady stays stable. */
+  const onGridReadyRef = useRef(onGridReadyProp);
+  onGridReadyRef.current = onGridReadyProp;
 
   // Search
   const [searchTerm, setSearchTerm] = useState("");
@@ -461,6 +468,7 @@ export function OpenTmsGrid<TRow>({
     async (event: GridReadyEvent<TRow>) => {
       const api = event.api as GridApi<TRow>;
       gridApiRef.current = api;
+      onGridReadyRef.current?.(api);
 
       // Load and apply saved column settings before first data fetch
       try {

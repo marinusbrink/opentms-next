@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EntityDialog } from "@/components/ui/entity-dialog";
-import { ComboField, TextField } from "@/apps/transport/components/fields";
+import { ComboField, TextField } from "@/domains/planning-execution/components/form-fields";
 import { RelationField } from "@/domains/master-data/components/RelationFields";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import type { RelationOption } from "@/domains/master-data/entities";

@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { referenceCellEditorColDef } from "@/components/ui/reference-cell-editor";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { toOptions } from "@/apps/transport/components/fields";
+import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { TotalsBlock } from "@/apps/transport/components/TotalsBlock";
 import { FreightItemDialog } from "@/apps/transport/orders/FreightItemDialog";
 import { FreightItemEntry } from "@/apps/transport/orders/FreightItemEntry";

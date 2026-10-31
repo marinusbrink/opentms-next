@@ -188,11 +188,12 @@ export function useCreatePlanboardTrip() {
   );
 }
 
-/** Assigns unplanned legs to a trip (a leg drop on a bar, or "Add to trip" on the map). */
+/** Assigns unplanned legs to a trip (a leg drop on a bar, or "Add to trip" on the map); `allowOutsideWindow` after the
+ * user confirmed the `LegOutsideTripWindow` warning. */
 export function useAssignLegsToTrip() {
   return usePlanboardCommand(
-    async ({ tripId, legIds, concurrencyStamp }: { tripId: string; legIds: string[]; concurrencyStamp: string }) =>
-      unwrap(await apiClient.POST("/api/planning/planboard/{id}/assign-legs", { params: { path: { id: tripId } }, body: { legIds, concurrencyStamp } })),
+    async ({ tripId, legIds, concurrencyStamp, allowOutsideWindow }: { tripId: string; legIds: string[]; concurrencyStamp: string; allowOutsideWindow?: boolean }) =>
+      unwrap(await apiClient.POST("/api/planning/planboard/{id}/assign-legs", { params: { path: { id: tripId } }, body: { legIds, concurrencyStamp, allowOutsideWindow } })),
     true,
   );
 }

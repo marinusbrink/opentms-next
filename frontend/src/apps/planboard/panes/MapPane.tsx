@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CircleDot, Flag, Maximize2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import { setDragPayload } from "@/apps/planboard/dnd";
+import { planboardDragKind, readDragPayload, setDragPayload } from "@/apps/planboard/dnd";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { hintsConcern, PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import { MapLegend } from "@/apps/planboard/panes/map/MapLegend";
 import { allTripsFeatures, fitPoints, nearLegPoint, orderedStops, pointOf, routeFeatures, stopPoint, stopState, type StopState } from "@/apps/planboard/panes/map/model";
 import { TripSummaryCard } from "@/apps/planboard/panes/map/TripSummaryCard";
@@ -44,7 +45,8 @@ import { cn } from "@/lib/utils";
  * where no geometry is stored), numbered stop markers coloured by state, departure and arrival markers, popups with
  * window / ETA / actuals and the summary card. The all-trips layer draws the window's trips first → last (click selects
  * the trip); the unplanned-nearby layer shows legs near the focused trip (drag a marker onto the card, or "Add to trip").
- * Stop selection is two-way with Trip stops through the selection bus. Zero-emission zones are the second iteration. */
+ * Stop selection is two-way with Trip stops through the selection bus. A trip dragged onto the map (a Scheduler bar)
+ * becomes the focused trip. Zero-emission zones are the second iteration. */
 
 const PERMISSION = "PlanningExecution.TransportTrips";
 const ALL_TRIPS_LAYER = "planboard-all-trips";
@@ -153,11 +155,15 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
   const assignLegs = useAssignLegsToTrip();
   const [nearPopupId, setNearPopupId] = useState<string | null>(null);
   const tripTakesLegs = detail != null && (detail.status === 1 || detail.status === 2);
+  const { run: runOutsideWindow, dialog: outsideWindowDialog } = useOutsideWindowConfirm();
   const assign = useCallback(
     async (legIds: string[]) => {
       if (!detail?.id) return;
+      const tripId = detail.id;
       try {
-        await assignLegs.mutateAsync({ tripId: detail.id, legIds, concurrencyStamp: detail.concurrencyStamp ?? "" });
+        /* Legs outside the trip's window ask first and are retried with allowOutsideWindow (outside-window.tsx). */
+        const result = await runOutsideWindow((allowOutsideWindow) => assignLegs.mutateAsync({ tripId, legIds, concurrencyStamp: detail.concurrencyStamp ?? "", allowOutsideWindow }));
+        if (result.cancelled) return;
         toast.success(t("Planboard:Scheduler.LegsAssigned").replace("{0}", detail.number ?? ""));
         setNearPopupId(null);
       } catch (error) {
@@ -167,8 +173,21 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
         void queryClient.invalidateQueries({ queryKey: ["planning", "planboard", "map", "near"] });
       }
     },
-    [detail, assignLegs, t, queryClient],
+    [detail, assignLegs, runOutsideWindow, t, queryClient],
   );
+
+  /* A trip dragged here (a Scheduler bar) becomes the focused trip: the map shows its detail layer. */
+  const onTripDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (planboardDragKind(event.dataTransfer.types) !== "trip") return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+  const onTripDrop = (event: DragEvent<HTMLDivElement>) => {
+    const payload = readDragPayload(event.dataTransfer, ["trip"]);
+    if (payload?.kind !== "trip") return;
+    event.preventDefault();
+    selection.setSelectedTripIds([payload.tripId]);
+  };
 
   /* ── Interaction ───────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -248,7 +267,7 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
         {loading && <Spinner aria-label={t("Planboard:Map.Loading")} />}
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" onDragOver={onTripDragOver} onDrop={onTripDrop}>
         <MapView
           ref={mapRef}
           bounds={bounds}
@@ -402,6 +421,7 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
           <MapLegend showAllTrips={settings.showAllTrips} showUnplannedNear={showNear} />
         </div>
       </div>
+      {outsideWindowDialog}
     </div>
   );
 }

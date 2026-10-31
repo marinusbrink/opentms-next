@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ColDef, ValueGetterParams } from "ag-grid-community";
-import { CornerUpLeft, Split } from "lucide-react";
+import type { ColDef } from "ag-grid-community";
+import { CornerUpLeft, MapPinPlus, Split } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePaneFilters } from "@/apps/planboard/filters";
@@ -20,6 +20,7 @@ import type { GridRequest, GridResponse, GridRowAction, GridSelectionDto, GridTr
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SplitLegDialog } from "@/domains/planning-execution/components/SplitLegDialog";
 import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
 import {
   fetchUnplannedLegGroups,
@@ -41,7 +42,8 @@ import { useOpenRecord } from "@/lib/use-open-record";
  * optionally grouped on the D18 whitelist (origin date, customer, origin city, destination city): the groups come from
  * `/leg/groups` with their counts and expand into their legs (`groupKey`), all on the server. Multi-select; the drag handle
  * drags the selected legs (or the row's own) onto a trip row, a Scheduler row or bar, or the map. Row actions: split line,
- * return leg (design 68 §7, without a trip), open the order. With an order selected in Transport orders, "This order"
+ * split at address (the Transport app's dialog, shared from the Planning domain), return leg (design 68 §7, without a
+ * trip), open the order. With an order selected in Transport orders, "This order"
  * shows that order's unplanned legs.
  *
  * Legs carry no organisation unit (design 68 assumption 1), so the units filter shows every leg and live notices are not
@@ -77,6 +79,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   const groupBy = activeOrder ? null : settings.groupBy;
   const returnLeg = useUnplannedReturnLeg();
   const [splitting, setSplitting] = useState<LegDto | null>(null);
+  const [splittingAt, setSplittingAt] = useState<LegDto | null>(null);
 
   const filters = useMemo<PlanboardListFilters>(
     () => ({ from: paneFilters.filters.range.from, till: paneFilters.filters.range.till, organizationUnitIds: paneFilters.filters.organizationUnitIds }),
@@ -213,17 +216,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
             } satisfies ColDef<LegRow>,
           ]
         : []),
-      {
-        field: "orderNumber",
-        headerName: t("PlanningExecution:Order"),
-        minWidth: 120,
-        sortable: false,
-        /* Hands the grid api to the pane (see grid-support.tsx). */
-        valueGetter: (p: ValueGetterParams<LegRow>) => {
-          grid.capture(p.api);
-          return p.data?.orderNumber;
-        },
-      },
+      { field: "orderNumber", headerName: t("PlanningExecution:Order"), minWidth: 120, sortable: false },
       { field: "customerName", headerName: t("PlanningExecution:Customer"), minWidth: 150, sortable: false },
       { colId: "origin", headerName: t("PlanningExecution:Origin"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.origin) },
       { colId: "destination", headerName: t("PlanningExecution:Destination"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.destination) },
@@ -240,7 +233,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
     ],
     // draggedIds reads refs only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, f, canDrag, grid],
+    [t, f, canDrag],
   );
 
   if (!canView) return <PermissionDenied />;
@@ -263,6 +256,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
       ...(canUpdate
         ? [
             { id: "split-line", labelKey: "PlanningExecution:SplitLine", icon: Split, disabled: (leg.quantity ?? 0) <= 1, disabledReasonKey: "Planboard:Lists.NothingToSplit", onClick: () => setSplitting(leg) },
+            { id: "split-at-address", labelKey: "PlanningExecution:SplitLegAt", icon: MapPinPlus, onClick: () => setSplittingAt(leg) },
             { id: "return-leg", labelKey: "PlanningExecution:ReturnLeg", icon: CornerUpLeft, onClick: () => void runReturnLeg(leg) },
           ]
         : []),
@@ -309,11 +303,13 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
         fetchRows={fetchRows}
         treeData={treeData}
         onSelectionChange={onSelectionChange}
+        onGridReady={grid.capture}
         onOpen={(leg) => !isGroupRow(leg) && leg.orderId && openRecord("TransportOrder", leg.orderId)}
         rowActions={rowActions}
         filters={filterBar}
       />
       {splitting && <SplitLegLineDialog leg={splitting} onClose={() => setSplitting(null)} onDone={resync} />}
+      {splittingAt && <SplitLegDialog leg={splittingAt} onClose={() => setSplittingAt(null)} onDone={resync} />}
     </div>
   );
 }

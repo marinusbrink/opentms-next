@@ -11,7 +11,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { AttributeFields } from "@/apps/transport/components/AttributeFields";
-import { DateField, NumberField, SelectField, TextAreaField, TextField } from "@/apps/transport/components/fields";
+import { DateField, NumberField, SelectField, TextAreaField, TextField } from "@/domains/planning-execution/components/form-fields";
 import { AddressField, ContactPersonField, RelationField, relationOptionOf } from "@/domains/master-data/components/RelationFields";
 import type { TripValues } from "@/apps/transport/trips/trip-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";

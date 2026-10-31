@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FormContext } from "@/lib/forms/use-form-state";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* Small typed field helpers over FormField for the Transport app's forms (UI-FORM-001/002/010, UI-LOOK-001):
- * numbers are kept as strings in the form state and parsed on save, so typing stays free. */
+/* Small typed field helpers over FormField (UI-FORM-001/002/010, UI-LOOK-001) for the forms of the Transport app and
+ * the Planning dialogs both apps share (New trip, Split leg at address): numbers are kept as strings in the form state
+ * and parsed on save, so typing stays free. They live in the domain because a domain component may not import an app
+ * (and one app never imports another). */
 
 interface BaseProps<TValues extends object> {
   form: FormContext<TValues>;

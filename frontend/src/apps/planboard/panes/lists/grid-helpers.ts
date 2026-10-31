@@ -8,12 +8,12 @@ import { tripWarningKey, type TripWarningDto } from "@/domains/planning-executio
 /* The non-visual part of the list panes' grid support (grid-support.tsx): the grid api capture, rows as drop targets,
  * the drag column, warning keys, lateness and date-time helpers.
  *
- * OpenTmsGrid exposes no grid api; the panes take it from a column's valueGetter (every AG Grid callback receives the
- * api), which is available as soon as a row renders. Without it (no rows yet) a pane falls back to a full refresh. */
+ * The panes take the grid api from OpenTmsGrid's `onGridReady` (`onGridReady={grid.capture}`). Before the grid is ready
+ * (still loading its chunk) a pane falls back to a full refresh. */
 
 export const lower = (id: string | null | undefined) => (id ?? "").toLowerCase();
 
-/** Keeps the grid api a column callback hands over (see the file comment). */
+/** Keeps the grid api OpenTmsGrid's `onGridReady` hands over (see the file comment); `current()` is null once destroyed. */
 export function useGridApiCapture<TRow>() {
   const apiRef = useRef<GridApi<TRow> | null>(null);
   const capture = useCallback((api: GridApi<TRow> | null | undefined) => {

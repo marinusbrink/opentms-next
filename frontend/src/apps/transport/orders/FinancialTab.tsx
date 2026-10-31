@@ -8,7 +8,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckboxField, ComboField, NumberField, SelectField, TextAreaField, toOptions } from "@/apps/transport/components/fields";
+import { CheckboxField, ComboField, NumberField, SelectField, TextAreaField, toOptions } from "@/domains/planning-execution/components/form-fields";
 import { CurrencyField } from "@/apps/transport/components/CurrencyField";
 import type { EditorMode, OrderValues } from "@/apps/transport/orders/order-form";
 import { OrderTotals } from "@/apps/transport/orders/OrderTotals";

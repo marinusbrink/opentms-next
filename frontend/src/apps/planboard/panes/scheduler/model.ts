@@ -59,7 +59,8 @@ export { isValidRange };
 
 export const TRIP_STATUS = { Planned: 1, InProgress: 2, Completed: 3, Cancelled: 4 } as const;
 
-/** The status tone of a bar: the same families as the trip's StatusBadge. */
+/** The status tone of a bar: exactly the tone the trip's StatusBadge gives the status (status-badge.tsx,
+ * `TransportTrip`): Planned neutral, In progress info, Completed success, Cancelled danger; unknown neutral. */
 export function barTone(status: number | null | undefined): SchedulerTone {
   switch (status) {
     case TRIP_STATUS.InProgress:
@@ -69,7 +70,7 @@ export function barTone(status: number | null | undefined): SchedulerTone {
     case TRIP_STATUS.Cancelled:
       return "danger";
     default:
-      return "brand";
+      return "neutral";
   }
 }
 

@@ -12,7 +12,7 @@ import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { toOptions } from "@/apps/transport/components/fields";
+import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { additionalServices } from "@/domains/financial/reference-data";
 import {
   RATE_LINE_KIND,

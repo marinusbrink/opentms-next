@@ -41,17 +41,18 @@ export function PaneFilterBar({ instanceId, paneFilters }: { instanceId: string;
             value={filters.range.till}
             onChange={(till) => till && setRange({ ...filters.range, till }, "till")}
           />
+          {/* DEVIATION(UI-LOOK-004): a pane's organisation-unit filter, not a form picker (the rule excludes filters), approved in docs/designs/70-planboard-app.md ("Workspace": the pane's own units). */}
           <MultiSelect
-            id={id("units")}
+            id={id("units-filter")}
             className="w-48"
             options={unitOptions}
             value={[...filters.organizationUnitIds]}
             onChange={setOrganizationUnitIds}
             disabled={units.isError}
-            aria-describedby={units.isError ? id("units-error") : undefined}
+            aria-describedby={units.isError ? id("units-filter-error") : undefined}
           />
           {units.isError && (
-            <span id={id("units-error")} role="alert" className="text-label text-destructive">
+            <span id={id("units-filter-error")} role="alert" className="text-label text-destructive">
               {t("Planboard:OrganizationUnitsLoadFailed")}
             </span>
           )}

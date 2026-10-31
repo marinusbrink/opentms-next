@@ -6,7 +6,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
-import { CheckboxField, ComboField, DateField, TextAreaField, TextField, toOptions } from "@/apps/transport/components/fields";
+import { CheckboxField, ComboField, DateField, TextAreaField, TextField, toOptions } from "@/domains/planning-execution/components/form-fields";
 import { ContactPersonField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { knownListsOfDefaults, termsFromDefaults } from "@/apps/transport/orders/financial-defaults";
 import { REQUIRED_FLAG, hasFlag, termsValuesOfInput, type EditorMode, type OrderValues } from "@/apps/transport/orders/order-form";

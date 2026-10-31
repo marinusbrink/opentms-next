@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormSection } from "@/components/ui/form-section";
 import { LazyLinesGrid } from "@/components/ui/lines-grid-lazy";
 import { AttributeFields, type AttributeDefinition } from "@/apps/transport/components/AttributeFields";
-import { DateField, NumberField, SelectField, TextAreaField } from "@/apps/transport/components/fields";
+import { DateField, NumberField, SelectField, TextAreaField } from "@/domains/planning-execution/components/form-fields";
 import { MAX_REFERENCES, newReference, type OrderValues, type ReferenceValues } from "@/apps/transport/orders/order-form";
 import { RECURRENCE_DAYS, TEMPLATE_RECURRENCES } from "@/domains/orders/templates";
 import { ORDER_REMARK_KINDS, type TransportOrderRemarkDto } from "@/domains/orders/transport-orders";

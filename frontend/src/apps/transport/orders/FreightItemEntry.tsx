@@ -7,7 +7,7 @@ import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { toOptions } from "@/apps/transport/components/fields";
+import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { defaultAddressIdOf } from "@/domains/master-data/components/RelationFields";
 import { StopStrip } from "@/apps/transport/components/StopStrip";
 import { STOP_FIELD_CONTROL, stopFieldId } from "@/apps/transport/components/stop-strip-ids";
