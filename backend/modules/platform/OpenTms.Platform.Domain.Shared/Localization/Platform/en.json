@@ -1221,6 +1221,22 @@
     "UserMenu:MySettingsHint": "Name, phone number and language",
     "UserMenu:SwitchesDirectly": "Switch without a password",
     "UserMenu:CopyTenantId": "Copy tenant ID",
-    "UserMenu:TenantIdCopied": "Tenant ID copied"
+    "UserMenu:TenantIdCopied": "Tenant ID copied",
+    "Permission:Tenants.ResetToDataset": "Reset a tenant to a test dataset",
+    "Tenants:ResetToDataset": "Reset to dataset",
+    "Tenants:Dataset:Average": "Average volume test set",
+    "Tenants:Dataset:Large": "Large volume test set",
+    "Tenants:Dataset:AverageDescription": "5,000 relations and a regular random amount of every other record type",
+    "Tenants:Dataset:LargeDescription": "150,000 relations and over 1,000 of every other record type",
+    "Tenants:ResetDialogTitle": "Reset {0} to the {1}?",
+    "Tenants:ResetDialogWarning": "All business data of this tenant (relations, fleet, drivers, tariffs, orders, trips and so on) is permanently deleted and replaced by generated test data. Users, roles, settings and reference data stay. This cannot be undone.",
+    "Tenants:ResetDialogTypeName": "Type the tenant name {0} to confirm",
+    "Tenants:ResetConfirm": "Delete and reset",
+    "Tenants:ResetQueued": "The reset has started; the list shows when it is done",
+    "Tenants:UnknownDataset": "Unknown test dataset.",
+    "Tenants:ConfirmationNameMismatch": "The name typed does not match the tenant.",
+    "Tenants:ResetOnlyWhenReady": "Only a provisioned tenant can be reset to a dataset.",
+    "Tenants:ResetAlreadyRunning": "A reset of this tenant is already running.",
+    "Tenants:TestData": "Test data"
   }
 }

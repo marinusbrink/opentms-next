@@ -90,6 +90,25 @@ niet hernoemen of verwijderen.
 
 ---
 
+## Een tenant terugzetten naar een testdataset
+
+Voor testen en demo's kun je een tenant vullen met realistische testgegevens: verzonnen bedrijven en personen op
+echte adressen in Nederland, België en Duitsland.
+
+1. Klik in de lijst **Tenants** met de rechtermuisknop op de tenant en kies **Terugzetten naar dataset**.
+2. Kies **Testset gemiddeld volume** (5.000 relaties en van elk ander soort record tientallen tot honderden) of
+   **Testset groot volume** (150.000 relaties en van elk ander soort record meer dan 1.000).
+3. Typ de naam van de tenant en klik op **Verwijderen en terugzetten**.
+
+> **Let op:** alle bedrijfsgegevens van de tenant — relaties, wagenpark, chauffeurs, tarieven, orders, ritten enzovoort
+> — worden definitief verwijderd. Gebruikers, rollen, instellingen en referentiegegevens (landen, valuta) blijven.
+
+Het terugzetten loopt op de achtergrond; de kolom **Testgegevens** toont de dataset en of het nog bezig is, klaar is
+of mislukt. De grote testset duurt enkele minuten. Is het mislukt, zet de tenant dan opnieuw terug: elke keer begint
+met het verwijderen van alles. E-mailadressen in de testgegevens eindigen op `example.com` en komen nooit aan.
+
+---
+
 ## Een tenant wijzigen
 
 Dubbelklik op de tenant. Je kunt de **Naam** en de **Editie** wijzigen. De naam van de
@@ -189,6 +208,7 @@ Financieel, verschijnen hier zodra hun eerste lijst er is.
 | **Tenants wijzigen** | `Platform.Tenants.Update` | Naam en editie wijzigen, een uitnodiging opnieuw versturen. |
 | **Tenants verwijderen** | `Platform.Tenants.Delete` | Een tenant en zijn database verwijderen. |
 | **Inloggen als tenantgebruiker** | `Platform.Tenants.Impersonation` | Inloggen als een gebruiker van een tenant. |
+| **Tenant terugzetten naar een testdataset** | `Platform.Tenants.ResetToDataset` | De bedrijfsgegevens van een tenant vervangen door een testdataset. |
 | **Edities** | `Platform.Editions` | De lijst met edities bekijken. |
 | **Edities aanmaken** | `Platform.Editions.Create` | Een editie aanmaken. |
 | **Edities wijzigen** | `Platform.Editions.Update` | De naam van een editie wijzigen. |

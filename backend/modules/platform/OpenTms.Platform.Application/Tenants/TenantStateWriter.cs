@@ -75,6 +75,27 @@ public class TenantStateWriter : ITransientDependency
             }
         });
 
+    /// <summary>Records where a "Reset to dataset" stands; a finished run also records its request id (rule 3).</summary>
+    public Task SetDatasetResetStateAsync(Guid tenantId, string state, Guid? requestId = null, string? error = null) =>
+        UpdateAsync(tenantId, tenant =>
+        {
+            tenant.SetProperty(TenantProperties.DatasetResetState, state);
+            tenant.SetProperty(TenantProperties.DatasetResetAt, _clock.Now);
+            if (requestId != null)
+            {
+                tenant.SetProperty(TenantProperties.DatasetResetRequestId, requestId);
+            }
+
+            if (error == null)
+            {
+                tenant.RemoveProperty(TenantProperties.DatasetResetError);
+            }
+            else
+            {
+                tenant.SetProperty(TenantProperties.DatasetResetError, error);
+            }
+        });
+
     private async Task UpdateAsync(Guid tenantId, Action<Tenant> change)
     {
         using (_currentTenant.Change(null))

@@ -18,6 +18,8 @@ vi.mock("@/domains/platform/tenants", () => ({
   TenantProvisioningStates: { Queued: "Queued", Running: "Running", Succeeded: "Succeeded", Failed: "Failed" },
   useRetryTenantProvisioning: () => ({ mutateAsync: vi.fn() }),
   useResendTenantInvitation: () => ({ mutateAsync: vi.fn() }),
+  TestDatasets: { Average: "Average", Large: "Large" },
+  useResetTenantToDataset: () => ({ mutateAsync: vi.fn() }),
   useTenantsGridFetcher: () => vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
 }));
 
