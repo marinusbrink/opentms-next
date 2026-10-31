@@ -138,3 +138,19 @@ export function useResendTenantInvitation() {
     },
   });
 }
+
+/** The test datasets of "Reset to dataset" (docs/designs/65-tenant-test-datasets.md); mirrors TestDatasets. */
+export const TestDatasets = { Average: "Average", Large: "Large" } as const;
+export type TestDataset = (typeof TestDatasets)[keyof typeof TestDatasets];
+
+export function useResetTenantToDataset() {
+  return useMutation({
+    mutationFn: async ({ id, dataset, confirmationName }: { id: string; dataset: TestDataset; confirmationName: string }) => {
+      const { error } = await apiClient.POST("/api/platform/tenants/{id}/reset-to-dataset", {
+        params: { path: { id } },
+        body: { dataset, confirmationName },
+      });
+      if (error) throw error;
+    },
+  });
+}

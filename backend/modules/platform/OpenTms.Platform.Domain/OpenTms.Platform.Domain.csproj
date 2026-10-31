@@ -16,6 +16,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Real NL/BE/DE addresses for "Reset to dataset" (docs/designs/65-tenant-test-datasets.md). -->
+    <EmbeddedResource Include="TestData\Addresses\addresses.csv.gz" LogicalName="OpenTms.Platform.TestData.addresses.csv.gz" Condition="Exists('TestData\Addresses\addresses.csv.gz')" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OpenTms.Platform.Domain.Shared\OpenTms.Platform.Domain.Shared.csproj" />
   </ItemGroup>
 

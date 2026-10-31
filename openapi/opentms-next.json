@@ -20885,6 +20885,23 @@
             "nullable": true,
             "type": "string"
           },
+          "datasetName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetResetAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetResetError": {
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetResetState": {
+            "nullable": true,
+            "type": "string"
+          },
           "editionId": {
             "format": "uuid",
             "nullable": true,
@@ -20950,6 +20967,24 @@
         },
         "type": "object"
       },
+      "OpenTms.Platform.Tenants.TenantResetToDatasetDto": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmationName": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "dataset": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmationName",
+          "dataset"
+        ],
+        "type": "object"
+      },
       "OpenTms.Platform.Tenants.TenantRowDto": {
         "additionalProperties": false,
         "properties": {
@@ -20958,6 +20993,19 @@
             "type": "string"
           },
           "databaseName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetResetAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "datasetResetState": {
             "nullable": true,
             "type": "string"
           },
@@ -94637,6 +94685,48 @@
             }
           }
         ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "TenantAdministration"
+        ]
+      }
+    },
+    "/api/platform/tenants/{id}/reset-to-dataset": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Tenants.TenantResetToDatasetDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Tenants.TenantResetToDatasetDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Platform.Tenants.TenantResetToDatasetDto"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"

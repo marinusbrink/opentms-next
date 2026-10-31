@@ -97,4 +97,14 @@ public class TenantAdministrationController : OpenTmsController
         await _tenantAppService.ResendInvitationAsync(id);
         return NoContent();
     }
+
+    /// <summary>"Reset to dataset" (docs/designs/65-tenant-test-datasets.md): queued; the list shows its progress.</summary>
+    [HttpPost("{id:guid}/reset-to-dataset")]
+    [Authorize(PlatformPermissions.Tenants.ResetToDataset)]
+    [ProducesResponseType(204)]
+    public async Task<IActionResult> ResetToDatasetAsync(Guid id, [FromBody] TenantResetToDatasetDto input)
+    {
+        await _tenantAppService.ResetToDatasetAsync(id, input);
+        return NoContent();
+    }
 }

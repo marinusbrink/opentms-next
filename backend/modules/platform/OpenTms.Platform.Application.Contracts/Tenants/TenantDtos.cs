@@ -20,6 +20,14 @@ public record TenantRowDto
     public string? ProvisioningState { get; init; }
 
     public DateTime CreationTime { get; init; }
+
+    /// <summary>The test dataset of the last "Reset to dataset" (<c>TestDatasets</c>); null when never reset.</summary>
+    public string? DatasetName { get; init; }
+
+    /// <summary>One of <c>TestDatasetResetState</c>; null when never reset.</summary>
+    public string? DatasetResetState { get; init; }
+
+    public DateTime? DatasetResetAt { get; init; }
 }
 
 public record TenantDto : TenantRowDto
@@ -30,6 +38,20 @@ public record TenantDto : TenantRowDto
     public string? ProvisioningError { get; init; }
 
     public DateTime? InvitationSentAt { get; init; }
+
+    /// <summary>Exception type and message of a failed "Reset to dataset".</summary>
+    public string? DatasetResetError { get; init; }
+}
+
+/// <summary>"Reset to dataset": which test dataset (<c>TestDatasets.Average</c> or <c>TestDatasets.Large</c>).</summary>
+public record TenantResetToDatasetDto
+{
+    [Required]
+    public string Dataset { get; init; } = default!;
+
+    /// <summary>The tenant's name typed again, as a guard against resetting the wrong tenant.</summary>
+    [Required]
+    public string ConfirmationName { get; init; } = default!;
 }
 
 public class TenantCreateDto

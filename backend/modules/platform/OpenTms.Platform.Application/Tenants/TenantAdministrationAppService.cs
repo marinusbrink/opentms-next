@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.Permissions;
+using OpenTms.Platform.TestData;
 using Volo.Abp;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.Data;
@@ -220,6 +221,47 @@ public class TenantAdministrationAppService : PlatformAppServiceBase, ITenantAdm
         Logger.LogInformation("Tenant {TenantId} invitation re-queued by {ActorId}", id, CurrentUser.Id);
     }
 
+    [Authorize(PlatformPermissions.Tenants.ResetToDataset)]
+    public async Task ResetToDatasetAsync(Guid id, TenantResetToDatasetDto input)
+    {
+        HostOnlyGuard.Ensure(CurrentTenant);
+
+        if (!TestDatasets.All.Contains(input.Dataset, StringComparer.Ordinal))
+        {
+            throw new UserFriendlyException(L["Tenants:UnknownDataset"]);
+        }
+
+        var tenant = await _tenantRepository.GetAsync(id);
+        if (!string.Equals(input.ConfirmationName?.Trim(), tenant.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UserFriendlyException(L["Tenants:ConfirmationNameMismatch"]);
+        }
+
+        /* A tenant created before the Tenants app has no provisioning state and is usable. */
+        var provisioning = tenant.GetProperty<string?>(TenantProperties.ProvisioningState);
+        if (provisioning != null && provisioning != TenantProvisioningState.Succeeded)
+        {
+            throw new UserFriendlyException(L["Tenants:ResetOnlyWhenReady"]);
+        }
+
+        var resetState = tenant.GetProperty<string?>(TenantProperties.DatasetResetState);
+        if (resetState is TestDatasetResetState.Queued or TestDatasetResetState.Running)
+        {
+            throw new UserFriendlyException(L["Tenants:ResetAlreadyRunning"]);
+        }
+
+        tenant.SetProperty(TenantProperties.DatasetName, input.Dataset);
+        tenant.SetProperty(TenantProperties.DatasetResetState, TestDatasetResetState.Queued);
+        tenant.SetProperty(TenantProperties.DatasetResetAt, Clock.Now);
+        tenant.RemoveProperty(TenantProperties.DatasetResetError);
+        await _tenantRepository.UpdateAsync(tenant);
+
+        QueueAfterCommit(new TestDatasetResetArgs { TenantId = id, Dataset = input.Dataset, RequestId = GuidGenerator.Create() });
+
+        Logger.LogInformation(
+            "Tenant {TenantId} reset to dataset {Dataset} queued by {ActorId}", id, input.Dataset, CurrentUser.Id);
+    }
+
     /// <summary>The tenant's own database, or null when it has none (shared tier) or it is not one this app created.</summary>
     private TenantDatabaseLocation? FindOwnDatabase(Tenant tenant)
     {
@@ -279,7 +321,11 @@ public class TenantAdministrationAppService : PlatformAppServiceBase, ITenantAdm
             CreationTime = row.CreationTime,
             ConnectionString = connectionString == null ? null : _provisioner.Mask(connectionString),
             ProvisioningError = tenant.GetProperty<string?>(TenantProperties.ProvisioningError),
-            InvitationSentAt = tenant.GetProperty<DateTime?>(TenantProperties.InvitationSentAt)
+            InvitationSentAt = tenant.GetProperty<DateTime?>(TenantProperties.InvitationSentAt),
+            DatasetName = row.DatasetName,
+            DatasetResetState = row.DatasetResetState,
+            DatasetResetAt = row.DatasetResetAt,
+            DatasetResetError = tenant.GetProperty<string?>(TenantProperties.DatasetResetError)
         };
     }
 
@@ -297,7 +343,10 @@ public class TenantAdministrationAppService : PlatformAppServiceBase, ITenantAdm
             DatabaseName = location?.DatabaseName,
             ServerName = location == null ? null : $"{location.Host}:{location.Port}",
             ProvisioningState = tenant.GetProperty<string?>(TenantProperties.ProvisioningState),
-            CreationTime = tenant.CreationTime
+            CreationTime = tenant.CreationTime,
+            DatasetName = tenant.GetProperty<string?>(TenantProperties.DatasetName),
+            DatasetResetState = tenant.GetProperty<string?>(TenantProperties.DatasetResetState),
+            DatasetResetAt = tenant.GetProperty<DateTime?>(TenantProperties.DatasetResetAt)
         };
     }
 

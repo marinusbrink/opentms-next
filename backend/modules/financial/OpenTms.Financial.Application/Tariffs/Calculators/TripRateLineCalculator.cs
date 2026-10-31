@@ -24,7 +24,7 @@ namespace OpenTms.Financial.Tariffs.Calculators;
 /// </summary>
 public class TripRateLineCalculator : IDerivedValueCalculator, ITransientDependency
 {
-    public const string TargetType = "Financial.TripRateLines";
+    public const string TargetType = FinancialDerivedValueTypes.TripRateLines;
     public const string OwnFleetDescriptionKey = "Financial:RateLine.OwnFleetDistance";
 
     private readonly ITripCostFactsReader _trips;

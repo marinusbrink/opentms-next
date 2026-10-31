@@ -22,7 +22,7 @@ namespace OpenTms.Financial.Tariffs.Calculators;
 /// </summary>
 public class OrderRateLineCalculator : IDerivedValueCalculator, ITransientDependency
 {
-    public const string TargetType = "Financial.OrderRateLines";
+    public const string TargetType = FinancialDerivedValueTypes.OrderRateLines;
 
     private readonly IOrderPricingReader _orders;
     private readonly ILegReader _legs;

@@ -27,4 +27,18 @@ public static class TenantProperties
 
     /// <summary>The request id of the last invitation that was sent; a redelivery of that job sends nothing (rule 3).</summary>
     public const string InvitationRequestId = "InvitationRequestId";
+
+    /// <summary>The test dataset of the last "Reset to dataset" (docs/designs/65-tenant-test-datasets.md).</summary>
+    public const string DatasetName = "DatasetName";
+
+    /// <summary>Where that reset stands: a <c>TestDatasetResetState</c> value.</summary>
+    public const string DatasetResetState = "DatasetResetState";
+
+    public const string DatasetResetAt = "DatasetResetAt";
+
+    /// <summary>Exception type and message of a failed reset; never a connection string.</summary>
+    public const string DatasetResetError = "DatasetResetError";
+
+    /// <summary>The request id of the reset that last finished; a redelivery of that job does nothing (rule 3).</summary>
+    public const string DatasetResetRequestId = "DatasetResetRequestId";
 }
