@@ -17,17 +17,21 @@ esac
 
 current="$(gcloud sql instances describe "${INSTANCE}" --project "${PROJECT}" --format='value(settings.activationPolicy)')"
 if [[ "${current}" == "${POLICY}" ]]; then
+  # The policy may already be set by a start or stop that is still running (another workflow): wait for it.
+  pending="$(gcloud sql operations list --instance "${INSTANCE}" --project "${PROJECT}" \
+    --filter='status!=DONE' --format='value(name)')"
+  if [[ -n "${pending}" ]]; then
+    # shellcheck disable=SC2086 # one operation name per word
+    gcloud sql operations wait ${pending} --project "${PROJECT}" --timeout=1800
+  fi
   echo "${INSTANCE} is already ${ACTION}ed (${POLICY})."
-else
-  gcloud sql instances patch "${INSTANCE}" --project "${PROJECT}" --activation-policy="${POLICY}" --quiet
+  exit 0
 fi
 
-if [[ "${ACTION}" == "start" ]]; then
-  for _ in $(seq 1 60); do
-    state="$(gcloud sql instances describe "${INSTANCE}" --project "${PROJECT}" --format='value(state)')"
-    [[ "${state}" == "RUNNABLE" ]] && { echo "${INSTANCE} is running."; exit 0; }
-    sleep 10
-  done
-  echo "${INSTANCE} did not become RUNNABLE within ten minutes." >&2
-  exit 1
-fi
+# A start can take well over the ten minutes gcloud waits for a patch by itself, so start the operation
+# asynchronously and wait for it with our own (longer) timeout.
+operation="$(gcloud sql instances patch "${INSTANCE}" --project "${PROJECT}" --activation-policy="${POLICY}" \
+  --async --quiet --format='value(name)')"
+[[ -n "${operation}" ]] || { echo "No operation returned for ${INSTANCE}." >&2; exit 1; }
+gcloud sql operations wait "${operation}" --project "${PROJECT}" --timeout=1800
+echo "${INSTANCE} is ${ACTION}ed (${POLICY})."
