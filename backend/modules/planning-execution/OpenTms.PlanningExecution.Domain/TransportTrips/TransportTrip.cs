@@ -94,6 +94,22 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public DateTimeOffset? CalculatedAt { get; private set; }
 
+    /* Design 68 §4 (PO decision D3): the stored route of the trip, written by TripCalculator; null when routing is off. */
+
+    /// <summary>One segment per consecutive pair of route points (jsonb); null when the trip has no routed route.</summary>
+    public List<TripRouteSegment>? RouteSegments { get; private set; }
+
+    /// <summary>The summed toll of the segments; null when no segment knows its toll.</summary>
+    public decimal? TollAmount { get; private set; }
+
+    public string? TollCurrencyCode { get; private set; }
+
+    public int? TollDistanceM { get; private set; }
+
+    public string? RouteProvider { get; private set; }
+
+    public DateTimeOffset? RoutedAt { get; private set; }
+
     /// <summary>Lower-cased searchable text: number, name, carrier, vehicles, customers, stop cities (design 59 list search).</summary>
     public string SearchKey { get; private set; } = string.Empty;
 
@@ -615,6 +631,33 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             SetPlannedTimes(PlannedDeparture, plannedArrival);
         }
+    }
+
+    /// <summary>
+    /// Design 68 §4: the routed segments with their toll totals (summed over the segments that know them; the currency of
+    /// the first that names one), the provider and the instant; null clears the stored route (routing off, no path).
+    /// </summary>
+    public void SetRoute(IReadOnlyList<TripRouteSegment>? segments, string? provider, string? tollCurrencyCode, DateTimeOffset? routedAt)
+    {
+        if (segments == null || segments.Count == 0)
+        {
+            RouteSegments = null;
+            TollAmount = null;
+            TollCurrencyCode = null;
+            TollDistanceM = null;
+            RouteProvider = null;
+            RoutedAt = null;
+            return;
+        }
+
+        RouteSegments = segments.ToList();
+        var tolled = segments.Where(s => s.TollAmount != null).ToList();
+        TollAmount = tolled.Count == 0 ? null : Math.Round(tolled.Sum(s => s.TollAmount!.Value), 2, MidpointRounding.AwayFromZero);
+        TollCurrencyCode = TollAmount == null ? null : Text(tollCurrencyCode, PlanningExecutionConsts.MaxCurrencyCodeLength);
+        var tollDistances = segments.Where(s => s.TollDistanceM != null).ToList();
+        TollDistanceM = tollDistances.Count == 0 ? null : tollDistances.Sum(s => s.TollDistanceM!.Value);
+        RouteProvider = Text(provider, PlanningExecutionConsts.MaxProviderLength);
+        RoutedAt = routedAt;
     }
 
     public void SetLoad(decimal? loadFactor, double? loadingMeters)

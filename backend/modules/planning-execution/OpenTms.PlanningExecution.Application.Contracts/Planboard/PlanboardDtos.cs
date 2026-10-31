@@ -161,7 +161,7 @@ public class PlanboardSchedulerDto
 
     public List<PlanboardBarDto> Bars { get; set; } = new();
 
-    /// <summary>Unavailability and outside-working-time blocks of the rows in the window (filled by the availability part of design 68).</summary>
+    /// <summary>Unavailability and outside-working-time blocks of the rows in the window (design 68 §2).</summary>
     public List<PlanboardBlockDto> Blocks { get; set; } = new();
 
     /// <summary>Id → display name of every vehicle, driver and carrier on the bars.</summary>
@@ -247,7 +247,7 @@ public class PlanboardBarDto
     public string ConcurrencyStamp { get; set; } = string.Empty;
 }
 
-/// <summary>A period a row's resource is not available (design 68 §2; filled by the availability part).</summary>
+/// <summary>A period a row's resource is not available (design 68 §2): an unavailability occurrence or outside working time.</summary>
 public class PlanboardBlockDto
 {
     public Guid ResourceId { get; set; }
@@ -310,4 +310,19 @@ public interface IPlanboardAppService : IApplicationService
 
     /// <summary><c>POST /api/planning/planboard/{id}/complete</c>.</summary>
     Task<PlanboardChangeDto> CompleteAsync(Guid id, PlanboardCompleteDto input);
+
+    /// <summary><c>GET /api/planning/planboard/{id}/map</c>.</summary>
+    Task<PlanboardTripMapDto> GetMapAsync(Guid id);
+
+    /// <summary><c>GET /api/planning/planboard/map-trips</c>.</summary>
+    Task<PlanboardMapTripsDto> GetMapTripsAsync(PlanboardMapTripsRequestDto input);
+
+    /// <summary><c>GET /api/planning/planboard/unplanned-near</c>.</summary>
+    Task<PlanboardUnplannedNearDto> GetUnplannedNearAsync(PlanboardUnplannedNearRequestDto input);
+
+    /// <summary><c>GET /api/planning/planboard/resource-drivers</c>.</summary>
+    Task<PlanboardResourceDriversDto> GetResourceDriversAsync(PlanboardResourceDriversRequestDto input);
+
+    /// <summary><c>GET /api/planning/planboard/resource-vehicles</c>.</summary>
+    Task<PlanboardResourceVehiclesDto> GetResourceVehiclesAsync(PlanboardResourceVehiclesRequestDto input);
 }

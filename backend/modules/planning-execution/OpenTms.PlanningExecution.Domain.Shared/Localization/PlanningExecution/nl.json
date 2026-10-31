@@ -325,6 +325,25 @@
     "PlanningExecution:PlanboardResourceMode.Driver": "Chauffeur",
     "PlanningExecution:PlanboardTripField.Name": "Naam",
     "PlanningExecution:PlanboardTripField.Remarks": "Opmerkingen",
-    "PlanningExecution:PlanboardTripField.DriverInstructions": "Chauffeursinstructies"
+    "PlanningExecution:PlanboardTripField.DriverInstructions": "Chauffeursinstructies",
+    "Permission:ResourceAvailability": "Beschikbaarheid van middelen",
+    "Permission:ResourceAvailability.Manage": "Beschikbaarheid en werktijden van middelen beheren",
+    "PlanningExecution:TripWarningCode.ResourceDoubleBooked": "Een voertuig of chauffeur zit tegelijk op een andere rit",
+    "PlanningExecution:TripWarningCode.ResourceUnavailable": "Een voertuig of chauffeur is tijdens de rit niet beschikbaar",
+    "PlanningExecution:TripWarningCode.OutsideWorkingTime": "De rit valt buiten de werktijden van een chauffeur",
+    "PlanningExecution:ResourceKind.Vehicle": "Voertuig",
+    "PlanningExecution:ResourceKind.Driver": "Chauffeur",
+    "PlanningExecution:UnavailabilityReason.Leave": "Verlof",
+    "PlanningExecution:UnavailabilityReason.Sick": "Ziek",
+    "PlanningExecution:UnavailabilityReason.Training": "Opleiding",
+    "PlanningExecution:UnavailabilityReason.Maintenance": "Onderhoud",
+    "PlanningExecution:UnavailabilityReason.Inspection": "Keuring",
+    "PlanningExecution:UnavailabilityReason.Other": "Overig",
+    "OpenTms.PlanningExecution:InvalidUnavailabilityPeriod": "De periode moet eindigen na het begin en mag hoogstens {max} dagen beslaan",
+    "OpenTms.PlanningExecution:InvalidRecurrence": "Een herhaling heeft weekdagen nodig, een einddatum na het begin en hoogstens {max} dagen later, en een periode van hoogstens 24 uur",
+    "OpenTms.PlanningExecution:InvalidWorkingPattern": "Noem elke weekdag één keer, met een eindtijd na de begintijd",
+    "OpenTms.PlanningExecution:InvalidAvailabilityWindow": "De periode moet eindigen na het begin en mag hoogstens {max} dagen beslaan",
+    "OpenTms.PlanningExecution:InvalidNearbySearch": "Kies een straal van 1 tot {max} km en een periode van hoogstens {days} dagen",
+    "OpenTms.PlanningExecution:StopsNotOptimizable": "De stops van rit {number} kunnen niet worden geoptimaliseerd: de rit moet gepland of onderweg zijn en minstens twee verplaatsbare stops hebben"
   }
 }

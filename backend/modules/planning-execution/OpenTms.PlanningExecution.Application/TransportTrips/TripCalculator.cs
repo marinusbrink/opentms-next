@@ -9,6 +9,7 @@ using OpenTms.Financial.Tariffs.Published;
 using OpenTms.Integrations.CarbonFootprint;
 using OpenTms.Integrations.Routing;
 using OpenTms.MasterData.Published;
+using OpenTms.PlanningExecution.Availability;
 using OpenTms.PlanningExecution.Events;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.Settings;
@@ -31,6 +32,11 @@ namespace OpenTms.PlanningExecution.TransportTrips;
 /// retries); one that answers null (not configured, no path) leaves the old times and warns <c>RoutingNotConfigured</c>.
 /// No <c>RoutingUnavailable</c> warning exists: a failed job rolls back, so the trip could never store one; the
 /// derived-value state carries that code instead. CO₂ falls back to great circle when only the route function is down.
+/// <para>
+/// Design 68: (a) also stores the route's segments with geometry and toll (§4; null when routing is off), (c) also writes
+/// the resource warnings (§3, <see cref="ResourceConflictChecker"/>), and a calculation that moves the planned arrival asks
+/// the trips the trip overlapped before and after to recalculate (<see cref="TripOverlapFanOut"/>).
+/// </para>
 /// </summary>
 public class TripCalculator : IDerivedValueCalculator, ITransientDependency
 {
@@ -45,6 +51,11 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
     private readonly ISettingProvider _settings;
     private readonly IDistributedEventBus _events;
     private readonly IClock _clock;
+    private readonly ResourceConflictChecker _conflicts;
+    private readonly TripOverlapFanOut _fanOut;
+
+    /// <summary>Design 68 §4: the matrix with geometry and toll per segment.</summary>
+    private static readonly RoutingOptions RouteOptions = new(IncludeGeometry: true, IncludeToll: true);
 
     public TripCalculator(
         IRepository<TransportTrip, Guid> trips,
@@ -55,7 +66,9 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
         MasterDataReferences masterData,
         ISettingProvider settings,
         IDistributedEventBus events,
-        IClock clock)
+        IClock clock,
+        ResourceConflictChecker conflicts,
+        TripOverlapFanOut fanOut)
     {
         _trips = trips;
         _legs = legs;
@@ -66,6 +79,8 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
         _settings = settings;
         _events = events;
         _clock = clock;
+        _conflicts = conflicts;
+        _fanOut = fanOut;
     }
 
     public async Task CalculateAsync(DerivedValueCalculationContext context)
@@ -79,6 +94,7 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
 
         var legs = (await _legs.GetListAsync(l => l.TripId == trip.Id, cancellationToken: context.CancellationToken))
             .OrderBy(l => l.TripPosition ?? int.MaxValue).ThenBy(l => l.Id).ToList();
+        var before = TripFootprint.Of(trip);
         var warnings = new List<TripWarning>();
         await CarryOverChangedLegWarningsAsync(trip, warnings);
 
@@ -90,6 +106,7 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
         var route = await CalculateStopTimesAsync(trip, legs, spec, warnings, context);
         CalculateLoad(trip, legs, vehicles, warnings);
         await AddCompatibilityWarningsAsync(trip, legs, vehicles, warnings);
+        warnings.AddRange(await _conflicts.CheckAsync(trip, vehicleIds));
         await EstimateCo2Async(trip, legs, spec, route, context);
         var orderIds = await AllocateAsync(trip, legs, warnings, context.Version);
 
@@ -98,6 +115,13 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
         await _trips.UpdateAsync(trip);
         await _legs.UpdateManyAsync(legs);
         await _events.PublishAsync(new TransportTripRecalculatedEto { TripId = trip.Id, Version = context.Version, OrderIds = orderIds });
+
+        /* A new planned arrival changes what the trip overlaps: the trips on either side re-check their double booking. */
+        var after = TripFootprint.Of(trip);
+        if (!after.Equals(before))
+        {
+            await _fanOut.RequestForFootprintsAsync(trip.Id, [before, after], "TripRescheduledByCalculation");
+        }
         Logger.LogInformation("Trip {TripId} v{Version} calculated: {StopCount} stops, {LegCount} legs, {WarningCount} warnings.", trip.Id, context.Version, trip.Stops.Count, legs.Count, warnings.Count);
     }
 
@@ -152,15 +176,36 @@ public class TripCalculator : IDerivedValueCalculator, ITransientDependency
         if (points.Count < 2)
         {
             trip.SetPlannedRoute(null, null, null);
+            trip.SetRoute(null, null, null, null);
             return null;
         }
 
-        var matrix = await _routing.GetMatrixAsync(points.Select(p => p.Point).ToList(), spec, context.CancellationToken);
+        var matrix = await _routing.GetMatrixAsync(points.Select(p => p.Point).ToList(), spec, RouteOptions, context.CancellationToken);
         if (matrix == null || matrix.Legs.Count != points.Count - 1)
         {
             warnings.Add(new TripWarning(TripWarningCode.RoutingNotConfigured));
+            /* Design 68 §4: no route, no geometry; the map draws straight lines. */
+            trip.SetRoute(null, null, null, null);
             return null;
         }
+
+        var segments = new List<TripRouteSegment>(matrix.Legs.Count);
+        for (var i = 0; i < matrix.Legs.Count; i++)
+        {
+            var leg = matrix.Legs[i];
+            segments.Add(new TripRouteSegment
+            {
+                FromStopId = points[i].Stop?.Id,
+                ToStopId = points[i + 1].Stop?.Id,
+                EncodedPolyline = leg.EncodedPolyline,
+                DistanceM = leg.DistanceM,
+                DurationS = leg.DurationS,
+                TollDistanceM = leg.TollDistanceM,
+                TollAmount = leg.TollAmount
+            });
+        }
+
+        trip.SetRoute(segments, matrix.Provider, matrix.Legs.Select(l => l.TollCurrencyCode).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)), matrix.At);
 
         var factor = await SpeedCorrectionFactorAsync();
         var time = trip.PlannedDeparture;

@@ -325,6 +325,25 @@
     "PlanningExecution:PlanboardResourceMode.Driver": "Driver",
     "PlanningExecution:PlanboardTripField.Name": "Name",
     "PlanningExecution:PlanboardTripField.Remarks": "Remarks",
-    "PlanningExecution:PlanboardTripField.DriverInstructions": "Driver instructions"
+    "PlanningExecution:PlanboardTripField.DriverInstructions": "Driver instructions",
+    "Permission:ResourceAvailability": "Resource availability",
+    "Permission:ResourceAvailability.Manage": "Manage resource availability and working times",
+    "PlanningExecution:TripWarningCode.ResourceDoubleBooked": "A vehicle or driver is on another trip at the same time",
+    "PlanningExecution:TripWarningCode.ResourceUnavailable": "A vehicle or driver is not available during the trip",
+    "PlanningExecution:TripWarningCode.OutsideWorkingTime": "The trip lies outside a driver's working times",
+    "PlanningExecution:ResourceKind.Vehicle": "Vehicle",
+    "PlanningExecution:ResourceKind.Driver": "Driver",
+    "PlanningExecution:UnavailabilityReason.Leave": "Leave",
+    "PlanningExecution:UnavailabilityReason.Sick": "Sick",
+    "PlanningExecution:UnavailabilityReason.Training": "Training",
+    "PlanningExecution:UnavailabilityReason.Maintenance": "Maintenance",
+    "PlanningExecution:UnavailabilityReason.Inspection": "Inspection",
+    "PlanningExecution:UnavailabilityReason.Other": "Other",
+    "OpenTms.PlanningExecution:InvalidUnavailabilityPeriod": "The period must end after it starts and span at most {max} days",
+    "OpenTms.PlanningExecution:InvalidRecurrence": "A repetition needs weekdays, an end date after the start at most {max} days later, and a period of at most 24 hours",
+    "OpenTms.PlanningExecution:InvalidWorkingPattern": "Name each weekday once, with an end time after the start time",
+    "OpenTms.PlanningExecution:InvalidAvailabilityWindow": "The period must end after it starts and span at most {max} days",
+    "OpenTms.PlanningExecution:InvalidNearbySearch": "Choose a radius of 1 to {max} km and a period of at most {days} days",
+    "OpenTms.PlanningExecution:StopsNotOptimizable": "The stops of trip {number} cannot be optimised: it must be planned or running and have at least two stops that may move"
   }
 }

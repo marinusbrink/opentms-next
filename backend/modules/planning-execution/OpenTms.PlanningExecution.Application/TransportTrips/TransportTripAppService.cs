@@ -262,9 +262,9 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
 
         if (input.Ids is { Count: > 0 })
         {
-            if (input.Ids.Count > PlanningExecutionConsts.MaxPlanboardPageSize)
+            if (input.Ids.Count > PlanningExecutionConsts.MaxIdsPerQuery)
             {
-                throw new BusinessException(PlanningExecutionErrorCodes.TooManyIds).WithData("max", PlanningExecutionConsts.MaxPlanboardPageSize);
+                throw new BusinessException(PlanningExecutionErrorCodes.TooManyIds).WithData("max", PlanningExecutionConsts.MaxIdsPerQuery);
             }
 
             var ids = input.Ids.Distinct().ToList();
@@ -674,7 +674,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         await Notices.TripAsync(trip);
         await _ops.ValidateDriversAsync(input.DriverIds);
         trip.SetDrivers(input.DriverIds);
-        await _ops.ChangedAsync(trip, TripChangeKind.Drivers, recalculate: false);
+        /* Design 68 §3: the resource warnings depend on the drivers. */
+        await _ops.ChangedAsync(trip, TripChangeKind.Drivers, recalculate: true);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
     }
@@ -851,6 +852,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var trip = await _ops.GetWithDetailsAsync(id);
         trip.Archive();
         await _trips.UpdateAsync(trip);
+        await _ops.Overlaps.RequestForTripAsync(trip, "OverlappingTripArchived", force: true);
         await Notices.TripAsync(trip);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
@@ -863,6 +865,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var trip = await _ops.GetWithDetailsAsync(id);
         trip.Unarchive();
         await _trips.UpdateAsync(trip);
+        await _ops.Overlaps.RequestForTripAsync(trip, "OverlappingTripUnarchived", force: true);
+        await _ops.RequestRecalculationAsync(trip.Id, "Unarchived");
         await Notices.TripAsync(trip);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
@@ -881,6 +885,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         }
 
         await _trips.DeleteAsync(trip);
+        await _ops.Overlaps.RequestForTripAsync(trip, "OverlappingTripDeleted", force: true);
         await Notices.TripAsync(trip, deleted: true);
     }
 

@@ -95,6 +95,18 @@ public class IntegrationsApplicationModule : AbpModule
         {
             client.Timeout = services.GetRequiredService<IOptions<RoutingIntegrationOptions>>().Value.Timeout;
         });
+        /* Design 68 §5: the VROOM adapter of the stop optimiser, used only when Integrations:Routing:Vroom:BaseUrl is set. */
+        context.Services.AddHttpClient<VroomRouteOptimizer>((services, client) =>
+        {
+            var options = services.GetRequiredService<IOptions<RoutingIntegrationOptions>>().Value;
+            if (options.Vroom.IsConfigured)
+            {
+                var baseUrl = options.Vroom.BaseUrl!;
+                client.BaseAddress = new Uri(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/");
+            }
+
+            client.Timeout = options.Timeout;
+        });
         context.Services.AddTransient<IRouteProvider>(services => services.GetRequiredService<OsrmRoutingProvider>());
         context.Services.AddTransient<IRouteProvider>(services => services.GetRequiredService<ValhallaFunctionProvider>());
         context.Services.AddTransient<IRouteFunction>(services => services.GetRequiredService<ValhallaFunctionProvider>());

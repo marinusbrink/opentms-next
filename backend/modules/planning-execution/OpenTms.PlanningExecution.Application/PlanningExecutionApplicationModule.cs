@@ -19,12 +19,16 @@ public class PlanningExecutionApplicationModule : AbpModule
 
     public const string TripTargetType = "PlanningExecution.TransportTrip";
 
+    /// <summary>Design 68 §2: watch-only (design 67), the Scheduler and Resources pane learn about availability changes.</summary>
+    public const string AvailabilityTargetType = "PlanningExecution.ResourceAvailability";
+
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         Configure<DerivedValueOptions>(options =>
         {
             options.AddCalculator<LegRouteCalculator>(LegTargetType, PlanningExecutionPermissions.Legs.Default);
             options.AddCalculator<TripCalculator>(TripTargetType, PlanningExecutionPermissions.TransportTrips.Default);
+            options.AddWatchable(AvailabilityTargetType, PlanningExecutionPermissions.ResourceAvailability.Default);
         });
     }
 }

@@ -171,9 +171,9 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
     {
         if (input.Ids is { Count: > 0 })
         {
-            if (input.Ids.Count > PlanningExecutionConsts.MaxPlanboardPageSize)
+            if (input.Ids.Count > PlanningExecutionConsts.MaxIdsPerQuery)
             {
-                throw new BusinessException(PlanningExecutionErrorCodes.TooManyIds).WithData("max", PlanningExecutionConsts.MaxPlanboardPageSize);
+                throw new BusinessException(PlanningExecutionErrorCodes.TooManyIds).WithData("max", PlanningExecutionConsts.MaxIdsPerQuery);
             }
 
             var ids = input.Ids.Distinct().ToList();

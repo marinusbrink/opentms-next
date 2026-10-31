@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTms.PlanningExecution.Availability;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.RecordUpdates;
@@ -20,7 +21,11 @@ namespace OpenTms.PlanningExecution;
 /// <item>Trip: the planned departure–arrival dates, the organisation unit, the vehicle and driver ids, <c>Removed</c>
 /// when the trip was deleted or archived.</item>
 /// <item>Leg: the origin date, <c>Removed</c> when it left the unplanned list (it is on a trip, or deleted).</item>
+/// <item>Resource availability (design 68 §2): the period's dates (none for a working pattern), the resource id,
+/// <c>Removed</c> on delete.</item>
 /// </list>
+/// The first state of each trip noticed in a unit of work is also kept as its <see cref="TripFootprint"/>: the state
+/// before the command, which <see cref="TripOverlapFanOut"/> compares with the state after.
 /// Ids and dates only (constitution rule 5).
 /// </summary>
 public class PlanningRecordNotices : ITransientDependency
@@ -29,8 +34,13 @@ public class PlanningRecordNotices : ITransientDependency
 
     public const string LegType = PlanningExecutionApplicationModule.LegTargetType;
 
+    public const string AvailabilityType = PlanningExecutionApplicationModule.AvailabilityTargetType;
+
     /// <summary>The unit-of-work item that holds the merged hints per record.</summary>
     private const string PendingItemKey = "OpenTms.PlanningExecution.RecordNotices";
+
+    /// <summary>The unit-of-work item that holds the first footprint of every trip noticed.</summary>
+    private const string FootprintItemKey = "OpenTms.PlanningExecution.TripFootprints";
 
     private readonly IRecordUpdateNotifier _notifier;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
@@ -43,12 +53,46 @@ public class PlanningRecordNotices : ITransientDependency
 
     /// <summary>The trip in its current state; call it once on load (the state before) and once after the change.</summary>
     public Task TripAsync(TransportTrip trip, bool deleted = false)
-        => NotifyAsync(TripType, trip.Id, new RecordUpdateHints(
+    {
+        RememberFootprint(trip);
+        return NotifyAsync(TripType, trip.Id, new RecordUpdateHints(
             trip.DepartureDate,
             trip.ArrivalDate,
             trip.OrganizationUnitId,
             trip.Vehicles.Select(v => v.VehicleId).Concat(trip.Drivers.Select(d => d.DriverId)).Distinct().ToList(),
             deleted || trip.IsArchived));
+    }
+
+    /// <summary>
+    /// An availability record or working pattern of a resource changed (design 68 §2): <paramref name="targetId"/> is the
+    /// unavailability's id, or the resource's id for its working pattern; the dates are the period (null = every date).
+    /// </summary>
+    public Task AvailabilityAsync(Guid targetId, Guid resourceId, DateOnly? from, DateOnly? till, bool removed = false)
+        => NotifyAsync(AvailabilityType, targetId, new RecordUpdateHints(from, till, null, [resourceId], removed));
+
+    /// <summary>The trip's footprint when it was first noticed in the current unit of work (the state before the command); null when not noticed.</summary>
+    public TripFootprint? FirstFootprint(Guid tripId)
+        => _unitOfWorkManager.Current?.Items.TryGetValue(FootprintItemKey, out var item) == true
+           && item is Dictionary<Guid, TripFootprint> footprints && footprints.TryGetValue(tripId, out var footprint)
+            ? footprint
+            : null;
+
+    private void RememberFootprint(TransportTrip trip)
+    {
+        var unitOfWork = _unitOfWorkManager.Current;
+        if (unitOfWork == null)
+        {
+            return;
+        }
+
+        if (!unitOfWork.Items.TryGetValue(FootprintItemKey, out var item) || item is not Dictionary<Guid, TripFootprint> footprints)
+        {
+            footprints = new Dictionary<Guid, TripFootprint>();
+            unitOfWork.Items[FootprintItemKey] = footprints;
+        }
+
+        footprints.TryAdd(trip.Id, TripFootprint.Of(trip));
+    }
 
     public Task LegAsync(Leg leg, bool deleted = false)
         => NotifyAsync(LegType, leg.Id, new RecordUpdateHints(leg.OriginPlannedDate, leg.OriginPlannedDate, null, null, deleted || leg.TripId != null));

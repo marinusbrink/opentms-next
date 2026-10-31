@@ -127,12 +127,30 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The leg list cannot be grouped by {groupBy}.</summary>
     public const string UnknownGroupBy = Namespace + ":UnknownGroupBy";
 
+    /// <summary>An unavailability must end after it starts and span at most {max} days.</summary>
+    public const string InvalidUnavailabilityPeriod = Namespace + ":InvalidUnavailabilityPeriod";
+
+    /// <summary>A weekly repetition needs its weekdays and an end date after the start, at most {max} days later, and occurrences of at most 24 hours.</summary>
+    public const string InvalidRecurrence = Namespace + ":InvalidRecurrence";
+
+    /// <summary>A working pattern names each weekday (0–6) once, with an end after its start.</summary>
+    public const string InvalidWorkingPattern = Namespace + ":InvalidWorkingPattern";
+
+    /// <summary>An availability read spans at most {max} days and ends after it starts.</summary>
+    public const string InvalidAvailabilityWindow = Namespace + ":InvalidAvailabilityWindow";
+
+    /// <summary>The unplanned-legs-nearby search: radius 1–{max} km and a date range of at most {days} days.</summary>
+    public const string InvalidNearbySearch = Namespace + ":InvalidNearbySearch";
+
+    /// <summary>The trip's stops cannot be optimised ({number}): it is not planned or running, or has fewer than two stops that may move.</summary>
+    public const string StopsNotOptimizable = Namespace + ":StopsNotOptimizable";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         TripNotAssignable, LegOnOtherTrip, LegNotOnTrip, LegOutsideTripWindow, StopHasActuals, InvalidTransition, TripArchived,
         TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested,
-        ResourceNotOnTrip, NoTripType
+        ResourceNotOnTrip, NoTripType, StopsNotOptimizable
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -141,6 +159,7 @@ public static class PlanningExecutionErrorCodes
         TooManyVehicles, TooManyDrivers, TooManyStops, TooManyLegs, VehicleSourceConflict, InvalidSplit, InvalidAttributes,
         InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
         ExportTooManyRows, ExportUnknownColumn, SplitAddressIsLegEnd, SplitDateOutsideLeg, ContactWithoutCarrier,
-        AddressWithoutRelation, InvalidSchedulerWindow, ResourceKindMismatch, TooManyIds, UnknownGroupBy
+        AddressWithoutRelation, InvalidSchedulerWindow, ResourceKindMismatch, TooManyIds, UnknownGroupBy, InvalidUnavailabilityPeriod,
+        InvalidRecurrence, InvalidWorkingPattern, InvalidAvailabilityWindow, InvalidNearbySearch
     ];
 }

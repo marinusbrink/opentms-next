@@ -23,6 +23,9 @@ public class RoutingIntegrationOptions
 
     public RouteFunctionOptions RouteFunction { get; set; } = new();
 
+    /// <summary>Design 68 §5: the VROOM instance of the stop optimiser; unset = the built-in heuristic.</summary>
+    public VroomOptions Vroom { get; set; } = new();
+
     /// <summary>How long a cached route is served before the provider is asked again.</summary>
     public int CacheDays { get; set; } = DefaultCacheDays;
 
@@ -36,6 +39,14 @@ public class RoutingIntegrationOptions
     public class OsrmOptions
     {
         /// <summary>The OSRM instance ("https://host"); the API paths (/route/v1/driving, /table/v1/driving) are appended.</summary>
+        public string? BaseUrl { get; set; }
+
+        public bool IsConfigured => Uri.TryCreate(BaseUrl, UriKind.Absolute, out _);
+    }
+
+    public class VroomOptions
+    {
+        /// <summary>The VROOM HTTP endpoint ("https://host"); the problem is POSTed to its root.</summary>
         public string? BaseUrl { get; set; }
 
         public bool IsConfigured => Uri.TryCreate(BaseUrl, UriKind.Absolute, out _);

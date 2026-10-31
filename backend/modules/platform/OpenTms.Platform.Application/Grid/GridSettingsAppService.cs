@@ -242,5 +242,10 @@ public class GridSettingsAppService : PlatformAppServiceBase, IGridSettingsAppSe
                 throw new UserFriendlyException($"Invalid colId '{col.ColId}': must match ^[a-zA-Z0-9_.-]{{1,64}}$.");
             }
         }
+
+        if (dto.ViewState is { } viewState && viewState.GetRawText().Length > GridUserSettingConsts.MaxViewStateLength)
+        {
+            throw new UserFriendlyException($"GridSettingsDto.ViewState may contain at most {GridUserSettingConsts.MaxViewStateLength} characters.");
+        }
     }
 }

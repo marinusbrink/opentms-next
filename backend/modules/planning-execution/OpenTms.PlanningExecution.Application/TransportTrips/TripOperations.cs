@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Orders.Published;
+using OpenTms.PlanningExecution.Availability;
 using OpenTms.PlanningExecution.Events;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.Platform.DerivedValues;
@@ -45,6 +46,7 @@ public class TripOperations : ITransientDependency
     private readonly IClock _clock;
     private readonly TripTypeDefaults _typeDefaults;
     private readonly PlanningRecordNotices _notices;
+    private readonly TripOverlapFanOut _overlaps;
 
     public TripOperations(
         IRepository<TransportTrip, Guid> trips,
@@ -60,7 +62,8 @@ public class TripOperations : ITransientDependency
         ITransportOrderLookup orders,
         IClock clock,
         TripTypeDefaults typeDefaults,
-        PlanningRecordNotices notices)
+        PlanningRecordNotices notices,
+        TripOverlapFanOut overlaps)
     {
         _trips = trips;
         _legs = legs;
@@ -76,10 +79,14 @@ public class TripOperations : ITransientDependency
         _clock = clock;
         _typeDefaults = typeDefaults;
         _notices = notices;
+        _overlaps = overlaps;
     }
 
     /// <summary>The record channel (design 68 "Live updates"): every trip and leg change this class persists is noticed here.</summary>
     public PlanningRecordNotices Notices => _notices;
+
+    /// <summary>Design 68 §3: the recalculation of the trips a change of time, resources or liveness affects.</summary>
+    public TripOverlapFanOut Overlaps => _overlaps;
 
     public Guid NewId() => _guids.Create();
 
@@ -162,6 +169,8 @@ public class TripOperations : ITransientDependency
             AgreedPurchaseAmount = agreedPurchaseAmount,
             AgreedPurchaseCurrencyCode = agreedPurchaseCurrencyCode
         });
+        /* Design 68 §3: a new trip may double-book a resource of trips already planned. */
+        await _overlaps.RequestForTripAsync(trip, "OverlappingTripCreated", force: true);
         await _notices.TripAsync(trip);
         Logger.LogInformation("Transport trip {TripId} created for tenant {TenantId} (from order {OrderId}).", trip.Id, _currentTenant.Id, createdFromOrderId);
         return trip;
@@ -320,6 +329,12 @@ public class TripOperations : ITransientDependency
             await _scheduler.RequestAsync(PlanningExecutionApplicationModule.TripTargetType, trip.Id, change.ToString());
         }
 
+        if (change is TripChangeKind.Header or TripChangeKind.Vehicles or TripChangeKind.Drivers)
+        {
+            /* Before the notice below: without a notice on load, the state before is unknown and the fan-out always runs. */
+            await _overlaps.RequestForTripAsync(trip, "Overlapping" + change);
+        }
+
         await _notices.TripAsync(trip);
     }
 
@@ -341,6 +356,12 @@ public class TripOperations : ITransientDependency
     {
         await _trips.UpdateAsync(trip);
         await _events.PublishAsync(new TransportTripStatusChangedEto { TripId = trip.Id, Status = trip.Status, OrderIds = orderIds.Distinct().ToList() });
+        if (trip.Status == TransportTripStatus.Cancelled)
+        {
+            /* Design 68 §3: a cancelled trip blocks nothing any more. */
+            await _overlaps.RequestForTripAsync(trip, "OverlappingTripCancelled", force: true);
+        }
+
         await _notices.TripAsync(trip);
     }
 
