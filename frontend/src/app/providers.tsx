@@ -3,7 +3,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { AuthProvider, useAuth, type AuthProviderProps } from "react-oidc-context";
 import { WebStorageStateStore } from "oidc-client-ts";
 import { API_BASE_URL, setAccessTokenProvider, setTenantProvider } from "@/lib/api/client";
-import { settleSessionSwitch } from "@/auth/session-switch";
 import { getStoredTenant } from "@/auth/tenant";
 import { LocalizationProvider } from "@/lib/i18n/LocalizationProvider";
 import { useApplicationConfiguration } from "@/lib/abp/queries";
@@ -20,26 +19,29 @@ const queryClient = new QueryClient({
 
 /* OIDC against the ABP host's OpenIddict server: authorization code + PKCE,
  * public client (seeded as OpenTms_App by the DbMigrator). The selected tenant
- * travels as the __tenant query parameter so login happens in tenant context. */
-/* A refused "Log in as" comes back here: restore the previous tenant before it is read below. */
-settleSessionSwitch();
-const storedTenant = getStoredTenant();
+ * travels as the __tenant query parameter so login happens in tenant context.
+ * Built on first render, not at import: main.tsx settles the stored tenant first. */
+let oidcConfig: AuthProviderProps | undefined;
 
-const oidcConfig: AuthProviderProps = {
-  authority: API_BASE_URL,
-  client_id: "OpenTms_App",
-  redirect_uri: `${window.location.origin}/auth/callback`,
-  post_logout_redirect_uri: window.location.origin,
-  response_type: "code",
-  scope: "openid profile email phone address roles offline_access OpenTms",
-  automaticSilentRenew: true,
-  userStore: new WebStorageStateStore({ store: window.localStorage }),
-  extraQueryParams: storedTenant ? { __tenant: storedTenant.id } : {},
-  onSigninCallback: () => {
-    // Drop code/state from the URL; the callback route navigates onward.
-    window.history.replaceState({}, document.title, "/auth/callback");
-  },
-};
+function getOidcConfig(): AuthProviderProps {
+  if (oidcConfig) return oidcConfig;
+  const storedTenant = getStoredTenant();
+  return (oidcConfig = {
+    authority: API_BASE_URL,
+    client_id: "OpenTms_App",
+    redirect_uri: `${window.location.origin}/auth/callback`,
+    post_logout_redirect_uri: window.location.origin,
+    response_type: "code",
+    scope: "openid profile email phone address roles offline_access OpenTms",
+    automaticSilentRenew: true,
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
+    extraQueryParams: storedTenant ? { __tenant: storedTenant.id } : {},
+    onSigninCallback: () => {
+      // Drop code/state from the URL; the callback route navigates onward.
+      window.history.replaceState({}, document.title, "/auth/callback");
+    },
+  });
+}
 
 /** Bridges the OIDC session and tenant selection into the typed API client. */
 function ApiClientBridge({ children }: { children: ReactNode }) {
@@ -71,7 +73,7 @@ function TenantTheme() {
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider {...oidcConfig}>
+    <AuthProvider {...getOidcConfig()}>
       <QueryClientProvider client={queryClient}>
         <ApiClientBridge>
           <TenantTheme />

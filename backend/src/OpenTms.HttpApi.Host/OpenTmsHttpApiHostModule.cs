@@ -15,6 +15,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using OpenIddict.Validation.AspNetCore;
 using OpenTms.DataProtection;
+using OpenTms.Hosting;
 using OpenTms.Impersonation;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Server.AspNetCore;
@@ -108,7 +109,17 @@ public class OpenTmsHttpApiHostModule : AbpModule
 
             PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
             {
-                serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
+                var certificate = OpenIddictCertificates.FromConfiguration(configuration);
+                if (certificate != null)
+                {
+                    serverBuilder.AddSigningCertificate(certificate);
+                    serverBuilder.AddEncryptionCertificate(certificate);
+                }
+                else
+                {
+                    serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
+                }
+
                 serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
             });
         }
@@ -134,14 +145,9 @@ public class OpenTmsHttpApiHostModule : AbpModule
             {
                 options.DisableTransportSecurityRequirement = true;
             });
-            
-            Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
         }
+
+        Configure<ForwardedHeadersOptions>(ForwardedHeadersSetup.Apply);
 
         if (hostingEnvironment.IsDevelopment())
         {
