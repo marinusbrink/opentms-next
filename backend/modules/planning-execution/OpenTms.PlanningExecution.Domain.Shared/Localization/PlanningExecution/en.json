@@ -464,6 +464,7 @@
     "Planboard:Map.Segment": "Segment",
     "Planboard:Map.TollDistanceKm": "Toll distance (km)",
     "Planboard:Map.DropLegsHint": "Drop unplanned legs here to add them to this trip",
+    "Planboard:Map.NoRouteYet": "No route calculated yet: the map shows straight lines between the stops.",
     "Planboard:Map.Departure": "Departure",
     "Planboard:Map.Arrival": "Arrival",
     "Planboard:Map.Stop": "Stop",

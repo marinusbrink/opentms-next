@@ -464,6 +464,7 @@
     "Planboard:Map.Segment": "Traject",
     "Planboard:Map.TollDistanceKm": "Tolafstand (km)",
     "Planboard:Map.DropLegsHint": "Zet ongeplande legs hier neer om ze aan deze rit toe te voegen",
+    "Planboard:Map.NoRouteYet": "Nog geen route berekend: de kaart toont rechte lijnen tussen de stops.",
     "Planboard:Map.Departure": "Vertrek",
     "Planboard:Map.Arrival": "Aankomst",
     "Planboard:Map.Stop": "Stop",

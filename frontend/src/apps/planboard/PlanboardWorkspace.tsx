@@ -164,7 +164,8 @@ export function PlanboardWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PlanboardToolbar enabledTypes={enabledTypes} onAddPane={addPane} onResetLayout={resetLayout} ready={ready} />
-      <div className="relative min-h-0 flex-1">
+      {/* isolate: the dockview sashes (z 99) and the scheduler component's notices stay below dialogs and sheets. */}
+      <div className="relative isolate min-h-0 flex-1">
         <DockviewReact
           theme={OPENTMS_DOCKVIEW_THEME}
           components={components}

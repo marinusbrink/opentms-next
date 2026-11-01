@@ -391,7 +391,7 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
         </MapView>
 
         <div className="pointer-events-none absolute top-2 bottom-8 left-2 flex flex-col justify-between gap-2">
-          <div className="flex min-h-0 flex-col gap-2 overflow-hidden">
+          <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
           {detail && (
             <div className="pointer-events-auto">
               <TripSummaryCard map={detail} onDropLegs={canAssign && tripTakesLegs ? (legIds) => void assign(legIds) : undefined} busy={assignLegs.isPending} />

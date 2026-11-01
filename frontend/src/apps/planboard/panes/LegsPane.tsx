@@ -174,6 +174,7 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
         columnDefs={columns}
         fetchRows={fetchRows}
         onSelectionChange={onSelectionChange}
+        clickSelects
         onOpen={(leg) => canUpdate && setEditing(leg)}
         rowActions={rowActions}
       />

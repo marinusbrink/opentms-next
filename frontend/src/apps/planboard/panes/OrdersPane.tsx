@@ -79,6 +79,7 @@ export default function OrdersPane({ instanceId }: PlanboardPaneProps) {
         columnDefs={columns}
         fetchRows={fetchRows}
         onSelectionChange={onSelectionChange}
+        clickSelects
         onOpen={(row) => row.id && openRecord("TransportOrder", row.id)}
         rowActions={(list) => [{ id: "open", labelKey: "PlanningExecution:OpenOrder", onClick: () => list[0]?.id && openRecord("TransportOrder", list[0].id) }]}
         filters={<PaneFilterBar instanceId={instanceId} paneFilters={paneFilters} />}

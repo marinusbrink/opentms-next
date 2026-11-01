@@ -421,6 +421,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
           columnDefs={columns}
           fetchRows={fetchRows}
           onSelectionChange={onSelectionChange}
+          clickSelects
           onGridReady={grid.capture}
           onOpen={(row) => row.id && openTrip(row.id)}
           rowActions={rowActions}

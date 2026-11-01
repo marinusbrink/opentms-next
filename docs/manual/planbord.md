@@ -113,8 +113,8 @@ De legs zonder rit met een herkomstdatum in de periode.
 
 - **Groeperen op**: **Datum herkomst**, **Klant**, **Plaats herkomst** of **Plaats bestemming**.
   Elke groep toont het aantal legs; klap een groep open voor de legs.
-- Selecteer legs met de vinkjes en **sleep** ze aan het greepje naar een rit, een rij of balk in
-  de planner of de kaart.
+- Selecteer legs door op een rij te klikken (met Ctrl of Shift erbij selecteer je er meer) of met de
+  vinkjes, en **sleep** ze aan het greepje naar een rit, een rij of balk in de planner of de kaart.
 - Met de rechtermuisknop: **Transportorder openen**, **Regel splitsen** (een deel van het aantal
   gaat naar een nieuwe leg), **Leg splitsen op …** en **Retourleg**.
 - **Leg splitsen op …** maakt van de leg twee legs die elkaar treffen op een adres dat je kiest,
@@ -193,7 +193,9 @@ De kaart toont de geselecteerde rit en, als je dat wilt, de andere ritten van de
   het tijdvenster, de geplande en verwachte aankomst en de werkelijke tijden. De stop wordt dan
   ook in *Ritstops* geselecteerd, en andersom.
 - **Samenvatting**: linksboven staan de afstand, de duur, het tolbedrag, het aandeel
-  tolkilometers en de CO₂-uitstoot. Met **Tol per traject** klap je de toltrajecten uit.
+  tolkilometers en de CO₂-uitstoot. Met **Tol per traject** klap je de toltrajecten uit. Is er
+  nog geen route berekend, dan staat dat in de samenvatting. In een lage kaart scrol je door de
+  samenvatting.
 - **Alle ritten**: elke rit van de periode als lijn van de eerste naar de laatste stop. Klik op
   een lijn om die rit te selecteren.
 - **Een rit uit de planner**: sleep een balk aan zijn greepje naar de kaart om die rit te
@@ -202,7 +204,7 @@ De kaart toont de geselecteerde rit en, als je dat wilt, de andere ritten van de
   legs bij de stops van de rit verschijnen als ruitjes. Klik op een ruitje en kies
   **Aan rit toevoegen**, of sleep het ruitje naar de samenvatting van de rit.
 - Met **Passend maken** zoom je naar de rit (of naar alle ritten).
-- De legenda linksonder legt de kleuren uit.
+- **Legenda** linksonder klapt de uitleg van de kleuren open en weer dicht.
 
 Milieuzones en afgesloten gebieden komen in een volgende versie.
 

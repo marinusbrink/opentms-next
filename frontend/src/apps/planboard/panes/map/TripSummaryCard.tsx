@@ -106,6 +106,7 @@ export function TripSummaryCard({ map, onDropLegs, busy }: TripSummaryCardProps)
           )}
         </div>
       )}
+      {map.routedAt == null && stops.length > 1 && <p className="mt-2 text-label text-muted-foreground">{t("Planboard:Map.NoRouteYet")}</p>}
       {onDropLegs && <p className="mt-2 text-label text-muted-foreground">{t("Planboard:Map.DropLegsHint")}</p>}
     </section>
   );
