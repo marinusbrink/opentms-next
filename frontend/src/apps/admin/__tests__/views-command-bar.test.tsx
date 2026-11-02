@@ -20,7 +20,8 @@ vi.mock("@/domains/platform/administration-users", () => ({
   useResendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@/domains/platform/administration-roles", () => ({
+vi.mock("@/domains/platform/administration-roles", async (importOriginal) => ({
+  roleDisplayName: (await importOriginal<typeof import("@/domains/platform/administration-roles")>()).roleDisplayName,
   useRolesGridFetcher: () =>
     vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
   useDeleteRole: () => ({ mutateAsync: vi.fn(), isPending: false }),

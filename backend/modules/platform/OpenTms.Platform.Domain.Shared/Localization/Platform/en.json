@@ -1288,6 +1288,15 @@
     "Administration:PasswordResetLinkSent": "Reset link sent",
     "Administration:SendLink": "Send link",
     "Tenants:AdminName": "Administrator first name",
-    "Tenants:AdminSurname": "Administrator last name"
+    "Tenants:AdminSurname": "Administrator last name",
+    "Role:admin": "Administrator",
+    "Role:Customer Success Manager": "Customer Success Manager",
+    "Role:Order entry": "Order entry",
+    "Role:Planner": "Planner",
+    "Role:Finance": "Finance",
+    "Role:Master data manager": "Master data manager",
+    "Role:Read-only": "Read-only",
+    "Role:Platform operator": "Platform operator",
+    "Role:Tenant & edition manager": "Tenant & edition manager"
   }
 }

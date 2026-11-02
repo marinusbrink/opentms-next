@@ -5,8 +5,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * Risk class: High — the roles and memberships sent on Save are the whole set; a wrong
  * toggle silently grants or removes access. */
 
+/* A seeded role has a localized name (design 71); every other key renders as itself. */
+const texts: Record<string, string> = { "Role:Order entry": "Orderinvoer" };
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
-  useL: () => ({ t: (k: string) => k, culture: "en", isLoading: false }),
+  useL: () => ({ t: (k: string) => texts[k] ?? k, culture: "en", isLoading: false }),
 }));
 
 let grants: Record<string, boolean> = {};
@@ -30,8 +32,13 @@ vi.mock("@/domains/platform/administration-users", () => ({
   useProfilePictureUrl: (userId: string | undefined, hasPicture: boolean) => ({ url: userId && hasPicture ? "blob:stored" : null, isLoading: false }),
   profilePictureQueryKey: (id: string) => ["picture", id],
 }));
-vi.mock("@/domains/platform/administration-roles", () => ({
-  useAllRoles: () => ({ data: [{ id: "r1", name: "admin" }, { id: "r2", name: "planner" }], isLoading: false, isError: false }),
+vi.mock("@/domains/platform/administration-roles", async (importOriginal) => ({
+  roleDisplayName: (await importOriginal<typeof import("@/domains/platform/administration-roles")>()).roleDisplayName,
+  useAllRoles: () => ({
+    data: [{ id: "r1", name: "admin" }, { id: "r2", name: "planner" }, { id: "r3", name: "Order entry", isStatic: true }],
+    isLoading: false,
+    isError: false,
+  }),
 }));
 vi.mock("@/domains/platform/administration-organization-units", () => ({
   useAllOrganizationUnits: () => ({
@@ -120,6 +127,21 @@ describe("UserFormDialog roles and organization units", () => {
     expect(updateMutateAsync).toHaveBeenCalledWith({
       id: "u1",
       dto: expect.objectContaining({ roleNames: ["planner", "admin"], organizationUnitIds: ["root"] }),
+    });
+  });
+
+  it("shows a seeded role by its localized name and saves its stored name (design 71)", async () => {
+    updateMutateAsync.mockResolvedValue({});
+    render(<UserFormDialog mode="edit" user={user} open onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    openTab("Administration:Roles");
+    expect(screen.queryByRole("checkbox", { name: "Order entry" })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Orderinvoer" }));
+    await submitForm();
+
+    expect(updateMutateAsync).toHaveBeenCalledWith({
+      id: "u1",
+      dto: expect.objectContaining({ roleNames: ["planner", "Order entry"] }),
     });
   });
 

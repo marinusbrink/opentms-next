@@ -18,6 +18,7 @@ import type {
 import { BulkDeleteRolesDialog } from "@/apps/admin/components/BulkDeleteRolesDialog";
 import { RoleFormDialog } from "@/apps/admin/components/RoleFormDialog";
 import {
+  roleDisplayName,
   useDeleteRole,
   useRolesGridFetcher,
   type RoleRow,
@@ -180,6 +181,7 @@ export function RolesView() {
       {
         field: "name",
         headerName: t("Administration:RoleName"),
+        valueFormatter: (params) => roleDisplayName(params.value, t),
         sortable: true,
         filter: false,
         flex: 1,
@@ -275,7 +277,7 @@ export function RolesView() {
           if (!open) setRoleToDelete(undefined);
         }}
         title={t("Administration:DeleteRole")}
-        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", roleToDelete?.name ?? "")} ${t("ThisCannotBeUndone")}`}
+        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", roleDisplayName(roleToDelete?.name, t))} ${t("ThisCannotBeUndone")}`}
         confirmLabel={t("Delete")}
         busyLabel={t("Deleting")}
         destructive
@@ -288,7 +290,7 @@ export function RolesView() {
           if (!open) setConflict(null);
         }}
         title={t("Administration:DeleteRole")}
-        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", conflict?.name ?? "")} ${t("ThisCannotBeUndone")}`}
+        description={`${t("Administration:DeleteRoleQuestion").replace("{0}", roleDisplayName(conflict?.name, t))} ${t("ThisCannotBeUndone")}`}
         confirmLabel={t("Delete")}
         busyLabel={t("Deleting")}
         destructive
@@ -297,7 +299,7 @@ export function RolesView() {
         <Alert variant="warning">
           <AlertDescription>
             {t("Administration:RoleHasUsersWarning")
-              .replace("{0}", conflict?.name ?? "")
+              .replace("{0}", roleDisplayName(conflict?.name, t))
               .replace("{1}", String(conflict?.userCount ?? 0))}
           </AlertDescription>
         </Alert>

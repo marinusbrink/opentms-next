@@ -1288,6 +1288,15 @@
     "Administration:PasswordResetLinkSent": "Resetlink verstuurd",
     "Administration:SendLink": "Link sturen",
     "Tenants:AdminName": "Voornaam beheerder",
-    "Tenants:AdminSurname": "Achternaam beheerder"
+    "Tenants:AdminSurname": "Achternaam beheerder",
+    "Role:admin": "Beheerder",
+    "Role:Customer Success Manager": "Customer Success Manager",
+    "Role:Order entry": "Orderinvoer",
+    "Role:Planner": "Planner",
+    "Role:Finance": "Financiële administratie",
+    "Role:Master data manager": "Stamgegevensbeheerder",
+    "Role:Read-only": "Alleen lezen",
+    "Role:Platform operator": "Platformbeheerder",
+    "Role:Tenant & edition manager": "Tenant- en editiebeheerder"
   }
 }

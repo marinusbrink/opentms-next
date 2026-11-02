@@ -17,6 +17,7 @@ import type {
 import { BulkDeleteUsersDialog } from "@/apps/admin/components/BulkDeleteUsersDialog";
 import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog";
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
+import { roleDisplayName } from "@/domains/platform/administration-roles";
 import {
   useDeleteUser,
   useResendInvitation,
@@ -273,7 +274,7 @@ export function UsersView() {
       {
         field: "roleNames",
         headerName: t("Administration:Roles"),
-        valueGetter: (params) => (params.data?.roleNames ?? []).join(", "),
+        valueGetter: (params) => (params.data?.roleNames ?? []).map((name) => roleDisplayName(name, t)).join(", "),
         sortable: false,
         filter: false,
         flex: 1,

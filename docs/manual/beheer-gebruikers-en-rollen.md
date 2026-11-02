@@ -280,6 +280,35 @@ je niet kunt bewerken of verwijderen; dubbelklikken opent ze alleen-lezen.
 
 <!-- SCREENSHOT: het Rollen-scherm met de rollenlijst -->
 
+### Voorgedefinieerde rollen
+
+Elke organisatie krijgt naast **Beheerder** vijf kant-en-klare systeemrollen. Ze
+zijn aan niemand toegewezen tot jij dat doet.
+
+| Rol | Bedoeld voor | Wat de rol mag |
+|---|---|---|
+| **Orderinvoer** | Klantenservice, orderinvoer | Transportorders aanmaken, wijzigen, bevestigen, annuleren, goedkeuren, herzien en afdrukken; ordersjablonen; relaties, producten, ladingdragers, temperaturen, transportkenmerken, landen en adressoorten toevoegen en wijzigen vanuit de keuzelijsten; de overige stamgegevens en de ritten inzien. |
+| **Planner** | Planning en uitvoering | Alles aan ritten, ritdelen en beschikbaarheid van middelen; transportorders inzien, wijzigen en afdrukken; chauffeurs, voertuigen en combinaties toevoegen en wijzigen; routes berekenen; de overige stamgegevens inzien. |
+| **Financiële administratie** | Tarieven en facturatie | Alles in Financieel (prijslijsten, tariefregels, financiële instellingen van relaties, btw-percentages, extra diensten, kortingen en toeslagen, factuursoorten); transportorders goedkeuren, archiveren en afdrukken; relaties toevoegen en wijzigen; berekeningen opnieuw laten uitvoeren. |
+| **Stamgegevensbeheerder** | Beheer van de stamgegevens | Alle lijsten van de app Stamgegevens aanmaken, wijzigen en verwijderen, ook die van Transport, Planning, Financieel en de e-mailsjablonen, rapportdefinities en documentsoorten. Chauffeurs anonimiseren blijft bij de Beheerder. |
+| **Alleen lezen** | Management, controle | Alle lijsten en orders, ritten en tarieven inzien, zonder iets te wijzigen. |
+
+Gebruikers, rollen en organisatie-eenheden beheren blijft voorbehouden aan de
+**Beheerder**. Een gebruiker kan meerdere rollen hebben; hij mag dan alles wat
+een van zijn rollen mag.
+
+Bij een nieuwe versie van OpenTMS kunnen deze rollen nieuwe rechten krijgen voor
+nieuwe functies. Een recht dat jouw organisatie bij een voorgedefinieerde rol heeft
+weggehaald, komt daarbij niet terug. Heb je zelf al een rol gemaakt met de
+interne naam van een voorgedefinieerde rol (bijvoorbeeld *Planner* of *Finance*),
+dan blijft jouw rol ongemoeid en krijg je de voorgedefinieerde rol niet.
+
+**In de hostomgeving** (alleen voor medewerkers van de leverancier) staan naast
+**Beheerder** en **Customer Success Manager** twee host-rollen klaar:
+**Platformbeheerder** (onderhoud, logboeken, e-mailinstellingen, tenants inzien en
+inrichten) en **Tenant- en editiebeheerder** (tenants en edities aanmaken en
+wijzigen, testdata terugzetten; verwijderen blijft bij de Beheerder).
+
 ---
 
 ### Een nieuwe rol aanmaken
