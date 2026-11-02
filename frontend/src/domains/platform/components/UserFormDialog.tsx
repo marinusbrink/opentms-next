@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buildTree } from "@/components/ui/tree-select";
 import { TreeView } from "@/components/ui/tree-view";
 import { useAllOrganizationUnits } from "@/domains/platform/administration-organization-units";
-import { useAllRoles } from "@/domains/platform/administration-roles";
+import { roleDisplayName, useAllRoles } from "@/domains/platform/administration-roles";
 import { myProfileQueryKey } from "@/domains/platform/my-profile";
 import {
   profilePictureQueryKey,
@@ -429,7 +429,7 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
                   onCheckedChange={(checked) => toggleRole(name, checked === true)}
                   disabled={readOnly}
                 />
-                {name}
+                {roleDisplayName(name, t)}
               </label>
             </li>
           );

@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { EntityDialog } from "@/components/ui/entity-dialog";
 import type { GridSelectionDto } from "@/components/ui/opentms-grid";
-import { useBulkDeleteRoles, type BulkDeleteRolesResult } from "@/domains/platform/administration-roles";
+import { roleDisplayName, useBulkDeleteRoles, type BulkDeleteRolesResult } from "@/domains/platform/administration-roles";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -112,7 +112,7 @@ export function BulkDeleteRolesDialog({
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {result.skippedRows.map((row) => (
                   <li key={row.id}>
-                    <span className="font-medium text-foreground">{row.name}</span>
+                    <span className="font-medium text-foreground">{roleDisplayName(row.name, t)}</span>
                     {": "}
                     <span>{t(row.reason)}</span>
                   </li>

@@ -11,6 +11,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import {
+  roleDisplayName,
   useCreateRole,
   useUpdateRole,
   type RoleCreateUpdateDto,
@@ -93,7 +94,7 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
   };
 
   const title =
-    mode === "create" ? t("Administration:NewRole") : `${t("Administration:Role")} ${role?.name ?? ""}`;
+    mode === "create" ? t("Administration:NewRole") : `${t("Administration:Role")} ${roleDisplayName(role?.name, t)}`;
 
   const commands: AppCommandBarCommand[] = readOnly
     ? []
@@ -125,7 +126,8 @@ export function RoleFormDialog({ mode, role, readOnly = false, open, onClose, on
             <FormField label={t("Administration:RoleName")} htmlFor="rf-name" required error={shownNameError}>
               <Input
                 id="rf-name"
-                value={values.name}
+                /* A system role is never edited: it shows its localized name (design 71). */
+                value={role?.isStatic ? roleDisplayName(values.name, t) : values.name}
                 onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
                 onBlur={() => setNameTouched(true)}
                 maxLength={256}

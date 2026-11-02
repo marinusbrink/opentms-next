@@ -52,7 +52,8 @@ vi.mock("@/domains/platform/administration-users", () => ({
   useProfilePictureUrl: () => ({ url: null, isLoading: false }),
   profilePictureQueryKey: (id: string) => ["picture", id],
 }));
-vi.mock("@/domains/platform/administration-roles", () => ({
+vi.mock("@/domains/platform/administration-roles", async (importOriginal) => ({
+  roleDisplayName: (await importOriginal<typeof import("@/domains/platform/administration-roles")>()).roleDisplayName,
   useAllRoles: () => ({ data: [{ id: "r1", name: "admin" }], isLoading: false, isError: false }),
 }));
 

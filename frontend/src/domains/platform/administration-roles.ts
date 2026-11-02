@@ -22,6 +22,17 @@ export type RoleDeleteResult =
   | { status: "deleted" }
   | { status: "conflict"; roleName: string; userCount: number };
 
+/**
+ * A role's name as shown: the roles the system seeds have a localized name under `Role:<stored name>`
+ * (docs/designs/71-predefined-roles.md); any other role shows its stored name.
+ */
+export function roleDisplayName(name: string | null | undefined, t: (key: string) => string): string {
+  const stored = name ?? "";
+  const key = `Role:${stored}`;
+  const text = t(key);
+  return text === key ? stored : text;
+}
+
 /** Every role of the current tenant (or the host), for the user editor's Roles tab. */
 export function useAllRoles() {
   return useQuery({
