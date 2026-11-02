@@ -161,7 +161,7 @@ public class TenantReviewFixesPostgreSqlTests : OpenTmsTestBase<TenantReviewPost
 
     private async Task<(Guid Id, string Database, string ConnectionString)> CreateTenantAsync(string name)
     {
-        var created = await _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = Address });
+        var created = await _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = Address, AdminName = "Anna", AdminSurname = "de Vries" });
         _createdTenants.Add(created.Id);
         var database = TenantDatabaseNaming.For(name, created.Id);
         _createdDatabases.Add(database);

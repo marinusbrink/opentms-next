@@ -61,8 +61,9 @@ de naam te zien.
 ### De gebruikerslijst lezen
 
 Het scherm toont een lijst van alle gebruikers van uw organisatie met kolommen
-voor gebruikersnaam, e-mailadres, volledige naam, rollen en of de gebruiker
-actief is.
+voor gebruikersnaam, e-mailadres, volledige naam, rollen, of de gebruiker
+actief is en of een **uitnodiging openstaat** (de gebruiker is uitgenodigd maar heeft
+nog geen wachtwoord gekozen).
 
 <!-- SCREENSHOT: het Gebruikers-scherm met een gevulde lijst -->
 
@@ -84,7 +85,8 @@ heeft) om de gebruiker te openen. Heb je geen bewerkrecht, dan opent het venster
 alleen-lezen.
 
 **Acties op een rij:** klik met de **rechtermuisknop** op een rij voor het
-snelmenu met **Bewerken**, **Wachtwoord opnieuw instellen** en **Verwijderen**.
+snelmenu met **Bewerken**, **Wachtwoord opnieuw instellen**, **Uitnodiging opnieuw
+sturen** (alleen bij een openstaande uitnodiging) en **Verwijderen**.
 Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
 
 ---
@@ -107,14 +109,16 @@ Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
    - **Telefoonnummer**.
    - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
 3. Stel in het vak **Toegang** de aanmelding in:
-   - **Wachtwoord** (verplicht) — moet voldoen aan het wachtwoordbeleid, of vink
-     **Willekeurig wachtwoord instellen** aan; OpenTMS kiest dan zelf een
-     wachtwoord dat aan het beleid voldoet. Stel het daarna opnieuw in via
-     [Wachtwoord opnieuw instellen](#wachtwoord-opnieuw-instellen), of laat de
-     gebruiker "wachtwoord vergeten" gebruiken.
-   - **Moet wachtwoord wijzigen bij volgende aanmelding** — de gebruiker krijgt
-     bij de eerstvolgende aanmelding eerst het scherm om een nieuw wachtwoord te
-     kiezen.
+   - **Uitnodiging per e-mail sturen** (standaard) — de gebruiker krijgt een
+     e-mail met een link om zelf een wachtwoord te kiezen. De link werkt één keer.
+     Niemand anders kent het wachtwoord. Staat **E-mailverzending** voor uw
+     organisatie niet aan, dan kan de uitnodiging niet worden verstuurd: OpenTMS
+     meldt dat en maakt de gebruiker niet aan. Kies dan de andere optie.
+   - **Zelf een wachtwoord instellen** — vul een **Wachtwoord** in dat voldoet aan
+     het wachtwoordbeleid en geef het zelf door aan de gebruiker.
+   - **Moet wachtwoord wijzigen bij volgende aanmelding** (alleen bij een zelf
+     ingesteld wachtwoord) — de gebruiker krijgt bij de eerstvolgende aanmelding
+     eerst het scherm om een nieuw wachtwoord te kiezen.
    - **Account vergrendelen na mislukte aanmeldingen** — standaard aan. Na een
      aantal verkeerde wachtwoorden wordt het account tijdelijk vergrendeld; wie
      dan probeert aan te melden, ziet de melding dat het account is vergrendeld
@@ -181,10 +185,23 @@ beheren (zie [Leden van een eenheid beheren](#leden-van-een-eenheid-beheren)).
 
 1. Kies **Wachtwoord opnieuw instellen** in het snelmenu (rechtermuisknop) van
    de gebruiker.
-2. Voer een nieuw wachtwoord in en klik op **Wachtwoord opnieuw instellen**.
+2. Kies hoe:
+   - **Resetlink per e-mail sturen** (standaard) — klik op **Link sturen**. De
+     gebruiker krijgt een e-mail met een link om zelf een nieuw wachtwoord te
+     kiezen. Tot de gebruiker dat doet, blijft het huidige wachtwoord werken. Dit
+     kan alleen als **E-mailverzending** voor uw organisatie aan staat.
+   - **Zelf een wachtwoord instellen** — voer een nieuw wachtwoord in en klik op
+     **Wachtwoord opnieuw instellen**. Het nieuwe wachtwoord is direct actief. De
+     gebruiker ontvangt geen melding — geef het wachtwoord zelf door.
 
-Het nieuwe wachtwoord is direct actief. De gebruiker ontvangt geen automatische
-melding — informeer hen zelf over het nieuwe wachtwoord.
+### Uitnodiging opnieuw sturen
+
+> Vereist: het recht **Gebruikers aanmaken**.
+
+Is de link in de uitnodiging verlopen of kwijt, kies dan **Uitnodiging opnieuw sturen**
+in het snelmenu van de gebruiker. De gebruiker krijgt een nieuwe link. Deze actie staat er
+alleen zolang de gebruiker nog geen wachtwoord heeft gekozen; daarna gebruik je
+**Wachtwoord opnieuw instellen**.
 
 <!-- SCREENSHOT: het dialoogvenster "Wachtwoord opnieuw instellen" -->
 
@@ -481,11 +498,11 @@ heeft toegekend:
 | Wat je wilt doen | Benodigde recht |
 |---|---|
 | Gebruikerslijst bekijken | Gebruikers beheren |
-| Gebruiker aanmaken | Gebruikers aanmaken |
+| Gebruiker aanmaken, uitnodiging opnieuw sturen | Gebruikers aanmaken |
 | Gebruiker bewerken | Gebruikers bewerken |
 | Gebruiker verwijderen | Gebruikers verwijderen |
 | Meerdere gebruikers verwijderen | Meerdere gebruikers verwijderen |
-| Wachtwoord opnieuw instellen | Wachtwoord opnieuw instellen |
+| Wachtwoord opnieuw instellen of een resetlink sturen | Wachtwoord opnieuw instellen |
 | Vergrendeld account ontgrendelen | Gebruikersaccounts ontgrendelen |
 | Rollenlijst bekijken | Rollen beheren |
 | Rol aanmaken | Rollen aanmaken |

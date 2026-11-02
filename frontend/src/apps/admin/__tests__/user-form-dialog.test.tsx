@@ -189,20 +189,45 @@ describe("UserFormDialog roles and organization units", () => {
     expect(setPictureMutateAsync).not.toHaveBeenCalled();
   });
 
-  it("creates with a random password: the password field disappears and no password is sent", async () => {
+  it("invites a new user by default: no password field, no change-on-next-sign-in, no password sent", async () => {
+    createMutateAsync.mockResolvedValue({ id: "new" });
+    render(<UserFormDialog mode="create" open onClose={vi.fn()} onSuccess={vi.fn()} />);
+
+    expect(screen.getByRole("radio", { name: "Administration:SendInvitation" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByLabelText(/Administration:Password(?!Choice)/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Administration:ShouldChangePasswordOnNextLogin" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Administration:Username/), { target: { value: "nieuw" } });
+    fireEvent.change(screen.getByLabelText(/Administration:Email/), { target: { value: "nieuw@t.nl" } });
+    await submitForm();
+    expect(createMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sendInvitation: true,
+        setRandomPassword: false,
+        password: null,
+        shouldChangePasswordOnNextLogin: false,
+        lockoutEnabled: true,
+      }),
+    );
+  });
+
+  it("with 'set a password myself' the password is required and sent, and no invitation", async () => {
     createMutateAsync.mockResolvedValue({ id: "new" });
     render(<UserFormDialog mode="create" open onClose={vi.fn()} onSuccess={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText(/Administration:Username/), { target: { value: "nieuw" } });
     fireEvent.change(screen.getByLabelText(/Administration:Email/), { target: { value: "nieuw@t.nl" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Administration:SetPasswordMyself" }));
     await submitForm();
     expect(createMutateAsync).not.toHaveBeenCalled();
     expect(screen.getByText("FieldRequired")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Administration:SetRandomPassword" }));
-    expect(screen.queryByLabelText(/Administration:Password/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Administration:Password(?!Choice)/), { target: { value: "Secret1!" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Administration:ShouldChangePasswordOnNextLogin" }));
     await submitForm();
-    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ setRandomPassword: true, password: null, lockoutEnabled: true }));
+    expect(createMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ sendInvitation: false, password: "Secret1!", shouldChangePasswordOnNextLogin: true }),
+    );
   });
 
   it("creates a user with the checked roles and units, and disables every checkbox when read-only", async () => {
@@ -211,7 +236,6 @@ describe("UserFormDialog roles and organization units", () => {
 
     fireEvent.change(screen.getByLabelText(/Administration:Username/), { target: { value: "nieuw" } });
     fireEvent.change(screen.getByLabelText(/Administration:Email/), { target: { value: "nieuw@t.nl" } });
-    fireEvent.change(screen.getByLabelText(/Administration:Password/), { target: { value: "Secret1!" } });
     createMutateAsync.mockResolvedValue({ id: "new" });
     openTab("Administration:Roles");
     fireEvent.click(screen.getByRole("checkbox", { name: "planner" }));

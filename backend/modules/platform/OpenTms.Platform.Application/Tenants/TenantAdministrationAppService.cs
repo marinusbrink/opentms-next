@@ -122,6 +122,8 @@ public class TenantAdministrationAppService : PlatformAppServiceBase, ITenantAdm
         tenant.SetProperty(TenantProperties.EditionId, input.EditionId);
         tenant.SetProperty(TenantProperties.ProvisioningState, TenantProvisioningState.Queued);
         tenant.SetProperty(TenantProperties.PendingAdminEmail, input.AdminEmailAddress.Trim());
+        tenant.SetProperty(TenantProperties.PendingAdminName, input.AdminName.Trim());
+        tenant.SetProperty(TenantProperties.PendingAdminSurname, input.AdminSurname.Trim());
 
         await _tenantRepository.InsertAsync(tenant, autoSave: true);
         QueueAfterCommit(new TenantProvisioningArgs { TenantId = tenant.Id });
@@ -162,9 +164,11 @@ public class TenantAdministrationAppService : PlatformAppServiceBase, ITenantAdm
 
         var location = FindOwnDatabase(tenant);
 
-        /* The address only waits for provisioning; a deleted tenant keeps none of it (GDPR art. 17). Saved before the
-         * delete: ABP's soft delete reloads the row, which would drop an unsaved change. */
+        /* The address and name only wait for provisioning; a deleted tenant keeps none of it (GDPR art. 17). Saved
+         * before the delete: ABP's soft delete reloads the row, which would drop an unsaved change. */
         tenant.RemoveProperty(TenantProperties.PendingAdminEmail);
+        tenant.RemoveProperty(TenantProperties.PendingAdminName);
+        tenant.RemoveProperty(TenantProperties.PendingAdminSurname);
         await _tenantRepository.UpdateAsync(tenant, autoSave: true);
         await _tenantRepository.DeleteAsync(tenant, autoSave: true);
         await _editionStore.RemoveAsync(id);

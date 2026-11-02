@@ -16,6 +16,8 @@ export type UserRow = {
   lockoutEnabled?: boolean;
   isLockedOut?: boolean;
   hasProfilePicture?: boolean;
+  /** Invited and no password chosen yet: "Resend invitation" applies. */
+  invitationPending?: boolean;
   roleNames?: string[] | null;
   organizationUnitIds?: string[] | null;
   creationTime?: string;
@@ -28,6 +30,8 @@ export type UserCreateDto = {
   surname?: string | null;
   phoneNumber?: string | null;
   password?: string | null;
+  /** A random password and an e-mail with a link to choose one; the password is then ignored. */
+  sendInvitation?: boolean;
   setRandomPassword?: boolean;
   shouldChangePasswordOnNextLogin?: boolean;
   lockoutEnabled?: boolean;
@@ -168,6 +172,30 @@ export function useResetPassword() {
         "/api/platform/administration/users/{id}/reset-password",
         { params: { path: { id } }, body: { newPassword } },
       );
+      if (error) throw error;
+    },
+  });
+}
+
+/** E-mails the user a one-time link to choose a new password. */
+export function useSendPasswordResetLink() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.POST("/api/platform/administration/users/{id}/send-password-reset-link", {
+        params: { path: { id } },
+      });
+      if (error) throw error;
+    },
+  });
+}
+
+/** A new invitation link for a user who has not chosen a password yet (the row's invitationPending). */
+export function useResendInvitation() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await apiClient.POST("/api/platform/administration/users/{id}/resend-invitation", {
+        params: { path: { id } },
+      });
       if (error) throw error;
     },
   });

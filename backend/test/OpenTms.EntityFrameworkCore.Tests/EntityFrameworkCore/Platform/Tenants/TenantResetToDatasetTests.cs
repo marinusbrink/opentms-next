@@ -60,7 +60,7 @@ public class TenantResetToDatasetTests : OpenTmsTestBase<TenantAdministrationTes
     /// <summary>A provisioned tenant (Succeeded) with no reset yet; the provisioning job is cleared from the fake queue.</summary>
     private async Task<Guid> ReadyTenantAsync(string name = "acme", string? provisioningState = TenantProvisioningState.Succeeded)
     {
-        var created = await _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test" });
+        var created = await _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test", AdminName = "Anna", AdminSurname = "de Vries" });
         await SetPropertiesAsync(created.Id, (TenantProperties.ProvisioningState, provisioningState));
         _jobs.Clear();
         return created.Id;

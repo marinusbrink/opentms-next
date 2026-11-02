@@ -299,7 +299,7 @@ public class TenantProvisioningPostgreSqlTests : OpenTmsTestBase<TenantProvision
          * removes it for the shared databases; this test's own container puts it back). */
         GetRequiredService<IOptions<AbpDataSeedOptions>>().Value.Contributors.AddIfNotContains(typeof(AdministrationPermissionDataSeedContributor));
 
-        var created = await service.CreateAsync(new TenantCreateDto { Name = "ttest", AdminEmailAddress = "admin@ttest.example" });
+        var created = await service.CreateAsync(new TenantCreateDto { Name = "ttest", AdminEmailAddress = "admin@ttest.example", AdminName = "Anna", AdminSurname = "de Vries" });
         var name = TenantDatabaseNaming.For("ttest", created.Id);
         _created.Add(name);
 
@@ -333,6 +333,9 @@ public class TenantProvisioningPostgreSqlTests : OpenTmsTestBase<TenantProvision
             var admin = await WithUnitOfWorkAsync(() => GetRequiredService<IIdentityUserRepository>().FindByNormalizedUserNameAsync("ADMIN"));
             admin.ShouldNotBeNull().Email.ShouldBe("admin@ttest.example");
             admin.TenantId.ShouldBe(created.Id);
+            /* The name given on the Tenants form; ABP's seed itself takes none. */
+            admin.Name.ShouldBe("Anna");
+            admin.Surname.ShouldBe("de Vries");
         }
 
         using (currentTenant.Change(null))
@@ -348,8 +351,10 @@ public class TenantProvisioningPostgreSqlTests : OpenTmsTestBase<TenantProvision
         invitation.Body.ShouldContain("resetToken=");
 
         /* The pending address is gone once provisioning succeeded (GDPR note in the design). */
-        (await WithUnitOfWorkAsync(async () => (await GetRequiredService<ITenantRepository>().GetAsync(created.Id))
-            .GetProperty<string?>(TenantProperties.PendingAdminEmail))).ShouldBeNull();
+        var provisioned = await WithUnitOfWorkAsync(() => GetRequiredService<ITenantRepository>().GetAsync(created.Id));
+        provisioned.GetProperty<string?>(TenantProperties.PendingAdminEmail).ShouldBeNull();
+        provisioned.GetProperty<string?>(TenantProperties.PendingAdminName).ShouldBeNull();
+        provisioned.GetProperty<string?>(TenantProperties.PendingAdminSurname).ShouldBeNull();
 
         /* Idempotency: a second run (Hangfire redelivery, or a retry) changes nothing and mails nobody again. */
         await GetRequiredService<TenantProvisioningJob>().ExecuteAsync(provision);

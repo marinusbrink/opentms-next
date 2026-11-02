@@ -17,6 +17,7 @@ vi.mock("@/domains/platform/administration-users", () => ({
     vi.fn().mockResolvedValue({ rows: [], totalCount: 0, filteredCount: 0 }),
   useDeleteUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUnlockUser: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useResendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/domains/platform/administration-roles", () => ({

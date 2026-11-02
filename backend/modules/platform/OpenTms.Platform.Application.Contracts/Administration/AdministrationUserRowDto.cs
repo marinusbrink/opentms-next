@@ -17,6 +17,8 @@ public record AdministrationUserRowDto
     /// <summary>True while a lockout (after failed sign-ins) is in force; Unlock ends it early.</summary>
     public bool IsLockedOut { get; init; }
     public bool HasProfilePicture { get; init; }
+    /// <summary>True while the user has been invited and has not chosen a password since; "Resend invitation" applies.</summary>
+    public bool InvitationPending { get; init; }
     public List<string> RoleNames { get; init; } = new();
     public List<Guid> OrganizationUnitIds { get; init; } = new();
     public DateTime CreationTime { get; init; }

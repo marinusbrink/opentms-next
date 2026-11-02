@@ -108,6 +108,8 @@ describe("TenantFormDialog — Add new edition", () => {
     renderCreate({ canCreateEdition: true });
     fireEvent.change(document.getElementById("tf-name")!, { target: { value: "Acme" } });
     fireEvent.change(document.getElementById("tf-adminEmailAddress")!, { target: { value: "admin@acme.test" } });
+    fireEvent.change(document.getElementById("tf-adminName")!, { target: { value: "Anna" } });
+    fireEvent.change(document.getElementById("tf-adminSurname")!, { target: { value: "de Vries" } });
 
     openPicker();
     typeIn(picker(), "Platinum");
@@ -126,7 +128,13 @@ describe("TenantFormDialog — Add new edition", () => {
     await act(async () => {
       fireEvent.submit(document.body.querySelector("form")!);
     });
-    expect(createTenant).toHaveBeenCalledWith({ name: "Acme", adminEmailAddress: "admin@acme.test", editionId: "e-new" });
+    expect(createTenant).toHaveBeenCalledWith({
+      name: "Acme",
+      adminEmailAddress: "admin@acme.test",
+      adminName: "Anna",
+      adminSurname: "de Vries",
+      editionId: "e-new",
+    });
   });
 
   it("puts the new edition into the picker's list at once", async () => {

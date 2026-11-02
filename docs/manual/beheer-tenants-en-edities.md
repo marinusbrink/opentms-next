@@ -29,8 +29,10 @@ navigatiepaneel links heeft twee onderdelen:
    editie (met wat je in de keuzelijst typte als naam); na **Opslaan** is die editie
    gekozen. De functies van de nieuwe editie stel je daarna in bij **Edities**. Je hebt
    daarvoor het recht nodig om edities aan te maken.
-4. Vul het **E-mailadres beheerder** in. Op dat adres ontvangt de beheerder van de tenant
-   een e-mail met een link om zelf een wachtwoord te kiezen. Er wordt nooit een wachtwoord
+4. Vul de **Voornaam beheerder**, **Achternaam beheerder** en het **E-mailadres beheerder**
+   in (alle drie verplicht). De naam komt op het account van de beheerder. Op het
+   e-mailadres ontvangt de beheerder van de tenant een e-mail met een link om zelf een
+   wachtwoord te kiezen. Er wordt nooit een wachtwoord
    gemaild. De e-mail wordt alleen echt verstuurd als de functie **E-mailverzending** voor de
    tenant aan staat; staat die uit, dan wordt de uitnodiging alleen gelogd. Je kunt de
    uitnodiging later opnieuw versturen.

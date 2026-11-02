@@ -41928,6 +41928,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/users/{id}/resend-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/users/{id}/reset-password": {
         parameters: {
             query?: never;
@@ -41963,6 +42009,52 @@ export interface paths {
                 };
                 /** @description Unprocessable Content */
                 422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/json": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                        "text/plain": components["schemas"]["Microsoft.AspNetCore.Mvc.ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/administration/users/{id}/send-password-reset-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -53144,6 +53236,7 @@ export interface components {
             password?: string | null;
             phoneNumber?: string | null;
             roleNames?: string[] | null;
+            sendInvitation?: boolean;
             setRandomPassword?: boolean;
             shouldChangePasswordOnNextLogin?: boolean;
             surname?: string | null;
@@ -53156,6 +53249,7 @@ export interface components {
             hasProfilePicture?: boolean;
             /** Format: uuid */
             id?: string;
+            invitationPending?: boolean;
             isActive?: boolean;
             isLockedOut?: boolean;
             lockoutEnabled?: boolean;
@@ -54521,6 +54615,8 @@ export interface components {
         "OpenTms.Platform.Tenants.TenantCreateDto": {
             /** Format: email */
             adminEmailAddress: string;
+            adminName: string;
+            adminSurname: string;
             /** Format: uuid */
             editionId?: string | null;
             name: string;

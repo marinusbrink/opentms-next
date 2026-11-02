@@ -44,7 +44,7 @@ public class TenantReviewFixesTests : OpenTmsTestBase<TenantAdministrationTestMo
     }
 
     private Task<TenantDto> CreateAsync(string name) =>
-        _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@" + name + ".test" });
+        _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@" + name + ".test", AdminName = "Anna", AdminSurname = "de Vries" });
 
     private Task<Tenant?> FindAsync(Guid id, bool includeDeleted = false) =>
         WithUnitOfWorkAsync(async () =>

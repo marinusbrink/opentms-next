@@ -50,7 +50,7 @@ public class EditionAdministrationAppServiceTests : OpenTmsTestBase<TenantAdmini
         _service.CreateAsync(new EditionCreateUpdateDto { DisplayName = name });
 
     private Task<TenantDto> CreateTenantAsync(string name, Guid? editionId) =>
-        _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test", EditionId = editionId });
+        _tenants.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test", AdminName = "Anna", AdminSurname = "de Vries", EditionId = editionId });
 
     [Fact]
     public async Task Create_get_update_and_delete_an_edition()

@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* The tenant editor in create mode (docs/designs/tenants-and-editions.md): name and admin email are required,
- * the email must look like one, and Save sends exactly { name, adminEmailAddress, editionId } — no password,
- * no connection string (D1–D3). Risk class: Medium (UI flow) on a Critical create. */
+/* The tenant editor in create mode (docs/designs/tenants-and-editions.md): name, the administrator's first and last
+ * name and admin email are required, the email must look like one, and Save sends exactly
+ * { name, adminName, adminSurname, adminEmailAddress, editionId } — no password, no connection string (D1–D3).
+ * Risk class: Medium (UI flow) on a Critical create. */
 
 vi.mock("@/lib/i18n/LocalizationProvider", () => ({
   useL: () => ({ t: (key: string) => key, culture: "en", isLoading: false }),
@@ -69,12 +70,25 @@ function renderCreate() {
 }
 
 describe("TenantFormDialog (create)", () => {
-  it("requires the name and the admin email and sends nothing", async () => {
+  it("requires the name, the administrator's first and last name and the admin email and sends nothing", async () => {
     renderCreate();
 
     await submitForm();
 
-    expect(screen.getAllByText("FieldRequired")).toHaveLength(2);
+    expect(screen.getAllByText("FieldRequired")).toHaveLength(4);
+    expect(createMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("treats an administrator name of only spaces as missing", async () => {
+    renderCreate();
+    type("tf-name", "Acme");
+    type("tf-adminEmailAddress", "admin@acme.test");
+    type("tf-adminName", "   ");
+    type("tf-adminSurname", "de Vries");
+
+    await submitForm();
+
+    expect(screen.getByText("FieldRequired")).toBeInTheDocument();
     expect(createMutateAsync).not.toHaveBeenCalled();
   });
 
@@ -82,6 +96,8 @@ describe("TenantFormDialog (create)", () => {
     renderCreate();
     type("tf-name", "   ");
     type("tf-adminEmailAddress", "admin@acme.test");
+    type("tf-adminName", "Anna");
+    type("tf-adminSurname", "de Vries");
 
     await submitForm();
 
@@ -93,6 +109,8 @@ describe("TenantFormDialog (create)", () => {
     renderCreate();
     type("tf-name", "Acme");
     type("tf-adminEmailAddress", email);
+    type("tf-adminName", "Anna");
+    type("tf-adminSurname", "de Vries");
 
     await submitForm();
 
@@ -100,10 +118,12 @@ describe("TenantFormDialog (create)", () => {
     expect(createMutateAsync).not.toHaveBeenCalled();
   });
 
-  it("sends exactly name, admin email and a null edition, trimmed", async () => {
+  it("sends exactly name, administrator name, admin email and a null edition, trimmed", async () => {
     const { onSuccess, onClose } = renderCreate();
     type("tf-name", "  Acme Transport ");
     type("tf-adminEmailAddress", " admin@acme.test ");
+    type("tf-adminName", " Anna ");
+    type("tf-adminSurname", "  de Vries ");
 
     await submitForm();
 
@@ -111,9 +131,17 @@ describe("TenantFormDialog (create)", () => {
     expect(createMutateAsync).toHaveBeenCalledWith({
       name: "Acme Transport",
       adminEmailAddress: "admin@acme.test",
+      adminName: "Anna",
+      adminSurname: "de Vries",
       editionId: null,
     });
-    expect(Object.keys(createMutateAsync.mock.calls[0][0]).sort()).toEqual(["adminEmailAddress", "editionId", "name"]);
+    expect(Object.keys(createMutateAsync.mock.calls[0][0]).sort()).toEqual([
+      "adminEmailAddress",
+      "adminName",
+      "adminSurname",
+      "editionId",
+      "name",
+    ]);
     expect(onSuccess).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -122,6 +150,8 @@ describe("TenantFormDialog (create)", () => {
     renderCreate();
     type("tf-name", "Acme");
     type("tf-adminEmailAddress", "admin@acme.test");
+    type("tf-adminName", "Anna");
+    type("tf-adminSurname", "de Vries");
 
     const picker = field("tf-edition");
     fireEvent.pointerDown(picker);
@@ -132,7 +162,13 @@ describe("TenantFormDialog (create)", () => {
 
     await submitForm();
 
-    expect(createMutateAsync).toHaveBeenCalledWith({ name: "Acme", adminEmailAddress: "admin@acme.test", editionId: "e-gold" });
+    expect(createMutateAsync).toHaveBeenCalledWith({
+      name: "Acme",
+      adminEmailAddress: "admin@acme.test",
+      adminName: "Anna",
+      adminSurname: "de Vries",
+      editionId: "e-gold",
+    });
   });
 
   it("shows the generated connection string read-only and has no password field", () => {

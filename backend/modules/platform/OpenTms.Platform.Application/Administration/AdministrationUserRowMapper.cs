@@ -34,6 +34,7 @@ internal static class AdministrationUserRowMapper
             LockoutEnabled = user.LockoutEnabled,
             IsLockedOut = user.LockoutEnabled && user.LockoutEnd != null && user.LockoutEnd > now,
             HasProfilePicture = ProfilePictureManager.HasPicture(user),
+            InvitationPending = UserPasswordMailSender.IsInvitationPending(user),
             RoleNames = roleNames,
             OrganizationUnitIds = user.OrganizationUnits.Select(ou => ou.OrganizationUnitId).ToList(),
             CreationTime = user.CreationTime

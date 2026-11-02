@@ -22,6 +22,12 @@ public static class TenantProperties
     /// </summary>
     public const string PendingAdminEmail = "PendingAdminEmail";
 
+    /// <summary>The tenant administrator's first name, kept and removed with <see cref="PendingAdminEmail"/>.</summary>
+    public const string PendingAdminName = "PendingAdminName";
+
+    /// <summary>The tenant administrator's last name, kept and removed with <see cref="PendingAdminEmail"/>.</summary>
+    public const string PendingAdminSurname = "PendingAdminSurname";
+
     /// <summary>When the tenant administrator's invitation was sent; set once so a retry does not resend it.</summary>
     public const string InvitationSentAt = "InvitationSentAt";
 

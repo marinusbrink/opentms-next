@@ -12,6 +12,7 @@ import { EntityDialog, type EntityDialogTab } from "@/components/ui/entity-dialo
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildTree } from "@/components/ui/tree-select";
@@ -121,7 +122,8 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
 
   const [values, setValues] = useState<UserFormValues>(initial);
   const [password, setPassword] = useState("");
-  const [setRandomPassword, setSetRandomPassword] = useState(false);
+  /* A new user is invited by default: they choose their own password from the e-mail. */
+  const [sendInvitation, setSendInvitation] = useState(true);
   /* The picture change staged for Save: undefined = unchanged, null = remove, File = replace. */
   const [pendingPicture, setPendingPicture] = useState<File | null | undefined>(undefined);
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
@@ -133,13 +135,12 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
   const isDirty =
     JSON.stringify(normalise(values)) !== JSON.stringify(normalise(initial)) ||
     password !== "" ||
-    setRandomPassword ||
     pendingPicture !== undefined;
 
   const errors: Partial<Record<FieldName, string>> = {};
   if (!values.userName.trim()) errors.userName = t("FieldRequired");
   if (!values.email.trim()) errors.email = t("FieldRequired");
-  if (mode === "create" && !setRandomPassword && !password) errors.password = t("FieldRequired");
+  if (mode === "create" && !sendInvitation && !password) errors.password = t("FieldRequired");
 
   const shownError = (field: FieldName) => (touched[field] || submitted ? errors[field] : undefined);
   const touch = (field: FieldName) => setTouched((prev) => ({ ...prev, [field]: true }));
@@ -178,9 +179,10 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
           name: values.name.trim() || null,
           surname: values.surname.trim() || null,
           phoneNumber: values.phoneNumber.trim() || null,
-          password: setRandomPassword ? null : password,
-          setRandomPassword,
-          shouldChangePasswordOnNextLogin: values.shouldChangePasswordOnNextLogin,
+          password: sendInvitation ? null : password,
+          sendInvitation,
+          setRandomPassword: false,
+          shouldChangePasswordOnNextLogin: !sendInvitation && values.shouldChangePasswordOnNextLogin,
           lockoutEnabled: values.lockoutEnabled,
           roleNames: values.roleNames,
           organizationUnitIds: values.organizationUnitIds,
@@ -326,17 +328,28 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             {mode === "create" && (
               <>
-                <label className="col-span-2 flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={setRandomPassword}
-                    onCheckedChange={(checked) => {
-                      setSetRandomPassword(checked === true);
-                      if (checked === true) setPassword("");
-                    }}
-                  />
-                  {t("Administration:SetRandomPassword")}
-                </label>
-                {!setRandomPassword && (
+                <RadioGroup
+                  className="col-span-2"
+                  aria-label={t("Administration:PasswordChoice")}
+                  value={sendInvitation ? "invite" : "password"}
+                  onValueChange={(value) => {
+                    setSendInvitation(value === "invite");
+                    if (value === "invite") setPassword("");
+                  }}
+                >
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="invite" />
+                    {t("Administration:SendInvitation")}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <RadioGroupItem value="password" />
+                    {t("Administration:SetPasswordMyself")}
+                  </label>
+                </RadioGroup>
+                {sendInvitation && (
+                  <p className="col-span-2 text-label text-muted-foreground">{t("Administration:SendInvitationHint")}</p>
+                )}
+                {!sendInvitation && (
                   <FormField label={t("Administration:Password")} htmlFor="uf-password" required error={shownError("password")}>
                     <Input
                       id="uf-password"
@@ -351,14 +364,17 @@ export function UserFormDialog({ mode, user, readOnly = false, open, onClose, on
               </>
             )}
 
-            <label className="col-span-2 flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={values.shouldChangePasswordOnNextLogin}
-                onCheckedChange={(checked) => set("shouldChangePasswordOnNextLogin", checked === true)}
-                disabled={readOnly}
-              />
-              {t("Administration:ShouldChangePasswordOnNextLogin")}
-            </label>
+            {/* An invited user chooses their own password, so asking again at the first sign-in is moot. */}
+            {!(mode === "create" && sendInvitation) && (
+              <label className="col-span-2 flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={values.shouldChangePasswordOnNextLogin}
+                  onCheckedChange={(checked) => set("shouldChangePasswordOnNextLogin", checked === true)}
+                  disabled={readOnly}
+                />
+                {t("Administration:ShouldChangePasswordOnNextLogin")}
+              </label>
+            )}
 
             {mode === "edit" && (
               <label className="col-span-2 flex items-center gap-2 text-sm">

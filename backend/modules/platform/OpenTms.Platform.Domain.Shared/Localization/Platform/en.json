@@ -1269,6 +1269,25 @@
     "Tenants:ConfirmationNameMismatch": "The name typed does not match the tenant.",
     "Tenants:ResetOnlyWhenReady": "Only a provisioned tenant can be reset to a dataset.",
     "Tenants:ResetAlreadyRunning": "A reset of this tenant is already running.",
-    "Tenants:TestData": "Test data"
+    "Tenants:TestData": "Test data",
+    "Administration:EmailDeliveryNotAvailable": "E-mail delivery is not switched on for this organisation, so no e-mail can be sent. Set a password instead.",
+    "Administration:InvitationSubject": "You have been invited to OpenTMS ({0})",
+    "Administration:InvitationBody": "<p>Dear {0},</p><p>An account has been created for you in OpenTMS for <strong>{1}</strong>. You sign in with your e-mail address <strong>{2}</strong>.</p><p>Choose your password with the link below; it can be used once.</p><p><a href=\"{3}\">Choose your password</a></p><p>If the link has expired, ask your administrator to send a new invitation.</p>",
+    "Administration:PasswordResetLinkSubject": "Choose a new OpenTMS password",
+    "Administration:PasswordResetLinkBody": "<p>Dear {0},</p><p>Your administrator has asked for you to choose a new password for OpenTMS. You sign in with your e-mail address <strong>{1}</strong>.</p><p>Choose your new password with the link below; it can be used once. Until then your current password keeps working.</p><p><a href=\"{2}\">Choose a new password</a></p><p>If you did not expect this e-mail, contact your administrator.</p>",
+    "Administration:InvitationNotPending": "This user has already chosen a password; send a reset link instead.",
+    "Administration:PasswordChoice": "Password",
+    "Administration:SendInvitation": "Send an invitation e-mail",
+    "Administration:SendInvitationHint": "The user receives an e-mail with a link to choose a password.",
+    "Administration:SetPasswordMyself": "Set a password myself",
+    "Administration:InvitationSent": "Invitation sent",
+    "Administration:ResendInvitation": "Resend invitation",
+    "Administration:InvitationPending": "Invitation pending",
+    "Administration:SendResetLink": "Send a reset link by e-mail",
+    "Administration:SendResetLinkHint": "The user receives an e-mail with a link to choose a new password. The current password keeps working until then.",
+    "Administration:PasswordResetLinkSent": "Reset link sent",
+    "Administration:SendLink": "Send link",
+    "Tenants:AdminName": "Administrator first name",
+    "Tenants:AdminSurname": "Administrator last name"
   }
 }
