@@ -20,8 +20,8 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 
 /// <summary>
 /// The PlanningTripTypeDefaults migration (design 61 "Trip type defaults" point 1: a trip type's defaults for a new trip)
-/// on the databases the real DbMigrator created (applied right after PlanningViaDepotStopWaypointType, the newest Planning
-/// migration, nothing pending, the snapshot current, the twelve columns in place on the host and a tenant database, every
+/// on the databases the real DbMigrator created (applied right after PlanningViaDepotStopWaypointType and followed by PlanningPlanboard
+/// (design 68), nothing pending, the snapshot current, the twelve columns in place on the host and a tenant database, every
 /// stored type readable with empty lists and the enum defaults, the id lists round-tripping in order through jsonb) and on
 /// a scratch database with data: trip types the previous release stored (two tenants in one database) get empty lists,
 /// MergeByLocationAndActivity (1) and FirstLastStopRule.None (0), the previous release's INSERT without the columns keeps
@@ -95,14 +95,15 @@ public class PlanningTripTypeDefaultsMigrationTests : PlanningPostgreSqlTestBase
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_migration_follows_the_previous_one_is_the_newest_and_nothing_is_pending(string? tenant)
+    public async Task The_migration_follows_the_previous_one_is_followed_by_the_planboard_migration_and_nothing_is_pending(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await GetRequiredService<IDbContextProvider<PlanningExecutionDbContext>>().GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(Migration);
+            applied.IndexOf(PlanningPlanboardMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1, "the Planboard migration follows (design 68)");
+            applied.Last().ShouldBe(PlanningPlanboardAvailabilityMigrationTests.Migration, "the newest Planning migration (design 68 part 2)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);
