@@ -1,0 +1,76 @@
+/* The resource scheduler's look (components/ui/resource-scheduler.tsx; design 70; UI-TOK-001, UI-TOK-005): FullCalendar's
+ * CSS variables and the bar classes mapped onto the theme tokens. Loaded with the lazy scheduler chunk only. */
+
+.opentms-scheduler {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--surface-page);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-today-bg-color: color-mix(in oklab, var(--brand) 6%, transparent);
+  --fc-highlight-color: color-mix(in oklab, var(--brand) 18%, transparent);
+  --fc-now-indicator-color: var(--tone-danger-fg);
+  --fc-event-bg-color: var(--tone-info-bg);
+  --fc-event-border-color: var(--tone-info-fg);
+  --fc-event-text-color: var(--foreground);
+  --fc-event-selected-overlay-color: color-mix(in oklab, var(--brand) 12%, transparent);
+  --fc-bg-event-color: var(--tone-neutral-fg);
+  --fc-bg-event-opacity: 0.18;
+  --fc-non-business-color: var(--tone-neutral-bg);
+  font-size: var(--grid-font-size);
+  color: var(--foreground);
+}
+
+.opentms-scheduler .fc-datagrid-cell-main,
+.opentms-scheduler .fc-timeline-slot-cushion {
+  font-variant-numeric: tabular-nums; /* UI-TOK-009 */
+}
+
+/* Bars: the tone families of the status tokens. */
+.opentms-scheduler .opentms-sched-event {
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+}
+.opentms-scheduler .opentms-sched-event--tone-neutral { background-color: var(--tone-neutral-bg); border-color: var(--tone-neutral-fg); }
+.opentms-scheduler .opentms-sched-event--tone-info { background-color: var(--tone-info-bg); border-color: var(--tone-info-fg); }
+.opentms-scheduler .opentms-sched-event--tone-success { background-color: var(--tone-success-bg); border-color: var(--tone-success-fg); }
+.opentms-scheduler .opentms-sched-event--tone-warning { background-color: var(--tone-warning-bg); border-color: var(--tone-warning-fg); }
+.opentms-scheduler .opentms-sched-event--tone-danger { background-color: var(--tone-danger-bg); border-color: var(--tone-danger-fg); }
+.opentms-scheduler .opentms-sched-event--tone-brand { background-color: var(--brand-subtle); border-color: var(--brand); }
+
+/* A bar in conflict (overlap on its row, or over a block). */
+.opentms-scheduler .opentms-sched-event--conflict {
+  outline: 2px dashed var(--tone-danger-fg); /* 2px conflict outline */
+  outline-offset: -2px;
+}
+
+/* A selected bar (selection bus). */
+.opentms-scheduler .opentms-sched-event--selected {
+  box-shadow: 0 0 0 2px var(--brand); /* 2px selection ring, as grid row selection */
+}
+
+.opentms-scheduler .opentms-sched-event--readonly {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.opentms-scheduler .opentms-sched-event-content {
+  overflow: hidden;
+  padding-inline: 0.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Background blocks: unavailability in the danger tone, outside working time neutral. */
+.opentms-scheduler .opentms-sched-bg--unavailable {
+  background-color: var(--tone-danger-bg);
+  opacity: 0.7;
+}
+.opentms-scheduler .opentms-sched-bg--outside-working-time {
+  background-color: var(--tone-neutral-bg);
+  opacity: 0.7;
+}
+.opentms-scheduler .opentms-sched-bg-title {
+  color: var(--muted-foreground);
+  font-size: var(--text-label);
+  padding-inline: 0.25rem;
+}

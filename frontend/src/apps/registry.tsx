@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ReactElement } from "react";
 import { APPS, type AppDefinition } from "@/app/apps.config";
 import { DashboardApp } from "@/apps/dashboard";
-import { PlanboardApp } from "@/apps/planboard";
+// The Planboard app is lazy (design 70); its wrapper lives next to it.
+import { LazyPlanboardApp } from "@/apps/planboard/lazy";
 import { FinanceApp } from "@/apps/finance";
 // The Transport app is lazy (design 61); its wrapper lives next to it.
 import { LazyTransportApp } from "@/apps/transport/lazy";
@@ -47,7 +48,7 @@ function LazyTenantsApp(): ReactElement {
  * are attached. */
 const components: Record<string, () => ReactElement> = {
   dashboard: DashboardApp,
-  planboard: PlanboardApp,
+  planboard: LazyPlanboardApp,
   transport: LazyTransportApp,
   finance: FinanceApp,
   "master-data": LazyMasterDataApp,

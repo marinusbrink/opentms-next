@@ -207,6 +207,40 @@ public class RoutingService : IRoutingService, ITransientDependency
         return new RouteMatrix(legs.Select(l => l!).ToList(), provider.Name, now);
     }
 
+    /// <summary>
+    /// Design 68 §4: the matrix with geometry and toll per consecutive pair, for the trip's stored route. Each pair is a
+    /// cached route question of its own (the same key and cache row as <see cref="GetRouteAsync"/>), so an unchanged trip is
+    /// served from the cache; without geometry, toll or CO₂ asked this is the plain matrix.
+    /// </summary>
+    public async Task<RouteMatrix?> GetMatrixAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, RoutingOptions options, CancellationToken cancellationToken = default)
+    {
+        if (!options.IncludeGeometry && !options.IncludeToll && !options.IncludeCo2)
+        {
+            return await GetMatrixAsync(points, vehicle, cancellationToken);
+        }
+
+        var provider = ConfiguredProvider();
+        if (provider == null)
+        {
+            return null;
+        }
+
+        var now = _time.GetUtcNow();
+        var legs = new List<RouteResult>(Math.Max(0, points.Count - 1));
+        for (var i = 0; i + 1 < points.Count; i++)
+        {
+            var leg = await GetRouteAsync(points[i], points[i + 1], vehicle, options, cancellationToken);
+            if (leg == null)
+            {
+                return null;
+            }
+
+            legs.Add(leg);
+        }
+
+        return new RouteMatrix(legs, provider.Name, now);
+    }
+
     public async Task<RoutingStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         var provider = ResolveProvider();

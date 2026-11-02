@@ -65,9 +65,29 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(APPS.find((a) => a.id === "editions")).toBeUndefined();
   });
 
-  it("every other app except Master data, Transport and Tenants has no views declared", () => {
-    APPS.filter((a) => !["admin", "master-data", "tenants", "transport"].includes(a.id)).forEach((app) => {
+  it("every other app except Master data, Planboard, Transport and Tenants has no views declared", () => {
+    APPS.filter((a) => !["admin", "master-data", "planboard", "tenants", "transport"].includes(a.id)).forEach((app) => {
       expect(app.views).toBeUndefined();
+    });
+  });
+
+  it("the Planboard app declares its eight panes as views that open the pane in the one workspace (design 70, D6/D7)", () => {
+    const planboard = APPS.find((a) => a.id === "planboard")!;
+    expect(planboard.feature).toBe("Apps.Planboard");
+    expect(planboard.tenantOnly).toBe(true);
+    expect(planboard.views!.map((v) => [v.nameKey, v.path, v.search?.pane, v.feature])).toEqual([
+      ["App:Planboard.Trips", "/planboard", "trips", "Apps.Planboard.Trips"],
+      ["App:Planboard.Scheduler", "/planboard", "scheduler", "Apps.Planboard.Scheduler"],
+      ["App:Planboard.Orders", "/planboard", "orders", "Apps.Planboard.Orders"],
+      ["App:Planboard.Stops", "/planboard", "stops", "Apps.Planboard.Stops"],
+      ["App:Planboard.Legs", "/planboard", "legs", "Apps.Planboard.Legs"],
+      ["App:Planboard.LegsToSchedule", "/planboard", "legs-to-schedule", "Apps.Planboard.LegsToSchedule"],
+      ["App:Planboard.Map", "/planboard", "map", "Apps.Planboard.Map"],
+      ["App:Planboard.Resources", "/planboard", "resources", "Apps.Planboard.Resources"],
+    ]);
+    planboard.views!.forEach((view) => {
+      expect(view.icon).toBeTruthy();
+      expect(view.children).toBeUndefined();
     });
   });
 

@@ -7,9 +7,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
-import { ComboField, SelectField, TextField, toOptions } from "@/apps/transport/components/fields";
-import { defaultTripTypeIdOf } from "@/apps/transport/orders/order-form";
-import { newTripCreateDtoOf, newTripValues, validateNewTrip, withTripDate, type NewTripValues } from "@/apps/transport/trips/new-trip-form";
+import { ComboField, SelectField, TextField, toOptions } from "@/domains/planning-execution/components/form-fields";
+import { defaultTripTypeIdOf, newTripCreateDtoOf, newTripValues, validateNewTrip, withTripDate, type NewTripValues } from "@/domains/planning-execution/components/new-trip-form";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
 import { AddressField, ContactPersonField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { DriversField, VehicleCombinationField, VehiclesField } from "@/domains/master-data/components/ResourceFields";
@@ -28,7 +27,8 @@ import { useOpenRecord } from "@/lib/use-open-record";
  * execution, carrier and contact, combination or vehicles, drivers, departure and arrival, stop composition and the
  * first/last stop rule. Choosing a type presets every field it defines; another type switches the fields that still hold
  * the previous type's preset and keeps the ones the user changed (point 5). Saved through POST transport-trip, then the
- * trip page opens (legs are assigned there or on the Planboard). */
+ * trip page opens (legs are assigned there or on the Planboard). Shared by the Transport app and the Planboard (design 70);
+ * the Planboard keeps the user on the board (`openAfterCreate={false}`) and selects the new trip instead. */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
@@ -38,11 +38,13 @@ const sameRelation = (a: RelationOption | null, b: RelationOption | null) => (a?
 export interface NewTripDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The trip was created (the list refreshes); the dialog then opens its page. */
-  onCreated?: () => void;
+  /** The trip was created (the list refreshes; it receives the new trip's id); the dialog then opens its page. */
+  onCreated?: (id: string | undefined) => void;
+  /** Default true: open the new trip's page after the save. */
+  openAfterCreate?: boolean;
 }
 
-export function NewTripDialog({ open, onOpenChange, onCreated }: NewTripDialogProps) {
+export function NewTripDialog({ open, onOpenChange, onCreated, openAfterCreate = true }: NewTripDialogProps) {
   const { t } = useL();
   const openRecord = useOpenRecord();
   const create = useCreateTransportTrip();
@@ -93,8 +95,8 @@ export function NewTripDialog({ open, onOpenChange, onCreated }: NewTripDialogPr
       const created = await create.mutateAsync(newTripCreateDtoOf(values));
       toast.success(t("PlanningExecution:TransportTripSaved"));
       onOpenChange(false);
-      onCreated?.();
-      if (created?.id) openRecord("TransportTrip", created.id);
+      onCreated?.(created?.id);
+      if (openAfterCreate && created?.id) openRecord("TransportTrip", created.id);
     } catch (err) {
       setError(getApiErrorMessage(err, t));
     }

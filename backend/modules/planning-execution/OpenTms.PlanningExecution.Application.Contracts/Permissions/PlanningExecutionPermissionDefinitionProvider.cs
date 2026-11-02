@@ -32,6 +32,10 @@ public class PlanningExecutionPermissionDefinitionProvider : PermissionDefinitio
         var legs = group.AddPermission(PlanningExecutionPermissions.Legs.Default, L("Permission:Legs"), MultiTenancySides.Tenant);
         legs.AddChild(PlanningExecutionPermissions.Legs.Update, L("Permission:Legs.Update"), MultiTenancySides.Tenant);
 
+        /* Design 68 §2: tenant data (a driver's leave is personal data). */
+        var availability = group.AddPermission(PlanningExecutionPermissions.ResourceAvailability.Default, L("Permission:ResourceAvailability"), MultiTenancySides.Tenant);
+        availability.AddChild(PlanningExecutionPermissions.ResourceAvailability.Manage, L("Permission:ResourceAvailability.Manage"), MultiTenancySides.Tenant);
+
         var viaDepotRules = group.AddPermission(PlanningExecutionPermissions.ViaDepotRules.Default, L("Permission:ViaDepotRules"), MultiTenancySides.Both);
         viaDepotRules.AddChild(PlanningExecutionPermissions.ViaDepotRules.Create, L("Permission:ViaDepotRules.Create"), MultiTenancySides.Both);
         viaDepotRules.AddChild(PlanningExecutionPermissions.ViaDepotRules.Update, L("Permission:ViaDepotRules.Update"), MultiTenancySides.Both);

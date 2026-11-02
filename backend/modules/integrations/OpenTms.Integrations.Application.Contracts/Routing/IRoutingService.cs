@@ -23,6 +23,14 @@ public interface IRoutingService
     /// <summary>The route through the points in order: one element per consecutive pair, or null when any pair fails.</summary>
     Task<RouteMatrix?> GetMatrixAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The route through the points in order with the parts <paramref name="options"/> asks for per consecutive pair (design 68
+    /// §4: the trip's geometry and toll); null when any pair fails. An implementation that knows only distances answers the
+    /// plain matrix (no geometry, no toll), which is what this default does.
+    /// </summary>
+    Task<RouteMatrix?> GetMatrixAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, RoutingOptions options, CancellationToken cancellationToken = default)
+        => GetMatrixAsync(points, vehicle, cancellationToken);
+
     Task<RoutingStatus> GetStatusAsync(CancellationToken cancellationToken = default);
 }
 

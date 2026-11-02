@@ -94,6 +94,22 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public DateTimeOffset? CalculatedAt { get; private set; }
 
+    /* Design 68 §4 (PO decision D3): the stored route of the trip, written by TripCalculator; null when routing is off. */
+
+    /// <summary>One segment per consecutive pair of route points (jsonb); null when the trip has no routed route.</summary>
+    public List<TripRouteSegment>? RouteSegments { get; private set; }
+
+    /// <summary>The summed toll of the segments; null when no segment knows its toll.</summary>
+    public decimal? TollAmount { get; private set; }
+
+    public string? TollCurrencyCode { get; private set; }
+
+    public int? TollDistanceM { get; private set; }
+
+    public string? RouteProvider { get; private set; }
+
+    public DateTimeOffset? RoutedAt { get; private set; }
+
     /// <summary>Lower-cased searchable text: number, name, carrier, vehicles, customers, stop cities (design 59 list search).</summary>
     public string SearchKey { get; private set; } = string.Empty;
 
@@ -224,8 +240,17 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         CarrierContactPersonId = carrierRelationId == null ? null : carrierContactPersonId;
     }
 
-    /// <summary>A combination or up to three vehicle ids, never both (design 59 "TransportTrip").</summary>
-    public void SetVehicles(Guid? vehicleCombinationId, IReadOnlyList<Guid> vehicleIds)
+    /// <summary>A combination or up to three vehicle ids, never both (design 59 "TransportTrip"); a combination without its members.</summary>
+    public void SetVehicles(Guid? vehicleCombinationId, IReadOnlyList<Guid> vehicleIds) => SetVehicles(vehicleCombinationId, vehicleIds, []);
+
+    /// <summary>
+    /// A combination or up to three vehicle ids, never both (design 59 "TransportTrip"). Design 68 §1 (PO decision D12): with
+    /// a combination its active members (<paramref name="combinationMemberIds"/>, in member order, the first
+    /// <see cref="PlanningExecutionConsts.MaxVehiclesPerTrip"/>) become the trip's vehicle rows, marked
+    /// <see cref="TripVehicle.FromCombination"/>; the combination id stays for display. A later edit of the combination in
+    /// Master Data does not change the trip: its vehicles are Planning's fact.
+    /// </summary>
+    public void SetVehicles(Guid? vehicleCombinationId, IReadOnlyList<Guid> vehicleIds, IReadOnlyList<Guid> combinationMemberIds)
     {
         EnsureEditable();
         var ids = vehicleIds.Where(id => id != Guid.Empty).Distinct().ToList();
@@ -240,8 +265,43 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
 
         VehicleCombinationId = vehicleCombinationId;
-        ReplacePositioned(Vehicles, ids, (position, id) => new TripVehicle(TenantId, Id, position, id), v => v.Position, (v, id) => v.VehicleId == id);
+        var rows = vehicleCombinationId != null ? Members(combinationMemberIds) : ids;
+        ReplacePositioned(Vehicles, rows, (position, id) => new TripVehicle(TenantId, Id, position, id), v => v.Position, (v, id) => v.VehicleId == id);
+        foreach (var vehicle in Vehicles)
+        {
+            vehicle.SetFromCombination(vehicleCombinationId != null);
+        }
     }
+
+    /// <summary>
+    /// Design 68 §1, the backfill: a trip that has a combination and no vehicle rows (saved before the members were stored)
+    /// gets its combination's members. Archived and final trips too: it records what the trip carried, it is not an edit.
+    /// Does nothing when the trip has vehicle rows or no combination.
+    /// </summary>
+    public bool FillCombinationMembers(IReadOnlyList<Guid> combinationMemberIds)
+    {
+        if (VehicleCombinationId == null || Vehicles.Count > 0)
+        {
+            return false;
+        }
+
+        var members = Members(combinationMemberIds);
+        for (var position = 1; position <= members.Count; position++)
+        {
+            Vehicles.Add(new TripVehicle(TenantId, Id, position, members[position - 1], fromCombination: true));
+        }
+
+        return members.Count > 0;
+    }
+
+    private static List<Guid> Members(IReadOnlyList<Guid> memberIds)
+        => memberIds.Where(id => id != Guid.Empty).Distinct().Take(PlanningExecutionConsts.MaxVehiclesPerTrip).ToList();
+
+    /// <summary>The vehicle ids in position order (the combination's members when the trip has a combination).</summary>
+    public IReadOnlyList<Guid> VehicleIdsInOrder => Vehicles.OrderBy(v => v.Position).Select(v => v.VehicleId).ToList();
+
+    /// <summary>The driver ids in position order.</summary>
+    public IReadOnlyList<Guid> DriverIdsInOrder => Drivers.OrderBy(d => d.Position).Select(d => d.DriverId).ToList();
 
     public void SetDrivers(IReadOnlyList<Guid> driverIds)
     {
@@ -301,6 +361,82 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             stop.FillActuals(at);
         }
+    }
+
+    /// <summary>
+    /// Design 68 "Complete" (P:Q17): completes the trip with the actual departure and arrival the planner states (both
+    /// stamped, replacing what was recorded); a stop's missing actuals get the arrival, recorded ones stay.
+    /// </summary>
+    public void Complete(DateTimeOffset actualDeparture, DateTimeOffset actualArrival)
+    {
+        EnsureEditable();
+        if (Status != TransportTripStatus.InProgress)
+        {
+            throw Transition("Complete");
+        }
+
+        if (actualArrival < actualDeparture)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.ArrivalBeforeDeparture);
+        }
+
+        Status = TransportTripStatus.Completed;
+        ActualDeparture = actualDeparture;
+        ActualArrival = actualArrival;
+        foreach (var stop in Stops)
+        {
+            stop.FillActuals(actualArrival);
+        }
+    }
+
+    /// <summary>
+    /// Design 68 "Reschedule": moves a planned or running trip in time. The arrival keeps its distance to the departure
+    /// when it is not given; the trip date follows the departure; every stop's planned and estimated times move by the
+    /// same delta (the calculation refines them). A completed or cancelled trip is not moved (scheduler.md §9 not cloned).
+    /// </summary>
+    public void Reschedule(DateTimeOffset plannedDeparture, DateTimeOffset? plannedArrival)
+    {
+        EnsureEditable();
+        if (Status is not (TransportTripStatus.Planned or TransportTripStatus.InProgress))
+        {
+            throw Transition("Reschedule");
+        }
+
+        var delta = plannedDeparture - PlannedDeparture;
+        var arrival = plannedArrival ?? (PlannedArrival == null ? null : PlannedArrival.Value + delta);
+        if (arrival != null && arrival < plannedDeparture)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.ArrivalBeforeDeparture);
+        }
+
+        TripDate = DateOnly.FromDateTime(plannedDeparture.Date);
+        SetPlannedTimes(plannedDeparture, arrival);
+        if (delta != TimeSpan.Zero)
+        {
+            foreach (var stop in Stops)
+            {
+                stop.ShiftPlanned(delta);
+            }
+        }
+    }
+
+    /// <summary>Design 68 "Update header field": the trips pane's inline edits, one field at a time.</summary>
+    public void SetName(string? name)
+    {
+        EnsureEditable();
+        Name = Text(name, PlanningExecutionConsts.MaxNameLength);
+    }
+
+    public void SetRemarks(string? remarks)
+    {
+        EnsureEditable();
+        Remarks = Text(remarks, PlanningExecutionConsts.MaxRemarksLength);
+    }
+
+    public void SetDriverInstructions(string? driverInstructions)
+    {
+        EnsureEditable();
+        DriverInstructions = Text(driverInstructions, PlanningExecutionConsts.MaxRemarksLength);
     }
 
     public void Cancel()
@@ -497,6 +633,33 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         }
     }
 
+    /// <summary>
+    /// Design 68 §4: the routed segments with their toll totals (summed over the segments that know them; the currency of
+    /// the first that names one), the provider and the instant; null clears the stored route (routing off, no path).
+    /// </summary>
+    public void SetRoute(IReadOnlyList<TripRouteSegment>? segments, string? provider, string? tollCurrencyCode, DateTimeOffset? routedAt)
+    {
+        if (segments == null || segments.Count == 0)
+        {
+            RouteSegments = null;
+            TollAmount = null;
+            TollCurrencyCode = null;
+            TollDistanceM = null;
+            RouteProvider = null;
+            RoutedAt = null;
+            return;
+        }
+
+        RouteSegments = segments.ToList();
+        var tolled = segments.Where(s => s.TollAmount != null).ToList();
+        TollAmount = tolled.Count == 0 ? null : Math.Round(tolled.Sum(s => s.TollAmount!.Value), 2, MidpointRounding.AwayFromZero);
+        TollCurrencyCode = TollAmount == null ? null : Text(tollCurrencyCode, PlanningExecutionConsts.MaxCurrencyCodeLength);
+        var tollDistances = segments.Where(s => s.TollDistanceM != null).ToList();
+        TollDistanceM = tollDistances.Count == 0 ? null : tollDistances.Sum(s => s.TollDistanceM!.Value);
+        RouteProvider = Text(provider, PlanningExecutionConsts.MaxProviderLength);
+        RoutedAt = routedAt;
+    }
+
     public void SetLoad(decimal? loadFactor, double? loadingMeters)
     {
         LoadFactor = loadFactor == null ? null : Math.Round(loadFactor.Value, 4, MidpointRounding.AwayFromZero);
@@ -552,17 +715,23 @@ public class TripVehicle : Entity, IMultiTenant
 
     public Guid VehicleId { get; private set; }
 
+    /// <summary>Design 68 §1: the row is a member of the trip's vehicle combination, stored when the combination was chosen.</summary>
+    public bool FromCombination { get; private set; }
+
     protected TripVehicle()
     {
     }
 
-    public TripVehicle(Guid? tenantId, Guid tripId, int position, Guid vehicleId)
+    public TripVehicle(Guid? tenantId, Guid tripId, int position, Guid vehicleId, bool fromCombination = false)
     {
         TenantId = tenantId;
         TripId = tripId;
         Position = position;
         VehicleId = vehicleId;
+        FromCombination = fromCombination;
     }
+
+    internal void SetFromCombination(bool fromCombination) => FromCombination = fromCombination;
 
     public override object[] GetKeys() => [TripId, Position];
 }
@@ -711,6 +880,22 @@ public class TripStop : Entity<Guid>, IMultiTenant
         if (ActualDeparture == null)
         {
             EstimatedDeparture = departure;
+        }
+    }
+
+    /// <summary>Design 68 "Reschedule": the planned times, and the estimates that are not superseded by actuals, move by <paramref name="delta"/>.</summary>
+    public void ShiftPlanned(TimeSpan delta)
+    {
+        PlannedArrival += delta;
+        PlannedDeparture += delta;
+        if (ActualArrival == null)
+        {
+            EstimatedArrival += delta;
+        }
+
+        if (ActualDeparture == null)
+        {
+            EstimatedDeparture += delta;
         }
     }
 

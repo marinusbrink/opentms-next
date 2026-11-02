@@ -35,6 +35,13 @@ public static class PlanningExecutionPermissions
         public const string Update = Default + ".Update";
     }
 
+    /// <summary>Design 68 §2: the unavailability and working times of vehicles and drivers (Planboard Resources pane).</summary>
+    public static class ResourceAvailability
+    {
+        public const string Default = GroupName + ".ResourceAvailability";
+        public const string Manage = Default + ".Manage";
+    }
+
     public static class ViaDepotRules
     {
         public const string Default = GroupName + ".ViaDepotRules";

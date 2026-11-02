@@ -6,7 +6,8 @@ import type { components } from "@/lib/api/generated/schema";
 import { recordUpdatesClient, type RecordUpdateMessage } from "@/lib/realtime/record-updates";
 
 /* The hooks a domain screen uses for live derived values (design 49): watch the records it shows, refetch what
- * belongs to a record when it was recalculated, and read each record's calculation state for the indicator. */
+ * belongs to a record when it was recalculated, and read each record's calculation state for the indicator.
+ * useRecordTypeUpdates (design 67) watches a whole record type. */
 
 export type DerivedValueState = components["schemas"]["OpenTms.Platform.DerivedValues.DerivedValueStateDto"];
 
@@ -56,6 +57,39 @@ export function useRecordUpdates(targetType: string, ids: readonly (string | nul
       unReconnect();
     };
   }, [queryClient, targetType, watchedIds]);
+}
+
+/**
+ * Watches every record of a type (design 67), e.g. a planboard pane that must hear about rows it does not know yet.
+ * Calls `onUpdate` for every notice of that type (with its routing hints) and `onReconnect` after a reconnect, so the
+ * pane refetches what it may have missed. The callbacks may change between renders without re-subscribing.
+ */
+export function useRecordTypeUpdates(
+  targetType: string,
+  onUpdate: (message: RecordUpdateMessage) => void,
+  enabled = true,
+  onReconnect?: () => void,
+) {
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+  const onReconnectRef = useRef(onReconnect);
+  onReconnectRef.current = onReconnect;
+
+  useEffect(() => {
+    if (!enabled || !targetType) return;
+    const client = recordUpdatesClient();
+    const unsubscribe = client.subscribe((message) => {
+      if (message.targetType === targetType) onUpdateRef.current(message);
+    });
+    const unReconnect = client.onReconnected(() => onReconnectRef.current?.());
+    const unwatch = client.watchType(targetType);
+
+    return () => {
+      unwatch();
+      unsubscribe();
+      unReconnect();
+    };
+  }, [targetType, enabled]);
 }
 
 /** The calculation state per record id (records never calculated are absent); refreshed by the push. */

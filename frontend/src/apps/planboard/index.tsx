@@ -1,6 +1,20 @@
-import { APPS } from "@/app/apps.config";
-import { AppPlaceholder } from "@/apps/AppPlaceholder";
+import { PlanboardFiltersProvider } from "@/apps/planboard/filters";
+import { PlanboardWorkspace } from "@/apps/planboard/PlanboardWorkspace";
+import { PlanboardSelectionProvider } from "@/apps/planboard/selection";
+import { PlanboardSettingsProvider } from "@/apps/planboard/settings-store";
+import { PlanboardTripPeekProvider } from "@/apps/planboard/trip-peek";
 
+/* The Planboard app (design 70): one page, the workspace, with its settings store, board filters, selection bus and the read-only trip peek. */
 export function PlanboardApp() {
-  return <AppPlaceholder app={APPS.find((app) => app.id === "planboard")!} />;
+  return (
+    <PlanboardSettingsProvider>
+      <PlanboardFiltersProvider>
+        <PlanboardSelectionProvider>
+          <PlanboardTripPeekProvider>
+            <PlanboardWorkspace />
+          </PlanboardTripPeekProvider>
+        </PlanboardSelectionProvider>
+      </PlanboardFiltersProvider>
+    </PlanboardSettingsProvider>
+  );
 }

@@ -18,7 +18,16 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         var apps = context.AddGroup(AppFeatures.GroupName, L("Feature:Apps"));
 
         Off(apps, AppFeatures.Dashboard);
-        Off(apps, AppFeatures.Planboard);
+        /* The Planboard app and its panes default on (PO decision D7, designs 66/68: deviation from constitution rule 4). */
+        var planboardApp = On(apps, AppFeatures.Planboard);
+        On(planboardApp, AppFeatures.PlanboardApp.Trips);
+        On(planboardApp, AppFeatures.PlanboardApp.Scheduler);
+        On(planboardApp, AppFeatures.PlanboardApp.Orders);
+        On(planboardApp, AppFeatures.PlanboardApp.Stops);
+        On(planboardApp, AppFeatures.PlanboardApp.Legs);
+        On(planboardApp, AppFeatures.PlanboardApp.LegsToSchedule);
+        On(planboardApp, AppFeatures.PlanboardApp.Map);
+        On(planboardApp, AppFeatures.PlanboardApp.Resources);
         /* The Transport app and its nodes default on (PO 2026-10-25, design 56: deviation from constitution rule 4). */
         var transportApp = On(apps, AppFeatures.Transport);
         var transportAppOrders = On(transportApp, AppFeatures.TransportApp.Orders);

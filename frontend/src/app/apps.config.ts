@@ -22,6 +22,7 @@ import {
   Files,
   Flag,
   FolderTree,
+  ChartGantt,
   History,
   IdCard,
   Landmark,
@@ -30,7 +31,9 @@ import {
   LayoutTemplate,
   Link2,
   List,
+  ListTodo,
   Mail,
+  Map as MapIcon,
   ListTree,
   MapPin,
   MapPinned,
@@ -45,10 +48,12 @@ import {
   Shield,
   ShieldCheck,
   SlidersHorizontal,
+  Spline,
   Tags,
   TextQuote,
   Thermometer,
   Truck,
+  UserRoundCog,
   Users,
   Wallet,
   Warehouse,
@@ -76,6 +81,8 @@ export interface AppView {
   /**
    * A saved list preset (UI-PAGE-004): the node routes to its list's path with this search (`?filter=today`). Such a
    * node has no feature of its own; the list's node decides (design 61: the Orders and Trips views).
+   * A Planboard pane node (design 70) links to the workspace with `?pane=<type>`: a command on the one page, not a
+   * route, so it keeps its own feature and never decides whether the page itself is on.
    */
   search?: Readonly<Record<string, string>>;
   icon: LucideIcon;
@@ -140,10 +147,24 @@ export const APPS: readonly AppDefinition[] = [
     id: "planboard",
     nameKey: "App:Planboard",
     path: "/planboard",
-    domains: ["PlanningExecution"],
+    domains: ["PlanningExecution", "Orders", "MasterData"],
     icon: CalendarRange,
     tileClass: "bg-emerald-600",
     feature: "Apps.Planboard",
+    tenantOnly: true,
+    /* Design 70 (PO decisions D6, D7): one page, the dockable workspace. Every pane is a nav node with its feature; a
+     * node does not route to a page of its own but opens (or focuses) its pane: it links to the workspace with
+     * `?pane=<type>`, which the workspace consumes (src/apps/planboard/panes/registry.tsx holds the same types). */
+    views: [
+      { nameKey: "App:Planboard.Trips", path: "/planboard", search: { pane: "trips" }, feature: "Apps.Planboard.Trips", icon: Route },
+      { nameKey: "App:Planboard.Scheduler", path: "/planboard", search: { pane: "scheduler" }, feature: "Apps.Planboard.Scheduler", icon: ChartGantt },
+      { nameKey: "App:Planboard.Orders", path: "/planboard", search: { pane: "orders" }, feature: "Apps.Planboard.Orders", icon: ClipboardList },
+      { nameKey: "App:Planboard.Stops", path: "/planboard", search: { pane: "stops" }, feature: "Apps.Planboard.Stops", icon: Waypoints },
+      { nameKey: "App:Planboard.Legs", path: "/planboard", search: { pane: "legs" }, feature: "Apps.Planboard.Legs", icon: Spline },
+      { nameKey: "App:Planboard.LegsToSchedule", path: "/planboard", search: { pane: "legs-to-schedule" }, feature: "Apps.Planboard.LegsToSchedule", icon: ListTodo },
+      { nameKey: "App:Planboard.Map", path: "/planboard", search: { pane: "map" }, feature: "Apps.Planboard.Map", icon: MapIcon },
+      { nameKey: "App:Planboard.Resources", path: "/planboard", search: { pane: "resources" }, feature: "Apps.Planboard.Resources", icon: UserRoundCog },
+    ],
   },
   {
     id: "transport",

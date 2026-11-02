@@ -38,6 +38,7 @@ import {
   resolveTargetRows,
   type GridRowAction,
 } from "@/components/ui/opentms-grid-actions";
+import { followTransactionCounts, shiftCount } from "@/components/ui/opentms-grid-counts";
 import { OpenTmsGridFooter } from "@/components/ui/opentms-grid-footer";
 import { createGridSettingsPersister } from "@/components/ui/opentms-grid-settings";
 import { buildExportContext, type GridExportContext } from "@/components/ui/opentms-grid-export";
@@ -132,8 +133,12 @@ export interface OpenTmsGridProps<TRow> {
   onExport?: (context: GridExportContext) => void;
   /** Hierarchical rows (UI-LOOK-001 "tree data"); the first column becomes the expanding one. */
   treeData?: GridTreeDataOptions<TRow>;
-  /** UI-GRID-016: a picker grid toggles the selection on row click. */
+  /** UI-GRID-006/016: a row click selects the row (ctrl/shift-click extends). Pickers use it, and the Planboard list panes,
+   * whose selection drives the other panes (design 70, "Selection bus"). */
   clickSelects?: boolean;
+  /** Hands the grid api to the caller once the grid is ready (a pane that patches rows in place, scrolls to a row or
+   * listens to grid events). Called before the saved column settings load; the api is gone again on unmount. */
+  onGridReady?: (api: GridApi<TRow>) => void;
   className?: string;
 }
 
@@ -238,12 +243,16 @@ export function OpenTmsGrid<TRow>({
   onExport,
   treeData,
   clickSelects = false,
+  onGridReady: onGridReadyProp,
   className,
 }: OpenTmsGridProps<TRow>) {
   const { t } = useL();
 
   // Grid API ref
   const gridApiRef = useRef<GridApi<TRow> | null>(null);
+  /* The caller's ready callback through a ref: the grid's own onGridReady stays stable. */
+  const onGridReadyRef = useRef(onGridReadyProp);
+  onGridReadyRef.current = onGridReadyProp;
 
   // Search
   const [searchTerm, setSearchTerm] = useState("");
@@ -461,6 +470,11 @@ export function OpenTmsGrid<TRow>({
     async (event: GridReadyEvent<TRow>) => {
       const api = event.api as GridApi<TRow>;
       gridApiRef.current = api;
+      followTransactionCounts(api, (delta) => {
+        setFilteredCount((count) => shiftCount(count, delta));
+        setTotalCount((count) => shiftCount(count, delta));
+      });
+      onGridReadyRef.current?.(api);
 
       // Load and apply saved column settings before first data fetch
       try {

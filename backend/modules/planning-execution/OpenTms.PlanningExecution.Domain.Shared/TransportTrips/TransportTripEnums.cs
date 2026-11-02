@@ -45,7 +45,16 @@ public enum TripWarningCode
     AddressNotGeocoded = 8,
     NoCostPriceSource = 9,
     RoutingNotConfigured = 10,
-    CapacityExceeded = 11
+    CapacityExceeded = 11,
+
+    /// <summary>Design 68 §3: another live trip uses the same vehicle or driver at an overlapping time (<c>Data</c> = the resource id).</summary>
+    ResourceDoubleBooked = 20,
+
+    /// <summary>Design 68 §3: a vehicle or driver of the trip is unavailable during the trip (<c>Data</c> = the resource id).</summary>
+    ResourceUnavailable = 21,
+
+    /// <summary>Design 68 §3: the trip is not inside a driver's working pattern (<c>Data</c> = the driver id).</summary>
+    OutsideWorkingTime = 22
 }
 
 /// <summary>The kind of change behind a <c>TransportTripChangedEto</c>.</summary>

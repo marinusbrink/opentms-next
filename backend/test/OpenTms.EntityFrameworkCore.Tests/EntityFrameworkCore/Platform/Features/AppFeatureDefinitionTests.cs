@@ -12,7 +12,7 @@ namespace OpenTms.EntityFrameworkCore.Platform.Features;
 
 /// <summary>
 /// The app and navigation feature definitions through the real definition manager (PO decision 2026-10-14,
-/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group; design 64, the host-only E-mail view): 67 toggles in the "Apps" group, each a child of the node
+/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group; design 64, the host-only E-mail view; designs 66/68 D7, the Planboard app and its eight panes, default on): 75 toggles in the "Apps" group, each a child of the node
 /// above it so an edition's Features tab shows the tree, with the PO's defaults; the old ad-hoc features are gone.
 /// Risk class: High — a wrong default switches a screen on or off for every tenant without a stored value.
 /// </summary>
@@ -23,7 +23,16 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     private static readonly Dictionary<string, (string? Parent, string Default)> Expected = new()
     {
         ["Apps.Dashboard"] = (null, "false"),
-        ["Apps.Planboard"] = (null, "false"),
+        /* Designs 66/68, PO decision D7: the Planboard and every pane default on (stated deviation from constitution rule 4). */
+        ["Apps.Planboard"] = (null, "true"),
+        ["Apps.Planboard.Trips"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Scheduler"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Orders"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Stops"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Legs"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.LegsToSchedule"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Map"] = ("Apps.Planboard", "true"),
+        ["Apps.Planboard.Resources"] = ("Apps.Planboard", "true"),
         ["Apps.Transport"] = (null, "true"),
         ["Apps.Transport.Orders"] = ("Apps.Transport", "true"),
         ["Apps.Transport.Orders.Templates"] = ("Apps.Transport.Orders", "true"),
@@ -96,12 +105,12 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     };
 
     [Fact]
-    public async Task The_Apps_group_holds_exactly_the_67_tree_features()
+    public async Task The_Apps_group_holds_exactly_the_75_tree_features()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var group = (await manager.GetGroupsAsync()).Single(g => g.Name == AppFeatures.GroupName);
 
-        Expected.Count.ShouldBe(67);
+        Expected.Count.ShouldBe(75);
         group.GetFeaturesWithChildren().Select(f => f.Name).ShouldBe(Expected.Keys, ignoreOrder: true);
         group.Features.Select(f => f.Name).ShouldBe(Expected.Where(e => e.Value.Parent == null).Select(e => e.Key), ignoreOrder: true);
     }
@@ -160,5 +169,23 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         (await checker.IsEnabledAsync(AppFeatures.Administration.AuditLogs.TechnicalLogbook)).ShouldBeTrue();
         (await checker.IsEnabledAsync(AppFeatures.Administration.Maintenance)).ShouldBeFalse();
         (await checker.IsEnabledAsync(AppFeatures.Dashboard)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Without_stored_values_the_Planboard_and_every_pane_are_on_and_a_stored_off_switches_them_off()
+    {
+        var checker = GetRequiredService<IFeatureChecker>();
+        foreach (var name in new[]
+                 {
+                     AppFeatures.Planboard, AppFeatures.PlanboardApp.Trips, AppFeatures.PlanboardApp.Scheduler, AppFeatures.PlanboardApp.Orders, AppFeatures.PlanboardApp.Stops,
+                     AppFeatures.PlanboardApp.Legs, AppFeatures.PlanboardApp.LegsToSchedule, AppFeatures.PlanboardApp.Map, AppFeatures.PlanboardApp.Resources
+                 })
+        {
+            (await checker.IsEnabledAsync(name)).ShouldBeTrue(name);
+            using (OpenTms.Features.TestFeatureValueProvider.Override(name, "false"))
+            {
+                (await checker.IsEnabledAsync(name)).ShouldBeFalse(name);
+            }
+        }
     }
 }

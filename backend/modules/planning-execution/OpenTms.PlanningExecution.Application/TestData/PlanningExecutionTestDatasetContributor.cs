@@ -316,7 +316,7 @@ public class PlanningExecutionTestDatasetContributor : ITestDatasetContributor, 
             {
                 var members = combination.VehicleIds.Where(vehicles.ContainsKey).Select(v => vehicles[v]).ToList();
                 fleet.Units.Add(new TestFleetUnit(id, null,
-                    [combination.Name, .. members.Select(m => m.Name), .. members.Select(m => m.LicencePlate).OfType<string>()]));
+                    [combination.Name, .. members.Select(m => m.Name), .. members.Select(m => m.LicencePlate).OfType<string>()], combination.VehicleIds));
             }
         }
 

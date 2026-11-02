@@ -8,7 +8,7 @@ using OpenTms.PlanningExecution.TransportTrips;
 namespace OpenTms.PlanningExecution.TestData;
 
 /// <summary>An own-fleet unit a test trip can drive with: a vehicle combination, or one vehicle that is in none.</summary>
-public sealed record TestFleetUnit(Guid? CombinationId, Guid? VehicleId, IReadOnlyList<string> SearchParts);
+public sealed record TestFleetUnit(Guid? CombinationId, Guid? VehicleId, IReadOnlyList<string> SearchParts, IReadOnlyList<Guid>? MemberIds = null);
 
 public sealed record TestCarrier(Guid Id, string Name);
 
@@ -253,7 +253,7 @@ public sealed class PlanningTestTripPlanner
 
         if (unit != null)
         {
-            trip.SetVehicles(unit.CombinationId, unit.VehicleId is { } vehicleId ? [vehicleId] : []);
+            trip.SetVehicles(unit.CombinationId, unit.VehicleId is { } vehicleId ? [vehicleId] : [], unit.MemberIds ?? []);
             trip.SetDrivers(drivers);
         }
 

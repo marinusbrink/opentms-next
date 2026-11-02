@@ -54,6 +54,12 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The other half of the split was split again: remove that split first.</summary>
     public const string SplitAtAddressNested = Namespace + ":SplitAtAddressNested";
 
+    /// <summary>A Planboard resource change names a resource the trip does not carry ({resourceId}).</summary>
+    public const string ResourceNotOnTrip = Namespace + ":ResourceNotOnTrip";
+
+    /// <summary>The tenant has no active transport trip type to create a trip with.</summary>
+    public const string NoTripType = Namespace + ":NoTripType";
+
     /* The request itself is wrong (400). */
 
     public const string TooManyVehicles = Namespace + ":TooManyVehicles";
@@ -109,11 +115,42 @@ public static class PlanningExecutionErrorCodes
     /// <summary>A trip type's default departure or arrival address needs its relation ({field}; design 61 "Trip type defaults").</summary>
     public const string AddressWithoutRelation = Namespace + ":AddressWithoutRelation";
 
+    /// <summary>A Scheduler window must end after it starts and span at most {max} days.</summary>
+    public const string InvalidSchedulerWindow = Namespace + ":InvalidSchedulerWindow";
+
+    /// <summary>A vehicle of another kind than the Scheduler mode takes ({field}: a trailer for the trailer mode, a motor vehicle for the tractor mode).</summary>
+    public const string ResourceKindMismatch = Namespace + ":ResourceKindMismatch";
+
+    /// <summary>At most {max} ids per request.</summary>
+    public const string TooManyIds = Namespace + ":TooManyIds";
+
+    /// <summary>The leg list cannot be grouped by {groupBy}.</summary>
+    public const string UnknownGroupBy = Namespace + ":UnknownGroupBy";
+
+    /// <summary>An unavailability must end after it starts and span at most {max} days.</summary>
+    public const string InvalidUnavailabilityPeriod = Namespace + ":InvalidUnavailabilityPeriod";
+
+    /// <summary>A weekly repetition needs its weekdays and an end date after the start, at most {max} days later, and occurrences of at most 24 hours.</summary>
+    public const string InvalidRecurrence = Namespace + ":InvalidRecurrence";
+
+    /// <summary>A working pattern names each weekday (0–6) once, with an end after its start.</summary>
+    public const string InvalidWorkingPattern = Namespace + ":InvalidWorkingPattern";
+
+    /// <summary>An availability read spans at most {max} days and ends after it starts.</summary>
+    public const string InvalidAvailabilityWindow = Namespace + ":InvalidAvailabilityWindow";
+
+    /// <summary>The unplanned-legs-nearby search: radius 1–{max} km and a date range of at most {days} days.</summary>
+    public const string InvalidNearbySearch = Namespace + ":InvalidNearbySearch";
+
+    /// <summary>The trip's stops cannot be optimised ({number}): it is not planned or running, or has fewer than two stops that may move.</summary>
+    public const string StopsNotOptimizable = Namespace + ":StopsNotOptimizable";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         TripNotAssignable, LegOnOtherTrip, LegNotOnTrip, LegOutsideTripWindow, StopHasActuals, InvalidTransition, TripArchived,
-        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested
+        TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested,
+        ResourceNotOnTrip, NoTripType, StopsNotOptimizable
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -122,6 +159,7 @@ public static class PlanningExecutionErrorCodes
         TooManyVehicles, TooManyDrivers, TooManyStops, TooManyLegs, VehicleSourceConflict, InvalidSplit, InvalidAttributes,
         InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
         ExportTooManyRows, ExportUnknownColumn, SplitAddressIsLegEnd, SplitDateOutsideLeg, ContactWithoutCarrier,
-        AddressWithoutRelation
+        AddressWithoutRelation, InvalidSchedulerWindow, ResourceKindMismatch, TooManyIds, UnknownGroupBy, InvalidUnavailabilityPeriod,
+        InvalidRecurrence, InvalidWorkingPattern, InvalidAvailabilityWindow, InvalidNearbySearch
     ];
 }

@@ -20,10 +20,10 @@ import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
 import { TreeSelect, buildTree } from "@/components/ui/tree-select";
 import { WarningsCell } from "@/apps/transport/components/WarningsCell";
-import { NewTripDialog } from "@/apps/transport/trips/NewTripDialog";
 import { ArchiveTripsWizard } from "@/apps/transport/wizards/ArchiveTripsWizard";
 import { PrintCmrWizard } from "@/apps/transport/wizards/PrintCmrWizard";
 import { relationLookupPage, type RelationOption } from "@/domains/master-data/entities";
+import { NewTripDialog } from "@/domains/planning-execution/components/NewTripDialog";
 import { TRIP_EXECUTIONS } from "@/domains/planning-execution/reference-data";
 import {
   TRANSPORT_TRIP_STATUSES,
@@ -219,7 +219,7 @@ export function TripsView({ filter }: TripsViewProps) {
           }
         />
       </div>
-      {canCreate && dialog === "new" && <NewTripDialog open onOpenChange={(next) => setDialog(next ? "new" : null)} onCreated={refresh} />}
+      {canCreate && dialog === "new" && <NewTripDialog open onOpenChange={(next) => setDialog(next ? "new" : null)} onCreated={() => refresh()} />}
       {single && <PrintCmrWizard open={dialog === "print"} onOpenChange={(next) => setDialog(next ? "print" : null)} trip={{ id: single.id!, number: single.number ?? "" }} />}
       <ArchiveTripsWizard open={dialog === "archive"} onOpenChange={(next) => { setDialog(next ? "archive" : null); if (!next) refresh(); }} trips={selectedRows} />
       <GridExportDialog

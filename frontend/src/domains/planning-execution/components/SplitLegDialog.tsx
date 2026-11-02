@@ -9,7 +9,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
-import { toOptions } from "@/apps/transport/components/fields";
+import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { AddressField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { rateLineKeys } from "@/domains/financial/rate-lines";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
@@ -20,7 +20,8 @@ import { getApiErrorMessage } from "@/lib/api/errors";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* Split leg at … and Remove split (design 61 "Order page review" 5), the row actions of the legs grid in Edit freight
- * item → Stops and legs. The split turns A→B into A→X and X→B at the chosen relation and address X: the arrival activity
+ * item → Stops and legs (Transport app); Split leg at … is also a row action of the Planboard's Legs to schedule
+ * (design 70). The split turns A→B into A→X and X→B at the chosen relation and address X: the arrival activity
  * at X, the departure activity (by default the arrival activity's successive activity of design 51, else the arrival
  * activity itself, as the server defaults it) and the date (by default the leg's origin date). Remove split, on either
  * half, turns them back into A→B. Both are Planning commands run at once (stored legs, not form state); the legs and the
@@ -30,9 +31,11 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 export interface SplitLegDialogProps {
   leg: LegDto;
   onClose: () => void;
+  /** Called after a successful split (the Planboard reloads its list). */
+  onDone?: () => void;
 }
 
-export function SplitLegDialog({ leg, onClose }: SplitLegDialogProps) {
+export function SplitLegDialog({ leg, onClose, onDone }: SplitLegDialogProps) {
   const { t } = useL();
   const queryClient = useQueryClient();
   const split = useSplitLegAtAddress();
@@ -70,6 +73,7 @@ export function SplitLegDialog({ leg, onClose }: SplitLegDialogProps) {
       await split.mutateAsync({ id: leg.id!, dto: { relationId: relation.id, relationAddressId: addressId, arrivalWaypointTypeId: arrivalId, departureWaypointTypeId: departureId, date } });
       void queryClient.invalidateQueries({ queryKey: rateLineKeys.all });
       toast.success(t("PlanningExecution:LegSplit"));
+      onDone?.();
       onClose();
     } catch (err) {
       setError(getApiErrorMessage(err, t));

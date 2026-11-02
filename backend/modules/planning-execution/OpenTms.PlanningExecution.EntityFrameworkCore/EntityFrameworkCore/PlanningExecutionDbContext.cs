@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using OpenTms.PlanningExecution.Availability;
 using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.PlanningExecution.ViaDepots;
@@ -30,9 +31,21 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
 
     public DbSet<TripStop> TripStops { get; set; } = default!;
 
+    /* Design 68: exposed so ABP registers their repositories (the Scheduler, map and resource reads query them directly). */
+    public DbSet<TripVehicle> TripVehicles { get; set; } = default!;
+
+    public DbSet<TripDriver> TripDrivers { get; set; } = default!;
+
+    public DbSet<TripStopLeg> TripStopLegs { get; set; } = default!;
+
     public DbSet<ViaDepotRule> ViaDepotRules { get; set; } = default!;
 
     public DbSet<TripAttributeDefinition> TripAttributeDefinitions { get; set; } = default!;
+
+    /// <summary>Design 68 §2.</summary>
+    public DbSet<ResourceUnavailability> ResourceUnavailabilities { get; set; } = default!;
+
+    public DbSet<ResourceWorkingPattern> ResourceWorkingPatterns { get; set; } = default!;
 
     public PlanningExecutionDbContext(DbContextOptions<PlanningExecutionDbContext> options)
         : base(options)
@@ -116,6 +129,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.Ignore(t => t.ArrivalDate);
             b.Ignore(t => t.OrderedStops);
             b.Ignore(t => t.LegIds);
+            b.Ignore(t => t.VehicleIdsInOrder);
+            b.Ignore(t => t.DriverIdsInOrder);
             b.Property(t => t.Number).HasMaxLength(PlanningExecutionConsts.MaxNumberLength).IsRequired();
             b.Property(t => t.Name).HasMaxLength(PlanningExecutionConsts.MaxNameLength);
             b.Property(t => t.Remarks).HasMaxLength(PlanningExecutionConsts.MaxRemarksLength);
@@ -133,6 +148,13 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
                 .HasConversion(new TripWarningsConverter(), new TripWarningsComparer())
                 .HasColumnType("jsonb")
                 .IsRequired();
+            /* Design 68 §4: the stored route (derived values); null when routing is off. */
+            b.Property(t => t.RouteSegments)
+                .HasConversion(new TripRouteSegmentsConverter(), new TripRouteSegmentsComparer())
+                .HasColumnType("jsonb");
+            b.Property(t => t.TollAmount).HasPrecision(18, 2);
+            b.Property(t => t.TollCurrencyCode).HasMaxLength(PlanningExecutionConsts.MaxCurrencyCodeLength);
+            b.Property(t => t.RouteProvider).HasMaxLength(PlanningExecutionConsts.MaxProviderLength);
             b.HasOne<TransportTripType>().WithMany().HasForeignKey(t => t.TransportTripTypeId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(t => t.Vehicles).WithOne().HasForeignKey(v => v.TripId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(t => t.Drivers).WithOne().HasForeignKey(d => d.TripId).OnDelete(DeleteBehavior.Cascade);
@@ -141,6 +163,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.HasIndex(t => new { t.TenantId, t.Status, t.TripDate });
             b.HasIndex(t => new { t.TenantId, t.CarrierRelationId });
             b.HasIndex(t => new { t.TenantId, t.PlannedDepartureUtc });
+            /* Design 68 §1: the Scheduler's window overlap reads both ends. */
+            b.HasIndex(t => new { t.TenantId, t.PlannedArrivalUtc });
             b.HasIndex(t => new { t.TenantId, t.CreatedFromOrderId });
             b.HasIndex(t => t.TransportTripTypeId);
             b.HasIndex(t => t.Number, "IX_TransportTrips_Number_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
@@ -154,6 +178,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.ConfigureByConvention();
             b.HasKey(v => new { v.TripId, v.Position });
             b.HasIndex(v => v.VehicleId);
+            /* Design 68 §1: the Scheduler's bars per vehicle row. */
+            b.HasIndex(v => new { v.TenantId, v.VehicleId });
         });
 
         builder.Entity<TripDriver>(b =>
@@ -162,6 +188,8 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.ConfigureByConvention();
             b.HasKey(d => new { d.TripId, d.Position });
             b.HasIndex(d => d.DriverId);
+            /* Design 68 §1: the Scheduler's bars per driver row. */
+            b.HasIndex(d => new { d.TenantId, d.DriverId });
         });
 
         builder.Entity<TripStop>(b =>
@@ -197,6 +225,30 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.HasIndex(r => new { r.TenantId, r.Scope, r.Position });
             b.HasIndex(r => new { r.TenantId, r.RelationId });
             b.HasIndex(r => new { r.TenantId, r.GeographicalRegionId });
+        });
+
+        builder.Entity<ResourceUnavailability>(b =>
+        {
+            /* The period rule (Till after From) is the aggregate's: offsets differ per value, so no column check. */
+            b.ToTable("ResourceUnavailabilities", Schema,
+                t => t.HasCheckConstraint("CK_ResourceUnavailabilities_Recurrence", "(\"RecurrenceWeekdays\" IS NULL) = (\"RecurrenceUntil\" IS NULL)"));
+            b.ConfigureByConvention();
+            b.Ignore(u => u.IsRecurring);
+            b.Property(u => u.Remarks).HasMaxLength(PlanningExecutionConsts.MaxUnavailabilityRemarksLength);
+            /* Design 68 §2: the blocks of a resource's row; the blocks of every row in a window (and the calculator's check). */
+            b.HasIndex(u => new { u.TenantId, u.ResourceKind, u.ResourceId, u.FromUtc });
+            b.HasIndex(u => new { u.TenantId, u.FromUtc, u.SpanTillUtc });
+        });
+
+        builder.Entity<ResourceWorkingPattern>(b =>
+        {
+            b.ToTable("ResourceWorkingPatterns", Schema, t =>
+            {
+                t.HasCheckConstraint("CK_ResourceWorkingPatterns_Weekday", "\"Weekday\" >= 0 AND \"Weekday\" <= 6");
+                t.HasCheckConstraint("CK_ResourceWorkingPatterns_Times", "\"End\" > \"Start\"");
+            });
+            b.ConfigureByConvention();
+            b.HasIndex(p => new { p.TenantId, p.ResourceKind, p.ResourceId, p.Weekday }).IsUnique().AreNullsDistinct(false);
         });
 
         builder.Entity<TripAttributeDefinition>(b =>
@@ -250,6 +302,26 @@ public sealed class TripWarningsComparer : ValueComparer<List<TripWarning>>
             (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
             a => a.Aggregate(0, (h, w) => HashCode.Combine(h, w.GetHashCode())),
             a => a.ToList())
+    {
+    }
+}
+
+/// <summary>The trip's route segments as one jsonb list (design 68 §4).</summary>
+public sealed class TripRouteSegmentsConverter : ValueConverter<List<TripRouteSegment>?, string?>
+{
+    public TripRouteSegmentsConverter()
+        : base(s => s == null ? null : TripRouteSegment.ToJson(s), json => json == null ? null : TripRouteSegment.FromJson(json))
+    {
+    }
+}
+
+public sealed class TripRouteSegmentsComparer : ValueComparer<List<TripRouteSegment>?>
+{
+    public TripRouteSegmentsComparer()
+        : base(
+            (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+            a => a == null ? 0 : a.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+            a => a == null ? null : a.ToList())
     {
     }
 }

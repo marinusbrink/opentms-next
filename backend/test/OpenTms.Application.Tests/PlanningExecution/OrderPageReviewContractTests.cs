@@ -31,15 +31,19 @@ public class OrderPageReviewContractTests
     [Theory]
     [InlineData(nameof(LegAppService.SplitAtAddressAsync))]
     [InlineData(nameof(LegAppService.UndoSplitAtAddressAsync))]
-    public void The_split_commands_need_Legs_Update_and_the_Trips_node_like_the_other_leg_endpoints(string name)
+    public void The_split_commands_need_Legs_Update_and_the_Trips_node_or_the_Planboard_like_the_other_leg_endpoints(string name)
     {
         var method = Method(typeof(LegAppService), name);
 
         method.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(PlanningExecutionPermissions.Legs.Update);
         method.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
+        /* Design 68 D7: (Transport AND Trips) OR Planboard — the class asks Transport OR Planboard, each method Trips OR Planboard. */
         var feature = method.GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull();
-        feature.Features.ShouldBe([AppFeatures.Transport, AppFeatures.TransportApp.Trips]);
-        feature.RequiresAll.ShouldBeTrue();
+        feature.Features.ShouldBe([AppFeatures.TransportApp.Trips, AppFeatures.Planboard]);
+        feature.RequiresAll.ShouldBeFalse("either the Trips node or the Planboard app");
+        var classFeature = typeof(LegAppService).GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull();
+        classFeature.Features.ShouldBe([AppFeatures.Transport, AppFeatures.Planboard]);
+        classFeature.RequiresAll.ShouldBeFalse("either the Transport app or the Planboard app");
         method.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
         var update = Method(typeof(LegAppService), nameof(LegAppService.UpdateAsync)).GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull();
         feature.Features.ShouldBe(update.Features, "feature as the other leg endpoints");

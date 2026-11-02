@@ -23,6 +23,22 @@ public static class AppFeatures
         public const string Trips = Transport + ".Trips";
         public const string Documents = Transport + ".Documents";
     }
+    /// <summary>
+    /// The Planboard app's panes (design 66/68, PO decision D7: every pane a nav node and a feature; all default on, an
+    /// explicit deviation from constitution rule 4 stated in the PR).
+    /// </summary>
+    public static class PlanboardApp
+    {
+        public const string Trips = Planboard + ".Trips";
+        public const string Scheduler = Planboard + ".Scheduler";
+        public const string Orders = Planboard + ".Orders";
+        public const string Stops = Planboard + ".Stops";
+        public const string Legs = Planboard + ".Legs";
+        public const string LegsToSchedule = Planboard + ".LegsToSchedule";
+        public const string Map = Planboard + ".Map";
+        public const string Resources = Planboard + ".Resources";
+    }
+
     public const string Finance = GroupName + ".Finance";
     public const string Integrations = GroupName + ".Integrations";
     public const string Reports = GroupName + ".Reports";
