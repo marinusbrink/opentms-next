@@ -163,8 +163,11 @@ public static class AppFeatures
         public const string OrganizationUnits = Default + ".OrganizationUnits";
         public const string Maintenance = Default + ".Maintenance";
 
-        /// <summary>The host's e-mail settings (design 64): host only, so a tenant never sees it whatever this value.</summary>
-        public const string Email = Default + ".Email";
+        /// <summary>
+        /// Administration → Services: the host's settings of the external services, a tab per service (e-mail of design
+        /// 64, documents, routing; PO 2026-11-02, replacing the E-mail node). Host only, so a tenant never sees it.
+        /// </summary>
+        public const string Services = Default + ".Services";
 
         public static class AuditLogs
         {

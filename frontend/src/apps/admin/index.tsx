@@ -8,7 +8,7 @@ import { OrganizationUnitsView } from "@/apps/admin/organization-units/Organizat
 import { FunctionalLogbookView } from "@/apps/admin/logbook/FunctionalLogbookView";
 import { TechnicalLogbookView } from "@/apps/admin/logbook/TechnicalLogbookView";
 import { MaintenanceView } from "@/apps/admin/maintenance/MaintenanceView";
-import { EmailSettingsView } from "@/apps/admin/email/EmailSettingsView";
+import { ServicesView } from "@/apps/admin/services/ServicesView";
 
 const adminApp = APPS.find((app) => app.id === "admin")!;
 
@@ -37,8 +37,8 @@ export function AdministrationApp() {
   if (location.pathname.startsWith("/admin/organization-units")) {
     return <OrganizationUnitsView />;
   }
-  if (location.pathname.startsWith("/admin/email")) {
-    return <EmailSettingsView />;
+  if (location.pathname.startsWith("/admin/services")) {
+    return <ServicesView />;
   }
   if (location.pathname.startsWith("/admin/maintenance")) {
     return <MaintenanceView />;

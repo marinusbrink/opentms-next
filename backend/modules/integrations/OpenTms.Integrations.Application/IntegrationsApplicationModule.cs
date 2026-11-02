@@ -7,6 +7,7 @@ using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Integrations.Emailing.Postmark;
 using OpenTms.Integrations.Routing;
+using OpenTms.Integrations.ServiceSettings;
 using OpenTms.Platform;
 using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.Emailing;
@@ -15,6 +16,7 @@ using Volo.Abp.Application;
 using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.Caching;
 using Volo.Abp.Modularity;
+using Volo.Abp.SettingManagement;
 
 namespace OpenTms.Integrations;
 
@@ -24,7 +26,8 @@ namespace OpenTms.Integrations;
     typeof(PlatformApplicationContractsModule),
     typeof(AbpDddApplicationModule),
     typeof(AbpCachingModule),
-    typeof(AbpBackgroundWorkersModule)
+    typeof(AbpBackgroundWorkersModule),
+    typeof(AbpSettingManagementDomainModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {
@@ -43,12 +46,32 @@ public class IntegrationsApplicationModule : AbpModule
         ConfigurePdfGeneratorApi(context);
         ConfigureRouting(context);
         ConfigurePostmark(context);
+        ConfigureServiceSettings(context);
     }
 
     public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
     {
         /* Design 60: the daily purge of expired route-cache rows. The DbMigrator does not load this module. */
         await context.AddBackgroundWorkerAsync<RouteCachePurgeWorker>();
+        /* Administration → Services: the stored settings, read at start and every minute. */
+        await context.AddBackgroundWorkerAsync<ServiceSettingsRefreshWorker>();
+    }
+
+    /* Administration → Services (docs/designs/maintenance-view.md, "Services"): the host's stored settings lie over the
+     * configuration of pdfgeneratorapi and routing. The adapters keep taking IOptions<T>, here resolved per use from the
+     * options monitor, which recomputes whenever the overlay's values change, so a save applies without a redeploy. The
+     * typed clients read their base address through the same IOptions<T> each time one is created. */
+    private static void ConfigureServiceSettings(ServiceConfigurationContext context)
+    {
+        context.Services.AddSingleton<ServiceSettingsOverlay>();
+        context.Services.AddSingleton<IPostConfigureOptions<PdfGeneratorApiOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IPostConfigureOptions<RoutingIntegrationOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<PdfGeneratorApiOptions>, ServiceSettingsChangeTokenSource<PdfGeneratorApiOptions>>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<RoutingIntegrationOptions>, ServiceSettingsChangeTokenSource<RoutingIntegrationOptions>>();
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<PdfGeneratorApiOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<PdfGeneratorApiOptions>>().CurrentValue)));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<RoutingIntegrationOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<RoutingIntegrationOptions>>().CurrentValue)));
     }
 
     /* Design 55: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from
@@ -111,7 +134,9 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddTransient<IRouteProvider>(services => services.GetRequiredService<ValhallaFunctionProvider>());
         context.Services.AddTransient<IRouteFunction>(services => services.GetRequiredService<ValhallaFunctionProvider>());
         context.Services.AddHealthChecks()
-            .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
+            .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
+            .AddCheck<RouteFunctionHealthCheck>(RouteFunctionHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
+            .AddCheck<RouteOptimizerHealthCheck>(RouteOptimizerHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
     }
 
     /* Design 64: Postmark behind Platform's IEmailDeliveryProvider. The token and the webhook password come from the

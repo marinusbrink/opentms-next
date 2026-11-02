@@ -16,6 +16,10 @@ the design; this note records what was decided along the way so gate 2 can revie
 > to carry it, so a default-off flag would hide the host tabs forever. The same reasoning
 > approved the Administration app shell in design #8. The tenant-side part of the view (the
 > Outbox tab) **is** behind the per-tenant feature `Platform.Maintenance`, default off.
+>
+> **The same DEVIATION(constitution-4) covers Administration → Services** (section "Services", PO 2026-11-02): a
+> host-only view of the host's own settings, gated by host-side permissions; its nav feature
+> `Apps.Administration.Services` exists because every node has one and is off for tenants.
 
 ## Domain impact
 
@@ -84,6 +88,78 @@ request). The per-database figures (schemas, largest tables, blob store) need a 
 that database and are read on demand for one database. The Outbox tab's pending counts also
 need a connection per database; a page of the host list measures only the rows on that page,
 so the cost is bounded by the page size.
+
+## Components (PO 2026-11-02)
+
+The PO found production "Degraded" with no way to see why: the Health tab must show every component that can make the
+status other than Healthy, what is wrong, what stops working and how to fix it.
+
+- **One vocabulary for every check** (`HealthCheckFacts`, Platform `Domain.Shared`): a check puts `reason`
+  (`Ok`, `NotConfigured`, `Unreachable`, `Failing` or its own), `settings` (configuration keys, never values), `target`
+  (host or database, never a connection string or secret) and `optional` in its result's data, plus facts for the
+  texts (counts, names). Tags `core` (the system) and `external` (services outside it).
+- **Texts by name and reason**, in the resource of the module that owns the check: `HealthCheck:{name}`,
+  `HealthCheck:{name}:Impact`, `HealthCheck:{name}:{reason}` (what is wrong and what to do; `{key}` placeholders from the
+  facts). Fallback: `Maintenance:Reason.{reason}`, then the check's own description.
+- **Components** — core (host, `OpenTms.HttpApi.Host/HealthChecks`, over Platform's ports): `database` (the only
+  readiness check), `tenant-databases` (one connect per own database, four at a time, 5 s each), `background-jobs`
+  (a live Hangfire server; failed jobs → Degraded), `outbox` (a dispatching running instance; the last visit failed or an
+  event older than two sweeps → Degraded), `cache` and `live-updates` (more than one running instance without shared
+  state → Degraded; one instance: optional). External (Integrations): `pdfgeneratorapi`, `routing`, `route-function`
+  and `route-optimizer` (both optional: a fallback takes over), `postmark`.
+- **Running them**: `HostHealthReportProvider` runs the checks without the caller's execution context (they run in
+  parallel and must not share the caller's unit of work and DbContext) in the host's context, and shares one run with
+  every caller within 5 s (the tab reads the report and the list at once; the heartbeat runs alongside).
+- **Endpoints**: `GET maintenance/health` (entries now carry area, reason, optional, settings, target, data, problems
+  first) and `GET maintenance/health/components` (the grid, paged in memory: one row per registered check). The polled
+  `/health-status` runs only the readiness checks.
+- **UI**: a Components card ("2 of 11 components need attention"), the components grid
+  (`platform.maintenance.healthComponents`: status, component, area, finding, impact, target; settings, error and
+  duration hidden; problems first by design) above the instance grid, and `ComponentDetailDialog` (finding, impact,
+  settings with their environment-variable form, technical result). The instance dialog shows the same texts.
+- **Raw SQL** (documented exception): the tenant-database probe is a `SELECT 1` on an unpooled Npgsql connection: a
+  connection test before any DbContext, which must not keep an idle connection per tenant database open.
+- **Exposure**: the readiness check's facts name its setting only, never the server, because `/health-status` writes
+  them out without sign-in. The other checks' targets (host names only) appear on the host's Health tab.
+- **Cost and budget**: per heartbeat (30 s) and per Refresh, one unpooled connect and one count query per tenant
+  database (four at a time) plus one call to each configured external service. Today: one tenant database, so a run
+  takes tens of milliseconds. The tab's two reads share one run. With an unreachable tenant database a run takes up to
+  5 s per four such databases: the Health tab is an operator's diagnostic page, outside the request budgets of the
+  product screens, and it shows the wait as loading. Before the fleet grows beyond a few dozen tenant databases the
+  probes move to a slower cadence of their own and the tab reads their last result (open point for that design).
+- **UI deviations**, approved here: DEVIATION(UI-PAGE-001) two grids on the tab (components and instances, both bounded
+  lists of the same report); DEVIATION(UI-FB-007) named placeholders in the `HealthCheck:*` texts (the facts are a
+  dictionary whose keys differ per check and reason).
+
+## Services (PO 2026-11-02)
+
+Every component that needs configuration gets a place on the host to configure it, like E-mail: **Administration →
+Services** (`/admin/services`), one nav node with a tab per service — **E-mail** (design 64's page, moved here; its nav
+node and feature `Apps.Administration.Email` are gone), **Documents** (pdfgeneratorapi: base URL, key, secret) and
+**Routing** (provider, OSRM, route function with its key, VROOM). Feature `Apps.Administration.Services` (off; host
+only). The nav node shows with either `Platform.Administration.EmailSettings` or `Integrations.ServiceSettings`.
+
+- **Model of design 64**: global settings `Integrations.Services.*` in the host database (provider `G` only); keys and
+  secrets encrypted at rest and write-only (an empty field keeps, a Clear flag removes); every empty setting falls back
+  to the deployment's configuration, shown as the field's hint.
+- **Owner**: Integrations, which owns the adapters (`ServiceSettingsAppService`,
+  `api/integrations/administration/service-settings`; permissions `Integrations.ServiceSettings`, `.Update`, `.Test`,
+  host side). The Administration app now also reads the Integrations domain (`apps.config.ts`).
+- **A save applies without a redeploy**: `ServiceSettingsOverlay` holds the stored values (read at start, after a save on
+  this instance once its unit of work commits, and every minute on the others); a post-configure lays them over
+  `PdfGeneratorApiOptions` and `RoutingIntegrationOptions`, and `IOptions<T>` of those two resolves per use from the
+  options monitor, which the overlay's change token refreshes. A save also clears the routing probe cache.
+- **Other instances**: the overlay reads the stored rows (decrypting the secrets), not ISettingManager, whose cache is
+  per instance and sliding: a save reaches the other instances within a minute. An older read never overwrites a newer
+  one. Addresses must be http(s).
+- **Test**: `POST …/test/{documents|routing}` runs the services' own health checks against the saved settings, so the
+  page and the Health tab say the same.
+- **UI**: DEVIATION(UI-PAGE-006), approved here: a tab per service, each with its own command bar, Save and test
+  (each service is saved and tested on its own, like the Maintenance tabs) instead of one Save over all tabs.
+- **Known limits** (accepted): a key or secret stays when its service's address changes; switching tabs drops unsaved
+  edits of that tab; a save sends the other service's last-read values back.
+- **Tests**: `ServiceSettingsAppServiceTests` (SQLite: encryption, write-only, fallback, applies without restart, test,
+  host only), `ComponentHealthChecksTests` (host checks, provider), view tests (vitest).
 
 ## API contract
 

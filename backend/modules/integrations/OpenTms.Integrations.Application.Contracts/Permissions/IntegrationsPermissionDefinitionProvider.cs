@@ -12,6 +12,10 @@ public class IntegrationsPermissionDefinitionProvider : PermissionDefinitionProv
         var group = context.AddGroup(IntegrationsPermissions.GroupName, L("Permission:Integrations"));
         group.AddPermission(IntegrationsPermissions.AddressLookup, L("Permission:AddressLookup"), MultiTenancySides.Both);
         group.AddPermission(IntegrationsPermissions.Routing, L("Permission:Routing"), MultiTenancySides.Both);
+        /* Administration → Services: host only, one configuration of the external services for every tenant. */
+        var serviceSettings = group.AddPermission(IntegrationsPermissions.ServiceSettings.Default, L("Permission:ServiceSettings"), MultiTenancySides.Host);
+        serviceSettings.AddChild(IntegrationsPermissions.ServiceSettings.Update, L("Permission:ServiceSettings.Update"), MultiTenancySides.Host);
+        serviceSettings.AddChild(IntegrationsPermissions.ServiceSettings.Test, L("Permission:ServiceSettings.Test"), MultiTenancySides.Host);
     }
 
     private static LocalizableString L(string name)

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using OpenTms.Platform.Maintenance;
 
 namespace OpenTms.Platform.Administration.Maintenance;
 
@@ -265,6 +267,63 @@ public record HealthCheckEntryDto
     public List<string> Tags { get; init; } = new();
 
     public string? Error { get; init; }
+
+    /// <summary>Core (the system itself) or External (a service outside it), from the check's tags.</summary>
+    public string Area { get; init; } = string.Empty;
+
+    /// <summary>Why the check has its status: Ok, NotConfigured, Unreachable, Failing or a check-specific reason.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>The system works without this component: a fallback takes over.</summary>
+    public bool IsOptional { get; init; }
+
+    /// <summary>The configuration keys that decide this component ("Section:Key"); never their values.</summary>
+    public List<string> Settings { get; init; } = new();
+
+    /// <summary>The host or database the check talked to.</summary>
+    public string? Target { get; init; }
+
+    /// <summary>Check-specific facts (counts, names) that fill the placeholders of the localized texts.</summary>
+    public Dictionary<string, string> Data { get; init; } = new();
+
+    public const string CoreArea = "Core";
+    public const string ExternalArea = "External";
+
+    private static readonly HashSet<string> TypedKeys =
+        [HealthCheckFacts.Reason, HealthCheckFacts.Settings, HealthCheckFacts.Target, HealthCheckFacts.Optional];
+
+    /// <summary>
+    /// One check's result as the Health tab shows it: the facts of <see cref="HealthCheckFacts"/> become typed fields,
+    /// the rest stays in <see cref="Data"/>. Shared by the Health tab and every page that tests a service.
+    /// </summary>
+    public static HealthCheckEntryDto Create(
+        string name,
+        string status,
+        string? description,
+        TimeSpan duration,
+        IReadOnlyCollection<string> tags,
+        string? error,
+        IReadOnlyDictionary<string, string>? data)
+    {
+        data ??= new Dictionary<string, string>();
+        return new HealthCheckEntryDto
+        {
+            Name = name,
+            Status = status,
+            Description = description,
+            DurationMilliseconds = duration.TotalMilliseconds,
+            Tags = tags.ToList(),
+            Error = error,
+            Area = tags.Contains(HealthCheckFacts.ExternalTag) ? ExternalArea : CoreArea,
+            Reason = data.GetValueOrDefault(HealthCheckFacts.Reason),
+            IsOptional = string.Equals(data.GetValueOrDefault(HealthCheckFacts.Optional), "true", StringComparison.OrdinalIgnoreCase),
+            Settings = (data.GetValueOrDefault(HealthCheckFacts.Settings) ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList(),
+            Target = data.GetValueOrDefault(HealthCheckFacts.Target),
+            Data = data.Where(kv => !TypedKeys.Contains(kv.Key)).ToDictionary(kv => kv.Key, kv => kv.Value)
+        };
+    }
 }
 
 public record ProcessInfoDto

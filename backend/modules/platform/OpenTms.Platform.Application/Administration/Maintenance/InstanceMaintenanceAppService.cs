@@ -111,16 +111,9 @@ public class InstanceMaintenanceAppService : MaintenanceAppServiceBase, IInstanc
         {
             try
             {
-                entries = (JsonSerializer.Deserialize<List<HealthCheckEntry>>(instance.HealthDetails, JsonOptions) ?? [])
-                    .Select(e => new HealthCheckEntryDto
-                    {
-                        Name = e.Name,
-                        Status = e.Status,
-                        Description = e.Description,
-                        DurationMilliseconds = e.Duration.TotalMilliseconds,
-                        Tags = e.Tags.ToList(),
-                        Error = e.Error
-                    })
+                entries = HealthCheckEntryMapper.ProblemsFirst(
+                        (JsonSerializer.Deserialize<List<HealthCheckEntry>>(instance.HealthDetails, JsonOptions) ?? [])
+                        .Select(HealthCheckEntryMapper.ToDto))
                     .ToList();
             }
             catch (JsonException)

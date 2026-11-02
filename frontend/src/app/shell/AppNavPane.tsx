@@ -192,7 +192,7 @@ export function AppNavPane({ app, collapsed, onToggleCollapsed }: AppNavPaneProp
   /* Nodes whose feature is off, or whose permission is missing, are not shown (docs/designs/tenants-and-editions.md). */
   const views = features
     .visibleViews(app)
-    .filter((view) => !view.requiredPermission || isGranted(view.requiredPermission));
+    .filter((view) => !view.requiredPermission || [view.requiredPermission].flat().some((policy) => isGranted(policy)));
 
   const appName = t(app.nameKey);
 

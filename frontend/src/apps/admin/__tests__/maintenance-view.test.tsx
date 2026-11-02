@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useApplicationConfiguration } from "@/lib/abp/queries";
@@ -25,7 +25,7 @@ const clearMutateAsync = vi.fn();
 const dispatchMutate = vi.fn();
 const requeueMutateAsync = vi.fn();
 const deleteMutateAsync = vi.fn();
-const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn(), cacheEntries: vi.fn(), instances: vi.fn() };
+const fetchers = { databases: vi.fn(), outbox: vi.fn(), jobs: vi.fn(), cacheEntries: vi.fn(), instances: vi.fn(), components: vi.fn() };
 const removeCacheEntryMutate = vi.fn();
 const cacheEntriesFetcherArgs: unknown[] = [];
 const jobsFetcherArgs: unknown[] = [];
@@ -123,6 +123,7 @@ vi.mock("@/domains/platform/administration-maintenance", async (importOriginal) 
       refetch: vi.fn(),
     }),
     useInstancesGridFetcher: () => fetchers.instances,
+    useHealthComponentsGridFetcher: () => fetchers.components,
     useInstanceDetail: () => ({ data: undefined, isLoading: true, isError: false }),
     useBackgroundJobsOverview: () => jobsOverview,
     useBackgroundJobsGridFetcher: (state: unknown) => {
@@ -154,6 +155,10 @@ vi.mock("@/components/ui/opentms-grid-lazy", () => ({
 
 vi.mock("@/apps/admin/components/InstanceDetailDialog", () => ({
   InstanceDetailDialog: ({ instanceId }: { instanceId: string }) => <div data-testid="instance-dialog">{instanceId}</div>,
+}));
+
+vi.mock("@/apps/admin/components/ComponentDetailDialog", () => ({
+  ComponentDetailDialog: ({ entry }: { entry: { name: string } }) => <div data-testid="component-dialog">{entry.name}</div>,
 }));
 
 vi.mock("@/apps/admin/components/DatabaseDetailDialog", () => ({
@@ -380,20 +385,29 @@ describe("OutboxTab", () => {
 });
 
 describe("HealthTab", () => {
-  it("shows this instance's status, the fleet counts and the instance grid, and opens an instance", async () => {
+  it("shows this instance's status, how many components need attention, the components and the instances, and opens either", async () => {
     setConfig({ host: true, policies: ["Platform.Administration.Maintenance", "Platform.Administration.Maintenance.Health"] });
     render(<MaintenanceView />);
     expect(screen.getByText("Maintenance:StatusDegraded")).toBeInTheDocument();
+    /* One of the two checks is not Healthy: the card says why the status is not green. */
+    expect(screen.getByText("Maintenance:Components")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:Component.Attention")).toBeInTheDocument();
     expect(screen.getByText("Maintenance:Instance.Running")).toBeInTheDocument();
     expect(screen.getByText("Maintenance:Instance.Unresponsive")).toBeInTheDocument();
     expect(screen.getByText("Maintenance:Instance.Notice")).toBeInTheDocument();
+    expect(screen.getByText("Maintenance:Component.Notice")).toBeInTheDocument();
 
-    const grid = await screen.findByTestId("mock-grid");
-    expect(grid.dataset.gridId).toBe("platform.maintenance.instances");
+    await waitFor(() => expect(screen.getAllByTestId("mock-grid")).toHaveLength(2));
+    expect(screen.getAllByTestId("mock-grid").map((g) => g.dataset.gridId)).toEqual(["platform.maintenance.healthComponents", "platform.maintenance.instances"]);
 
-    const props = gridProps.at(-1)!;
-    expect(props.rowActions!([{ id: "i-2" }]).map((a) => a.id)).toEqual(["open"]);
-    props.onOpen!({ id: "i-2" });
+    const components = gridProps.find((p) => p.gridId === "platform.maintenance.healthComponents")!;
+    expect(components.rowActions!([{ id: "routing", name: "routing" }]).map((a) => a.id)).toEqual(["open"]);
+    act(() => components.onOpen!({ id: "routing", name: "routing" }));
+    expect(await screen.findByTestId("component-dialog")).toHaveTextContent("routing");
+
+    const instances = gridProps.filter((p) => p.gridId === "platform.maintenance.instances").at(-1)!;
+    expect(instances.rowActions!([{ id: "i-2" }]).map((a) => a.id)).toEqual(["open"]);
+    act(() => instances.onOpen!({ id: "i-2" }));
     expect(await screen.findByTestId("instance-dialog")).toHaveTextContent("i-2");
   });
 });

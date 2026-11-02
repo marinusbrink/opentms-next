@@ -4,7 +4,7 @@ import { FormSection } from "@/components/ui/form-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LogbookDetailRows } from "@/apps/admin/components/LogbookDetailRows";
-import { healthStatusKey, instanceStatusKey, useInstanceDetail } from "@/domains/platform/administration-maintenance";
+import { healthComponentTexts, healthStatusKey, instanceStatusKey, useInstanceDetail } from "@/domains/platform/administration-maintenance";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
@@ -107,33 +107,34 @@ export function InstanceDetailDialog({ instanceId, open, onClose }: InstanceDeta
                 <Table className="mt-3">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t("Maintenance:Check")}</TableHead>
+                      <TableHead>{t("Maintenance:Component")}</TableHead>
                       <TableHead>{t("Maintenance:Status")}</TableHead>
                       <TableHead className="text-right">{t("Maintenance:Duration")}</TableHead>
-                      <TableHead>{t("Maintenance:Tags")}</TableHead>
                       <TableHead>{t("Maintenance:Error")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(detail.healthEntries ?? []).map((entry) => (
-                      <TableRow key={entry.name}>
-                        <TableCell className="whitespace-normal">
-                          <div>{entry.name}</div>
-                          {entry.description && <div className="text-label text-muted-foreground">{entry.description}</div>}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            entry.status === "Unhealthy" && "text-destructive",
-                            entry.status === "Degraded" && "text-tone-warning",
-                          )}
-                        >
-                          {t(healthStatusKey(entry.status))}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{f.number(entry.durationMilliseconds)}</TableCell>
-                        <TableCell>{(entry.tags ?? []).join(", ")}</TableCell>
-                        <TableCell className="whitespace-normal text-destructive">{entry.error ?? ""}</TableCell>
-                      </TableRow>
-                    ))}
+                    {(detail.healthEntries ?? []).map((entry) => {
+                      const texts = healthComponentTexts(entry, t);
+                      return (
+                        <TableRow key={entry.name}>
+                          <TableCell className="whitespace-normal">
+                            <div>{texts.title}</div>
+                            {texts.finding && <div className="text-label text-muted-foreground">{texts.finding}</div>}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              entry.status === "Unhealthy" && "text-destructive",
+                              entry.status === "Degraded" && "text-tone-warning",
+                            )}
+                          >
+                            {t(healthStatusKey(entry.status))}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{f.number(entry.durationMilliseconds)}</TableCell>
+                          <TableCell className="whitespace-normal text-destructive">{entry.error ?? ""}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </>
