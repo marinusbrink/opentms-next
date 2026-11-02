@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -130,7 +131,9 @@ public class InstanceRegistry : IInstanceRegistry, ITransientDependency
             {
                 /* A health run that throws is itself the finding. */
                 healthStatus = "Unhealthy";
-                healthDetails = JsonSerializer.Serialize(new[] { new HealthCheckEntry("health", "Unhealthy", null, TimeSpan.Zero, [], ex.Message) }, JsonOptions);
+                healthDetails = JsonSerializer.Serialize(new[] { new HealthCheckEntry(
+                    "health", "Unhealthy", null, TimeSpan.Zero, [HealthCheckFacts.CoreTag], ex.Message,
+                    new Dictionary<string, string> { [HealthCheckFacts.Reason] = HealthCheckFacts.Reasons.Failing }) }, JsonOptions);
             }
         }
 

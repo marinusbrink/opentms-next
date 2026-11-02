@@ -20,7 +20,7 @@
 **Module:** Platform, plus one grant file per module. No tables, no migration, no API change.
 
 - `PlatformRoleNames` (Platform.Domain.Shared) names the roles. `PredefinedRoleOptions` (Platform.Domain.Shared) defines
-  them and their side; `Grant(role, permissions…)` to an undefined role throws at start-up.
+  them and their side; `Grant(role, permissions…)` to an undefined role throws when the options are built (the seed).
 - Every module grants **its own** permissions from its `Application.Contracts` module
   (`<Module>PredefinedRoles.Configure`), because the Platform references no domain module and the DbMigrator loads the
   contracts modules (it does not load the Application modules). Integrations.Application.Contracts now references
@@ -40,16 +40,15 @@
 Role names are stored as in `PlatformRoleNames` and shown through `Role:<stored name>` in the Platform resource (nl, en),
 also for `admin` (Beheerder / Administrator) and Customer Success Manager. The SPA's `roleDisplayName(name, t)`
 (`domains/platform/administration-roles.ts`) falls back to the stored name for a tenant's own roles; used in the Roles
-grid, the role dialog, the Users grid and the user dialog's Roles tab. Search and sort in the Roles grid still work on
-the stored name.
+grid, the role dialog, the Users grid and the user dialog's Roles tab. Search and sort in the Roles grid and the order of
+the user dialog's list still follow the stored name, and a tenant's own role whose name equals a seeded one (which the
+seed skips) shows the localized name too.
 
 ## Out of scope
 
 - A screen to change a role's permissions (none exists yet; the seeded sets are the only way grants change today).
 - The Customer Success Manager seed: it lives in Platform.Application, which the DbMigrator does not load, so the host
   role is not seeded by the DbMigrator. Reported separately; not changed here.
-- Integrations service-settings permissions (`Integrations.ServiceSettings.*`) are not on `main` yet; the branch that
-  adds them grants them to the Platform operator.
 
 ## Test risk analysis (critical)
 
@@ -429,8 +428,11 @@ Seven roles and at most 134 grants per role per database, written once; later ru
 - `Platform.EmailTemplates`
 - `Platform.ReportDefinitions`
 
-### Platform operator (host, 18 permissions)
+### Platform operator (host, 21 permissions)
 
+- `Integrations.ServiceSettings`
+- `Integrations.ServiceSettings.Test`
+- `Integrations.ServiceSettings.Update`
 - `Platform.Administration.EmailSettings`
 - `Platform.Administration.EmailSettings.SendTest`
 - `Platform.Administration.EmailSettings.Update`

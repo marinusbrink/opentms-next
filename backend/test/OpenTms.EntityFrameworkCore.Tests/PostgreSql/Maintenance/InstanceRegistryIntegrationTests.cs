@@ -211,4 +211,41 @@ public class InstanceRegistryIntegrationTests : OpenTmsPostgreSqlTestBase
             await Should.ThrowAsync<AbpAuthorizationException>(() => _service.GetAsync(_current.Id));
         }
     }
+
+    [Fact]
+    public async Task The_detail_reads_the_facts_of_a_heartbeat_and_a_row_written_before_them_problems_first()
+    {
+        var withFacts = Guid.NewGuid();
+        var beforeFacts = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        await WithUnitOfWorkAsync(new AbpUnitOfWorkOptions(), async () =>
+        {
+            using (_currentTenant.Change(null))
+            {
+                var current = new ApplicationInstance(withFacts, "Api", "api-facts", 1, "1.0", "Test", ".NET", 2, true, now);
+                current.Heartbeat(now, 1, 1, "Degraded",
+                    """[{"name":"cache","status":"Healthy","duration":"00:00:00.001","tags":["core"],"data":{"reason":"Ok","optional":"true","instances":"1"}},"""
+                    + """{"name":"routing","status":"Degraded","duration":"00:00:00.002","tags":["external"],"data":{"reason":"NotConfigured","settings":"Integrations:Routing:Provider,Integrations:Routing:Osrm:BaseUrl","provider":"Osrm"}}]""");
+                await _repository.InsertAsync(current);
+
+                var old = new ApplicationInstance(beforeFacts, "Api", "api-old", 2, "0.9", "Test", ".NET", 2, true, now);
+                old.Heartbeat(now, 1, 1, "Healthy", """[{"name":"OpenTms DbContext Check","status":"Healthy","description":"ok","duration":"00:00:00.003","tags":["database","ready"],"error":null}]""");
+                await _repository.InsertAsync(old);
+            }
+        });
+
+        var detail = await _service.GetAsync(withFacts);
+        detail.HealthEntries.Select(e => e.Name).ShouldBe(["routing", "cache"]);
+        var routing = detail.HealthEntries[0];
+        routing.Area.ShouldBe("External");
+        routing.Reason.ShouldBe("NotConfigured");
+        routing.Settings.ShouldBe(["Integrations:Routing:Provider", "Integrations:Routing:Osrm:BaseUrl"]);
+        routing.Data["provider"].ShouldBe("Osrm");
+        detail.HealthEntries[1].IsOptional.ShouldBeTrue();
+
+        var legacy = (await _service.GetAsync(beforeFacts)).HealthEntries.ShouldHaveSingleItem();
+        legacy.Name.ShouldBe("OpenTms DbContext Check");
+        legacy.Reason.ShouldBeNull();
+        legacy.Area.ShouldBe("Core");
+    }
 }

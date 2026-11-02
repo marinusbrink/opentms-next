@@ -90,8 +90,8 @@ export interface AppView {
   children?: readonly AppView[];
   /** The ABP feature of this node (see app-features.ts); its ancestors are the dot-prefixes of the name. */
   feature?: string;
-  /** Permission the node needs; absent → shown. The pane hides it otherwise (UI-PERM-002). */
-  requiredPermission?: string;
+  /** Permission the node needs (any of them, for a list); absent → shown. The pane hides it otherwise (UI-PERM-002). */
+  requiredPermission?: string | readonly string[];
 }
 
 export type DomainName =
@@ -421,7 +421,8 @@ export const APPS: readonly AppDefinition[] = [
     id: "admin",
     nameKey: "App:Administration",
     path: "/admin",
-    domains: ["Platform"],
+    /* Integrations for Administration → Services (the settings of the external services it owns). */
+    domains: ["Platform", "Integrations"],
     icon: Shield,
     tileClass: "bg-gray-700",
     feature: "Apps.Administration",
@@ -441,14 +442,15 @@ export const APPS: readonly AppDefinition[] = [
         ],
       },
       { nameKey: "Administration:Maintenance", path: "/admin/maintenance", icon: Wrench, feature: "Apps.Administration.Maintenance" },
-      /* Design 64: the host's e-mail settings, one configuration for every tenant. Host only through its host-side
-       * permission; its feature exists because every nav node has one, and is off for tenants. */
+      /* Administration → Services (docs/designs/maintenance-view.md, "Services"; PO 2026-11-02): the host's settings of
+       * the external services, a tab per service: E-mail (design 64), Documents, Routing. Host only through its host-side
+       * permissions (either service's suffices); its feature exists because every nav node has one, and is off for tenants. */
       {
-        nameKey: "Administration:EmailSettings",
-        path: "/admin/email",
-        icon: Mail,
-        feature: "Apps.Administration.Email",
-        requiredPermission: "Platform.Administration.EmailSettings",
+        nameKey: "Administration:ServiceSettings",
+        path: "/admin/services",
+        icon: Plug,
+        feature: "Apps.Administration.Services",
+        requiredPermission: ["Platform.Administration.EmailSettings", "Integrations.ServiceSettings"],
       },
     ],
   },

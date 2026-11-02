@@ -37,6 +37,11 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     reason: "UI-PAGE-006: the body of a settings page (design 64, the host's e-mail settings) is min-h-0 flex-1 overflow-auto under its command bar",
   },
   {
+    file: "apps/admin/services/ServiceSettingsView.tsx",
+    token: "overflow-auto",
+    reason: "UI-PAGE-006: the body of a settings page (Administration → Services, one tab per service) is min-h-0 flex-1 overflow-auto under its command bar",
+  },
+  {
     file: "apps/transport/wizards/MaterialiseDetails.tsx",
     token: "overflow-y-auto",
     reason: "the list of orders to create (dates x copies, up to hundreds) beside the chosen order's details in the wizard's Details step: capped at max-h-72",

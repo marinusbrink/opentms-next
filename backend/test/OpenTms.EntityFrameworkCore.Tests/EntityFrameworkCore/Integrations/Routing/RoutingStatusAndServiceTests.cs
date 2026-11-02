@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -116,7 +117,7 @@ public class RoutingStatusAndServiceTests : OpenTmsTestBase<RoutingTestModule>
     [Fact]
     public async Task The_health_check_is_healthy_when_the_engine_answers_and_unhealthy_when_it_does_not()
     {
-        var check = new RoutingHealthCheck(_routing);
+        var check = new RoutingHealthCheck(_routing, GetRequiredService<IOptions<RoutingIntegrationOptions>>());
         var context = new HealthCheckContext { Registration = new HealthCheckRegistration(RoutingHealthCheck.Name, check, HealthStatus.Unhealthy, [RoutingHealthCheck.Tag]) };
 
         var healthy = await check.CheckHealthAsync(context);
@@ -377,7 +378,7 @@ public class RoutingUnconfiguredTests : OpenTmsTestBase<RoutingUnconfiguredTestM
         status.RouteFunctionHost.ShouldBeNull();
         status.LastProbeAt.ShouldBeNull();
 
-        var check = new RoutingHealthCheck(_routing);
+        var check = new RoutingHealthCheck(_routing, GetRequiredService<IOptions<RoutingIntegrationOptions>>());
         var result = await check.CheckHealthAsync(new HealthCheckContext { Registration = new HealthCheckRegistration(RoutingHealthCheck.Name, check, HealthStatus.Unhealthy, [RoutingHealthCheck.Tag]) });
         result.Status.ShouldBe(HealthStatus.Degraded);
         result.Description!.ShouldContain("not configured");

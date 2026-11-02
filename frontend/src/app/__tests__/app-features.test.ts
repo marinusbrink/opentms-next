@@ -249,7 +249,7 @@ describe("createAppFeatureChecker – tenant side", () => {
   });
 
   it("Administration on a tenant respects its values", () => {
-    const checker = tenant({ ...allOn(admin), "Apps.Administration.Users": "false", "Apps.Administration.Maintenance": "false", "Apps.Administration.Email": "false" });
+    const checker = tenant({ ...allOn(admin), "Apps.Administration.Users": "false", "Apps.Administration.Maintenance": "false", "Apps.Administration.Services": "false" });
     expect(checker.visibleViews(admin).map((v) => v.path)).toEqual(["/admin/roles", "/admin/organization-units", "/admin/logbook"]);
     expect(tenant({}).isAppEnabled(admin)).toBe(false);
   });
@@ -316,7 +316,7 @@ describe("createAppFeatureChecker – host side", () => {
     expect(checker.visibleViews(admin)).toHaveLength(6);
     expect(checker.isPathEnabled(admin, "/admin/users")).toBe(true);
     expect(checker.isPathEnabled(admin, "/admin/maintenance")).toBe(true);
-    expect(checker.isPathEnabled(admin, "/admin/email")).toBe(true);
+    expect(checker.isPathEnabled(admin, "/admin/services")).toBe(true);
     expect(checker.firstEnabledPath(admin)).toBe("/admin/users");
   });
 

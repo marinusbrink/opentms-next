@@ -139,7 +139,7 @@ public class RoutingRegistrationTests
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         var routing = registrations.Single(r => r.Name == RoutingHealthCheck.Name);
         routing.Tags.ShouldBe(["external"], ignoreOrder: false, "never 'ready': an outage at the engine must not take the API out of rotation");
-        registrations.Select(r => r.Name).ShouldBe(["pdfgeneratorapi", "routing", "postmark"], ignoreOrder: true);
+        registrations.Select(r => r.Name).ShouldBe(["pdfgeneratorapi", "routing", "route-function", "route-optimizer", "postmark"], ignoreOrder: true);
         registrations.ShouldAllBe(r => r.Tags.SetEquals(new[] { "external" }), "design 64's postmark check is external like the others");
     }
 

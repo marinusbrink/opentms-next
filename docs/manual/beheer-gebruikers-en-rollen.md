@@ -305,8 +305,8 @@ dan blijft jouw rol ongemoeid en krijg je de voorgedefinieerde rol niet.
 
 **In de hostomgeving** (alleen voor medewerkers van de leverancier) staan naast
 **Beheerder** en **Customer Success Manager** twee host-rollen klaar:
-**Platformbeheerder** (onderhoud, logboeken, e-mailinstellingen, tenants inzien en
-inrichten) en **Tenant- en editiebeheerder** (tenants en edities aanmaken en
+**Platformbeheerder** (onderhoud, logboeken, e-mailinstellingen, diensten, tenants
+inzien en inrichten) en **Tenant- en editiebeheerder** (tenants en edities aanmaken en
 wijzigen, testdata terugzetten; verwijderen blijft bij de Beheerder).
 
 ---

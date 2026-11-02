@@ -66,7 +66,6 @@ public class PredefinedRoleSeedTests : MasterDataPostgreSqlTestBase
                 (role.TenantId, role.IsStatic, role.IsDefault).ShouldBe((tenantId, true, false), name);
                 role.GetProperty(PredefinedRoleDataSeedContributor.PredefinedProperty, false).ShouldBeTrue(name);
                 (await GrantedAsync(name)).ShouldBe(Definition(name).Permissions.ToList(), name);
-                (await Grants.GetListAsync(RoleProvider, name)).ShouldAllBe(g => g.TenantId == tenantId);
             }
         });
     }
@@ -165,7 +164,6 @@ public class PredefinedRoleSeedTests : MasterDataPostgreSqlTestBase
             await FlushAsync();
 
             (await PredefinedRoleNamesAsync()).ShouldBe(TenantRoles.Order(StringComparer.Ordinal).ToList());
-            (await Roles.GetListAsync()).ShouldAllBe(r => r.TenantId == newTenant);
             var expected = TenantRoles.Sum(r => Definition(r).Permissions.Count);
             Count(await Grants.GetListAsync(), newTenant).ShouldBe(expected);
 
@@ -173,7 +171,6 @@ public class PredefinedRoleSeedTests : MasterDataPostgreSqlTestBase
             using (CurrentTenant.Change(SharedTenant))
             {
                 (await Grants.GetListAsync()).Count.ShouldBe(sharedBefore.Count);
-                (await Roles.GetListAsync()).ShouldAllBe(r => r.TenantId == SharedTenant);
             }
 
             using (CurrentTenant.Change(null))

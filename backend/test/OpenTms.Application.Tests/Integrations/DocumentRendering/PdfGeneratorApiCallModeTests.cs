@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using OpenTms.Platform;
 using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.Localization;
+using OpenTms.Platform.Maintenance;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.Tracing;
@@ -269,6 +270,7 @@ public class PdfGeneratorApiCallModeTests
 
         result.Status.ShouldBe(HealthStatus.Unhealthy);
         result.Description.ShouldBe($"pdfgeneratorapi: HTTP 429: {PdfGeneratorApiClient.BusyMessage}");
+        result.Data[HealthCheckFacts.Reason].ShouldBe(HealthCheckFacts.Reasons.Failing, "the service answered and refused");
         rig.Handler.Requests.Count.ShouldBe(1);
         rig.Delay.Delays.ShouldBeEmpty();
         rig.Time.DueTimes.ShouldBe([PdfGeneratorApiClient.InteractiveTimeout]);
@@ -288,6 +290,7 @@ public class PdfGeneratorApiCallModeTests
 
         result.Status.ShouldBe(HealthStatus.Unhealthy);
         result.Description.ShouldBe("pdfgeneratorapi: No answer within 15 seconds.");
+        result.Data[HealthCheckFacts.Reason].ShouldBe(HealthCheckFacts.Reasons.Unreachable, "no HTTP status: the service was not reached");
         rig.Handler.Requests.Count.ShouldBe(1);
     }
 

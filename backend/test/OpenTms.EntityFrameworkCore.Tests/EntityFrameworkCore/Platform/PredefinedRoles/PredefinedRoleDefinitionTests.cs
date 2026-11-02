@@ -130,7 +130,7 @@ public class PredefinedRoleDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     [InlineData(PlatformRoleNames.Finance, 63)]
     [InlineData(PlatformRoleNames.MasterDataManager, 134)]
     [InlineData(PlatformRoleNames.ReadOnly, 40)]
-    [InlineData(PlatformRoleNames.PlatformOperator, 18)]
+    [InlineData(PlatformRoleNames.PlatformOperator, 21)]
     [InlineData(PlatformRoleNames.TenantManager, 9)]
     public void Each_role_has_as_many_permissions_as_design_71_lists(string role, int count)
     {

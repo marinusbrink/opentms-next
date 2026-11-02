@@ -150,6 +150,20 @@ public class MaintenanceAdministrationController : OpenTmsController
     [ProducesResponseType(typeof(HealthReportDto), 200)]
     public async Task<ActionResult<HealthReportDto>> GetHealthAsync() => Ok(await _health.GetReportAsync());
 
+    [HttpGet("health/components")]
+    [Authorize(PlatformPermissions.Administration.Maintenance.Health)]
+    [ProducesResponseType(typeof(GridResponse<HealthCheckEntryDto>), 200)]
+    public async Task<ActionResult<GridResponse<HealthCheckEntryDto>>> GetHealthComponentsAsync(
+        [FromQuery] int startRow = 0,
+        [FromQuery] int endRow = 50,
+        [FromQuery] string? wildcardSearch = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDir = null)
+    {
+        var result = await _health.GetComponentsAsync(BuildGridRequest(startRow, endRow, wildcardSearch, sortBy, sortDir));
+        return Ok(result);
+    }
+
     // ── Instances (the registry on the Health tab) ───────────────────────────
 
     [HttpGet("instances/overview")]

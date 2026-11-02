@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTms.Platform.Maintenance;
 
 namespace OpenTms.Integrations.Emailing.Postmark;
 
@@ -15,7 +17,10 @@ public class PostmarkHealthCheck : IHealthCheck
 {
     public const string Name = "postmark";
 
-    public const string Tag = "external";
+    public const string Tag = HealthCheckFacts.ExternalTag;
+
+    private static readonly string[] Settings =
+        [$"{PostmarkOptions.SectionName}:ServerToken", $"{PostmarkOptions.SectionName}:FromAddress"];
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly PostmarkSettingsResolver _settings;
@@ -29,9 +34,12 @@ public class PostmarkHealthCheck : IHealthCheck
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         var options = (await _settings.ResolveAsync()).Options;
+        var host = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) ? uri.Host : null;
         if (!options.IsConfigured)
         {
-            return HealthCheckResult.Degraded("postmark: not configured (Integrations:Postmark ServerToken and FromAddress).");
+            return HealthCheckResult.Degraded(
+                "postmark: not configured (Integrations:Postmark ServerToken and FromAddress).",
+                data: HealthCheckFacts.Data(HealthCheckFacts.Reasons.NotConfigured, Settings, host));
         }
 
         var http = _httpClientFactory.CreateClient(nameof(PostmarkEmailDeliveryProvider));
@@ -42,12 +50,14 @@ public class PostmarkHealthCheck : IHealthCheck
         {
             using var response = await http.SendAsync(request, cancellationToken);
             return response.IsSuccessStatusCode
-                ? HealthCheckResult.Healthy("postmark answered for the configured server.")
-                : HealthCheckResult.Unhealthy($"postmark: HTTP {(int)response.StatusCode}.");
+                ? HealthCheckResult.Healthy("postmark answered for the configured server.", HealthCheckFacts.Data(HealthCheckFacts.Reasons.Ok, Settings, host))
+                : HealthCheckResult.Unhealthy(
+                    $"postmark: HTTP {(int)response.StatusCode}.",
+                    data: HealthCheckFacts.Data(HealthCheckFacts.Reasons.Failing, Settings, host, extra: new Dictionary<string, object> { ["status"] = (int)response.StatusCode }));
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            return HealthCheckResult.Unhealthy("postmark: not reachable.");
+            return HealthCheckResult.Unhealthy("postmark: not reachable.", data: HealthCheckFacts.Data(HealthCheckFacts.Reasons.Unreachable, Settings, host));
         }
     }
 }

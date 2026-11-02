@@ -1,4 +1,5 @@
 using OpenTms.Integrations.Permissions;
+using OpenTms.Platform;
 using OpenTms.Platform.PredefinedRoles;
 using Volo.Abp.Application;
 using Volo.Abp.Authorization;
@@ -8,6 +9,7 @@ namespace OpenTms.Integrations;
 
 [DependsOn(
     typeof(IntegrationsDomainSharedModule),
+    typeof(PlatformApplicationContractsModule),
     typeof(AbpDddApplicationContractsModule),
     typeof(AbpAuthorizationModule)
 )]

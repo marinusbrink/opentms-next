@@ -5,8 +5,19 @@ using System.Threading.Tasks;
 
 namespace OpenTms.Platform.Maintenance.Health;
 
-/// <summary>The outcome of one registered health check.</summary>
-public sealed record HealthCheckEntry(string Name, string Status, string? Description, TimeSpan Duration, IReadOnlyList<string> Tags, string? Error);
+/// <summary>
+/// The outcome of one registered health check. <paramref name="Data"/> carries the facts of
+/// <see cref="HealthCheckFacts"/> (reason, settings, target, optional) plus check-specific values; rows written before
+/// it existed read back without it.
+/// </summary>
+public sealed record HealthCheckEntry(
+    string Name,
+    string Status,
+    string? Description,
+    TimeSpan Duration,
+    IReadOnlyList<string> Tags,
+    string? Error,
+    IReadOnlyDictionary<string, string>? Data = null);
 
 /// <summary>The outcome of all registered health checks of this instance.</summary>
 public sealed record HealthReport(string Status, TimeSpan TotalDuration, IReadOnlyList<HealthCheckEntry> Entries);

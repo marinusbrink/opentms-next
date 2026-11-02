@@ -239,6 +239,14 @@ public class MaintenanceAdministrationControllerTests
     private sealed class FakeHealthService : IHealthMaintenanceAppService
     {
         public Task<HealthReportDto> GetReportAsync() => Task.FromResult(new HealthReportDto { Status = "Healthy" });
+
+        public GridRequest? LastComponentsRequest { get; private set; }
+
+        public Task<GridResponse<HealthCheckEntryDto>> GetComponentsAsync(GridRequest request)
+        {
+            LastComponentsRequest = request;
+            return Task.FromResult(new GridResponse<HealthCheckEntryDto>());
+        }
     }
 
     private sealed class FakeInstanceService : IInstanceMaintenanceAppService

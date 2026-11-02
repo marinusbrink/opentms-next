@@ -52,6 +52,9 @@ public interface IOutboxMaintenanceAppService : IApplicationService
 public interface IHealthMaintenanceAppService : IApplicationService
 {
     Task<HealthReportDto> GetReportAsync();
+
+    /// <summary>One row per component (registered check) of this instance, problems first.</summary>
+    Task<GridResponse<HealthCheckEntryDto>> GetComponentsAsync(GridRequest request);
 }
 
 /// <summary>The instance registry on the Health tab (host only): every instance of every role, alive or not.</summary>

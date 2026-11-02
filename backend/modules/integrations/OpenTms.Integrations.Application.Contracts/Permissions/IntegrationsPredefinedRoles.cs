@@ -17,5 +17,10 @@ public static class IntegrationsPredefinedRoles
 
         options.Grant(PlatformRoleNames.MasterDataManager,
             IntegrationsPermissions.AddressLookup);
+
+        options.Grant(PlatformRoleNames.PlatformOperator,
+            IntegrationsPermissions.ServiceSettings.Default,
+            IntegrationsPermissions.ServiceSettings.Update,
+            IntegrationsPermissions.ServiceSettings.Test);
     }
 }

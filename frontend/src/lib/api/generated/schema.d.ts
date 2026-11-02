@@ -8739,6 +8739,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/administration/service-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"];
+                        "text/json": components["schemas"]["OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"];
+                        "text/plain": components["schemas"]["OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/*+json": components["schemas"]["OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"];
+                    "application/json": components["schemas"]["OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"];
+                    "text/json": components["schemas"]["OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/administration/service-settings/test/{service}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    service: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][];
+                        "text/json": components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/routing/status": {
         parameters: {
             query?: never;
@@ -40778,6 +40877,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/administration/maintenance/health/components": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    startRow?: number;
+                    endRow?: number;
+                    wildcardSearch?: string;
+                    sortBy?: string;
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/json": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                        "text/plain": components["schemas"]["OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/platform/administration/maintenance/instances": {
         parameters: {
             query?: never;
@@ -48694,6 +48836,44 @@ export interface components {
             reachable?: boolean;
             routeFunctionHost?: string | null;
         };
+        "OpenTms.Integrations.ServiceSettings.ServiceSettingsDefaultsDto": {
+            hasPdfGeneratorApiKey?: boolean;
+            hasPdfGeneratorApiSecret?: boolean;
+            hasRouteFunctionApiKey?: boolean;
+            osrmBaseUrl?: string | null;
+            pdfGeneratorApiBaseUrl?: string | null;
+            routeFunctionBaseUrl?: string | null;
+            routingProvider?: string | null;
+            vroomBaseUrl?: string | null;
+        };
+        "OpenTms.Integrations.ServiceSettings.ServiceSettingsDto": {
+            defaults?: components["schemas"]["OpenTms.Integrations.ServiceSettings.ServiceSettingsDefaultsDto"];
+            hasPdfGeneratorApiKey?: boolean;
+            hasPdfGeneratorApiSecret?: boolean;
+            hasRouteFunctionApiKey?: boolean;
+            osrmBaseUrl?: string | null;
+            pdfGeneratorApiBaseUrl?: string | null;
+            routeFunctionBaseUrl?: string | null;
+            routingProvider?: string | null;
+            vroomBaseUrl?: string | null;
+        };
+        "OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto": {
+            clearPdfGeneratorApiKey?: boolean;
+            clearPdfGeneratorApiSecret?: boolean;
+            clearRouteFunctionApiKey?: boolean;
+            /** Format: uri */
+            osrmBaseUrl?: string | null;
+            /** Format: uri */
+            pdfGeneratorApiBaseUrl?: string | null;
+            pdfGeneratorApiKey?: string | null;
+            pdfGeneratorApiSecret?: string | null;
+            routeFunctionApiKey?: string | null;
+            /** Format: uri */
+            routeFunctionBaseUrl?: string | null;
+            routingProvider?: string | null;
+            /** Format: uri */
+            vroomBaseUrl?: string | null;
+        };
         "OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto": {
             /** Format: uuid */
             employerRelationId?: string | null;
@@ -53636,13 +53816,21 @@ export interface components {
             unreachableCount?: number;
         };
         "OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto": {
+            area?: string | null;
+            data?: {
+                [key: string]: string;
+            } | null;
             description?: string | null;
             /** Format: double */
             durationMilliseconds?: number;
             error?: string | null;
+            isOptional?: boolean;
             name?: string | null;
+            reason?: string | null;
+            settings?: string[] | null;
             status?: string | null;
             tags?: string[] | null;
+            target?: string | null;
         };
         "OpenTms.Platform.Administration.Maintenance.HealthReportDto": {
             entries?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][] | null;
@@ -54384,6 +54572,13 @@ export interface components {
             /** Format: int64 */
             filteredCount?: number;
             rows?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.DatabaseRowDto"][] | null;
+            /** Format: int64 */
+            totalCount?: number;
+        };
+        "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+            /** Format: int64 */
+            filteredCount?: number;
+            rows?: components["schemas"]["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"][] | null;
             /** Format: int64 */
             totalCount?: number;
         };

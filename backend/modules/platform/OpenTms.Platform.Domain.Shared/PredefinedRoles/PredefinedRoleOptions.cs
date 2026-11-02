@@ -8,7 +8,8 @@ namespace OpenTms.Platform.PredefinedRoles;
 /// grants its own permissions to them from its <c>Application.Contracts</c> module (the Platform references no domain
 /// module), and is loaded by the DbMigrator as well as the host:
 /// <code>Configure&lt;PredefinedRoleOptions&gt;(o =&gt; o.Grant(PlatformRoleNames.Planner, PlanningExecutionPermissions.TransportTrips.Default));</code>
-/// A grant to a role that is not defined fails at start-up; an unknown permission or one of the wrong side fails the seed.
+/// A grant to a role that is not defined, an unknown permission or one of the wrong side fails the seed (the DbMigrator
+/// run or the provisioning job), and PredefinedRoleDefinitionTests.
 /// </summary>
 public class PredefinedRoleOptions
 {
