@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { KeyRound, LockOpen, Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, LockOpen, Mail, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
@@ -19,6 +19,7 @@ import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import {
   useDeleteUser,
+  useResendInvitation,
   useUnlockUser,
   useUsersGridFetcher,
   type UserRow,
@@ -62,6 +63,7 @@ export function UsersView() {
 
   const deleteUser = useDeleteUser();
   const unlockUser = useUnlockUser();
+  const resendInvitation = useResendInvitation();
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [editor, setEditor] = useState<EditorState>(null);
@@ -109,6 +111,19 @@ export function UsersView() {
       }
     },
     [invalidateGrid, t, unlockUser],
+  );
+
+  /* A new link for an invited user; like Unlock it leaves nothing to decide, so no confirm. */
+  const resend = useCallback(
+    async (row: UserRow) => {
+      try {
+        await resendInvitation.mutateAsync(row.id!);
+        toast.success(t("Administration:InvitationSent"));
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, t));
+      }
+    },
+    [resendInvitation, t],
   );
 
   const commands = useMemo<AppCommandBarCommand[]>(
@@ -163,6 +178,17 @@ export function UsersView() {
               },
             ]
           : []),
+        /* Only while the invitation is open: once the user chose a password, Reset password applies. */
+        ...(canCreate && single?.invitationPending
+          ? [
+              {
+                id: "resend-invitation",
+                labelKey: "Administration:ResendInvitation",
+                icon: Mail,
+                onClick: () => void resend(single),
+              },
+            ]
+          : []),
         /* Only while a lockout is in force: it overrides the lockout duration. */
         ...(canUnlock && single?.isLockedOut
           ? [
@@ -202,7 +228,7 @@ export function UsersView() {
           : []),
       ];
     },
-    [canBulkDelete, canDelete, canResetPassword, canUnlock, canUpdate, openRecord, unlock],
+    [canBulkDelete, canCreate, canDelete, canResetPassword, canUnlock, canUpdate, openRecord, resend, unlock],
   );
 
   const columnDefs = useMemo<ColDef<UserRow>[]>(
@@ -269,6 +295,14 @@ export function UsersView() {
         filter: false,
         minWidth: 100,
         hide: true,
+      },
+      {
+        field: "invitationPending",
+        headerName: t("Administration:InvitationPending"),
+        cellRenderer: BoolCell,
+        sortable: false,
+        filter: false,
+        minWidth: 110,
       },
       {
         field: "creationTime",

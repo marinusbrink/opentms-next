@@ -309,6 +309,24 @@ Implemented via `IIdentityUserRepository` + `UserManager.ResetPasswordAsync` wit
 generated token — the ABP-idiomatic admin password-reset path that does not require the
 current password.
 
+#### Invitations and reset links (PO 2026-11-02)
+
+A new user is invited by default: `POST .../users` with `sendInvitation: true` sets a random password nobody sees
+and mails the user a one-time link to ABP's `Account/ResetPassword` page (Identity's password-reset token,
+`PasswordLinkBuilder`, the same link as the tenant administrator's invitation). The mail is fixed localized text
+(nl/en) queued in the send log in the request's transaction (design 64). When e-mail delivery is not available for
+the tenant (`EmailDeliveryAvailability`: mail service configured and `Platform.EmailDelivery` on), the request is
+refused with `Administration:EmailDeliveryNotAvailable` before anything is created. No feature flag: the PO decided
+the change is always on.
+
+The row DTO's `invitationPending` is true while the password hash is still the one the invitation was sent with
+(a fingerprint in the user's extra property `InvitationPasswordStamp`); any password change ends it.
+
+| Endpoint | Permission | Effect |
+|---|---|---|
+| `POST /{id}/send-password-reset-link` | `Platform.Administration.Users.ResetPassword` | mails a reset link; the current password keeps working until it is used |
+| `POST /{id}/resend-invitation` | `Platform.Administration.Users.Create` | a new invitation link; refused (`Administration:InvitationNotPending`) once the user chose a password |
+
 ---
 
 ### Roles
@@ -561,8 +579,9 @@ invalidated. On 422 or error → inline error message shown.
 
 **`ResetPasswordDialog`**
 
-Single field: New password\* (with show/hide toggle). Submit → `POST .../users/{id}/reset-password`.
-Success → success toast, dialog closes. 422 → inline validation error.
+A choice between **Send a reset link by e-mail** (default; Submit "Send link" → `POST .../users/{id}/send-password-reset-link`)
+and **Set a password myself** (New password\* with show/hide toggle; Submit → `POST .../users/{id}/reset-password`).
+Success → success toast, dialog closes. 422 or a refused send → inline error.
 
 **`BulkDeleteUsersDialog`**
 

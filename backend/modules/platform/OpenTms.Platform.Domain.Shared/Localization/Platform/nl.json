@@ -1269,6 +1269,25 @@
     "Tenants:ConfirmationNameMismatch": "De getypte naam komt niet overeen met de tenant.",
     "Tenants:ResetOnlyWhenReady": "Alleen een ingerichte tenant kan naar een dataset worden teruggezet.",
     "Tenants:ResetAlreadyRunning": "Deze tenant wordt al teruggezet.",
-    "Tenants:TestData": "Testgegevens"
+    "Tenants:TestData": "Testgegevens",
+    "Administration:EmailDeliveryNotAvailable": "E-mailverzending staat niet aan voor deze organisatie, dus er kan geen e-mail worden verstuurd. Stel in plaats daarvan een wachtwoord in.",
+    "Administration:InvitationSubject": "U bent uitgenodigd voor OpenTMS ({0})",
+    "Administration:InvitationBody": "<p>Beste {0},</p><p>Er is een account voor u aangemaakt in OpenTMS voor <strong>{1}</strong>. U meldt zich aan met uw e-mailadres <strong>{2}</strong>.</p><p>Kies uw wachtwoord via de link hieronder; die werkt één keer.</p><p><a href=\"{3}\">Wachtwoord kiezen</a></p><p>Is de link verlopen? Vraag uw beheerder om een nieuwe uitnodiging.</p>",
+    "Administration:PasswordResetLinkSubject": "Kies een nieuw OpenTMS-wachtwoord",
+    "Administration:PasswordResetLinkBody": "<p>Beste {0},</p><p>Uw beheerder vraagt u een nieuw wachtwoord voor OpenTMS te kiezen. U meldt zich aan met uw e-mailadres <strong>{1}</strong>.</p><p>Kies uw nieuwe wachtwoord via de link hieronder; die werkt één keer. Tot dan blijft uw huidige wachtwoord werken.</p><p><a href=\"{2}\">Nieuw wachtwoord kiezen</a></p><p>Had u deze e-mail niet verwacht? Neem contact op met uw beheerder.</p>",
+    "Administration:InvitationNotPending": "Deze gebruiker heeft al een wachtwoord gekozen; stuur in plaats daarvan een resetlink.",
+    "Administration:PasswordChoice": "Wachtwoord",
+    "Administration:SendInvitation": "Uitnodiging per e-mail sturen",
+    "Administration:SendInvitationHint": "De gebruiker krijgt een e-mail met een link om een wachtwoord te kiezen.",
+    "Administration:SetPasswordMyself": "Zelf een wachtwoord instellen",
+    "Administration:InvitationSent": "Uitnodiging verstuurd",
+    "Administration:ResendInvitation": "Uitnodiging opnieuw sturen",
+    "Administration:InvitationPending": "Uitnodiging openstaand",
+    "Administration:SendResetLink": "Resetlink per e-mail sturen",
+    "Administration:SendResetLinkHint": "De gebruiker krijgt een e-mail met een link om een nieuw wachtwoord te kiezen. Tot dan blijft het huidige wachtwoord werken.",
+    "Administration:PasswordResetLinkSent": "Resetlink verstuurd",
+    "Administration:SendLink": "Link sturen",
+    "Tenants:AdminName": "Voornaam beheerder",
+    "Tenants:AdminSurname": "Achternaam beheerder"
   }
 }

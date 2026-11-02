@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTms.Integrations.Emailing.Postmark;
@@ -29,8 +30,18 @@ public class EmailDeliveryTestModule : AbpModule
     public const string WebhookUser = "postmark-qq";
     public const string WebhookPassword = "qq-webhook-pass-31";
 
+    public override void PreConfigureServices(ServiceConfigurationContext context)
+    {
+        /* The host gets Identity's token providers from the Account web module (AbpIdentityAspNetCoreModule); the
+         * invitation and reset links carry a password-reset token, so the test container adds the same ones. */
+        PreConfigure<IdentityBuilder>(builder => builder.AddDefaultTokenProviders());
+    }
+
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        /* The token providers protect their tokens with ASP.NET Core Data Protection, as in the host. */
+        context.Services.AddDataProtection();
+
         var provider = new FakeEmailDeliveryProvider();
         context.Services.AddSingleton(provider);
         context.Services.Replace(ServiceDescriptor.Singleton<IEmailDeliveryProvider>(provider));

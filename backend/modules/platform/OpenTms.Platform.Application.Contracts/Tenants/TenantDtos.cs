@@ -65,6 +65,14 @@ public class TenantCreateDto
     [StringLength(TenantAdministrationConsts.MaxEmailAddressLength)]
     public string AdminEmailAddress { get; set; } = default!;
 
+    [Required]
+    [StringLength(TenantAdministrationConsts.MaxAdminNameLength)]
+    public string AdminName { get; set; } = default!;
+
+    [Required]
+    [StringLength(TenantAdministrationConsts.MaxAdminSurnameLength)]
+    public string AdminSurname { get; set; } = default!;
+
     public Guid? EditionId { get; set; }
 }
 
@@ -92,4 +100,10 @@ public static class TenantAdministrationConsts
 
     /// <summary>ABP's <c>IdentityUserConsts.MaxEmailLength</c>.</summary>
     public const int MaxEmailAddressLength = 256;
+
+    /// <summary>ABP's <c>IdentityUserConsts.MaxNameLength</c>.</summary>
+    public const int MaxAdminNameLength = 64;
+
+    /// <summary>ABP's <c>IdentityUserConsts.MaxSurnameLength</c>.</summary>
+    public const int MaxAdminSurnameLength = 64;
 }

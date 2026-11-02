@@ -101,8 +101,9 @@ request DTO lost the unused `DatabaseName` (names are generated, D3).
 
 `TenantProvisioningJob` (Hangfire, `Platform.TenantProvisioning`), args `{ TenantId }` only — **no
 address, password or connection string in job arguments** (Hangfire stores them in plain text). The
-admin email waits on the tenant as the extra property `PendingAdminEmail` and is removed when
-provisioning succeeds. Each step is idempotent, so a retry continues where it stopped:
+admin email and name wait on the tenant as the extra properties `PendingAdminEmail`, `PendingAdminName` and
+`PendingAdminSurname` and are removed when provisioning succeeds (PO 2026-11-02: first and last name on the create
+form). Each step is idempotent, so a retry continues where it stopped:
 
 1. **Database** — `ITenantDatabaseProvisioner` (port in `Platform.Domain`, Npgsql adapter in
    `Platform.EntityFrameworkCore`): connects to the server's `postgres` database with the
@@ -115,7 +116,8 @@ provisioning succeeds. Each step is idempotent, so a retry continues where it st
    exactly as `OpenTmsDbMigrationService` does. The migrations run as the tenant's own role, so it
    owns every object.
 3. **Seed** — `IDataSeeder` with a random admin password (`RandomPasswordGenerator`, the policy of
-   `IdentityOptions`), which is discarded.
+   `IdentityOptions`), which is discarded. ABP's seed names the admin "admin"; the job then sets the first and last
+   name from the pending properties.
 4. **Invite** — once (`InvitationSentAt` extra property): a password-reset token for the admin and an
    email with the link `{App:SelfUrl}/Account/ResetPassword?userId=…&__tenant=…&resetToken=…`
    (ABP's `IAppUrlProvider.GetResetPasswordUrlAsync("MVC")`, the page LeptonX-lite already serves).
@@ -152,7 +154,8 @@ provisioning job, and seeding them would give the administrator ABP's default pa
 state (from before this app) are migrated as always.
 
 **Delete during provisioning** is refused (`Queued`, `Running`): a drop racing the job could leave the database
-behind. Deleting removes `PendingAdminEmail` from the tenant row (GDPR art. 17).
+behind. Deleting removes `PendingAdminEmail`, `PendingAdminName` and `PendingAdminSurname` from the tenant row
+(GDPR art. 17).
 
 **Connection string.** Built with `NpgsqlConnectionStringBuilder` from the host connection string's
 `Host` and `Port` (`Tenancy:Database:Host`/`Port` override them), the generated database, role and
@@ -338,7 +341,7 @@ dialog rules (UI-PAGE, UI-GRID, UI-DLG, UI-FORM, UI-ACT, UI-PERM, UI-FB):
   ready / failed), created. Commands: New tenant. Row actions: Edit, Retry provisioning (failed
   only), Resend invitation (ready only), Delete.
 - **Tenant dialog:** *Tenant* section — Name\*, Edition (lookup, optional); *Administrator* section
-  (create only) — Admin email\*; *Database* section — the generated connection string, read-only,
+  (create only) — Admin first name\*, Admin last name\*, Admin email\*; *Database* section — the generated connection string, read-only,
   password masked, with a one-line hint that the database is created in the background. Plus the
   record-identification tab.
 - **Delete tenant:** `ConfirmDialog`, destructive, with a warning that the database is dropped and
@@ -382,8 +385,9 @@ version 10.6.0 like the rest, open source, and already loaded by the application
   migration of every database. `/CLAUDE.md` and `04-data-and-tenancy.md` are updated to say so.
 - `IEmailSender` is the `NullEmailSender` in development: locally the invitation is logged (without
   the address) but not delivered. Wiring real mail is outside this PR.
-- GDPR: the admin email lives in the tenant's own Identity user (existing art. 15/17 handling) and,
-  until provisioning succeeds, as `PendingAdminEmail` on the tenant row in the host database. Deleting
+- GDPR: the admin email and name live in the tenant's own Identity user (existing art. 15/17 handling) and,
+  until provisioning succeeds, as `PendingAdminEmail`, `PendingAdminName` and `PendingAdminSurname` on the tenant
+  row in the host database. Deleting
   the tenant soft-deletes that row; it is not stored elsewhere.
 - `AdministrationPermissionDataSeedContributor` (existing) now saves the unit of work before it grants:
   ABP's own permission seeder may have added the same grants unsaved, and in the host process it runs

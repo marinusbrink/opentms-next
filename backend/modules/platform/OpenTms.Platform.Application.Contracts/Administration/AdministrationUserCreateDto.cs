@@ -24,8 +24,14 @@ public record AdministrationUserCreateDto
     [MaxLength(16)]
     public string? PhoneNumber { get; init; }
 
-    /// <summary>Required unless <see cref="SetRandomPassword"/> is true.</summary>
+    /// <summary>Required unless <see cref="SendInvitation"/> or <see cref="SetRandomPassword"/> is true.</summary>
     public string? Password { get; init; }
+
+    /// <summary>
+    /// Sets a random password nobody sees and e-mails the user a one-time link to choose their own. Refused when
+    /// e-mail delivery is not on for the tenant; the administrator then sets a password instead.
+    /// </summary>
+    public bool SendInvitation { get; init; }
 
     /// <summary>Generates a password that meets the policy; the user then resets it through "forgot password" or an administrator.</summary>
     public bool SetRandomPassword { get; init; }

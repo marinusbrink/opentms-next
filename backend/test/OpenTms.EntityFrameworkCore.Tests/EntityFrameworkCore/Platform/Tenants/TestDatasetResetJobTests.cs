@@ -49,7 +49,7 @@ public class TestDatasetResetJobTests : OpenTmsTestBase<TestDatasetJobTestModule
 
     private async Task<(Guid Id, TestDatasetResetArgs Args)> QueuedResetAsync(string dataset = TestDatasets.Average, string name = "acme")
     {
-        var created = await _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test" });
+        var created = await _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = "admin@acme.test", AdminName = "Anna", AdminSurname = "de Vries" });
         await _stateWriter.SetStateAsync(created.Id, TenantProvisioningState.Succeeded);
         _jobs.Clear();
         await _service.ResetToDatasetAsync(created.Id, new TenantResetToDatasetDto { Dataset = dataset, ConfirmationName = name });

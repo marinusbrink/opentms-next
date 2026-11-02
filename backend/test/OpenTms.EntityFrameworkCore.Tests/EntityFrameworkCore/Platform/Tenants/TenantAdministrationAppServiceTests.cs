@@ -60,7 +60,7 @@ public class TenantAdministrationAppServiceTests : OpenTmsTestBase<TenantAdminis
     private static GridRequest Request(string? search = null) => new() { StartRow = 0, EndRow = 50, WildcardSearch = search };
 
     private Task<TenantDto> CreateAsync(string name, Guid? editionId = null, string email = "admin@acme.test") =>
-        _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = email, EditionId = editionId });
+        _service.CreateAsync(new TenantCreateDto { Name = name, AdminEmailAddress = email, AdminName = "Anna", AdminSurname = "de Vries", EditionId = editionId });
 
     private Task<Tenant?> FindTenantAsync(Guid id, bool includeDeleted = false) =>
         WithUnitOfWorkAsync(async () =>
@@ -224,6 +224,38 @@ public class TenantAdministrationAppServiceTests : OpenTmsTestBase<TenantAdminis
     }
 
     [Fact]
+    public async Task Create_keeps_the_administrators_name_trimmed_until_provisioning_and_never_in_the_job_arguments()
+    {
+        var dto = await _service.CreateAsync(new TenantCreateDto
+        {
+            Name = "acme", AdminEmailAddress = "admin@acme.test", AdminName = "  Grietje ", AdminSurname = " van Ommeren  "
+        });
+
+        var tenant = (await FindTenantAsync(dto.Id)).ShouldNotBeNull();
+        tenant.GetProperty<string?>(TenantProperties.PendingAdminName).ShouldBe("Grietje");
+        tenant.GetProperty<string?>(TenantProperties.PendingAdminSurname).ShouldBe("van Ommeren");
+
+        var json = JsonSerializer.Serialize(_jobs.Jobs.ShouldHaveSingleItem(), _jobs.Jobs[0].GetType());
+        json.ShouldNotContain("Grietje");
+        json.ShouldNotContain("Ommeren");
+    }
+
+    [Theory]
+    [InlineData("", "de Vries")]
+    [InlineData("Anna", "")]
+    [InlineData("   ", "de Vries")]
+    public async Task Create_requires_the_administrators_first_and_last_name(string adminName, string adminSurname)
+    {
+        await Should.ThrowAsync<AbpValidationException>(() => _service.CreateAsync(new TenantCreateDto
+        {
+            Name = "acme", AdminEmailAddress = "admin@acme.test", AdminName = adminName, AdminSurname = adminSurname
+        }));
+
+        (await WithUnitOfWorkAsync(() => _tenantRepository.GetCountAsync())).ShouldBe(0);
+        _jobs.Jobs.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task The_connection_preview_masks_the_password_and_shows_x_for_the_id_part()
     {
         var preview = await _service.GetConnectionPreviewAsync("Acme Transport");
@@ -362,6 +394,21 @@ public class TenantAdministrationAppServiceTests : OpenTmsTestBase<TenantAdminis
         drop.Host.ShouldBe("db.example.test");
         drop.Port.ShouldBe(5432);
         _provisioner.Dropped.ShouldBeEmpty("the drop runs in the job, never in the request");
+    }
+
+    [Fact]
+    public async Task Delete_removes_the_administrators_pending_address_and_name()
+    {
+        var created = await CreateAsync("acme");
+        /* Failed: provisioning never got to remove them, so they are still there to be removed by the delete. */
+        await SetStateAsync(created.Id, TenantProvisioningState.Failed);
+
+        await _service.DeleteAsync(created.Id);
+
+        var deleted = (await FindTenantAsync(created.Id, includeDeleted: true)).ShouldNotBeNull();
+        deleted.GetProperty<string?>(TenantProperties.PendingAdminEmail).ShouldBeNull();
+        deleted.GetProperty<string?>(TenantProperties.PendingAdminName).ShouldBeNull();
+        deleted.GetProperty<string?>(TenantProperties.PendingAdminSurname).ShouldBeNull();
     }
 
     [Fact]

@@ -1,16 +1,15 @@
 using System;
 using System.Net;
-using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using OpenTms.Platform.Accounts;
 using OpenTms.Platform.Localization;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Emailing;
 using Volo.Abp.Identity;
 using Volo.Abp.MultiTenancy;
-using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.Uow;
 
 namespace OpenTms.Platform.Tenants;
@@ -22,17 +21,11 @@ namespace OpenTms.Platform.Tenants;
 /// </summary>
 public class TenantInvitationSender : ITransientDependency
 {
-    /// <summary>ABP Account's <c>AccountUrlNames.PasswordReset</c>; the Account module maps it to <c>Account/ResetPassword</c>.</summary>
-    private const string PasswordResetUrlName = "Abp.Account.PasswordReset";
-
-    /// <summary>The application name the host configures in <c>AppUrlOptions</c> for the auth server's pages.</summary>
-    private const string AuthServerApplicationName = "MVC";
-
     public ILogger<TenantInvitationSender> Logger { get; set; } = NullLogger<TenantInvitationSender>.Instance;
 
     private readonly IdentityUserManager _userManager;
     private readonly IEmailSender _emailSender;
-    private readonly IAppUrlProvider _appUrlProvider;
+    private readonly PasswordLinkBuilder _passwordLinks;
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
     private readonly IStringLocalizer<PlatformResource> _localizer;
@@ -40,14 +33,14 @@ public class TenantInvitationSender : ITransientDependency
     public TenantInvitationSender(
         IdentityUserManager userManager,
         IEmailSender emailSender,
-        IAppUrlProvider appUrlProvider,
+        PasswordLinkBuilder passwordLinks,
         ICurrentTenant currentTenant,
         IUnitOfWorkManager unitOfWorkManager,
         IStringLocalizer<PlatformResource> localizer)
     {
         _userManager = userManager;
         _emailSender = emailSender;
-        _appUrlProvider = appUrlProvider;
+        _passwordLinks = passwordLinks;
         _currentTenant = currentTenant;
         _unitOfWorkManager = unitOfWorkManager;
         _localizer = localizer;
@@ -65,10 +58,7 @@ public class TenantInvitationSender : ITransientDependency
                 throw new InvalidOperationException("The tenant administrator has no email address.");
             }
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(admin);
-            var resetUrl = await _appUrlProvider.GetUrlAsync(AuthServerApplicationName, PasswordResetUrlName);
-            var link = $"{resetUrl}?userId={admin.Id}&{TenantResolverConsts.DefaultTenantKey}={tenantId}" +
-                       $"&resetToken={UrlEncoder.Default.Encode(token)}";
+            var link = await _passwordLinks.BuildAsync(admin);
 
             await _emailSender.SendAsync(
                 admin.Email,

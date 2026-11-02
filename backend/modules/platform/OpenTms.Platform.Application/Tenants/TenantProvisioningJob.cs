@@ -13,13 +13,14 @@ using Volo.Abp.DependencyInjection;
 using Volo.Abp.Identity;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.TenantManagement;
+using Volo.Abp.Uow;
 
 namespace OpenTms.Platform.Tenants;
 
 /* Provisions a tenant's own database (docs/designs/tenants-and-editions.md):
  *   1. the database and its login role on the server (ITenantDatabaseProvisioner);
  *   2. every module schema, Framework first, exactly as OpenTmsDbMigrationService does it;
- *   3. the seed, with a random administrator password that is discarded;
+ *   3. the seed, with a random administrator password that is discarded, and the administrator's name;
  *   4. the administrator's invitation, once.
  * Every step is idempotent, so "Retry provisioning" finishes a partial run. Later
  * migrations of this database belong to the DbMigrator, as for every other database. */
@@ -32,6 +33,8 @@ public class TenantProvisioningJob : AsyncBackgroundJob<TenantProvisioningArgs>,
     private readonly ICurrentTenant _currentTenant;
     private readonly TenantInvitationSender _invitationSender;
     private readonly IOptions<IdentityOptions> _identityOptions;
+    private readonly IdentityUserManager _userManager;
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public TenantProvisioningJob(
         TenantStateWriter stateWriter,
@@ -40,7 +43,9 @@ public class TenantProvisioningJob : AsyncBackgroundJob<TenantProvisioningArgs>,
         IDataSeeder dataSeeder,
         ICurrentTenant currentTenant,
         TenantInvitationSender invitationSender,
-        IOptions<IdentityOptions> identityOptions)
+        IOptions<IdentityOptions> identityOptions,
+        IdentityUserManager userManager,
+        IUnitOfWorkManager unitOfWorkManager)
     {
         _stateWriter = stateWriter;
         _provisioner = provisioner;
@@ -49,6 +54,8 @@ public class TenantProvisioningJob : AsyncBackgroundJob<TenantProvisioningArgs>,
         _currentTenant = currentTenant;
         _invitationSender = invitationSender;
         _identityOptions = identityOptions;
+        _userManager = userManager;
+        _unitOfWorkManager = unitOfWorkManager;
     }
 
     public override async Task ExecuteAsync(TenantProvisioningArgs args)
@@ -86,6 +93,10 @@ public class TenantProvisioningJob : AsyncBackgroundJob<TenantProvisioningArgs>,
                         tenant.GetProperty<string?>(TenantProperties.PendingAdminEmail))
                     .WithProperty(IdentityDataSeedContributor.AdminPasswordPropertyName,
                         RandomPasswordGenerator.Generate(_identityOptions.Value.Password)));
+
+                await SetAdminNameAsync(
+                    tenant.GetProperty<string?>(TenantProperties.PendingAdminName),
+                    tenant.GetProperty<string?>(TenantProperties.PendingAdminSurname));
             }
 
             /* The tenant is usable once seeded; an invitation that cannot be sent (mail server, address) does not
@@ -119,5 +130,27 @@ public class TenantProvisioningJob : AsyncBackgroundJob<TenantProvisioningArgs>,
              * Failed state. The state is the signal; the retry endpoint accepts only Failed, so runs never overlap. */
             Logger.LogError(ex, "Tenant provisioning FAILED for tenant {TenantId}", tenant.Id);
         }
+    }
+
+    /* ABP's seed names the administrator "admin". The name from the Tenants form waits on the tenant only until
+     * provisioning succeeds, so a retry of a failed run sets the same name again and a later run finds none; a tenant
+     * created before the name was asked has none to set. Runs in the current (new) tenant. */
+    private async Task SetAdminNameAsync(string? name, string? surname)
+    {
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(surname))
+        {
+            return;
+        }
+
+        using var unitOfWork = _unitOfWorkManager.Begin(requiresNew: true, isTransactional: true);
+        var admin = await _userManager.FindByNameAsync(IdentityDataSeedContributor.AdminUserNameDefaultValue);
+        if (admin != null)
+        {
+            admin.Name = name;
+            admin.Surname = surname;
+            (await _userManager.UpdateAsync(admin)).CheckErrors();
+        }
+
+        await unitOfWork.CompleteAsync();
     }
 }

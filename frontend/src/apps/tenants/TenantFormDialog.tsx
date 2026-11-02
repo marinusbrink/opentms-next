@@ -43,6 +43,8 @@ interface TenantFormValues {
   name: string;
   editionId: string | null;
   adminEmailAddress: string;
+  adminName: string;
+  adminSurname: string;
 }
 
 /** Same shape check as the backend's [EmailAddress]: something@something. */
@@ -68,6 +70,8 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
       name: tenant?.name ?? "",
       editionId: tenant?.editionId ?? null,
       adminEmailAddress: "",
+      adminName: "",
+      adminSurname: "",
     }),
     [tenant],
   );
@@ -77,6 +81,8 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
     name: false,
     editionId: false,
     adminEmailAddress: false,
+    adminName: false,
+    adminSurname: false,
   });
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -98,6 +104,8 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
   if (mode === "create") {
     if (!values.adminEmailAddress.trim()) errors.adminEmailAddress = t("FieldRequired");
     else if (!EMAIL_PATTERN.test(values.adminEmailAddress.trim())) errors.adminEmailAddress = t("Tenants:InvalidEmail");
+    if (!values.adminName.trim()) errors.adminName = t("FieldRequired");
+    if (!values.adminSurname.trim()) errors.adminSurname = t("FieldRequired");
   }
   const shown = (field: keyof TenantFormValues) => (touched[field] || submitted ? errors[field] : undefined);
 
@@ -106,7 +114,9 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
     if (readOnly || isPending) return;
     setSubmitted(true);
     setServerError(null);
-    const firstInvalid = (["name", "adminEmailAddress"] as const).find((field) => errors[field]);
+    const firstInvalid = (["name", "adminName", "adminSurname", "adminEmailAddress"] as const).find(
+      (field) => errors[field],
+    );
     if (firstInvalid) {
       setActiveTab("general");
       requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>(`#tf-${firstInvalid}`)?.focus());
@@ -118,6 +128,8 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
         await createTenant.mutateAsync({
           name: values.name.trim(),
           adminEmailAddress: values.adminEmailAddress.trim(),
+          adminName: values.adminName.trim(),
+          adminSurname: values.adminSurname.trim(),
           editionId: values.editionId,
         });
         toast.success(t("Tenants:TenantCreated"));
@@ -162,7 +174,11 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
   const generalTab: EntityDialogTab = {
     value: "general",
     label: t("General"),
-    hasError: shown("name") != null || shown("adminEmailAddress") != null,
+    hasError:
+      shown("name") != null ||
+      shown("adminName") != null ||
+      shown("adminSurname") != null ||
+      shown("adminEmailAddress") != null,
     content: (
       <form ref={formRef} onSubmit={(e) => void handleSubmit(e)} className="grid grid-cols-1 gap-4" noValidate>
         {serverError && (
@@ -206,6 +222,28 @@ export function TenantFormDialog({ mode, tenant, readOnly = false, open, onClose
 
         {mode === "create" && (
           <FormSection title={t("Tenants:Administrator")}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField label={t("Tenants:AdminName")} htmlFor="tf-adminName" required error={shown("adminName")}>
+                <Input
+                  id="tf-adminName"
+                  autoComplete="off"
+                  value={values.adminName}
+                  onChange={(e) => setValues((v) => ({ ...v, adminName: e.target.value }))}
+                  onBlur={() => setTouched((s) => ({ ...s, adminName: true }))}
+                  maxLength={64}
+                />
+              </FormField>
+              <FormField label={t("Tenants:AdminSurname")} htmlFor="tf-adminSurname" required error={shown("adminSurname")}>
+                <Input
+                  id="tf-adminSurname"
+                  autoComplete="off"
+                  value={values.adminSurname}
+                  onChange={(e) => setValues((v) => ({ ...v, adminSurname: e.target.value }))}
+                  onBlur={() => setTouched((s) => ({ ...s, adminSurname: true }))}
+                  maxLength={64}
+                />
+              </FormField>
+            </div>
             <FormField
               label={t("Tenants:AdminEmailAddress")}
               htmlFor="tf-adminEmailAddress"

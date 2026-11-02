@@ -16,6 +16,12 @@ public interface IUserAppService : IApplicationService
     Task<BulkDeleteUsersResponseDto> BulkDeleteAsync(BulkDeleteUsersRequestDto input);
     Task ResetPasswordAsync(Guid id, AdministrationResetPasswordDto input);
 
+    /// <summary>E-mails the user a one-time link to choose a new password; the current password keeps working until then.</summary>
+    Task SendPasswordResetLinkAsync(Guid id);
+
+    /// <summary>E-mails an invited user a new invitation link; only while <see cref="AdministrationUserRowDto.InvitationPending"/>.</summary>
+    Task ResendInvitationAsync(Guid id);
+
     /// <summary>Ends a lockout early: clears the lockout end and the failed-attempt count.</summary>
     Task UnlockAsync(Guid id);
 

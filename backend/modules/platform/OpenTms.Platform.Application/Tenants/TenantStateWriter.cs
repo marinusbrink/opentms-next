@@ -61,6 +61,8 @@ public class TenantStateWriter : ITransientDependency
             if (state == TenantProvisioningState.Succeeded)
             {
                 tenant.RemoveProperty(TenantProperties.PendingAdminEmail);
+                tenant.RemoveProperty(TenantProperties.PendingAdminName);
+                tenant.RemoveProperty(TenantProperties.PendingAdminSurname);
             }
         });
 

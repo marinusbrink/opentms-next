@@ -92,6 +92,26 @@ public class UserAdministrationController : OpenTmsController
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/send-password-reset-link")]
+    [Authorize(PlatformPermissions.Administration.Users.ResetPassword)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> SendPasswordResetLinkAsync(Guid id)
+    {
+        await _userAppService.SendPasswordResetLinkAsync(id);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/resend-invitation")]
+    [Authorize(PlatformPermissions.Administration.Users.Create)]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> ResendInvitationAsync(Guid id)
+    {
+        await _userAppService.ResendInvitationAsync(id);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/unlock")]
     [Authorize(PlatformPermissions.Administration.Users.Unlock)]
     [ProducesResponseType(204)]

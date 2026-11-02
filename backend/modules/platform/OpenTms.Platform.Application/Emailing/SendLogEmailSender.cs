@@ -3,10 +3,8 @@ using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using OpenTms.Platform.Features;
 using Volo.Abp.BackgroundJobs;
 using Volo.Abp.Emailing;
-using Volo.Abp.Features;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.Uow;
 
@@ -14,7 +12,7 @@ namespace OpenTms.Platform.Emailing;
 
 /// <summary>
 /// ABP's <see cref="IEmailSender"/> (invitations, password resets) routed through the send log (design 64). A tenant's
-/// mail goes there when the mail service is configured and the tenant has <see cref="PlatformFeatures.EmailDelivery"/>;
+/// mail goes there when the mail service is configured and the tenant has <see cref="Features.PlatformFeatures.EmailDelivery"/>;
 /// host mail whenever the service is configured (the host has no feature values). Otherwise the mail is logged, not
 /// sent, as the null sender did before. ABP's settings-based From is ignored: the mail service sets the From, and the
 /// mail's first Reply-To is kept. Attachments are not supported yet and are refused rather than dropped.
@@ -22,8 +20,7 @@ namespace OpenTms.Platform.Emailing;
 public class SendLogEmailSender : EmailSenderBase
 {
     private readonly IEmailQueue _queue;
-    private readonly IEmailDeliveryProvider _provider;
-    private readonly IFeatureChecker _featureChecker;
+    private readonly EmailDeliveryAvailability _availability;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public SendLogEmailSender(
@@ -31,20 +28,18 @@ public class SendLogEmailSender : EmailSenderBase
         IEmailSenderConfiguration configuration,
         IBackgroundJobManager backgroundJobManager,
         IEmailQueue queue,
-        IEmailDeliveryProvider provider,
-        IFeatureChecker featureChecker,
+        EmailDeliveryAvailability availability,
         IUnitOfWorkManager unitOfWorkManager)
         : base(currentTenant, configuration, backgroundJobManager)
     {
         _queue = queue;
-        _provider = provider;
-        _featureChecker = featureChecker;
+        _availability = availability;
         _unitOfWorkManager = unitOfWorkManager;
     }
 
     protected override async Task SendEmailAsync(MailMessage mail)
     {
-        if (!await IsEnabledAsync())
+        if (!await _availability.IsAvailableAsync())
         {
             Logger.LogWarning("Mail \"{Tag}\" was not sent: e-mail delivery is not configured or not switched on for this tenant.", mail.Headers["X-OpenTms-Tag"] ?? "untagged");
             return;
@@ -77,16 +72,6 @@ public class SendLogEmailSender : EmailSenderBase
         using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
         await _queue.QueueAsync(email);
         await unitOfWork.CompleteAsync();
-    }
-
-    private async Task<bool> IsEnabledAsync()
-    {
-        if (!(await _provider.GetStatusAsync()).IsConfigured)
-        {
-            return false;
-        }
-
-        return CurrentTenant.Id == null || await _featureChecker.IsEnabledAsync(PlatformFeatures.EmailDelivery);
     }
 }
 

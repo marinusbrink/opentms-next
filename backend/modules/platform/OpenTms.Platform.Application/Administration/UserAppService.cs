@@ -24,6 +24,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
     private readonly IdentityUserManager _userManager;
     private readonly ProfilePictureManager _profilePictures;
     private readonly IOptions<IdentityOptions> _identityOptions;
+    private readonly UserPasswordMailSender _passwordMails;
 
     public UserAppService(
         IIdentityUserRepository userRepository,
@@ -31,7 +32,8 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         IOrganizationUnitRepository organizationUnitRepository,
         IdentityUserManager userManager,
         ProfilePictureManager profilePictures,
-        IOptions<IdentityOptions> identityOptions)
+        IOptions<IdentityOptions> identityOptions,
+        UserPasswordMailSender passwordMails)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -39,6 +41,7 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         _userManager = userManager;
         _profilePictures = profilePictures;
         _identityOptions = identityOptions;
+        _passwordMails = passwordMails;
     }
 
     // Bounded at MaxRoleFetchCount — at the design's stated scale (tens of roles per tenant)
@@ -80,7 +83,11 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         await ValidateRoleNamesAsync(input.RoleNames);
         var organizationUnitIds = await ValidateOrganizationUnitIdsAsync(input.OrganizationUnitIds);
 
-        var password = input.SetRandomPassword
+        /* Refused before anything is created: without delivery the invitation is dropped and the user cannot sign in. */
+        if (input.SendInvitation)
+            await _passwordMails.EnsureDeliveryAvailableAsync();
+
+        var password = input.SendInvitation || input.SetRandomPassword
             ? RandomPasswordGenerator.Generate(_identityOptions.Value.Password)
             : input.Password;
         if (string.IsNullOrEmpty(password))
@@ -90,7 +97,8 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         user.Name = input.Name;
         user.Surname = input.Surname;
         user.SetPhoneNumber(input.PhoneNumber, confirmed: false);
-        user.SetShouldChangePasswordOnNextLogin(input.ShouldChangePasswordOnNextLogin);
+        /* An invited user chooses their own password, so "change on next sign-in" would only ask twice. */
+        user.SetShouldChangePasswordOnNextLogin(!input.SendInvitation && input.ShouldChangePasswordOnNextLogin);
 
         ThrowIfFailed(await _userManager.CreateAsync(user));
         ThrowIfFailed(await _userManager.AddPasswordAsync(user, password));
@@ -100,6 +108,12 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
             await _userManager.SetRolesAsync(user, input.RoleNames);
         if (organizationUnitIds.Length > 0)
             await _userManager.SetOrganizationUnitsAsync(user, organizationUnitIds);
+
+        if (input.SendInvitation)
+        {
+            await _passwordMails.SendInvitationAsync(user);
+            ThrowIfFailed(await _userManager.UpdateAsync(user));
+        }
 
         Logger.LogInformation("User {UserId} created by {ActorId}", user.Id, CurrentUser.Id);
 
@@ -216,6 +230,26 @@ public class UserAppService : PlatformAppServiceBase, IUserAppService
         ThrowIfFailed(await _userManager.AddPasswordAsync(user, input.NewPassword));
 
         Logger.LogInformation("Password reset for user {UserId} by {ActorId}", id, CurrentUser.Id);
+    }
+
+    public async Task SendPasswordResetLinkAsync(Guid id)
+    {
+        var user = await FindUserOrThrowAsync(id);
+        await _passwordMails.SendPasswordResetLinkAsync(user);
+
+        Logger.LogInformation("Password reset link for user {UserId} sent by {ActorId}", id, CurrentUser.Id);
+    }
+
+    public async Task ResendInvitationAsync(Guid id)
+    {
+        var user = await FindUserOrThrowAsync(id);
+        if (!UserPasswordMailSender.IsInvitationPending(user))
+            throw new UserFriendlyException(L["Administration:InvitationNotPending"]);
+
+        await _passwordMails.SendInvitationAsync(user);
+        ThrowIfFailed(await _userManager.UpdateAsync(user));
+
+        Logger.LogInformation("Invitation for user {UserId} resent by {ActorId}", id, CurrentUser.Id);
     }
 
     public async Task UnlockAsync(Guid id)
