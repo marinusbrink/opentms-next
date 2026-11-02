@@ -155,7 +155,8 @@ public class PlanningPlanboardAvailabilityMigrationTests : PlanningPostgreSqlTes
                 .ShouldHaveSingleItem(constraint).ShouldContain(table);
         }
 
-        (await QueryAsync(database, $"SELECT indexdef FROM pg_indexes WHERE schemaname = '{Schema}' AND tablename = 'ResourceWorkingPatterns' AND indexdef LIKE 'CREATE UNIQUE%'"))
+        /* pg_indexes lists the primary key's index as unique too; the check is about the one unique key besides it. */
+        (await QueryAsync(database, $"SELECT indexdef FROM pg_indexes WHERE schemaname = '{Schema}' AND tablename = 'ResourceWorkingPatterns' AND indexdef LIKE 'CREATE UNIQUE%' AND indexname NOT IN (SELECT conname FROM pg_constraint WHERE contype = 'p' AND connamespace = '{Schema}'::regnamespace)"))
             .ShouldHaveSingleItem("one working pattern per resource and weekday").ShouldContain("(\"TenantId\", \"ResourceKind\", \"ResourceId\", \"Weekday\")");
     }
 
