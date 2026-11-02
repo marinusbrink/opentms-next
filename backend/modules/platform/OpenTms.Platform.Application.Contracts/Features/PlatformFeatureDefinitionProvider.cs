@@ -99,8 +99,9 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(auditLogs, AppFeatures.Administration.AuditLogs.FunctionalLogbook);
         On(auditLogs, AppFeatures.Administration.AuditLogs.TechnicalLogbook);
         Off(administration, AppFeatures.Administration.Maintenance);
-        /* Design 64: a host-only view; off, and its host-side permissions keep it from tenants anyway. */
-        Off(administration, AppFeatures.Administration.Email);
+        /* Administration → Services (e-mail, documents, routing; PO 2026-11-02): a host-only view; off, and its host-side
+         * permissions keep it from tenants anyway. */
+        Off(administration, AppFeatures.Administration.Services);
 
         /* Behaviour features, outside the app tree. Document rendering (design 50) is off by default: switched on per
          * tenant or edition once the deployment holds the provider's key and secret. */

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Platform.Maintenance;
 
 namespace OpenTms.HealthChecks;
 
@@ -12,9 +13,16 @@ public static class HealthChecksBuilderExtensions
 {
     public static void AddOpenTmsHealthChecks(this IServiceCollection services)
     {
-        // Add your health checks here
+        /* The components of the system itself (docs/designs/maintenance-view.md, "Components"); the Integrations module
+         * registers its external services. Only the database takes part in readiness: the others report a part of the
+         * system that is down, which must not take the whole API out of rotation. */
         var healthChecksBuilder = services.AddHealthChecks();
-        healthChecksBuilder.AddCheck<OpenTmsDatabaseCheck>("OpenTms DbContext Check", tags: new string[] { "database", "ready" });
+        healthChecksBuilder.AddCheck<OpenTmsDatabaseCheck>(OpenTmsDatabaseCheck.Name, tags: [HealthCheckFacts.CoreTag, "database", "ready"]);
+        healthChecksBuilder.AddCheck<TenantDatabasesHealthCheck>(TenantDatabasesHealthCheck.Name, tags: [HealthCheckFacts.CoreTag, "database"]);
+        healthChecksBuilder.AddCheck<BackgroundJobsHealthCheck>(BackgroundJobsHealthCheck.Name, tags: [HealthCheckFacts.CoreTag]);
+        healthChecksBuilder.AddCheck<OutboxHealthCheck>(OutboxHealthCheck.Name, tags: [HealthCheckFacts.CoreTag]);
+        healthChecksBuilder.AddCheck<CacheHealthCheck>(CacheHealthCheck.Name, tags: [HealthCheckFacts.CoreTag]);
+        healthChecksBuilder.AddCheck<LiveUpdatesHealthCheck>(LiveUpdatesHealthCheck.Name, tags: [HealthCheckFacts.CoreTag]);
 
         services.ConfigureHealthCheckEndpoint("/health-status");
 
@@ -71,9 +79,9 @@ public static class HealthChecksBuilderExtensions
                     new PathString(path.EnsureStartsWith('/')),
                     new HealthCheckOptions
                     {
-                        /* The health UI polls this endpoint: checks of external services (tag "external", e.g.
-                         * pdfgeneratorapi, design 55) run only on demand in Maintenance → Health. */
-                        Predicate = registration => !registration.Tags.Contains("external"),
+                        /* The health UI polls this endpoint: only the readiness checks. The others (tenant databases,
+                         * outbox, external services) run in the heartbeat and on demand in Maintenance → Health. */
+                        Predicate = registration => registration.Tags.Contains("ready"),
                         ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
                         AllowCachingResponses = false,
                     });

@@ -38,6 +38,28 @@ public class VroomRouteOptimizer
 
     public bool IsConfigured => _options.Vroom.IsConfigured;
 
+    /// <summary>The host name alone, for the health check; null when not configured.</summary>
+    public string? Host => Uri.TryCreate(_options.Vroom.BaseUrl, UriKind.Absolute, out var uri) ? uri.Host : null;
+
+    /// <summary>Whether VROOM answers at all: any HTTP status counts (its root rejects a GET), no answer does not.</summary>
+    public async Task<bool> ProbeAsync(CancellationToken cancellationToken)
+    {
+        if (!IsConfigured)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var response = await _http.GetAsync(string.Empty, cancellationToken);
+            return true;
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
     public async Task<RouteOptimizationResult?> OptimizeAsync(RouteOptimizationRequest request, CancellationToken cancellationToken)
     {
         if (!IsConfigured || request.Stops.Count < 2 || (request.Start == null && request.End == null))

@@ -3165,6 +3165,144 @@
         },
         "type": "object"
       },
+      "OpenTms.Integrations.ServiceSettings.ServiceSettingsDefaultsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "hasPdfGeneratorApiKey": {
+            "type": "boolean"
+          },
+          "hasPdfGeneratorApiSecret": {
+            "type": "boolean"
+          },
+          "hasRouteFunctionApiKey": {
+            "type": "boolean"
+          },
+          "osrmBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pdfGeneratorApiBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "routeFunctionBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "routingProvider": {
+            "nullable": true,
+            "type": "string"
+          },
+          "vroomBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Integrations.ServiceSettings.ServiceSettingsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.ServiceSettingsDefaultsDto"
+          },
+          "hasPdfGeneratorApiKey": {
+            "type": "boolean"
+          },
+          "hasPdfGeneratorApiSecret": {
+            "type": "boolean"
+          },
+          "hasRouteFunctionApiKey": {
+            "type": "boolean"
+          },
+          "osrmBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pdfGeneratorApiBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "routeFunctionBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "routingProvider": {
+            "nullable": true,
+            "type": "string"
+          },
+          "vroomBaseUrl": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "clearPdfGeneratorApiKey": {
+            "type": "boolean"
+          },
+          "clearPdfGeneratorApiSecret": {
+            "type": "boolean"
+          },
+          "clearRouteFunctionApiKey": {
+            "type": "boolean"
+          },
+          "osrmBaseUrl": {
+            "format": "uri",
+            "maxLength": 512,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "pdfGeneratorApiBaseUrl": {
+            "format": "uri",
+            "maxLength": 512,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "pdfGeneratorApiKey": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "pdfGeneratorApiSecret": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "routeFunctionApiKey": {
+            "maxLength": 256,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "routeFunctionBaseUrl": {
+            "format": "uri",
+            "maxLength": 512,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          },
+          "routingProvider": {
+            "nullable": true,
+            "type": "string"
+          },
+          "vroomBaseUrl": {
+            "format": "uri",
+            "maxLength": 512,
+            "minLength": 0,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.MasterData.Drivers.DriverBulkDeleteRequestDto": {
         "additionalProperties": false,
         "properties": {
@@ -19099,6 +19237,17 @@
       "OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto": {
         "additionalProperties": false,
         "properties": {
+          "area": {
+            "nullable": true,
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "object"
+          },
           "description": {
             "nullable": true,
             "type": "string"
@@ -19111,9 +19260,23 @@
             "nullable": true,
             "type": "string"
           },
+          "isOptional": {
+            "type": "boolean"
+          },
           "name": {
             "nullable": true,
             "type": "string"
+          },
+          "reason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "settings": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
           },
           "status": {
             "nullable": true,
@@ -19125,6 +19288,10 @@
             },
             "nullable": true,
             "type": "array"
+          },
+          "target": {
+            "nullable": true,
+            "type": "string"
           }
         },
         "type": "object"
@@ -21451,6 +21618,27 @@
           "rows": {
             "items": {
               "$ref": "#/components/schemas/OpenTms.Platform.Administration.Maintenance.DatabaseRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "totalCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+        "additionalProperties": false,
+        "properties": {
+          "filteredCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"
             },
             "nullable": true,
             "type": "array"
@@ -38780,6 +38968,112 @@
         },
         "tags": [
           "AddressLookup"
+        ]
+      }
+    },
+    "/api/integrations/administration/service-settings": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.ServiceSettingsDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "ServiceSettingsAdministration"
+        ]
+      },
+      "put": {
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Integrations.ServiceSettings.UpdateServiceSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "ServiceSettingsAdministration"
+        ]
+      }
+    },
+    "/api/integrations/administration/service-settings/test/{service}": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "service",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"
+                  },
+                  "type": "array"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "ServiceSettingsAdministration"
         ]
       }
     },
@@ -91594,6 +91888,76 @@
         ]
       }
     },
+    "/api/platform/administration/maintenance/health/components": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "startRow",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "endRow",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wildcardSearch",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortDir",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Platform.Grid.GridResponse`1[[OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto, OpenTms.Platform.Application.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "MaintenanceAdministration"
+        ]
+      }
+    },
     "/api/platform/administration/maintenance/instances": {
       "get": {
         "parameters": [
@@ -101984,6 +102348,9 @@
     },
     {
       "name": "Routing"
+    },
+    {
+      "name": "ServiceSettingsAdministration"
     },
     {
       "name": "Temperature"

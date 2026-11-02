@@ -169,6 +169,8 @@ Sending rows ignore reports.
 The PO asked for the mail service's key to be configured on the host, applying to every tenant, and for a way to send a
 test mail. Placement: a host-only view **E-mail** in the Administration app (`/admin/email`), next to Maintenance: the
 Administration app is where the host configures the platform, and Maintenance is about running it.
+**Moved (PO 2026-11-02):** the page is now the **E-mail** tab of **Administration → Services** (`/admin/services`, feature
+`Apps.Administration.Services`; docs/designs/maintenance-view.md, "Services").
 
 - **Storage:** ABP global settings in the host database (`Platform.Email.*`, provider `G` only, so no tenant or user can
   override them): server token, From address, From name, track opens, track links, webhook user name and password. The

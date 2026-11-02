@@ -17,8 +17,8 @@ namespace OpenTms.HealthChecks;
 
 /// <summary>
 /// The host's health endpoints as AddOpenTmsHealthChecks maps them (docs/designs/55-report-rendering.md, "Health check":
-/// the pdfgeneratorapi check is tagged "external" and is "not part of /health/ready"; the host also keeps it out of the
-/// polled /health-status). The real endpoint configuration actions run on a bare WebApplication and each endpoint's
+/// the pdfgeneratorapi check is tagged "external" and is "not part of /health/ready"; the polled /health-status runs only
+/// the ready checks, docs/designs/maintenance-view.md, "Components"). The real endpoint configuration actions run on a bare WebApplication and each endpoint's
 /// request delegate is invoked; probe checks record which of them ran. The registration of the pdfgeneratorapi check with
 /// exactly the "external" tag is pinned in PdfGeneratorApiHealthCheckTests. Risk class: High (an outage at an external
 /// provider must not take the API out of rotation).
@@ -93,13 +93,14 @@ public class HealthCheckEndpointTests
     }
 
     [Fact]
-    public async Task The_polled_health_status_runs_everything_except_the_external_checks()
+    public async Task The_polled_health_status_runs_only_the_ready_checks()
     {
+        /* docs/designs/maintenance-view.md, "Components": the other components (tenant databases, outbox, external
+         * services) run in the heartbeat and on demand, never on the health UI's poll. */
         var (status, ran) = await CallAsync("/health-status");
 
         status.ShouldBe(StatusCodes.Status200OK);
-        ran.ShouldBe(["ready-probe", "untagged-probe"], ignoreOrder: true);
-        ran.ShouldNotContain("pdfgeneratorapi");
+        ran.ShouldBe(["ready-probe"]);
     }
 
     [Fact]

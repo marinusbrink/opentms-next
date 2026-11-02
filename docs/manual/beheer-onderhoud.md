@@ -19,7 +19,7 @@ en van waar je bent aangemeld:
 | **Caches** | ja | nee | De applicatiecache van de instantie en de knop **Caches legen**. |
 | **Databases** | ja | nee | Alle databases (de hostdatabase en de database van elke tenant) met grootte en statistieken. |
 | **Outbox** | ja | ja | De wachtende events per database en wat de verzender het laatst heeft gedaan. Een tenant ziet alleen zijn eigen database. |
-| **Gezondheid** | ja | nee | De gezondheidscontroles en gegevens over het proces. |
+| **Gezondheid** | ja | nee | Wat er mis is met welk onderdeel en wat je eraan doet, plus het instantieregister. |
 | **Achtergrondtaken** | ja | nee | De achtergrondtaken (Hangfire): aantallen per status, servers, wachtrijen en de taken zelf. |
 
 Een tabblad waarvoor je geen rechten hebt, zie je niet. Voor tenants staat de hele
@@ -164,17 +164,51 @@ dan alleen voor de host beschikbaar.
 
 ## Gezondheid
 
-Dit tabblad toont het **instantieregister**: elke draaiende (of onlangs gestopte) instantie
-van OpenTMS, van elke rol. Een instantie meldt zich bij de start aan, stuurt elke halve
-minuut een heartbeat met de uitslag van haar gezondheidscontroles, en meldt zich af bij een
-nette afsluiting. Wordt een instantie door het platform hard beëindigd (bij automatisch
-schalen kan dat), dan valt de heartbeat stil en toont het register haar na anderhalve minuut
-als **Reageert niet**.
+Dit tabblad vertelt je of OpenTMS goed draait, en zo niet: **welk onderdeel**, **wat daardoor niet werkt** en **wat
+je eraan doet**.
 
-- De kaarten bovenaan: de gezondheid van de instantie die jouw verzoek beantwoordt
-  (**Gezond**, **Verminderd** of **Ongezond**), het aantal actieve instanties, het aantal dat
-  niet reageert, het aantal gestopte en het heartbeat-interval.
-- De lijst: één regel per instantie.
+### De kaarten
+
+- **Status**: de gezondheid van de instantie die jouw verzoek beantwoordt: **Gezond**, **Verminderd** of **Ongezond**.
+- **Onderdelen**: hoeveel onderdelen aandacht vragen ("2 van 11 onderdelen vragen aandacht"). Staat de status niet op
+  Gezond, dan staat hier waarom.
+- Daarnaast het aantal actieve instanties, het aantal dat niet reageert, het aantal gestopte en het heartbeat-interval.
+
+### Onderdelen
+
+De bovenste lijst toont elk onderdeel waar OpenTMS van afhangt, de problemen bovenaan. De controles draaien live op de
+instantie die jouw verzoek beantwoordt, bij het openen van het tabblad en bij **Vernieuwen**.
+
+| Onderdeel | Soort | Wat er gecontroleerd wordt |
+|---|---|---|
+| **Hostdatabase** | Systeem | Of de hostdatabase antwoordt. Zonder hostdatabase werkt niets. |
+| **Tenantdatabases** | Systeem | Of elke tenant met een eigen database die database kan bereiken. Noemt de tenants die niet antwoorden. |
+| **Achtergrondtaken** | Systeem | Of er een taakserver draait en of er taken zijn mislukt na al hun herhalingen. |
+| **Outbox (gebeurtenissen)** | Systeem | Of een instantie gebeurtenissen aflevert, of de laatste aflevering lukte en of er gebeurtenissen te lang wachten. |
+| **Cache** | Systeem, optioneel | Of meerdere instanties elk een eigen cache hebben (dan bereiken wijzigingen de andere instanties later). |
+| **Live-updates** | Systeem, optioneel | Of schermen live verversen over instanties heen (Redis-backplane). |
+| **Documenten (pdfgeneratorapi)** | Externe dienst | Of documenten gemaakt kunnen worden. |
+| **Routering** | Externe dienst | Of de routeringsserver antwoordt (afstanden, rijtijden, routes). |
+| **Routefunctie (CO₂)** | Externe dienst, optioneel | Of de routefunctie voor CO₂ antwoordt; zonder valt CO₂ terug op een schatting. |
+| **Stopvolgorde (VROOM)** | Externe dienst, optioneel | Of VROOM antwoordt; zonder bepaalt een ingebouwde heuristiek de stopvolgorde. |
+| **E-mail (Postmark)** | Externe dienst | Of Postmark het ingestelde servertoken accepteert. |
+
+Per onderdeel zie je de **Status**, de **Bevinding** (wat er aan de hand is en wat je doet) en **Wat ervan afhangt**.
+Een onderdeel dat **optioneel** is, maakt de status niet slechter zolang het niet is ingesteld: OpenTMS gebruikt dan een
+terugvaloptie.
+
+**Een onderdeel bekijken:** dubbelklik op de regel (of druk op Enter). Je ziet de bevinding met wat je moet doen, wat
+ervan afhangt, de **instellingen** die het onderdeel bepalen (alleen de namen, nooit de waarden, met de bijbehorende
+omgevingsvariabele) en de technische uitslag van de controle met de foutmelding. De externe diensten stel je in bij
+**Beheer → Diensten** (zie [Diensten](beheer-diensten.md)).
+
+### Instanties
+
+De onderste lijst is het **instantieregister**: elke draaiende (of onlangs gestopte) instantie van OpenTMS, van elke
+rol. Een instantie meldt zich bij de start aan, stuurt elke halve minuut een heartbeat met de uitslag van haar
+gezondheidscontroles, en meldt zich af bij een nette afsluiting. Wordt een instantie door het platform hard beëindigd
+(bij automatisch schalen kan dat), dan valt de heartbeat stil en toont het register haar na anderhalve minuut als
+**Reageert niet**.
 
 | Kolom | Betekenis |
 |---|---|
@@ -187,19 +221,14 @@ als **Reageert niet**.
 | **Gestart**, **Laatste heartbeat**, **Gestopt** | De levensloop van de instantie. |
 | **Uptime** | Hoe lang de instantie draait of heeft gedraaid. |
 
-Via **Kolommen** kun je ook de omgeving, het werkgeheugen, het managed geheugen, de
-outbox-verzender en het proces-id tonen. Gestopte en stilgevallen instanties blijven een week
-in de lijst staan en verdwijnen daarna vanzelf.
+Via **Kolommen** kun je ook de omgeving, het werkgeheugen, het managed geheugen, de outbox-verzender en het proces-id
+tonen. Gestopte en stilgevallen instanties blijven een week in de lijst staan en verdwijnen daarna vanzelf.
 
-### Een instantie bekijken
+**Een instantie bekijken:** dubbelklik op een regel. Je ziet onder **Algemeen** de levensloop en het proces (versie,
+omgeving, runtime, geheugen, processors, outbox-verzender) en onder **Gezondheid** de onderdelen van haar laatste
+heartbeat, met hun bevinding.
 
-Dubbelklik op een regel (of druk op Enter). Je ziet dan onder **Algemeen** de levensloop en
-het proces (versie, omgeving, runtime, geheugen, processors, outbox-verzender) en onder
-**Gezondheid** de uitslag van de laatste heartbeat, controle voor controle.
-
-Met **Vernieuwen** haal je de lijst en de gezondheid van deze instantie opnieuw op.
-
-<!-- SCREENSHOT: tabblad Gezondheid met de kaarten en het instantieregister -->
+<!-- SCREENSHOT: tabblad Gezondheid met de kaarten, de onderdelen en het instantieregister -->
 
 ---
 

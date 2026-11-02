@@ -96,6 +96,9 @@ public class PdfGeneratorApiClient
 
     public string DefaultWorkspace => _options.DefaultWorkspace;
 
+    /// <summary>The service's host name, for the health check; never the key or the secret.</summary>
+    public string? Host => Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var uri) ? uri.Host : null;
+
     /// <summary>The host's workspace for the host; the tenant's own workspace for a tenant.</summary>
     public string CurrentWorkspace => _currentTenant.Id is { } tenantId
         ? string.Format(CultureInfo.InvariantCulture, _options.TenantWorkspace, tenantId)

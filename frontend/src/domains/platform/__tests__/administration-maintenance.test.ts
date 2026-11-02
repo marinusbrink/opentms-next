@@ -16,6 +16,8 @@ import { apiClient } from "@/lib/api/client";
 import {
   canDeleteJob,
   canRequeue,
+  componentsNeedingAttention,
+  healthComponentTexts,
   healthStatusKey,
   instanceStatusKey,
   jobStateKey,
@@ -28,6 +30,7 @@ import {
   useDatabasesGridFetcher,
   useDeleteBackgroundJob,
   useDispatchOutbox,
+  useHealthComponentsGridFetcher,
   useInstanceDetail,
   useInstancesGridFetcher,
   useOutboxGridFetcher,
@@ -90,6 +93,53 @@ describe("helpers", () => {
     expect(canRequeue("Succeeded")).toBe(false);
     expect(canDeleteJob("Enqueued")).toBe(true);
     expect(canDeleteJob("Recurring")).toBe(false);
+  });
+});
+
+describe("health components", () => {
+  const texts: Record<string, string> = {
+    "HealthCheck:routing": "Routing ({provider})",
+    "HealthCheck:routing:Impact": "No road distances.",
+    "HealthCheck:routing:Unreachable": "{provider} ({target}) does not answer; {unknown} stays.",
+    "Maintenance:Reason.NotConfigured": "Not configured.",
+  };
+  const t = (key: string) => texts[key] ?? key;
+
+  it("localizes a component by its name and reason and fills the placeholders from its facts", () => {
+    const result = healthComponentTexts(
+      { name: "routing", status: "Unhealthy", reason: "Unreachable", target: "osrm.example", data: { provider: "Osrm" }, description: "raw" },
+      t,
+    );
+
+    expect(result).toEqual({
+      title: "Routing (Osrm)",
+      finding: "Osrm (osrm.example) does not answer; {unknown} stays.",
+      impact: "No road distances.",
+    });
+  });
+
+  it("falls back to the generic reason text, then to the check's own description, and to the raw name", () => {
+    expect(healthComponentTexts({ name: "routing", status: "Degraded", reason: "NotConfigured", data: { provider: "Osrm" } }, t).finding).toBe("Not configured.");
+    const unknown = healthComponentTexts({ name: "legacy", status: "Healthy", description: "Could connect." }, t);
+    expect(unknown).toEqual({ title: "legacy", finding: "Could connect.", impact: null });
+  });
+
+  it("counts every component that is not healthy", () => {
+    expect(componentsNeedingAttention([{ status: "Healthy" }, { status: "Degraded" }, { status: "Unhealthy" }])).toBe(2);
+    expect(componentsNeedingAttention(undefined)).toBe(0);
+  });
+
+  it("pages the components through the server and keys every row by its name", async () => {
+    GET.mockResolvedValue({ data: { rows: [{ name: "routing", status: "Degraded" }], totalCount: 11, filteredCount: 1 }, error: undefined } as never);
+
+    const { result } = renderHook(() => useHealthComponentsGridFetcher(0));
+    const response = await result.current(request({ startRow: 0, endRow: 50, wildcardSearch: "osrm", sortModels: [{ colId: "status", sort: "asc" }] }));
+
+    expect(GET).toHaveBeenCalledWith("/api/platform/administration/maintenance/health/components", {
+      params: { query: { startRow: 0, endRow: 50, wildcardSearch: "osrm", sortBy: "status", sortDir: "asc" } },
+    });
+    expect(response.rows[0]).toMatchObject({ id: "routing", name: "routing" });
+    expect(response.totalCount).toBe(11);
   });
 });
 

@@ -101,7 +101,7 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.Administration.AuditLogs.FunctionalLogbook"] = ("Apps.Administration.AuditLogs", "true"),
         ["Apps.Administration.AuditLogs.TechnicalLogbook"] = ("Apps.Administration.AuditLogs", "true"),
         ["Apps.Administration.Maintenance"] = ("Apps.Administration", "false"),
-        ["Apps.Administration.Email"] = ("Apps.Administration", "false"),
+        ["Apps.Administration.Services"] = ("Apps.Administration", "false"),
     };
 
     [Fact]

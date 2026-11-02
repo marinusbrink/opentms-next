@@ -26,6 +26,8 @@ export type OutboxRowDto = Schemas["OpenTms.Platform.Administration.Maintenance.
 export type OutboxDispatchResult = Schemas["OpenTms.Platform.Administration.Maintenance.OutboxDispatchResultDto"];
 export type HealthReport = Schemas["OpenTms.Platform.Administration.Maintenance.HealthReportDto"];
 export type HealthCheckEntry = Schemas["OpenTms.Platform.Administration.Maintenance.HealthCheckEntryDto"];
+/** A component on the Health tab: one registered check of this instance, keyed by its name. */
+export type HealthComponentRow = HealthCheckEntry & { id: string };
 export type InstancesOverview = Schemas["OpenTms.Platform.Administration.Maintenance.InstancesOverviewDto"];
 export type ApplicationInstanceRow = Schemas["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceRowDto"];
 export type ApplicationInstanceDetail = Schemas["OpenTms.Platform.Administration.Maintenance.ApplicationInstanceDetailDto"];
@@ -67,6 +69,51 @@ export function healthStatusKey(status: string | null | undefined): string {
     default:
       return status ?? "";
   }
+}
+
+/**
+ * Fills `{key}` placeholders from the check's facts; an unknown key stays as written.
+ * DEVIATION(UI-FB-007): named placeholders instead of {0}/{1}: a check's facts are a dictionary whose keys differ per
+ * check and reason, approved in docs/designs/maintenance-view.md, "Components".
+ */
+function fill(text: string, values: Record<string, string>): string {
+  return text.replace(/\{([A-Za-z]+)\}/g, (whole, key: string) => values[key] ?? whole);
+}
+
+export interface HealthComponentTexts {
+  /** The component's name ("Host database"). */
+  title: string;
+  /** What is wrong and what to do, or that it works. */
+  finding: string;
+  /** What stops working while the component is not healthy. */
+  impact: string | null;
+}
+
+/**
+ * The localized texts of a component (docs/designs/maintenance-view.md, "Components"): `HealthCheck:{name}`,
+ * `HealthCheck:{name}:Impact` and `HealthCheck:{name}:{reason}` from the resource of the module that owns the check,
+ * with the generic `Maintenance:Reason.{reason}` and then the check's own description as fallbacks. A check this
+ * frontend does not know yet still shows its name and description.
+ */
+export function healthComponentTexts(entry: HealthCheckEntry, t: (key: string) => string): HealthComponentTexts {
+  const name = entry.name ?? "";
+  const values: Record<string, string> = { ...(entry.data ?? {}), target: entry.target ?? "" };
+  const lookup = (key: string): string | null => {
+    const text = t(key);
+    return text === key ? null : fill(text, values);
+  };
+  const reason = entry.reason ?? null;
+  return {
+    title: lookup(`HealthCheck:${name}`) ?? name,
+    finding:
+      (reason && (lookup(`HealthCheck:${name}:${reason}`) ?? lookup(`Maintenance:Reason.${reason}`))) ?? entry.description ?? "",
+    impact: lookup(`HealthCheck:${name}:Impact`),
+  };
+}
+
+/** How many components need attention: everything that is not Healthy. */
+export function componentsNeedingAttention(entries: HealthCheckEntry[] | null | undefined): number {
+  return (entries ?? []).filter((e) => e.status !== "Healthy").length;
 }
 
 /** States from which Hangfire lets a job be put back in the queue. */
@@ -319,6 +366,31 @@ export function useHealthReport() {
     },
     staleTime: 0,
   });
+}
+
+/** The component grid of the Health tab: this instance's checks, problems first, paged by the server. */
+export function useHealthComponentsGridFetcher(refreshKey = 0): (request: GridRequest) => Promise<GridResponse<HealthComponentRow>> {
+  return useCallback(
+    async (request: GridRequest): Promise<GridResponse<HealthComponentRow>> => {
+      const sortModel = request.sortModels[0];
+      const { data, error } = await apiClient.GET("/api/platform/administration/maintenance/health/components", {
+        params: {
+          query: {
+            startRow: request.startRow,
+            endRow: request.endRow,
+            wildcardSearch: request.wildcardSearch ?? undefined,
+            sortBy: sortModel?.colId,
+            sortDir: sortModel?.sort,
+          },
+        },
+      });
+      if (error) throw error;
+      const response = toGridResponse<HealthCheckEntry>(data);
+      return { ...response, rows: response.rows.map((row) => ({ ...row, id: row.name ?? "" })) };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshKey],
+  );
 }
 
 // ── Instances (the registry on the Health tab) ───────────────────────────────────────

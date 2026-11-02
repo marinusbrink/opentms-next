@@ -57,7 +57,8 @@ public class AppFeatureLocalizationTests
     public void The_constants_name_exactly_75_distinct_features()
     {
         /* 35 nodes up to design 48, plus the Platform domain group and its four lists (design 49), ... 67 up to design 64;
-         * designs 66/68 add the Planboard's eight panes (the app constant itself already existed). */
+         * designs 66/68 add the Planboard's eight panes (the app constant itself already existed); Administration → Services
+         * (maintenance-view, "Services") replaces the E-mail node. */
         var all = AllAppFeatures();
         all.Count.ShouldBe(75);
         all.Distinct().Count().ShouldBe(75);

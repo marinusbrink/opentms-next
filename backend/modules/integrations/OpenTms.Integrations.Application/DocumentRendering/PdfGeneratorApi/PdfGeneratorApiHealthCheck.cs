@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTms.Platform.Maintenance;
 using OpenTms.Platform.DocumentRendering;
 using Volo.Abp;
 
@@ -18,7 +19,10 @@ public class PdfGeneratorApiHealthCheck : IHealthCheck
     public const string Name = "pdfgeneratorapi";
 
     /// <summary>Checks of external services: excluded from the probes and the polled health endpoint.</summary>
-    public const string Tag = "external";
+    public const string Tag = HealthCheckFacts.ExternalTag;
+
+    private static readonly string[] Settings =
+        [$"{PdfGeneratorApiOptions.SectionName}:Key", $"{PdfGeneratorApiOptions.SectionName}:Secret"];
 
     private readonly PdfGeneratorApiClient _client;
 
@@ -31,7 +35,9 @@ public class PdfGeneratorApiHealthCheck : IHealthCheck
     {
         if (!_client.IsConfigured)
         {
-            return HealthCheckResult.Degraded("pdfgeneratorapi: not configured (Integrations:PdfGeneratorApi Key and Secret).");
+            return HealthCheckResult.Degraded(
+                "pdfgeneratorapi: not configured (Integrations:PdfGeneratorApi Key and Secret).",
+                data: HealthCheckFacts.Data(HealthCheckFacts.Reasons.NotConfigured, Settings, _client.Host));
         }
 
         try
@@ -39,12 +45,18 @@ public class PdfGeneratorApiHealthCheck : IHealthCheck
             await _client.SendAsync(
                 HttpMethod.Get, "templates?per_page=1", null, "health", null, RenderCallMode.Interactive, cancellationToken,
                 workspace: _client.DefaultWorkspace);
-            return HealthCheckResult.Healthy("pdfgeneratorapi answered in the default workspace.");
+            return HealthCheckResult.Healthy(
+                "pdfgeneratorapi answered in the default workspace.",
+                HealthCheckFacts.Data(HealthCheckFacts.Reasons.Ok, Settings, _client.Host));
         }
         catch (BusinessException e)
         {
-            var status = e.Data["status"] is { } code ? $"HTTP {code}: " : string.Empty;
-            return HealthCheckResult.Unhealthy($"pdfgeneratorapi: {status}{e.Data["message"]}");
+            /* An HTTP status means the service answered and refused (credentials, workspace, quota); none means it was not reached. */
+            var answered = e.Data["status"] is not null;
+            var status = answered ? $"HTTP {e.Data["status"]}: " : string.Empty;
+            return HealthCheckResult.Unhealthy(
+                $"pdfgeneratorapi: {status}{e.Data["message"]}",
+                data: HealthCheckFacts.Data(answered ? HealthCheckFacts.Reasons.Failing : HealthCheckFacts.Reasons.Unreachable, Settings, _client.Host));
         }
     }
 }

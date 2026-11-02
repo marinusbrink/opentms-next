@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using OpenTms.Platform.Events.Outbox;
+using OpenTms.Platform.Grid;
 using OpenTms.Platform.Maintenance.Health;
 using OpenTms.Platform.Permissions;
 using Volo.Abp;
@@ -44,15 +46,7 @@ public class HealthMaintenanceAppService : MaintenanceAppServiceBase, IHealthMai
         {
             Status = report.Status,
             TotalDurationMilliseconds = report.TotalDuration.TotalMilliseconds,
-            Entries = report.Entries.Select(e => new HealthCheckEntryDto
-            {
-                Name = e.Name,
-                Status = e.Status,
-                Description = e.Description,
-                DurationMilliseconds = e.Duration.TotalMilliseconds,
-                Tags = e.Tags.ToList(),
-                Error = e.Error
-            }).ToList(),
+            Entries = HealthCheckEntryMapper.ProblemsFirst(report.Entries.Select(HealthCheckEntryMapper.ToDto)).ToList(),
             Process = new ProcessInfoDto
             {
                 ApplicationName = hostEnvironment?.ApplicationName ?? entryAssembly?.GetName().Name ?? string.Empty,
@@ -70,5 +64,35 @@ public class HealthMaintenanceAppService : MaintenanceAppServiceBase, IHealthMai
                 OutboxDispatchEnabled = _outboxOptions.DispatchEnabled
             }
         };
+    }
+
+    public async Task<GridResponse<HealthCheckEntryDto>> GetComponentsAsync(GridRequest request)
+    {
+        EnsureHostSide();
+        /* One row per registered check, so the list is small and fixed: paged in memory, problems first. */
+        var report = await _healthReportProvider.GetReportAsync();
+        IReadOnlyList<HealthCheckEntryDto> all = HealthCheckEntryMapper.ProblemsFirst(report.Entries.Select(HealthCheckEntryMapper.ToDto)).ToList();
+
+        IReadOnlyList<HealthCheckEntryDto> filtered = all;
+        if (!string.IsNullOrWhiteSpace(request.WildcardSearch))
+        {
+            var search = request.WildcardSearch.Trim();
+            filtered = all.Where(e => Matches(e.Name, search) || Matches(e.Target, search) || Matches(e.Description, search)).ToList();
+        }
+
+        var sort = request.SortModels.FirstOrDefault();
+        if (sort != null)
+        {
+            filtered = sort.ColId switch
+            {
+                "status" => Sort(filtered, e => HealthCheckEntryMapper.StatusOrder(e.Status), sort.Sort),
+                "name" => Sort(filtered, e => e.Name, sort.Sort),
+                "area" => Sort(filtered, e => e.Area, sort.Sort),
+                "durationMilliseconds" => Sort(filtered, e => e.DurationMilliseconds, sort.Sort),
+                _ => filtered
+            };
+        }
+
+        return Page(all, filtered, request);
     }
 }

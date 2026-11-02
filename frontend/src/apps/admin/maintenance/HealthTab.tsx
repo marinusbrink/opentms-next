@@ -4,25 +4,31 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
-import { BoolCell, BytesCell, TimestampCell } from "@/components/ui/grid-cells";
+import { BoolCell, BytesCell, NumberCell, TimestampCell } from "@/components/ui/grid-cells";
 import type { GridRowAction } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
+import { ComponentDetailDialog } from "@/apps/admin/components/ComponentDetailDialog";
 import { InstanceDetailDialog } from "@/apps/admin/components/InstanceDetailDialog";
 import { StatCards, type StatCard } from "@/apps/admin/components/StatCards";
 import {
+  componentsNeedingAttention,
+  healthComponentTexts,
   healthStatusKey,
   instanceStatusKey,
   timeSpanToSeconds,
+  useHealthComponentsGridFetcher,
   useHealthReport,
   useInstancesGridFetcher,
   useInstancesOverview,
   type ApplicationInstanceRow,
+  type HealthComponentRow,
 } from "@/domains/platform/administration-maintenance";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 export const INSTANCES_GRID_ID = "platform.maintenance.instances";
+export const COMPONENTS_GRID_ID = "platform.maintenance.healthComponents";
 
 /* Status colours by tone token (UI-TOK-005). */
 const statusClassRules: CellClassRules<ApplicationInstanceRow> = {
@@ -33,6 +39,15 @@ const healthClassRules: CellClassRules<ApplicationInstanceRow> = {
   "text-destructive": (params) => params.data?.healthStatus === "Unhealthy",
   "text-tone-warning": (params) => params.data?.healthStatus === "Degraded",
 };
+const componentClassRules: CellClassRules<HealthComponentRow> = {
+  "text-destructive": (params) => params.data?.status === "Unhealthy",
+  "text-tone-warning": (params) => params.data?.status === "Degraded",
+};
+
+/* "System" or "External service", with "Optional" when the system works without the component. */
+function areaLabel(row: HealthComponentRow, t: (key: string) => string): string {
+  return [t(`Maintenance:Area.${row.area || "Core"}`), row.isOptional ? t("Maintenance:Optional") : null].filter(Boolean).join(" · ");
+}
 
 function toneOf(status: string | null | undefined): StatCard["tone"] {
   if (status === "Unhealthy") return "destructive";
@@ -40,9 +55,10 @@ function toneOf(status: string | null | undefined): StatCard["tone"] {
   return "default";
 }
 
-/* The Health tab: the instance registry (every instance of every role: born, alive, dying) as a
- * grid, with this instance's live health in the cards. Opening a row shows that instance's last
- * health result and process facts. */
+/* The Health tab (docs/designs/maintenance-view.md, "Components"): this instance's live status in the cards, with
+ * how many components need attention; the components grid (every registered check, problems first: what is wrong,
+ * what depends on it, what to do); and the instance registry (every instance of every role: born, alive, dying).
+ * Opening a component shows its settings and technical result; opening an instance shows its last heartbeat. */
 export function HealthTab() {
   const { t } = useL();
   const f = useFormat();
@@ -50,8 +66,10 @@ export function HealthTab() {
   const overview = useInstancesOverview();
   const [refreshKey, setRefreshKey] = useState(0);
   const [openId, setOpenId] = useState<string | undefined>();
+  const [openComponent, setOpenComponent] = useState<HealthComponentRow | undefined>();
 
   const fetchRows = useInstancesGridFetcher(refreshKey);
+  const fetchComponents = useHealthComponentsGridFetcher(refreshKey);
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -72,6 +90,14 @@ export function HealthTab() {
     [openRecord],
   );
 
+  const openComponentRecord = useCallback((row: HealthComponentRow) => setOpenComponent(row), []);
+
+  const componentRowActions = useCallback(
+    (rows: HealthComponentRow[]): GridRowAction[] =>
+      rows.length === 1 ? [{ id: "open", labelKey: "Open", icon: FileSearch, onClick: () => openComponentRecord(rows[0]) }] : [],
+    [openComponentRecord],
+  );
+
   const data = report.data;
   const fleet = overview.data;
   const silence = f.durationSeconds(timeSpanToSeconds(fleet?.unresponsiveAfter));
@@ -79,7 +105,19 @@ export function HealthTab() {
   const cards = useMemo<StatCard[]>(() => {
     const cards: StatCard[] = [];
     if (data) {
-      cards.push({ id: "status", label: t("Maintenance:Status"), value: t(healthStatusKey(data.status)), tone: toneOf(data.status) });
+      const total = data.entries?.length ?? 0;
+      const attention = componentsNeedingAttention(data.entries);
+      cards.push(
+        { id: "status", label: t("Maintenance:Status"), value: t(healthStatusKey(data.status)), tone: toneOf(data.status) },
+        {
+          id: "components",
+          label: t("Maintenance:Components"),
+          value: attention
+            ? t("Maintenance:Component.Attention").replace("{0}", f.number(attention)).replace("{1}", f.number(total))
+            : t("Maintenance:Component.AllHealthy").replace("{0}", f.number(total)),
+          tone: toneOf(data.status),
+        },
+      );
     }
     if (fleet) {
       cards.push(
@@ -96,6 +134,79 @@ export function HealthTab() {
     }
     return cards;
   }, [data, fleet, t, f]);
+
+  const componentColumnDefs = useMemo<ColDef<HealthComponentRow>[]>(
+    () => [
+      {
+        colId: "status",
+        field: "status",
+        headerName: t("Maintenance:Status"),
+        valueGetter: (params) => (params.data ? t(healthStatusKey(params.data.status)) : ""),
+        cellClassRules: componentClassRules,
+        sortable: true,
+        filter: false,
+        minWidth: 110,
+      },
+      {
+        colId: "name",
+        headerName: t("Maintenance:Component"),
+        valueGetter: (params) => (params.data ? healthComponentTexts(params.data, t).title : ""),
+        sortable: true,
+        filter: false,
+        minWidth: 180,
+      },
+      {
+        colId: "area",
+        headerName: t("Maintenance:Area"),
+        valueGetter: (params) => (params.data ? areaLabel(params.data, t) : ""),
+        sortable: true,
+        filter: false,
+        minWidth: 130,
+      },
+      {
+        colId: "finding",
+        headerName: t("Maintenance:Finding"),
+        valueGetter: (params) => (params.data ? healthComponentTexts(params.data, t).finding : ""),
+        tooltipValueGetter: (params) => (params.data ? healthComponentTexts(params.data, t).finding : ""),
+        sortable: false,
+        filter: false,
+        flex: 3,
+        minWidth: 280,
+      },
+      {
+        colId: "impact",
+        headerName: t("Maintenance:Impact"),
+        valueGetter: (params) => (params.data ? (healthComponentTexts(params.data, t).impact ?? "") : ""),
+        tooltipValueGetter: (params) => (params.data ? (healthComponentTexts(params.data, t).impact ?? "") : ""),
+        sortable: false,
+        filter: false,
+        flex: 2,
+        minWidth: 220,
+      },
+      { field: "target", headerName: t("Maintenance:Target"), sortable: false, filter: false, minWidth: 160 },
+      {
+        colId: "settings",
+        headerName: t("Maintenance:Settings"),
+        valueGetter: (params) => (params.data?.settings ?? []).join(", "),
+        sortable: false,
+        filter: false,
+        minWidth: 200,
+        hide: true,
+      },
+      { field: "error", headerName: t("Maintenance:Error"), sortable: false, filter: false, minWidth: 200, hide: true },
+      {
+        field: "durationMilliseconds",
+        headerName: t("Maintenance:Duration"),
+        cellRenderer: NumberCell,
+        type: "rightAligned",
+        sortable: true,
+        filter: false,
+        minWidth: 100,
+        hide: true,
+      },
+    ],
+    [t],
+  );
 
   const columnDefs = useMemo<ColDef<ApplicationInstanceRow>[]>(
     () => [
@@ -160,20 +271,40 @@ export function HealthTab() {
             <AlertDescription>{t("Maintenance:Instance.RegistryOff")}</AlertDescription>
           </Alert>
         )}
-        {fleet && <p className="text-label text-muted-foreground">{t("Maintenance:Instance.Notice").replace("{0}", silence)}</p>}
+        {data && (
+          <p className="text-label text-muted-foreground">{t("Maintenance:Component.Notice").replace("{0}", data.process?.machineName ?? "")}</p>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 px-6 pb-6">
-        <LazyOpenTmsGrid<ApplicationInstanceRow>
-          gridId={INSTANCES_GRID_ID}
-          columnDefs={columnDefs}
-          fetchRows={fetchRows}
-          onOpen={openRecord}
-          rowActions={rowActions}
-        />
+      {/* DEVIATION(UI-PAGE-001): two grids share the tab (components above instances; both are bounded lists of the same
+          report), approved in docs/designs/maintenance-view.md, "Components". */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-6">
+        <section aria-label={t("Maintenance:Components")} className="flex min-h-0 flex-1 flex-col">
+          <LazyOpenTmsGrid<HealthComponentRow>
+            gridId={COMPONENTS_GRID_ID}
+            columnDefs={componentColumnDefs}
+            fetchRows={fetchComponents}
+            onOpen={openComponentRecord}
+            rowActions={componentRowActions}
+          />
+        </section>
+
+        {fleet && <p className="text-label text-muted-foreground">{t("Maintenance:Instance.Notice").replace("{0}", silence)}</p>}
+        <section aria-label={t("Maintenance:Instances")} className="flex min-h-0 flex-1 flex-col">
+          <LazyOpenTmsGrid<ApplicationInstanceRow>
+            gridId={INSTANCES_GRID_ID}
+            columnDefs={columnDefs}
+            fetchRows={fetchRows}
+            onOpen={openRecord}
+            rowActions={rowActions}
+          />
+        </section>
       </div>
 
       {openId && <InstanceDetailDialog key={openId} instanceId={openId} open onClose={() => setOpenId(undefined)} />}
+      {openComponent && (
+        <ComponentDetailDialog key={openComponent.id} entry={openComponent} open onClose={() => setOpenComponent(undefined)} />
+      )}
     </div>
   );
 }
