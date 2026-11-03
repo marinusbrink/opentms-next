@@ -676,7 +676,7 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
     satisfied because every order-intake screen and service also requires the tenant feature `Integrations.OrderIntake`,
     which stays off by default. Routes `/integrations/received`, `/integrations/mailboxes`, `/integrations/api-clients`,
     `/integrations/import-profiles`, `/integrations/intake-settings`; the group path `/integrations/intake` only
-    redirects. `Apps.MasterData.Integrations*` and `Apps.Integrations.Received` are gone (never released). The old
+    redirects. `Apps.MasterData.Integrations*` and `Apps.Integrations.Received` are gone (they reached staging and production with PR #66 but default on under a flag that was off; stored values for the old names are simply ignored). The old
     `/master-data/integrations/…` addresses redirect to the same list with their search, so a mailbox OAuth return to the
     old address still lands. The mailbox OAuth return address (`MailboxOAuthUrls.MailboxesPagePath`) is
     `integrations/mailboxes`; the Mailboxes, API clients, Import profiles and order-intake settings services require
