@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
+using OpenTms.Integrations.OrderIntake.Ai;
+using OpenTms.Integrations.OrderIntake.Channels;
 using OpenTms.Integrations.Routing;
 using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.DependencyInjection;
@@ -122,7 +124,11 @@ public class ServiceSettingsOverlay
 }
 
 /// <summary>Lays the stored service settings over the configuration; an absent setting keeps the configured value.</summary>
-public class ServiceSettingsPostConfigure : IPostConfigureOptions<PdfGeneratorApiOptions>, IPostConfigureOptions<RoutingIntegrationOptions>
+public class ServiceSettingsPostConfigure :
+    IPostConfigureOptions<PdfGeneratorApiOptions>,
+    IPostConfigureOptions<RoutingIntegrationOptions>,
+    IPostConfigureOptions<OrderIntakeAiOptions>,
+    IPostConfigureOptions<MailOAuthOptions>
 {
     private readonly ServiceSettingsOverlay _overlay;
 
@@ -145,6 +151,23 @@ public class ServiceSettingsPostConfigure : IPostConfigureOptions<PdfGeneratorAp
         options.RouteFunction.BaseUrl = _overlay.Get(ServiceSettingNames.Routing.RouteFunctionBaseUrl) ?? options.RouteFunction.BaseUrl;
         options.RouteFunction.ApiKey = _overlay.Get(ServiceSettingNames.Routing.RouteFunctionApiKey) ?? options.RouteFunction.ApiKey;
         options.Vroom.BaseUrl = _overlay.Get(ServiceSettingNames.Routing.VroomBaseUrl) ?? options.Vroom.BaseUrl;
+    }
+
+    /* Design 72: the Integrations tab. */
+
+    public void PostConfigure(string? name, OrderIntakeAiOptions options)
+    {
+        options.ApiKey = _overlay.Get(ServiceSettingNames.Ai.ApiKey) ?? options.ApiKey;
+        options.LearningModel = _overlay.Get(ServiceSettingNames.Ai.LearningModel) ?? options.LearningModel;
+        options.ExtractionModel = _overlay.Get(ServiceSettingNames.Ai.ExtractionModel) ?? options.ExtractionModel;
+    }
+
+    public void PostConfigure(string? name, MailOAuthOptions options)
+    {
+        options.Google.ClientId = _overlay.Get(ServiceSettingNames.Google.ClientId) ?? options.Google.ClientId;
+        options.Google.ClientSecret = _overlay.Get(ServiceSettingNames.Google.ClientSecret) ?? options.Google.ClientSecret;
+        options.Microsoft.ClientId = _overlay.Get(ServiceSettingNames.Microsoft.ClientId) ?? options.Microsoft.ClientId;
+        options.Microsoft.ClientSecret = _overlay.Get(ServiceSettingNames.Microsoft.ClientSecret) ?? options.Microsoft.ClientSecret;
     }
 }
 
