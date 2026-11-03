@@ -72,6 +72,11 @@ public class OpenTmsEntityFrameworkCoreTestModule : AbpModule
 
         ConfigureInMemorySqlite(context.Services);
 
+        /* Design 72: the mailbox OAuth state is data-protected; the host registers data protection, the test process has no
+         * host, so an ephemeral key ring stands in (TryAdd: a module that registers its own wins). */
+        context.Services.TryAddSingleton<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(
+            new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider());
+
         /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
         Configure<DerivedValueOptions>(DerivedValueProbe.Register);
 

@@ -63,6 +63,10 @@ public class OpenTmsPostgreSqlTestModule : AbpModule
 
         context.Services.AddLogging(logging => logging.AddProvider(new CapturingLoggerProvider()));
 
+        /* Design 72: the mailbox OAuth state is data-protected; the host registers data protection, this process has no host. */
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(
+            context.Services, new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider());
+
         /* Design 49: the probe target type with its calculator (DerivedValues/DerivedValueProbes.cs). */
         Configure<DerivedValueOptions>(DerivedValueProbe.Register);
 
