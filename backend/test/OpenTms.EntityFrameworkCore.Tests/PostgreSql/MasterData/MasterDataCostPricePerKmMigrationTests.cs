@@ -34,13 +34,15 @@ public class MasterDataCostPricePerKmMigrationTests : MasterDataPostgreSqlTestBa
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_migration_is_applied_last_and_the_columns_are_numeric_18_4_and_nullable(string? tenant)
+    public async Task The_migration_is_applied_before_the_design_72_index_and_the_columns_are_numeric_18_4_and_nullable(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await _contextProvider.GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-            applied.Last().ShouldBe(Migration);
+            /* Design 72 adds the Relations (TenantId, Email) index right after it, the newest Master Data migration. */
+            applied.IndexOf(MasterDataRelationEmailIndexMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
+            applied.Last().ShouldBe(MasterDataRelationEmailIndexMigrationTests.Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse();

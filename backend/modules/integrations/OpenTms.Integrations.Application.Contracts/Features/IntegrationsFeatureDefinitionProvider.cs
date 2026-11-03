@@ -16,6 +16,19 @@ public class IntegrationsFeatureDefinitionProvider : FeatureDefinitionProvider
             displayName: L("Feature:AddressLookup"),
             description: L("Feature:AddressLookup.Description"),
             valueType: new ToggleStringValueType());
+        /* Design 72: order intake and, beneath it, AI mapping; both off until a tenant switches them on (rule 4). */
+        var orderIntake = group.AddFeature(
+            IntegrationsFeatures.OrderIntake,
+            defaultValue: "false",
+            displayName: L("Feature:OrderIntake"),
+            description: L("Feature:OrderIntake.Description"),
+            valueType: new ToggleStringValueType());
+        orderIntake.CreateChild(
+            IntegrationsFeatures.OrderIntakeAiMapping,
+            defaultValue: "false",
+            displayName: L("Feature:OrderIntake.AiMapping"),
+            description: L("Feature:OrderIntake.AiMapping.Description"),
+            valueType: new ToggleStringValueType());
     }
 
     private static LocalizableString L(string name) => LocalizableString.Create<IntegrationsResource>(name);

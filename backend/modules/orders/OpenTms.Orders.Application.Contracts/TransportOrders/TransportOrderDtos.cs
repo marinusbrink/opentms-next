@@ -499,6 +499,10 @@ public class TransportOrderDto : ReferenceDataDetailDtoBase
     public OrderSource Source { get; set; }
     public decimal? DraftConfidence { get; set; }
     public Guid? SourceTemplateId { get; set; }
+    /// <summary>The order intake the order was created from (design 72); the order page links it and its trace.</summary>
+    public Guid? SourceIntakeId { get; set; }
+    /// <summary>A Draft from an intake was changed before it was confirmed (design 72 "Activation").</summary>
+    public bool EditedAfterIntake { get; set; }
     public int CopyIndex { get; set; }
     public TransportOrderFinancialTermsDto FinancialTerms { get; set; } = new();
     public TransportOrderTripRequestDto? TripRequest { get; set; }

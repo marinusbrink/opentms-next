@@ -30,6 +30,7 @@ Dates are the session in which the PO decided. "Detail" names the file that expl
 | AD-19 | The logistics operating system is a **separate app** in the app bar, named **LOS**: it runs the planning department through AI agents and workflows. It replaces the working name "Steering". The old "LOS" in the domain map's Reporting row is retired. | 2026-10-10 | No | `06`, `/CLAUDE.md` |
 | AD-20 | Platform owns the e-mail send log and its delivery status (was AO-12 for e-mail). The mail-service adapter and its webhook live in Integrations. | 2026-10-30 | Yes (design 64) | `07`, `05` |
 | AD-20 | Allocated values (cost, revenue, CO₂ per leg) are stored on Planning & Execution's legs as derived values written by a Planning calculator that reads Financial's published rate-line contract; anchors of rate lines are ids without foreign keys. Closes AO-11 (PO 2026-10-25, transport assessment Q1). | 2026-10-25 | Design 56–59 (this PR) | `04`, design 56 |
+| AD-21 | The language-model vendor is **Anthropic** (closes AO-05). Models are chosen per purpose in the host settings (Administration → Services → Integrations); calls go through a vendor abstraction so more vendors (the cheapest per purpose) can follow as a configuration and adapter change. | 2026-11-03 | Yes (design 72) | `05`, `06`, design 72 |
 
 ## Proposed, not confirmed by the PO (AP)
 
@@ -65,7 +66,7 @@ A design that depends on one of these reports it on the issue and stops.
 | AO-02 | Which domain owns policies, autonomy levels, exceptions and decision records. None in the domain map does. | `06` |
 | AO-03 | The change to module boundary rule 2 in `/CLAUDE.md` (distributed events through the outbox next to the local event bus). **Decided by the PO on 2026-10-10 by instructing the build; takes effect when PR #33 merges.** | `03` |
 | AO-04 | New apps in the app list: ~~Steering~~ (decided: the LOS app, AD-19) and Chat. | `06` |
-| AO-05 | Which language-model vendor and models. | `05` |
+| AO-05 | ~~Which language-model vendor and models.~~ **Decided: Anthropic (AD-21, 2026-11-03).** | `05` |
 | AO-06 | Which connection pooler: PgBouncer on a small VM, or Cloud SQL's managed pooling (Enterprise Plus edition). | `04` |
 | AO-07 | Making the outbox dispatcher fit for 500–1,000 tenants: sweep and signals apart, several tenants at a time, batches, a cross-process signal and lock. | `03` |
 | AO-08 | Cloud Tasks instead of Hangfire for one-off work. | `05` |

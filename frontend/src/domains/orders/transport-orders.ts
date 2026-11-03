@@ -93,6 +93,8 @@ export const ORDER_SOURCES: { value: OrderSource; key: string }[] = [
   { value: 2, key: "Orders:OrderSource.Template" },
   { value: 3, key: "Orders:OrderSource.Agent" },
   { value: 4, key: "Orders:OrderSource.Api" },
+  /* Design 72: mail and documents through the import pipeline. */
+  { value: 5, key: "Orders:OrderSource.Import" },
 ];
 
 export const MEASUREMENT_KINDS: { value: MeasurementKind; key: string }[] = [

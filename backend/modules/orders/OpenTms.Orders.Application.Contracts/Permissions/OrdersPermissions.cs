@@ -82,6 +82,15 @@ public static class OrdersPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    /// <summary>Design 72: the order intake queue of the Transport app (tenant side).</summary>
+    public static class OrderIntakes
+    {
+        public const string Default = GroupName + ".OrderIntakes";
+        /// <summary>Resolve intakes and create their orders; delete learned aliases.</summary>
+        public const string Resolve = Default + ".Resolve";
+        public const string Reject = Default + ".Reject";
+    }
+
     /// <summary>Every permission name of the module, for the definition and localization tests.</summary>
     public static readonly string[] All =
     [
@@ -93,6 +102,7 @@ public static class OrdersPermissions
         TransportOrderTemplates.Default, TransportOrderTemplates.Create, TransportOrderTemplates.Update, TransportOrderTemplates.Delete,
         ConsignmentNoteProfiles.Default, ConsignmentNoteProfiles.Create, ConsignmentNoteProfiles.Update, ConsignmentNoteProfiles.Delete,
         ConsignmentNoteFixedDescriptions.Default, ConsignmentNoteFixedDescriptions.Create, ConsignmentNoteFixedDescriptions.Update, ConsignmentNoteFixedDescriptions.Delete,
-        OrderAttributeDefinitions.Default, OrderAttributeDefinitions.Create, OrderAttributeDefinitions.Update, OrderAttributeDefinitions.Delete
+        OrderAttributeDefinitions.Default, OrderAttributeDefinitions.Create, OrderAttributeDefinitions.Update, OrderAttributeDefinitions.Delete,
+        OrderIntakes.Default, OrderIntakes.Resolve, OrderIntakes.Reject
     ];
 }

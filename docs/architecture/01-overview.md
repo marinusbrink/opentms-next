@@ -135,7 +135,7 @@ connections it is: who sends what to whom.
 | Documents in Cloud Storage | Blobs leave the database; browser fetches via signed URL | **DECIDED**, not built: `BlobStoring.Database` is still wired | Platform |
 | Connection pooler in front of PostgreSQL | Keeps connections bounded with a database per tenant | **OPEN** which one | infrastructure |
 | Ingest service | Records facts reported from outside | **DECIDED**, not built | Ingest role; adapters **PROPOSED** in Integrations |
-| Boundary agents | Email/PDF/photo → command | **DECIDED**, not built | Agents role |
+| Boundary agents | Email/PDF/photo → command | **BUILT** for transport orders from mailboxes and the intake API (design 72); carrier invoices and POD not built | Integrations (pipeline, as Hangfire jobs until the Agents role exists); Orders (intake) |
 | Decision agents, policies, autonomy ladder, exception inbox | The operating system, the **LOS** app (AD-19) | **DECIDED** as concept, not built; no domain owns its records yet (**OPEN**, AO-02) | — |
 | MCP server and in-app chat | TMS as a source in AI platforms; chat inside the TMS | **PROPOSED** | Api role |
 | Metering of agent runs | Token cost per tenant and agent | **PROPOSED** | Platform |

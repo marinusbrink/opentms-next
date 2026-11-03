@@ -204,6 +204,7 @@ const initialValuesFor =
     initialRoles: number | undefined,
     defaultCountry: { id: string; timeZoneId: string | null } | null,
     defaultCurrencyId: string | null,
+    initialAddress?: { street: string; houseNumber: string; postalCode: string; city: string; countryId: string | null } | null,
   ) =>
   (dto: RelationDto | undefined): Values => {
     const stored = dto?.addresses ?? [];
@@ -250,6 +251,16 @@ const initialValuesFor =
             key: DEFAULT_KEY,
             countryId: dto ? null : (defaultCountry?.id ?? null),
             timeZoneId: dto ? null : (defaultCountry?.timeZoneId ?? null),
+            /* Create from a picker that knows an address (design 72: the intake review's "Add new …"). */
+            ...(!dto && initialAddress
+              ? {
+                  street: initialAddress.street,
+                  houseNumber: initialAddress.houseNumber,
+                  postalCode: initialAddress.postalCode,
+                  city: initialAddress.city,
+                  ...(initialAddress.countryId && initialAddress.countryId !== defaultCountry?.id ? { countryId: initialAddress.countryId, timeZoneId: null } : {}),
+                }
+              : {}),
           },
       addresses: stored
         .filter((a) => Boolean(a.addressTypeId))
@@ -348,6 +359,18 @@ export interface RelationEditorProps extends EntityEditorProps {
   /** Edit mode: opens the contact person dialog for a new contact person with this name once the relation has loaded
    *  (a contact-person picker's "Add new …", UI-LOOK-004); the relation's Save stores it. */
   newContactPersonName?: string;
+  /** Create mode: the default address a new relation starts with (design 72: the intake review's "Add new …" passes
+   *  the received address). The country is matched on its ISO code; an unknown code keeps the default country. */
+  initialAddress?: RelationInitialAddress;
+}
+
+/** An address a new relation starts with (create mode only). */
+export interface RelationInitialAddress {
+  street?: string | null;
+  houseNumber?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+  countryCode?: string | null;
 }
 
 /** A typed name as a new contact person: the first word the first name, the rest the last name (one word: the last name). */
@@ -367,6 +390,7 @@ export function RelationEditor({
   initialRoles,
   initialTab,
   newContactPersonName,
+  initialAddress,
 }: RelationEditorProps) {
   const { t } = useL();
   const queryClient = useQueryClient();
@@ -376,6 +400,19 @@ export function RelationEditor({
   const defaultCountryZone = defaultCountry.data?.primaryTimeZoneId ?? null;
   const defaultCurrency = useDefaultCurrency(open);
   const defaultCurrencyId = defaultCurrency.data?.id ?? null;
+  /* The received country code of an initial address, as a country id (the countries' lookup code is the ISO code). */
+  const initialCountryCode = mode === "create" ? initialAddress?.countryCode?.trim().toUpperCase() || null : null;
+  const initialCountryLookup = countries.useLookup(open && initialCountryCode != null);
+  const initialAddressKey =
+    mode === "create" && initialAddress
+      ? JSON.stringify({
+          street: initialAddress.street?.trim() ?? "",
+          houseNumber: initialAddress.houseNumber?.trim() ?? "",
+          postalCode: initialAddress.postalCode?.trim() ?? "",
+          city: initialAddress.city?.trim() ?? "",
+          countryId: initialCountryCode ? ((initialCountryLookup.data ?? []).find((c) => c.code?.toUpperCase() === initialCountryCode)?.id ?? null) : null,
+        })
+      : null;
   const initialValues = useMemo(
     () =>
       initialValuesFor(
@@ -385,13 +422,14 @@ export function RelationEditor({
           ? { id: defaultCountryId, timeZoneId: defaultCountryZone }
           : null,
         defaultCurrencyId,
+        initialAddressKey ? JSON.parse(initialAddressKey) : null,
       ),
-    [initialName, initialRoles, defaultCountryId, defaultCountryZone, defaultCurrencyId],
+    [initialName, initialRoles, defaultCountryId, defaultCountryZone, defaultCurrencyId, initialAddressKey],
   );
   /* A new relation waits for the default country (cached after the first open) so its initial values hold it. */
   const ready =
     mode !== "create" ||
-    (defaultCountry.isFetched && defaultCurrency.isFetched);
+    (defaultCountry.isFetched && defaultCurrency.isFetched && (initialCountryCode == null || !initialCountryLookup.isLoading));
   const create = relations.useCreate();
   const update = relations.useUpdate();
   const remove = relations.useDelete();

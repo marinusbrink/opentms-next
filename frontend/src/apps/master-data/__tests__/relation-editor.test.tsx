@@ -854,6 +854,49 @@ describe("RelationEditor — opened by a picker", () => {
     expect(postedBody()).toEqual(expect.objectContaining({ code: "ZT", name: "Zeeland Transport", roles: 1 }));
   });
 
+  /* Design 72 "Review": the intake review's "Add new …" on a stop's address opens a new relation prefilled with the
+   * received address (initialAddress, create mode only; the country matched on its ISO code). */
+  it("initialAddress: a new relation starts with the received address in its default address, the country matched by ISO code, and posts it", async () => {
+    defaultCountry = NL_DEFAULT;
+    renderEditor({ initialName: "Berlin depot", initialRoles: 1, initialAddress: { street: " Station street ", houseNumber: "12", postalCode: "10115", city: "Berlin", countryCode: "de" } });
+    await waitForLookups();
+    const editor = editorDialog();
+    expect(checkbox("MasterData:AllAddressesEqual")).toBeChecked();
+    expect(field(editor, "MasterData:Street").value).toBe("Station street");
+    expect(field(editor, "MasterData:Nr").value).toBe("12");
+    expect(field(editor, "MasterData:PostalCode").value).toBe("10115");
+    expect(field(editor, "MasterData:City").value).toBe("Berlin");
+    expect(field(editor, "MasterData:Country").value).toBe("c-2");
+
+    typeInto(editor, "MasterData:Code", "BD");
+    await submitEditor();
+    await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+    expect(postedBody().addresses).toEqual([expect.objectContaining({ addressTypeId: null, countryId: "c-2", street: "Station street", houseNumber: "12", postalCode: "10115", city: "Berlin" })]);
+  });
+
+  it("initialAddress: an unknown country code keeps the tenant's default country; an address without a country code too", async () => {
+    defaultCountry = NL_DEFAULT;
+    const { unmount } = renderEditor({ initialAddress: { street: "Dam", houseNumber: "1", postalCode: "1012 AB", city: "Amsterdam", countryCode: "XX" } });
+    await waitForLookups();
+    expect(field(editorDialog(), "MasterData:Country").value).toBe("c-1");
+    expect(field(editorDialog(), "MasterData:Street").value).toBe("Dam");
+    unmount();
+
+    renderEditor({ initialAddress: { street: "Dam", houseNumber: null, postalCode: "1012 AB", city: "Amsterdam", countryCode: null } });
+    await waitForLookups();
+    expect(field(editorDialog(), "MasterData:Country").value).toBe("c-1");
+    expect(field(editorDialog(), "MasterData:Nr").value).toBe("");
+    expect(field(editorDialog(), "MasterData:City").value).toBe("Amsterdam");
+  });
+
+  it("initialAddress is ignored in edit mode: the stored addresses show unchanged", async () => {
+    detail = { ...stored, addresses: [defaultAddress] };
+    renderEditor({ mode: "edit", id: "r1", initialAddress: { street: "Dam", houseNumber: "1", postalCode: "1012 AB", city: "Amsterdam", countryCode: "NL" } });
+    await waitFor(() => expect(field(editorDialog(), "MasterData:Street").value).toBe("Station street"));
+    expect(field(editorDialog(), "MasterData:City").value).toBe("Berlin");
+    expect(field(editorDialog(), "MasterData:Country").value).toBe("c-2");
+  });
+
   it("opens on the tab it is given (initialTab)", async () => {
     renderEditor({ mode: "edit", id: "r1", initialTab: "contactPersons" });
     await waitFor(() => expect(screen.getByText("MasterData:NewContactPerson")).toBeVisible());

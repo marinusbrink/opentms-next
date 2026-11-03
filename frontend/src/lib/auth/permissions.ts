@@ -23,6 +23,15 @@ export function useIsFeatureEnabled(name: string): boolean {
   return values?.[name] === "true";
 }
 
+/** A feature's state for a screen that is hidden behind it (UI-PERM-006): "loading" until the configuration is known, so
+ *  the screen never flashes its unavailable state. */
+export function useFeatureState(name: string): "loading" | "on" | "off" {
+  const { data } = useApplicationConfiguration();
+  if (data == null) return "loading";
+  const values = data.features?.values as Record<string, string | null> | undefined;
+  return values?.[name] === "true" ? "on" : "off";
+}
+
 /** True on the host side (no current tenant) once the configuration is known; false while loading. */
 export function useIsHostSide(): boolean {
   const { data } = useApplicationConfiguration();

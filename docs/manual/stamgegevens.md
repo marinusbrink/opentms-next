@@ -4,8 +4,10 @@ De app **Stamgegevens** beheert de referentielijsten waar orders, ritten en fact
 verwijzen, en dat voor **alle** domeinen: de stamgegevens van elk domein staan hier, nooit in de
 app waarin dat domein zijn dagelijkse werk doet. Het navigatiepaneel heeft daarom drie niveaus:
 eerst een groep per domein, daaronder de groepen met de lijsten. De domeingroepen zijn **Algemeen** (de
-stamgegevens van het domein Stamgegevens zelf), **Orders**, **Planning & Uitvoering**, **Financieel** en
-**Platform** (e-mailsjablonen, rapportdefinities en documentsoorten, zie [Platform](#platform)).
+stamgegevens van het domein Stamgegevens zelf), **Orders**, **Planning & Uitvoering**, **Financieel**,
+**Integraties** (Orderinvoer: mailboxen, API-clients en importprofielen, zie
+[Orderinvoer](orderinvoer-mailboxen-en-api.md)) en **Platform** (e-mailsjablonen, rapportdefinities en documentsoorten,
+zie [Platform](#platform)).
 
 Onder **Algemeen** zijn de lijsten verdeeld over vier groepen:
 

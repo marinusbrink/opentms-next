@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using OpenTms.Orders.Intake;
 
 namespace OpenTms.Orders.EntityFrameworkCore;
 
@@ -80,6 +81,20 @@ public static class OrdersJsonConversions
                     v => v == null ? null : v.ToList()))
             .HasColumnType("jsonb")
             .IsRequired(false);
+
+    /// <summary>The resolution of an order intake (design 72); compared by its JSON, so an in-place change is noticed.</summary>
+    public static PropertyBuilder<IntakeResolution> HasJsonbResolution(this PropertyBuilder<IntakeResolution> property)
+        => property
+            .HasConversion(
+                new ValueConverter<IntakeResolution, string>(
+                    v => IntakeResolution.ToJson(v),
+                    v => IntakeResolution.FromJson(v)),
+                new ValueComparer<IntakeResolution>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && IntakeResolution.ToJson(a) == IntakeResolution.ToJson(b)),
+                    v => IntakeResolution.ToJson(v).GetHashCode(),
+                    v => IntakeResolution.FromJson(IntakeResolution.ToJson(v))))
+            .HasColumnType("jsonb")
+            .IsRequired();
 
     /// <summary>Instants are stored in UTC (timestamptz); the client shows them in the stop's zone.</summary>
     public static PropertyBuilder<DateTimeOffset> HasUtcInstant(this PropertyBuilder<DateTimeOffset> property)

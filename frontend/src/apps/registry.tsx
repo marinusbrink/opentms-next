@@ -6,7 +6,8 @@ import { LazyPlanboardApp } from "@/apps/planboard/lazy";
 import { FinanceApp } from "@/apps/finance";
 // The Transport app is lazy (design 61); its wrapper lives next to it.
 import { LazyTransportApp } from "@/apps/transport/lazy";
-import { IntegrationsApp } from "@/apps/integrations";
+// The Integrations app is lazy (design 72); its wrapper lives next to it.
+import { LazyIntegrationsApp } from "@/apps/integrations/lazy";
 import { ReportsApp } from "@/apps/reports";
 
 // Lazy-loaded: the Master data app (ten views, AG Grid editors) stays out of the main chunk (design 41).
@@ -52,7 +53,7 @@ const components: Record<string, () => ReactElement> = {
   transport: LazyTransportApp,
   finance: FinanceApp,
   "master-data": LazyMasterDataApp,
-  integrations: IntegrationsApp,
+  integrations: LazyIntegrationsApp,
   reports: ReportsApp,
   admin: LazyAdministrationApp,
   tenants: LazyTenantsApp,

@@ -2,7 +2,7 @@
 
 De app **Transport** is de werkplek van de orderafdeling en de planning: hier legt u transportorders
 vast, ziet u de prijzen die het systeem berekent, vraagt u een rit aan, drukt u vrachtbrieven (CMR) af
-en volgt u de ritten waarop uw orders terechtkomen. Het navigatiepaneel heeft vier onderdelen:
+en volgt u de ritten waarop uw orders terechtkomen. Het navigatiepaneel heeft vijf onderdelen:
 
 | Onderdeel | Wat u er vindt |
 |---|---|
@@ -10,6 +10,7 @@ en volgt u de ritten waarop uw orders terechtkomen. Het navigatiepaneel heeft vi
 | **Sjablonen** | Terugkerende orders: een order die het systeem volgens een schema aanmaakt |
 | **Ritten** | De transportritten, met de weergaven *Vandaag*, *Deze week*, *Open* en *Alles* |
 | **Documenten** | Alle afgedrukte vrachtbrieven van uw organisatie |
+| **Orderinvoer** | Orders die per e-mail of via de API binnenkwamen en gecontroleerd moeten worden (zie [Orderinvoer](#orderinvoer)) |
 
 Elk onderdeel is per tenant in- of uit te schakelen via de editie (de functies *Transport*,
 *Opdrachten*, *Sjablonen*, *Ritten* en *Documenten*). Staat *Opdrachten* uit, dan staat *Sjablonen*
@@ -527,3 +528,64 @@ tijden met de geplande. Bij annuleren gaan de legs van de rit af.
 De lijst **Documenten** toont alle afgedrukte vrachtbrieven: nummer, afdrukmoment, order, het aantal
 regels, profiel en bestand. Zoek op ordernummer met het zoekveld of beperk de periode met *van* en *tot*.
 Rechtsklikken geeft **Downloaden**; dubbelklik opent de order.
+
+## Orderinvoer
+
+Orders die klanten per e-mail sturen of via de API insturen, worden automatisch gelezen (zie
+[Orderinvoer: mailboxen, API en importprofielen](orderinvoer-mailboxen-en-api.md)). Is alles herkend, dan wordt de
+order direct aangemaakt (als concept, of bevestigd als dat voor de mailbox of API-client is ingesteld). Kon het systeem
+een waarde niet zeker vinden, dan komt de order in **Transport → Orderinvoer** om te controleren. Dit onderdeel is er
+alleen als de functie *Orderinvoer* voor uw organisatie aan staat.
+
+### De lijst Orderinvoer
+
+- De lijst opent op de status *Te beoordelen* en de laatste zes maanden. Met het statusfilter ziet u ook de orders die
+  al zijn aangemaakt of afgewezen (de historie).
+- Kolommen: ontvangen, kanaal (Gmail, Microsoft 365 of API), afzender, onderwerp of bestand, klant (herkend of zoals
+  ontvangen), status en het aantal **open velden**.
+- Dubbelklik op een regel om hem te controleren. Rechtsklikken geeft **Controleren**, **Order openen** (als de order er
+  al is) en **Afwijzen**.
+
+### Een orderinvoer controleren
+
+De controlepagina toont bovenaan de herkomst (kanaal, afzender, onderwerp, bestand, ontvangen, zekerheid) en daaronder
+de ontvangen waarden, gegroepeerd als **order**, **regels** en per regel de **stops** (laden en lossen). Elk veld dat in
+de stamgegevens moet worden gevonden (klant, ordersoort, transporteenheid, product, temperatuur, adres, stopsoort)
+heeft een kleur:
+
+| Kleur | Betekenis |
+|---|---|
+| Groen, *Herkend* | Gevonden; de manier staat erbij (meegegeven, exacte overeenkomst, geleerde alias, overeenkomst, standaard). |
+| Oranje, *Meerdere mogelijkheden* | Meerdere mogelijkheden. Klik op een van de **suggesties** of kies zelf. |
+| Rood, *Niet herkend* | Niet gevonden. Kies de juiste waarde. |
+
+Elke keuzelijst eindigt met **Nieuw … toevoegen…**; zonder getypte tekst opent het nieuwe record met de naam zoals die
+ontvangen is. Voor een adres kiest u eerst de relatie en dan het adres; een nieuwe relatie opent met de ontvangen naam
+en het ontvangen adres (straat, huisnummer, postcode, plaats en land) al ingevuld.
+
+Ook de ontvangen waarden zelf kunt u verbeteren (bijvoorbeeld een verkeerd gelezen datum of gewicht). Een verbetering
+telt als correctie: het importprofiel dat het document las, leert ervan.
+
+Daarna:
+
+- **Order aanmaken** maakt de order als concept.
+- **Aanmaken en bevestigen** maakt de order en bevestigt hem direct (u hebt daarvoor ook het recht *Transportorders
+  bevestigen* nodig).
+- **Afwijzen** vraagt een reden; er komt geen order en de orderinvoer blijft met de reden in de historie.
+- **Herkomst bekijken** opent in de app Integraties het bericht en document waar de order uit kwam, met elke stap en
+  waar elke waarde vandaan kwam (u hebt daarvoor het recht *Ontvangen berichten* nodig).
+
+Elke keuze voor een oranje of rood veld onthoudt het systeem als **alias**: de volgende order met dezelfde tekst wordt
+zonder controle herkend. Op het tabblad **Geleerde aliassen** ziet u ze allemaal; verwijder een alias die per ongeluk is
+gekozen.
+
+Een order die uit de orderinvoer kwam, toont op de orderpagina naast de status de herkomst (*Import* of *API*). Klik
+erop om terug te gaan naar de orderinvoer; **Herkomst bekijken** ernaast opent het oorspronkelijke bericht.
+
+| Recht | Technische naam | Wat het toestaat |
+|---|---|---|
+| **Orderinvoer** | `Orders.OrderIntakes` | De lijst en de controlepagina bekijken. |
+| **Orderinvoer afhandelen** | `Orders.OrderIntakes.Resolve` | Orders aanmaken, waarden kiezen en verbeteren, aliassen verwijderen. |
+| **Orderinvoer afwijzen** | `Orders.OrderIntakes.Reject` | Een orderinvoer afwijzen. |
+
+Het navigatie-item **Orderinvoer** heeft de functie `Apps.Transport.Intake`.

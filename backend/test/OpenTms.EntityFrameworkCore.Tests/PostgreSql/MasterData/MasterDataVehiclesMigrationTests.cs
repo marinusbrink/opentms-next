@@ -55,7 +55,7 @@ public class MasterDataVehiclesMigrationTests : MasterDataPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBeGreaterThan(applied.IndexOf(PreviousMigration));
-            applied.Last().ShouldBe(CostPricePerKmMigration, "the newest Master Data migration (QP10)");
+            applied.Last().ShouldBe(MasterDataRelationEmailIndexMigrationTests.Migration, "the newest Master Data migration (design 72: the Relations e-mail index)");
             applied.IndexOf(NormalizedNameMigration).ShouldBeGreaterThan(applied.IndexOf(Migration));
             applied.IndexOf(CombinationNormalizedNameMigration).ShouldBe(applied.IndexOf(NormalizedNameMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();

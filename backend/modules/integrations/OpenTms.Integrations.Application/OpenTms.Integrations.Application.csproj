@@ -17,6 +17,20 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
     <!-- The pdfgeneratorapi connection test (design 55) and the routing check (design 60). -->
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
+    <!-- Design 72: the API clients are OpenIddict client-credentials applications in the host database with a client
+         permission grant; the OAuth state of a mailbox connection is data-protected; the host tab's Anthropic test. -->
+    <PackageReference Include="Volo.Abp.OpenIddict.Domain" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.Domain" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.UI.Navigation" Version="10.6.0" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.Abstractions" Version="10.0.9" />
+    <!-- Design 72, order intake: raw messages and documents in the opentms-inbound container (AD-09), the pipeline job,
+         mail parsing, PDF text, spreadsheets and the Anthropic adapter (AD-21, the official SDK). -->
+    <PackageReference Include="Volo.Abp.BlobStoring" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.BackgroundJobs.Abstractions" Version="10.6.0" />
+    <PackageReference Include="MimeKit" Version="4.18.2" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <PackageReference Include="Anthropic" Version="13.4.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +38,8 @@
     <ProjectReference Include="..\OpenTms.Integrations.Application.Contracts\OpenTms.Integrations.Application.Contracts.csproj" />
     <!-- Platform's published surface: the rendering-provider abstraction the pdfgeneratorapi adapter implements (design 55). -->
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
+    <!-- Design 72 (module boundary rule 3, calls 1–4): Orders' published IOrderIntakeService and ITransportOrderLookup. -->
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

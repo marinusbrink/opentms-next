@@ -18,6 +18,8 @@
     <ProjectReference Include="..\OpenTms.Integrations.Domain.Shared\OpenTms.Integrations.Domain.Shared.csproj" />
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
     <ProjectReference Include="..\..\master-data\OpenTms.MasterData.Domain.Shared\OpenTms.MasterData.Domain.Shared.csproj" />
+    <!-- Design 72: the intake API's body carries Orders' canonical OrderIntakeDto; the trace shows it per intake. -->
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

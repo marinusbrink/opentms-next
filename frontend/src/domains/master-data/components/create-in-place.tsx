@@ -24,7 +24,7 @@ import { PriceListEditor } from "@/domains/financial/components/PriceListEditor"
 import { ProductEditor } from "@/domains/master-data/components/ProductEditor";
 import { ProductRelationCodeEditor } from "@/domains/master-data/components/ProductRelationCodeEditor";
 import { RelationCategoryEditor } from "@/domains/master-data/components/RelationCategoryEditor";
-import { RelationEditor, type RelationEditorProps } from "@/domains/master-data/components/RelationEditor";
+import { RelationEditor, type RelationEditorProps, type RelationInitialAddress } from "@/domains/master-data/components/RelationEditor";
 import { ReportDefinitionEditor } from "@/domains/platform/components/ReportDefinitionEditor";
 import { TemperatureEditor } from "@/domains/master-data/components/TemperatureEditor";
 import { TransportCharacteristicsEditor } from "@/domains/master-data/components/TransportCharacteristicsEditor";
@@ -123,6 +123,8 @@ export interface CreateInPlaceOptions {
   parentId?: string | null;
   /** A new relation's roles (a [Flags] value). */
   roles?: number;
+  /** A new relation's default address (design 72: the intake review passes the received address). */
+  address?: RelationInitialAddress;
 }
 
 /** What `offer` takes besides the term options. */
@@ -234,7 +236,7 @@ const ENTITIES = {
     permission: "MasterData.Relations.Create",
     feature: "Apps.MasterData.General.Relations.Relations",
     labelKey: "MasterData:AddNewRelation",
-    render: relationEditor((_props, options) => ({ initialRoles: options.roles })),
+    render: relationEditor((_props, options) => ({ initialRoles: options.roles, initialAddress: options.address })),
     toRecord: named,
     insert: intoLookup("relations"),
   },
