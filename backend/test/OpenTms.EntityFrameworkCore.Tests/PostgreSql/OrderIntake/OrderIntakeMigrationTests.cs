@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using OpenTms.Integrations.EntityFrameworkCore;
 using OpenTms.MasterData.EntityFrameworkCore;
@@ -23,7 +24,8 @@ namespace OpenTms.PostgreSql.Integrations
 {
     /// <summary>
     /// The IntegrationsOrderIntake migration (design 72 "Migration strategy": additive only) on the databases the real
-    /// DbMigrator created: applied after IntegrationsRouting on the host and a tenant database, nothing pending, the snapshot
+    /// DbMigrator created: applied after IntegrationsRouting on the host and a tenant database (followed by the review's
+    /// IntegrationsInboundMessageSearch), nothing pending, the snapshot
     /// current; Up only creates the seven tables and their indexes (the dedupe key unique NULLS NOT DISTINCT, the client id
     /// unique globally), Down drops exactly those tables. Risk class: Critical (a migration on every tenant database).
     /// </summary>
@@ -39,14 +41,16 @@ namespace OpenTms.PostgreSql.Integrations
         [Theory]
         [InlineData(null)]
         [InlineData("tenant-a")]
-        public async Task The_migration_follows_routing_is_the_newest_and_nothing_is_pending(string? tenant)
+        public async Task The_migration_follows_routing_and_nothing_is_pending(string? tenant)
         {
             await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
             {
                 var context = await GetRequiredService<IDbContextProvider<IntegrationsDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-                applied.Last().ShouldBe(Migration);
+                /* The review's search migration (design 72 review M2) came after it and is now the newest. */
+                applied.IndexOf(IntegrationsInboundMessageSearchMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
+                applied.Last().ShouldBe(IntegrationsInboundMessageSearchMigrationTests.Migration);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });
@@ -79,7 +83,83 @@ namespace OpenTms.PostgreSql.Integrations
             migration.DownOperations.OfType<DropTableOperation>().Select(t => t.Name).ShouldBe(Tables, ignoreOrder: true);
         }
     }
+
+    /// <summary>
+    /// The IntegrationsInboundMessageSearch migration (design 72 review M2: the Received list searches with ILIKE on the raw
+    /// columns): applied after IntegrationsOrderIntake and the newest on the host and a tenant database, nothing pending; Up
+    /// only enables pg_trgm and creates the three GIN trigram indexes, Down only drops them (expand only, the previous release
+    /// is unaffected); on the migrated databases the indexes exist with gin_trgm_ops. Risk class: High (migration on every
+    /// tenant database).
+    /// </summary>
+    [Collection(PostgreSqlTestCollection.Name)]
+    public class IntegrationsInboundMessageSearchMigrationTests : ReferenceDataPostgreSqlTestBase
+    {
+        public const string Migration = "20261103124726_IntegrationsInboundMessageSearch";
+
+        private static readonly string[] Indexes =
+            ["IX_InboundMessages_ExternalId_Trigram", "IX_InboundMessages_From_Trigram", "IX_InboundMessages_Subject_Trigram"];
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("tenant-a")]
+        public async Task The_migration_follows_the_order_intake_is_the_newest_and_nothing_is_pending(string? tenant)
+        {
+            await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
+            {
+                var context = await GetRequiredService<IDbContextProvider<IntegrationsDbContext>>().GetDbContextAsync();
+                var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
+                applied.IndexOf(Migration).ShouldBe(applied.IndexOf(IntegrationsOrderIntakeMigrationTests.Migration) + 1);
+                applied.Last().ShouldBe(Migration);
+                (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
+                context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
+            });
+        }
+
+        [Fact]
+        public void The_migration_only_adds_the_trigram_indexes_and_its_Down_only_drops_them()
+        {
+            var migration = new IntegrationsMigrations.IntegrationsInboundMessageSearch();
+
+            migration.UpOperations.ShouldAllBe(o => o is AlterDatabaseOperation || o is CreateIndexOperation);
+            migration.UpOperations.OfType<AlterDatabaseOperation>().ShouldHaveSingleItem()["Npgsql:PostgresExtension:pg_trgm"].ShouldNotBeNull();
+            var created = migration.UpOperations.OfType<CreateIndexOperation>().ToList();
+            created.Select(i => i.Name).ShouldBe(Indexes, ignoreOrder: true);
+            created.ShouldAllBe(i => i.Table == "InboundMessages" && i.Schema == "integrations" && !i.IsUnique && i.Columns.Length == 1);
+            created.ShouldAllBe(i => (string?)i["Npgsql:IndexMethod"] == "gin");
+            created.ShouldAllBe(i => ((string[])i["Npgsql:IndexOperators"]!).Single() == "gin_trgm_ops");
+
+            migration.DownOperations.ShouldAllBe(o => o is DropIndexOperation || o is AlterDatabaseOperation);
+            migration.DownOperations.OfType<DropIndexOperation>().Select(i => i.Name).ShouldBe(Indexes, ignoreOrder: true);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("tenant-a")]
+        public async Task The_indexes_exist_with_trigram_operators_on_the_migrated_databases(string? tenant)
+        {
+            await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
+            {
+                var context = await GetRequiredService<IDbContextProvider<IntegrationsDbContext>>().GetDbContextAsync();
+                var connection = context.Database.GetDbConnection();
+                await using var command = connection.CreateCommand();
+                command.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
+                command.CommandText = "SELECT indexname || ':' || indexdef FROM pg_indexes WHERE schemaname = 'integrations' AND tablename = 'InboundMessages' AND indexname LIKE '%Trigram'";
+                var found = new List<string>();
+                await using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        found.Add(reader.GetString(0));
+                    }
+                }
+
+                found.Select(f => f.Split(':')[0]).ShouldBe(Indexes, ignoreOrder: true);
+                found.ShouldAllBe(f => f.Contains("USING gin") && f.Contains("gin_trgm_ops"));
+            });
+        }
+    }
 }
+
 
 namespace OpenTms.PostgreSql.MasterData
 {

@@ -70,7 +70,14 @@ public sealed class FakeMailProvider(MailProvider provider) : IMailProviderClien
     public Task<IReadOnlyList<MailFolder>> ListFoldersAsync(string accessToken, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<MailFolder>>([new MailFolder("Label_1", "Orders")]);
 
-    public Task<string> GetCurrentCursorAsync(string accessToken, string folderId, CancellationToken cancellationToken = default) => Task.FromResult("cursor-0");
+    /// <summary>The provider's current cursor of a folder (the activation job's call); may throw or change the world meanwhile.</summary>
+    public Func<string, string> Cursor { get; set; } = _ => "cursor-0";
+
+    public Task<string> GetCurrentCursorAsync(string accessToken, string folderId, CancellationToken cancellationToken = default)
+    {
+        Calls.Add("cursor:" + folderId);
+        return Task.FromResult(Cursor(folderId));
+    }
 
     public async IAsyncEnumerable<MailChange> GetChangesAsync(string accessToken, string folderId, string cursor, DateTime? lastSyncAt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -126,6 +133,9 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
     private readonly FakeMailProvider _microsoft = new(MailProvider.Microsoft365);
     private readonly SettableClock _clock = new(DateTime.UtcNow);
 
+    /// <summary>The user who started the connect; the callback completes only in a browser signed in as them (build note 17).</summary>
+    private readonly Guid _user = Guid.NewGuid();
+
     public MailboxChannelTests()
     {
         _currentTenant = GetRequiredService<ICurrentTenant>();
@@ -152,6 +162,9 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
     private MailboxSynchronizer Synchronizer() => new(
         Connections, Resolver, Tokens, GetRequiredService<IMailMessageRecorder>(), GetRequiredService<IUnitOfWorkManager>(),
         GetRequiredService<IAbpDistributedLock>(), GetRequiredService<IFeatureChecker>(), _clock, GetRequiredService<IAsyncQueryableExecuter>());
+
+    /// <summary>The auth server's sign-in of <see cref="_user"/> in tenant A, as the callback controller reads it.</summary>
+    private MailboxOAuthCallbackSession Session => new(_user, _tenantA);
 
     private static IDisposable IntakeOn() => TestFeatureValueProvider.Override(IntegrationsFeatures.OrderIntake, "true");
 
@@ -187,13 +200,13 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         using (_currentTenant.Change(_tenantA))
         {
             id = (await InsertAsync()).Id;
-            state = States.Protect(_tenantA, id, Guid.NewGuid());
+            state = States.Protect(_tenantA, id, _user);
         }
 
         /* The callback is anonymous and arrives without any tenant: the state alone decides. */
         using (_currentTenant.Change(null))
         {
-            var result = await Callback().ProcessAsync("the-code", state, null);
+            var result = await Callback().ProcessAsync("the-code", state, null, Session);
             result.RedirectUrl.ShouldBe(Spa + "/master-data/integrations/mailboxes?connected=" + id);
         }
 
@@ -305,7 +318,7 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
             }
         });
 
-        (await Callback().ProcessAsync("code", States.Protect(_tenantA, connection.Id, null), null)).IsRefused.ShouldBeTrue();
+        (await Callback().ProcessAsync("code", States.Protect(_tenantA, connection.Id, _user), null, Session)).IsRefused.ShouldBeTrue();
         (await ReadAsync(connection.Id)).RefreshTokenEncrypted.ShouldBe("enc");
     }
 
@@ -328,16 +341,16 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         using var tenant = _currentTenant.Change(_tenantA);
 
         var denied = await InsertAsync();
-        (await Callback().ProcessAsync(null, States.Protect(_tenantA, denied.Id, null), "access_denied")).RedirectUrl
+        (await Callback().ProcessAsync(null, States.Protect(_tenantA, denied.Id, _user), "access_denied", Session)).RedirectUrl
             .ShouldBe(Spa + "/master-data/integrations/mailboxes?connectError=consent_denied");
 
         var noRefresh = await InsertAsync();
         _gmail.Exchange = _ => new MailTokenResult("at", null);
-        (await Callback().ProcessAsync("c", States.Protect(_tenantA, noRefresh.Id, null), null)).RedirectUrl.ShouldEndWith("connectError=no_refresh_token");
+        (await Callback().ProcessAsync("c", States.Protect(_tenantA, noRefresh.Id, _user), null, Session)).RedirectUrl.ShouldEndWith("connectError=no_refresh_token");
 
         var failing = await InsertAsync();
         _gmail.Exchange = _ => throw new MailProviderException("gmail_token_invalid_client", "Token endpoint said: client acme@x unknown");
-        var result = await Callback().ProcessAsync("c", States.Protect(_tenantA, failing.Id, null), null);
+        var result = await Callback().ProcessAsync("c", States.Protect(_tenantA, failing.Id, _user), null, Session);
         result.RedirectUrl.ShouldEndWith("connectError=provider_error");
         result.RedirectUrl!.ShouldNotContain("acme");
 
@@ -351,7 +364,7 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         using var tenant = _currentTenant.Change(_tenantA);
         var connection = await InsertAsync();
 
-        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, null), null)).RedirectUrl.ShouldEndWith("connectError=feature_disabled");
+        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, _user), null, Session)).RedirectUrl.ShouldEndWith("connectError=feature_disabled");
         _gmail.Calls.ShouldBeEmpty();
     }
 
@@ -363,7 +376,7 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         await InsertAsync(c => c.CompleteConsent("orders@acme.nl", "enc", DateTime.UtcNow));
         var second = await InsertAsync();
 
-        (await Callback().ProcessAsync("c", States.Protect(_tenantA, second.Id, null), null)).RedirectUrl.ShouldEndWith("connectError=already_connected");
+        (await Callback().ProcessAsync("c", States.Protect(_tenantA, second.Id, _user), null, Session)).RedirectUrl.ShouldEndWith("connectError=already_connected");
     }
 
     [Fact]
@@ -380,12 +393,12 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         });
 
         _gmail.Address = "someone.else@acme.nl";
-        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, null), null)).RedirectUrl.ShouldEndWith("connectError=account_mismatch");
+        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, _user), null, Session)).RedirectUrl.ShouldEndWith("connectError=account_mismatch");
         (await ReadAsync(connection.Id)).Status.ShouldBe(MailboxStatus.Reconnect);
 
         _gmail.Address = "ORDERS@acme.nl";
         _gmail.Exchange = _ => new MailTokenResult("at", "rt-new");
-        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, null), null)).RedirectUrl.ShouldEndWith("connected=" + connection.Id);
+        (await Callback().ProcessAsync("c", States.Protect(_tenantA, connection.Id, _user), null, Session)).RedirectUrl.ShouldEndWith("connected=" + connection.Id);
         var resumed = await ReadAsync(connection.Id);
         resumed.Status.ShouldBe(MailboxStatus.Active);
         resumed.SyncCursor.ShouldBe("cursor-77", "nothing is lost");

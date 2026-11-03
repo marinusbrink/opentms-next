@@ -53,7 +53,7 @@ public class IntegrationsRoutingMigrationTests : OpenTmsPostgreSqlTestBase
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.ShouldContain(Migration);
                 applied.IndexOf(Migration).ShouldBeGreaterThan(applied.IndexOf(PreviousMigration));
-                applied.Last().ShouldBe(IntegrationsOrderIntakeMigrationTests.Migration, "the newest Integrations migration (design 72: the order intake)");
+                applied.Last().ShouldBe(IntegrationsInboundMessageSearchMigrationTests.Migration, "the newest Integrations migration (design 72 review: the Received list's search)");
                 applied.IndexOf(IntegrationsOrderIntakeMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
