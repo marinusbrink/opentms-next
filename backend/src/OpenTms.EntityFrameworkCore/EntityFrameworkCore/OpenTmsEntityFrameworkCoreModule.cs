@@ -18,7 +18,10 @@ using Volo.Abp.OpenIddict.EntityFrameworkCore;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
+using Volo.Abp;
+using Volo.Abp.BlobStoring.Database;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
+using Volo.Abp.Domain.Entities.Events;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 using Volo.Abp.Studio;
 
@@ -56,6 +59,15 @@ public class OpenTmsEntityFrameworkCoreModule : AbpModule
 
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
+        /* A blob write must not touch its container row (design 72 build note 24): ABP otherwise stamps the tenant's
+         * DatabaseBlobContainer as changed with every blob it gains, so two transactions storing blobs in one tenant at
+         * the same time collide on that row's concurrency stamp. */
+        Configure<AbpEntityChangeOptions>(options =>
+        {
+            options.IgnoredUpdateAggregateRootSelectors.Add(
+                new NamedTypeSelector(nameof(DatabaseBlobContainer), type => type == typeof(DatabaseBlobContainer)));
+        });
+
         context.Services.AddAbpDbContext<OpenTmsDbContext>(options =>
         {
                 /* Remove "includeAllEntities: true" to create

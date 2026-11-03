@@ -639,3 +639,6 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
 23. **DEVIATION(UI-LOOK-004) approved here**: the mailbox folder picker has no "Add new…" — the provider's labels and
     folders are not OpenTMS records and cannot be created from OpenTMS. The three Integrations master-data lists sit
     under `/master-data/integrations/…` (the OAuth return URL is fixed there), the only lists nested under a group path.
+24. **Blob writes no longer touch their container row**: `AbpEntityChangeOptions.IgnoredUpdateAggregateRootSelectors`
+    excludes `DatabaseBlobContainer`, which ABP otherwise stamps as changed with every blob it gains — parallel recordings
+    in one tenant (eight API calls of one client at once) collided on that row. Applies to every database blob container.
