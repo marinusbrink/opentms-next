@@ -169,6 +169,12 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
         };
     }
 
+    public virtual async Task<InboundMessageDto> GetByDocumentAsync(Guid documentId)
+    {
+        var document = await _documents.GetAsync(documentId, includeDetails: false);
+        return await GetAsync(document.InboundMessageId);
+    }
+
     public virtual async Task<IRemoteStreamContent> GetRawContentAsync(Guid id)
     {
         var message = await _messages.GetAsync(id);

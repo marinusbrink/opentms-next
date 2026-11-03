@@ -41,6 +41,53 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
   RateLine: {
     ToBePriced: { tone: "warning", labelKey: "Financial:RateLine.OpenBasis" },
   },
+  /* Design 72 (order intake): the Integrations states (mailboxes, import profiles, received messages and documents)
+   * and the Orders ones (the intake, the resolution of one field: green resolved, amber ambiguous, red unresolved). */
+  MailboxConnection: {
+    AwaitingConsent: { tone: "neutral", labelKey: "Integrations:MailboxStatus.AwaitingConsent" },
+    AwaitingFolder: { tone: "warning", labelKey: "Integrations:MailboxStatus.AwaitingFolder" },
+    Active: { tone: "success", labelKey: "Integrations:MailboxStatus.Active" },
+    Paused: { tone: "neutral", labelKey: "Integrations:MailboxStatus.Paused" },
+    Reconnect: { tone: "danger", labelKey: "Integrations:MailboxStatus.Reconnect" },
+  },
+  ApiClient: {
+    Active: { tone: "success", labelKey: "Integrations:ApiClientStatus.Active" },
+    Inactive: { tone: "neutral", labelKey: "Integrations:ApiClientStatus.Inactive" },
+  },
+  ImportProfile: {
+    Proposed: { tone: "info", labelKey: "Integrations:ImportProfileStatus.Proposed" },
+    Active: { tone: "success", labelKey: "Integrations:ImportProfileStatus.Active" },
+    Retired: { tone: "neutral", labelKey: "Integrations:ImportProfileStatus.Retired" },
+  },
+  InboundMessage: {
+    Received: { tone: "neutral", labelKey: "Integrations:InboundMessageStatus.Received" },
+    Processing: { tone: "info", labelKey: "Integrations:InboundMessageStatus.Processing" },
+    Completed: { tone: "success", labelKey: "Integrations:InboundMessageStatus.Completed" },
+    NeedsAttention: { tone: "warning", labelKey: "Integrations:InboundMessageStatus.NeedsAttention" },
+    Failed: { tone: "danger", labelKey: "Integrations:InboundMessageStatus.Failed" },
+    NotAnOrder: { tone: "neutral", labelKey: "Integrations:InboundMessageStatus.NotAnOrder" },
+  },
+  InboundDocument: {
+    Pending: { tone: "neutral", labelKey: "Integrations:InboundDocumentStatus.Pending" },
+    Mapped: { tone: "info", labelKey: "Integrations:InboundDocumentStatus.Mapped" },
+    Submitted: { tone: "info", labelKey: "Integrations:InboundDocumentStatus.Submitted" },
+    Completed: { tone: "success", labelKey: "Integrations:InboundDocumentStatus.Completed" },
+    NeedsReview: { tone: "warning", labelKey: "Integrations:InboundDocumentStatus.NeedsReview" },
+    NeedsAttention: { tone: "warning", labelKey: "Integrations:InboundDocumentStatus.NeedsAttention" },
+    NotAnOrder: { tone: "neutral", labelKey: "Integrations:InboundDocumentStatus.NotAnOrder" },
+    Skipped: { tone: "neutral", labelKey: "Integrations:InboundDocumentStatus.Skipped" },
+    Failed: { tone: "danger", labelKey: "Integrations:InboundDocumentStatus.Failed" },
+  },
+  OrderIntake: {
+    NeedsReview: { tone: "warning", labelKey: "Orders:OrderIntakeStatus.NeedsReview" },
+    OrderCreated: { tone: "success", labelKey: "Orders:OrderIntakeStatus.OrderCreated" },
+    Rejected: { tone: "neutral", labelKey: "Orders:OrderIntakeStatus.Rejected" },
+  },
+  IntakeResolution: {
+    Resolved: { tone: "success", labelKey: "Orders:IntakeResolutionStatus.Resolved" },
+    Ambiguous: { tone: "warning", labelKey: "Orders:IntakeResolutionStatus.Ambiguous" },
+    Unresolved: { tone: "danger", labelKey: "Orders:IntakeResolutionStatus.Unresolved" },
+  },
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {

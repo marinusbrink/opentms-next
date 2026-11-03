@@ -38,6 +38,9 @@ import { ViaDepotRulesView } from "@/apps/master-data/views/ViaDepotRulesView";
 import { TripAttributeDefinitionsView } from "@/apps/master-data/views/TripAttributeDefinitionsView";
 import { PriceListsView } from "@/apps/master-data/views/PriceListsView";
 import { RelationFinancialSettingsView } from "@/apps/master-data/views/RelationFinancialSettingsView";
+import { ApiClientsView } from "@/apps/master-data/views/ApiClientsView";
+import { ImportProfilesView } from "@/apps/master-data/views/ImportProfilesView";
+import { MailboxesView } from "@/apps/master-data/views/MailboxesView";
 
 /* The Master data app (design 41): routes by pathname like the Administration app. The bare app path, a domain
  * group path and a group path (the nav categories; PO 2026-10-16) redirect to the first list under it that is on for
@@ -56,6 +59,8 @@ const GROUP_PATHS = new Set([
   "/master-data/financial",
   "/master-data/invoicing",
   "/master-data/pricing",
+  "/master-data/integrations",
+  "/master-data/integrations/intake",
   "/master-data/platform",
 ]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
@@ -107,6 +112,11 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/trip-attribute-definitions")) return <TripAttributeDefinitionsView />;
   if (pathname.startsWith("/master-data/price-lists")) return <PriceListsView />;
   if (pathname.startsWith("/master-data/relation-financial-settings")) return <RelationFinancialSettingsView />;
+
+  /* Design 72: the Integrations domain's group, Order intake. The OAuth return lands on the Mailboxes list. */
+  if (pathname.startsWith("/master-data/integrations/mailboxes")) return <MailboxesView />;
+  if (pathname.startsWith("/master-data/integrations/api-clients")) return <ApiClientsView />;
+  if (pathname.startsWith("/master-data/integrations/import-profiles")) return <ImportProfilesView />;
 
   /* The Platform domain's lists (design 54). */
   if (pathname.startsWith("/master-data/email-templates")) return <EmailTemplatesView />;

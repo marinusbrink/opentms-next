@@ -612,3 +612,7 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
     lookups the Master data app already reads; the Integrations DTOs carry ids.
 13. **OAuth redirect** goes to the SPA URL (`App:RedirectAllowedUrls`, first entry, as elsewhere); `App:SelfUrl` builds
     the redirect URI and the token URL.
+14. **From an intake to its trace**: `GET /api/integrations/inbound-message/by-document/{documentId}` returns the message a
+    document belongs to, so the review page and the order's source chip can open the trace. The trace page shows each
+    intake's outcome from the step log; the field-level resolution stays on the review page (the Integrations app reads
+    only the Integrations domain).

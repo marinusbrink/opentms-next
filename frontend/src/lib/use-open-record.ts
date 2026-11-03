@@ -20,7 +20,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * does not exist (deleted meanwhile, another tenant's id) renders `RecordNotFound`; the shell renders
  * `FeatureUnavailable` for a node that is off and the page `PermissionDenied` without the view permission. */
 
-export type RecordType = "TransportOrder" | "TransportOrderTemplate" | "TransportTrip";
+export type RecordType = "TransportOrder" | "TransportOrderTemplate" | "TransportTrip" | "OrderIntake" | "InboundMessage";
 
 export interface RecordRoute {
   /** The list the record belongs to; the record page is `${listPath}/${id}`. */
@@ -35,7 +35,22 @@ export const RECORD_ROUTES: Readonly<Record<RecordType, RecordRoute>> = {
   TransportOrder: { listPath: "/transport/orders", permission: "Orders.TransportOrders", feature: "Apps.Transport.Orders" },
   TransportOrderTemplate: { listPath: "/transport/templates", permission: "Orders.TransportOrderTemplates", feature: "Apps.Transport.Orders.Templates" },
   TransportTrip: { listPath: "/transport/trips", permission: "PlanningExecution.TransportTrips", feature: "Apps.Transport.Trips" },
+  /* Design 72: the review page of an order intake (DEVIATION(UI-PAGE-003): a page route with an id, approved in
+   * docs/designs/72-order-intake.md, "UI design": "Review page /transport/intake/{id}"). */
+  OrderIntake: { listPath: "/transport/intake", permission: "Orders.OrderIntakes", feature: "Apps.Transport.Intake" },
+  /* Design 72: the trace page of a received message (the same deviation, approved in docs/designs/72-order-intake.md,
+   * "UI design": "the trace page /integrations/received/{messageId}"). */
+  InboundMessage: { listPath: "/integrations/received", permission: "Integrations.InboundMessages", feature: "Apps.Integrations.Received" },
 };
+
+/** Design 72: the route that opens the trace of the message a received document belongs to (other apps know only the
+ *  document); the Integrations app resolves it and replaces it with `/integrations/received/{messageId}`. */
+export const DOCUMENT_TRACE_PREFIX = "/integrations/received/document";
+
+/** The trace route of a received document: `/integrations/received/document/{documentId}`. */
+export function documentTracePath(documentId: string): string {
+  return `${DOCUMENT_TRACE_PREFIX}/${encodeURIComponent(documentId)}`;
+}
 
 export interface RecordRef {
   type: RecordType;

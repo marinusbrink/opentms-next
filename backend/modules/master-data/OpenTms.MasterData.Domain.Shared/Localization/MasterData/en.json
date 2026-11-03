@@ -606,6 +606,7 @@
     "MasterData:Numbering.InvalidSeparator": "Choose one of the offered separators.",
     "MasterData:Numbering.NextNumberTooLow": "The next number cannot be lower than the current next number.",
     "MasterData:NotFound": "(not found)",
-    "MasterData:ArchivedCannotBeDefault": "An archived record cannot be the default."
+    "MasterData:ArchivedCannotBeDefault": "An archived record cannot be the default.",
+    "MasterData:Nav.Integrations": "Integrations"
   }
 }

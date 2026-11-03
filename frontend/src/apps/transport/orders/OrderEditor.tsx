@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { EntityDialogTab, RibbonCommand } from "@/components/ui/entity-dialog";
 import { NestedTabs } from "@/components/ui/nested-tabs";
 import { RecordPage } from "@/components/ui/record-page";
+import { IntakeSourceChip } from "@/apps/transport/components/IntakeSourceChip";
 import { recordIdentificationTab } from "@/components/ui/record-identification-tab";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { AdditionalServices } from "@/apps/transport/orders/AdditionalServices";
@@ -665,6 +666,8 @@ export function OrderEditor({ mode, order, template, readOnly, newOrder }: Order
             <>
               {!isNew && <StatusBadge entity="TransportOrder" state={orderStatusName(order?.status)} />}
               <TripRequestWarningBadge request={order?.tripRequest} onOpen={() => setActiveTab("trip")} />
+              {/* Design 72: an order from an intake (Import, API) links to the intake's review page. */}
+              <IntakeSourceChip order={order} />
             </>
           ) : undefined
         }

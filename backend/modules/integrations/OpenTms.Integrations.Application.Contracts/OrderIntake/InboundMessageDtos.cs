@@ -21,6 +21,9 @@ public interface IInboundMessageAppService : IApplicationService
 
     Task<InboundMessageDto> GetAsync(Guid id);
 
+    /// <summary>The message a document belongs to (an order intake knows only its source document; design 72 build note 14).</summary>
+    Task<InboundMessageDto> GetByDocumentAsync(Guid documentId);
+
     /// <summary>The raw RFC 822 mail (<c>message.eml</c>), or the API call's body.</summary>
     Task<IRemoteStreamContent> GetRawContentAsync(Guid id);
 

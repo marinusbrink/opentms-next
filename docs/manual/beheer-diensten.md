@@ -3,7 +3,7 @@
 > Deze pagina beschrijft de weergave **Diensten** in de app Beheer. Schermafbeeldingen volgen.
 
 Met **Diensten** stel je de externe diensten in waar OpenTMS van afhangt. Elke dienst heeft een eigen tabblad:
-**E-mail**, **Documenten** en **Routering**. De instellingen gelden voor **alle tenants** tegelijk. Je ziet de weergave
+**E-mail**, **Documenten**, **Routering** en **Integraties**. De instellingen gelden voor **alle tenants** tegelijk. Je ziet de weergave
 alleen als host; een tabblad zie je alleen met het recht ervoor.
 
 Laat je een veld leeg, dan geldt de waarde uit de configuratie van de uitrol; die staat onder het veld. Opslaan werkt
@@ -78,6 +78,28 @@ Klik op **Opslaan**, daarna op **Routering testen**: je ziet de uitslag van de p
 
 <!-- SCREENSHOT: Beheer → Diensten, tabblad Routering -->
 
+## Integraties
+
+Het tabblad **Integraties** bevat de instellingen van de orderinvoer (zie
+[Orderinvoer: mailboxen, API en importprofielen](orderinvoer-mailboxen-en-api.md)): het taalmodel dat onbekende
+orderdocumenten leert, en de koppelingen waarmee tenants hun mailboxen van Google en Microsoft koppelen.
+
+| Onderdeel | Veld | Uitleg |
+|---|---|---|
+| AI (Anthropic) | **API-sleutel** | De sleutel van het Anthropic-account. Wordt versleuteld opgeslagen en nooit getoond; laat het veld leeg om hem te houden, met **Opgeslagen waarde verwijderen** geldt weer de waarde uit de uitrol. |
+| AI (Anthropic) | **Leermodel**, **Extractiemodel** | Het model dat een nieuwe opmaak leert, en het model dat gescande PDF's en vrije mailteksten leest. Leeg: de standaard die onder het veld staat (`claude-opus-5-5`). |
+| Google (Gmail) | **Client-ID**, **Clientgeheim** | De OAuth-client in Google Cloud (Gmail API aan, toestemmingsscherm ingericht). Het secret wordt versleuteld opgeslagen. |
+| Microsoft 365 | **Client-ID**, **Clientgeheim** | De multi-tenant appregistratie in Microsoft Entra (rechten `Mail.Read`, `User.Read`, `offline_access`). Het secret wordt versleuteld opgeslagen. |
+| Redirect-URI | **Redirect-URI om bij Google en Microsoft te registreren** | Alleen-lezen. Vul dit adres in als redirect-URI bij de Google OAuth-client en bij de Microsoft-appregistratie; met de kopieerknop zet je het op het klembord. |
+
+Klik op **Opslaan**, daarna op **Integraties testen**: elk onderdeel toont zijn eigen uitslag. Voor Anthropic wordt het
+leermodel opgevraagd; voor Google en Microsoft wordt gecontroleerd of de client wordt geaccepteerd.
+
+Of een tenant orderinvoer en AI gebruikt, bepaal je per tenant of editie met de functies **Orderinvoer** en
+**AI-mapping** (zie [Tenants en edities](beheer-tenants-en-edities.md)); beide staan standaard uit.
+
+<!-- SCREENSHOT: Beheer → Diensten, tabblad Integraties -->
+
 ## Rechten
 
 | Recht | Technische naam | Wat het toestaat |
@@ -85,9 +107,9 @@ Klik op **Opslaan**, daarna op **Routering testen**: je ziet de uitslag van de p
 | **E-mailinstellingen** | `Platform.Administration.EmailSettings` | Het tabblad E-mail openen. |
 | **E-mailinstellingen wijzigen** | `Platform.Administration.EmailSettings.Update` | De e-mailinstellingen opslaan. |
 | **Test-e-mail versturen** | `Platform.Administration.EmailSettings.SendTest` | Een test-e-mail versturen. |
-| **Diensten** | `Integrations.ServiceSettings` | De tabbladen Documenten en Routering openen. |
-| **Dienstinstellingen wijzigen** | `Integrations.ServiceSettings.Update` | De instellingen van documenten en routering opslaan. |
-| **Diensten testen** | `Integrations.ServiceSettings.Test` | Documenten en routering testen. |
+| **Diensten** | `Integrations.ServiceSettings` | De tabbladen Documenten, Routering en Integraties openen. |
+| **Dienstinstellingen wijzigen** | `Integrations.ServiceSettings.Update` | De instellingen van documenten, routering en integraties opslaan. |
+| **Diensten testen** | `Integrations.ServiceSettings.Test` | Documenten, routering en integraties testen. |
 
 Deze rechten bestaan alleen aan de hostkant. Het navigatie-item **Diensten** heeft de functie (feature)
 `Apps.Administration.Services`; die staat voor tenants uit.

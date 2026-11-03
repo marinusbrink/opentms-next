@@ -17,6 +17,7 @@ import {
   FileBadge,
   FileInput,
   FileOutput,
+  FileCog,
   FilePen,
   FileText,
   Files,
@@ -24,7 +25,9 @@ import {
   FolderTree,
   ChartGantt,
   History,
+  Inbox,
   IdCard,
+  KeyRound,
   Landmark,
   Layers,
   LayoutDashboard,
@@ -33,6 +36,7 @@ import {
   List,
   ListTodo,
   Mail,
+  MailPlus,
   Map as MapIcon,
   ListTree,
   MapPin,
@@ -209,6 +213,9 @@ export const APPS: readonly AppDefinition[] = [
         ],
       },
       { nameKey: "App:Transport.Documents", path: "/transport/documents", feature: "Apps.Transport.Documents", icon: FileText },
+      /* Design 72: the review queue of order intakes (mail, API) and the review page /transport/intake/{id}. The screens
+       * also check the tenant feature Integrations.OrderIntake. */
+      { nameKey: "Orders:Nav.Intake", path: "/transport/intake", feature: "Apps.Transport.Intake", icon: Inbox, requiredPermission: "Orders.OrderIntakes" },
     ],
   },
   {
@@ -224,7 +231,7 @@ export const APPS: readonly AppDefinition[] = [
     id: "master-data",
     nameKey: "App:MasterData",
     path: "/master-data",
-    domains: ["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"],
+    domains: ["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"],
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
@@ -238,6 +245,7 @@ export const APPS: readonly AppDefinition[] = [
      * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53), then the Platform
      * domain's group (design 54) with its three lists directly under it, no sub-groups. The Transport run (design 61)
      * adds seven lists under the existing Orders, Planning & Execution and Financial groups.
+     * Design 72 adds the Integrations domain's group (Order intake: Mailboxes, API clients, Import profiles) before Platform.
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -371,6 +379,25 @@ export const APPS: readonly AppDefinition[] = [
         ],
       },
       {
+        nameKey: "MasterData:Nav.Integrations",
+        path: "/master-data/integrations",
+        feature: "Apps.MasterData.Integrations",
+        icon: Plug,
+        children: [
+          {
+            nameKey: "Integrations:Nav.OrderIntake",
+            path: "/master-data/integrations/intake",
+            feature: "Apps.MasterData.Integrations.Intake",
+            icon: Inbox,
+            children: [
+              { nameKey: "Integrations:Mailboxes", path: "/master-data/integrations/mailboxes", icon: MailPlus, feature: "Apps.MasterData.Integrations.Intake.Mailboxes" },
+              { nameKey: "Integrations:ApiClients", path: "/master-data/integrations/api-clients", icon: KeyRound, feature: "Apps.MasterData.Integrations.Intake.ApiClients" },
+              { nameKey: "Integrations:ImportProfiles", path: "/master-data/integrations/import-profiles", icon: FileCog, feature: "Apps.MasterData.Integrations.Intake.ImportProfiles" },
+            ],
+          },
+        ],
+      },
+      {
         nameKey: "Platform:Nav.Platform",
         path: "/master-data/platform",
         feature: "Apps.MasterData.Platform",
@@ -391,6 +418,11 @@ export const APPS: readonly AppDefinition[] = [
     icon: Plug,
     tileClass: "bg-violet-600",
     feature: "Apps.Integrations",
+    /* Design 72: Received, the messages that came in through the mailboxes and the API, and their trace
+     * (/integrations/received/{messageId}). The screen also checks the tenant feature Integrations.OrderIntake. */
+    views: [
+      { nameKey: "Integrations:Nav.Received", path: "/integrations/received", feature: "Apps.Integrations.Received", icon: Inbox, requiredPermission: "Integrations.InboundMessages" },
+    ],
   },
   {
     id: "reports",
