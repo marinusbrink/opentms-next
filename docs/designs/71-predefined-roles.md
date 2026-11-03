@@ -47,8 +47,8 @@ seed skips) shows the localized name too.
 ## Out of scope
 
 - A screen to change a role's permissions (none exists yet; the seeded sets are the only way grants change today).
-- The Customer Success Manager seed: it lives in Platform.Application, which the DbMigrator does not load, so the host
-  role is not seeded by the DbMigrator. Reported separately; not changed here.
+- The Customer Success Manager seed: it lived in Platform.Application, which the DbMigrator does not load, so the host
+  role was not seeded by the DbMigrator. Fixed separately (`fix/csm-role-seed`: moved to Platform.Domain).
 
 ## Test risk analysis (critical)
 
