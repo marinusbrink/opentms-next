@@ -310,7 +310,7 @@ public static class ValueParsers
     public static (string? Value, string? Error) Number(string text, string? culture)
     {
         var cleaned = text.Trim().Replace(" ", string.Empty, StringComparison.Ordinal).Replace(" ", string.Empty, StringComparison.Ordinal);
-        var cultures = culture != null ? new[] { Culture(culture) } : new[] { CultureInfo.InvariantCulture };
+        var cultures = culture != null ? new[] { Culture(culture) } : new[] { CultureInfo.InvariantCulture, CultureInfo.GetCultureInfo("nl-NL") };
         foreach (var c in cultures)
         {
             if (c != null && decimal.TryParse(cleaned, NumberStyles.Number, c, out var number))

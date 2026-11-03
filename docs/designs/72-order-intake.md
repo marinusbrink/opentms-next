@@ -612,3 +612,6 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
     lookups the Master data app already reads; the Integrations DTOs carry ids.
 13. **OAuth redirect** goes to the SPA URL (`App:RedirectAllowedUrls`, first entry, as elsewhere); `App:SelfUrl` builds
     the redirect URI and the token URL.
+15. **AI usage records are host data without a tenant filter** (they carry the tenant id of the usage, AP-05). A shared-tier
+    tenant lives in the host database, so no tenant-side code may ever read `AiUsageRecords`; a later usage screen is a
+    host screen, or filters on `TenantId` explicitly.

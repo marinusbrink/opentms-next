@@ -89,7 +89,8 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
             message.SetRawBlob(rawName);
         }
 
-        await _messages.InsertAsync(message, cancellationToken: cancellationToken);
+        /* Saved at once (in this unit of work's transaction): the API's JSON path reads the message back in the same request. */
+        await _messages.InsertAsync(message, autoSave: true, cancellationToken: cancellationToken);
 
         var documents = new List<InboundDocument>();
         foreach (var recorded in recording.Documents)
@@ -97,7 +98,7 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
             documents.Add(await RecordDocumentAsync(message, recorded, messageTooLarge, now, cancellationToken));
         }
 
-        await _documents.InsertManyAsync(documents, cancellationToken: cancellationToken);
+        await _documents.InsertManyAsync(documents, autoSave: true, cancellationToken: cancellationToken);
 
         var processable = documents.Any(d => d.Status == InboundDocumentStatus.Pending);
         if (!processable)
@@ -105,7 +106,7 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
             message.RollUp(documents.Select(d => d.Status).ToList());
         }
 
-        await _messages.UpdateAsync(message, cancellationToken: cancellationToken);
+        await _messages.UpdateAsync(message, autoSave: true, cancellationToken: cancellationToken);
         await _eventBus.PublishAsync(new InboundMessageReceivedEto { InboundMessageId = messageId });
 
         if (processable && documents.Any(d => d.Kind != InboundDocumentKind.ApiJson))
