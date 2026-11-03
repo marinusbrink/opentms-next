@@ -101,7 +101,14 @@ public class OpenTmsMemoryDistributedCacheTests : IDisposable
         await Task.Delay(120);
 
         _cache.Get("short").ShouldBeNull(); // the read evicts the expired entry
-        await Task.Delay(50); // the eviction callback runs on the thread pool
+
+        /* The eviction callback runs on the thread pool: on a busy CI runner a fixed short delay was not enough. */
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (_cache.Entries.Any(e => e.Key == "short") && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
         _cache.Entries.ShouldNotContain(e => e.Key == "short");
     }
 
