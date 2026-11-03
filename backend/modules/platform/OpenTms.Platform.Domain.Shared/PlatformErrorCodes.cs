@@ -40,6 +40,10 @@ public static class PlatformErrorCodes
     public const string AccountNotAvailable = Namespace + ":AccountNotAvailable";
     public const string AccountSwitchWhileImpersonating = Namespace + ":AccountSwitchWhileImpersonating";
 
+    /* The permissions screen (docs/designs/73-role-permissions.md): the admin role keeps every permission. Travels as
+     * HTTP 409 through its own mapping in OpenTms.HttpApi (the lists below are the master-data lists' codes). */
+    public const string AdminRolePermissionsReadOnly = Namespace + ":AdminRolePermissionsReadOnly";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [

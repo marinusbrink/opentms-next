@@ -1365,6 +1365,18 @@
     "Feature:Apps.MasterData.Integrations.Intake.ApiClients": "API clients",
     "Feature:Apps.MasterData.Integrations.Intake.ApiClients.Description": "Shows the API clients that submit orders through the intake API.",
     "Feature:Apps.MasterData.Integrations.Intake.ImportProfiles": "Import profiles",
-    "Feature:Apps.MasterData.Integrations.Intake.ImportProfiles.Description": "Shows the learned import profiles that read known document layouts."
+    "Feature:Apps.MasterData.Integrations.Intake.ImportProfiles.Description": "Shows the learned import profiles that read known document layouts.",
+    "Permission:Administration.Roles.ManagePermissions": "Change role permissions",
+    "Permission:Administration.Users.ManagePermissions": "Change user permissions",
+    "OpenTms.Platform:AdminRolePermissionsReadOnly": "The administrator role always has every permission; its permissions cannot be changed.",
+    "Administration:Permissions": "Permissions",
+    "Administration:PermissionsSaved": "Permissions saved",
+    "Administration:PermissionsSearch": "Search permissions",
+    "Administration:PermissionsAll": "All",
+    "Administration:PermissionsNone": "No permissions match the search.",
+    "Administration:PredefinedRolePermissionsNote": "This is a predefined role. You can change its permissions; a later release does not add back a permission you removed.",
+    "Administration:UserPermissionsNote": "Give permissions through roles where you can. A permission set here applies to this user only; permissions the user has through a role are shown greyed out.",
+    "Administration:GrantedThroughRole": "Through role: {0}",
+    "Administration:AdminRolePermissionsReadOnly": "The administrator role always has every permission"
   }
 }
