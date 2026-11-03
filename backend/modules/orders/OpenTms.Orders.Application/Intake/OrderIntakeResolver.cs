@@ -221,9 +221,19 @@ public class OrderIntakeResolver : ITransientDependency
         var settings = run.Request.Settings;
         var field = run.Field(IntakeFieldPaths.Customer);
 
-        if (run.ActiveRelation(settings.FixedCustomerRelationId) is { } fixedRelation)
+        if (settings.FixedCustomerRelationId != null)
         {
-            Resolve(field, fixedRelation.Id, fixedRelation.Name, IntakeResolutionMethod.Given);
+            /* The channel fixes the customer (an API client's orders are its customer's, whatever the payload says): the
+             * fixed relation or nothing. An archived or missing one is Unresolved without candidates for a clerk to pick;
+             * the payload's id, alias, code, VAT number or name are never consulted (review B2). */
+            if (run.ActiveRelation(settings.FixedCustomerRelationId) is { } fixedRelation)
+            {
+                Resolve(field, fixedRelation.Id, fixedRelation.Name, IntakeResolutionMethod.Given);
+            }
+            else
+            {
+                Open(field, []);
+            }
         }
         else if (run.ActiveRelation(customer?.RelationId) is { } given)
         {

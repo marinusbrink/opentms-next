@@ -15,6 +15,7 @@ using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.Timing;
+using Volo.Abp.Uow;
 
 namespace OpenTms.Integrations.OrderIntake;
 
@@ -35,7 +36,7 @@ public class InboundDocumentContainer
 /// </summary>
 public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDependency
 {
-    private readonly IRepository<InboundMessage, Guid> _messages;
+    private readonly IInboundMessageRepository _messages;
     private readonly IRepository<InboundDocument, Guid> _documents;
     private readonly IBlobContainer<InboundDocumentContainer> _blobs;
     private readonly IDistributedEventBus _eventBus;
@@ -43,19 +44,22 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
     private readonly ICurrentTenant _currentTenant;
     private readonly IGuidGenerator _guidGenerator;
     private readonly IClock _clock;
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public ILogger<InboundMessageRecorder> Logger { get; set; } = NullLogger<InboundMessageRecorder>.Instance;
 
     public InboundMessageRecorder(
-        IRepository<InboundMessage, Guid> messages,
+        IInboundMessageRepository messages,
         IRepository<InboundDocument, Guid> documents,
         IBlobContainer<InboundDocumentContainer> blobs,
         IDistributedEventBus eventBus,
         OrderIntakeJobQueue jobs,
         ICurrentTenant currentTenant,
         IGuidGenerator guidGenerator,
-        IClock clock)
+        IClock clock,
+        IUnitOfWorkManager unitOfWorkManager)
     {
+        _unitOfWorkManager = unitOfWorkManager;
         _messages = messages;
         _documents = documents;
         _blobs = blobs;
@@ -89,8 +93,13 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
             message.SetRawBlob(rawName);
         }
 
-        /* Saved at once (in this unit of work's transaction): the API's JSON path reads the message back in the same request. */
-        await _messages.InsertAsync(message, autoSave: true, cancellationToken: cancellationToken);
+        /* Saved at once (in this unit of work's transaction): the API's JSON path reads the message back in the same request.
+         * A concurrent recording of the same message that won the unique index is not an error (review minor 7): that one
+         * is the message, answered as not new; this attempt writes nothing. */
+        if (!await _messages.TryInsertAsync(message, cancellationToken))
+        {
+            return await ConcurrentDuplicateAsync(recording, externalId, message, cancellationToken);
+        }
 
         var documents = new List<InboundDocument>();
         foreach (var recorded in recording.Documents)
@@ -118,6 +127,40 @@ public class InboundMessageRecorder : IInboundMessageRecorder, ITransientDepende
             "Inbound message {InboundMessageId} recorded ({Channel}, source {SourceId}, tenant {TenantId}): {DocumentCount} documents, {SizeBytes} bytes.",
             messageId, recording.Channel, recording.SourceId, _currentTenant.Id, documents.Count, size);
         return new InboundMessageRecordResult(messageId, true);
+    }
+
+    private async Task<InboundMessageRecordResult> ConcurrentDuplicateAsync(InboundMessageRecording recording, string externalId, InboundMessage attempt, CancellationToken cancellationToken)
+    {
+        if (attempt.RawBlobName != null)
+        {
+            try
+            {
+                await _blobs.DeleteAsync(attempt.RawBlobName, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "The raw blob of the discarded duplicate {InboundMessageId} could not be deleted.", attempt.Id);
+            }
+        }
+
+        /* Re-read in a fresh unit of work: the winner committed, and this transaction must not depend on what it saw. */
+        Guid existingId;
+        using (var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: false), requiresNew: true))
+        {
+            var existing = await _messages.FirstOrDefaultAsync(
+                m => m.Channel == recording.Channel && m.SourceId == recording.SourceId && m.ExternalId == externalId, cancellationToken);
+            await unitOfWork.CompleteAsync(cancellationToken);
+            if (existing == null)
+            {
+                /* The unique index refused the insert, so the row exists; not seeing it is not a state to continue from. */
+                throw new InvalidOperationException($"Inbound message ({recording.Channel}, source {recording.SourceId}) collided with a row that cannot be read back.");
+            }
+
+            existingId = existing.Id;
+        }
+
+        Logger.LogInformation("Inbound message {InboundMessageId} ({Channel}, source {SourceId}) was recorded concurrently; nothing stored.", existingId, recording.Channel, recording.SourceId);
+        return new InboundMessageRecordResult(existingId, false);
     }
 
     private async Task<InboundDocument> RecordDocumentAsync(InboundMessage message, InboundDocumentRecording recorded, bool messageTooLarge, DateTime now, CancellationToken cancellationToken)

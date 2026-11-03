@@ -120,6 +120,37 @@ public class OrderIntakeProcessor : ITransientDependency
     /// </summary>
     public async Task<TransportOrder> CreateOrderAsync(OrderIntake intake, OrderIntakeDto payload, IntakeResolveResult result, bool confirm, bool confirmOnlyWhenComplete)
     {
+        var order = await BuildOrderAsync(intake, payload, result, confirm, confirmOnlyWhenComplete);
+        return await CompleteAsync(intake, order);
+    }
+
+    /// <summary>
+    /// <see cref="CreateOrderAsync"/> for a submission (design 72 build note 20): a business rule refusal while building
+    /// the order is not the caller's error but a fact on the intake — it stays NeedsReview with the refusal on the
+    /// pseudo-field <see cref="IntakeFieldPaths.Order"/>, and null is returned. Every rule of
+    /// <see cref="TransportOrderCommands.CreateAsync"/> runs before its insert, so nothing of the order is written.
+    /// </summary>
+    public async Task<TransportOrder?> TryCreateOrderAsync(OrderIntake intake, OrderIntakeDto payload, IntakeResolveResult result, bool confirm, bool confirmOnlyWhenComplete)
+    {
+        TransportOrder order;
+        try
+        {
+            order = await BuildOrderAsync(intake, payload, result, confirm, confirmOnlyWhenComplete);
+        }
+        catch (BusinessException e)
+        {
+            var code = string.IsNullOrWhiteSpace(e.Code) ? nameof(BusinessException) : e.Code;
+            intake.RecordOrderRefused(code);
+            await _intakes.UpdateAsync(intake, autoSave: true);
+            Logger.LogInformation("Order intake {IntakeId} needs review: Orders refused the order with {Code}.", intake.Id, code);
+            return null;
+        }
+
+        return await CompleteAsync(intake, order);
+    }
+
+    private async Task<TransportOrder> BuildOrderAsync(OrderIntake intake, OrderIntakeDto payload, IntakeResolveResult result, bool confirm, bool confirmOnlyWhenComplete)
+    {
         if (!result.IsComplete || result.CustomerRelationId == null || result.TransportOrderTypeId == null)
         {
             throw new BusinessException(OrdersErrorCodes.IntakeUnresolved).WithData("fields", string.Join(", ", result.Resolution.BlockingFieldPaths()));
@@ -128,8 +159,11 @@ public class OrderIntakeProcessor : ITransientDependency
         var orderDate = result.OrderDate ?? _clock.Today();
         var terms = await _references.DefaultTermsAsync(result.CustomerRelationId.Value, orderDate);
         var draft = BuildDraft(payload, result, orderDate, terms, _l["Orders:IntakeStopContact"]);
-        var order = await _commands.CreateAsync(draft, intake.Source, intake.MappingConfidence, null, 0, confirm, intake.Id, confirmOnlyWhenComplete);
+        return await _commands.CreateAsync(draft, intake.Source, intake.MappingConfidence, null, 0, confirm, intake.Id, confirmOnlyWhenComplete);
+    }
 
+    private async Task<TransportOrder> CompleteAsync(OrderIntake intake, TransportOrder order)
+    {
         intake.MarkOrderCreated(order.Id);
         await _intakes.UpdateAsync(intake, autoSave: true);
         var confirmed = order.Status != TransportOrderStatus.Draft;

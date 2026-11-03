@@ -156,6 +156,9 @@ public class OrderIntakeFieldResolutionDto
 
     /// <summary>At most <see cref="IntakeConsts.MaxCandidates"/>, best first.</summary>
     public List<OrderIntakeCandidateDto> Candidates { get; set; } = new();
+
+    /// <summary>On the pseudo-field <c>order</c> only: the business error code that refused the order (design 72 build note 20).</summary>
+    public string? ErrorCode { get; set; }
 }
 
 public class OrderIntakeCandidateDto

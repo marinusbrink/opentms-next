@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTms.Orders.ConsignmentNotes;
+using OpenTms.Orders.Intake;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using Volo.Abp.EntityFrameworkCore;
@@ -20,6 +21,8 @@ public class OrdersEntityFrameworkCoreModule : AbpModule
         context.Services.AddAbpDbContext<OrdersDbContext>(options =>
         {
             options.AddDefaultRepositories(includeAllEntities: true);
+            /* Design 72 review M2: the intake list's search through ILIKE on PostgreSQL. */
+            options.AddRepository<OrderIntake, EfCoreOrderIntakeRepository>();
 
             /* includeDetails: the aggregates with children load them with GetAsync(id, includeDetails: true). */
             options.Entity<TransportOrderType>(e => e.DefaultWithDetailsFunc = q => q.Include(t => t.DefaultWaypoints));

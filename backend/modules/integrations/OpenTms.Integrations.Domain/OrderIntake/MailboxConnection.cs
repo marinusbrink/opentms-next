@@ -105,22 +105,27 @@ public class MailboxConnection : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public void ReplaceRefreshToken(string refreshTokenEncrypted)
         => RefreshTokenEncrypted = Check.NotNullOrWhiteSpace(refreshTokenEncrypted, nameof(refreshTokenEncrypted), OrderIntakeConsts.MaxRefreshTokenLength);
 
-    /// <summary>A (new) folder was chosen: the old cursor no longer applies, the connection waits for <see cref="Activate"/>.</summary>
+    /// <summary>
+    /// A (new) folder was chosen: the old cursor no longer applies; the connection is Activating until the activation job
+    /// took the provider's cursor and called <see cref="Activate"/> (design 72 build note 18). The sync skips it meanwhile.
+    /// </summary>
     public void ChooseFolder(string folderId, string folderName)
     {
-        EnsureStatus(Status is MailboxStatus.AwaitingFolder or MailboxStatus.Active or MailboxStatus.Paused);
+        EnsureStatus(Status is MailboxStatus.AwaitingFolder or MailboxStatus.Activating or MailboxStatus.Active or MailboxStatus.Paused);
         FolderId = Check.NotNullOrWhiteSpace(folderId, nameof(folderId), OrderIntakeConsts.MaxFolderIdLength);
         FolderName = Check.NotNullOrWhiteSpace(folderName, nameof(folderName), OrderIntakeConsts.MaxFolderNameLength);
         SyncCursor = null;
-        Status = MailboxStatus.AwaitingFolder;
+        Status = MailboxStatus.Activating;
     }
 
     /// <summary>The provider's current cursor of the chosen folder: from here on, arriving mail is imported.</summary>
     public void Activate(string cursor, DateTime at)
     {
-        EnsureStatus(Status == MailboxStatus.AwaitingFolder && FolderId != null && RefreshTokenEncrypted != null);
+        EnsureStatus(Status == MailboxStatus.Activating && FolderId != null && RefreshTokenEncrypted != null);
         SyncCursor = Check.NotNullOrWhiteSpace(cursor, nameof(cursor), OrderIntakeConsts.MaxSyncCursorLength);
         LastSyncAt = at;
+        LastErrorCode = null;
+        LastErrorAt = null;
         Status = MailboxStatus.Active;
     }
 
@@ -145,6 +150,16 @@ public class MailboxConnection : FullAuditedAggregateRoot<Guid>, IMultiTenant
     {
         RecordError(errorCode, at);
         Status = MailboxStatus.Reconnect;
+    }
+
+    /// <summary>
+    /// The connection is deleted: its refresh token and cursor are forgotten before the soft delete, so the kept row holds
+    /// no lasting access (design 72 build note 21). Nothing is revoked at the provider.
+    /// </summary>
+    public void Forget()
+    {
+        RefreshTokenEncrypted = null;
+        SyncCursor = null;
     }
 
     public void Pause()

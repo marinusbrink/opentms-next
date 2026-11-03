@@ -20,8 +20,9 @@ namespace OpenTms.Integrations.OrderIntake.Channels;
 
 /// <summary>
 /// Master data → Integrations → Order intake → Mailboxes (design 72 "Channels"). Connect creates the row and returns the
-/// provider's authorize URL (the anonymous callback completes it); choosing a folder takes the provider's current cursor
-/// and activates the connection, so only mail arriving afterwards is imported. Gated by the tenant feature
+/// provider's authorize URL (the anonymous callback completes it); choosing a folder sets the connection Activating and
+/// enqueues <see cref="MailboxActivationJob"/>, which takes the provider's current cursor and activates it, so only mail
+/// arriving afterwards is imported. Deleting forgets the refresh token and cursor before the soft delete. Gated by the tenant feature
 /// <see cref="IntegrationsFeatures.OrderIntake"/> and the nav node's app features; the refresh token never leaves this
 /// module. Default customer and order type are stored as given: their names come from the screen's own lookups (no
 /// synchronous call to Master Data or Orders is stated for them in design 72).
@@ -42,6 +43,7 @@ public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxC
     private readonly MailboxOAuthStateProtector _states;
     private readonly MailboxOAuthUrls _urls;
     private readonly IClock _clock;
+    private readonly OrderIntakeJobQueue _jobs;
 
     public MailboxConnectionAppService(
         IRepository<MailboxConnection, Guid> connections,
@@ -49,8 +51,10 @@ public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxC
         MailboxTokenService tokens,
         MailboxOAuthStateProtector states,
         MailboxOAuthUrls urls,
-        IClock clock)
+        IClock clock,
+        OrderIntakeJobQueue jobs)
     {
+        _jobs = jobs;
         _connections = connections;
         _clients = clients;
         _tokens = tokens;
@@ -137,7 +141,8 @@ public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxC
         connection.SetDefaults(input.DefaultCustomerRelationId, input.DefaultTransportOrderTypeId, input.AutoConfirm);
 
         var folderId = string.IsNullOrWhiteSpace(input.FolderId) ? null : input.FolderId.Trim();
-        if (folderId != null && (folderId != connection.FolderId || connection.Status == MailboxStatus.AwaitingFolder))
+        var activate = false;
+        if (folderId != null && (folderId != connection.FolderId || connection.Status is MailboxStatus.AwaitingFolder or MailboxStatus.Activating))
         {
             EnsureConsented(connection);
             var duplicate = await _connections.AnyAsync(c =>
@@ -151,15 +156,22 @@ public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxC
             {
                 var folder = (await client.ListFoldersAsync(accessToken)).FirstOrDefault(f => f.Id == folderId)
                              ?? throw new UserFriendlyException(L["Mailboxes:FolderNotFound"]);
+                /* Activating: the provider's cursor is taken by MailboxActivationJob, not in this request (Graph pages the
+                 * folder's whole contents; design 72 build note 18). Only mail arriving after activation is imported. */
                 connection.ChooseFolder(folder.Id, folder.Name);
-                /* From here on: only mail that arrives after activation is imported (design 72, assumption 2). */
-                connection.Activate(await client.GetCurrentCursorAsync(accessToken, folder.Id), _clock.Now);
                 return true;
             });
-            Logger.LogInformation("Mailbox connection {ConnectionId} activated on a folder by user {UserId}.", connection.Id, CurrentUser.Id);
+            activate = true;
         }
 
         await _connections.UpdateAsync(connection, autoSave: true);
+        if (activate)
+        {
+            /* Enqueued once this unit of work commits, so the job finds the connection Activating. */
+            await _jobs.EnqueueActivationAsync(connection.Id);
+            Logger.LogInformation("Mailbox connection {ConnectionId} activating on a folder, chosen by user {UserId}.", connection.Id, CurrentUser.Id);
+        }
+
         return ToDto(connection);
     }
 
@@ -184,14 +196,33 @@ public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxC
     [Authorize(IntegrationsPermissions.Mailboxes.Manage)]
     public async Task DeleteAsync(Guid id)
     {
-        await _connections.DeleteAsync(id);
+        var connection = await _connections.FindAsync(id);
+        if (connection == null)
+        {
+            return;
+        }
+
+        /* The soft-deleted row keeps no lasting access (design 72 build note 21). Saved first: ABP reloads a soft-deleted
+         * entry from the database before setting IsDeleted, which would drop unsaved changes. */
+        connection.Forget();
+        await _connections.UpdateAsync(connection, autoSave: true);
+        await _connections.DeleteAsync(connection, autoSave: true);
         Logger.LogInformation("Mailbox connection {ConnectionId} deleted by user {UserId}.", id, CurrentUser.Id);
     }
 
     private async Task<string> AuthorizeUrlAsync(MailProvider provider, Guid connectionId)
     {
+        /* A missing App:SelfUrl is a configuration gap like a provider without client id/secret (BuildAuthorizeUrl throws
+         * that one): the same ProviderNotConfigured business error, never a 500 (review minor 6, follow-up). */
+        var redirectUri = await _urls.FindRedirectUriAsync();
+        if (redirectUri == null)
+        {
+            Logger.LogWarning("Mailbox connection {ConnectionId}: the OAuth redirect URI is not configured (App:SelfUrl).", connectionId);
+            throw new BusinessException(IntegrationsErrorCodes.ProviderNotConfigured).WithData("provider", provider.ToString());
+        }
+
         var state = _states.Protect(CurrentTenant.Id, connectionId, CurrentUser.Id);
-        return _clients.Get(provider).BuildAuthorizeUrl(state, await _urls.GetRedirectUriAsync());
+        return _clients.Get(provider).BuildAuthorizeUrl(state, redirectUri);
     }
 
     private static void EnsureConsented(MailboxConnection connection)

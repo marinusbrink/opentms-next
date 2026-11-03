@@ -4206,7 +4206,8 @@
           2,
           3,
           4,
-          5
+          5,
+          6
         ],
         "format": "int32",
         "type": "integer"
@@ -10956,6 +10957,10 @@
             },
             "nullable": true,
             "type": "array"
+          },
+          "errorCode": {
+            "nullable": true,
+            "type": "string"
           },
           "fieldPath": {
             "nullable": true,

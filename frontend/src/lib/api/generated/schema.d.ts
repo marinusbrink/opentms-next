@@ -52982,7 +52982,7 @@ export interface components {
          * Format: int32
          * @enum {integer}
          */
-        "OpenTms.Integrations.OrderIntake.MailboxStatus": 1 | 2 | 3 | 4 | 5;
+        "OpenTms.Integrations.OrderIntake.MailboxStatus": 1 | 2 | 3 | 4 | 5 | 6;
         /**
          * Format: int32
          * @enum {integer}
@@ -54955,6 +54955,7 @@ export interface components {
         };
         "OpenTms.Orders.Intake.OrderIntakeFieldResolutionDto": {
             candidates?: components["schemas"]["OpenTms.Orders.Intake.OrderIntakeCandidateDto"][] | null;
+            errorCode?: string | null;
             fieldPath?: string | null;
             method?: components["schemas"]["OpenTms.Orders.Intake.IntakeResolutionMethod"];
             status?: components["schemas"]["OpenTms.Orders.Intake.IntakeResolutionStatus"];

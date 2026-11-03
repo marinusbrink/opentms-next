@@ -42,6 +42,9 @@ public static class IntakeConsts
 
     public const int MaxCandidateDetailLength = 256;
 
+    /// <summary>The error code kept on the pseudo-field <c>order</c> of a refused order creation.</summary>
+    public const int MaxErrorCodeLength = 128;
+
     /* Aliases. */
 
     /// <summary>The normalised text an alias matches (lower case, single spaces).</summary>

@@ -49,7 +49,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
 
     private readonly IRepository<InboundMessage, Guid> _messages;
     private readonly IRepository<InboundDocument, Guid> _documents;
-    private readonly IRepository<ImportProfile, Guid> _profiles;
+    private readonly IImportProfileRepository _profiles;
     private readonly IRepository<MailboxConnection, Guid> _mailboxes;
     private readonly IRepository<ApiClient, Guid> _apiClients;
     private readonly IBlobContainer<InboundDocumentContainer> _blobs;
@@ -68,7 +68,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
     public InboundMessageProcessor(
         IRepository<InboundMessage, Guid> messages,
         IRepository<InboundDocument, Guid> documents,
-        IRepository<ImportProfile, Guid> profiles,
+        IImportProfileRepository profiles,
         IRepository<MailboxConnection, Guid> mailboxes,
         IRepository<ApiClient, Guid> apiClients,
         IBlobContainer<InboundDocumentContainer> blobs,
@@ -132,10 +132,18 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
         var aiEnabled = await _features.IsEnabledAsync(IntegrationsFeatures.OrderIntakeAiMapping);
         List<AiWork> work;
         string? subject;
-        using (var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true))
+        try
         {
+            using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
             (work, subject) = await RunProfilesAsync(inboundMessageId, aiEnabled, cancellationToken);
             await unitOfWork.CompleteAsync(cancellationToken);
+        }
+        catch (IntakeSubmitException ex)
+        {
+            /* The transaction is rolled back (the unit of work is disposed before this runs): the failure is recorded in a
+             * fresh one and the job fails, so Hangfire retries the still Pending documents. */
+            await RecordSubmitFailedAsync(ex);
+            throw;
         }
 
         if (work.Count == 0)
@@ -185,10 +193,16 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
             learning = [(new LearningOutcome { FailureCode = "error" }, work)];
         }
 
-        using (var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true))
+        try
         {
+            using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
             await ApplyAiAsync(inboundMessageId, learning, requestedAt, cancellationToken);
             await unitOfWork.CompleteAsync(cancellationToken);
+        }
+        catch (IntakeSubmitException ex)
+        {
+            await RecordSubmitFailedAsync(ex);
+            throw;
         }
     }
 
@@ -315,8 +329,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
             if (match.Profile != null)
             {
                 var profile = match.Profile;
-                profile.RecordUse(_clock.Now);
-                await _profiles.UpdateAsync(profile, cancellationToken: cancellationToken);
+                await RecordProfileUseAsync(profile);
                 document.SetProfile(profile.Id, profile.Version);
                 AddStep(document, IntakeStep.ProfileMatched, StepOutcome.Success, IntakeStepKeys.ProfileMatched,
                     ("profileName", profile.Name), ("version", Number(profile.Version)), ("intakeCount", Number(match.Run!.Intakes.Count)));
@@ -500,13 +513,22 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
             }
             catch (Exception ex) when (ex is BusinessException or AbpValidationException)
             {
-                /* Refused before anything was written (validation, a business rule): the intake needs attention, the rest goes on. */
+                /* Refused before anything was written (input validation, the feature, the source kind): Orders keeps a refusal
+                 * while creating the order on the intake itself (NeedsReview, pseudo-field "order", build note 20), so a
+                 * business or validation error reaching here wrote nothing and the transaction is intact: the intake needs
+                 * attention, the rest goes on. */
                 var code = ex is IHasErrorCode { Code: { Length: > 0 } errorCode } ? errorCode : ex.GetType().Name;
                 Logger.LogInformation("Orders refused intake {IntakeIndex} of document {InboundDocumentId}: {ErrorCode}.", intake.Index, document.Id, code);
                 AddStep(document, IntakeStep.Failed, StepOutcome.Error, IntakeStepKeys.SubmitFailed, new StepIntakeReference(intake.Index),
                     ("intakeIndex", Number(intake.Index + 1)), ("reason", Cut(code, 200)!));
                 anyFailed = true;
                 continue;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                /* Anything else may have left the transaction broken (a database error aborts it): nothing more is written in
+                 * it; the job fails and Hangfire retries (ProcessAsync records the SubmitFailed step in a fresh transaction). */
+                throw new IntakeSubmitException(document.Id, intake.Index, ex);
             }
 
             AddStep(document, IntakeStep.Submitted, StepOutcome.Info, IntakeStepKeys.Submitted, new StepIntakeReference(intake.Index, result.IntakeId),
@@ -565,6 +587,57 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
         }
 
         await unitOfWork.CompleteAsync();
+    }
+
+    /// <summary>
+    /// Stamps the profile's <c>LastUsedAt</c> at most every <see cref="OrderIntakeConsts.UsageStampInterval"/> (design 72
+    /// build note 19): in a short unit of work of its own with a set-based update outside the aggregate's concurrency check,
+    /// so parallel jobs using one profile never conflict and the job's transaction holds no lock on the profile. A failure
+    /// is logged and never fails the job.
+    /// </summary>
+    private async Task RecordProfileUseAsync(ImportProfile profile)
+    {
+        var now = _clock.Now;
+        var staleBefore = now - OrderIntakeConsts.UsageStampInterval;
+        if (profile.LastUsedAt != null && profile.LastUsedAt >= staleBefore)
+        {
+            return;
+        }
+
+        try
+        {
+            using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
+            await _profiles.RecordUseAsync(profile.Id, now, staleBefore);
+            await unitOfWork.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "The use of import profile {ImportProfileId} (tenant {TenantId}) could not be recorded.", profile.Id, _currentTenant.Id);
+        }
+    }
+
+    /// <summary>The SubmitFailed step of an unexpected submit failure, in a fresh transaction after the job's was rolled back.</summary>
+    private async Task RecordSubmitFailedAsync(IntakeSubmitException failure)
+    {
+        Logger.LogWarning(failure.InnerException, "Submitting intake {IntakeIndex} of document {InboundDocumentId} (tenant {TenantId}) failed unexpectedly; the job is retried.",
+            failure.IntakeIndex, failure.DocumentId, _currentTenant.Id);
+        try
+        {
+            using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
+            var document = await _documents.FindAsync(failure.DocumentId, includeDetails: true);
+            if (document != null)
+            {
+                AddStep(document, IntakeStep.Failed, StepOutcome.Error, IntakeStepKeys.SubmitFailed, new StepIntakeReference(failure.IntakeIndex),
+                    ("intakeIndex", Number(failure.IntakeIndex + 1)), ("reason", Cut(failure.InnerException?.GetType().Name ?? nameof(Exception), 200)!));
+                await _documents.UpdateAsync(document);
+            }
+
+            await unitOfWork.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "The SubmitFailed step of document {InboundDocumentId} could not be recorded.", failure.DocumentId);
+        }
     }
 
     /// <summary>The transient AI failures since the document was last reprocessed (the retry budget of design 72 §5).</summary>

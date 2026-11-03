@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { relationOptionOf } from "@/domains/master-data/components/RelationFields";
@@ -22,9 +23,11 @@ import { AddressPicker, ReferencePicker, RelationPicker, ResolutionRow, type Pic
 import {
   LINE_FIELDS,
   ORDER_FIELDS,
+  ORDER_REFUSAL_PATH,
   STOP_FIELDS,
   linePath,
   orderPath,
+  orderRefusalText,
   receivedAddressText,
   receivedText,
   stopPath,
@@ -37,6 +40,22 @@ import {
  * the review or without Orders.OrderIntakes.Resolve. */
 
 const CUSTOMER_ROLE = 1;
+
+/* Orders refused to create the order from these values: shown like an unresolved field, without a picker; the clerk
+ * corrects the received values or rejects the intake. */
+function OrderRefusalRow({ entry }: { entry: OrderIntakeFieldResolution }) {
+  const { t } = useL();
+  return (
+    <div className="grid gap-2 rounded-lg border border-l-4 border-l-tone-danger bg-background p-3" data-path={ORDER_REFUSAL_PATH} data-status="Unresolved" role="alert">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">{t("Orders:IntakeOrderRefused")}</span>
+        <StatusBadge entity="IntakeResolution" state="Unresolved" />
+      </div>
+      <p className="text-sm">{orderRefusalText(t, entry.errorCode)}</p>
+      <p className="text-label text-muted-foreground">{t("Orders:IntakeOrderRefusedHint")}</p>
+    </div>
+  );
+}
 
 export interface IntakeReviewProps {
   detail: OrderIntakeDetail;
@@ -111,12 +130,14 @@ export function IntakeReview({ detail, base, overrides, onOverride, picks, onPic
 
   /* Fields the resolver looked at that have no place below (a future path) still show, so nothing open is hidden. */
   const known = /^(order\.(customer|orderType|orderDate|lines)|lines\[\d+\]\.(transportUnit|product|temperature|stops\[\d+\]\.(address|waypointType|date|timeFrom|timeTill)))$/;
-  const others = [...resolution.values()].filter((entry) => entry.fieldPath && !known.test(entry.fieldPath) && entry.status !== 1);
+  const others = [...resolution.values()].filter((entry) => entry.fieldPath && entry.fieldPath !== ORDER_REFUSAL_PATH && !known.test(entry.fieldPath) && entry.status !== 1);
+  const refusal = resolution.get(ORDER_REFUSAL_PATH);
 
   return (
     <div className="grid gap-4" data-slot="intake-review">
       <FormSection title={t("Orders:IntakeOrderSection")}>
         <div className="grid gap-3">
+          {refusal && refusal.status !== 1 && <OrderRefusalRow entry={refusal} />}
           <div className="grid grid-cols-2 gap-3">
             {resolved("order.customer", t("Orders:Customer"), customerText, (value, onChange) => (
               <RelationPicker

@@ -15,6 +15,9 @@ public static partial class IntakeFieldPaths
     public const string OrderDate = "order.orderDate";
     public const string Lines = "order.lines";
 
+    /// <summary>The pseudo-field of a refused order creation (design 72 build note 20): Unresolved with the error code.</summary>
+    public const string Order = "order";
+
     public const string TransportUnitField = "transportUnit";
     public const string ProductField = "product";
     public const string TemperatureField = "temperature";

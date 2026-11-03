@@ -32,7 +32,7 @@ namespace OpenTms.Integrations.OrderIntake;
 [Authorize(IntegrationsPermissions.InboundMessages.Default)]
 public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMessageAppService
 {
-    private readonly IRepository<InboundMessage, Guid> _messages;
+    private readonly IInboundMessageRepository _messages;
     private readonly IRepository<InboundDocument, Guid> _documents;
     private readonly IRepository<ImportProfile, Guid> _profiles;
     private readonly IRepository<MailboxConnection, Guid> _mailboxes;
@@ -41,7 +41,7 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
     private readonly OrderIntakeJobQueue _jobs;
 
     public InboundMessageAppService(
-        IRepository<InboundMessage, Guid> messages,
+        IInboundMessageRepository messages,
         IRepository<InboundDocument, Guid> documents,
         IRepository<ImportProfile, Guid> profiles,
         IRepository<MailboxConnection, Guid> mailboxes,
@@ -91,12 +91,11 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
             filtered = filtered.Where(m => m.ReceivedAt < to);
         }
 
-        var term = input.WildcardSearch?.Trim().ToLowerInvariant();
+        var term = input.WildcardSearch?.Trim();
         if (!string.IsNullOrEmpty(term))
         {
-            filtered = filtered.Where(m => (m.From != null && m.From.ToLower().Contains(term))
-                                           || (m.Subject != null && m.Subject.ToLower().Contains(term))
-                                           || m.ExternalId.ToLower().Contains(term));
+            /* ILIKE on the raw columns with the trigram indexes (PostgreSQL); see IInboundMessageRepository. */
+            filtered = await _messages.WhereSearchMatchesAsync(filtered, term);
         }
 
         var filteredCount = filtered == all ? totalCount : await AsyncExecuter.LongCountAsync(filtered);
@@ -112,8 +111,21 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
             _ => throw new BusinessException(ReferenceDataErrorCodes.UnknownSortColumn).WithData("sortBy", input.SortBy!)
         };
 
-        var page = await AsyncExecuter.ToListAsync(ordered.Skip(input.StartRow).Take(input.EndRow - input.StartRow));
-        var ids = page.Select(m => m.Id).ToList();
+        /* Projected in the query: the page reads the list's columns only. */
+        var rows = await AsyncExecuter.ToListAsync(ordered
+            .Skip(input.StartRow)
+            .Take(input.EndRow - input.StartRow)
+            .Select(m => new InboundMessageRowDto
+            {
+                Id = m.Id,
+                ReceivedAt = m.ReceivedAt,
+                Channel = m.Channel,
+                SourceId = m.SourceId,
+                From = m.From,
+                Subject = m.Subject,
+                Status = m.Status
+            }));
+        var ids = rows.Select(m => m.Id).ToList();
         var documentCounts = ids.Count == 0
             ? new Dictionary<Guid, int>()
             : (await AsyncExecuter.ToListAsync((await _documents.GetQueryableAsync())
@@ -121,22 +133,16 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
                     .GroupBy(d => d.InboundMessageId)
                     .Select(g => new { g.Key, Count = g.Count() })))
                 .ToDictionary(x => x.Key, x => x.Count);
-        var names = await GetSourceNamesAsync(page);
+        var names = await GetSourceNamesAsync(rows.Select(r => (r.Channel, r.SourceId)).ToList());
+        foreach (var row in rows)
+        {
+            row.SourceName = names.GetValueOrDefault(row.SourceId);
+            row.DocumentCount = documentCounts.GetValueOrDefault(row.Id);
+        }
 
         return new GridResponse<InboundMessageRowDto>
         {
-            Rows = page.Select(m => new InboundMessageRowDto
-            {
-                Id = m.Id,
-                ReceivedAt = m.ReceivedAt,
-                Channel = m.Channel,
-                SourceId = m.SourceId,
-                SourceName = names.GetValueOrDefault(m.SourceId),
-                From = m.From,
-                Subject = m.Subject,
-                DocumentCount = documentCounts.GetValueOrDefault(m.Id),
-                Status = m.Status
-            }).ToList(),
+            Rows = rows,
             TotalCount = totalCount,
             FilteredCount = filteredCount
         };
@@ -150,7 +156,7 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
         var profileNames = profileIds.Count == 0
             ? new Dictionary<Guid, string>()
             : (await _profiles.GetListAsync(p => profileIds.Contains(p.Id))).ToDictionary(p => p.Id, p => p.Name);
-        var names = await GetSourceNamesAsync([message]);
+        var names = await GetSourceNamesAsync([(message.Channel, message.SourceId)]);
 
         return new InboundMessageDto
         {
@@ -225,10 +231,10 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
         return await GetAsync(message.Id);
     }
 
-    private async Task<Dictionary<Guid, string>> GetSourceNamesAsync(IReadOnlyCollection<InboundMessage> messages)
+    private async Task<Dictionary<Guid, string>> GetSourceNamesAsync(IReadOnlyCollection<(InboundChannel Channel, Guid SourceId)> sources)
     {
-        var mailboxIds = messages.Where(m => m.Channel != InboundChannel.Api).Select(m => m.SourceId).Distinct().ToList();
-        var clientIds = messages.Where(m => m.Channel == InboundChannel.Api).Select(m => m.SourceId).Distinct().ToList();
+        var mailboxIds = sources.Where(m => m.Channel != InboundChannel.Api).Select(m => m.SourceId).Distinct().ToList();
+        var clientIds = sources.Where(m => m.Channel == InboundChannel.Api).Select(m => m.SourceId).Distinct().ToList();
         var names = new Dictionary<Guid, string>();
         if (mailboxIds.Count > 0)
         {

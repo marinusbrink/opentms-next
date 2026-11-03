@@ -619,3 +619,23 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
 15. **AI usage records are host data without a tenant filter** (they carry the tenant id of the usage, AP-05). A shared-tier
     tenant lives in the host database, so no tenant-side code may ever read `AiUsageRecords`; a later usage screen is a
     host screen, or filters on `TenantId` explicitly.
+16. **MimeKit** (MIT licence) parses the raw RFC 822 mails of Gmail and Microsoft 365 (multipart, encodings, attachments,
+    inline parts); hand-rolled MIME parsing would be a security and correctness risk. Added with this design.
+17. **The OAuth consent is bound to the browser of the user who started it** (review M7, RFC 6749 §10.12): the callback
+    completes only when the request carries the auth server's sign-in cookie of the same user and tenant as the state
+    (the callback runs on the auth server's host). Otherwise the connect is refused with `connectError=session_required`.
+    Without this, a consent link sent to someone else would connect their mailbox to the sender's tenant.
+18. **Taking the cursor runs in a background job**: choosing a folder sets the connection to `Activating`; the job
+    `MailboxActivationJob` takes the provider's cursor (Graph pages the folder's current contents) and activates it.
+19. **Throttled usage writes**: an API client's `LastUsedAt` and a profile's `LastUsedAt` are written at most every five
+    minutes, set-based and outside the request's concurrency check, so parallel calls never conflict.
+20. **A refused order creation keeps the intake**: when Orders refuses to create the order (a business rule on the
+    received values), the intake stays NeedsReview with the refusal on the pseudo-field `order`; nothing of the order is
+    written.
+21. **Deleting a mailbox forgets its refresh token and cursor**; nothing is revoked at the provider (the user can revoke
+    the app's access in their Google or Microsoft account).
+22. **Known limits** (accepted): a lost job enqueue leaves a message Pending until someone reprocesses it (no sweep yet);
+    the e-mail domain match in Master Data scans relations and contact persons (only when no exact address matched).
+23. **DEVIATION(UI-LOOK-004) approved here**: the mailbox folder picker has no "Add new…" — the provider's labels and
+    folders are not OpenTMS records and cannot be created from OpenTMS. The three Integrations master-data lists sit
+    under `/master-data/integrations/…` (the OAuth return URL is fixed there), the only lists nested under a group path.

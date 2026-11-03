@@ -43,6 +43,8 @@ public class IntegrationsDbContext : AbpDbContext<IntegrationsDbContext>
         /* Every table of this module lives in its own schema ("integrations").
          * Never map an entity of another module into this context. */
         builder.HasDefaultSchema(IntegrationsDbProperties.DbSchema);
+        /* The Received list's trigram search (design 72 review M2, as Orders and Master Data). */
+        builder.HasPostgresExtension("pg_trgm");
 
         builder.Entity<RouteCacheEntry>(b =>
         {
@@ -117,6 +119,11 @@ public class IntegrationsDbContext : AbpDbContext<IntegrationsDbContext>
             /* The Received list, newest first, and its status filter. */
             b.HasIndex(m => new { m.TenantId, m.ReceivedAt }).IsDescending(false, true);
             b.HasIndex(m => new { m.TenantId, m.Status });
+            /* The list's ILIKE search over sender, subject and external id (review M2): every column of the OR is indexed, so
+             * the planner can combine them instead of scanning the table. */
+            b.HasIndex(m => m.From, "IX_InboundMessages_From_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
+            b.HasIndex(m => m.Subject, "IX_InboundMessages_Subject_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
+            b.HasIndex(m => m.ExternalId, "IX_InboundMessages_ExternalId_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
         });
 
         builder.Entity<InboundDocument>(b =>
