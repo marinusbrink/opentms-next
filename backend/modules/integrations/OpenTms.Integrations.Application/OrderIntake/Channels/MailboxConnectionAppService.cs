@@ -19,7 +19,7 @@ using Volo.Abp.Validation;
 namespace OpenTms.Integrations.OrderIntake.Channels;
 
 /// <summary>
-/// Master data → Integrations → Order intake → Mailboxes (design 72 "Channels"). Connect creates the row and returns the
+/// Integrations app → Order intake → Mailboxes (design 72 "Channels"). Connect creates the row and returns the
 /// provider's authorize URL (the anonymous callback completes it); choosing a folder sets the connection Activating and
 /// enqueues <see cref="MailboxActivationJob"/>, which takes the provider's current cursor and activates it, so only mail
 /// arriving afterwards is imported. Deleting forgets the refresh token and cursor before the soft delete. Gated by the tenant feature
@@ -30,10 +30,9 @@ namespace OpenTms.Integrations.OrderIntake.Channels;
 [Authorize(IntegrationsPermissions.Mailboxes.Default)]
 [RequiresFeature(
     IntegrationsFeatures.OrderIntake,
-    AppFeatures.MasterData.Default,
-    AppFeatures.MasterData.Integrations.Default,
-    AppFeatures.MasterData.Integrations.Intake.Default,
-    AppFeatures.MasterData.Integrations.Intake.Mailboxes,
+    AppFeatures.Integrations,
+    AppFeatures.IntegrationsApp.Intake.Default,
+    AppFeatures.IntegrationsApp.Intake.Mailboxes,
     RequiresAll = true)]
 public class MailboxConnectionAppService : IntegrationsAppServiceBase, IMailboxConnectionAppService
 {

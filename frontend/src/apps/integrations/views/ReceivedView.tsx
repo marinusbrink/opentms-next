@@ -68,7 +68,7 @@ export function ReceivedView() {
     [t],
   );
 
-  if (feature === "off" || (features.isLoaded && !features.isFeatureEnabled("Apps.Integrations.Received"))) return <FeatureUnavailable />;
+  if (feature === "off" || (features.isLoaded && !features.isFeatureEnabled("Apps.Integrations.Intake.Received"))) return <FeatureUnavailable />;
   if (!canView) return <PermissionDenied />;
 
   return (

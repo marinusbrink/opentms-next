@@ -38,9 +38,6 @@ import { ViaDepotRulesView } from "@/apps/master-data/views/ViaDepotRulesView";
 import { TripAttributeDefinitionsView } from "@/apps/master-data/views/TripAttributeDefinitionsView";
 import { PriceListsView } from "@/apps/master-data/views/PriceListsView";
 import { RelationFinancialSettingsView } from "@/apps/master-data/views/RelationFinancialSettingsView";
-import { ApiClientsView } from "@/apps/master-data/views/ApiClientsView";
-import { ImportProfilesView } from "@/apps/master-data/views/ImportProfilesView";
-import { MailboxesView } from "@/apps/master-data/views/MailboxesView";
 
 /* The Master data app (design 41): routes by pathname like the Administration app. The bare app path, a domain
  * group path and a group path (the nav categories; PO 2026-10-16) redirect to the first list under it that is on for
@@ -59,26 +56,41 @@ const GROUP_PATHS = new Set([
   "/master-data/financial",
   "/master-data/invoicing",
   "/master-data/pricing",
-  "/master-data/integrations",
-  "/master-data/integrations/intake",
   "/master-data/platform",
 ]);
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
+
+/* The order-intake setup moved to the Integrations app (PO decision 2026-11-03): an old address under
+ * /master-data/integrations (a bookmark, a mailbox OAuth return) goes to the same list there, its search kept. */
+const MOVED_INTAKE_PREFIX = "/master-data/integrations";
+const MOVED_INTAKE_LISTS = ["mailboxes", "api-clients", "import-profiles"];
+
+function movedIntakePath(pathname: string): string | undefined {
+  if (pathname !== MOVED_INTAKE_PREFIX && !pathname.startsWith(`${MOVED_INTAKE_PREFIX}/`)) return undefined;
+  const list = pathname.slice(MOVED_INTAKE_PREFIX.length + 1).split("/")[0];
+  return MOVED_INTAKE_LISTS.includes(list) ? `/integrations/${list}` : "/integrations/intake";
+}
 
 export function MasterDataApp() {
   const location = useLocation();
   const navigate = useNavigate();
   const features = useAppFeatures();
   const pathname = location.pathname.replace(/\/+$/, "") || "/master-data";
+  const moved = movedIntakePath(pathname);
   const redirect = GROUP_PATHS.has(pathname)
     ? features.firstEnabledPath(masterDataApp, pathname === "/master-data" ? undefined : pathname)
     : undefined;
+  const search = location.search;
 
   useEffect(() => {
-    if (redirect) {
+    if (moved) {
+      void navigate({ to: moved, search, replace: true });
+    } else if (redirect) {
       void navigate({ to: redirect, replace: true });
     }
-  }, [redirect, navigate]);
+  }, [moved, redirect, search, navigate]);
+
+  if (moved) return null;
 
   if (pathname.startsWith("/master-data/relation-categories")) return <RelationCategoriesView />;
   if (pathname.startsWith("/master-data/relations")) return <RelationsView />;
@@ -112,11 +124,6 @@ export function MasterDataApp() {
   if (pathname.startsWith("/master-data/trip-attribute-definitions")) return <TripAttributeDefinitionsView />;
   if (pathname.startsWith("/master-data/price-lists")) return <PriceListsView />;
   if (pathname.startsWith("/master-data/relation-financial-settings")) return <RelationFinancialSettingsView />;
-
-  /* Design 72: the Integrations domain's group, Order intake. The OAuth return lands on the Mailboxes list. */
-  if (pathname.startsWith("/master-data/integrations/mailboxes")) return <MailboxesView />;
-  if (pathname.startsWith("/master-data/integrations/api-clients")) return <ApiClientsView />;
-  if (pathname.startsWith("/master-data/integrations/import-profiles")) return <ImportProfilesView />;
 
   /* The Platform domain's lists (design 54). */
   if (pathname.startsWith("/master-data/email-templates")) return <EmailTemplatesView />;

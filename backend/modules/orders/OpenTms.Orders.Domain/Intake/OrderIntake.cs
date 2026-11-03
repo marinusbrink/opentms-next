@@ -59,6 +59,9 @@ public class OrderIntake : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public Guid? DefaultTransportOrderTypeId { get; private set; }
 
+    /// <summary>The channel's name similarity threshold (build note 25); null on intakes from before it, which take the default.</summary>
+    public decimal? NameSimilarityThreshold { get; private set; }
+
     public string? RejectReason { get; private set; }
 
     /// <summary>A clerk changed received values before the order was created.</summary>
@@ -104,6 +107,11 @@ public class OrderIntake : FullAuditedAggregateRoot<Guid>, IMultiTenant
             throw new BusinessException(ReferenceDataErrorCodes.InvalidCode).WithData("field", "mappingConfidence").WithData("value", settings.MappingConfidence);
         }
 
+        if (settings.NameSimilarityThreshold is < IntakeConsts.MinNameSimilarityThreshold or > IntakeConsts.MaxNameSimilarityThreshold)
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.InvalidCode).WithData("field", "nameSimilarityThreshold").WithData("value", settings.NameSimilarityThreshold);
+        }
+
         TenantId = tenantId;
         SourceDocumentId = sourceDocumentId;
         IntakeIndex = intakeIndex;
@@ -119,11 +127,12 @@ public class OrderIntake : FullAuditedAggregateRoot<Guid>, IMultiTenant
         DefaultCustomerRelationId = settings.DefaultCustomerRelationId;
         FixedCustomerRelationId = settings.FixedCustomerRelationId;
         DefaultTransportOrderTypeId = settings.DefaultTransportOrderTypeId;
+        NameSimilarityThreshold = settings.NameSimilarityThreshold;
     }
 
     /// <summary>The settings the resolver applies, as the channel gave them.</summary>
     public OrderIntakeChannelSettings Settings => new(SenderAddress, Subject, FileName, MappingConfidence, ProfileTrusted, AutoConfirm,
-        DefaultCustomerRelationId, FixedCustomerRelationId, DefaultTransportOrderTypeId);
+        DefaultCustomerRelationId, FixedCustomerRelationId, DefaultTransportOrderTypeId, NameSimilarityThreshold);
 
     public void EnsureInReview()
     {
@@ -213,4 +222,9 @@ public sealed record OrderIntakeChannelSettings(
     bool AutoConfirm,
     Guid? DefaultCustomerRelationId,
     Guid? FixedCustomerRelationId,
-    Guid? DefaultTransportOrderTypeId);
+    Guid? DefaultTransportOrderTypeId,
+    decimal? NameSimilarityThreshold = null)
+{
+    /// <summary>The threshold the resolver applies: the channel's, else <see cref="IntakeConsts.DefaultNameSimilarityThreshold"/>.</summary>
+    public decimal EffectiveNameSimilarityThreshold => NameSimilarityThreshold ?? IntakeConsts.DefaultNameSimilarityThreshold;
+}

@@ -29,6 +29,7 @@ public class OrderIntakeProcessor : ITransientDependency
     private static readonly IReadOnlyDictionary<string, Guid> NoPicks = new Dictionary<string, Guid>();
 
     private readonly OrderIntakeResolver _resolver;
+    private readonly IntakeMasterDataCreator _creator;
     private readonly TransportOrderCommands _commands;
     private readonly OrdersReferences _references;
     private readonly OrdersClock _clock;
@@ -43,6 +44,7 @@ public class OrderIntakeProcessor : ITransientDependency
 
     public OrderIntakeProcessor(
         OrderIntakeResolver resolver,
+        IntakeMasterDataCreator creator,
         TransportOrderCommands commands,
         OrdersReferences references,
         OrdersClock clock,
@@ -54,6 +56,7 @@ public class OrderIntakeProcessor : ITransientDependency
         IStringLocalizer<OrdersResource> l)
     {
         _resolver = resolver;
+        _creator = creator;
         _commands = commands;
         _references = references;
         _clock = clock;
@@ -79,6 +82,21 @@ public class OrderIntakeProcessor : ITransientDependency
     public Task<IntakeResolveResult> ResolveAsync(OrderIntake intake, OrderIntakeDto payload, IReadOnlyDictionary<string, Guid>? picks = null)
         => _resolver.ResolveAsync(new IntakeResolveRequest(payload, intake.Settings, picks ?? NoPicks));
 
+    /// <summary>
+    /// Creates in Master Data what the resolution planned (build note 26) — only call it when the resolution is complete,
+    /// so nothing is created for an intake that goes to review anyway. Afterwards the result may be incomplete again (a
+    /// refused write).
+    /// </summary>
+    public Task CreateMasterDataAsync(OrderIntake intake, IntakeResolveResult result)
+        => result.IsComplete ? _creator.CreateAsync(intake, result) : Task.CompletedTask;
+
+    /// <summary>The distinct Master Data rows the resolution found by a similar name and the ones the intake created (for the trace).</summary>
+    public static (int Fuzzy, int Created) MasterDataCounts(IntakeResolution resolution)
+        => (Distinct(resolution, IntakeResolutionMethod.Fuzzy), Distinct(resolution, IntakeResolutionMethod.Created));
+
+    private static int Distinct(IntakeResolution resolution, IntakeResolutionMethod method)
+        => resolution.Fields.Where(f => f.Status == IntakeResolutionStatus.Resolved && f.Method == method && f.TargetId != null).Select(f => f.TargetId).Distinct().Count();
+
     /// <summary>Keeps the resolution on the intake and counts the aliases it used.</summary>
     public async Task ApplyAsync(OrderIntake intake, OrderIntakeDto payload, IntakeResolveResult result)
     {
@@ -95,7 +113,10 @@ public class OrderIntakeProcessor : ITransientDependency
         }
     }
 
-    /// <summary>Stores the clerk's picks on open fields as aliases; a text already known takes the latest pick.</summary>
+    /// <summary>
+    /// Stores the clerk's picks on open fields, and the fuzzy and created resolutions (build note 25), as aliases; a text
+    /// already known takes the latest target. Saved at once, so the next intake of the same message resolves by alias.
+    /// </summary>
     public async Task LearnAliasesAsync(IntakeResolveResult result)
     {
         foreach (var learn in result.AliasesToLearn.DistinctBy(a => (a.Kind, a.ScopeRelationId, a.Text)))
@@ -104,11 +125,11 @@ public class OrderIntakeProcessor : ITransientDependency
             if (existing != null)
             {
                 existing.Retarget(learn.TargetId, learn.TargetRelationId);
-                await _aliases.UpdateAsync(existing);
+                await _aliases.UpdateAsync(existing, autoSave: true);
             }
             else
             {
-                await _aliases.InsertAsync(new IntakeAlias(_guids.Create(), _currentTenant.Id, learn.Kind, learn.ScopeRelationId, learn.Text, learn.TargetId, learn.TargetRelationId));
+                await _aliases.InsertAsync(new IntakeAlias(_guids.Create(), _currentTenant.Id, learn.Kind, learn.ScopeRelationId, learn.Text, learn.TargetId, learn.TargetRelationId), autoSave: true);
             }
         }
     }

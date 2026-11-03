@@ -61,7 +61,8 @@ const FEATURES = {
   "Apps.Transport.Intake": "true",
   "Apps.Transport.Orders": "true",
   "Apps.Integrations": "true",
-  "Apps.Integrations.Received": "true",
+  "Apps.Integrations.Intake": "true",
+  "Apps.Integrations.Intake.Received": "true",
 };
 const VIEW = { "Orders.OrderIntakes": true };
 const RESOLVE = { ...VIEW, "Orders.OrderIntakes.Resolve": true };
@@ -333,7 +334,7 @@ describe("IntakePage – the review (design 72)", () => {
     first.unmount();
 
     grants = { ...VIEW, "Integrations.InboundMessages": true };
-    features = { ...FEATURES, "Apps.Integrations.Received": "false" };
+    features = { ...FEATURES, "Apps.Integrations.Intake.Received": "false" };
     const second = renderWith(<IntakePage id="i-open" />);
     await waitForReview();
     expect(ribbonButton("Orders:IntakeViewSource")).toBeNull();

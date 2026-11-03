@@ -607,6 +607,6 @@
     "MasterData:Numbering.NextNumberTooLow": "Het volgende nummer kan niet lager zijn dan het huidige volgende nummer.",
     "MasterData:NotFound": "(niet gevonden)",
     "MasterData:ArchivedCannotBeDefault": "Een gearchiveerd record kan niet de standaard zijn.",
-    "MasterData:Nav.Integrations": "Integraties"
+    "MasterData:CreatedByOrderIntake": "Aangemaakt door de orderinvoer: de naam was onbekend toen er een order binnenkwam. Controleer en vul dit record aan."
   }
 }

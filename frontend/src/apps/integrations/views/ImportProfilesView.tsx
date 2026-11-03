@@ -13,7 +13,7 @@ import type { GridRowAction, GridSelectionDto } from "@/components/ui/opentms-gr
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
-import { ImportProfileEditor } from "@/apps/master-data/editors/ImportProfileEditor";
+import { ImportProfileEditor } from "@/apps/integrations/editors/ImportProfileEditor";
 import {
   DOCUMENT_FORMATS,
   IMPORT_PROFILE_STATUSES,
@@ -33,7 +33,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* Master data → Integrations → Order intake → Import profiles (design 72 "UI design"): the profiles the pipeline learned,
+/* Integrations → Order intake → Import profiles (design 72 "UI design"): the profiles the pipeline learned,
  * on a full-height server-side grid (UI-PAGE-001) with the status filter; no New (profiles are learned, never typed in).
  * Row actions Edit (rename, read-only rules), Activate, Retire and Delete. `?open={id}` opens a profile's editor (the
  * trace links here); the parameter is removed once it is open. Order intake is a tenant feature (UI-PERM-006). */

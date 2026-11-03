@@ -96,6 +96,9 @@ Module boundary rule 3 — the synchronous cross-module calls this design states
    types and transport units the AI may choose from.
 4. Integrations → Orders `ITransportOrderLookup.GetAsync` (exists): the order number for the trace.
 5. Orders → Master Data `IMasterDataMatchQuery` (new, published, in-process) and `IMasterDataReferenceLookup` (exists).
+6. Orders → Master Data `IMasterDataIntakeWriter` (new, published, in-process; build note 30, approved by the PO on
+   2026-11-03): create the customer, place, transport unit, product or temperature a document names and Master Data does
+   not know, in the intake's unit of work, because the order needs the new ids at once.
 
 Events (AP-06 names, ETOs carry ids only): Orders publishes `OpenTms.Orders.OrderIntakeCompleted`
 (`OrderIntakeCompletedEto { IntakeId, SourceDocumentId, IntakeIndex, TransportOrderId, Confirmed, Corrected }`),
@@ -147,7 +150,7 @@ among undeleted rows.
   connectionId, userId, nonce}`. The browser goes to Google/Microsoft; the anonymous callback
   `GET /api/integrations/mailbox-oauth/callback?code&state` unprotects the state, changes to its tenant, exchanges the
   code, reads the address, stores the encrypted refresh token, sets `AwaitingFolder` and redirects to
-  `{App:ClientUrl}/master-data/integrations/mailboxes?connected={id}` (or `?connectError={code}`). A state that does not
+  `{App:ClientUrl}/integrations/mailboxes?connected={id}` (or `?connectError={code}`). A state that does not
   unprotect, is expired, or names a connection not in `AwaitingConsent`/`Reconnect` is refused (400 page, no redirect to
   the SPA with data).
 - **Choose folder**: `GET …/{id}/folders` lists the provider's labels (Gmail: user labels and INBOX) or mail folders
@@ -296,7 +299,9 @@ matched profile is `ProfileFailed` (layout drift) and the document goes to the A
 `OrderIntakeCompleted` resolved by a user without corrections adds 1 to `ConfirmedCount`; a correction adds 1 to
 `CorrectedCount` and puts an `Active` profile back to `Proposed`. At `ConfirmedCount ≥` setting
 `Integrations.OrderIntake.ProfileActivationThreshold` (tenant setting, default 3) and `CorrectedCount = 0` the profile
-becomes `Active`. Only an `Active` profile may lead to an automatically confirmed order. A user may *Activate* or
+becomes `Active`. Any matched profile (Active or Proposed), a profile the AI proposed and the executor verified, and the
+API's JSON may lead to an automatically confirmed order; an AI extraction without a verified profile at most to a Draft
+(PO decision 2026-11-03, build note 31; the counters keep their meaning for the profile list). A user may *Activate* or
 *Retire* a profile by hand.
 
 **Repair**: when a profile collects a correction, the job `ImportProfileRepairJob` (AI, feature `AiMapping` required)
@@ -361,9 +366,9 @@ Field paths in provenance, resolution and the API's `Unresolved` list use `order
 `lines[0].stops[1].address.postalCode`, etc. Ids are optional everywhere: an API party that knows our ids may send them.
 
 The pipeline calls `IOrderIntakeService.SubmitAsync(OrderIntakeSubmissionDto { SourceDocumentId, IntakeIndex, Channel,
-SourceKind (`Import`|`Api`), SenderAddress?, Subject?, FileName?, Payload, MappingConfidence, ProfileTrusted (profile
-Active), AutoConfirm (channel setting), DefaultCustomerRelationId?, FixedCustomerRelationId? (API client),
-DefaultTransportOrderTypeId? })` once per intake, in the job's transaction. The answer (`IntakeId`, status, order id and
+SourceKind (`Import`|`Api`), SenderAddress?, Subject?, FileName?, Payload, MappingConfidence, ProfileTrusted (the mapping
+may confirm, build note 31), AutoConfirm (channel setting), DefaultCustomerRelationId?, FixedCustomerRelationId? (API
+client), DefaultTransportOrderTypeId?, NameSimilarityThreshold? (tenant setting, build note 28) })` once per intake, in the job's transaction. The answer (`IntakeId`, status, order id and
 number, unresolved paths) becomes the `Submitted` and `OrderCreated`/`NeedsReview` steps.
 
 **Reprocess** (`POST /api/integrations/inbound-documents/{id}/reprocess`): runs the document through the pipeline again
@@ -384,29 +389,40 @@ Candidates: [{ id, name, detail }] (≤ 5) }`), `Status` (`OrderIntakeStatus { N
 `SourceIntakeId`? and `EditedAfterIntake` (bool; set by every update command while the order is a Draft that came from an
 intake). Both on the order DTO.
 
-**Resolution** (`OrderIntakeResolver`, deterministic, no AI):
-- *Customer*: `FixedCustomerRelationId` → given `relationId` (validated) → alias → relation code → VAT number → chamber of
-  commerce number → e-mail address (relation e-mail or a contact person's e-mail, exact; then the domain when one relation
-  owns it) → normalised name (exactly one) → `DefaultCustomerRelationId` → unresolved with candidates (name similarity).
-- *Order type*: given id → alias → name (exact, any language) → channel default → the tenant's only active type →
-  unresolved.
-- *Stop address*: given ids → alias (scoped to the customer, then tenant-wide) → postal code + house number (+ country) →
-  name + city (exactly one) → unresolved with candidates. The relation is the address's relation.
+**Resolution** (`OrderIntakeResolver`, deterministic, no AI). Per field the exact rules first, then a similar name
+(*Fuzzy*, build note 28), then — when nothing is close enough — the row is created in Master Data (*Created*, build note 29):
+- *Customer*: `FixedCustomerRelationId` (or unresolved when it is archived or gone; never consulted further) → given
+  `relationId` (validated) → alias → relation code → VAT number → chamber of commerce number → e-mail address (relation
+  e-mail or a contact person's e-mail, exact; then the domain when one relation owns it) → normalised name (exactly one;
+  two relations sharing that key are Ambiguous) → similar name (Fuzzy; a candidate whose VAT number, chamber of commerce
+  number or e-mail domain differs from the document's customer block is ruled out) → `DefaultCustomerRelationId` → created
+  (name from the customer block, else the domain of its e-mail address or of the sender).
+- *Order type*: given id → alias → name (exact, any language) → channel default → the tenant's only active type → the tenant's default order type (PO 2026-11-03) →
+  unresolved. Never created.
+- *Stop address*: given ids → alias (scoped to the customer, then tenant-wide) → postal code + house number (+ country;
+  several relations there are told apart by the exact name, else by a clearly most similar name) → name + city (exactly
+  one) → similar relation name at the same postal code or in the same city (Fuzzy) → created (street, postal code and city
+  required). The relation is the address's relation.
 - *Waypoint type*: given name/alias → the order type's default waypoints: role Pickup = first waypoint whose activity is
-  Load, Delivery = first with Unload → any waypoint type with that activity (exactly one) → unresolved.
-- *Transport unit, product, temperature*: given id → alias → code or name exact → unresolved (transport unit is required;
-  product and temperature are left empty when unresolved and reported as a warning).
+  Load, Delivery = first with Unload → any waypoint type with that activity (exactly one) → unresolved. Never created.
+- *Transport unit, product, temperature*: given id → alias → name exact (two rows with the name are Ambiguous) → similar
+  name (Fuzzy) → created from the received name. A transport unit without a name stays unresolved (required); a product
+  or temperature without a name is left empty.
 - *Dates*: a stop without a date takes the order date when the profile/AI gave one, else unresolved.
 - `IMasterDataMatchQuery` (Master Data, published): `FindRelationsAsync(RelationMatchQuery { Code?, VatNumber?,
   ChamberOfCommerceNumber?, EmailAddress?, Name? })` and `FindRelationAddressesAsync(AddressMatchQuery { RelationId?,
   PostalCode?, HouseNumber?, CountryCode?, Name?, City?, Street? })`, each returning ≤ 10 candidates with a match kind;
-  both tenant-filtered, archived rows excluded, inputs bounded.
+  `FindSimilarRelationsAsync`, `FindSimilarRelationAddressesAsync` and `FindSimilarReferencesAsync` return ≤ 10 scored
+  candidates (build note 28); all tenant-filtered, archived rows excluded, inputs bounded.
 
-All required fields resolved → the order is created through the existing `TransportOrderCommands.CreateAsync` with
-`Source`, `DraftConfidence = MappingConfidence`, `SourceIntakeId`, confirmed at once **only when** `ProfileTrusted &&
-AutoConfirm && every field resolved by Given/Exact/Alias/Pattern/Default` and the Confirm rules pass (a Confirm failure
-leaves a Draft); otherwise a Draft. Intake status `OrderCreated`, event `OrderIntakeCompleted`. Anything unresolved →
-`NeedsReview` (no order yet).
+A field that ends Ambiguous, or Unresolved because required data is missing (no stop date and no order date, no pickup, an
+address without street, postal code or city, a country Master Data does not have), keeps the intake in review. Everything
+else resolved → the planned rows are created through `IMasterDataIntakeWriter`, then the order is created through the
+existing `TransportOrderCommands.CreateAsync` with `Source`, `DraftConfidence = MappingConfidence`, `SourceIntakeId`,
+confirmed at once when `ProfileTrusted && AutoConfirm && every field resolved by a rule (any method but User)` and the
+Confirm rules pass (a Confirm failure leaves a Draft); otherwise a Draft. Intake status `OrderCreated`, event
+`OrderIntakeCompleted`; the fuzzy and created resolutions are learned as aliases. Anything that blocks → `NeedsReview`
+(no order, nothing created yet).
 
 **Review** (Transport app, view *Intake*): the queue of `NeedsReview` intakes and the history. Opening one shows the
 values as received with the resolution per field; the clerk picks a relation, address, type or unit (lookups with *Add
@@ -432,6 +448,7 @@ Integrations (`IntegrationsPermissions`):
 - `Integrations.ApiClients.Manage` (tenant) — create, change, regenerate secret, deactivate, delete
 - `Integrations.ImportProfiles` (tenant) — see import profiles
 - `Integrations.ImportProfiles.Manage` (tenant) — activate, retire, delete
+- `Integrations.OrderIntakeSettings` (tenant) — see and change the order intake's settings (build note 28)
 - `Integrations.InboundMessages` (tenant) — see received messages, their trace, download originals
 - `Integrations.InboundMessages.Reprocess` (tenant) — reprocess a document
 - `Integrations.IntakeApi.Submit` (both sides; granted only to API clients, never to a role) — use the intake API
@@ -461,13 +478,14 @@ Behaviour (constitution rule 4, default **off**, per tenant):
 
 App features (one per new nav node, default on like their siblings; a node only shows when its ancestors are on and
 the screens additionally check `Integrations.OrderIntake`):
-- `Apps.Integrations.Received` — Integrations app → Received
 - `Apps.Transport.Intake` — Transport app → Intake
-- `Apps.MasterData.Integrations` — Master data app → group Integrations
-- `Apps.MasterData.Integrations.Intake` — group Order intake under it
-- `Apps.MasterData.Integrations.Intake.Mailboxes` — Mailboxes
-- `Apps.MasterData.Integrations.Intake.ApiClients` — API clients
-- `Apps.MasterData.Integrations.Intake.ImportProfiles` — Import profiles
+- `Apps.Integrations.Intake` — Integrations app → group Order intake (build note 25; `Apps.Integrations` itself now
+  defaults on)
+- `Apps.Integrations.Intake.Received` — Received
+- `Apps.Integrations.Intake.Mailboxes` — Mailboxes
+- `Apps.Integrations.Intake.ApiClients` — API clients
+- `Apps.Integrations.Intake.ImportProfiles` — Import profiles
+- `Apps.Integrations.Intake.Settings` — Settings (name-similarity threshold, build note 28)
 
 ## Host settings: Administration → Services → Integrations
 
@@ -483,6 +501,8 @@ without a redeploy through `ServiceSettingsOverlay`, *Test* per section):
 
 The page shows the redirect URI to register at Google and Microsoft (read-only):
 `{App:SelfUrl}/api/integrations/mailbox-oauth/callback`. The tenant setting
+`Integrations.OrderIntake.NameSimilarityThreshold` (0.5–0.95, default 0.75, build note 28) is set per tenant in the
+Integrations app (Order intake → Settings, `GET`/`PUT /api/integrations/order-intake-settings`). The tenant setting
 `Integrations.OrderIntake.ProfileActivationThreshold` (1–20, default 3) is set per tenant through ABP settings (no screen
 in this run).
 
@@ -522,7 +542,8 @@ Every string through ABP localization (Integrations and Orders resources, nl and
 
 Additive only (expand): Integrations context `AddOrderIntake` (MailboxConnections, ApiClients, InboundMessages,
 InboundDocuments, InboundDocumentSteps, ImportProfiles, AiUsageRecords); Orders context `AddOrderIntake` (OrderIntakes,
-IntakeAliases, `TransportOrders.SourceIntakeId` nullable, `TransportOrders.EditedAfterIntake` default false). Indexes:
+IntakeAliases, `TransportOrders.SourceIntakeId` nullable, `TransportOrders.EditedAfterIntake` default false), then
+`OrdersIntakeNameSimilarityThreshold` (`OrderIntakes.NameSimilarityThreshold` numeric(3,2) nullable, build note 28). Indexes:
 InboundMessages (TenantId, Channel, SourceId, ExternalId) unique, (TenantId, ReceivedAt desc), (TenantId, Status);
 InboundDocuments (TenantId, InboundMessageId), (TenantId, ImportProfileId); ImportProfiles (TenantId, Format, SenderKey);
 MailboxConnections (TenantId, Status); ApiClients (ClientId) unique; AiUsageRecords (TenantId, At); OrderIntakes
@@ -539,7 +560,7 @@ ScopeRelationId, NormalizedText) unique `NULLS NOT DISTINCT`; TransportOrders (T
 | Refresh tokens encrypted, never in a DTO or log | High | test on the stored value and the DTOs |
 | Profile executor across formats (xlsx row groups, cells, csv, xml with namespaces, pdf label/regex, transforms) | High | unit tests with fixture documents |
 | AI verification: equal → profile; different → repair round; still different → extraction; refusal/schema error → NeedsAttention | High | fake `ILanguageModelClient` |
-| Resolver: every rule in order, aliases, auto-confirm only when trusted and complete | High | SQLite tests in Orders |
+| Resolver: every rule in order, aliases, auto-confirm when the mapping may confirm and everything resolved (build note 31); the fuzzy rule (threshold, margin, conflicting keys, same postal code or city); creation per entity, the marker, refusals, idempotency (build notes 28–32) | High | SQLite tests in Orders and Master Data |
 | Idempotency: same mail twice, same API ExternalId twice, reprocess, event handled twice | High | tests per case |
 | Gmail/Graph adapters: paging, cursor, 404 history, invalid_grant → Reconnect, token rotation | High | fake `HttpMessageHandler` |
 | Extraction: scanned PDF detection, encodings, XXE refused, size limits | Medium | unit tests |
@@ -581,7 +602,8 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
    `/api/integrations/import-profile`, `/api/integrations/inbound-message`; reprocess is
    `POST /api/integrations/inbound-documents/{id}/reprocess` (its own conventional service); aliases are
    `GET /api/orders/order-intake/aliases` and `DELETE /api/orders/order-intake/aliases/{aliasId}`.
-2. **Matching is conservative**: a single exact match on a customer's normalised name or on an address's name + city is
+2. **Matching is conservative** (superseded by build notes 28 and 31 on 2026-11-03: a Match now confirms like any rule;
+   the learning on confirmation stays): a single exact match on a customer's normalised name or on an address's name + city is
    `Match`, never an automatic confirm; postal code + house number stays `Exact`. When a user confirms a Draft from an
    intake without editing it, every `Match` of that intake is stored as an alias (address aliases scoped to the customer),
    so the next intake with the same texts resolves by `Alias` and may auto-confirm.
@@ -642,3 +664,111 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
 24. **Blob writes no longer touch their container row**: `AbpEntityChangeOptions.IgnoredUpdateAggregateRootSelectors`
     excludes `DatabaseBlobContainer`, which ABP otherwise stamps as changed with every blob it gains — parallel recordings
     in one tenant (eight API calls of one client at once) collided on that row. Applies to every database blob container.
+25. **The order-intake setup lives in the Integrations app** (PO decision 2026-11-03, after testing): mailboxes, API
+    clients and import profiles are not master data. This overrides, for these three lists, the 2026-10-16 rule that
+    every domain's master-data lists live in the Master data app (and the placement in "Features" and in build note 23).
+    The Integrations app's nav tree is one group **Order intake** (`Apps.Integrations.Intake`) with Received (first and
+    default, `Apps.Integrations.Intake.Received`), Mailboxes, API clients and Import profiles
+    (`Apps.Integrations.Intake.Mailboxes` / `.ApiClients` / `.ImportProfiles`), and last **Settings**
+    (`Apps.Integrations.Intake.Settings`, route `/integrations/intake-settings`, permission
+    `Integrations.OrderIntakeSettings`: the name similarity threshold of the fuzzy-matching note), all default on beneath
+    the app. The app `Apps.Integrations` itself defaults on as well (PO decision 2026-11-03); constitution rule 4 stays
+    satisfied because every order-intake screen and service also requires the tenant feature `Integrations.OrderIntake`,
+    which stays off by default. Routes `/integrations/received`, `/integrations/mailboxes`, `/integrations/api-clients`,
+    `/integrations/import-profiles`, `/integrations/intake-settings`; the group path `/integrations/intake` only
+    redirects. `Apps.MasterData.Integrations*` and `Apps.Integrations.Received` are gone (they reached staging and production with PR #66 but default on under a flag that was off; stored values for the old names are simply ignored). The old
+    `/master-data/integrations/…` addresses redirect to the same list with their search, so a mailbox OAuth return to the
+    old address still lands. The mailbox OAuth return address (`MailboxOAuthUrls.MailboxesPagePath`) is
+    `integrations/mailboxes`; the Mailboxes, API clients, Import profiles and order-intake settings services require
+    `Integrations.OrderIntake`, `Apps.Integrations`, `Apps.Integrations.Intake` and their own `Apps.Integrations.Intake.*`
+    node, the Received services `Apps.Integrations.Intake` and `.Received`. The Integrations app reads from the domains
+    Integrations, Master Data and Orders (the setup editors read relations and order types).
+26. **The trace page never scrolls** (PO 2026-11-03, UI-DLG-006): a document tab keeps the message and document facts
+    fixed and splits the remaining height between the steps and the read orders, each scrolling only its own region.
+27. **Review and Open order on the trace page's ribbon** (PO 2026-11-03), group Order intake: **Review** opens the review
+    page of the message's intake whose last review step is NeedsReview (the first of several: the Transport intake list
+    cannot filter by message), disabled with its reason when none waits (UI-PERM-005); **Open order** shows when the
+    message produced exactly one order. Both go through `useOpenRecord` and show only with the permission and the app
+    node of their page (`Orders.OrderIntakes` + `Apps.Transport.Intake`; `Orders.TransportOrders` + `Apps.Transport.Orders`).
+28. **Fuzzy matching** (PO decision 2026-11-03: about 97% of intakes go straight through). The name score
+    (`NameSimilarity.Score`, PO decision 2026-11-03) is the higher of two measures on the normalised names (see below): the
+    trigram similarity as pg_trgm's `similarity()` computes it (words of letters and digits, lower case, padded "  w ",
+    trigram sets, shared ÷ union; `TrigramSimilarity`, pg_trgm-identical) and the edit similarity, 1 − the optimal string
+    alignment distance (Damerau-Levenshtein, a swap of two adjacent characters is one edit) ÷ the longer length, which
+    counts only for a fat-finger: an OSA distance of at most 2 (`NameSimilarity.MaxTypoDistance`; a larger distance scores
+    by trigrams alone, PO decision 2026-11-03). Both are
+    computed in C# in Master Data's published contracts so SQLite and PostgreSQL agree. Rule: a candidate at or
+    above the threshold is chosen when it is the only one at or above it, or leads the runner-up by at least **0.10**
+    (`IntakeConsts.NameSimilarityMargin`); two or more at or above it within 0.10 of the best are **Ambiguous** (review, with
+    those candidates); none at or above it chooses nothing. Customers: the name or full name, candidates with a conflicting
+    VAT number, chamber of commerce number or e-mail domain (of the document's customer block; not the sender's, a
+    forwarder may send) ruled out. Addresses: the relation's name or full name against the address's name, only addresses
+    at the same postal code or in the same city (and country when given); among several relations at one postal code and
+    house number the same rule tells them apart. Transport units, products, temperatures: the name. The threshold is the
+    tenant setting `Integrations.OrderIntake.NameSimilarityThreshold` (default 0.75, 0.5–0.95, two decimals) behind
+    `GET`/`PUT /api/integrations/order-intake-settings` (permission `Integrations.OrderIntakeSettings`, feature
+    `Integrations.OrderIntake`), handed to Orders in `OrderIntakeSubmissionDto.NameSimilarityThreshold` and kept on the
+    intake (`OrderIntakes.NameSimilarityThreshold`, nullable, migration `OrdersIntakeNameSimilarityThreshold`) so the review
+    resolves with the same value. The resolution records method `Fuzzy` with its `Score` (two decimals); the alias is
+    learned once the order is created. Candidates come through a bounded prefilter: relations whose search key contains a
+    word of the name (≥ 3 characters, at most 6 words) or has a word starting with a word's first three characters (two
+    reads of ≤ 100 rows, the trigram index on PostgreSQL); addresses at the postal code (≤ 50) plus the addresses of the
+    similar relations; transport units, products, temperatures one read of ≤ 2,000 names per kind. Both names are
+    first normalised (`NameNormalizer`, next to `TrigramSimilarity`, which itself stays pg_trgm-identical): lower case,
+    every character that is not a letter or digit (dots, commas, hyphens, ampersand) a space, whitespace collapsed, and
+    standalone legal-form tokens dropped — B.V./BV, N.V./NV, V.O.F./VOF, C.V./CV, BVBA, SRL, GmbH, GmbH & Co. KG, KG, AG,
+    Ltd, Limited, LLC, Inc, S.A./SA, SARL, SAS, Sp. z o.o. ("Holding" is kept; a name of legal-form tokens only keeps them).
+    Measured (distance, trigram / edit / score): "Jansen Transprot BV" ~ "Jansen Transport B.V." 1, 0.60 / 0.94 / 0.94
+    (0.50 by trigrams before normalising), "Heinekn Nederland" ~ "Heineken Nederland B.V." 1, 0.76 / 0.94 / 0.94, "Bakker
+    Logistiek Holding BV" ~ "Bakker Logistiek Holding" 0, 1.00, "Jansen Transport" ~ "Janssen Transport" 1, 0.83 / 0.94 /
+    0.94, "Jansen Transport Venlo" ~ "Jansen Transport Venray" 3, 0.73 / (0.87 not counted) / 0.73 — another place, not a
+    typo, so below the default 0.75 and created rather than matched. The prefilter
+    finds a typo'd name through its correctly spelt words or the 3-character word prefixes ("Jansen Transprot" reaches
+    "Jansen Transport B.V." through "jansen" and "tra").
+29. **What is not known is created** (PO decision 2026-11-03), only when nothing else keeps the intake from becoming an
+    order (no rows for an intake that goes to review; the review's *Create order* creates what is still unknown, in its own
+    transaction). The field is `Unresolved` with `Creatable = true` until then (it does not block), then `Resolved` with
+    method `Created` and the new id. Per entity:
+    - *Customer*: a relation with role Customer, the customer block's name (else the e-mail domain of the block or the
+      sender), the block's e-mail address (else the sender's), VAT and chamber of commerce number; values Master Data's
+      rules refuse (shape, already on another relation) are left out. The canonical model has no customer address, so none.
+    - *Stop address*: on the relation the address's name matches (exact or the fuzzy rule) when that relation has no
+      default address yet (a relation holds one address per address type and one without, design 43), else — and when the
+      name matches the customer this intake just created — as the default address of a new relation named after the
+      address (street + ", " + city without a name). Master Data has no loading/unloading role and a relation needs one
+      role, so the new relation has role **Customer** (confirmed by the PO on 2026-11-03). Country: the received ISO code, else the
+      tenant's default country, else NL; time zone from the country. Street, postal code and city are required.
+    - *Transport unit, product, temperature*: the received name (cut to 128) and nothing else (not stackable, not
+      exchangeable, no ADR, no dimensions, no temperature range). These rows have no code; the name is their unique key.
+    - *Order type, waypoint type*: never created (their default fallbacks stay).
+    - The marker "created by order intake": every created row's description is `MasterData:CreatedByOrderIntake`; a created
+      relation also carries the external identifier source `OrderIntake` with "{intakeId} {field path}" (findable in the
+      relation's external identifiers). An address added to an existing relation carries no marker (the address has no
+      free text field); the intake's resolution records it.
+    The trace's `Submitted` step becomes `SubmittedWithMasterData` with `fuzzyMatches` and `created` (distinct rows) when
+    either is above zero (`OrderIntakeSubmissionResultDto.FuzzyMatchCount`, `CreatedCount`).
+30. **Synchronous Master Data writer** (module boundary rule 3, stated call 6, approved by the PO on 2026-11-03):
+    `IMasterDataIntakeWriter` in Master Data's `Application.Contracts/Published` (`CreateRelationAsync`,
+    `AddRelationAddressAsync`, `CreateReferenceAsync`), implemented in Master Data's application layer with the aggregates'
+    own methods and the create services' uniqueness checks (code, VAT, chamber of commerce number, external identifier,
+    name); in-process (`RemoteService(false)`), anonymous like the match query, tenant-filtered, in the caller's unit of
+    work; every write is saved at once. Orders references no Master Data Domain, Application or EF project. Received data
+    never makes it throw: it answers with a refusal code, and the field stays Unresolved (the first refused required field
+    stops the run, so the intake goes to review).
+31. **The trusted-profile requirement is dropped** (PO decision 2026-11-03): every resolution method but a clerk's pick may
+    lead to a confirmed order (Given, Exact, Alias, Pattern, Default, Match, Fuzzy, Created). `ProfileTrusted` now means
+    "the mapping may confirm": any matched import profile (Active or Proposed), a profile the AI proposed and the executor
+    verified (`AiVerifiedProfile`), and the API's JSON; an AI extraction without a verified profile (`AiExtraction`, scanned
+    PDFs) becomes a Draft. With the channel's auto-confirm off, a Draft; either way no review. `ConfirmedCount`,
+    `CorrectedCount` and the activation threshold keep counting as before. Feature: still `Integrations.OrderIntake`
+    (default off), no new flag — the behaviour is part of the unreleased order intake.
+32. **Idempotency of creation.** Within one intake each new row is planned once per kind and received text (two stops at
+    one new place create one relation). Across intakes: every write saves at once and the fuzzy/created resolutions are
+    stored as aliases (saved at once) when the order is created, so the next intake of the same message resolves by alias
+    or exact name; a relation created for an intake field carries "{intakeId} {field path}" as external identifier and
+    the writer returns that relation when asked again. Two intakes processed in parallel for the same unknown name: both
+    derive the same relation code (letters and digits of the name, upper case, ≤ 24, "-2", "-3", … when taken) or insert
+    the same transport unit/product/temperature name, so the unique indexes (TenantId, Code) and (TenantId, Name) refuse
+    the second; its job fails and Hangfire's retry resolves against the first's row (the intake API answers that call with
+    an error; a retry of the call resolves). Accepted: a parallel pair with different names whose derived codes collide
+    also retries once.

@@ -29,6 +29,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Integrations.Intake;
 
 using IntegrationsErrorCodes = OpenTms.Integrations.IntegrationsErrorCodes;
+using OpenTms.Platform.Features;
 
 /// <summary>A scripted mail provider: what the OAuth endpoints, the change feed and the raw fetch answer.</summary>
 public sealed class FakeMailProvider(MailProvider provider) : IMailProviderClient
@@ -166,7 +167,20 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
     /// <summary>The auth server's sign-in of <see cref="_user"/> in tenant A, as the callback controller reads it.</summary>
     private MailboxOAuthCallbackSession Session => new(_user, _tenantA);
 
-    private static IDisposable IntakeOn() => TestFeatureValueProvider.Override(IntegrationsFeatures.OrderIntake, "true");
+    /* The Mailboxes screen sits in the Integrations app (PO 2026-11-03), which is off by default: switch it on too. */
+    private static IDisposable IntakeOn() =>
+        new FeatureOverrides(TestFeatureValueProvider.Override(IntegrationsFeatures.OrderIntake, "true"), TestFeatureValueProvider.Override(AppFeatures.Integrations, "true"));
+
+    private sealed class FeatureOverrides(params IDisposable[] all) : IDisposable
+    {
+        public void Dispose()
+        {
+            foreach (var one in all)
+            {
+                one.Dispose();
+            }
+        }
+    }
 
     private Task<MailboxConnection> InsertAsync(Action<MailboxConnection>? arrange = null, MailProvider provider = MailProvider.Gmail)
         => WithUnitOfWorkAsync(async () =>
@@ -207,7 +221,7 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
         using (_currentTenant.Change(null))
         {
             var result = await Callback().ProcessAsync("the-code", state, null, Session);
-            result.RedirectUrl.ShouldBe(Spa + "/master-data/integrations/mailboxes?connected=" + id);
+            result.RedirectUrl.ShouldBe(Spa + "/integrations/mailboxes?connected=" + id);
         }
 
         using (_currentTenant.Change(_tenantA))
@@ -342,7 +356,7 @@ public class MailboxChannelTests : OpenTmsEntityFrameworkCoreTestBase
 
         var denied = await InsertAsync();
         (await Callback().ProcessAsync(null, States.Protect(_tenantA, denied.Id, _user), "access_denied", Session)).RedirectUrl
-            .ShouldBe(Spa + "/master-data/integrations/mailboxes?connectError=consent_denied");
+            .ShouldBe(Spa + "/integrations/mailboxes?connectError=consent_denied");
 
         var noRefresh = await InsertAsync();
         _gmail.Exchange = _ => new MailTokenResult("at", null);

@@ -13,8 +13,8 @@ import type { GridRowAction, GridSelectionDto } from "@/components/ui/opentms-gr
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
-import { ConnectMailboxDialog } from "@/apps/master-data/components/ConnectMailboxDialog";
-import { MailboxEditor } from "@/apps/master-data/editors/MailboxEditor";
+import { ConnectMailboxDialog } from "@/apps/integrations/components/ConnectMailboxDialog";
+import { MailboxEditor } from "@/apps/integrations/editors/MailboxEditor";
 import {
   MAILBOX_STATUSES,
   MAIL_PROVIDERS,
@@ -37,7 +37,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* Master data → Integrations → Order intake → Mailboxes (design 72 "UI design"): a command bar on a full-height server-side
+/* Integrations → Order intake → Mailboxes (design 72 "UI design"): a command bar on a full-height server-side
  * grid (UI-PAGE-001) with Connect Gmail and Connect Microsoft 365 (each asks a display name, then goes to the provider),
  * the row actions Edit, Reconnect, Pause / Resume and Delete (UI-GRID-008), the status filter. The provider's sign-in
  * returns here: `?connected={id}` opens the editor on that connection (choose the folder), `?connectError={code}` shows

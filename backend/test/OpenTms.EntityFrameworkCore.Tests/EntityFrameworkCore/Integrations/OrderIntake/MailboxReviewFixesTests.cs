@@ -26,6 +26,7 @@ using Xunit;
 namespace OpenTms.EntityFrameworkCore.Integrations.Intake;
 
 using IntegrationsErrorCodes = OpenTms.Integrations.IntegrationsErrorCodes;
+using OpenTms.Platform.Features;
 
 /// <summary>
 /// The mailbox fixes of the design 72 review on SQLite with scripted providers: the OAuth consent completes only in the
@@ -87,7 +88,20 @@ public class MailboxReviewFixesTests : OpenTmsEntityFrameworkCoreTestBase
         Connections, Resolver, Tokens, GetRequiredService<IMailMessageRecorder>(), GetRequiredService<IUnitOfWorkManager>(),
         GetRequiredService<IAbpDistributedLock>(), GetRequiredService<IFeatureChecker>(), _clock, GetRequiredService<IAsyncQueryableExecuter>());
 
-    private static IDisposable IntakeOn() => TestFeatureValueProvider.Override(IntegrationsFeatures.OrderIntake, "true");
+    /* The Mailboxes screen sits in the Integrations app (PO 2026-11-03), which is off by default: switch it on too. */
+    private static IDisposable IntakeOn() =>
+        new FeatureOverrides(TestFeatureValueProvider.Override(IntegrationsFeatures.OrderIntake, "true"), TestFeatureValueProvider.Override(AppFeatures.Integrations, "true"));
+
+    private sealed class FeatureOverrides(params IDisposable[] all) : IDisposable
+    {
+        public void Dispose()
+        {
+            foreach (var one in all)
+            {
+                one.Dispose();
+            }
+        }
+    }
 
     private Task<MailboxConnection> InsertAsync(Action<MailboxConnection>? arrange = null, MailProvider provider = MailProvider.Gmail)
         => WithUnitOfWorkAsync(async () =>
@@ -145,7 +159,7 @@ public class MailboxReviewFixesTests : OpenTmsEntityFrameworkCoreTestBase
 
         var result = await Callback().ProcessAsync("the-code", States.Protect(_tenantA, connection.Id, _user), null, callbackSession);
 
-        result.RedirectUrl.ShouldBe(Spa + "/master-data/integrations/mailboxes?connectError=session_required");
+        result.RedirectUrl.ShouldBe(Spa + "/integrations/mailboxes?connectError=session_required");
         _gmail.Calls.ShouldBeEmpty("refused before the code is exchanged");
         var stored = await ReadAsync(connection.Id);
         stored.Status.ShouldBe(MailboxStatus.AwaitingConsent);
@@ -179,7 +193,7 @@ public class MailboxReviewFixesTests : OpenTmsEntityFrameworkCoreTestBase
         using (IntakeOn())
         {
             (await Callback().ProcessAsync("the-code", States.Protect(_tenantA, connection.Id, _user), null, new MailboxOAuthCallbackSession(_user, _tenantA)))
-                .RedirectUrl.ShouldBe(Spa + "/master-data/integrations/mailboxes?connected=" + connection.Id);
+                .RedirectUrl.ShouldBe(Spa + "/integrations/mailboxes?connected=" + connection.Id);
         }
 
         (await ReadAsync(connection.Id)).Status.ShouldBe(MailboxStatus.AwaitingFolder);
@@ -227,7 +241,7 @@ public class MailboxReviewFixesTests : OpenTmsEntityFrameworkCoreTestBase
 
         var result = await Callback().ProcessAsync("the-code", States.Protect(_tenantA, connection.Id, _user), null, new MailboxOAuthCallbackSession(_user, _tenantA));
 
-        result.RedirectUrl.ShouldBe(Spa + "/master-data/integrations/mailboxes?connectError=not_configured");
+        result.RedirectUrl.ShouldBe(Spa + "/integrations/mailboxes?connectError=not_configured");
         _gmail.Calls.ShouldBeEmpty();
         (await ReadAsync(connection.Id)).Status.ShouldBe(MailboxStatus.AwaitingConsent);
     }

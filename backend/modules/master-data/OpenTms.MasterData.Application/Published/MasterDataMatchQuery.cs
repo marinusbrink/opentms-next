@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.MasterData.Reference;
@@ -252,7 +253,7 @@ public class MasterDataMatchQuery : MasterDataAppServiceBase, IMasterDataMatchQu
         return await DescribeAddressesAsync(ranked);
     }
 
-    private async Task<List<RelationAddressMatchDto>> DescribeAddressesAsync(List<(RelationAddress Address, AddressMatchKind Kind)> ranked)
+    private async Task<List<RelationAddressMatchDto>> DescribeAddressesAsync(List<(RelationAddress Address, AddressMatchKind Kind)> ranked, IReadOnlyDictionary<Guid, double>? scores = null)
     {
         if (ranked.Count == 0)
         {
@@ -284,7 +285,8 @@ public class MasterDataMatchQuery : MasterDataAppServiceBase, IMasterDataMatchQu
                     HouseNumber = houseNumber,
                     City = a.City,
                     CountryCode = countries.GetValueOrDefault(a.CountryId),
-                    MatchKind = r.Kind
+                    MatchKind = r.Kind,
+                    Similarity = scores != null && scores.TryGetValue(a.Id, out var score) ? score : null
                 };
             })
             .ToList();
@@ -338,6 +340,247 @@ public class MasterDataMatchQuery : MasterDataAppServiceBase, IMasterDataMatchQu
                 .Where(t => !t.IsArchived).OrderBy(t => t.Name).Select(t => t.Name).Take(take)),
             _ => throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "kind").WithData("value", kind.ToString())
         };
+    }
+
+    // ── similar names (design 72 build note 25) ────────────────────────────────
+
+    /// <summary>The rows one prefilter read takes (per read; two reads per name).</summary>
+    private const int SimilarScanLimit = 100;
+
+    /// <summary>The words of a name the prefilter searches by, longest first.</summary>
+    private const int MaxTokens = 6;
+
+    /// <summary>The transport units, products or temperatures one similar-name read scores at most.</summary>
+    private const int ReferenceScanLimit = 2000;
+
+    private sealed record SimilarRelationRow(Guid Id, string Name, string? FullName, string Code, string? VatNumber, string? ChamberOfCommerceNumber, string? Email);
+
+    public virtual async Task<List<SimilarRelationDto>> FindSimilarRelationsAsync(SimilarRelationQuery query)
+    {
+        Check.NotNull(query, nameof(query));
+        var name = Bounded(query.Name);
+        if (name == null)
+        {
+            return [];
+        }
+
+        var vat = MasterDataValues.NormalizeLegalNumber(Bounded(query.VatNumber));
+        var coc = MasterDataValues.NormalizeLegalNumber(Bounded(query.ChamberOfCommerceNumber));
+        var domain = EmailDomain(Bounded(query.EmailAddress));
+        var scored = (await SimilarRelationRowsAsync(name))
+            .Select(r => (Row: r, Score: NameSimilarity.Best(name, r.Name, r.FullName)))
+            .Where(r => r.Score >= IMasterDataMatchQuery.MinSimilarity)
+            .OrderByDescending(r => r.Score).ThenBy(r => r.Row.Name, StringComparer.Ordinal).ThenBy(r => r.Row.Id)
+            .Take(IMasterDataMatchQuery.MaxResults)
+            .ToList();
+        if (scored.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = scored.Select(s => s.Row.Id).ToList();
+        var addresses = await AsyncExecuter.ToListAsync((await _addresses.GetQueryableAsync())
+            .Where(a => ids.Contains(a.RelationId)).Select(a => new { a.RelationId, a.AddressTypeId, a.City }));
+        var byRelation = addresses.GroupBy(a => a.RelationId).ToDictionary(g => g.Key, g => g.ToList());
+
+        return scored.Select(s =>
+        {
+            var own = byRelation.GetValueOrDefault(s.Row.Id) ?? [];
+            var city = (own.FirstOrDefault(a => a.AddressTypeId == null) ?? own.OrderBy(a => a.City, StringComparer.Ordinal).FirstOrDefault())?.City;
+            /* A key the document gives that the relation holds differently rules the candidate out (PO decision 2026-11-03). */
+            var conflicts = (vat != null && s.Row.VatNumber != null && s.Row.VatNumber != vat)
+                            || (coc != null && s.Row.ChamberOfCommerceNumber != null && s.Row.ChamberOfCommerceNumber != coc)
+                            || (domain != null && EmailDomain(s.Row.Email) is { } relationDomain && relationDomain != domain);
+            return new SimilarRelationDto
+            {
+                Id = s.Row.Id,
+                Name = s.Row.Name,
+                Detail = string.IsNullOrEmpty(city) ? s.Row.Code : s.Row.Code + ", " + city,
+                Similarity = s.Score,
+                ConflictsWithKeys = conflicts,
+                HasDefaultAddress = own.Any(a => a.AddressTypeId == null)
+            };
+        }).ToList();
+    }
+
+    public virtual async Task<List<RelationAddressMatchDto>> FindSimilarRelationAddressesAsync(SimilarAddressQuery query)
+    {
+        Check.NotNull(query, nameof(query));
+        var name = Bounded(query.Name);
+        var postalKey = MasterDataCodes.NormalizePostalCode(Bounded(query.PostalCode));
+        var cityKey = MasterDataValues.SearchKey(Bounded(query.City));
+        if (name == null || (postalKey.Length == 0 && cityKey.Length == 0))
+        {
+            return [];
+        }
+
+        Guid? countryId = null;
+        var countryCode = MasterDataCodes.Normalize(Bounded(query.CountryCode));
+        if (countryCode != null)
+        {
+            countryId = (await AsyncExecuter.ToListAsync((await _countries.GetQueryableAsync()).Where(c => c.IsoAlpha2 == countryCode).Select(c => (Guid?)c.Id))).FirstOrDefault();
+            if (countryId == null)
+            {
+                return []; /* a country that is not in the tenant's list matches nothing rather than everything */
+            }
+        }
+
+        /* Two bounded reads: the addresses at the postal code (indexed), and the addresses of the relations with a similar
+         * name (the relation prefilter, then the relations' own addresses). A candidate must share the postal code or the city. */
+        var addresses = await _addresses.GetQueryableAsync();
+        var found = new Dictionary<Guid, RelationAddress>();
+        if (postalKey.Length > 0)
+        {
+            foreach (var address in await AsyncExecuter.ToListAsync(addresses.Where(a => a.PostalCodeKey == postalKey).OrderBy(a => a.Id).Take(ScanLimit)))
+            {
+                found[address.Id] = address;
+            }
+        }
+
+        var similarIds = (await SimilarRelationRowsAsync(name))
+            .Select(r => (r.Id, Score: NameSimilarity.Best(name, r.Name, r.FullName)))
+            .Where(r => r.Score >= IMasterDataMatchQuery.MinSimilarity)
+            .OrderByDescending(r => r.Score).ThenBy(r => r.Id)
+            .Take(ScanLimit)
+            .Select(r => r.Id)
+            .ToList();
+        if (similarIds.Count > 0)
+        {
+            foreach (var address in await AsyncExecuter.ToListAsync(addresses.Where(a => similarIds.Contains(a.RelationId)).OrderBy(a => a.Id).Take(ScanLimit * 2)))
+            {
+                found[address.Id] = address;
+            }
+        }
+
+        var places = found.Values
+            .Where(a => countryId == null || a.CountryId == countryId)
+            .Where(a => (postalKey.Length > 0 && a.PostalCodeKey == postalKey) || (cityKey.Length > 0 && MasterDataValues.SearchKey(a.City) == cityKey))
+            .ToList();
+        if (places.Count == 0)
+        {
+            return [];
+        }
+
+        var relationIds = places.Select(a => a.RelationId).Distinct().ToList();
+        var names = (await AsyncExecuter.ToListAsync((await _relations.GetQueryableAsync())
+            .Where(r => relationIds.Contains(r.Id) && !r.IsArchived).Select(r => new { r.Id, r.Name, r.FullName }))).ToDictionary(r => r.Id);
+        var scores = new Dictionary<Guid, double>();
+        foreach (var address in places.Where(a => names.ContainsKey(a.RelationId)))
+        {
+            var relation = names[address.RelationId];
+            var score = NameSimilarity.Best(name, relation.Name, relation.FullName);
+            if (score >= IMasterDataMatchQuery.MinSimilarity)
+            {
+                scores[address.Id] = score;
+            }
+        }
+
+        var ranked = places
+            .Where(a => scores.ContainsKey(a.Id))
+            .OrderByDescending(a => scores[a.Id]).ThenBy(a => a.Id)
+            .Take(IMasterDataMatchQuery.MaxResults)
+            .Select(a => (a, AddressMatchKind.SimilarName))
+            .ToList();
+        return await DescribeAddressesAsync(ranked, scores);
+    }
+
+    public virtual async Task<List<ReferenceNameMatchDto>> FindSimilarReferencesAsync(ReferenceNameMatchQuery query)
+    {
+        Check.NotNull(query, nameof(query));
+        var texts = (query.Names ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => Bounded(n)!).Distinct(StringComparer.Ordinal).ToList();
+        if (texts.Count > IMasterDataMatchQuery.MaxNames)
+        {
+            throw new BusinessException(MasterDataErrorCodes.TooManyRows).WithData("max", IMasterDataMatchQuery.MaxNames);
+        }
+
+        if (texts.Count == 0)
+        {
+            return [];
+        }
+
+        /* These kinds hold tens to a few thousand rows per tenant: one bounded read of id and name, scored in memory. */
+        var take = ReferenceScanLimit;
+        var rows = query.Kind switch
+        {
+            MasterDataReferenceKind.TransportUnit => await AsyncExecuter.ToListAsync((await LazyServiceProvider.LazyGetRequiredService<IRepository<TransportUnit, Guid>>().GetQueryableAsync())
+                .Where(u => !u.IsArchived).OrderBy(u => u.Name).Select(u => new { u.Id, u.Name }).Take(take)),
+            MasterDataReferenceKind.Product => await AsyncExecuter.ToListAsync((await LazyServiceProvider.LazyGetRequiredService<IRepository<Product, Guid>>().GetQueryableAsync())
+                .Where(p => !p.IsArchived).OrderBy(p => p.Name).Select(p => new { p.Id, p.Name }).Take(take)),
+            MasterDataReferenceKind.Temperature => await AsyncExecuter.ToListAsync((await LazyServiceProvider.LazyGetRequiredService<IRepository<Temperature, Guid>>().GetQueryableAsync())
+                .Where(t => !t.IsArchived).OrderBy(t => t.Name).Select(t => new { t.Id, t.Name }).Take(take)),
+            _ => throw new BusinessException(MasterDataErrorCodes.InvalidCode).WithData("field", "kind").WithData("value", query.Kind.ToString())
+        };
+
+        return texts.SelectMany(text => rows
+                .Select(r => (Row: r, Score: NameSimilarity.Score(text, r.Name)))
+                .Where(r => r.Score >= IMasterDataMatchQuery.MinSimilarity)
+                .OrderByDescending(r => r.Score).ThenBy(r => r.Row.Name, StringComparer.Ordinal).ThenBy(r => r.Row.Id)
+                .Take(IMasterDataMatchQuery.MaxResults)
+                .Select(r => new ReferenceNameMatchDto { Id = r.Row.Id, Name = r.Row.Name, MatchedText = text, Similarity = r.Score }))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The active relations a similar name may be: the words of the name (three characters or more, longest first, at most
+    /// <see cref="MaxTokens"/>) contained in the search key, and — for a misspelt word — the search key's words starting
+    /// with each word's first three characters. Two reads of at most <see cref="SimilarScanLimit"/> rows each, in name
+    /// order, served by the search key's trigram index on PostgreSQL.
+    /// </summary>
+    private async Task<List<SimilarRelationRow>> SimilarRelationRowsAsync(string name)
+    {
+        var key = MasterDataValues.SearchKey(name);
+        if (key.Length == 0)
+        {
+            return [];
+        }
+
+        var words = key.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = words.Where(t => t.Length >= 3).Distinct(StringComparer.Ordinal).OrderByDescending(t => t.Length).ThenBy(t => t, StringComparer.Ordinal).Take(MaxTokens).ToList();
+        if (tokens.Count == 0)
+        {
+            tokens = [key];
+        }
+
+        var active = (await _relations.GetQueryableAsync()).Where(r => !r.IsArchived);
+        var rows = new Dictionary<Guid, SimilarRelationRow>();
+        foreach (var predicate in new[] { AnyContains(tokens, wordStart: false), AnyContains(tokens.Select(t => t[..Math.Min(3, t.Length)]).Distinct(StringComparer.Ordinal).ToList(), wordStart: true) })
+        {
+            var read = await AsyncExecuter.ToListAsync(active.Where(predicate).OrderBy(r => r.Name).ThenBy(r => r.Id)
+                .Select(r => new SimilarRelationRow(r.Id, r.Name, r.FullName, r.Code, r.VatNumber, r.ChamberOfCommerceNumber, r.Email)).Take(SimilarScanLimit));
+            foreach (var row in read)
+            {
+                rows[row.Id] = row;
+            }
+        }
+
+        return rows.Values.ToList();
+    }
+
+    /// <summary><c>r.SearchKey</c> contains any of the terms (or, with <paramref name="wordStart"/>, has a word starting with one).</summary>
+    private static Expression<Func<Relation, bool>> AnyContains(IReadOnlyList<string> terms, bool wordStart)
+    {
+        var parameter = Expression.Parameter(typeof(Relation), "r");
+        var searchKey = Expression.Property(parameter, nameof(Relation.SearchKey));
+        var contains = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
+        var startsWith = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
+        Expression? body = null;
+        foreach (var term in terms)
+        {
+            Expression test = wordStart
+                ? Expression.OrElse(Expression.Call(searchKey, startsWith, Expression.Constant(term)), Expression.Call(searchKey, contains, Expression.Constant(" " + term)))
+                : Expression.Call(searchKey, contains, Expression.Constant(term));
+            body = body == null ? test : Expression.OrElse(body, test);
+        }
+
+        return Expression.Lambda<Func<Relation, bool>>(body ?? Expression.Constant(false), parameter);
+    }
+
+    /// <summary>The lower-case domain of an e-mail address; null without one.</summary>
+    private static string? EmailDomain(string? email)
+    {
+        var text = email?.Trim();
+        var at = text?.LastIndexOf('@') ?? -1;
+        return at < 0 || at == text!.Length - 1 ? null : text[(at + 1)..].ToLowerInvariant();
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────

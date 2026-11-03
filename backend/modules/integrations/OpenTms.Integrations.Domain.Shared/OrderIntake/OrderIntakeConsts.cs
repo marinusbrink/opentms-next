@@ -145,6 +145,13 @@ public static class OrderIntakeConsts
 
     public const int MaxProfileActivationThreshold = 20;
 
+    /// <summary>The setting <c>Integrations.OrderIntake.NameSimilarityThreshold</c>: default and bounds (design 72 build note 25).</summary>
+    public const decimal DefaultNameSimilarityThreshold = 0.75m;
+
+    public const decimal MinNameSimilarityThreshold = 0.5m;
+
+    public const decimal MaxNameSimilarityThreshold = 0.95m;
+
     /* AI. */
 
     /// <summary>An AI extraction without a verified profile is never more confident than this.</summary>

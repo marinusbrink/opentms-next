@@ -22,7 +22,7 @@ export function DocumentTraceRedirect({ documentId }: { documentId: string }) {
   const features = useAppFeatures();
   const feature = useOrderIntakeFeature();
   const canView = useIsGranted("Integrations.InboundMessages");
-  const nodeOn = !features.isLoaded || features.isFeatureEnabled("Apps.Integrations.Received");
+  const nodeOn = !features.isLoaded || features.isFeatureEnabled("Apps.Integrations.Intake.Received");
   const message = useInboundMessageByDocument(canView && feature === "on" && nodeOn ? documentId : undefined);
   const messageId = message.data?.id;
 

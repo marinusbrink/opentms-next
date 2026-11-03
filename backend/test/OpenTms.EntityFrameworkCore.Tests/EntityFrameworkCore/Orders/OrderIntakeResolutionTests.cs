@@ -21,12 +21,14 @@ using OrdersErrorCodes = OpenTms.Orders.OrdersErrorCodes;
 
 /// <summary>
 /// Orders' side of design 72 on SQLite with the master data of <see cref="TransportRunFixture"/>: the resolver's rules in
-/// their order (fixed customer, given id, code, name as a conservative Match, default; postcode + house number Exact, name +
-/// city Match; the order type's waypoint pattern; transport unit by name), the order created as Draft or — only when the
-/// profile is trusted, the channel auto-confirms and nothing was a Match — Confirmed, NeedsReview with the open fields,
-/// idempotency on (document, index), the review (picks learned as aliases, reject), learning Match fields on an unedited
-/// confirmation (build note 2), the stop contact in the remarks (build note 4), the feature gate and tenant isolation of
-/// intakes, aliases and the Master Data match query. Risk class: High (order chain), Critical for tenant isolation.
+/// their order (fixed customer, given id, code, name Match, default; postcode + house number Exact, name + city Match; the
+/// order type's waypoint pattern; transport unit by name), the order created as Draft or — when the mapping may confirm and
+/// the channel auto-confirms — Confirmed (build note 31: a Match confirms like any rule), NeedsReview with the open fields
+/// (an Ambiguous fuzzy tie, a missing required value), idempotency on (document, index), the review (picks learned as
+/// aliases, reject), learning Match fields on an unedited confirmation (build note 2), the stop contact in the remarks
+/// (build note 4), the feature gate and tenant isolation of intakes, aliases and the Master Data match query. The fuzzy
+/// rule, creation and the straight-through matrix: <see cref="OrderIntakeStraightThroughTests"/>. Risk class: High (order
+/// chain), Critical for tenant isolation.
 /// </summary>
 [Collection(OpenTmsTestConsts.CollectionDefinitionName)]
 public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFrameworkCoreTestModule>
@@ -92,6 +94,26 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
 
     private Task<List<IntakeAlias>> AliasesAsync() => WithUnitOfWorkAsync(() => GetRequiredService<IRepository<IntakeAlias, Guid>>().GetListAsync());
 
+    /// <summary>The received customer name of an Ambiguous fuzzy tie (build note 28).</summary>
+    private const string TiedCustomerName = "Jansen Transprot";
+
+    /// <summary>
+    /// Two relations close to <see cref="TiedCustomerName"/> and to each other: "Jansen Transport B.V." scores 0.94,
+    /// "Janssen Transport B.V." 0.88 — both above the threshold, within the 0.10 margin, so the customer is Ambiguous
+    /// and the intake waits for a clerk (nothing is created).
+    /// </summary>
+    private async Task<(Guid Jansen, Guid Janssen)> TiedCustomersAsync(TransportRunWorld f)
+    {
+        var jansen = await RelationAsync("JT" + f.Suffix, "Jansen Transport B.V.", OpenTms.MasterData.Relations.RelationRoles.Customer, f.CountryId, "Kade", "1", "3011 AA", "Rotterdam");
+        var janssen = await RelationAsync("JS" + f.Suffix, "Janssen Transport B.V.", OpenTms.MasterData.Relations.RelationRoles.Customer, f.CountryId, "Kade", "2", "3011 AA", "Rotterdam");
+        return (jansen.RelationId, janssen.RelationId);
+    }
+
+    /// <summary>The rows Master Data holds in the current tenant: relations and transport units (nothing created for a review).</summary>
+    private Task<(long Relations, long Units)> MasterDataCountsAsync() => WithUnitOfWorkAsync(async () =>
+        (await GetRequiredService<IRepository<OpenTms.MasterData.Relations.Relation, Guid>>().GetCountAsync(),
+         await GetRequiredService<IRepository<OpenTms.MasterData.Transport.TransportUnit, Guid>>().GetCountAsync()));
+
     /* ---------- Resolution and the order ---------- */
 
     [Fact]
@@ -151,7 +173,7 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
     }
 
     [Fact]
-    public async Task A_customer_found_by_its_name_is_a_match_and_never_confirmed_automatically()
+    public async Task A_customer_found_by_its_name_is_a_match_and_confirms_like_any_rule()
     {
         using var features = IntakeOn();
         using var tenant = InTenantA();
@@ -160,13 +182,13 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         var result = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "klant foods b.v." }), trusted: true, autoConfirm: true));
 
         result.Status.ShouldBe(OrderIntakeStatus.OrderCreated);
-        result.Confirmed.ShouldBeFalse("build note 2: a name match is conservative");
+        result.Confirmed.ShouldBeTrue("build note 31 (PO 2026-11-03): a Match no longer blocks the automatic confirm");
         var customer = await FieldAsync(result.IntakeId, "order.customer");
         (customer.Method, customer.TargetId).ShouldBe(((IntakeResolutionMethod?)IntakeResolutionMethod.Match, (Guid?)f.CustomerId));
     }
 
     [Fact]
-    public async Task An_address_found_by_name_and_city_is_a_match_and_never_confirmed_automatically()
+    public async Task An_address_found_by_name_and_city_is_a_match_and_confirms_like_any_rule()
     {
         using var features = IntakeOn();
         using var tenant = InTenantA();
@@ -175,7 +197,7 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         var result = await Intake.SubmitAsync(Submission(Payload(f, p => p.Lines[0].Stops[0].Address = new OrderIntakeAddressDto { Name = "DC Venlo", City = "Venlo" }),
             trusted: true, autoConfirm: true));
 
-        result.Confirmed.ShouldBeFalse();
+        result.Confirmed.ShouldBeTrue("build note 31: a Match confirms like any rule");
         var address = await FieldAsync(result.IntakeId, "lines[0].stops[0].address");
         (address.Method, address.TargetId).ShouldBe(((IntakeResolutionMethod?)IntakeResolutionMethod.Match, (Guid?)f.DepotAddressId));
     }
@@ -214,10 +236,14 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var tenant = InTenantA();
         var f = await FixtureAsync();
         var document = Guid.NewGuid();
+        await TiedCustomersAsync(f);
+        var before = await MasterDataCountsAsync();
+        /* Since build notes 28–29 an unknown name is created, not reviewed: what still blocks is an Ambiguous tie and a
+         * required value the document does not give (a transport unit without a name). */
         var payload = Payload(f, p =>
         {
-            p.Customer = new OrderIntakeCustomerDto { Name = "Onbekend BV" };
-            p.Lines[0].TransportUnitName = "Gitterbox";
+            p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName };
+            p.Lines[0].TransportUnitName = null;
         });
 
         var first = await Intake.SubmitAsync(Submission(payload, document: document));
@@ -226,6 +252,8 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         first.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
         first.TransportOrderId.ShouldBeNull();
         first.Unresolved.ShouldBe(["order.customer", "lines[0].transportUnit"], ignoreOrder: true);
+        (await FieldAsync(first.IntakeId, "order.customer")).Status.ShouldBe(IntakeResolutionStatus.Ambiguous);
+        (await MasterDataCountsAsync()).ShouldBe(before, "build note 29: nothing is created for an intake that goes to review");
         again.IntakeId.ShouldBe(first.IntakeId);
         (await WithUnitOfWorkAsync(() => GetRequiredService<IRepository<OrderIntake, Guid>>().CountAsync(i => i.SourceDocumentId == document))).ShouldBe(1);
         (await Intake.SubmitAsync(Submission(payload, document: document, index: 1))).IntakeId.ShouldNotBe(first.IntakeId, "the key is (document, index)");
@@ -249,7 +277,8 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var features = IntakeOn();
         using var tenant = InTenantA();
         var f = await FixtureAsync();
-        var unknown = Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Klant Foods Barendrecht Inkoop" });
+        await TiedCustomersAsync(f);
+        var unknown = Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName });
         var open = await Intake.SubmitAsync(Submission(unknown));
         open.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
 
@@ -273,11 +302,13 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var features = IntakeOn();
         using var tenant = InTenantA();
         var f = await FixtureAsync();
+        await TiedCustomersAsync(f);
         var open = await Intake.SubmitAsync(Submission(Payload(f, p =>
         {
-            p.Customer = new OrderIntakeCustomerDto { Name = "Onbekend" };
-            p.Lines[0].TransportUnitName = "Gitterbox";
+            p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName };
+            p.Lines[0].TransportUnitName = null;
         })));
+        var before = await MasterDataCountsAsync();
 
         (await Should.ThrowAsync<BusinessException>(() => Review.ResolveAsync(open.IntakeId,
             new OrderIntakeResolveDto { Picks = new Dictionary<string, Guid> { ["order.customer"] = f.CustomerId } }))).Code.ShouldBe(OrdersErrorCodes.IntakeUnresolved);
@@ -289,6 +320,7 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
 
         (await Review.GetAsync(open.IntakeId)).Status.ShouldBe(OrderIntakeStatus.NeedsReview);
         (await AliasesAsync()).ShouldBeEmpty();
+        (await MasterDataCountsAsync()).ShouldBe(before, "a refused review creates nothing in Master Data");
     }
 
     [Fact]
@@ -297,7 +329,9 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var features = IntakeOn();
         using var tenant = InTenantA();
         var f = await FixtureAsync();
-        var open = await Intake.SubmitAsync(Submission(Payload(f, p => p.Lines[0].TransportUnitName = "Gitterbox")));
+        /* A transport unit without a name is required and cannot be created (build note 29): review. */
+        var open = await Intake.SubmitAsync(Submission(Payload(f, p => p.Lines[0].TransportUnitName = null)));
+        open.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
 
         var reviewed = Payload(f);
         var resolved = await Review.ResolveAsync(open.IntakeId, new OrderIntakeResolveDto { ReviewedPayload = reviewed });
@@ -313,7 +347,9 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var features = IntakeOn();
         using var tenant = InTenantA();
         var f = await FixtureAsync();
-        var open = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Onbekend" })));
+        await TiedCustomersAsync(f);
+        var open = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName })));
+        open.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
 
         var rejected = await Review.RejectAsync(open.IntakeId, new OrderIntakeRejectDto { Reason = "Geen order" });
 
@@ -330,8 +366,11 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         using var tenant = InTenantA();
         var f = await FixtureAsync();
         var byName = Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Klant Foods B.V." });
-        var draft = await Intake.SubmitAsync(Submission(byName, trusted: true, autoConfirm: true));
+        /* The channel does not auto-confirm, so a Draft a user confirms (a Match itself no longer keeps a Draft, build note 31). */
+        var draft = await Intake.SubmitAsync(Submission(byName, trusted: true, autoConfirm: false));
         draft.Confirmed.ShouldBeFalse();
+        (await FieldAsync(draft.IntakeId, "order.customer")).Method.ShouldBe(IntakeResolutionMethod.Match);
+        (await AliasesAsync()).ShouldBeEmpty("a Match is learned on the confirmation, not when the Draft is created");
 
         await Orders.ConfirmAsync(draft.TransportOrderId!.Value);
 
@@ -339,7 +378,9 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         (alias.Kind, alias.TargetId).ShouldBe((IntakeAliasKind.Customer, f.CustomerId));
         (await Orders.GetAsync(draft.TransportOrderId!.Value)).EditedAfterIntake.ShouldBeFalse();
 
-        (await Intake.SubmitAsync(Submission(byName, trusted: true, autoConfirm: true))).Confirmed.ShouldBeTrue("now resolved by Alias");
+        var next = await Intake.SubmitAsync(Submission(byName, trusted: true, autoConfirm: true));
+        next.Confirmed.ShouldBeTrue();
+        (await FieldAsync(next.IntakeId, "order.customer")).Method.ShouldBe(IntakeResolutionMethod.Alias, "now resolved by the learned alias");
     }
 
     [Fact]
@@ -368,14 +409,25 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
         OrderIntakeSubmissionResultDto open;
         Guid aliasId;
         var document = Guid.NewGuid();
+        (Guid Jansen, Guid Janssen) tied;
         using (InTenantA())
         {
             f = await FixtureAsync();
-            var learned = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Klant Foods Inkoop" })));
+            tied = await TiedCustomersAsync(f);
+            var learned = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName })));
+            learned.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
             await Review.ResolveAsync(learned.IntakeId, new OrderIntakeResolveDto { Picks = new Dictionary<string, Guid> { ["order.customer"] = f.CustomerId } });
             aliasId = (await AliasesAsync()).Single().Id;
-            open = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Onbekend" }), document: document));
+            /* The customer resolves by A's alias now; the nameless transport unit keeps it in review. */
+            open = await Intake.SubmitAsync(Submission(Payload(f, p =>
+            {
+                p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName };
+                p.Lines[0].TransportUnitName = null;
+            }), document: document));
+            open.Status.ShouldBe(OrderIntakeStatus.NeedsReview);
         }
+
+        var aIds = new HashSet<Guid> { f.CustomerId, f.DepotId, f.ShopId, f.DepotAddressId, f.ShopAddressId, f.TransportUnitId, f.ProductId, tied.Jansen, tied.Janssen };
 
         using (InTenantB())
         {
@@ -389,15 +441,30 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
             (await Intake.GetReviewedPayloadAsync(open.IntakeId)).ShouldBeNull();
 
             /* A's alias does not resolve B's intake; the same (document, index) in B is B's own intake. */
-            var inB = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = "Klant Foods Inkoop" }), document: document));
+            var before = await MasterDataCountsAsync();
+            var inB = await Intake.SubmitAsync(Submission(Payload(f, p => p.Customer = new OrderIntakeCustomerDto { Name = TiedCustomerName }), document: document));
             inB.IntakeId.ShouldNotBe(open.IntakeId);
-            inB.Status.ShouldBe(OrderIntakeStatus.NeedsReview, "B has none of A's relations, addresses, units or aliases");
+            inB.Status.ShouldBe(OrderIntakeStatus.NeedsReview, "B has none of A's relations, addresses, units, types or aliases");
+            var detail = await Review.GetAsync(inB.IntakeId);
+            var customerInB = detail.Resolution.Single(r => r.FieldPath == "order.customer");
+            customerInB.Method.ShouldNotBe(IntakeResolutionMethod.Alias, "A's alias is not B's");
+            customerInB.Status.ShouldNotBe(IntakeResolutionStatus.Ambiguous, "A's two similar relations are no tie in B");
+            customerInB.Creatable.ShouldBeTrue("nothing similar in B: B's own customer would be created");
+            detail.Resolution.Where(r => r.TargetId != null).Select(r => r.TargetId!.Value).ShouldNotContain(id => aIds.Contains(id), "no field of B resolves to A's rows");
+            detail.Resolution.SelectMany(r => r.Candidates).Select(c => c.Id).ShouldNotContain(id => aIds.Contains(id), "no candidate of B is A's row");
+            (await MasterDataCountsAsync()).ShouldBe(before, "the intake went to review: nothing created in B");
 
             var match = GetRequiredService<IMasterDataMatchQuery>();
             (await match.FindRelationsAsync(new RelationMatchQuery { Code = "KL" + f.Suffix, Name = "Klant Foods B.V." })).ShouldBeEmpty();
             (await match.FindRelationAddressesAsync(new AddressMatchQuery { PostalCode = "5928 PR", HouseNumber = "12", Name = "DC Venlo", City = "Venlo" })).ShouldBeEmpty();
             (await match.FindReferencesByNameAsync(new ReferenceNameMatchQuery { Kind = MasterDataReferenceKind.TransportUnit, Names = ["Europallet"] })).ShouldBeEmpty();
             (await match.GetReferenceNamesAsync(MasterDataReferenceKind.TransportUnit)).ShouldNotContain("Europallet");
+            /* The fuzzy reads of build note 28 are tenant-filtered too. */
+            (await match.FindSimilarRelationsAsync(new SimilarRelationQuery { Name = TiedCustomerName })).ShouldBeEmpty();
+            (await match.FindSimilarRelationsAsync(new SimilarRelationQuery { Name = "Klant Foods" })).ShouldBeEmpty();
+            (await match.FindSimilarRelationAddressesAsync(new SimilarAddressQuery { Name = "DC Venlo", PostalCode = "5928 PR", City = "Venlo" })).ShouldBeEmpty();
+            (await match.FindSimilarReferencesAsync(new ReferenceNameMatchQuery { Kind = MasterDataReferenceKind.TransportUnit, Names = ["Europalet"] })).ShouldBeEmpty();
+            (await match.FindSimilarReferencesAsync(new ReferenceNameMatchQuery { Kind = MasterDataReferenceKind.Product, Names = ["Zuivell"] })).ShouldBeEmpty();
         }
 
         using (InTenantA())
@@ -406,6 +473,7 @@ public class OrderIntakeResolutionTests : TransportOrderTestBase<OpenTmsEntityFr
             (await AliasesAsync()).ShouldHaveSingleItem().Id.ShouldBe(aliasId);
             var match = GetRequiredService<IMasterDataMatchQuery>();
             (await match.FindRelationsAsync(new RelationMatchQuery { Code = "KL" + f.Suffix })).ShouldHaveSingleItem().Id.ShouldBe(f.CustomerId);
+            (await match.FindSimilarRelationsAsync(new SimilarRelationQuery { Name = TiedCustomerName })).Select(r => r.Id).ShouldContain(tied.Jansen, "the same read finds A's rows in A");
         }
     }
 }

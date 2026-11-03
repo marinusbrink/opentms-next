@@ -46,7 +46,7 @@ export function IntakePage({ id }: { id: string }) {
   const canConfirm = useIsGranted("Orders.TransportOrders.Confirm");
   const canOpenOrder = useIsGranted("Orders.TransportOrders");
   /* View source opens Integrations' trace (navigation only; the Transport app reads nothing from Integrations). */
-  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Received");
+  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Intake.Received");
   const navigate = useNavigate();
   const detail = useOrderIntake(canView && feature === "on" ? id : undefined);
   const resolve = useResolveOrderIntake();

@@ -19,7 +19,8 @@ export interface ConnectMailboxDialogProps {
 
 /* Connect Gmail / Connect Microsoft 365 (design 72 "UI design", Mailboxes): a small action dialog that asks the display
  * name, creates the connection (waiting for sign-in) and sends the browser to the provider's consent page. The provider
- * returns to /master-data/integrations/mailboxes?connected={id} (or ?connectError={code}), which the list handles.
+ * returns to /integrations/mailboxes?connected={id} (or ?connectError={code}), which the list handles; a return to the
+ * old /master-data/integrations/mailboxes address is sent on there with its search (PO 2026-11-03).
  * A refusal (the provider is not set up yet) stays in the dialog (UI-FB-004). */
 export function ConnectMailboxDialog({ provider, onOpenChange, navigate = (url) => window.location.assign(url) }: ConnectMailboxDialogProps) {
   const { t } = useL();

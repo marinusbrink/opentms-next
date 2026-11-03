@@ -81,8 +81,11 @@ public static class IntakeStepKeys
 
     public const string NoIntakes = Prefix + "NoIntakes";
 
-    /// <summary>{intakeIndex}</summary>
+    /// <summary>{intakeIndex}, {fuzzyMatches}, {created}</summary>
     public const string Submitted = Prefix + "Submitted";
+
+    /// <summary>{intakeIndex}, {fuzzyMatches}, {created}: Submitted when Orders matched by a similar name or created master data (build note 25).</summary>
+    public const string SubmittedWithMasterData = Prefix + "SubmittedWithMasterData";
 
     /// <summary>{intakeIndex}, {reason}</summary>
     public const string SubmitFailed = Prefix + "SubmitFailed";

@@ -43,6 +43,86 @@ public interface IMasterDataMatchQuery : IApplicationService
 
     /// <summary>The names of the active transport units, products or temperatures, sorted, at most <see cref="MaxChoices"/>.</summary>
     Task<List<string>> GetReferenceNamesAsync(MasterDataReferenceKind kind);
+
+    /* Design 72 build note 25 (PO decision 2026-11-03): fat-finger tolerance. The candidates a name is similar to, scored by
+     * NameSimilarity (the higher of pg_trgm's trigram similarity and the edit similarity); the caller applies its threshold and margin. Candidates
+     * are fetched through a bounded token prefilter, never by scanning a table. */
+
+    /// <summary>Candidates below this similarity are never returned.</summary>
+    public const double MinSimilarity = 0.3;
+
+    /// <summary>
+    /// Active relations whose name or full name is similar to <see cref="SimilarRelationQuery.Name"/>, best first, at most
+    /// <see cref="MaxResults"/>; each says whether its VAT number, chamber of commerce number or e-mail domain conflicts
+    /// with the ones the query gives, and whether it already has a default address (address type none).
+    /// </summary>
+    Task<List<SimilarRelationDto>> FindSimilarRelationsAsync(SimilarRelationQuery query);
+
+    /// <summary>
+    /// Addresses of active relations with the same postal code or in the same city as the query, scored by the similarity
+    /// of their relation's name (or full name) to <see cref="SimilarAddressQuery.Name"/>, best first, at most
+    /// <see cref="MaxResults"/>; <see cref="RelationAddressMatchDto.MatchKind"/> is SimilarName.
+    /// </summary>
+    Task<List<RelationAddressMatchDto>> FindSimilarRelationAddressesAsync(SimilarAddressQuery query);
+
+    /// <summary>
+    /// Per text, the active transport units, products or temperatures with a similar name, best first, at most
+    /// <see cref="MaxResults"/> per text, each with its <see cref="ReferenceNameMatchDto.Similarity"/>.
+    /// </summary>
+    Task<List<ReferenceNameMatchDto>> FindSimilarReferencesAsync(ReferenceNameMatchQuery query);
+}
+
+/// <summary>A party's name as a document gives it, with the keys that rule a similar candidate out.</summary>
+public class SimilarRelationQuery
+{
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? Name { get; set; }
+
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? VatNumber { get; set; }
+
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? ChamberOfCommerceNumber { get; set; }
+
+    /// <summary>Only its domain is compared with the relation's own e-mail address.</summary>
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? EmailAddress { get; set; }
+}
+
+public class SimilarRelationDto
+{
+    public Guid Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The code and the city of the relation's default address.</summary>
+    public string? Detail { get; set; }
+
+    /// <summary>0–1, the best of name and full name.</summary>
+    public double Similarity { get; set; }
+
+    /// <summary>The relation has a VAT number, chamber of commerce number or e-mail domain that differs from the query's.</summary>
+    public bool ConflictsWithKeys { get; set; }
+
+    /// <summary>The relation has an address without an address type (its default; a relation has at most one).</summary>
+    public bool HasDefaultAddress { get; set; }
+}
+
+/// <summary>A place as a document gives it: the name to score, and the postal code or city a candidate must share.</summary>
+public class SimilarAddressQuery
+{
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? Name { get; set; }
+
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? PostalCode { get; set; }
+
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? City { get; set; }
+
+    /// <summary>ISO 3166-1 alpha-2; when given, only addresses in that country.</summary>
+    [MaxLength(IMasterDataMatchQuery.MaxInputLength)]
+    public string? CountryCode { get; set; }
 }
 
 /// <summary>Names as a document gives them, matched against one kind of Master Data row.</summary>
@@ -63,6 +143,9 @@ public class ReferenceNameMatchDto
 
     /// <summary>The text of the query this row matched, as it was given.</summary>
     public string MatchedText { get; set; } = string.Empty;
+
+    /// <summary>0–1 from <see cref="IMasterDataMatchQuery.FindSimilarReferencesAsync"/>; null from the exact name match.</summary>
+    public double? Similarity { get; set; }
 }
 
 /// <summary>What a document says about a party; every field optional, empty fields are not matched.</summary>
@@ -169,4 +252,7 @@ public class RelationAddressMatchDto
     public string? CountryCode { get; set; }
 
     public AddressMatchKind MatchKind { get; set; }
+
+    /// <summary>0–1 from <see cref="IMasterDataMatchQuery.FindSimilarRelationAddressesAsync"/>; null from the other reads.</summary>
+    public double? Similarity { get; set; }
 }

@@ -56,7 +56,8 @@ const FEATURES = {
   "Apps.Transport.Intake": "true",
   "Apps.Transport.Orders": "true",
   "Apps.Integrations": "true",
-  "Apps.Integrations.Received": "true",
+  "Apps.Integrations.Intake": "true",
+  "Apps.Integrations.Intake.Received": "true",
 };
 const RESOLVE = { "Orders.OrderIntakes": true, "Orders.OrderIntakes.Resolve": true };
 

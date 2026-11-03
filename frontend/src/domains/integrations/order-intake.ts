@@ -166,6 +166,7 @@ export const orderIntakeKeys = {
   importProfile: (id: string | undefined) => ["integrations", "importProfiles", "detail", id?.toLowerCase()] as const,
   inboundMessages: ["integrations", "inboundMessages"] as const,
   inboundMessage: (id: string | undefined) => ["integrations", "inboundMessages", "detail", id?.toLowerCase()] as const,
+  settings: ["integrations", "orderIntakeSettings"] as const,
 };
 
 /* ── Shared ──────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -489,6 +490,41 @@ export function useReprocessInboundDocument() {
     onSuccess: (dto) => {
       if (dto?.id) queryClient.setQueryData(orderIntakeKeys.inboundMessage(dto.id), dto);
       void queryClient.invalidateQueries({ queryKey: orderIntakeKeys.inboundMessages });
+    },
+  });
+}
+
+/* ── Settings (design 72 build note 25): the tenant's name similarity threshold ──────────────────────────────────── */
+
+export type OrderIntakeSettings = Schemas["OpenTms.Integrations.OrderIntake.OrderIntakeSettingsDto"];
+
+/** The threshold's range and step (OrderIntakeConsts): the settings page offers exactly these values. */
+export const NAME_SIMILARITY_MIN = 0.5;
+export const NAME_SIMILARITY_MAX = 0.95;
+export const NAME_SIMILARITY_STEP = 0.05;
+export const NAME_SIMILARITY_DEFAULT = 0.75;
+
+/** 0.50, 0.55, … 0.95, computed in hundredths so no floating-point drift creeps in. */
+export const NAME_SIMILARITY_VALUES: readonly number[] = Array.from(
+  { length: Math.round((NAME_SIMILARITY_MAX - NAME_SIMILARITY_MIN) / NAME_SIMILARITY_STEP) + 1 },
+  (_, i) => Math.round(NAME_SIMILARITY_MIN * 100 + i * NAME_SIMILARITY_STEP * 100) / 100,
+);
+
+export function useOrderIntakeSettings(enabled = true) {
+  return useQuery({
+    queryKey: orderIntakeKeys.settings,
+    enabled,
+    queryFn: async () => unwrap(await apiClient.GET("/api/integrations/order-intake-settings")),
+  });
+}
+
+export function useUpdateOrderIntakeSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: OrderIntakeSettings) => unwrap(await apiClient.PUT("/api/integrations/order-intake-settings", { body: input })),
+    onSuccess: (dto) => {
+      if (dto) queryClient.setQueryData(orderIntakeKeys.settings, dto);
+      void queryClient.invalidateQueries({ queryKey: orderIntakeKeys.settings });
     },
   });
 }

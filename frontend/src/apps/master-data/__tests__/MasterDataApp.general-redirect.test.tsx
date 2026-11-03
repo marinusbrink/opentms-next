@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigateMock = vi.fn();
 let pathname = "/master-data/general";
+let search: Record<string, unknown> = {};
 vi.mock("@tanstack/react-router", () => ({
-  useLocation: () => ({ pathname }),
+  useLocation: () => ({ pathname, search }),
   useNavigate: () => navigateMock,
 }));
 
@@ -26,8 +27,6 @@ for (const view of [
   /* Design 61: the Transport run's lists. */
   "ConsignmentNoteProfilesView", "ConsignmentNoteFixedDescriptionsView", "OrderAttributeDefinitionsView",
   "ViaDepotRulesView", "TripAttributeDefinitionsView", "PriceListsView", "RelationFinancialSettingsView",
-  /* Design 72: the Integrations domain's Order intake lists. */
-  "MailboxesView", "ApiClientsView", "ImportProfilesView",
 ]) {
   vi.doMock(`@/apps/master-data/views/${view}`, () => ({ [view]: () => <div data-testid={view} /> }));
 }
@@ -51,6 +50,7 @@ function allOn(): Record<string, string> {
 beforeEach(() => {
   navigateMock.mockReset();
   values = allOn();
+  search = {};
 });
 
 const go = (path: string) => {
@@ -97,8 +97,7 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
   });
 
   it("the bare app path does not navigate when every domain group is off", () => {
-    /* Design 72 adds the Integrations domain group. */
-    values = { ...allOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Integrations": "false", "Apps.MasterData.Platform": "false" };
+    values = { ...allOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     go("/master-data");
     expect(navigateMock).not.toHaveBeenCalled();
   });
@@ -115,13 +114,21 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it("/master-data/integrations and its Order intake group go to the first list that is on (design 72)", () => {
-    go("/master-data/integrations");
-    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/integrations/mailboxes", replace: true });
-    navigateMock.mockReset();
-    values = { ...allOn(), "Apps.MasterData.Integrations.Intake.Mailboxes": "false" };
-    go("/master-data/integrations/intake");
-    expect(navigateMock).toHaveBeenCalledWith({ to: "/master-data/integrations/api-clients", replace: true });
+  it("the old order-intake addresses go to the same list in the Integrations app, the search kept (PO 2026-11-03)", () => {
+    search = { connected: "mb-1" };
+    go("/master-data/integrations/mailboxes");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/integrations/mailboxes", search: { connected: "mb-1" }, replace: true });
+    for (const [from, to] of [
+      ["/master-data/integrations/api-clients", "/integrations/api-clients"],
+      ["/master-data/integrations/import-profiles", "/integrations/import-profiles"],
+      ["/master-data/integrations", "/integrations/intake"],
+      ["/master-data/integrations/intake", "/integrations/intake"],
+    ]) {
+      navigateMock.mockReset();
+      search = {};
+      go(from);
+      expect(navigateMock, from).toHaveBeenCalledWith({ to, search: {}, replace: true });
+    }
   });
 
   it("/master-data/platform goes to the first Platform list that is on", () => {
@@ -153,10 +160,6 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
     ["/master-data/trip-attribute-definitions", "TripAttributeDefinitionsView"],
     ["/master-data/price-lists", "PriceListsView"],
     ["/master-data/relation-financial-settings", "RelationFinancialSettingsView"],
-    /* Design 72: the Order intake lists; the OAuth return carries ?connected= / ?connectError= on the Mailboxes path. */
-    ["/master-data/integrations/mailboxes", "MailboxesView"],
-    ["/master-data/integrations/api-clients", "ApiClientsView"],
-    ["/master-data/integrations/import-profiles", "ImportProfilesView"],
   ])("%s renders %s without navigating", (path, view) => {
     go(path);
     expect(document.querySelector(`[data-testid=${view}]`)).not.toBeNull();
@@ -171,14 +174,44 @@ describe("MasterDataApp – the domain group paths (General; Orders, Planning & 
         walk(view.children);
       });
     walk(masterData.views);
-    /* Fifteen General lists (designs 41–48), sixteen of Orders, Planning & Execution and Financial (designs 51–53, 61),
-     * three of Integrations (design 72) and three of Platform (design 54). */
-    expect(paths).toHaveLength(37);
-    /* Design 72 places its lists under /master-data/integrations/ on purpose: the mailbox OAuth callback redirects to
-     * /master-data/integrations/mailboxes (design 72, "Channels", Connect). Every other list stays one segment deep. */
-    const integrations = ["/master-data/integrations/mailboxes", "/master-data/integrations/api-clients", "/master-data/integrations/import-profiles"];
-    expect(paths.filter((p) => p.startsWith("/master-data/integrations/"))).toEqual(integrations);
-    const others = paths.filter((p) => !integrations.includes(p));
+    /* Fifteen General lists (designs 41–48), sixteen of Orders, Planning & Execution and Financial (designs 51–53, 61)
+     * and three of Platform (design 54). Design 72's order-intake lists are in the Integrations app (PO 2026-11-03). */
+    expect(paths).toHaveLength(34);
+    expect(paths.filter((p) => p.startsWith("/master-data/integrations"))).toEqual([]);
+    const others = paths;
     expect(others.every((p) => /^\/master-data\/[a-z-]+$/.test(p) && !p.startsWith("/master-data/general") && !p.startsWith("/master-data/platform"))).toBe(true);
+  });
+});
+
+describe("MasterDataApp – the moved order-intake addresses (design 72 build note 25, PO 2026-11-03)", () => {
+  it("a mailbox OAuth return to the old address lands on the Integrations Mailboxes list with its refusal or connection kept", () => {
+    search = { connectError: "access_denied" };
+    go("/master-data/integrations/mailboxes");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/integrations/mailboxes", search: { connectError: "access_denied" }, replace: true });
+    expect(document.querySelector("[data-testid]")).toBeNull();
+  });
+
+  it("deeper and trailing-slash old addresses go to their list; an unknown old list goes to the Order intake group", () => {
+    for (const [from, to] of [
+      ["/master-data/integrations/api-clients/", "/integrations/api-clients"],
+      ["/master-data/integrations/import-profiles/p-1", "/integrations/import-profiles"],
+      ["/master-data/integrations/mailboxes/anything/else", "/integrations/mailboxes"],
+      ["/master-data/integrations/unknown-list", "/integrations/intake"],
+    ]) {
+      navigateMock.mockReset();
+      go(from);
+      expect(navigateMock, from).toHaveBeenCalledWith({ to, search: {}, replace: true });
+    }
+  });
+
+  it("a Master data path that only starts with the same letters is not moved", () => {
+    go("/master-data/integrations-archive");
+    expect(navigateMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: expect.stringMatching(/^\/integrations/) }));
+  });
+
+  it("the old addresses redirect even with every Master data list off: the move does not depend on the old nodes", () => {
+    values = { "Apps.MasterData": "true" };
+    go("/master-data/integrations/mailboxes");
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/integrations/mailboxes", search: {}, replace: true });
   });
 });

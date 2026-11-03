@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { APPS, findAppByPath, type AppView } from "@/app/apps.config";
+import { APPS, findAppByPath, type AppDefinition, type AppView } from "@/app/apps.config";
+
+const viewPaths = (views: readonly AppView[]): string[] => views.flatMap((view) => [view.path, ...viewPaths(view.children ?? [])]);
+const treePathsOf = (app: AppDefinition) => viewPaths(app.views ?? []);
 
 describe("apps.config – AppView extension (low risk)", () => {
   const adminApp = APPS.find((a) => a.id === "admin")!;
@@ -133,25 +136,34 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(documents.children).toBeUndefined();
   });
 
-  it("the Master data app has its domain groups, General first and Platform last, and reads from each domain (design 49; PO 2026-10-16; design 72 adds Integrations before Platform)", () => {
+  it("the Master data app has its domain groups, General first and Platform last, and reads from each domain (design 49; PO 2026-10-16; the order-intake setup of design 72 lives in the Integrations app, PO 2026-11-03)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "MasterData:Nav.Integrations", "Platform:Nav.Platform"]);
-    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"]);
-    /* Design 72 "Features": group Integrations → Order intake → Mailboxes, API clients, Import profiles. */
-    const integrations = masterData.views![4];
-    expect([integrations.path, integrations.feature]).toEqual(["/master-data/integrations", "Apps.MasterData.Integrations"]);
-    expect(integrations.children!.map((c) => [c.path, c.feature])).toEqual([["/master-data/integrations/intake", "Apps.MasterData.Integrations.Intake"]]);
-    expect(integrations.children![0].children!.map((c) => [c.path, c.feature])).toEqual([
-      ["/master-data/integrations/mailboxes", "Apps.MasterData.Integrations.Intake.Mailboxes"],
-      ["/master-data/integrations/api-clients", "Apps.MasterData.Integrations.Intake.ApiClients"],
-      ["/master-data/integrations/import-profiles", "Apps.MasterData.Integrations.Intake.ImportProfiles"],
+    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "Platform:Nav.Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
+    expect(treePathsOf(masterData).filter((p) => p.startsWith("/master-data/integrations"))).toEqual([]);
+  });
+
+  it("the Integrations app has the group Order intake: Received first, then Mailboxes, API clients, Import profiles and Settings (design 72; PO 2026-11-03)", () => {
+    const integrations = APPS.find((a) => a.id === "integrations")!;
+    expect(integrations.views!.map((v) => [v.nameKey, v.path, v.feature])).toEqual([["Integrations:Nav.OrderIntake", "/integrations/intake", "Apps.Integrations.Intake"]]);
+    expect(integrations.views![0].children!.map((c) => [c.nameKey, c.path, c.feature, c.requiredPermission])).toEqual([
+      ["Integrations:Nav.Received", "/integrations/received", "Apps.Integrations.Intake.Received", "Integrations.InboundMessages"],
+      ["Integrations:Mailboxes", "/integrations/mailboxes", "Apps.Integrations.Intake.Mailboxes", "Integrations.Mailboxes"],
+      ["Integrations:ApiClients", "/integrations/api-clients", "Apps.Integrations.Intake.ApiClients", "Integrations.ApiClients"],
+      ["Integrations:ImportProfiles", "/integrations/import-profiles", "Apps.Integrations.Intake.ImportProfiles", "Integrations.ImportProfiles"],
+      ["Integrations:Nav.IntakeSettings", "/integrations/intake-settings", "Apps.Integrations.Intake.Settings", "Integrations.OrderIntakeSettings"],
     ]);
+    integrations.views![0].children!.forEach((child) => {
+      expect(child.children).toBeUndefined();
+      expect(child.icon).toBeTruthy();
+    });
+    expect(findAppByPath("/integrations/mailboxes")?.id).toBe("integrations");
   });
 
   it("the Platform domain group holds its three lists directly under it, no sub-groups (design 54, Assumption 4)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    /* Design 72 puts the Integrations group before Platform: Platform is the sixth, last group. */
-    const platform = masterData.views![5];
+    /* Platform is the fifth, last group. */
+    const platform = masterData.views![4];
     expect(platform.path).toBe("/master-data/platform");
     expect(platform.feature).toBe("Apps.MasterData.Platform");
     expect(platform.icon).toBeTruthy();
@@ -169,8 +181,8 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app lists its fifteen General lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    /* General, Orders, Planning & Execution, Financial, Integrations (design 72), Platform. */
-    expect(masterData.views).toHaveLength(6);
+    /* General, Orders, Planning & Execution, Financial, Platform. */
+    expect(masterData.views).toHaveLength(5);
     const general = masterData.views![0];
     expect(general.nameKey).toBe("MasterData:Nav.General");
     expect(general.icon).toBeTruthy();
@@ -203,7 +215,7 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app holds the Orders, Planning & Execution and Financial domain groups after General (designs 51–53)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
     const [, orders, planning, financial] = masterData.views!;
     const lists = (group: AppView) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
     /* Design 61 adds the Transport run's lists after each group's earlier ones. */

@@ -60,14 +60,12 @@ import { fail, panel, ribbonButton, ribbonLabels, stubGlobals } from "@/apps/tra
 const FEATURES = {
   "Integrations.OrderIntake": "true",
   "Apps.Integrations": "true",
-  "Apps.Integrations.Received": "true",
+  "Apps.Integrations.Intake": "true",
+  "Apps.Integrations.Intake.Received": "true",
+  "Apps.Integrations.Intake.ImportProfiles": "true",
   "Apps.Transport": "true",
   "Apps.Transport.Intake": "true",
   "Apps.Transport.Orders": "true",
-  "Apps.MasterData": "true",
-  "Apps.MasterData.Integrations": "true",
-  "Apps.MasterData.Integrations.Intake": "true",
-  "Apps.MasterData.Integrations.Intake.ImportProfiles": "true",
 };
 const VIEW = { "Integrations.InboundMessages": true };
 
@@ -153,7 +151,7 @@ describe("ReceivedView (design 72)", () => {
     const first = renderWith(<ReceivedView />);
     expect(screen.getByRole("status")).toHaveTextContent("FeatureUnavailable");
     first.unmount();
-    features = { ...FEATURES, "Apps.Integrations.Received": "false" };
+    features = { ...FEATURES, "Apps.Integrations.Intake.Received": "false" };
     const second = renderWith(<ReceivedView />);
     expect(screen.getByRole("status")).toHaveTextContent("FeatureUnavailable");
     second.unmount();
@@ -209,6 +207,8 @@ describe("TracePage (design 72)", () => {
     renderWith(<TracePage id="msg-1" />);
     const doc = await waitFor(() => panel("order-4711.pdf"));
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["order-4711.pdf", "Integrations:InboundDocumentKind.MailBody"]);
+    /* The facts sit in the Details card, collapsed by default (PO 2026-11-03): expand it to see them all. */
+    await click(within(doc).getByRole("button", { name: "Expand" }));
     expect(doc.textContent).toContain("Orders inbox");
     expect(doc.textContent).toContain("planning@acme.test");
     expect(doc.textContent).toContain("Order PO-4711");
@@ -216,8 +216,67 @@ describe("TracePage (design 72)", () => {
     expect(doc.textContent).toContain("PDF document");
     expect(doc.textContent).toContain("Integrations:MappingMethod.AiExtraction");
     const profile = within(doc).getByRole("link", { name: "Acme pdf (Integrations:VersionN)" });
-    expect(profile.getAttribute("href")).toBe("/master-data/integrations/import-profiles");
+    expect(profile.getAttribute("href")).toBe("/integrations/import-profiles");
     expect(ribbonLabels()).toContain("Integrations:DownloadMessage");
+  });
+
+  it("the Details card is collapsed by default to one summary line; the toggle shows every fact and Download original, on every document tab", async () => {
+    grants = { ...VIEW, "Integrations.ImportProfiles": true };
+    renderWith(<TracePage id="msg-1" />);
+    const doc = await waitFor(() => panel("order-4711.pdf"));
+    const details = doc.querySelector<HTMLElement>("[data-slot=trace-details]")!;
+    expect(details).toHaveAttribute("data-state", "collapsed");
+    expect(within(details).getByRole("heading", { name: "Integrations:Details" })).toBeInTheDocument();
+    const toggle = within(details).getByRole("button", { name: "Expand" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    /* The summary: channel · mailbox or API client · received · document status · size · import profile, in that order. */
+    const summary = details.querySelector<HTMLElement>("[data-slot=trace-details-summary]")!;
+    const items = Array.from(summary.querySelectorAll<HTMLElement>("[data-summary]"));
+    expect(items.map((item) => item.getAttribute("data-summary"))).toEqual([
+      "Integrations:Channel",
+      "Integrations:Source",
+      "Integrations:ReceivedAt",
+      "Integrations:Status",
+      "Integrations:Size",
+      "Integrations:ProfileUsed",
+    ]);
+    expect(items[0].textContent).toContain("Integrations:InboundChannel.");
+    expect(items[1].textContent).toContain("Orders inbox");
+    expect(items[2].textContent).toMatch(/\d/);
+    expect(items[3].querySelector("[data-tone]")).not.toBeNull();
+    expect(items[4].textContent).toContain("Unit:Kilobytes");
+    expect(within(items[5]).getByRole("link", { name: "Acme pdf (Integrations:VersionN)" })).toHaveAttribute("href", "/integrations/import-profiles");
+    /* Collapsed: nothing beyond the summary, and no Download original. */
+    expect(details.querySelector("[data-slot=trace-details-facts]")).toBeNull();
+    expect(details.textContent).not.toContain("Order PO-4711");
+    expect(details.textContent).not.toContain("fp-abc123");
+    expect(within(doc).queryByRole("button", { name: /Integrations:DownloadOriginal/ })).toBeNull();
+    /* The lists are there below the card either way. */
+    expect(doc.querySelector("[data-slot=trace-steps]")).not.toBeNull();
+    expect(doc.querySelector("[data-slot=trace-intakes]")).not.toBeNull();
+
+    await click(toggle);
+    expect(details).toHaveAttribute("data-state", "expanded");
+    const collapse = within(details).getByRole("button", { name: "Collapse" });
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    const facts = details.querySelector<HTMLElement>("[data-slot=trace-details-facts]")!;
+    expect(collapse).toHaveAttribute("aria-controls", facts.id);
+    expect(details.querySelector("[data-slot=trace-details-summary]")).toBeNull();
+    for (const text of ["Orders inbox", "planning@acme.test", "Order PO-4711", "gmail-18c2", "fp-abc123", "PDF document", "Integrations:MappingMethod.AiExtraction"])
+      expect(facts.textContent).toContain(text);
+    /* The profile link shows once: in the facts, not also in a summary. */
+    expect(within(doc).getAllByRole("link", { name: "Acme pdf (Integrations:VersionN)" })).toHaveLength(1);
+    expect(within(facts).getByRole("button", { name: /Integrations:DownloadOriginal/ })).toBeInTheDocument();
+
+    /* The choice holds for the other document tab, and collapsing brings the summary back. */
+    await click(screen.getByRole("tab", { name: "Integrations:InboundDocumentKind.MailBody" }));
+    const mailBody = panel("Integrations:InboundDocumentKind.MailBody");
+    expect(mailBody.querySelector("[data-slot=trace-details]")).toHaveAttribute("data-state", "expanded");
+    expect(within(mailBody).getByText("Integrations:NoProfile")).toBeInTheDocument();
+    await click(within(mailBody).getByRole("button", { name: "Collapse" }));
+    expect(mailBody.querySelector("[data-slot=trace-details-summary]")).not.toBeNull();
+    expect(details).toHaveAttribute("data-state", "collapsed");
   });
 
   it("the timeline: localized step texts with their parameters (enum names localized), tokens and cost on the AI step, the user on a manual step", async () => {
