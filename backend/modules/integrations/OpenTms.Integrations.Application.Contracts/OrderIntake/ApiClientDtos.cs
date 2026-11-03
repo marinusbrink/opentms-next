@@ -9,7 +9,7 @@ namespace OpenTms.Integrations.OrderIntake;
 
 /// <summary>
 /// Master data → Integrations → Order intake → API clients (design 72 "API client"), route root
-/// <c>/api/integrations/api-clients</c>. Each client is an OpenIddict client-credentials application in the host
+/// <c>/api/integrations/api-client</c>. Each client is an OpenIddict client-credentials application in the host
 /// database; its secret is returned once, by create and regenerate, and never again.
 /// </summary>
 public interface IApiClientAppService : IApplicationService

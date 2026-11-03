@@ -375,17 +375,8 @@ public class OpenTmsHttpApiHostModule : AbpModule
                 opts => opts.RootPath = "financial");
             options.ConventionalControllers.Create(typeof(MasterDataApplicationModule).Assembly,
                 opts => opts.RootPath = "master-data");
-            options.ConventionalControllers.Create(typeof(IntegrationsApplicationModule).Assembly, opts =>
-            {
-                opts.RootPath = "integrations";
-                /* Design 72's routes are plural: /api/integrations/mailbox-connections, /api/integrations/api-clients. */
-                opts.UrlControllerNameNormalizer = c => c.ControllerName switch
-                {
-                    "MailboxConnection" => "MailboxConnections",
-                    "ApiClient" => "ApiClients",
-                    _ => c.ControllerName
-                };
-            });
+            options.ConventionalControllers.Create(typeof(IntegrationsApplicationModule).Assembly,
+                opts => opts.RootPath = "integrations");
             options.ConventionalControllers.Create(typeof(ReportingApplicationModule).Assembly,
                 opts => opts.RootPath = "reporting");
         });

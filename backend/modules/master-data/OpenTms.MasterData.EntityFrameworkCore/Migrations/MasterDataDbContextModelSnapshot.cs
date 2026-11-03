@@ -1384,6 +1384,8 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "DebtorNumber"), false);
 
+                    b.HasIndex("TenantId", "Email");
+
                     b.HasIndex("TenantId", "Roles");
 
                     b.HasIndex("TenantId", "SearchKey");

@@ -10,7 +10,7 @@ namespace OpenTms.Integrations.OrderIntake;
 
 /// <summary>
 /// Master data → Integrations → Order intake → Mailboxes (design 72 "Channels"), route root
-/// <c>/api/integrations/mailbox-connections</c>. Create returns the provider's authorize URL; the anonymous OAuth
+/// <c>/api/integrations/mailbox-connection</c>. Create returns the provider's authorize URL; the anonymous OAuth
 /// callback (<c>GET /api/integrations/mailbox-oauth/callback</c>) is a controller of its own, not part of this service.
 /// The refresh token is never returned.
 /// </summary>

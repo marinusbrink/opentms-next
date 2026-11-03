@@ -142,7 +142,7 @@ provider after consent), `FolderId` (256)?, `FolderName` (256)?, `RefreshTokenEn
 `DefaultTransportOrderTypeId`?, `AutoConfirm` (bool, default false). Unique (TenantId, Provider, EmailAddress, FolderId)
 among undeleted rows.
 
-- **Connect**: `POST /api/integrations/mailbox-connections` creates the row (`AwaitingConsent`) and returns the
+- **Connect**: `POST /api/integrations/mailbox-connection` creates the row (`AwaitingConsent`) and returns the
   provider's authorize URL. `state` = data-protected (purpose `OpenTms.Integrations.MailboxOAuth`, 15 minutes) `{tenantId,
   connectionId, userId, nonce}`. The browser goes to Google/Microsoft; the anonymous callback
   `GET /api/integrations/mailbox-oauth/callback?code&state` unprotects the state, changes to its tenant, exchanges the
@@ -574,3 +574,41 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
    profile defines more stop scopes.
 4. AI usage records live in the host database, readable only by host operators (no screen in this run).
 5. `App:SelfUrl` is the public URL of the API (used for the OAuth redirect and shown on the settings tab).
+
+## Build notes (decided during the build, 2026-11-03)
+
+1. **Routes follow the repo's singular convention**: `/api/integrations/mailbox-connection`, `/api/integrations/api-client`,
+   `/api/integrations/import-profile`, `/api/integrations/inbound-message`; reprocess is
+   `POST /api/integrations/inbound-documents/{id}/reprocess` (its own conventional service); aliases are
+   `GET /api/orders/order-intake/aliases` and `DELETE /api/orders/order-intake/aliases/{aliasId}`.
+2. **Matching is conservative**: a single exact match on a customer's normalised name or on an address's name + city is
+   `Match`, never an automatic confirm; postal code + house number stays `Exact`. When a user confirms a Draft from an
+   intake without editing it, every `Match` of that intake is stored as an alias (address aliases scoped to the customer),
+   so the next intake with the same texts resolves by `Alias` and may auto-confirm.
+3. **Create and confirm** in the review also requires `Orders.TransportOrders.Confirm`; Create (a Draft) requires only
+   `Orders.OrderIntakes.Resolve`.
+4. **A stop's contact name and phone** are appended to the stop's remarks ("Contactpersoon: …"); the order has no contact
+   fields by text. A line's description goes into its remarks, the order's remarks into the internal remarks.
+5. **Master Data match query** also offers `FindReferencesByNameAsync` (transport units, products, temperatures by name)
+   and `GetReferenceNamesAsync` (the AI's choice lists). New index `Relations (TenantId, Email)`; trigram indexes on the
+   intake list's search columns; `OrderIntakes` carries `CustomerReference`, `CustomerRelationId`, `CustomerName` and
+   `OpenFieldCount` so the list reads no jsonb.
+6. **The AI answer** returns each intake as a flat list of field path, value and source, and the profile rules as JSON
+   text; the executor checks every path and rule. The AI call runs **outside** a database transaction (profiles and submit
+   first, AI second, apply and submit third). Its usage figures go on the first document of the call. The model's free-text
+   reason is not stored (personal data).
+7. **Validation**: a stop without its own date passes when the intake has an order date. A spreadsheet the model saw only
+   in part (40 rows) without a verified profile goes to NeedsAttention, never partly submitted.
+8. **API JSON intakes count as trusted** (`ProfileTrusted = true`), so an API client with auto-confirm gets confirmed
+   orders when everything resolves without a `Match`.
+9. **A Draft confirmed after editing** (`EditedAfterIntake = true`) counts as a correction of its profile and queues a
+   repair; the repair does nothing when there is no reviewed payload.
+10. **Transient AI failures** are retried by the job twice more (counted on the step log); the third failure leaves the
+    document NeedsAttention.
+11. **API client tenant**: besides the token handler, `ApiClientTenantResolveContributor` runs first among the tenant
+    resolvers and takes an API client's tenant from its token claim, because ABP's claim resolver only answers for a
+    signed-in user. The intake API also checks that the token's `client_id` equals the client's own.
+12. **Names in the mailbox and API client lists** (default customer, order type) are resolved by the screen from the
+    lookups the Master data app already reads; the Integrations DTOs carry ids.
+13. **OAuth redirect** goes to the SPA URL (`App:RedirectAllowedUrls`, first entry, as elsewhere); `App:SelfUrl` builds
+    the redirect URI and the token URL.
