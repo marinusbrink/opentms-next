@@ -34,6 +34,8 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(transportAppOrders, AppFeatures.TransportApp.OrderTemplates);
         On(transportApp, AppFeatures.TransportApp.Trips);
         On(transportApp, AppFeatures.TransportApp.Documents);
+        /* Design 72: the intake queue; on like its siblings, the screens also check Integrations.OrderIntake. */
+        On(transportApp, AppFeatures.TransportApp.Intake);
         Off(apps, AppFeatures.Finance);
 
         var masterData = On(apps, AppFeatures.MasterData.Default);
@@ -87,8 +89,17 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         Off(platform, AppFeatures.MasterData.Platform.EmailTemplates);
         Off(platform, AppFeatures.MasterData.Platform.ReportDefinitions);
         Off(platform, AppFeatures.MasterData.Platform.DocumentTypes);
+        /* Design 72: the Integrations group and its order-intake lists default on; the screens also check
+         * Integrations.OrderIntake, which is off until a tenant switches it on. */
+        var integrations = On(masterData, AppFeatures.MasterData.Integrations.Default);
+        var intake = On(integrations, AppFeatures.MasterData.Integrations.Intake.Default);
+        On(intake, AppFeatures.MasterData.Integrations.Intake.Mailboxes);
+        On(intake, AppFeatures.MasterData.Integrations.Intake.ApiClients);
+        On(intake, AppFeatures.MasterData.Integrations.Intake.ImportProfiles);
 
-        Off(apps, AppFeatures.Integrations);
+        var integrationsApp = Off(apps, AppFeatures.Integrations);
+        /* Design 72: Received, on beneath the app (which stays off until switched on). */
+        On(integrationsApp, AppFeatures.IntegrationsApp.Received);
         Off(apps, AppFeatures.Reports);
 
         var administration = On(apps, AppFeatures.Administration.Default);

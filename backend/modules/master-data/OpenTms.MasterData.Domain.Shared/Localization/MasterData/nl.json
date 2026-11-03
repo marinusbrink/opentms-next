@@ -606,6 +606,7 @@
     "MasterData:Numbering.InvalidSeparator": "Kies een van de aangeboden scheidingstekens.",
     "MasterData:Numbering.NextNumberTooLow": "Het volgende nummer kan niet lager zijn dan het huidige volgende nummer.",
     "MasterData:NotFound": "(niet gevonden)",
-    "MasterData:ArchivedCannotBeDefault": "Een gearchiveerd record kan niet de standaard zijn."
+    "MasterData:ArchivedCannotBeDefault": "Een gearchiveerd record kan niet de standaard zijn.",
+    "MasterData:Nav.Integrations": "Integraties"
   }
 }

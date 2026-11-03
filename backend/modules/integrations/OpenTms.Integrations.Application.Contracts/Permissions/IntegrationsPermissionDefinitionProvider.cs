@@ -16,6 +16,19 @@ public class IntegrationsPermissionDefinitionProvider : PermissionDefinitionProv
         var serviceSettings = group.AddPermission(IntegrationsPermissions.ServiceSettings.Default, L("Permission:ServiceSettings"), MultiTenancySides.Host);
         serviceSettings.AddChild(IntegrationsPermissions.ServiceSettings.Update, L("Permission:ServiceSettings.Update"), MultiTenancySides.Host);
         serviceSettings.AddChild(IntegrationsPermissions.ServiceSettings.Test, L("Permission:ServiceSettings.Test"), MultiTenancySides.Host);
+
+        /* Design 72: the order intake, tenant data only. */
+        var mailboxes = group.AddPermission(IntegrationsPermissions.Mailboxes.Default, L("Permission:Mailboxes"), MultiTenancySides.Tenant);
+        mailboxes.AddChild(IntegrationsPermissions.Mailboxes.Manage, L("Permission:Mailboxes.Manage"), MultiTenancySides.Tenant);
+        var apiClients = group.AddPermission(IntegrationsPermissions.ApiClients.Default, L("Permission:ApiClients"), MultiTenancySides.Tenant);
+        apiClients.AddChild(IntegrationsPermissions.ApiClients.Manage, L("Permission:ApiClients.Manage"), MultiTenancySides.Tenant);
+        var profiles = group.AddPermission(IntegrationsPermissions.ImportProfiles.Default, L("Permission:ImportProfiles"), MultiTenancySides.Tenant);
+        profiles.AddChild(IntegrationsPermissions.ImportProfiles.Manage, L("Permission:ImportProfiles.Manage"), MultiTenancySides.Tenant);
+        var messages = group.AddPermission(IntegrationsPermissions.InboundMessages.Default, L("Permission:InboundMessages"), MultiTenancySides.Tenant);
+        messages.AddChild(IntegrationsPermissions.InboundMessages.Reprocess, L("Permission:InboundMessages.Reprocess"), MultiTenancySides.Tenant);
+        /* The intake API's permission is granted to API clients only (ABP's client provider "C"), so no role editor offers it. */
+        group.AddPermission(IntegrationsPermissions.IntakeApi.Submit, L("Permission:IntakeApi.Submit"), MultiTenancySides.Both)
+            .WithProviders(ClientPermissionValueProvider.ProviderName);
     }
 
     private static LocalizableString L(string name)

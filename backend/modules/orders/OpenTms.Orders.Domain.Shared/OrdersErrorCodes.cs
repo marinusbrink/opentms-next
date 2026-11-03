@@ -109,11 +109,22 @@ public static class OrdersErrorCodes
     /// <summary>The copies of a consignment note are 1..5.</summary>
     public const string InvalidCopies = Namespace + ":InvalidCopies";
 
+    /* Design 72: the order intake. */
+
+    /// <summary>Only an intake that needs review can be resolved or rejected ({status}).</summary>
+    public const string IntakeNotInReview = Namespace + ":IntakeNotInReview";
+
+    /// <summary>Required fields of the intake are still unresolved ({fields}); pick a value for each.</summary>
+    public const string IntakeUnresolved = Namespace + ":IntakeUnresolved";
+
+    /// <summary>A pick names a field the intake does not have, or a row that does not exist ({field}).</summary>
+    public const string IntakePickInvalid = Namespace + ":IntakePickInvalid";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         InvalidTransition, OrderNotEditable, StopLockedByTrip, CancelRefusedTripInProgress, DeleteRefusedLegsAssigned,
-        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive, RenderTimedOut
+        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive, RenderTimedOut, IntakeNotInReview
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -122,7 +133,8 @@ public static class OrdersErrorCodes
         SuccessorIsSelf, EmptyTimeSlot, RequiredFieldMissing, LineRequired, LineNeedsTwoStops, StopWindowAmbiguous,
         StopAddressMismatch, RevisionReasonRequired, InvalidAttributes, TooManyTripRequestMembers, MaterialisationInputInvalid,
         InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies, MaterialisationLineUnknown,
-        MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn, TripRequestLineUnknown
+        MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn, TripRequestLineUnknown, IntakeUnresolved,
+        IntakePickInvalid
     ];
 }
 

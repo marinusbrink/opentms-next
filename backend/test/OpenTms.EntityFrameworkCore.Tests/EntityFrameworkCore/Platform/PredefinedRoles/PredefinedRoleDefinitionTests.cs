@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using OpenTms.Integrations.Permissions;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -125,17 +127,60 @@ public class PredefinedRoleDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     }
 
     [Theory]
-    [InlineData(PlatformRoleNames.OrderEntry, 51)]
-    [InlineData(PlatformRoleNames.Planner, 50)]
+    [InlineData(PlatformRoleNames.OrderEntry, 55)]
+    [InlineData(PlatformRoleNames.Planner, 52)]
     [InlineData(PlatformRoleNames.Finance, 63)]
-    [InlineData(PlatformRoleNames.MasterDataManager, 134)]
-    [InlineData(PlatformRoleNames.ReadOnly, 40)]
+    [InlineData(PlatformRoleNames.MasterDataManager, 142)]
+    [InlineData(PlatformRoleNames.ReadOnly, 45)]
     [InlineData(PlatformRoleNames.PlatformOperator, 21)]
     [InlineData(PlatformRoleNames.TenantManager, 9)]
     public void Each_role_has_as_many_permissions_as_design_71_lists(string role, int count)
     {
-        /* Design 71 lists every permission per role; a change here changes that list in the same pull request. */
+        /* Design 71 lists every permission per role; a change here changes that list in the same pull request. Design 72
+         * "Predefined roles" adds: Order entry +4, Planner +2, Master data manager +8, Read-only +5 (see the test below). */
         Permissions(role).Count.ShouldBe(count);
+    }
+
+    /// <summary>Design 72 "Predefined roles", exactly: the order-intake permissions per role; the intake API's never in a role.</summary>
+    [Fact]
+    public void The_order_intake_permissions_are_granted_per_design_72()
+    {
+        static string[] IntakeOf(IEnumerable<string> permissions) => permissions
+            .Where(p => p.StartsWith("Orders.OrderIntakes", StringComparison.Ordinal)
+                        || p.StartsWith("Integrations.Mailboxes", StringComparison.Ordinal)
+                        || p.StartsWith("Integrations.ApiClients", StringComparison.Ordinal)
+                        || p.StartsWith("Integrations.ImportProfiles", StringComparison.Ordinal)
+                        || p.StartsWith("Integrations.InboundMessages", StringComparison.Ordinal)
+                        || p.StartsWith("Integrations.IntakeApi", StringComparison.Ordinal))
+            .ToArray();
+
+        IntakeOf(Permissions(PlatformRoleNames.OrderEntry)).ShouldBe(
+        [
+            OrdersPermissions.OrderIntakes.Default, OrdersPermissions.OrderIntakes.Resolve, OrdersPermissions.OrderIntakes.Reject,
+            IntegrationsPermissions.InboundMessages.Default
+        ], ignoreOrder: true);
+        IntakeOf(Permissions(PlatformRoleNames.Planner)).ShouldBe(
+            [OrdersPermissions.OrderIntakes.Default, IntegrationsPermissions.InboundMessages.Default], ignoreOrder: true);
+        IntakeOf(Permissions(PlatformRoleNames.MasterDataManager)).ShouldBe(
+        [
+            IntegrationsPermissions.Mailboxes.Default, IntegrationsPermissions.Mailboxes.Manage, IntegrationsPermissions.ApiClients.Default,
+            IntegrationsPermissions.ApiClients.Manage, IntegrationsPermissions.ImportProfiles.Default, IntegrationsPermissions.ImportProfiles.Manage,
+            IntegrationsPermissions.InboundMessages.Default, IntegrationsPermissions.InboundMessages.Reprocess
+        ], ignoreOrder: true);
+        IntakeOf(Permissions(PlatformRoleNames.ReadOnly)).ShouldBe(
+        [
+            OrdersPermissions.OrderIntakes.Default, IntegrationsPermissions.InboundMessages.Default, IntegrationsPermissions.Mailboxes.Default,
+            IntegrationsPermissions.ApiClients.Default, IntegrationsPermissions.ImportProfiles.Default
+        ], ignoreOrder: true);
+        foreach (var role in new[] { PlatformRoleNames.Finance, PlatformRoleNames.PlatformOperator, PlatformRoleNames.TenantManager })
+        {
+            IntakeOf(Permissions(role)).ShouldBeEmpty(role);
+        }
+
+        foreach (var role in Options.Roles)
+        {
+            role.Permissions.ShouldNotContain(IntegrationsPermissions.IntakeApi.Submit, role.Name + ": granted only to API clients, never to a role");
+        }
     }
 
     [Fact]

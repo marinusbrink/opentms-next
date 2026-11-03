@@ -96,12 +96,24 @@ const masterDataSubRoutes = Array.from(new Set(treePaths(masterDataApp.views ?? 
  * dedupes them) plus the record pages (/transport/orders/{id}, …; design 61 Assumption 1, reached through
  * useOpenRecord). All resolve to the app component, which reads the pathname. */
 const transportApp = APPS.find((app) => app.id === "transport")!;
-export const TRANSPORT_RECORD_ROUTES = ["/transport/orders/$id", "/transport/templates/$id", "/transport/trips/$id"] as const;
+export const TRANSPORT_RECORD_ROUTES = ["/transport/orders/$id", "/transport/templates/$id", "/transport/trips/$id", "/transport/intake/$id"] as const;
 const transportSubRoutes = [...new Set(treePaths(transportApp.views ?? [])), ...TRANSPORT_RECORD_ROUTES].map((path) =>
   createRoute({
     getParentRoute: () => shellRoute,
     path,
     component: componentForApp(transportApp),
+  }),
+);
+
+/* Sub-routes of the Integrations app (design 72): the Received list, the trace page of one message
+ * (/integrations/received/{messageId}). All resolve to the app component, which reads the pathname. */
+const integrationsApp = APPS.find((app) => app.id === "integrations")!;
+export const INTEGRATIONS_RECORD_ROUTES = ["/integrations/received/$id", "/integrations/received/document/$documentId"] as const;
+const integrationsSubRoutes = [...new Set(treePaths(integrationsApp.views ?? [])), ...INTEGRATIONS_RECORD_ROUTES].map((path) =>
+  createRoute({
+    getParentRoute: () => shellRoute,
+    path,
+    component: componentForApp(integrationsApp),
   }),
 );
 
@@ -118,7 +130,7 @@ const tenantsSubRoutes = (tenantsApp.views ?? []).map((view) =>
 const routeTree = rootRoute.addChildren([
   landingRoute,
   authCallbackRoute,
-  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes, ...transportSubRoutes, ...tenantsSubRoutes]),
+  shellRoute.addChildren([...appRoutes, ...adminSubRoutes, ...masterDataSubRoutes, ...transportSubRoutes, ...integrationsSubRoutes, ...tenantsSubRoutes]),
 ]);
 
 /* No `Register` module augmentation on purpose: app routes are derived from

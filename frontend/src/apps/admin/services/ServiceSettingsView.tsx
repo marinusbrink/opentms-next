@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CopyButton } from "@/components/ui/copy-button";
 import { FormField } from "@/components/ui/form-field";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { PermissionDenied } from "@/components/ui/permission-denied";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DEFAULT_AI_MODEL,
   ROUTING_PROVIDERS,
   useServiceSettings,
   useTestService,
@@ -45,6 +47,17 @@ interface FormValues {
   routeFunctionApiKey: string;
   clearRouteFunctionApiKey: boolean;
   vroomBaseUrl: string;
+  /* Design 72, the Integrations tab. */
+  aiApiKey: string;
+  clearAiApiKey: boolean;
+  aiLearningModel: string;
+  aiExtractionModel: string;
+  googleClientId: string;
+  googleClientSecret: string;
+  clearGoogleClientSecret: boolean;
+  microsoftClientId: string;
+  microsoftClientSecret: string;
+  clearMicrosoftClientSecret: boolean;
 }
 
 function toForm(s: ServiceSettings): FormValues {
@@ -60,6 +73,16 @@ function toForm(s: ServiceSettings): FormValues {
     routeFunctionApiKey: "",
     clearRouteFunctionApiKey: false,
     vroomBaseUrl: s.vroomBaseUrl ?? "",
+    aiApiKey: "",
+    clearAiApiKey: false,
+    aiLearningModel: s.aiLearningModel ?? "",
+    aiExtractionModel: s.aiExtractionModel ?? "",
+    googleClientId: s.googleClientId ?? "",
+    googleClientSecret: "",
+    clearGoogleClientSecret: false,
+    microsoftClientId: s.microsoftClientId ?? "",
+    microsoftClientSecret: "",
+    clearMicrosoftClientSecret: false,
   };
 }
 
@@ -76,8 +99,21 @@ function toInput(v: FormValues): UpdateServiceSettings {
     routeFunctionApiKey: v.routeFunctionApiKey.trim() || null,
     clearRouteFunctionApiKey: v.clearRouteFunctionApiKey,
     vroomBaseUrl: v.vroomBaseUrl.trim() || null,
+    aiApiKey: v.aiApiKey.trim() || null,
+    clearAiApiKey: v.clearAiApiKey,
+    aiLearningModel: v.aiLearningModel.trim() || null,
+    aiExtractionModel: v.aiExtractionModel.trim() || null,
+    googleClientId: v.googleClientId.trim() || null,
+    googleClientSecret: v.googleClientSecret.trim() || null,
+    clearGoogleClientSecret: v.clearGoogleClientSecret,
+    microsoftClientId: v.microsoftClientId.trim() || null,
+    microsoftClientSecret: v.microsoftClientSecret.trim() || null,
+    clearMicrosoftClientSecret: v.clearMicrosoftClientSecret,
   };
 }
+
+/* The Integrations tab's test answers one entry per section (design 72 "Host settings"); each section shows its own. */
+const INTEGRATIONS_CHECKS = { ai: "anthropic", google: "google-oauth", microsoft: "microsoft-oauth" } as const;
 
 function isUrl(value: string): boolean {
   if (value.trim() === "") return true;
@@ -108,6 +144,16 @@ function TestResult({ entries }: { entries: HealthCheckEntry[] }) {
           </Alert>
         );
       })}
+    </div>
+  );
+}
+
+/* The test entry of one section of the Integrations tab; a section the test did not answer shows nothing. */
+function SectionResult({ entries, name }: { entries: HealthCheckEntry[]; name: string }) {
+  const own = entries.filter((entry) => entry.name === name);
+  return own.length === 0 ? null : (
+    <div className="mt-3">
+      <TestResult entries={own} />
     </div>
   );
 }
@@ -145,7 +191,7 @@ export function ServiceSettingsView({ service }: { service: TestedService }) {
   const urlError = (field: UrlField) =>
     values && (submitted || touched.has(field)) && !isUrl(values[field]) ? t("Services:Url.Invalid") : undefined;
   const blur = (field: UrlField) => () => setTouched((current) => new Set(current).add(field));
-  const testLabelKey = service === "documents" ? "Services:TestDocuments" : "Services:TestRouting";
+  const testLabelKey = service === "documents" ? "Services:TestDocuments" : service === "routing" ? "Services:TestRouting" : "Services:TestIntegrations";
 
   const save = async () => {
     if (!values) return;
@@ -371,6 +417,87 @@ export function ServiceSettingsView({ service }: { service: TestedService }) {
                   </div>
                 )}
               </FormSection>
+            )}
+
+            {service === "integrations" && (
+              <>
+                <FormSection title={t("Services:Section.Ai")}>
+                  <p className="mb-3 text-label text-muted-foreground">{t("Services:Section.Ai.Description")}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      {secretField(
+                        "services-ai-key",
+                        t("Services:AiApiKey"),
+                        values.aiApiKey,
+                        values.clearAiApiKey,
+                        settings.data.hasAiApiKey,
+                        defaults?.hasAiApiKey,
+                        (v) => set("aiApiKey", v),
+                        (c) => set("clearAiApiKey", c),
+                      )}
+                    </div>
+                    <FormField label={t("Services:AiLearningModel")} htmlFor="services-ai-learning-model" hint={defaultHint(defaults?.aiLearningModel || DEFAULT_AI_MODEL)}>
+                      <Input id="services-ai-learning-model" autoComplete="off" value={values.aiLearningModel} maxLength={64} disabled={readOnly} onChange={(e) => set("aiLearningModel", e.target.value)} />
+                    </FormField>
+                    <FormField label={t("Services:AiExtractionModel")} htmlFor="services-ai-extraction-model" hint={defaultHint(defaults?.aiExtractionModel || DEFAULT_AI_MODEL)}>
+                      <Input id="services-ai-extraction-model" autoComplete="off" value={values.aiExtractionModel} maxLength={64} disabled={readOnly} onChange={(e) => set("aiExtractionModel", e.target.value)} />
+                    </FormField>
+                  </div>
+                  {result && <SectionResult entries={result} name={INTEGRATIONS_CHECKS.ai} />}
+                </FormSection>
+
+                <FormSection title={t("Services:Section.Google")}>
+                  <p className="mb-3 text-label text-muted-foreground">{t("Services:Section.Google.Description")}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormField label={t("Services:ClientId")} htmlFor="services-google-client-id" hint={defaultHint(defaults?.googleClientId)}>
+                      <Input id="services-google-client-id" autoComplete="off" value={values.googleClientId} maxLength={256} disabled={readOnly} onChange={(e) => set("googleClientId", e.target.value)} />
+                    </FormField>
+                    {secretField(
+                      "services-google-secret",
+                      t("Services:ClientSecret"),
+                      values.googleClientSecret,
+                      values.clearGoogleClientSecret,
+                      settings.data.hasGoogleClientSecret,
+                      defaults?.hasGoogleClientSecret,
+                      (v) => set("googleClientSecret", v),
+                      (c) => set("clearGoogleClientSecret", c),
+                    )}
+                  </div>
+                  {result && <SectionResult entries={result} name={INTEGRATIONS_CHECKS.google} />}
+                </FormSection>
+
+                <FormSection title={t("Services:Section.Microsoft")}>
+                  <p className="mb-3 text-label text-muted-foreground">{t("Services:Section.Microsoft.Description")}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <FormField label={t("Services:ClientId")} htmlFor="services-microsoft-client-id" hint={defaultHint(defaults?.microsoftClientId)}>
+                      <Input id="services-microsoft-client-id" autoComplete="off" value={values.microsoftClientId} maxLength={256} disabled={readOnly} onChange={(e) => set("microsoftClientId", e.target.value)} />
+                    </FormField>
+                    {secretField(
+                      "services-microsoft-secret",
+                      t("Services:ClientSecret"),
+                      values.microsoftClientSecret,
+                      values.clearMicrosoftClientSecret,
+                      settings.data.hasMicrosoftClientSecret,
+                      defaults?.hasMicrosoftClientSecret,
+                      (v) => set("microsoftClientSecret", v),
+                      (c) => set("clearMicrosoftClientSecret", c),
+                    )}
+                  </div>
+                  {result && <SectionResult entries={result} name={INTEGRATIONS_CHECKS.microsoft} />}
+                </FormSection>
+
+                {/* The redirect URI to register at Google and Microsoft (read-only, from App:SelfUrl). */}
+                <FormSection title={t("Services:MailboxRedirectUri")}>
+                  <div className="flex items-start gap-2">
+                    <FormField label={t("Services:MailboxRedirectUri")} htmlFor="services-redirect-uri" hint={t("Services:MailboxRedirectUri.Hint")} className="flex-1">
+                      <Input id="services-redirect-uri" value={settings.data.mailboxRedirectUri ?? ""} readOnly />
+                    </FormField>
+                    {settings.data.mailboxRedirectUri && (
+                      <CopyButton value={settings.data.mailboxRedirectUri} label={t("Services:CopyRedirectUri")} className="mt-2" />
+                    )}
+                  </div>
+                </FormSection>
+              </>
             )}
           </form>
         )}

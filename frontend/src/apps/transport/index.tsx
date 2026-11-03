@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { useAppFeatures } from "@/app/app-features";
 import { FILTER_SEARCH_KEY, filterOf, filtersOf, transportApp } from "@/apps/transport/filters";
+import { IntakePage } from "@/apps/transport/pages/IntakePage";
 import { OrderPage } from "@/apps/transport/pages/OrderPage";
 import { TemplatePage } from "@/apps/transport/pages/TemplatePage";
 import { TripPage } from "@/apps/transport/pages/TripPage";
 import { DocumentsView } from "@/apps/transport/views/DocumentsView";
+import { IntakeView } from "@/apps/transport/views/IntakeView";
 import { OrdersView } from "@/apps/transport/views/OrdersView";
 import { TemplatesView } from "@/apps/transport/views/TemplatesView";
 import { TripsView } from "@/apps/transport/views/TripsView";
@@ -42,6 +44,9 @@ export function TransportApp() {
   if (record?.type === "TransportOrder") return <OrderPage id={record.id} typeId={typeof search?.type === "string" ? search.type : undefined} />;
   if (record?.type === "TransportOrderTemplate") return <TemplatePage id={record.id} />;
   if (record?.type === "TransportTrip") return <TripPage id={record.id} />;
+  /* Design 72: the order intake's queue and its review page (/transport/intake/{id}). */
+  if (record?.type === "OrderIntake") return <IntakePage key={record.id} id={record.id} />;
+  if (pathname.startsWith("/transport/intake")) return <IntakeView />;
   if (pathname.startsWith("/transport/templates")) return <TemplatesView />;
   if (pathname.startsWith("/transport/trips")) return <TripsView filter={filterOf(search, "/transport/trips")} />;
   if (pathname.startsWith("/transport/documents")) return <DocumentsView />;

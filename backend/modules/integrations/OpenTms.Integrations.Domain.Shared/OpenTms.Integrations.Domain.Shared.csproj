@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Design 72: Orders' intake enums (stop role) in the import-profile rules, and Orders' intake events. -->
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Localization\Integrations\*.json" />
     <Content Remove="Localization\Integrations\*.json" />
   </ItemGroup>

@@ -16,13 +16,14 @@ public enum TransportOrderStatus
     Cancelled = 6
 }
 
-/// <summary>Who created the order (design 58).</summary>
+/// <summary>Who created the order (design 58); Import is the order intake from mailboxes and documents (design 72).</summary>
 public enum OrderSource
 {
     Screen = 1,
     Template = 2,
     Agent = 3,
-    Api = 4
+    Api = 4,
+    Import = 5
 }
 
 /// <summary>

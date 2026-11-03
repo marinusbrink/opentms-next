@@ -25,6 +25,7 @@ import { PrintCmrWizard, type PrintableOrder } from "@/apps/transport/wizards/Pr
 import { relationLookupPage, type RelationOption } from "@/domains/master-data/entities";
 import {
   EXECUTION_PROGRESSES,
+  ORDER_SOURCES,
   ORDER_VIEWS,
   TRANSPORT_ORDER_STATUSES,
   TRANSPORT_ORDER_TARGET_TYPE,
@@ -158,7 +159,7 @@ export function OrdersView({ filter }: OrdersViewProps) {
       { field: "organizationUnitId", headerName: t("Orders:OrganizationUnit"), minWidth: 140, hide: true, valueFormatter: (p) => units.data?.find((u) => u.id === p.value)?.displayName ?? "" },
       { field: "currencyCode", headerName: t("Orders:CurrencyCode"), minWidth: 90, hide: true },
       { field: "stopCount", headerName: t("Orders:StopCount"), minWidth: 80, hide: true, cellRenderer: NumberCell, type: "rightAligned" },
-      { field: "source", headerName: t("Orders:Source"), minWidth: 100, hide: true, valueFormatter: (p) => t(enumKey([{ value: 1, key: "Orders:OrderSource.Screen" }, { value: 2, key: "Orders:OrderSource.Template" }, { value: 3, key: "Orders:OrderSource.Agent" }, { value: 4, key: "Orders:OrderSource.Api" }], p.value as number)) },
+      { field: "source", headerName: t("Orders:Source"), minWidth: 100, hide: true, valueFormatter: (p) => t(enumKey(ORDER_SOURCES, p.value as number)) },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [t, states.data, units.data],

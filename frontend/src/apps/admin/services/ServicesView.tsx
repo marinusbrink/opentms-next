@@ -7,12 +7,12 @@ import { ServiceSettingsView } from "@/apps/admin/services/ServiceSettingsView";
 import { useIsGranted, useIsHostSide } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-export type ServicesTabId = "email" | "documents" | "routing";
+export type ServicesTabId = "email" | "documents" | "routing" | "integrations";
 
 /* Administration → Services (docs/designs/maintenance-view.md, "Services"; PO 2026-11-02): the host's settings of the
  * external services, a tab per service, each a settings page of its own with a command bar.
  * DEVIATION(UI-PAGE-006): a tab per service with its own Save and test instead of one Save over all tabs (each service
- * saves and tests on its own, like the Maintenance tabs), approved in docs/designs/maintenance-view.md, "Services". E-mail is design 64's page; Documents and Routing are the service settings. A tab the user may not
+ * saves and tests on its own, like the Maintenance tabs), approved in docs/designs/maintenance-view.md, "Services". E-mail is design 64's page; Documents, Routing and Integrations (design 72) are the service settings. A tab the user may not
  * see is not rendered (UI-PERM-002); every tab is host only. */
 export function ServicesView() {
   const { t } = useL();
@@ -26,6 +26,8 @@ export function ServicesView() {
         { id: "email" as const, labelKey: "Services:Tab.Email", visible: canEmail, content: <EmailSettingsView /> },
         { id: "documents" as const, labelKey: "Services:Tab.Documents", visible: canServices, content: <ServiceSettingsView service="documents" /> },
         { id: "routing" as const, labelKey: "Services:Tab.Routing", visible: canServices, content: <ServiceSettingsView service="routing" /> },
+        /* Design 72 "Host settings": the order intake's AI vendor (Anthropic) and the mail providers' OAuth clients. */
+        { id: "integrations" as const, labelKey: "Services:Tab.Integrations", visible: canServices, content: <ServiceSettingsView service="integrations" /> },
       ].filter((tab) => tab.visible),
     [canEmail, canServices],
   );

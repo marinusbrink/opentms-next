@@ -6,6 +6,9 @@ using Microsoft.Extensions.Options;
 using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Integrations.Emailing.Postmark;
+using OpenTms.Integrations.OrderIntake.Ai;
+using OpenTms.Integrations.OrderIntake.Channels;
+using OpenTms.Integrations.OrderIntake;
 using OpenTms.Integrations.Routing;
 using OpenTms.Integrations.ServiceSettings;
 using OpenTms.Platform;
@@ -13,9 +16,13 @@ using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.Emailing;
 using Volo.Abp;
 using Volo.Abp.Application;
+using Volo.Abp.BackgroundJobs;
 using Volo.Abp.BackgroundWorkers;
+using Volo.Abp.BlobStoring;
 using Volo.Abp.Caching;
 using Volo.Abp.Modularity;
+using Volo.Abp.OpenIddict;
+using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 
 namespace OpenTms.Integrations;
@@ -27,7 +34,12 @@ namespace OpenTms.Integrations;
     typeof(AbpDddApplicationModule),
     typeof(AbpCachingModule),
     typeof(AbpBackgroundWorkersModule),
-    typeof(AbpSettingManagementDomainModule)
+    typeof(AbpSettingManagementDomainModule),
+    /* Design 72: API clients are OpenIddict applications with a client permission grant in the host database. */
+    typeof(AbpOpenIddictDomainModule),
+    typeof(AbpPermissionManagementDomainModule),
+    typeof(AbpBlobStoringModule),
+    typeof(AbpBackgroundJobsAbstractionsModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {
@@ -46,7 +58,9 @@ public class IntegrationsApplicationModule : AbpModule
         ConfigurePdfGeneratorApi(context);
         ConfigureRouting(context);
         ConfigurePostmark(context);
+        ConfigureOrderIntakeChannels(context);
         ConfigureServiceSettings(context);
+        ConfigureOrderIntakePipeline(context);
     }
 
     public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
@@ -55,6 +69,29 @@ public class IntegrationsApplicationModule : AbpModule
         await context.AddBackgroundWorkerAsync<RouteCachePurgeWorker>();
         /* Administration → Services: the stored settings, read at start and every minute. */
         await context.AddBackgroundWorkerAsync<ServiceSettingsRefreshWorker>();
+
+        /* Design 72: the mailbox sync, per instance (Integrations:OrderIntake:SyncEnabled). */
+        if (context.ServiceProvider.GetRequiredService<IOptions<MailboxSyncOptions>>().Value.SyncEnabled)
+        {
+            await context.AddBackgroundWorkerAsync<MailboxSyncWorker>();
+        }
+    }
+
+    /* Design 72 "Channels": the Gmail and Microsoft Graph clients are plain REST over named HttpClients (no provider SDKs),
+     * registered by provider here; their OAuth clients come from "Integrations:OrderIntake:Mail" overlaid by the host's
+     * Integrations tab. The sync's switches come from "Integrations:OrderIntake". The Anthropic SDK of the tab's test
+     * uses its own named client. */
+    private static void ConfigureOrderIntakeChannels(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        context.Services.Configure<MailOAuthOptions>(configuration.GetSection(MailOAuthOptions.SectionName));
+        context.Services.Configure<OrderIntakeAiOptions>(configuration.GetSection(OrderIntakeAiOptions.SectionName));
+        context.Services.Configure<MailboxSyncOptions>(configuration.GetSection(MailboxSyncOptions.SectionName));
+        context.Services.AddHttpClient(GmailClient.Name, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddHttpClient(MicrosoftGraphMailClient.Name, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddHttpClient(AnthropicHealthCheck.HttpClientName, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddTransient<IMailProviderClient, GmailClient>();
+        context.Services.AddTransient<IMailProviderClient, MicrosoftGraphMailClient>();
     }
 
     /* Administration → Services (docs/designs/maintenance-view.md, "Services"): the host's stored settings lie over the
@@ -66,12 +103,20 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddSingleton<ServiceSettingsOverlay>();
         context.Services.AddSingleton<IPostConfigureOptions<PdfGeneratorApiOptions>, ServiceSettingsPostConfigure>();
         context.Services.AddSingleton<IPostConfigureOptions<RoutingIntegrationOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IPostConfigureOptions<OrderIntakeAiOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IPostConfigureOptions<MailOAuthOptions>, ServiceSettingsPostConfigure>();
         context.Services.AddSingleton<IOptionsChangeTokenSource<PdfGeneratorApiOptions>, ServiceSettingsChangeTokenSource<PdfGeneratorApiOptions>>();
         context.Services.AddSingleton<IOptionsChangeTokenSource<RoutingIntegrationOptions>, ServiceSettingsChangeTokenSource<RoutingIntegrationOptions>>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<OrderIntakeAiOptions>, ServiceSettingsChangeTokenSource<OrderIntakeAiOptions>>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<MailOAuthOptions>, ServiceSettingsChangeTokenSource<MailOAuthOptions>>();
         context.Services.Replace(ServiceDescriptor.Transient<IOptions<PdfGeneratorApiOptions>>(
             services => Options.Create(services.GetRequiredService<IOptionsMonitor<PdfGeneratorApiOptions>>().CurrentValue)));
         context.Services.Replace(ServiceDescriptor.Transient<IOptions<RoutingIntegrationOptions>>(
             services => Options.Create(services.GetRequiredService<IOptionsMonitor<RoutingIntegrationOptions>>().CurrentValue)));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<OrderIntakeAiOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<OrderIntakeAiOptions>>().CurrentValue)));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<MailOAuthOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<MailOAuthOptions>>().CurrentValue)));
     }
 
     /* Design 55: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from
@@ -137,6 +182,24 @@ public class IntegrationsApplicationModule : AbpModule
             .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
             .AddCheck<RouteFunctionHealthCheck>(RouteFunctionHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
             .AddCheck<RouteOptimizerHealthCheck>(RouteOptimizerHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
+    }
+
+    /* Design 72: the import pipeline of the order intake. The pipeline's own services (recorder, mail parsing, extractors,
+     * matcher, executor, learner, processor, jobs, event handlers) register by convention; the blob container
+     * InboundDocumentContainer uses the default (database) provider like every container (AD-09). Here: the AI settings
+     * (deployment defaults from "Integrations:OrderIntake:Ai", overlaid by the host's saved settings; resolved per use from
+     * the options monitor so a save applies at once), the price table of the metering, and the vendor adapter behind
+     * ILanguageModelClient (AD-21: a second vendor is this registration and an adapter). The named HttpClient outlives
+     * the SDK's own ten-minute ceiling: a streamed learning answer may take minutes. */
+    private static void ConfigureOrderIntakePipeline(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        context.Services.Configure<OrderIntakeAiOptions>(configuration.GetSection(OrderIntakeAiOptions.SectionName));
+        context.Services.Configure<OrderIntakeAiPriceOptions>(options => Microsoft.Extensions.Configuration.ConfigurationBinder.Bind(configuration.GetSection(OrderIntakeAiPriceOptions.SectionName), options.Models));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<OrderIntakeAiOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<OrderIntakeAiOptions>>().CurrentValue)));
+        context.Services.AddHttpClient(nameof(AnthropicLanguageModelClient), client => client.Timeout = AnthropicLanguageModelClient.Timeout + TimeSpan.FromMinutes(1));
+        context.Services.AddTransient<ILanguageModelClient, AnthropicLanguageModelClient>();
     }
 
     /* Design 64: Postmark behind Platform's IEmailDeliveryProvider. The token and the webhook password come from the

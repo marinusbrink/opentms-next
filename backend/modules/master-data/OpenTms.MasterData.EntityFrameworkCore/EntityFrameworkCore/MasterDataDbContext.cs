@@ -415,6 +415,8 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasIndex(r => new { r.TenantId, r.SearchKey });
             b.HasIndex(r => r.SearchKey, "IX_Relations_SearchKey_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
             b.HasIndex(r => new { r.TenantId, r.Roles });
+            /* Design 72: the order intake's match query finds a customer by its e-mail address. */
+            b.HasIndex(r => new { r.TenantId, r.Email });
         });
 
         builder.Entity<RelationAddress>(b =>

@@ -1351,6 +1351,20 @@
     "Role:Master data manager": "Stamgegevensbeheerder",
     "Role:Read-only": "Alleen lezen",
     "Role:Platform operator": "Platformbeheerder",
-    "Role:Tenant & edition manager": "Tenant- en editiebeheerder"
+    "Role:Tenant & edition manager": "Tenant- en editiebeheerder",
+    "Feature:Apps.Integrations.Received": "Ontvangen",
+    "Feature:Apps.Integrations.Received.Description": "Toont de ontvangen mails en API-aanroepen van de orderinvoer met hun spoor, van het originele bestand tot de transportorder.",
+    "Feature:Apps.Transport.Intake": "Orderinvoer",
+    "Feature:Apps.Transport.Intake.Description": "Toont de orderinvoer van de app Transport: ontvangen orders om te beoordelen, af te handelen of af te wijzen.",
+    "Feature:Apps.MasterData.Integrations": "Groep Integraties",
+    "Feature:Apps.MasterData.Integrations.Description": "Toont de groep Integraties van de app Stamgegevens: de stamgegevens van het domein Integraties.",
+    "Feature:Apps.MasterData.Integrations.Intake": "Groep Orderinvoer",
+    "Feature:Apps.MasterData.Integrations.Intake.Description": "Toont de groep Orderinvoer: mailboxen, API-clients en importprofielen.",
+    "Feature:Apps.MasterData.Integrations.Intake.Mailboxes": "Mailboxen",
+    "Feature:Apps.MasterData.Integrations.Intake.Mailboxes.Description": "Toont de gekoppelde ordermailboxen (Gmail, Microsoft 365).",
+    "Feature:Apps.MasterData.Integrations.Intake.ApiClients": "API-clients",
+    "Feature:Apps.MasterData.Integrations.Intake.ApiClients.Description": "Toont de API-clients die orders aanleveren via de invoer-API.",
+    "Feature:Apps.MasterData.Integrations.Intake.ImportProfiles": "Importprofielen",
+    "Feature:Apps.MasterData.Integrations.Intake.ImportProfiles.Description": "Toont de geleerde importprofielen die bekende documentindelingen lezen."
   }
 }

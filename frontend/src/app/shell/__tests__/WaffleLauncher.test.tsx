@@ -152,8 +152,9 @@ describe("WaffleLauncher – app features", () => {
     const masterDataLists = Object.keys(allFeaturesOn()).filter(
       (f) => (f.split(".").length === 5 && f.startsWith("Apps.MasterData.")) || (f.split(".").length === 4 && f.startsWith("Apps.MasterData.Platform.")),
     );
-    /* 27 up to design 54, plus the seven lists of the Transport run (design 61). */
-    expect(masterDataLists).toHaveLength(34);
+    /* 27 up to design 54, plus the seven lists of the Transport run (design 61), plus design 72's three Order intake
+     * lists (Apps.MasterData.Integrations.Intake.<List>). */
+    expect(masterDataLists).toHaveLength(37);
     features = { ...allFeaturesOn(), ...Object.fromEntries(masterDataLists.map((f) => [f, "false"])) };
     render(<WaffleLauncher />);
     openLauncher();

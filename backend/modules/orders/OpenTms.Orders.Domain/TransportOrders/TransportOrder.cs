@@ -58,6 +58,12 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     /// <summary>The copy index of a materialised order (0 for the first copy): with the template and the date the natural key.</summary>
     public int CopyIndex { get; private set; }
 
+    /// <summary>The order intake the order was created from (design 72); null for every other source.</summary>
+    public Guid? SourceIntakeId { get; private set; }
+
+    /// <summary>A Draft that came from an intake was changed by an update command before it was confirmed (design 72 "Activation").</summary>
+    public bool EditedAfterIntake { get; private set; }
+
     public TransportOrderFinancialTerms FinancialTerms { get; private set; } = default!;
 
     public TransportOrderTripRequest? TripRequest { get; private set; }
@@ -178,6 +184,17 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         SourceTemplateId = templateId;
         CopyIndex = templateId == null ? 0 : copyIndex;
+    }
+
+    /// <summary>Set once, when the order is created from an intake (design 72).</summary>
+    public void SetSourceIntake(Guid? intakeId)
+    {
+        if (intakeId == Guid.Empty)
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "sourceIntakeId");
+        }
+
+        SourceIntakeId = intakeId;
     }
 
     /// <summary>The attributes, keys already checked against the definitions by the service (Q12).</summary>
@@ -421,6 +438,19 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         if (!IsEditable)
         {
             throw new BusinessException(OrdersErrorCodes.OrderNotEditable).WithData("status", Status.ToString());
+        }
+    }
+
+    /// <summary>
+    /// The start of every update command (design 72): the order must be editable, and a Draft that came from an intake is
+    /// marked as edited, so Integrations learns that the import profile's values were not taken as they were.
+    /// </summary>
+    public void BeginEdit()
+    {
+        EnsureEditable();
+        if (Status == TransportOrderStatus.Draft && SourceIntakeId != null)
+        {
+            EditedAfterIntake = true;
         }
     }
 

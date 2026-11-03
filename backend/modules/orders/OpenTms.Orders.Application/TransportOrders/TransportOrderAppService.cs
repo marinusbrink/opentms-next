@@ -218,8 +218,7 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
     [Authorize(OrdersPermissions.TransportOrders.Update)]
     public virtual async Task<TransportOrderDto> AddLineAsync(Guid id, TransportOrderLineInputDto input)
     {
-        var order = await LoadAsync(id);
-        order.EnsureEditable();
+        var order = await LoadForEditAsync(id);
         input.Id = null;
         var line = TransportOrderInputMapper.Line(input, order.StopsFromPattern());
         await ValidateLinesAsync([line]);
@@ -236,8 +235,7 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
     [Authorize(OrdersPermissions.TransportOrders.Update)]
     public virtual async Task<TransportOrderDto> UpdateLineAsync(Guid id, Guid lineId, TransportOrderLineInputDto input)
     {
-        var order = await LoadAsync(id);
-        order.EnsureEditable();
+        var order = await LoadForEditAsync(id);
         var existing = order.GetLine(lineId);
         input.Id = lineId;
         var line = TransportOrderInputMapper.Line(input, existing.Stops.OrderBy(s => s.Position).Select(s => s.ToInput()).ToList());
@@ -264,8 +262,7 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
     [Authorize(OrdersPermissions.TransportOrders.Update)]
     public virtual async Task<TransportOrderDto> DeleteLineAsync(Guid id, Guid lineId)
     {
-        var order = await LoadAsync(id);
-        order.EnsureEditable();
+        var order = await LoadForEditAsync(id);
         order.GetLine(lineId);
         await _commands.EnsureStopsUnlockedAsync(order, [lineId]);
         order.RemoveLine(lineId);
@@ -591,10 +588,20 @@ public class TransportOrderAppService : OrdersAppServiceBase, ITransportOrderApp
 
     private Task<TransportOrder> LoadAsync(Guid id) => _orders.GetAsync(id, includeDetails: true);
 
-    private async Task<TransportOrder> LoadForUpdateAsync(Guid id, string concurrencyStamp)
+    /// <summary>
+    /// Every save per part starts here: the order must be editable, and a Draft from an intake is marked as edited
+    /// (design 72, <see cref="TransportOrder.BeginEdit"/>).
+    /// </summary>
+    private async Task<TransportOrder> LoadForEditAsync(Guid id)
     {
         var order = await LoadAsync(id);
-        order.EnsureEditable();
+        order.BeginEdit();
+        return order;
+    }
+
+    private async Task<TransportOrder> LoadForUpdateAsync(Guid id, string concurrencyStamp)
+    {
+        var order = await LoadForEditAsync(id);
         /* ABP compares this stamp with the stored one on save and throws AbpDbConcurrencyException (409). */
         order.ConcurrencyStamp = concurrencyStamp;
         return order;

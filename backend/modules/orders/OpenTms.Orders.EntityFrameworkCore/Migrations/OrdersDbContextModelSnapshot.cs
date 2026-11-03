@@ -396,6 +396,230 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         });
                 });
 
+            modelBuilder.Entity("OpenTms.Orders.Intake.IntakeAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NormalizedText")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid?>("ScopeRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TargetRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<int>("UseCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Kind", "ScopeRelationId", "NormalizedText")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Kind", "ScopeRelationId", "NormalizedText"), false);
+
+                    b.ToTable("IntakeAliases", "orders");
+                });
+
+            modelBuilder.Entity("OpenTms.Orders.Intake.OrderIntake", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AutoConfirm")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("ConcurrencyStamp");
+
+                    b.Property<bool>("Corrected")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("CreationTime");
+
+                    b.Property<Guid?>("CreatorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("CreatorId");
+
+                    b.Property<string>("CustomerName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("CustomerReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("CustomerRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultCustomerRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultTransportOrderTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeleterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("DeleterId");
+
+                    b.Property<DateTime?>("DeletionTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("DeletionTime");
+
+                    b.Property<string>("ExtraProperties")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ExtraProperties");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("FixedCustomerRelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("IntakeIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("IsDeleted");
+
+                    b.Property<DateTime?>("LastModificationTime")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("LastModificationTime");
+
+                    b.Property<Guid?>("LastModifierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("LastModifierId");
+
+                    b.Property<decimal>("MappingConfidence")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)");
+
+                    b.Property<int>("OpenFieldCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("ProfileTrusted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Resolution")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ReviewedPayload")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("SenderAddress")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SourceDocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("TenantId");
+
+                    b.Property<Guid?>("TransportOrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "SourceDocumentId", "IntakeIndex")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "SourceDocumentId", "IntakeIndex"), false);
+
+                    b.HasIndex("TenantId", "Status", "CreationTime")
+                        .IsDescending(false, false, true);
+
+                    b.HasIndex(new[] { "CustomerReference" }, "IX_OrderIntakes_CustomerReference_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "CustomerReference" }, "IX_OrderIntakes_CustomerReference_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "CustomerReference" }, "IX_OrderIntakes_CustomerReference_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "FileName" }, "IX_OrderIntakes_FileName_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "FileName" }, "IX_OrderIntakes_FileName_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "FileName" }, "IX_OrderIntakes_FileName_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "SenderAddress" }, "IX_OrderIntakes_SenderAddress_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "SenderAddress" }, "IX_OrderIntakes_SenderAddress_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "SenderAddress" }, "IX_OrderIntakes_SenderAddress_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "Subject" }, "IX_OrderIntakes_Subject_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Subject" }, "IX_OrderIntakes_Subject_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Subject" }, "IX_OrderIntakes_Subject_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.ToTable("OrderIntakes", "orders", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderIntakes_IntakeIndex", "\"IntakeIndex\" >= 0");
+
+                            t.HasCheckConstraint("CK_OrderIntakes_Status", "\"Status\" BETWEEN 1 AND 3");
+                        });
+                });
+
             modelBuilder.Entity("OpenTms.Orders.TransportOrders.OrderAttributeDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -639,6 +863,9 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .HasPrecision(5, 4)
                         .HasColumnType("numeric(5,4)");
 
+                    b.Property<bool>("EditedAfterIntake")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("ExecutionProgress")
                         .HasColumnType("integer");
 
@@ -715,6 +942,9 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                     b.Property<int>("Source")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("SourceIntakeId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("SourceTemplateId")
                         .HasColumnType("uuid");
 
@@ -750,6 +980,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Number"), false);
 
                     b.HasIndex("TenantId", "OrderDate");
+
+                    b.HasIndex("TenantId", "SourceIntakeId");
 
                     b.HasIndex("TenantId", "Status", "OrderDate");
 

@@ -22,6 +22,9 @@ public static class AppFeatures
         public const string OrderTemplates = Orders + ".Templates";
         public const string Trips = Transport + ".Trips";
         public const string Documents = Transport + ".Documents";
+
+        /// <summary>The order intake review queue (design 72; default on like its siblings, the screens also check Integrations.OrderIntake).</summary>
+        public const string Intake = Transport + ".Intake";
     }
     /// <summary>
     /// The Planboard app's panes (design 66/68, PO decision D7: every pane a nav node and a feature; all default on, an
@@ -41,6 +44,14 @@ public static class AppFeatures
 
     public const string Finance = GroupName + ".Finance";
     public const string Integrations = GroupName + ".Integrations";
+
+    /// <summary>The Integrations app's navigation nodes (design 72).</summary>
+    public static class IntegrationsApp
+    {
+        /// <summary>Received messages and their trace.</summary>
+        public const string Received = Integrations + ".Received";
+    }
+
     public const string Reports = GroupName + ".Reports";
 
     public static class MasterData
@@ -128,6 +139,20 @@ public static class AppFeatures
                 public const string TransportTripTypes = Default + ".TransportTripTypes";
                 public const string ViaDepotRules = Default + ".ViaDepotRules";
                 public const string TripAttributeDefinitions = Default + ".TripAttributeDefinitions";
+            }
+        }
+
+        /// <summary>The Integrations domain's group (design 72): Order intake with mailboxes, API clients and import profiles.</summary>
+        public static class Integrations
+        {
+            public const string Default = MasterData.Default + ".Integrations";
+
+            public static class Intake
+            {
+                public const string Default = Integrations.Default + ".Intake";
+                public const string Mailboxes = Default + ".Mailboxes";
+                public const string ApiClients = Default + ".ApiClients";
+                public const string ImportProfiles = Default + ".ImportProfiles";
             }
         }
 
