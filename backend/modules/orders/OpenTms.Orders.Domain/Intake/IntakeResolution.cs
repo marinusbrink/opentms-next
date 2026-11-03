@@ -43,6 +43,12 @@ public sealed class IntakeFieldResolution
     public IntakeResolutionMethod? Method { get; set; }
 
     public List<IntakeCandidate> Candidates { get; set; } = new();
+
+    /// <summary>
+    /// The business error code that refused the order (only on the pseudo-field <see cref="IntakeFieldPaths.Order"/>,
+    /// design 72 build note 20); null on every other field.
+    /// </summary>
+    public string? ErrorCode { get; set; }
 }
 
 public sealed class IntakeCandidate

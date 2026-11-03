@@ -188,6 +188,14 @@ public class OrderIntakeJobQueue : ITransientDependency
             CorrelationId = _correlationIds.Get()
         });
 
+    public Task EnqueueActivationAsync(Guid connectionId)
+        => EnqueueAfterCommitAsync(new Channels.MailboxActivationArgs
+        {
+            TenantId = _currentTenant.Id,
+            ConnectionId = connectionId,
+            CorrelationId = _correlationIds.Get()
+        });
+
     private async Task EnqueueAfterCommitAsync<TArgs>(TArgs args)
     {
         var unitOfWork = _unitOfWorkManager.Current;
@@ -210,5 +218,23 @@ public class IntakeAiRetryException : Exception
         : base($"The language model is unavailable (attempt {attempt.ToString(CultureInfo.InvariantCulture)}); retried.", innerException)
     {
         Attempt = attempt;
+    }
+}
+
+/// <summary>
+/// Submitting an intake to Orders failed with something other than a refusal (review M1): the job's transaction may be
+/// broken, so the job fails and Hangfire retries; the processor records the SubmitFailed step in a fresh transaction.
+/// </summary>
+public class IntakeSubmitException : Exception
+{
+    public Guid DocumentId { get; }
+
+    public int IntakeIndex { get; }
+
+    public IntakeSubmitException(Guid documentId, int intakeIndex, Exception innerException)
+        : base($"Submitting intake {intakeIndex.ToString(CultureInfo.InvariantCulture)} of document {documentId} failed; retried.", innerException)
+    {
+        DocumentId = documentId;
+        IntakeIndex = intakeIndex;
     }
 }

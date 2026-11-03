@@ -342,6 +342,7 @@ public class IntakeLearner : ITransientDependency
             intro.Append("<subject>").Append(Escape(subject)).AppendLine("</subject>");
         }
 
+        intro.AppendLine("Inside <document> tags the characters < and > of the document are written as &lt; and &gt;; values you return use the characters themselves.");
         parts.Add(LanguageModelContentPart.FromText(intro.ToString()));
         foreach (var document in documents)
         {
@@ -360,7 +361,9 @@ public class IntakeLearner : ITransientDependency
             }
 
             builder.AppendLine(">");
-            builder.Append(text.Length == 0 ? "(no text layer: read the attached PDF)" : text);
+            /* The text cannot close or open a tag (review minor 1): < and > become entities; no line is added or removed, so
+             * the line numbers the model cites stay those of the normalised text. */
+            builder.Append(text.Length == 0 ? "(no text layer: read the attached PDF)" : EscapeDocumentText(text));
             builder.AppendLine("</document>");
             parts.Add(LanguageModelContentPart.FromText(builder.ToString()));
             if (document.PdfContent is { Length: > 0 and <= MaxPdfAttachmentBytes })
@@ -567,6 +570,10 @@ public class IntakeLearner : ITransientDependency
     private static string Cut(string text, int max) => text.Length <= max ? text : text[..max];
 
     private static string Collapse(string? value) => string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>The document's text inside its tag: <c>&lt;</c> and <c>&gt;</c> as entities, everything else as is.</summary>
+    public static string EscapeDocumentText(string text)
+        => text.Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
 
     private static string Escape(string text) => text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("\"", "&quot;", StringComparison.Ordinal)
         .Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);

@@ -19,7 +19,8 @@ namespace OpenTms.Integrations.OrderIntake.Channels;
 /// ("Tenant dimension"): no header, no cookie, no query parameter decides it. A state that does not unprotect, has
 /// expired, or names a connection that is not waiting for consent is refused without a redirect. Otherwise the code is
 /// exchanged, the account's address read, the refresh token stored encrypted, and the browser goes back to the SPA with
-/// <c>?connected={id}</c> or <c>?connectError={code}</c> (one of <see cref="ConnectErrors"/>; never provider text).
+/// <c>?connected={id}</c> or <c>?connectError={code}</c> (one of <see cref="ConnectErrors"/>; never provider text). The
+/// request must carry the OpenTMS sign-in of the state's user and tenant, else <see cref="ConnectErrors.SessionRequired"/>.
 /// </summary>
 public class MailboxOAuthCallbackProcessor : IMailboxOAuthCallbackProcessor, ITransientDependency
 {
@@ -33,6 +34,7 @@ public class MailboxOAuthCallbackProcessor : IMailboxOAuthCallbackProcessor, ITr
         public const string NoRefreshToken = "no_refresh_token";
         public const string FeatureDisabled = "feature_disabled";
         public const string ProviderError = "provider_error";
+        public const string SessionRequired = "session_required";
     }
 
     private readonly MailboxOAuthStateProtector _states;
@@ -69,7 +71,8 @@ public class MailboxOAuthCallbackProcessor : IMailboxOAuthCallbackProcessor, ITr
         _clock = clock;
     }
 
-    public async Task<MailboxOAuthCallbackResult> ProcessAsync(string? code, string? state, string? error, CancellationToken cancellationToken = default)
+    public async Task<MailboxOAuthCallbackResult> ProcessAsync(
+        string? code, string? state, string? error, MailboxOAuthCallbackSession? session = null, CancellationToken cancellationToken = default)
     {
         var payload = _states.Unprotect(state);
         if (payload == null)
@@ -90,6 +93,17 @@ public class MailboxOAuthCallbackProcessor : IMailboxOAuthCallbackProcessor, ITr
                 return MailboxOAuthCallbackResult.Refused;
             }
 
+            /* Bound to the browser of the user who started the connect (RFC 6749 §10.12, design 72 build note 17): without it, a
+             * consent link sent to someone else would connect their mailbox to the sender's tenant. Checked before the
+             * code is exchanged; an unknown or not-waiting connection stays a plain 400. */
+            if (session == null || payload.UserId == null || session.UserId != payload.UserId || session.TenantId != payload.TenantId)
+            {
+                Logger.LogWarning(
+                    "Mailbox OAuth callback for connection {ConnectionId} of tenant {TenantId} refused: the browser is not signed in as the user who started it (session user {SessionUserId}, tenant {SessionTenantId}).",
+                    payload.ConnectionId, payload.TenantId, session?.UserId, session?.TenantId);
+                return Error(ConnectErrors.SessionRequired);
+            }
+
             if (!await _features.IsEnabledAsync(IntegrationsFeatures.OrderIntake))
             {
                 return Error(ConnectErrors.FeatureDisabled);
@@ -103,8 +117,16 @@ public class MailboxOAuthCallbackProcessor : IMailboxOAuthCallbackProcessor, ITr
 
             try
             {
+                var redirectUri = await _urls.FindRedirectUriAsync();
+                if (redirectUri == null)
+                {
+                    /* App:SelfUrl missing: a configuration gap, answered like an unconfigured provider, never a 500 (review minor 6). */
+                    Logger.LogWarning("Mailbox connection {ConnectionId}: the OAuth redirect URI is not configured (App:SelfUrl).", connection.Id);
+                    return Error(ConnectErrors.NotConfigured);
+                }
+
                 var client = _clients.Get(connection.Provider);
-                var tokens = await client.ExchangeCodeAsync(code, await _urls.GetRedirectUriAsync(), cancellationToken);
+                var tokens = await client.ExchangeCodeAsync(code, redirectUri, cancellationToken);
                 if (tokens.RefreshToken == null)
                 {
                     return Error(ConnectErrors.NoRefreshToken);

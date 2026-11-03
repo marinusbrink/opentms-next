@@ -22,7 +22,10 @@ public enum MailboxStatus
     AwaitingFolder = 2,
     Active = 3,
     Paused = 4,
-    Reconnect = 5
+    Reconnect = 5,
+
+    /// <summary>A folder was chosen; <c>MailboxActivationJob</c> takes the provider's cursor, then the connection is Active.</summary>
+    Activating = 6
 }
 
 /// <summary>Where an inbound message came from.</summary>

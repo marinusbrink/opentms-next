@@ -82,7 +82,9 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
             /* Confirmed at once only when the profile is trusted, the channel auto-confirms and every field was resolved by a
              * trusted rule; the type's Confirm rules still apply, and a refusal leaves a Draft (design 72). */
             var autoConfirm = intake.ProfileTrusted && intake.AutoConfirm && result.ResolvedByTrustedRules;
-            order = await _processor.CreateOrderAsync(intake, input.Payload, result, autoConfirm, confirmOnlyWhenComplete: true);
+            /* A business rule refusal keeps the intake as the record of truth: NeedsReview with the refusal on the pseudo-field
+             * "order", answered normally (design 72 build note 20); nothing of the order is written. */
+            order = await _processor.TryCreateOrderAsync(intake, input.Payload, result, autoConfirm, confirmOnlyWhenComplete: true);
         }
         else
         {

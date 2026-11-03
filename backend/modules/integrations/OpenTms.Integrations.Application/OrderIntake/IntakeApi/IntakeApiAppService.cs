@@ -14,6 +14,7 @@ using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
 using Volo.Abp.Security.Claims;
 using Volo.Abp.Timing;
+using Volo.Abp.Uow;
 using Volo.Abp.Validation;
 
 namespace OpenTms.Integrations.OrderIntake.IntakeApi;
@@ -32,23 +33,26 @@ public class IntakeApiAppService : IntegrationsAppServiceBase, IIntakeApiAppServ
 {
     public const string JsonFileName = "order.json";
 
-    private readonly IRepository<ApiClient, Guid> _clients;
+    private readonly IApiClientRepository _clients;
     private readonly IRepository<InboundMessage, Guid> _messages;
     private readonly IInboundMessageRecorder _recorder;
     private readonly IInboundMessageProcessor _processor;
     private readonly IntakeResultBuilder _results;
     private readonly ICurrentPrincipalAccessor _principalAccessor;
     private readonly IClock _clock;
+    private readonly IUnitOfWorkManager _unitOfWorkManager;
 
     public IntakeApiAppService(
-        IRepository<ApiClient, Guid> clients,
+        IApiClientRepository clients,
         IRepository<InboundMessage, Guid> messages,
         IInboundMessageRecorder recorder,
         IInboundMessageProcessor processor,
         IntakeResultBuilder results,
         ICurrentPrincipalAccessor principalAccessor,
-        IClock clock)
+        IClock clock,
+        IUnitOfWorkManager unitOfWorkManager)
     {
+        _unitOfWorkManager = unitOfWorkManager;
         _clients = clients;
         _messages = messages;
         _recorder = recorder;
@@ -61,6 +65,13 @@ public class IntakeApiAppService : IntegrationsAppServiceBase, IIntakeApiAppServ
     public async Task<IntakeResultDto> SubmitOrderAsync(IntakeOrderRequestDto input)
     {
         var client = await GetCallingClientAsync();
+        var result = await SubmitOrderCoreAsync(client, input);
+        await RecordUseAsync(client);
+        return result;
+    }
+
+    private async Task<IntakeResultDto> SubmitOrderCoreAsync(ApiClient client, IntakeOrderRequestDto input)
+    {
         var externalId = input.ExternalId.Trim();
         var existing = await FindMessageAsync(client, externalId);
         if (existing != null)
@@ -107,6 +118,13 @@ public class IntakeApiAppService : IntegrationsAppServiceBase, IIntakeApiAppServ
         }
 
         var client = await GetCallingClientAsync();
+        var result = await SubmitDocumentCoreAsync(client, externalId, file);
+        await RecordUseAsync(client);
+        return result;
+    }
+
+    private async Task<IntakeResultDto> SubmitDocumentCoreAsync(ApiClient client, string externalId, IRemoteStreamContent file)
+    {
         var existing = await FindMessageAsync(client, externalId);
         if (existing != null)
         {
@@ -154,12 +172,14 @@ public class IntakeApiAppService : IntegrationsAppServiceBase, IIntakeApiAppServ
         externalId = ValidateExternalId(externalId);
         var client = await GetCallingClientAsync();
         var message = await FindMessageAsync(client, externalId);
-        return message == null ? null : await _results.BuildAsync(message);
+        var result = message == null ? null : await _results.BuildAsync(message);
+        await RecordUseAsync(client);
+        return result;
     }
 
     /// <summary>
-    /// The active API client of the current tenant the token names; records its use. The token's client_id must be the
-    /// client's own (an application of another client cannot borrow the id).
+    /// The active API client of the current tenant the token names. The token's client_id must be the client's own (an
+    /// application of another client cannot borrow the id). Its use is recorded after processing (<see cref="RecordUseAsync"/>).
     /// </summary>
     private async Task<ApiClient> GetCallingClientAsync()
     {
@@ -177,9 +197,34 @@ public class IntakeApiAppService : IntegrationsAppServiceBase, IIntakeApiAppServ
             throw new BusinessException(IntegrationsErrorCodes.ApiClientInactive);
         }
 
-        client.RecordUse(_clock.Now);
-        await _clients.UpdateAsync(client, autoSave: true);
         return client;
+    }
+
+    /// <summary>
+    /// Stamps the client's <see cref="ApiClient.LastUsedAt"/> at most every <see cref="OrderIntakeConsts.UsageStampInterval"/>
+    /// (design 72 build note 19): never in the request's transaction, but in a short unit of work of its own with a
+    /// set-based update outside the aggregate's concurrency check, so parallel calls of one client never conflict. A failure
+    /// is logged and never fails the request.
+    /// </summary>
+    private async Task RecordUseAsync(ApiClient client)
+    {
+        var now = _clock.Now;
+        var staleBefore = now - OrderIntakeConsts.UsageStampInterval;
+        if (client.LastUsedAt != null && client.LastUsedAt >= staleBefore)
+        {
+            return;
+        }
+
+        try
+        {
+            using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
+            await _clients.RecordUseAsync(client.Id, now, staleBefore);
+            await unitOfWork.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Intake API: the use of API client {ApiClientId} in tenant {TenantId} could not be recorded.", client.Id, CurrentTenant.Id);
+        }
     }
 
     private Task<InboundMessage?> FindMessageAsync(ApiClient client, string externalId)

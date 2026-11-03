@@ -5,6 +5,11 @@ namespace OpenTms.Integrations.OrderIntake;
 /// <summary>Column lengths, limits and fixed names of the order intake (design 72).</summary>
 public static class OrderIntakeConsts
 {
+    /// <summary>
+    /// An API client's and an import profile's <c>LastUsedAt</c> are written at most this often (design 72 build note 19).
+    /// </summary>
+    public static readonly TimeSpan UsageStampInterval = TimeSpan.FromMinutes(5);
+
     /* Mailbox connections. */
 
     public const int MaxDisplayNameLength = 128;

@@ -46,6 +46,8 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
   MailboxConnection: {
     AwaitingConsent: { tone: "neutral", labelKey: "Integrations:MailboxStatus.AwaitingConsent" },
     AwaitingFolder: { tone: "warning", labelKey: "Integrations:MailboxStatus.AwaitingFolder" },
+    /* Taking the provider's cursor in a background job (design 72 build note 18): pending, like Processing. */
+    Activating: { tone: "info", labelKey: "Integrations:MailboxStatus.Activating" },
     Active: { tone: "success", labelKey: "Integrations:MailboxStatus.Active" },
     Paused: { tone: "neutral", labelKey: "Integrations:MailboxStatus.Paused" },
     Reconnect: { tone: "danger", labelKey: "Integrations:MailboxStatus.Reconnect" },

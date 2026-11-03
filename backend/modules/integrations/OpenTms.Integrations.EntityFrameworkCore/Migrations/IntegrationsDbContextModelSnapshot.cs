@@ -23,6 +23,7 @@ namespace OpenTms.Integrations.EntityFrameworkCore.Migrations
                 .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("OpenTms.Integrations.OrderIntake.AiUsageRecord", b =>
@@ -400,6 +401,21 @@ namespace OpenTms.Integrations.EntityFrameworkCore.Migrations
                         .IsUnique();
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Channel", "SourceId", "ExternalId"), false);
+
+                    b.HasIndex(new[] { "ExternalId" }, "IX_InboundMessages_ExternalId_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "ExternalId" }, "IX_InboundMessages_ExternalId_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "ExternalId" }, "IX_InboundMessages_ExternalId_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "From" }, "IX_InboundMessages_From_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "From" }, "IX_InboundMessages_From_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "From" }, "IX_InboundMessages_From_Trigram"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex(new[] { "Subject" }, "IX_InboundMessages_Subject_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "Subject" }, "IX_InboundMessages_Subject_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "Subject" }, "IX_InboundMessages_Subject_Trigram"), new[] { "gin_trgm_ops" });
 
                     b.ToTable("InboundMessages", "integrations");
                 });

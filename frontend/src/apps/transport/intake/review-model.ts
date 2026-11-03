@@ -139,3 +139,12 @@ export function receivedAddressText(address: { name?: string | null; street?: st
   const place = [address.postalCode, address.city].filter(Boolean).join(" ");
   return [address.name, street, place, address.countryCode].filter(Boolean).join(", ");
 }
+
+/** The pseudo-field of a refused order creation (design 72 build note 20): Unresolved, carrying the business error code. */
+export const ORDER_REFUSAL_PATH = "order";
+
+/** The refusal's text: the error code's own localized text (any module's resource), else a generic one. */
+export function orderRefusalText(t: (key: string) => string, errorCode: string | null | undefined): string {
+  const text = errorCode ? t(errorCode) : "";
+  return text && text !== errorCode ? text : t("Orders:IntakeOrderRefusedUnknown");
+}

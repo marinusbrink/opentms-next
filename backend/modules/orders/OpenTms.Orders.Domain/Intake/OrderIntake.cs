@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.ReferenceData;
 using Volo.Abp;
@@ -160,6 +161,27 @@ public class OrderIntake : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
         TransportOrderId = transportOrderId;
         Status = OrderIntakeStatus.OrderCreated;
+    }
+
+    /// <summary>
+    /// Orders refused to create the order from a complete resolution (a business rule on the received values): the intake
+    /// stays in review with the refusal on the pseudo-field <see cref="IntakeFieldPaths.Order"/>, Unresolved and carrying
+    /// the error code, so the review shows it and the caller's unresolved list names it (design 72 build note 20).
+    /// </summary>
+    public void RecordOrderRefused(string errorCode)
+    {
+        EnsureInReview();
+        var code = Check.NotNullOrWhiteSpace(errorCode, nameof(errorCode)).Trim();
+        var fields = Resolution.Fields.Where(f => f.FieldPath != IntakeFieldPaths.Order).ToList();
+        fields.Add(new IntakeFieldResolution
+        {
+            FieldPath = IntakeFieldPaths.Order,
+            Status = IntakeResolutionStatus.Unresolved,
+            ErrorCode = code.Length > IntakeConsts.MaxErrorCodeLength ? code[..IntakeConsts.MaxErrorCodeLength] : code
+        });
+        /* A new object, so the jsonb column is written whatever value comparer it carries. */
+        Resolution = new IntakeResolution { Fields = fields };
+        OpenFieldCount = Resolution.OpenFieldCount;
     }
 
     public void Reject(string reason)

@@ -96,11 +96,20 @@ public class TransportOrderCommands : ITransientDependency
             ? null
             : draft.TripRequest with { LineIds = TripRequestLines.Remap(draft.TripRequest.LineIds, draft.Lines.Select(l => l.Id).ToList(), lines.LineIds) });
 
+        /* Every rule (the draft's, the type's Confirm rules, the number) runs before the insert: a business rule refusal
+         * leaves nothing of the order written, so a caller that keeps its own record of the refusal (an intake, design 72
+         * build note 20) commits no half order. */
+        var confirmNow = confirm && (!confirmOnlyWhenComplete || await IsCompleteAsync(order, type));
+        if (confirmNow)
+        {
+            await ConfirmInMemoryAsync(order, type);
+        }
+
         await _orders.InsertAsync(order, autoSave: true);
 
-        if (confirm && (!confirmOnlyWhenComplete || await IsCompleteAsync(order, type)))
+        if (confirmNow)
         {
-            await ConfirmCoreAsync(order, type);
+            await PublishConfirmedAsync(order);
         }
         else
         {
@@ -167,6 +176,14 @@ public class TransportOrderCommands : ITransientDependency
 
     private async Task ConfirmCoreAsync(TransportOrder order, TransportOrderType? type)
     {
+        await ConfirmInMemoryAsync(order, type);
+        await _orders.UpdateAsync(order, autoSave: true);
+        await PublishConfirmedAsync(order);
+    }
+
+    /// <summary>The type's rules, then the number, then Open on the aggregate; writes only the number sequence.</summary>
+    private async Task ConfirmInMemoryAsync(TransportOrder order, TransportOrderType? type)
+    {
         type ??= await _references.GetOrderTypeAsync(order.TransportOrderTypeId);
         var activityOf = await ActivityOfAsync(order);
 
@@ -174,8 +191,10 @@ public class TransportOrderCommands : ITransientDependency
         order.EnsureComplete(type.RequiredFields, activityOf);
         var number = await _numbers.NextAsync(type.SequenceKey, type.Numbering);
         order.Confirm(number, type.RequiredFields, activityOf);
-        await _orders.UpdateAsync(order, autoSave: true);
+    }
 
+    private async Task PublishConfirmedAsync(TransportOrder order)
+    {
         var lineIds = order.Lines.Select(l => l.Id).ToList();
         await _events.PublishAsync(new TransportOrderConfirmedEto { OrderId = order.Id });
         await _events.PublishAsync(new TransportOrderLinesChangedEto { OrderId = order.Id, LineIds = lineIds });

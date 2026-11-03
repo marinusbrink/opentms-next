@@ -27,7 +27,7 @@ namespace OpenTms.Orders.Intake;
 [RequiresFeature(AppFeatures.Transport, AppFeatures.TransportApp.Intake, IntakeConsts.OrderIntakeFeature, RequiresAll = true)]
 public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppService
 {
-    private readonly IRepository<OrderIntake, Guid> _intakes;
+    private readonly IOrderIntakeRepository _intakes;
     private readonly IRepository<IntakeAlias, Guid> _aliases;
     private readonly IRepository<TransportOrder, Guid> _orders;
     private readonly IRepository<TransportOrderType, Guid> _orderTypes;
@@ -38,7 +38,7 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
     private readonly IDistributedEventBus _events;
 
     public OrderIntakeAppService(
-        IRepository<OrderIntake, Guid> intakes,
+        IOrderIntakeRepository intakes,
         IRepository<IntakeAlias, Guid> aliases,
         IRepository<TransportOrder, Guid> orders,
         IRepository<TransportOrderType, Guid> orderTypes,
@@ -83,23 +83,17 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
             query = query.Where(i => i.CreationTime < end);
         }
 
-        var term = input.WildcardSearch?.Trim().ToLowerInvariant();
-        var searched = string.IsNullOrEmpty(term)
-            ? query
-            : query.Where(i =>
-                (i.SenderAddress != null && i.SenderAddress.ToLower().Contains(term)) ||
-                (i.Subject != null && i.Subject.ToLower().Contains(term)) ||
-                (i.FileName != null && i.FileName.ToLower().Contains(term)) ||
-                (i.CustomerReference != null && i.CustomerReference.ToLower().Contains(term)));
+        var term = input.WildcardSearch?.Trim();
+        /* ILIKE on the raw columns with the trigram indexes (PostgreSQL); see IOrderIntakeRepository. */
+        var searched = string.IsNullOrEmpty(term) ? query : await _intakes.WhereSearchMatchesAsync(query, term);
 
         var totalCount = await AsyncExecuter.LongCountAsync(query);
         var filteredCount = string.IsNullOrEmpty(term) ? totalCount : await AsyncExecuter.LongCountAsync(searched);
-        var page = await AsyncExecuter.ToListAsync(Sort(searched, input.SortBy, input.SortDir).Skip(input.StartRow).Take(input.EndRow - input.StartRow));
-        var numbers = await OrderNumbersAsync(page.Select(i => i.TransportOrderId).OfType<Guid>());
-
-        return new GridResponse<OrderIntakeRowDto>
-        {
-            Rows = page.Select(i => new OrderIntakeRowDto
+        /* Projected in the query: the page reads the list's columns only, never the jsonb payloads and resolution. */
+        var rows = await AsyncExecuter.ToListAsync(Sort(searched, input.SortBy, input.SortDir)
+            .Skip(input.StartRow)
+            .Take(input.EndRow - input.StartRow)
+            .Select(i => new OrderIntakeRowDto
             {
                 Id = i.Id,
                 ReceivedAt = i.CreationTime,
@@ -113,9 +107,17 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
                 CustomerName = i.CustomerName,
                 Status = i.Status,
                 OpenFieldCount = i.OpenFieldCount,
-                TransportOrderId = i.TransportOrderId,
-                OrderNumber = i.TransportOrderId is { } id ? numbers.GetValueOrDefault(id) : null
-            }).ToList(),
+                TransportOrderId = i.TransportOrderId
+            }));
+        var numbers = await OrderNumbersAsync(rows.Select(r => r.TransportOrderId).OfType<Guid>());
+        foreach (var row in rows)
+        {
+            row.OrderNumber = row.TransportOrderId is { } id ? numbers.GetValueOrDefault(id) : null;
+        }
+
+        return new GridResponse<OrderIntakeRowDto>
+        {
+            Rows = rows,
             TotalCount = totalCount,
             FilteredCount = filteredCount
         };
@@ -261,7 +263,8 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
                 TargetId = f.TargetId,
                 TargetName = f.TargetName,
                 Method = f.Method,
-                Candidates = f.Candidates.Select(c => new OrderIntakeCandidateDto { Id = c.Id, Name = c.Name, Detail = c.Detail }).ToList()
+                Candidates = f.Candidates.Select(c => new OrderIntakeCandidateDto { Id = c.Id, Name = c.Name, Detail = c.Detail }).ToList(),
+                ErrorCode = f.ErrorCode
             }).ToList(),
             MappingConfidence = intake.MappingConfidence,
             ProfileTrusted = intake.ProfileTrusted,
