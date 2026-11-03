@@ -65,8 +65,9 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(APPS.find((a) => a.id === "editions")).toBeUndefined();
   });
 
-  it("every other app except Master data, Planboard, Transport and Tenants has no views declared", () => {
-    APPS.filter((a) => !["admin", "master-data", "planboard", "tenants", "transport"].includes(a.id)).forEach((app) => {
+  it("every other app except Master data, Planboard, Transport, Integrations and Tenants has no views declared", () => {
+    /* Design 72 gives the Integrations app its first view, Received. */
+    APPS.filter((a) => !["admin", "master-data", "planboard", "tenants", "transport", "integrations"].includes(a.id)).forEach((app) => {
       expect(app.views).toBeUndefined();
     });
   });
@@ -91,7 +92,7 @@ describe("apps.config – AppView extension (low risk)", () => {
     });
   });
 
-  it("the Transport app has the views Orders, Templates, Trips and Documents and reads from four domains (design 61)", () => {
+  it("the Transport app has the views Orders, Templates, Trips and Documents (design 61), then Intake (design 72), and reads from four domains", () => {
     const transport = APPS.find((a) => a.id === "transport")!;
     expect(transport.domains).toEqual(["Orders", "PlanningExecution", "Financial", "MasterData"]);
     expect(transport.views!.map((v) => [v.nameKey, v.path, v.feature])).toEqual([
@@ -99,7 +100,9 @@ describe("apps.config – AppView extension (low risk)", () => {
       ["App:Transport.Templates", "/transport/templates", "Apps.Transport.Orders.Templates"],
       ["App:Transport.Trips", "/transport/trips", "Apps.Transport.Trips"],
       ["App:Transport.Documents", "/transport/documents", "Apps.Transport.Documents"],
+      ["Orders:Nav.Intake", "/transport/intake", "Apps.Transport.Intake"],
     ]);
+    expect(transport.views![4].requiredPermission).toBe("Orders.OrderIntakes");
     transport.views!.forEach((view) => expect(view.icon).toBeTruthy());
     expect(findAppByPath("/transport/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6")?.id).toBe("transport");
   });
@@ -130,15 +133,25 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(documents.children).toBeUndefined();
   });
 
-  it("the Master data app has two domain groups, General then Platform, and reads from both domains (design 49; PO 2026-10-16)", () => {
+  it("the Master data app has its domain groups, General first and Platform last, and reads from each domain (design 49; PO 2026-10-16; design 72 adds Integrations before Platform)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "Platform:Nav.Platform"]);
-    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
+    expect(masterData.views!.map((v) => v.nameKey)).toEqual(["MasterData:Nav.General", "MasterData:Nav.Orders", "MasterData:Nav.PlanningExecution", "MasterData:Nav.Financial", "MasterData:Nav.Integrations", "Platform:Nav.Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"]);
+    /* Design 72 "Features": group Integrations → Order intake → Mailboxes, API clients, Import profiles. */
+    const integrations = masterData.views![4];
+    expect([integrations.path, integrations.feature]).toEqual(["/master-data/integrations", "Apps.MasterData.Integrations"]);
+    expect(integrations.children!.map((c) => [c.path, c.feature])).toEqual([["/master-data/integrations/intake", "Apps.MasterData.Integrations.Intake"]]);
+    expect(integrations.children![0].children!.map((c) => [c.path, c.feature])).toEqual([
+      ["/master-data/integrations/mailboxes", "Apps.MasterData.Integrations.Intake.Mailboxes"],
+      ["/master-data/integrations/api-clients", "Apps.MasterData.Integrations.Intake.ApiClients"],
+      ["/master-data/integrations/import-profiles", "Apps.MasterData.Integrations.Intake.ImportProfiles"],
+    ]);
   });
 
   it("the Platform domain group holds its three lists directly under it, no sub-groups (design 54, Assumption 4)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    const platform = masterData.views![4];
+    /* Design 72 puts the Integrations group before Platform: Platform is the sixth, last group. */
+    const platform = masterData.views![5];
     expect(platform.path).toBe("/master-data/platform");
     expect(platform.feature).toBe("Apps.MasterData.Platform");
     expect(platform.icon).toBeTruthy();
@@ -156,7 +169,8 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app lists its fifteen General lists in four groups under the General domain group (designs 41, 43 and 48; PO 2026-10-16)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.views).toHaveLength(5);
+    /* General, Orders, Planning & Execution, Financial, Integrations (design 72), Platform. */
+    expect(masterData.views).toHaveLength(6);
     const general = masterData.views![0];
     expect(general.nameKey).toBe("MasterData:Nav.General");
     expect(general.icon).toBeTruthy();
@@ -189,7 +203,7 @@ describe("apps.config – AppView extension (low risk)", () => {
 
   it("the Master data app holds the Orders, Planning & Execution and Financial domain groups after General (designs 51–53)", () => {
     const masterData = APPS.find((a) => a.id === "master-data")!;
-    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"]);
+    expect(masterData.domains).toEqual(["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"]);
     const [, orders, planning, financial] = masterData.views!;
     const lists = (group: AppView) => group.children!.flatMap((g) => g.children!.map((c) => [c.path, c.nameKey, c.feature]));
     /* Design 61 adds the Transport run's lists after each group's earlier ones. */

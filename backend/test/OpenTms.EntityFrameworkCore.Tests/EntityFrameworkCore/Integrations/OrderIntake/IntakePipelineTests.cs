@@ -720,4 +720,30 @@ public class IntakePipelineTests : OpenTmsEntityFrameworkCoreTestBase
             (await GetRequiredService<IImportProfileAppService>().GetAsync(profileId)).Status.ShouldBe(ImportProfileStatus.Proposed);
         }
     }
+
+    /* Design 72 build note 14: from an intake (which knows only its source document) to the trace of its message. */
+    [Fact]
+    public async Task GetByDocument_returns_the_message_of_a_document_and_tenant_B_gets_EntityNotFound_for_tenant_As_document()
+    {
+        using var features = IntakeOn();
+        Guid messageId;
+        Guid documentId;
+        using (_currentTenant.Change(_tenantA))
+        {
+            var (document, _) = await MatchedDocumentAsync();
+            (messageId, documentId) = (document.InboundMessageId, document.Id);
+
+            var message = await GetRequiredService<IInboundMessageAppService>().GetByDocumentAsync(documentId);
+            message.Id.ShouldBe(messageId);
+            message.Documents.ShouldContain(d => d.Id == documentId);
+
+            /* An id that is no document is not found either, even when it is the message's own id. */
+            await Should.ThrowAsync<Volo.Abp.Domain.Entities.EntityNotFoundException>(() => GetRequiredService<IInboundMessageAppService>().GetByDocumentAsync(messageId));
+        }
+
+        using (_currentTenant.Change(_tenantB))
+        {
+            await Should.ThrowAsync<Volo.Abp.Domain.Entities.EntityNotFoundException>(() => GetRequiredService<IInboundMessageAppService>().GetByDocumentAsync(documentId));
+        }
+    }
 }

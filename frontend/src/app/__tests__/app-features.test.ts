@@ -131,20 +131,22 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 75 features as the backend's AppFeatures", () => {
+  it("names the same 82 features as the backend's AppFeatures", () => {
     /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists; design 66/70
-     * (PO decision D7) add the Planboard's eight pane nodes. */
+     * (PO decision D7) add the Planboard's eight pane nodes; design 72 ("Features", app features) adds seven:
+     * Integrations → Received, Transport → Intake, and the Master data group Integrations → Order intake with its
+     * three lists. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(75);
-    expect(new Set(names).size).toBe(75);
+    expect(names).toHaveLength(82);
+    expect(new Set(names).size).toBe(82);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(75);
+    expect(backend).toHaveLength(82);
     expect([...names].sort()).toEqual([...backend].sort());
   });
 
-  it("carries the Transport app's nodes of design 56: Orders, Templates (chained under Orders), Trips, Documents", () => {
+  it("carries the Transport app's nodes of design 56: Orders, Templates (chained under Orders), Trips, Documents; design 72 adds Intake", () => {
     const names = Object.keys(allOn(transport));
-    expect(names).toEqual(["Apps.Transport", "Apps.Transport.Orders", "Apps.Transport.Orders.Templates", "Apps.Transport.Trips", "Apps.Transport.Documents"]);
+    expect(names).toEqual(["Apps.Transport", "Apps.Transport.Orders", "Apps.Transport.Orders.Templates", "Apps.Transport.Trips", "Apps.Transport.Documents", "Apps.Transport.Intake"]);
     expect(featureChain("Apps.Transport.Orders.Templates")).toEqual(["Apps.Transport", "Apps.Transport.Orders", "Apps.Transport.Orders.Templates"]);
   });
 
@@ -200,15 +202,15 @@ describe("createAppFeatureChecker – tenant side", () => {
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    /* General, Orders, Planning & Execution, Financial (designs 51–53) and Platform (design 54). */
-    expect(visible).toHaveLength(5);
+    /* General, Orders, Planning & Execution, Financial (designs 51–53), Integrations (design 72) and Platform (design 54). */
+    expect(visible).toHaveLength(6);
     expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
-    expect(checker.visibleViews(masterData)[4].path).toBe("/master-data/platform");
+    expect(checker.visibleViews(masterData)[5].path).toBe("/master-data/platform");
   });
 
   it("the Platform group off hides its three lists, even with the lists on; the other groups stay", () => {
     const checker = tenant({ ...allOn(masterData), "Apps.MasterData.Platform": "false" });
-    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general", "/master-data/orders", "/master-data/planning", "/master-data/financial"]);
+    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general", "/master-data/orders", "/master-data/planning", "/master-data/financial", "/master-data/integrations"]);
     for (const path of ["/master-data/email-templates", "/master-data/report-definitions", "/master-data/document-types"]) {
       expect(checker.isPathEnabled(masterData, path), path).toBe(false);
     }
@@ -265,16 +267,16 @@ describe("createAppFeatureChecker – tenant side", () => {
 });
 
 describe("createAppFeatureChecker – the Transport app (design 61)", () => {
-  it("shows the four views with their saved filters when everything is on", () => {
+  it("shows the four views with their saved filters, and design 72's Intake, when everything is on", () => {
     const visible = tenant(allOn(transport)).visibleViews(transport);
-    expect(visible.map((v) => v.path)).toEqual(["/transport/orders", "/transport/templates", "/transport/trips", "/transport/documents"]);
+    expect(visible.map((v) => v.path)).toEqual(["/transport/orders", "/transport/templates", "/transport/trips", "/transport/documents", "/transport/intake"]);
     expect(visible[0].children?.map((c) => c.search?.filter)).toEqual(["today", "tomorrow", "this-week", "open", "drafts", "all"]);
     expect(visible[2].children?.map((c) => c.search?.filter)).toEqual(["today", "this-week", "open", "all"]);
   });
 
-  it("Orders off hides Orders and its filters, and Templates through the chain; Trips and Documents stay", () => {
+  it("Orders off hides Orders and its filters, and Templates through the chain; Trips, Documents and Intake stay", () => {
     const checker = tenant({ ...allOn(transport), "Apps.Transport.Orders": "false" });
-    expect(checker.visibleViews(transport).map((v) => v.path)).toEqual(["/transport/trips", "/transport/documents"]);
+    expect(checker.visibleViews(transport).map((v) => v.path)).toEqual(["/transport/trips", "/transport/documents", "/transport/intake"]);
     expect(checker.isPathEnabled(transport, "/transport/orders")).toBe(false);
     expect(checker.isPathEnabled(transport, "/transport/templates")).toBe(false);
     expect(checker.isPathEnabled(transport, "/transport/trips")).toBe(true);
@@ -389,7 +391,8 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
       tenant({ ...allOn(masterData), "Apps.MasterData.Platform.EmailTemplates": "false" }).firstEnabledPath(masterData, "/master-data/platform"),
     ).toBe("/master-data/report-definitions");
     expect(tenant({ ...allOn(masterData), "Apps.MasterData.General": "false" }).firstEnabledPath(masterData)).toBe("/master-data/transport-order-types");
-    const othersOff = { "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false" };
+    /* Design 72 puts the Integrations group before Platform, so it is switched off too to reach Platform. */
+    const othersOff = { "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Integrations": "false" };
     expect(tenant({ ...allOn(masterData), ...othersOff }).firstEnabledPath(masterData)).toBe("/master-data/email-templates");
     expect(tenant({ ...allOn(masterData), ...othersOff, "Apps.MasterData.Platform": "false" }).firstEnabledPath(masterData)).toBeUndefined();
   });

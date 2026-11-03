@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { APPS } from "@/app/apps.config";
-import { router, TRANSPORT_RECORD_ROUTES, treePaths } from "@/app/router";
+import { INTEGRATIONS_RECORD_ROUTES, router, TRANSPORT_RECORD_ROUTES, treePaths } from "@/app/router";
 
 const routePaths = new Set(Object.keys(router.routesByPath));
 
@@ -44,7 +44,8 @@ describe("router: nav tree paths", () => {
   });
 
   it("the Transport record pages are routes with an $id param (design 61, Assumption 1)", () => {
-    expect([...TRANSPORT_RECORD_ROUTES]).toEqual(["/transport/orders/$id", "/transport/templates/$id", "/transport/trips/$id"]);
+    /* Design 72 adds the intake review page /transport/intake/{id}. */
+    expect([...TRANSPORT_RECORD_ROUTES]).toEqual(["/transport/orders/$id", "/transport/templates/$id", "/transport/trips/$id", "/transport/intake/$id"]);
     for (const path of TRANSPORT_RECORD_ROUTES) {
       expect(routePaths.has(path), path).toBe(true);
     }
@@ -54,5 +55,20 @@ describe("router: nav tree paths", () => {
     const match = matches.find((m) => m.routeId === recordRouteId);
     expect(match, matches.map((m) => m.routeId).join()).toBeDefined();
     expect(match!.params).toEqual({ id: "3fa85f64-5717-4562-b3fc-2c963f66afa6" });
+  });
+
+  it("the Integrations app's Received list, trace page and document-trace redirect are routes (design 72)", () => {
+    expect(routePaths.has("/integrations/received")).toBe(true);
+    expect([...INTEGRATIONS_RECORD_ROUTES]).toEqual(["/integrations/received/$id", "/integrations/received/document/$documentId"]);
+    for (const path of INTEGRATIONS_RECORD_ROUTES) {
+      expect(routePaths.has(path), path).toBe(true);
+    }
+    const byPath = router.routesByPath as Record<string, { id: string }>;
+    const trace = router.matchRoutes("/integrations/received/3fa85f64-5717-4562-b3fc-2c963f66afa6", {}).find((m) => m.routeId === byPath["/integrations/received/$id"].id);
+    expect(trace?.params).toEqual({ id: "3fa85f64-5717-4562-b3fc-2c963f66afa6" });
+    const doc = router
+      .matchRoutes("/integrations/received/document/3fa85f64-5717-4562-b3fc-2c963f66afa6", {})
+      .find((m) => m.routeId === byPath["/integrations/received/document/$documentId"].id);
+    expect(doc?.params).toEqual({ documentId: "3fa85f64-5717-4562-b3fc-2c963f66afa6" });
   });
 });

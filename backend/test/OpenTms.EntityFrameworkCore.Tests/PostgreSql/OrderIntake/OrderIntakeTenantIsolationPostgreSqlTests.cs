@@ -143,6 +143,7 @@ public class OrderIntakeTenantIsolationPostgreSqlTests : ReferenceDataPostgreSql
                         (await messages.GetListAsync(new InboundMessageListRequestDto { WildcardSearch = "qq" })).Rows.ShouldBeEmpty(who);
                         await Should.ThrowAsync<EntityNotFoundException>(() => messages.GetAsync(a.Message));
                         await Should.ThrowAsync<EntityNotFoundException>(() => messages.GetDocumentContentAsync(a.Document));
+                        await Should.ThrowAsync<EntityNotFoundException>(() => messages.GetByDocumentAsync(a.Document));
 
                         var profiles = GetRequiredService<IImportProfileAppService>();
                         (await profiles.GetListAsync(new ImportProfileListRequestDto { WildcardSearch = "qq" })).Rows.ShouldBeEmpty(who);
