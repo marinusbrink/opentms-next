@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTms.Integrations.OrderIntake;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.PostgreSql;
 using Volo.Abp.Modularity;
@@ -16,6 +18,8 @@ public class IntegrationsEntityFrameworkCoreModule : AbpModule
         context.Services.AddAbpDbContext<IntegrationsDbContext>(options =>
         {
             options.AddDefaultRepositories(includeAllEntities: true);
+            /* Design 72: a document is read with its trace (the step log is part of the aggregate). */
+            options.Entity<InboundDocument>(e => e.DefaultWithDetailsFunc = q => q.Include(d => d.Steps));
         });
 
         Configure<AbpDbContextOptions>(options =>

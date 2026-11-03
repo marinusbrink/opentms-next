@@ -23,6 +23,13 @@
     <PackageReference Include="Volo.Abp.PermissionManagement.Domain" Version="10.6.0" />
     <PackageReference Include="Volo.Abp.UI.Navigation" Version="10.6.0" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.Abstractions" Version="10.0.9" />
+    <!-- Design 72, order intake: raw messages and documents in the opentms-inbound container (AD-09), the pipeline job,
+         mail parsing, PDF text, spreadsheets and the Anthropic adapter (AD-21, the official SDK). -->
+    <PackageReference Include="Volo.Abp.BlobStoring" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.BackgroundJobs.Abstractions" Version="10.6.0" />
+    <PackageReference Include="MimeKit" Version="4.18.2" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Anthropic" Version="13.4.0" />
   </ItemGroup>
 
