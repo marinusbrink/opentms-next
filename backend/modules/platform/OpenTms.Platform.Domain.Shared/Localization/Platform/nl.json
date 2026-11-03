@@ -1365,6 +1365,18 @@
     "Feature:Apps.Integrations.Intake.ImportProfiles": "Importprofielen",
     "Feature:Apps.Integrations.Intake.ImportProfiles.Description": "Toont de geleerde importprofielen die bekende documentindelingen lezen.",
     "Feature:Apps.Integrations.Intake.Settings": "Instellingen",
-    "Feature:Apps.Integrations.Intake.Settings.Description": "Toont de instellingen van de orderinvoer, zoals hoe sterk een ontvangen naam moet lijken op een bestaand gegeven om dat te gebruiken."
+    "Feature:Apps.Integrations.Intake.Settings.Description": "Toont de instellingen van de orderinvoer, zoals hoe sterk een ontvangen naam moet lijken op een bestaand gegeven om dat te gebruiken.",
+    "Permission:Administration.Roles.ManagePermissions": "Rechten van rollen wijzigen",
+    "Permission:Administration.Users.ManagePermissions": "Rechten van gebruikers wijzigen",
+    "OpenTms.Platform:AdminRolePermissionsReadOnly": "De beheerdersrol heeft altijd alle rechten; de rechten ervan kunnen niet worden gewijzigd.",
+    "Administration:Permissions": "Rechten",
+    "Administration:PermissionsSaved": "Rechten opgeslagen",
+    "Administration:PermissionsSearch": "Rechten zoeken",
+    "Administration:PermissionsAll": "Alle",
+    "Administration:PermissionsNone": "Geen rechten gevonden voor deze zoekopdracht.",
+    "Administration:PredefinedRolePermissionsNote": "Dit is een voorgedefinieerde rol. Je kunt de rechten wijzigen; een latere versie zet een recht dat je hebt weggehaald niet terug.",
+    "Administration:UserPermissionsNote": "Geef rechten waar mogelijk via rollen. Een recht dat je hier aanzet, geldt alleen voor deze gebruiker; rechten die de gebruiker via een rol heeft, zijn grijs.",
+    "Administration:GrantedThroughRole": "Via rol: {0}",
+    "Administration:AdminRolePermissionsReadOnly": "De beheerdersrol heeft altijd alle rechten"
   }
 }

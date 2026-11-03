@@ -85,8 +85,9 @@ heeft) om de gebruiker te openen. Heb je geen bewerkrecht, dan opent het venster
 alleen-lezen.
 
 **Acties op een rij:** klik met de **rechtermuisknop** op een rij voor het
-snelmenu met **Bewerken**, **Wachtwoord opnieuw instellen**, **Uitnodiging opnieuw
-sturen** (alleen bij een openstaande uitnodiging) en **Verwijderen**.
+snelmenu met **Bewerken**, **Wachtwoord opnieuw instellen**, **Rechten**,
+**Uitnodiging opnieuw sturen** (alleen bij een openstaande uitnodiging) en
+**Verwijderen**.
 Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
 
 ---
@@ -207,6 +208,28 @@ alleen zolang de gebruiker nog geen wachtwoord heeft gekozen; daarna gebruik je
 
 ---
 
+### Rechten van één gebruiker wijzigen
+
+> Vereist: het recht **Rechten van gebruikers wijzigen**.
+
+Geef rechten bij voorkeur via rollen (zie [Rechten van een rol wijzigen](#rechten-van-een-rol-wijzigen)).
+Heeft één gebruiker een extra recht nodig dat bij geen van zijn rollen hoort, dan
+geef je dat hier rechtstreeks.
+
+1. Kies **Rechten** in het snelmenu (rechtermuisknop) van de gebruiker.
+2. Het venster toont de rechten per module (Platform, Orders, Planning &
+   uitvoering, Financieel, Stamgegevens, Integraties, Rapportage). Een recht dat
+   de gebruiker al via een rol heeft, staat grijs aangevinkt met "Via rol: …"
+   eronder; dat wijzig je bij de rol.
+3. Vink de rechten aan die alleen deze gebruiker krijgt, of haal een eerder
+   rechtstreeks gegeven recht weg.
+4. Klik op **Opslaan**. De melding "Rechten opgeslagen" verschijnt.
+
+De gebruiker krijgt de gewijzigde rechten bij de eerstvolgende aanmelding of na
+het vernieuwen van de pagina.
+
+---
+
 ### Een vergrendeld account ontgrendelen
 
 > Vereist: het recht **Gebruikersaccounts ontgrendelen**.
@@ -276,7 +299,9 @@ of het de standaard-aanmeldrol is, of hij zichtbaar is voor gebruikers, en aan
 hoeveel gebruikers hij is toegewezen.
 
 **Systeemrollen** (vinkje in de kolom **Systeemrol**) zijn ingebouwde rollen die
-je niet kunt bewerken of verwijderen; dubbelklikken opent ze alleen-lezen.
+je niet kunt hernoemen of verwijderen; dubbelklikken opent ze alleen-lezen. Hun
+rechten kun je wel aanpassen, behalve die van **Beheerder** (zie
+[Rechten van een rol wijzigen](#rechten-van-een-rol-wijzigen)).
 
 <!-- SCREENSHOT: het Rollen-scherm met de rollenlijst -->
 
@@ -294,7 +319,8 @@ zijn aan niemand toegewezen tot jij dat doet.
 | **Alleen lezen** | Management, controle | Alle lijsten en orders, ritten en tarieven inzien, zonder iets te wijzigen. |
 
 Gebruikers, rollen en organisatie-eenheden beheren blijft voorbehouden aan de
-**Beheerder**. Een gebruiker kan meerdere rollen hebben; hij mag dan alles wat
+**Beheerder**. De rechten van een voorgedefinieerde rol kun je aanpassen (zie
+[Rechten van een rol wijzigen](#rechten-van-een-rol-wijzigen)). Een gebruiker kan meerdere rollen hebben; hij mag dan alles wat
 een van zijn rollen mag.
 
 Bij een nieuwe versie van OpenTMS kunnen deze rollen nieuwe rechten krijgen voor
@@ -339,6 +365,49 @@ wijzigen, testdata terugzetten; verwijderen blijft bij de Beheerder).
 
 Systeemrollen kunnen niet worden bewerkt; **Bewerken** in het snelmenu is dan
 uitgeschakeld en legt uit waarom.
+
+---
+
+### Rechten van een rol wijzigen
+
+> Vereist: het recht **Rechten van rollen wijzigen**. Standaard heeft alleen de
+> **Beheerder** dit recht.
+
+Een rol is een verzameling rechten. Wat je hier wijzigt, geldt direct voor
+iedere gebruiker met deze rol.
+
+1. Kies **Rechten** in het snelmenu (rechtermuisknop) van de rol.
+2. Het venster **Rechten** toont per module een blok met de rechten van die module
+   (Platform, Orders, Planning & uitvoering, Financieel, Stamgegevens,
+   Integraties, Rapportage). Je ziet alleen de rechten die in jouw omgeving
+   bestaan: rechten van de hostomgeving zie je in een organisatie niet.
+3. Vink rechten aan of uit:
+   - Een recht dat onder een ander recht staat (ingesprongen), hoort bij dat
+     bovenliggende recht. Vink je het aan, dan wordt het bovenliggende recht ook
+     aangevinkt; haal je het bovenliggende recht weg, dan gaan de rechten eronder
+     ook uit. Voorbeeld: **Transportorders aanmaken** kan alleen samen met
+     **Transportorders**.
+   - Met **Alle** bovenaan een blok vink je alle rechten van die module aan of
+     uit. Een streepje betekent dat een deel is aangevinkt.
+   - Met het zoekveld bovenin zoek je een recht op naam.
+4. Klik op **Opslaan**. De melding "Rechten opgeslagen" verschijnt.
+
+Gebruikers met de rol krijgen de gewijzigde rechten bij hun eerstvolgende
+aanmelding of na het vernieuwen van de pagina.
+
+**Voorgedefinieerde rollen** (zoals **Planner** of **Orderinvoer**) kun je ook
+aanpassen. Het venster meldt dat het om een voorgedefinieerde rol gaat. Een
+recht dat je weghaalt, zet een nieuwe versie van OpenTMS niet terug; nieuwe
+rechten voor nieuwe functies kunnen er wel bij komen.
+
+**De rol Beheerder** heeft altijd alle rechten. **Rechten** is bij deze rol
+uitgeschakeld en legt uit waarom, zodat niemand de beheerders per ongeluk buitensluit.
+
+**Een recht dat je zelf niet hebt**, kun je niet aan een rol geven of ervan
+weghalen; dat recht staat grijs. Alleen de **Beheerder** kan alle rechten
+toekennen.
+
+<!-- SCREENSHOT: het venster "Rechten" van de rol Planner -->
 
 ---
 
