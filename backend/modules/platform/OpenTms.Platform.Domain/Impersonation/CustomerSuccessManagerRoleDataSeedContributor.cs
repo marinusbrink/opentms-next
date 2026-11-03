@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
-using OpenTms.Platform.Permissions;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Guids;
@@ -8,16 +7,23 @@ using Volo.Abp.Identity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.Uow;
 
-namespace OpenTms.Platform.Administration;
+namespace OpenTms.Platform.Impersonation;
 
 /// <summary>
 /// Seeds the static host role "Customer Success Manager" with the Impersonation permission on every host seed run
 /// (PO 2026-10-29, docs/designs/63-user-menu.md). Static: the Administration app cannot rename or delete it. Idempotent.
+/// Lives in Platform.Domain so the DbMigrator, which loads no Application module, seeds the host with it.
 /// </summary>
 public class CustomerSuccessManagerRoleDataSeedContributor : IDataSeedContributor, ITransientDependency
 {
     // "R" is the ABP role permission value provider name (RolePermissionValueProvider.ProviderName).
     private const string RoleProviderName = "R";
+
+    /// <summary>
+    /// <c>PlatformPermissions.Tenants.Impersonation</c>, which lives in Application.Contracts (out of reach here); the seed
+    /// tests compare the grant with that constant.
+    /// </summary>
+    public const string ImpersonationPermission = "Platform.Tenants.Impersonation";
 
     private readonly IdentityRoleManager _roleManager;
     private readonly IPermissionManager _permissionManager;
@@ -62,6 +68,6 @@ public class CustomerSuccessManagerRoleDataSeedContributor : IDataSeedContributo
             await _unitOfWorkManager.Current.SaveChangesAsync();
         }
 
-        await _permissionManager.SetAsync(PlatformPermissions.Tenants.Impersonation, RoleProviderName, PlatformRoleNames.CustomerSuccessManager, true);
+        await _permissionManager.SetAsync(ImpersonationPermission, RoleProviderName, PlatformRoleNames.CustomerSuccessManager, true);
     }
 }

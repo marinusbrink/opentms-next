@@ -368,7 +368,8 @@ public class SignInEmailProtectorTests
         var protector = new SignInEmailProtector(new EphemeralDataProtectionProvider());
         var sealedEmail = protector.Protect(new SignInEmail("jan@example.test", RememberMe: true));
 
-        sealedEmail.ShouldNotContain("jan", Case.Insensitive);
+        /* The whole address: random base64 text may contain "jan", never "jan@example.test" (no "@"). */
+        sealedEmail.ShouldNotContain("jan@example.test", Case.Insensitive);
         protector.Unprotect(sealedEmail).ShouldBe(new SignInEmail("jan@example.test", true));
     }
 

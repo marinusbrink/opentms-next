@@ -98,7 +98,9 @@ menu's profile after a save, since the edited user may be the signed-in one.
 ## Customer Success Manager
 
 `CustomerSuccessManagerRoleDataSeedContributor` seeds the host role "Customer Success Manager" (`PlatformRoleNames`)
-as a static role with `Platform.Tenants.Impersonation` on every host seed run; nothing in tenants. The menu's
+as a static role with `Platform.Tenants.Impersonation` on every host seed run; nothing in tenants. It lives in
+Platform.Domain (`Impersonation/`), so the DbMigrator, which loads no Application module, runs it; until 2026-11-03 it
+lived in Platform.Application and only the test host ever got the role (`DbMigratorSeedTests` now guards this). The menu's
 "Log in to a tenant…" opens `TenantPickerDialog`: an `OpenTmsGrid` over `GET api/platform/impersonation/tenants`
 (server-paged, the grid's search box filters by name), because the list can hold hundreds of tenants (AD-03). Next or a
 double-click opens the shared `ImpersonateTenantDialog` (moved to `domains/platform/components`, since the Tenants app
