@@ -229,6 +229,9 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
                 Alerts.Warning(L["UserLockedOutMessage"]);
                 return Page();
 
+            case SignInResolutionOutcome.MustChangePassword:
+                return await ToPasswordChangeAsync(resolution.Choices[0]);
+
             case SignInResolutionOutcome.NotAllowed:
                 await SaveFailedSecurityLogAsync(IdentitySecurityLogActionConsts.LoginNotAllowed);
                 Alerts.Warning(L["LoginIsNotAllowed"]);
@@ -348,6 +351,36 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
     }
 
     /// <summary>
+    /// The password was valid where the user must choose a new one first (an administrator asked for it, or the password
+    /// period ran out): ABP would only refuse the sign-in. The reset-password page takes over with a fresh one-time token
+    /// and comes back to this sign-in afterwards (docs/designs/62-sign-in-tenant-detection.md, "Password recovery").
+    /// Where that holds in several places, the host or the first organisation by name goes first.
+    /// </summary>
+    private async Task<IActionResult> ToPasswordChangeAsync(SignInChoice choice)
+    {
+        using (CurrentTenant.Change(choice.TenantId))
+        {
+            await IdentityOptions.SetAsync();
+            var user = await UserManager.FindByIdAsync(choice.UserId.ToString());
+            if (user == null || !user.IsActive)
+            {
+                Alerts.Warning(L["LoginIsNotAllowed"]);
+                return BackToPassword();
+            }
+
+            /* The token goes in the reset page's sealed cookie, never in a URL (request logs, history, Referer). */
+            var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+            var link = new PasswordLink(user.Id, choice.TenantId?.ToString(), token, Change: true, HasLocalReturnUrl ? ReturnUrl : null);
+            Response.Cookies.Append(
+                PasswordLinkProtector.CookieName,
+                LazyServiceProvider.LazyGetRequiredService<PasswordLinkProtector>().Protect(link),
+                CookieOptions(SameSiteMode.Lax, null));
+            Logger.LogInformation("User {UserId} (tenant {TenantId}) must choose a new password before signing in", user.Id, choice.TenantId);
+            return RedirectToPage("./ResetPassword");
+        }
+    }
+
+    /// <summary>
     /// The accounts the password was valid in, each bound to its user and the hash of its current security stamp, read in
     /// its own tenant (docs/designs/63-user-menu.md). A place that cannot be read is left out: the menu then asks for its
     /// password.
@@ -433,13 +466,5 @@ public class OpenTmsLoginModel : OpenIddictSupportedLoginModel
     private SignInTenantSelection? ReadSelection() =>
         _selectionProtector.Unprotect(Request.Cookies[SignInTenantSelectionProtector.CookieName]);
 
-    private CookieOptions CookieOptions(SameSiteMode sameSite, DateTimeOffset? expires) => new()
-    {
-        HttpOnly = true,
-        Secure = Request.IsHttps,
-        SameSite = sameSite,
-        Path = "/Account",
-        Expires = expires,
-        IsEssential = true,
-    };
+    private CookieOptions CookieOptions(SameSiteMode sameSite, DateTimeOffset? expires) => SignInCookies.Options(Request, sameSite, expires);
 }

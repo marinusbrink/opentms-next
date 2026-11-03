@@ -32,7 +32,7 @@ navigatiepaneel links heeft twee onderdelen:
 4. Vul de **Voornaam beheerder**, **Achternaam beheerder** en het **E-mailadres beheerder**
    in (alle drie verplicht). De naam komt op het account van de beheerder. Op het
    e-mailadres ontvangt de beheerder van de tenant een e-mail met een link om zelf een
-   wachtwoord te kiezen. Er wordt nooit een wachtwoord
+   wachtwoord te kiezen; de link is 7 dagen geldig. Er wordt nooit een wachtwoord
    gemaild. De e-mail wordt alleen echt verstuurd als de functie **E-mailverzending** voor de
    tenant aan staat; staat die uit, dan wordt de uitnodiging alleen gelogd. Je kunt de
    uitnodiging later opnieuw versturen.

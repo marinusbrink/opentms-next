@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using OpenTms.Platform.Accounts;
 using OpenTms.Platform.Emailing;
 using OpenTms.Platform.DocumentRendering;
 using Volo.Abp.Application;
@@ -34,6 +36,12 @@ namespace OpenTms.Platform;
 )]
 public class PlatformApplicationModule : AbpModule
 {
+    public override void PreConfigureServices(ServiceConfigurationContext context)
+    {
+        /* Invitation links get a token provider of their own, so they stay valid longer than reset links. */
+        PreConfigure<IdentityBuilder>(builder => builder.AddTokenProvider<InvitationTokenProvider>(InvitationTokenProvider.ProviderName));
+    }
+
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         /* Design 64: ABP's mail goes through the send log; the mail service is Integrations' (it replaces the provider). */
