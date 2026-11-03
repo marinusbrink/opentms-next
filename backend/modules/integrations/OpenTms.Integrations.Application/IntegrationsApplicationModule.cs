@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Integrations.Emailing.Postmark;
+using OpenTms.Integrations.OrderIntake;
+using OpenTms.Integrations.OrderIntake.Ai;
 using OpenTms.Integrations.Routing;
 using OpenTms.Integrations.ServiceSettings;
 using OpenTms.Platform;
@@ -13,7 +15,9 @@ using OpenTms.Platform.DocumentRendering;
 using OpenTms.Platform.Emailing;
 using Volo.Abp;
 using Volo.Abp.Application;
+using Volo.Abp.BackgroundJobs;
 using Volo.Abp.BackgroundWorkers;
+using Volo.Abp.BlobStoring;
 using Volo.Abp.Caching;
 using Volo.Abp.Modularity;
 using Volo.Abp.SettingManagement;
@@ -27,7 +31,9 @@ namespace OpenTms.Integrations;
     typeof(AbpDddApplicationModule),
     typeof(AbpCachingModule),
     typeof(AbpBackgroundWorkersModule),
-    typeof(AbpSettingManagementDomainModule)
+    typeof(AbpSettingManagementDomainModule),
+    typeof(AbpBlobStoringModule),
+    typeof(AbpBackgroundJobsAbstractionsModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {
@@ -47,6 +53,7 @@ public class IntegrationsApplicationModule : AbpModule
         ConfigureRouting(context);
         ConfigurePostmark(context);
         ConfigureServiceSettings(context);
+        ConfigureOrderIntakePipeline(context);
     }
 
     public override async Task OnApplicationInitializationAsync(ApplicationInitializationContext context)
@@ -137,6 +144,24 @@ public class IntegrationsApplicationModule : AbpModule
             .AddCheck<RoutingHealthCheck>(RoutingHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
             .AddCheck<RouteFunctionHealthCheck>(RouteFunctionHealthCheck.Name, tags: [RoutingHealthCheck.Tag])
             .AddCheck<RouteOptimizerHealthCheck>(RouteOptimizerHealthCheck.Name, tags: [RoutingHealthCheck.Tag]);
+    }
+
+    /* Design 72: the import pipeline of the order intake. The pipeline's own services (recorder, mail parsing, extractors,
+     * matcher, executor, learner, processor, jobs, event handlers) register by convention; the blob container
+     * InboundDocumentContainer uses the default (database) provider like every container (AD-09). Here: the AI settings
+     * (deployment defaults from "Integrations:OrderIntake:Ai", overlaid by the host's saved settings; resolved per use from
+     * the options monitor so a save applies at once), the price table of the metering, and the vendor adapter behind
+     * ILanguageModelClient (AD-21: a second vendor is this registration and an adapter). The named HttpClient outlives
+     * the SDK's own ten-minute ceiling: a streamed learning answer may take minutes. */
+    private static void ConfigureOrderIntakePipeline(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        context.Services.Configure<OrderIntakeAiOptions>(configuration.GetSection(OrderIntakeAiOptions.SectionName));
+        context.Services.Configure<OrderIntakeAiPriceOptions>(options => Microsoft.Extensions.Configuration.ConfigurationBinder.Bind(configuration.GetSection(OrderIntakeAiPriceOptions.SectionName), options.Models));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<OrderIntakeAiOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<OrderIntakeAiOptions>>().CurrentValue)));
+        context.Services.AddHttpClient(nameof(AnthropicLanguageModelClient), client => client.Timeout = AnthropicLanguageModelClient.Timeout + TimeSpan.FromMinutes(1));
+        context.Services.AddTransient<ILanguageModelClient, AnthropicLanguageModelClient>();
     }
 
     /* Design 64: Postmark behind Platform's IEmailDeliveryProvider. The token and the webhook password come from the
