@@ -133,6 +133,8 @@ public class TransportOrderDtoMapper : ITransientDependency
             Source = o.Source,
             DraftConfidence = o.DraftConfidence,
             SourceTemplateId = o.SourceTemplateId,
+            SourceIntakeId = o.SourceIntakeId,
+            EditedAfterIntake = o.EditedAfterIntake,
             CopyIndex = o.CopyIndex,
             FinancialTerms = TermsDto(o.FinancialTermsInput(), financial),
             TripRequest = o.TripRequest == null ? null : new TransportOrderTripRequestDto

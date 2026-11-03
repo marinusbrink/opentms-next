@@ -80,6 +80,8 @@ public partial class OrdersDbContext
             b.HasIndex(o => new { o.TenantId, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.CustomerRelationId });
             b.HasIndex(o => o.TransportOrderTypeId);
+            /* Design 72: the order of an intake (the review's link, the confirm event). */
+            b.HasIndex(o => new { o.TenantId, o.SourceIntakeId });
             /* Named short: the conventional name passes PostgreSQL's 63-character limit and would be truncated. */
             b.HasIndex(o => new { o.TenantId, o.SourceTemplateId, o.OrderDate, o.CopyIndex }, "IX_TransportOrders_TenantId_Template_Date_Copy").IsUnique().AreNullsDistinct(false).HasFilter("\"SourceTemplateId\" IS NOT NULL AND " + NotDeleted);
             /* The list's wildcard search (design 58): trigram indexes, PostgreSQL only (SQLite ignores the method). */

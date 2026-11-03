@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OpenTms.Orders.ConsignmentNotes;
+using OpenTms.Orders.Intake;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.Platform.EntityFrameworkCore.Localization;
 using OpenTms.Platform.NumberSequences;
@@ -43,6 +44,10 @@ public partial class OrdersDbContext : AbpDbContext<OrdersDbContext>
     public DbSet<ConsignmentNoteDocument> ConsignmentNoteDocuments { get; set; } = default!;
     public DbSet<ConsignmentNoteDocumentLine> ConsignmentNoteDocumentLines { get; set; } = default!;
     public DbSet<OrderAttributeDefinition> OrderAttributeDefinitions { get; set; } = default!;
+
+    /* Design 72: the order intake and its learned aliases. */
+    public DbSet<OrderIntake> OrderIntakes { get; set; } = default!;
+    public DbSet<IntakeAlias> IntakeAliases { get; set; } = default!;
 
     public OrdersDbContext(DbContextOptions<OrdersDbContext> options)
         : base(options)
@@ -128,5 +133,6 @@ public partial class OrdersDbContext : AbpDbContext<OrdersDbContext>
         });
 
         ConfigureTransportOrders(builder);
+        ConfigureOrderIntake(builder);
     }
 }

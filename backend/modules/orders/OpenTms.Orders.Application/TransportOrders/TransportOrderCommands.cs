@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Orders.Events;
+using OpenTms.Orders.Intake;
 using OpenTms.PlanningExecution.Published;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.DerivedValues;
@@ -33,6 +34,8 @@ public class TransportOrderCommands : ITransientDependency
     private readonly ILegReader _legs;
     private readonly IGuidGenerator _guids;
     private readonly ICurrentTenant _currentTenant;
+    private readonly IRepository<OrderIntake, Guid> _intakes;
+    private readonly IntakeAliasLearner _aliasLearner;
 
     public ILogger<TransportOrderCommands> Logger { get; set; } = NullLogger<TransportOrderCommands>.Instance;
 
@@ -44,7 +47,9 @@ public class TransportOrderCommands : ITransientDependency
         IDerivedValueScheduler derivedValues,
         ILegReader legs,
         IGuidGenerator guids,
-        ICurrentTenant currentTenant)
+        ICurrentTenant currentTenant,
+        IRepository<OrderIntake, Guid> intakes,
+        IntakeAliasLearner aliasLearner)
     {
         _orders = orders;
         _references = references;
@@ -54,14 +59,20 @@ public class TransportOrderCommands : ITransientDependency
         _legs = legs;
         _guids = guids;
         _currentTenant = currentTenant;
+        _intakes = intakes;
+        _aliasLearner = aliasLearner;
     }
 
     /// <summary>
     /// A new order from a draft: ids checked, the pattern from the type when the draft has none, lines without stops
     /// started from the pattern, Draft or (with <paramref name="confirm"/>) Open with its number. Publishes
     /// TransportOrderLinesChanged for a Draft (pricing), the Confirm events for an Open order; requests the summary.
+    /// Design 72: <paramref name="sourceIntakeId"/> links the order to the intake it came from; with
+    /// <paramref name="confirmOnlyWhenComplete"/> a confirm the type's rules would refuse leaves a Draft instead of an
+    /// error (the automatic confirm of an intake).
     /// </summary>
-    public async Task<TransportOrder> CreateAsync(TransportOrderDraft draft, OrderSource source, decimal? draftConfidence, Guid? sourceTemplateId, int copyIndex, bool confirm)
+    public async Task<TransportOrder> CreateAsync(TransportOrderDraft draft, OrderSource source, decimal? draftConfidence, Guid? sourceTemplateId, int copyIndex, bool confirm,
+        Guid? sourceIntakeId = null, bool confirmOnlyWhenComplete = false)
     {
         Check.NotNull(draft, nameof(draft));
         var type = await _references.GetOrderTypeAsync(draft.Header.TransportOrderTypeId);
@@ -70,6 +81,7 @@ public class TransportOrderCommands : ITransientDependency
         var order = new TransportOrder(_guids.Create(), _currentTenant.Id, draft.Header with { CustomerName = customerName }, draft.Terms, source, _guids.Create);
         order.SetDraftConfidence(draftConfidence);
         order.SetSourceTemplate(sourceTemplateId, copyIndex);
+        order.SetSourceIntake(sourceIntakeId);
         order.SetAttributes(draft.Attributes);
         order.SetDefaultStops(draft.DefaultStops.Count > 0
             ? draft.DefaultStops
@@ -86,9 +98,9 @@ public class TransportOrderCommands : ITransientDependency
 
         await _orders.InsertAsync(order, autoSave: true);
 
-        if (confirm)
+        if (confirm && (!confirmOnlyWhenComplete || await IsCompleteAsync(order, type)))
         {
-            await ConfirmAsync(order, type);
+            await ConfirmCoreAsync(order, type);
         }
         else
         {
@@ -100,16 +112,68 @@ public class TransportOrderCommands : ITransientDependency
         return order;
     }
 
-    /// <summary>Draft → Open: the type's rules, the number, the events Planning and Financial react to (design 58 "Confirm").</summary>
+    /// <summary>
+    /// Draft → Open by a user: the type's rules, the number, the events Planning and Financial react to (design 58
+    /// "Confirm"). A Draft that came from an intake also publishes IntakeOrderConfirmed (design 72), so Integrations counts
+    /// the import profile's values as confirmed, or as edited first; confirmed unedited, its Match fields become aliases.
+    /// </summary>
     public async Task ConfirmAsync(TransportOrder order, TransportOrderType? type = null)
     {
-        type ??= await _references.GetOrderTypeAsync(order.TransportOrderTypeId);
+        await ConfirmCoreAsync(order, type);
+        if (order.SourceIntakeId != null)
+        {
+            var intake = await _intakes.FindAsync(order.SourceIntakeId.Value);
+            if (intake != null)
+            {
+                await _events.PublishAsync(new IntakeOrderConfirmedEto
+                {
+                    IntakeId = intake.Id,
+                    SourceDocumentId = intake.SourceDocumentId,
+                    TransportOrderId = order.Id,
+                    EditedAfterIntake = order.EditedAfterIntake
+                });
+
+                /* Confirmed as the intake made it: the fields resolved only by a Match are learned as aliases, so the next
+                 * intake with the same texts resolves by Alias and may be confirmed automatically (PO decision on design 72). */
+                if (!order.EditedAfterIntake)
+                {
+                    await _aliasLearner.LearnMatchesAsync(intake);
+                }
+            }
+        }
+    }
+
+    /// <summary>Whether Confirm would pass the type's rules now (no number drawn, nothing changed).</summary>
+    private async Task<bool> IsCompleteAsync(TransportOrder order, TransportOrderType type)
+    {
+        var activityOf = await ActivityOfAsync(order);
+        try
+        {
+            order.EnsureComplete(type.RequiredFields, activityOf);
+            return true;
+        }
+        catch (BusinessException e)
+        {
+            Logger.LogInformation("Transport order {OrderId} stays a Draft: confirm refused with {Code}.", order.Id, e.Code);
+            return false;
+        }
+    }
+
+    private async Task<Func<Guid, WaypointActivity?>> ActivityOfAsync(TransportOrder order)
+    {
         var waypointTypes = await _references.WaypointTypesAsync(order.Lines.SelectMany(l => l.Stops).Select(s => s.Details.WaypointTypeId), require: false);
+        return id => waypointTypes.TryGetValue(id, out var w) ? w.Activity : null;
+    }
+
+    private async Task ConfirmCoreAsync(TransportOrder order, TransportOrderType? type)
+    {
+        type ??= await _references.GetOrderTypeAsync(order.TransportOrderTypeId);
+        var activityOf = await ActivityOfAsync(order);
 
         /* The rules first, the number after: a refused confirm draws no number (gapless). */
-        order.EnsureComplete(type.RequiredFields, id => waypointTypes.TryGetValue(id, out var w) ? w.Activity : null);
+        order.EnsureComplete(type.RequiredFields, activityOf);
         var number = await _numbers.NextAsync(type.SequenceKey, type.Numbering);
-        order.Confirm(number, type.RequiredFields, id => waypointTypes.TryGetValue(id, out var w) ? w.Activity : null);
+        order.Confirm(number, type.RequiredFields, activityOf);
         await _orders.UpdateAsync(order, autoSave: true);
 
         var lineIds = order.Lines.Select(l => l.Id).ToList();

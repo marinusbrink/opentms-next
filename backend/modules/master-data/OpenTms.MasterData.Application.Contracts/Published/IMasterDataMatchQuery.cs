@@ -25,6 +25,44 @@ public interface IMasterDataMatchQuery : IApplicationService
 
     /// <summary>Relation addresses by postal code and house number (and country), or name and city, optionally within one relation.</summary>
     Task<List<RelationAddressMatchDto>> FindRelationAddressesAsync(AddressMatchQuery query);
+
+    /* Design 72 "Resolution": transport units, products and temperatures have neither a code nor an id in a document,
+     * only a name; and the AI's choice list holds the transport units' names. */
+
+    /// <summary>The texts one name match may hold; the names of one choice list at most.</summary>
+    public const int MaxNames = 100;
+
+    public const int MaxChoices = 500;
+
+    /// <summary>
+    /// Transport units, products or temperatures (<see cref="ReferenceNameMatchQuery.Kind"/>) whose name equals one of the
+    /// texts, ignoring case and surrounding spaces; archived and soft-deleted rows excluded. Each result says which text it
+    /// matched. Other kinds are refused.
+    /// </summary>
+    Task<List<ReferenceNameMatchDto>> FindReferencesByNameAsync(ReferenceNameMatchQuery query);
+
+    /// <summary>The names of the active transport units, products or temperatures, sorted, at most <see cref="MaxChoices"/>.</summary>
+    Task<List<string>> GetReferenceNamesAsync(MasterDataReferenceKind kind);
+}
+
+/// <summary>Names as a document gives them, matched against one kind of Master Data row.</summary>
+public class ReferenceNameMatchQuery
+{
+    /// <summary>TransportUnit, Product or Temperature.</summary>
+    public MasterDataReferenceKind Kind { get; set; }
+
+    [MaxLength(IMasterDataMatchQuery.MaxNames)]
+    public List<string> Names { get; set; } = new();
+}
+
+public class ReferenceNameMatchDto
+{
+    public Guid Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The text of the query this row matched, as it was given.</summary>
+    public string MatchedText { get; set; } = string.Empty;
 }
 
 /// <summary>What a document says about a party; every field optional, empty fields are not matched.</summary>

@@ -6,7 +6,8 @@ namespace OpenTms.Orders.Permissions;
 
 /// <summary>
 /// The Orders permissions of the predefined roles (docs/designs/71-predefined-roles.md). Approving orders belongs to
-/// both Order entry and Finance (PO 2026-11-02).
+/// both Order entry and Finance (PO 2026-11-02). Design 72 "Predefined roles": Order entry resolves and rejects order
+/// intakes; Planner and Read-only see the queue.
 /// </summary>
 public static class OrdersPredefinedRoles
 {
@@ -23,10 +24,12 @@ public static class OrdersPredefinedRoles
             P.TransportOrders.Default, P.TransportOrders.Create, P.TransportOrders.Update, P.TransportOrders.Confirm,
             P.TransportOrders.Cancel, P.TransportOrders.Approve, P.TransportOrders.Revise, P.TransportOrders.Print,
             P.TransportOrderTemplates.Create, P.TransportOrderTemplates.Update);
+        options.Grant(PlatformRoleNames.OrderEntry, P.OrderIntakes.Default, P.OrderIntakes.Resolve, P.OrderIntakes.Reject);
 
         options.Grant(PlatformRoleNames.Planner, SettingViews);
         options.Grant(PlatformRoleNames.Planner,
             P.TransportOrders.Default, P.TransportOrders.Update, P.TransportOrders.Print);
+        options.Grant(PlatformRoleNames.Planner, P.OrderIntakes.Default);
 
         options.Grant(PlatformRoleNames.Finance, SettingViews);
         options.Grant(PlatformRoleNames.Finance,
@@ -42,6 +45,6 @@ public static class OrdersPredefinedRoles
             P.OrderAttributeDefinitions.Default, P.OrderAttributeDefinitions.Create, P.OrderAttributeDefinitions.Update, P.OrderAttributeDefinitions.Delete);
 
         options.Grant(PlatformRoleNames.ReadOnly, SettingViews);
-        options.Grant(PlatformRoleNames.ReadOnly, P.TransportOrders.Default);
+        options.Grant(PlatformRoleNames.ReadOnly, P.TransportOrders.Default, P.OrderIntakes.Default);
     }
 }

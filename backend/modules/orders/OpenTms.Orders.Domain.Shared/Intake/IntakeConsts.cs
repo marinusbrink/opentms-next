@@ -7,6 +7,16 @@ namespace OpenTms.Orders.Intake;
 /// </summary>
 public static class IntakeConsts
 {
+    /// <summary>
+    /// The tenant feature that switches the order intake on (design 72 "Features"). Defined by Integrations
+    /// (<c>IntegrationsFeatures.OrderIntake</c>); Orders never references Integrations (module boundary rule 2), so the name
+    /// is repeated here as a literal and must stay equal to it.
+    /// </summary>
+    public const string OrderIntakeFeature = "Integrations.OrderIntake";
+
+    /// <summary>The order types and waypoint types the resolver and the learning context read at most.</summary>
+    public const int MaxTypes = 500;
+
     /* The intake record. */
 
     /// <summary>The Integrations channel's name ("Gmail", "Microsoft365", "Api").</summary>

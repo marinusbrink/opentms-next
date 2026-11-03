@@ -663,6 +663,7 @@
     "Orders:IntakeResolutionMethod.Match": "Overeenkomst",
     "Orders:IntakeResolutionMethod.Default": "Standaard",
     "Orders:IntakeResolutionMethod.Pattern": "Patroon",
+    "Orders:IntakeStopContact": "Contactpersoon",
     "Orders:IntakeResolutionMethod.User": "Gekozen door gebruiker"
   }
 }

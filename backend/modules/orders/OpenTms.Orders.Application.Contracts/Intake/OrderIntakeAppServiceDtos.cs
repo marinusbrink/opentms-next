@@ -12,7 +12,8 @@ namespace OpenTms.Orders.Intake;
 /// <summary>
 /// The review queue of the Transport app's Intake view (design 72 "Review"), route root <c>/api/orders/order-intake</c>:
 /// the list, one intake with its resolution, resolve (create the order with the clerk's picks), reject, and the learned
-/// aliases (<c>GET /aliases</c>, <c>DELETE /aliases/{id}</c>).
+/// aliases (<c>GET /aliases</c>, <c>DELETE /aliases/{aliasId}</c>). The method names give these routes by ABP's
+/// conventional-controller rules (the verb prefix is removed, a single <c>…Id</c> parameter follows the action name).
 /// </summary>
 public interface IOrderIntakeAppService : IApplicationService
 {
@@ -27,7 +28,8 @@ public interface IOrderIntakeAppService : IApplicationService
 
     Task<GridResponse<IntakeAliasDto>> GetAliasesAsync(IntakeAliasListRequestDto input);
 
-    Task DeleteAliasAsync(Guid id);
+    /// <summary>Deletes one learned alias; named for its route <c>DELETE /api/orders/order-intake/aliases/{aliasId}</c>.</summary>
+    Task DeleteAliasesAsync(Guid aliasId);
 }
 
 // ── list ───────────────────────────────────────────────────────────────────────
