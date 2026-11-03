@@ -24,6 +24,8 @@
     <ProjectReference Include="..\OpenTms.Integrations.Application.Contracts\OpenTms.Integrations.Application.Contracts.csproj" />
     <!-- Platform's published surface: the rendering-provider abstraction the pdfgeneratorapi adapter implements (design 55). -->
     <ProjectReference Include="..\..\platform\OpenTms.Platform.Application.Contracts\OpenTms.Platform.Application.Contracts.csproj" />
+    <!-- Design 72 (module boundary rule 3, calls 1–4): Orders' published IOrderIntakeService and ITransportOrderLookup. -->
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Application.Contracts\OpenTms.Orders.Application.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

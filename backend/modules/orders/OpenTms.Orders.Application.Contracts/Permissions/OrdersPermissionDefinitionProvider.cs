@@ -29,6 +29,11 @@ public class OrdersPermissionDefinitionProvider : PermissionDefinitionProvider
         Crud(group, OrdersPermissions.ConsignmentNoteProfiles.Default, "ConsignmentNoteProfiles");
         Crud(group, OrdersPermissions.ConsignmentNoteFixedDescriptions.Default, "ConsignmentNoteFixedDescriptions");
         Crud(group, OrdersPermissions.OrderAttributeDefinitions.Default, "OrderAttributeDefinitions");
+
+        /* Design 72: the intake queue is tenant data only. */
+        var intakes = group.AddPermission(OrdersPermissions.OrderIntakes.Default, L("Permission:OrderIntakes"), MultiTenancySides.Tenant);
+        intakes.AddChild(OrdersPermissions.OrderIntakes.Resolve, L("Permission:OrderIntakes.Resolve"), MultiTenancySides.Tenant);
+        intakes.AddChild(OrdersPermissions.OrderIntakes.Reject, L("Permission:OrderIntakes.Reject"), MultiTenancySides.Tenant);
     }
 
     private static PermissionDefinition Crud(PermissionGroupDefinition group, string name, string entity)
