@@ -16,8 +16,8 @@ namespace OpenTms.Platform.Tenants;
 
 /// <summary>
 /// Invites a new tenant's administrator (PO decision D2): the password the seed set is random and never sent;
-/// the email carries a one-time link to ABP's own reset-password page on the auth server, where the administrator
-/// chooses a password. The link expires with Identity's token lifespan; "Resend invitation" makes a new one.
+/// the email carries a one-time link to the reset-password page on the auth server, where the administrator chooses a
+/// password. The link expires after <see cref="PasswordLinkLifetimes.Invitation"/>; "Resend invitation" makes a new one.
 /// </summary>
 public class TenantInvitationSender : ITransientDependency
 {
@@ -58,7 +58,7 @@ public class TenantInvitationSender : ITransientDependency
                 throw new InvalidOperationException("The tenant administrator has no email address.");
             }
 
-            var link = await _passwordLinks.BuildAsync(admin);
+            var link = await _passwordLinks.BuildAsync(admin, PasswordLinkKind.Invitation);
 
             await _emailSender.SendAsync(
                 admin.Email,

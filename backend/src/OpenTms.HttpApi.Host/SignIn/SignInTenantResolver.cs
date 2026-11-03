@@ -17,6 +17,12 @@ public enum SignInResolutionOutcome
     Invalid,
     LockedOut,
     NotAllowed,
+    /// <summary>
+    /// The password is valid, but nowhere the user may sign in yet: in the places of <see cref="SignInResolution.Choices"/>
+    /// the user must first choose a new password (an administrator asked for it, or the password is older than the
+    /// tenant's password period).
+    /// </summary>
+    MustChangePassword,
     /// <summary>The password was valid nowhere, and a tenant that has this address could not be asked.</summary>
     Unavailable,
     /// <summary>The credentials are valid in exactly one place: sign in there.</summary>
@@ -62,12 +68,25 @@ public class SignInTenantResolver : ITransientDependency
     /// <summary>Whether a user with this e-mail address exists in an active tenant or the host (step 1 of the page).</summary>
     public async Task<bool> IsKnownEmailAsync(string email) => (await FindPlacesAsync(Normalize(email))).Count > 0;
 
+    /// <summary>
+    /// Every account of an e-mail address in an active tenant or the host, without any password ("Forgot password?");
+    /// the host first. Each is still to be read again in its own tenant: a lookup row can be stale.
+    /// </summary>
+    public async Task<IReadOnlyList<SignInChoice>> FindAccountsAsync(string email) =>
+        (await FindPlacesAsync(Normalize(email)))
+            .Select(place => new SignInChoice(place.Candidate.TenantId, place.TenantName, place.Candidate.UserId))
+            .DistinctBy(choice => choice.TenantId)
+            .OrderBy(choice => choice.TenantId == null ? 0 : 1)
+            .ThenBy(choice => choice.TenantName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     public async Task<SignInResolution> ResolveAsync(string email, string password)
     {
         var normalizedEmail = Normalize(email);
         var places = await FindPlacesAsync(normalizedEmail);
 
         var choices = new List<SignInChoice>();
+        var mustChangePassword = new List<SignInChoice>();
         var outcomes = new List<SignInCredentialOutcome?>();
         var failed = new List<SignInCandidate>();
         foreach (var (candidate, tenantName) in places)
@@ -88,6 +107,10 @@ public class SignInTenantResolver : ITransientDependency
             {
                 choices.Add(new SignInChoice(candidate.TenantId, tenantName, candidate.UserId));
             }
+            else if (outcome == SignInCredentialOutcome.MustChangePassword && mustChangePassword.All(c => c.TenantId != candidate.TenantId))
+            {
+                mustChangePassword.Add(new SignInChoice(candidate.TenantId, tenantName, candidate.UserId));
+            }
             else if (outcome == SignInCredentialOutcome.Failed)
             {
                 failed.Add(candidate);
@@ -104,6 +127,14 @@ public class SignInTenantResolver : ITransientDependency
             return new SignInResolution(
                 SignInResolutionOutcome.Multiple,
                 choices.OrderBy(c => c.TenantId == null ? 0 : 1).ThenBy(c => c.TenantName, StringComparer.OrdinalIgnoreCase).ToList());
+        }
+
+        /* The password was valid, so nothing counts towards lockout; the user chooses a new password first. */
+        if (mustChangePassword.Count > 0)
+        {
+            return new SignInResolution(
+                SignInResolutionOutcome.MustChangePassword,
+                mustChangePassword.OrderBy(c => c.TenantId == null ? 0 : 1).ThenBy(c => c.TenantName, StringComparer.OrdinalIgnoreCase).ToList());
         }
 
         var lockedOut = outcomes.Contains(SignInCredentialOutcome.LockedOut);

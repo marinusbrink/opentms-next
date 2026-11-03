@@ -9,8 +9,10 @@ public enum SignInCredentialOutcome
     NotFound,
     Failed,
     LockedOut,
-    /// <summary>The password is valid, but the user may not sign in (inactive, must change the password, unconfirmed).</summary>
+    /// <summary>The password is valid, but the user may not sign in (inactive, unconfirmed).</summary>
     NotAllowed,
+    /// <summary>The password is valid and the user is active, but must choose a new password before signing in.</summary>
+    MustChangePassword,
     Succeeded,
 }
 

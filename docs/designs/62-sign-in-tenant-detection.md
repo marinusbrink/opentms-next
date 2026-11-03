@@ -144,6 +144,59 @@ behind one plain card; this page keeps that and moves the card to the right, wit
   (unsplash.com/photos/witlTfO65b8), 2400 × 1600, under the Unsplash License (free commercial use, no attribution
   required; PO 2026-10-27: no credit on the page). Chosen by the PO from three candidates.
 
+## Password recovery
+
+Fix of 2026-11-03 (PO report: "password change links do not work; after the change it redirects to the API, not the UI;
+the forgot-password link does not work either"). ABP's own account pages for passwords assumed a tenant chosen up front
+and an MVC app on the auth server; four ways users got locked out:
+
+1. after choosing a password through an invitation or reset link, "Go to the application" pointed at the auth server's
+   root, which opens Swagger UI (the links carried no return URL);
+2. "Forgot password?" looked the address up only in the tenant of ABP's tenant switch, the host unless the user typed
+   the organisation's name: a tenant user was told the address was unknown. It also put the sign-in request into the
+   mail, so the link only worked in the browser that asked;
+3. "Must change password at next sign-in" made ABP refuse the sign-in ("login is not allowed"): the open-source
+   Account module has no page to change it, and a reset link did not clear the flag;
+4. links expired after Identity's day without saying so, invitations included.
+
+What the pages do now (`Pages/Account`, all pinned to the host by `SignInPageTenantResolveContributor`, so ABP's tenant
+switch never shows):
+
+- **ForgotPassword** finds every account of the address in active tenants and the host (`SignInTenantResolver
+  .FindAccountsAsync`, the sign-in lookup) and sends each its own mail, in its own tenant and transaction
+  (`ForgotPasswordMailer`), naming the organisation (PO 2026-11-03: one mail per organisation). An unknown address is
+  told so, as step 1 of sign-in tells it; when no mail could go out (mail off for the organisation) the page says so
+  instead of "sent". The address is pre-filled from step 1. The mail carries no return URL.
+- **ResetPassword** takes the link (user, `__tenant`, token) from the mail link's query string once, seals it into an
+  HttpOnly cookie (`PasswordLinkProtector`, one hour) and redirects to its own address without it: the token is not in
+  the address bar, the history, a Referer, the form or the log lines of the requests that follow. It changes to the
+  link's tenant itself; an inactive or unknown tenant,
+  user or token shows "this link no longer works" with the way to a new one. Choosing the password also clears
+  `ShouldChangePasswordOnNextLogin`, the lockout and the failed-attempt count (the user has just proved the mailbox),
+  writes ABP's `ChangePassword` security log entry and remembers the address for sign-in step 2 (browser session only).
+- **ResetPasswordConfirmation** goes on to the SPA (`SpaUrl.Root`), or back to the sign-in the user came from.
+- **Sign-in**: where the password is valid but the user must change it first (the flag, or ABP's periodic password
+  change, and nothing else stands in the way: an unconfirmed address stays "not allowed"), the credential check says
+  `MustChangePassword` (no failure is counted) and the page hands ResetPassword a fresh reset token and the sign-in's
+  return URL in that cookie, never in a URL; afterwards the user signs in with the new password.
+  A place where the password signs in goes before one that must change it.
+- **Lifetimes** (PO 2026-11-03): invitations 7 days (`InvitationTokenProvider`, a token provider of its own: Identity's
+  data-protection token with a time-limited protector, bound to user, purpose and security stamp), reset links 24 hours
+  (Identity's own reset token, its default lifetime). Every mail says how long its link works. The time-limited
+  protector comes from `Microsoft.AspNetCore.DataProtection.Extensions` (a package reference of Platform.Application;
+  the ASP.NET Core framework reference that would give Identity's own `DataProtectorTokenProvider` makes `IdentityUser`
+  ambiguous across Platform). `PasswordLinkTokens`
+  accepts either kind on the page and exchanges an invitation token for a reset token.
+
+- **Logs** (constitution rule 5): the mail link's first request still carries the token, and ASP.NET Core's request
+  lines log the query string; `PasswordTokenRedactingEnricher` (Program.cs) replaces every `resetToken=` value in log
+  properties with `REDACTED`. Cloud Run's own request log records the URL of that first request too; the token in it
+  is one-time and, by then, usually spent.
+
+Tests: `PasswordRecoveryHostTests` drives the pages through the real host on PostgreSQL (a tenant with its own
+database, one in the host database, the host): where the browser lands, one mail per place in its own tenant, a link
+with another tenant in it, a spent link, an invitation, a lockout ended by a reset, the forced change at sign-in.
+
 ## Lookup
 
 `platform."UserSignInLookups"` (`UserSignInLookup`): `Id` = the user's id, `UserTenantId` (null for the host),
@@ -232,7 +285,12 @@ service, job or instance.
 - **No integration test drives the page itself** (handlers, cookies, redirect to the authorize endpoint) or the real
   credential checker against Identity; the browser walk-through covered them by hand. A Playwright spec for the three
   steps is the follow-up.
-- **ForgotPassword** still uses ABP's tenant switch: a tenant user resetting a password picks the tenant there first.
+- ~~**ForgotPassword** still uses ABP's tenant switch~~: resolved 2026-11-03, see "Password recovery".
+- **ABP's account API** (`POST /api/account/send-password-reset-code`, `/api/account/reset-password`, unused by the SPA)
+  still works within the tenant of the request and does not clear "must change the password"; like the cookie-login
+  API below, removing it is for the PO to decide.
+- **No browser (Playwright) spec** walks password recovery yet; `PasswordRecoveryHostTests` drives the real pages over
+  HTTP, and the walk-through of 2026-11-03 covered them in a browser by hand.
 - **The SPA's "Switch organisation"** (user menu) stores a tenant and signs out; the sign-in page now ignores that
   tenant, so the menu item amounts to signing out. Removing it, with the stored tenant and the `__tenant` header, is
   for the PO to decide.

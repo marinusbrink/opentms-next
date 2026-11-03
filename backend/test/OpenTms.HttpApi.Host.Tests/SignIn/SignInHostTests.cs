@@ -212,6 +212,54 @@ public class SignInTenantResolverTests
         _lookup.Asked.ShouldAllBe(hash => !hash.Contains("JAN", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task A_valid_password_where_the_user_must_change_it_leads_to_choosing_one_and_counts_no_failure()
+    {
+        _lookup.Add("jan@example.test", new SignInCandidate(TenantA, UserInA), new SignInCandidate(TenantB, UserInB));
+        _checker.Outcomes[UserInA] = SignInCredentialOutcome.MustChangePassword;
+
+        var resolution = await Resolver().ResolveAsync("jan@example.test", Password);
+
+        resolution.Outcome.ShouldBe(SignInResolutionOutcome.MustChangePassword);
+        resolution.Choices.ShouldHaveSingleItem().ShouldBe(new SignInChoice(TenantA, "filogic-opemtms", UserInA));
+        _checker.FailuresRecorded.ShouldBeEmpty("the password was valid in tenant A: B's lockout must not move");
+    }
+
+    [Fact]
+    public async Task A_place_that_signs_in_goes_before_one_that_must_change_the_password()
+    {
+        _lookup.Add("jan@example.test", new SignInCandidate(TenantA, UserInA), new SignInCandidate(TenantB, UserInB));
+        _checker.Outcomes[UserInA] = SignInCredentialOutcome.MustChangePassword;
+        _checker.Outcomes[UserInB] = SignInCredentialOutcome.Succeeded;
+
+        var resolution = await Resolver().ResolveAsync("jan@example.test", Password);
+
+        resolution.Outcome.ShouldBe(SignInResolutionOutcome.Single);
+        resolution.Choices.ShouldHaveSingleItem().TenantId.ShouldBe(TenantB);
+    }
+
+    [Fact]
+    public async Task Forgot_password_finds_every_account_of_the_address_in_active_places_the_host_first()
+    {
+        var inactive = Guid.NewGuid();
+        _tenants.Add(inactive, "closed-down", isActive: false);
+        _lookup.Add("jan@example.test",
+            new SignInCandidate(TenantB, UserInB),
+            new SignInCandidate(inactive, Guid.NewGuid()),
+            new SignInCandidate(null, UserInHost),
+            new SignInCandidate(TenantA, UserInA));
+
+        var accounts = await Resolver().FindAccountsAsync(" Jan@Example.test ");
+
+        accounts.ShouldBe([
+            new SignInChoice(null, null, UserInHost),
+            new SignInChoice(TenantB, "acme-transport", UserInB),
+            new SignInChoice(TenantA, "filogic-opemtms", UserInA),
+        ]);
+        _checker.Checked.ShouldBeEmpty("no password is checked for a forgotten password");
+        (await Resolver().FindAccountsAsync("nobody@example.test")).ShouldBeEmpty();
+    }
+
     private sealed class FakeLookupStore : IUserSignInLookupStore
     {
         private readonly Dictionary<string, List<SignInCandidate>> _rows = new();
@@ -455,10 +503,15 @@ public class SignInPageTenantResolveContributorTests
     [Theory]
     [InlineData("/Account/Login", true)]
     [InlineData("/account/login", true)]
-    [InlineData("/Account/ForgotPassword", false)]
-    [InlineData("/Account/ResetPassword", false)]
+    [InlineData("/Account/ForgotPassword", true)]
+    [InlineData("/Account/PasswordResetLinkSent", true)]
+    [InlineData("/Account/ResetPassword", true)]
+    [InlineData("/account/resetpassword/", true)]
+    [InlineData("/Account/ResetPasswordConfirmation", true)]
+    [InlineData("/Account/Manage", false)]
     [InlineData("/api/abp/application-configuration", false)]
-    public async Task Only_the_sign_in_page_is_pinned_to_the_host(string path, bool handled)
+    [InlineData("/api/account/reset-password", false)]
+    public async Task Only_the_sign_in_and_password_recovery_pages_are_pinned_to_the_host(string path, bool handled)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Path = path;
@@ -471,7 +524,7 @@ public class SignInPageTenantResolveContributorTests
         await new SignInPageTenantResolveContributor().ResolveAsync(context);
 
         context.Handled.ShouldBe(handled);
-        context.TenantIdOrName.ShouldBeNull("the sign-in page runs in the host; a pre-selected __tenant is ignored");
+        context.TenantIdOrName.ShouldBeNull("these pages run in the host; a pre-selected __tenant is ignored");
     }
 
     private sealed class ResolveContext(IServiceProvider serviceProvider) : ITenantResolveContext

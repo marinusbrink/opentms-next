@@ -110,15 +110,16 @@ Selecteer eerst meerdere rijen om ze in één keer te verwijderen.
    - **Gebruikersnaam** (verplicht) — uniek binnen uw organisatie.
 3. Stel in het vak **Toegang** de aanmelding in:
    - **Uitnodiging per e-mail sturen** (standaard) — de gebruiker krijgt een
-     e-mail met een link om zelf een wachtwoord te kiezen. De link werkt één keer.
-     Niemand anders kent het wachtwoord. Staat **E-mailverzending** voor uw
+     e-mail met een link om zelf een wachtwoord te kiezen. De link werkt één keer
+     en is 7 dagen geldig. Niemand anders kent het wachtwoord. Staat **E-mailverzending** voor uw
      organisatie niet aan, dan kan de uitnodiging niet worden verstuurd: OpenTMS
      meldt dat en maakt de gebruiker niet aan. Kies dan de andere optie.
    - **Zelf een wachtwoord instellen** — vul een **Wachtwoord** in dat voldoet aan
      het wachtwoordbeleid en geef het zelf door aan de gebruiker.
    - **Moet wachtwoord wijzigen bij volgende aanmelding** (alleen bij een zelf
-     ingesteld wachtwoord) — de gebruiker krijgt bij de eerstvolgende aanmelding
-     eerst het scherm om een nieuw wachtwoord te kiezen.
+     ingesteld wachtwoord) — de gebruiker logt de eerstvolgende keer in met dat
+     wachtwoord en kiest daarna meteen een nieuw (zie
+     [Aanmelden](aanmelden.md#je-beheerder-vraagt-een-nieuw-wachtwoord)).
    - **Account vergrendelen na mislukte aanmeldingen** — standaard aan. Na een
      aantal verkeerde wachtwoorden wordt het account tijdelijk vergrendeld; wie
      dan probeert aan te melden, ziet de melding dat het account is vergrendeld
@@ -188,8 +189,11 @@ beheren (zie [Leden van een eenheid beheren](#leden-van-een-eenheid-beheren)).
 2. Kies hoe:
    - **Resetlink per e-mail sturen** (standaard) — klik op **Link sturen**. De
      gebruiker krijgt een e-mail met een link om zelf een nieuw wachtwoord te
-     kiezen. Tot de gebruiker dat doet, blijft het huidige wachtwoord werken. Dit
-     kan alleen als **E-mailverzending** voor uw organisatie aan staat.
+     kiezen; de link is 24 uur geldig. Tot de gebruiker dat doet, blijft het huidige
+     wachtwoord werken. Een vergrendeld account is weer open zodra de gebruiker een
+     nieuw wachtwoord heeft gekozen. Dit kan alleen als **E-mailverzending** voor uw
+     organisatie aan staat. Gebruikers kunnen zo'n link ook zelf aanvragen met
+     **Wachtwoord vergeten?** op het aanmeldscherm.
    - **Zelf een wachtwoord instellen** — voer een nieuw wachtwoord in en klik op
      **Wachtwoord opnieuw instellen**. Het nieuwe wachtwoord is direct actief. De
      gebruiker ontvangt geen melding — geef het wachtwoord zelf door.

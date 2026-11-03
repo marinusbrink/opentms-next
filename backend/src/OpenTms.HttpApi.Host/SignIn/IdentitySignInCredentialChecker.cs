@@ -88,11 +88,24 @@ public class IdentitySignInCredentialChecker : ISignInCredentialChecker, ITransi
         /* The pre-sign-in rules run before the password check: "not allowed" only tells a user who knows the password. */
         if (result.IsNotAllowed)
         {
-            return await _signInManager.UserManager.CheckPasswordAsync(user, password)
-                ? SignInCredentialOutcome.NotAllowed
-                : SignInCredentialOutcome.Failed;
+            if (!await _signInManager.UserManager.CheckPasswordAsync(user, password))
+            {
+                return SignInCredentialOutcome.Failed;
+            }
+
+            /* ABP refuses a user who must change the password and offers no page to do it: the sign-in page sends the
+             * user to choose one instead (docs/designs/62-sign-in-tenant-detection.md, "Password recovery"). */
+            /* Only where the password change is all that stands in the way: an unconfirmed address stays "not allowed". */
+            return user.IsActive && await _signInManager.CanSignInAsync(user) && await MustChangePasswordAsync(user)
+                ? SignInCredentialOutcome.MustChangePassword
+                : SignInCredentialOutcome.NotAllowed;
         }
 
         return SignInCredentialOutcome.Failed;
     }
+
+    private async Task<bool> MustChangePasswordAsync(IdentityUser user) =>
+        user.ShouldChangePasswordOnNextLogin
+        || (_signInManager.UserManager is IdentityUserManager identityUserManager
+            && await identityUserManager.ShouldPeriodicallyChangePasswordAsync(user));
 }

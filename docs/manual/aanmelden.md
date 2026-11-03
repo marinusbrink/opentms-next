@@ -74,13 +74,65 @@ je wachtwoord in te stellen.
 
 ---
 
+## Wachtwoord vergeten
+
+1. Klik in de wachtwoordstap op **Wachtwoord vergeten?**. Je e-mailadres staat al
+   ingevuld.
+2. Klik op **Link versturen**. Je kiest geen organisatie: bestaat je account bij meer
+   dan één organisatie, dan krijg je voor elke organisatie een eigen e-mail. In de
+   e-mail staat voor welke organisatie de link is.
+3. Open de e-mail en klik op **Nieuw wachtwoord kiezen**. Dat mag ook op een andere
+   computer of telefoon dan waar je de link aanvroeg.
+4. Vul je nieuwe wachtwoord twee keer in en klik op **Wachtwoord opslaan**.
+5. Klik op **Naar OpenTMS** en log in met je nieuwe wachtwoord. Je e-mailadres staat dan
+   al ingevuld.
+
+De link werkt één keer en is 24 uur geldig. Tot je hem gebruikt, blijft je huidige
+wachtwoord werken. Was je account vergrendeld na te veel mislukte pogingen, dan is die
+vergrendeling opgeheven zodra je een nieuw wachtwoord hebt gekozen.
+
+Kent OpenTMS je e-mailadres niet, dan zegt het scherm dat. Staat het versturen van
+e-mail voor je organisatie uit, dan meldt het scherm dat er geen e-mail kon worden
+verstuurd; vraag dan je beheerder om een link.
+
+<!-- SCREENSHOT: het scherm "Wachtwoord vergeten?" met het e-mailadres en de knop Link versturen -->
+<!-- SCREENSHOT: het scherm "Kies je wachtwoord" met de twee wachtwoordvelden -->
+
+---
+
+## Je beheerder vraagt een nieuw wachtwoord
+
+Heeft je beheerder ingesteld dat je bij de volgende aanmelding een nieuw wachtwoord
+moet kiezen, dan gaat OpenTMS na **Inloggen** met je huidige wachtwoord eerst naar
+**Kies je wachtwoord**. Kies een nieuw wachtwoord, klik op **Wachtwoord opslaan** en
+daarna op **Inloggen**: je logt in met je nieuwe wachtwoord en gaat verder waar je
+heen wilde.
+
+---
+
+## Een link om je wachtwoord te kiezen
+
+Je krijgt zo'n link in een uitnodiging voor een nieuw account, als je beheerder een
+link stuurt, of na **Wachtwoord vergeten?**. Elke link werkt één keer.
+
+| Link | Geldig |
+|---|---|
+| Uitnodiging voor een nieuw account | 7 dagen |
+| Link van je beheerder of na **Wachtwoord vergeten?** | 24 uur |
+
+Werkt een link niet meer (verlopen of al gebruikt), dan zegt het scherm dat. Klik op
+**Nieuwe link aanvragen** om via **Wachtwoord vergeten?** een nieuwe te krijgen, of
+vraag je beheerder om een nieuwe uitnodiging.
+
+---
+
 ## Lukt aanmelden niet?
 
 - **Er is geen account met dit e-mailadres**: controleer het adres, of vraag je beheerder
   of je account bestaat.
 - **Het wachtwoord klopt niet**: probeer het opnieuw. Na te veel mislukte pogingen wordt je
-  account tijdelijk vergrendeld.
+  account tijdelijk vergrendeld. Met **Wachtwoord vergeten?** kies je een nieuw
+  wachtwoord; dat heft de vergrendeling ook op.
 - **Inloggen lukt nu niet**: een van de omgevingen is tijdelijk niet bereikbaar. Probeer
   het later opnieuw.
-- **Wachtwoord vergeten**: klik in de wachtwoordstap op **Wachtwoord vergeten?**. Je kiest
-  daar eerst je organisatie en krijgt dan een e-mail met een link.
+- **Wachtwoord vergeten**: zie [Wachtwoord vergeten](#wachtwoord-vergeten).

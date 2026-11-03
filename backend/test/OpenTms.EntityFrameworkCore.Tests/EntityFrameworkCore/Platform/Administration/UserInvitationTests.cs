@@ -4,7 +4,11 @@ using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using OpenTms.EntityFrameworkCore.Platform.Emailing;
+using OpenTms.Platform.Accounts;
 using OpenTms.Platform.Administration;
 using OpenTms.Platform.Emailing;
 using OpenTms.Platform.Grid;
@@ -16,6 +20,7 @@ using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
 using Xunit;
+using IdentityUser = Volo.Abp.Identity.IdentityUser;
 
 namespace OpenTms.EntityFrameworkCore.Platform.Administration;
 
@@ -67,6 +72,17 @@ public class UserInvitationTests : EmailDeliveryTestBase
         return WebUtility.UrlDecode(match.Groups[1].Value);
     }
 
+    /// <summary>What the reset-password page does with the link's token: either kind is exchanged, then the password is set.</summary>
+    private Task<IdentityResult> ChoosePasswordAsync(Guid id, string linkToken, string password) =>
+        WithUnitOfWorkAsync(async () =>
+        {
+            var user = await _userManager.GetByIdAsync(id);
+            var resetToken = await GetRequiredService<PasswordLinkTokens>().ToResetTokenAsync(user, linkToken);
+            return resetToken == null
+                ? IdentityResult.Failed(new IdentityError { Code = "InvalidToken" })
+                : await _userManager.ResetPasswordAsync(user, resetToken, password);
+        });
+
     private Task<bool> PasswordWorksAsync(Guid id, string password) =>
         WithUnitOfWorkAsync(async () => await _userManager.CheckPasswordAsync((await _userManager.GetByIdAsync(id)), password));
 
@@ -90,9 +106,7 @@ public class UserInvitationTests : EmailDeliveryTestBase
 
         /* The link's token sets the password the user chooses. */
         var token = TokenFrom(mail);
-        var result = await WithUnitOfWorkAsync(async () =>
-            await _userManager.ResetPasswordAsync(await _userManager.GetByIdAsync(created.Id), token, NewPassword));
-        result.Succeeded.ShouldBeTrue();
+        (await ChoosePasswordAsync(created.Id, token, NewPassword)).Succeeded.ShouldBeTrue();
         (await PasswordWorksAsync(created.Id, NewPassword)).ShouldBeTrue();
     }
 
@@ -109,8 +123,7 @@ public class UserInvitationTests : EmailDeliveryTestBase
         (await RowAsync(created.Id)).InvitationPending.ShouldBeTrue();
 
         var token = TokenFrom((await MailsAsync()).Single());
-        await WithUnitOfWorkAsync(async () =>
-            (await _userManager.ResetPasswordAsync(await _userManager.GetByIdAsync(created.Id), token, NewPassword)).Succeeded.ShouldBeTrue());
+        (await ChoosePasswordAsync(created.Id, token, NewPassword)).Succeeded.ShouldBeTrue();
 
         (await RowAsync(created.Id)).InvitationPending.ShouldBeFalse();
     }
@@ -243,8 +256,7 @@ public class UserInvitationTests : EmailDeliveryTestBase
         (await PasswordWorksAsync(created.Id, "Typed-P@ss1")).ShouldBeTrue("nothing changes until the user uses the link");
 
         var token = TokenFrom(mail);
-        await WithUnitOfWorkAsync(async () =>
-            (await _userManager.ResetPasswordAsync(await _userManager.GetByIdAsync(created.Id), token, NewPassword)).Succeeded.ShouldBeTrue());
+        (await ChoosePasswordAsync(created.Id, token, NewPassword)).Succeeded.ShouldBeTrue();
         (await PasswordWorksAsync(created.Id, NewPassword)).ShouldBeTrue();
         (await PasswordWorksAsync(created.Id, "Typed-P@ss1")).ShouldBeFalse();
     }
@@ -257,12 +269,11 @@ public class UserInvitationTests : EmailDeliveryTestBase
         var created = await _users.CreateAsync(Invite());
         var token = TokenFrom((await MailsAsync()).Single());
 
-        await WithUnitOfWorkAsync(async () =>
-            (await _userManager.ResetPasswordAsync(await _userManager.GetByIdAsync(created.Id), token, NewPassword)).Succeeded.ShouldBeTrue());
-        var second = await WithUnitOfWorkAsync(async () =>
-            await _userManager.ResetPasswordAsync(await _userManager.GetByIdAsync(created.Id), token, "Another-P@ss2"));
+        (await ChoosePasswordAsync(created.Id, token, NewPassword)).Succeeded.ShouldBeTrue();
+        var second = await ChoosePasswordAsync(created.Id, token, "Another-P@ss2");
 
         second.Succeeded.ShouldBeFalse();
+        (await PasswordWorksAsync(created.Id, NewPassword)).ShouldBeTrue();
     }
 
     [Fact]
@@ -282,6 +293,77 @@ public class UserInvitationTests : EmailDeliveryTestBase
         using var __ = InTenantA();
         await Should.ThrowAsync<UserFriendlyException>(() => WithUnitOfWorkAsync(() => _users.SendPasswordResetLinkAsync(id)));
         (await MailsAsync()).ShouldBeEmpty();
+    }
+
+    /* ── Link lifetimes (PO decision 2026-11-03) ─────────────────────────────────────────── */
+
+    [Fact]
+    public async Task An_invitation_link_is_valid_for_seven_days_and_says_so()
+    {
+        using var _ = DeliveryOn();
+        using var __ = InTenantA();
+        var before = DateTimeOffset.UtcNow;
+
+        await _users.CreateAsync(Invite());
+
+        var mail = (await MailsAsync()).Single();
+        GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector(InvitationTokenProvider.ProtectorPurpose).ToTimeLimitedDataProtector()
+            .Unprotect(TokenFrom(mail), out var expires);
+        expires.ShouldBeInRange(before.AddDays(7).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(7).AddMinutes(1));
+        mail.HtmlBody!.ShouldContain("7 d", customMessage: "the mail says how long the link works (7 days / 7 dagen)");
+    }
+
+    [Fact]
+    public async Task A_reset_link_carries_Identitys_own_reset_token_of_one_day_and_says_so()
+    {
+        using var _ = DeliveryOn();
+        using var __ = InTenantA();
+        var created = await _users.CreateAsync(new AdministrationUserCreateDto
+        {
+            UserName = "p.jansen", Email = "p.jansen@bakker.example", Password = "Typed-P@ss1"
+        });
+
+        await WithUnitOfWorkAsync(() => _users.SendPasswordResetLinkAsync(created.Id));
+
+        var mail = (await MailsAsync()).Single();
+        mail.HtmlBody!.ShouldContain("24 ", customMessage: "the mail says how long the link works (24 hours / 24 uur)");
+        var token = TokenFrom(mail);
+        (await WithUnitOfWorkAsync(async () => await _userManager.VerifyUserTokenAsync(
+            await _userManager.GetByIdAsync(created.Id), _userManager.Options.Tokens.PasswordResetTokenProvider,
+            UserManager<IdentityUser>.ResetPasswordTokenPurpose, token))).ShouldBeTrue();
+        GetRequiredService<IOptions<DataProtectionTokenProviderOptions>>().Value.TokenLifespan.ShouldBe(PasswordLinkLifetimes.Reset);
+        PasswordLinkLifetimes.Reset.ShouldBe(TimeSpan.FromHours(24));
+    }
+
+    [Fact]
+    public async Task An_expired_invitation_link_no_longer_sets_a_password()
+    {
+        using var _ = DeliveryOn();
+        using var __ = InTenantA();
+        var created = await _users.CreateAsync(Invite());
+        var protector = GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector(InvitationTokenProvider.ProtectorPurpose).ToTimeLimitedDataProtector();
+
+        /* The same token, sealed again with an expiry in the past: what the link is after its 7 days. */
+        var payload = protector.Unprotect(TokenFrom((await MailsAsync()).Single()));
+        var expired = protector.Protect(payload, DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        (await ChoosePasswordAsync(created.Id, expired, NewPassword)).Succeeded.ShouldBeFalse();
+        (await PasswordWorksAsync(created.Id, NewPassword)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_link_is_for_its_own_user_only()
+    {
+        using var _ = DeliveryOn();
+        using var __ = InTenantA();
+        var invited = await _users.CreateAsync(Invite());
+        var other = await _users.CreateAsync(Invite("p.jansen", "p.jansen@bakker.example"));
+        var token = TokenFrom((await MailsAsync()).Single(m => m.To == "j.devries@bakker.example"));
+
+        (await ChoosePasswordAsync(other.Id, token, NewPassword)).Succeeded.ShouldBeFalse();
+        (await ChoosePasswordAsync(invited.Id, token, NewPassword)).Succeeded.ShouldBeTrue();
     }
 
     /* ── Tenant isolation (constitution rule 1) ────────────────────────────────────────────── */

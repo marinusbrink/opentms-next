@@ -19,9 +19,10 @@ using Volo.Abp.MultiTenancy;
 namespace OpenTms.Platform.Administration;
 
 /// <summary>
-/// The two mails that let a user of the current tenant choose a password through ABP's reset-password page: the
-/// invitation of a new user and the reset link an administrator sends. Both refuse up front when e-mail delivery is
-/// not on, because the mail is then dropped and nobody would know the user cannot sign in. The mail is queued in the
+/// The mails that let a user of the current tenant choose a password through the reset-password page: the invitation
+/// of a new user, the reset link an administrator sends and the one a user asks for under "Forgot password?". All
+/// refuse up front when e-mail delivery is not on, because the mail is then dropped and nobody would know the user
+/// cannot sign in. The mail is queued in the
 /// caller's transaction (design 64), so it goes out only with the change that caused it.
 /// </summary>
 public class UserPasswordMailSender : ITransientDependency
@@ -75,8 +76,8 @@ public class UserPasswordMailSender : ITransientDependency
     public async Task SendInvitationAsync(IdentityUser user)
     {
         await EnsureDeliveryAvailableAsync();
-        var link = await _passwordLinks.BuildAsync(user);
-        var organisation = WebUtility.HtmlEncode(_currentTenant.Name ?? "OpenTMS");
+        var link = await _passwordLinks.BuildAsync(user, PasswordLinkKind.Invitation);
+        var organisation = Organisation();
 
         await _emailSender.SendAsync(
             user.Email,
@@ -93,7 +94,7 @@ public class UserPasswordMailSender : ITransientDependency
     public async Task SendPasswordResetLinkAsync(IdentityUser user)
     {
         await EnsureDeliveryAvailableAsync();
-        var link = await _passwordLinks.BuildAsync(user);
+        var link = await _passwordLinks.BuildAsync(user, PasswordLinkKind.Reset);
 
         await _emailSender.SendAsync(
             user.Email,
@@ -103,6 +104,23 @@ public class UserPasswordMailSender : ITransientDependency
 
         Logger.LogInformation("Password reset link sent to user {UserId}", user.Id);
     }
+
+    /// <summary>The link a user asked for on the sign-in page ("Forgot password?"), naming the organisation it is for.</summary>
+    public async Task SendForgotPasswordLinkAsync(IdentityUser user)
+    {
+        await EnsureDeliveryAvailableAsync();
+        var link = await _passwordLinks.BuildAsync(user, PasswordLinkKind.Reset);
+
+        await _emailSender.SendAsync(
+            user.Email,
+            _localizer["Accounts:ForgotPasswordSubject"],
+            _localizer["Accounts:ForgotPasswordBody", GreetingName(user), Organisation(), WebUtility.HtmlEncode(user.Email), link],
+            isBodyHtml: true);
+
+        Logger.LogInformation("Forgot-password link sent to user {UserId}", user.Id);
+    }
+
+    private string Organisation() => WebUtility.HtmlEncode(_currentTenant.Name ?? "OpenTMS");
 
     private static string GreetingName(IdentityUser user) =>
         WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(user.Name) ? user.UserName : user.Name.Trim());
