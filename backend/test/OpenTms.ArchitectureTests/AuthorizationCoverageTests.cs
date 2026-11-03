@@ -91,14 +91,19 @@ public class AuthorizationCoverageTests
     private static readonly HashSet<string> AnonymousHttpEndpoints = new(StringComparer.Ordinal)
     {
         /* Design 64: Postmark's delivery webhooks; Postmark has no OpenTMS identity, the processor checks its Basic credentials. */
-        "OpenTms.Controllers.Integrations.PostmarkWebhookController.ReceiveAsync"
+        "OpenTms.Controllers.Integrations.PostmarkWebhookController.ReceiveAsync",
+        /* Design 72: the OAuth redirect URI of the mailbox connections; the provider's redirect carries no OpenTMS identity,
+         * the tenant and connection come only from the data-protected state the processor checks. */
+        "OpenTms.Controllers.Integrations.MailboxOAuthCallbackController.CallbackAsync"
     };
 
     /// <summary>The published readers known today; the guard fails when it no longer finds them (a moved namespace).</summary>
     private static readonly string[] KnownPublishedReaders =
     {
         "MasterDataReferenceLookup", "OrderPricingReader", "TransportOrderLookup", "FinancialReferenceLookup", "RateLineReader",
-        "PricePreviewService", "LegReader", "TransportTripLookup"
+        "PricePreviewService", "LegReader", "TransportTripLookup",
+        /* Design 72: the Master Data match query and the Orders intake service the pipeline calls in its job. */
+        "MasterDataMatchQuery", "OrderIntakeService"
     };
 
     [Fact]

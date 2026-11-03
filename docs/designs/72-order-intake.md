@@ -616,3 +616,6 @@ tenant. Until Google's verification is done, Gmail works for up to 100 test user
     document belongs to, so the review page and the order's source chip can open the trace. The trace page shows each
     intake's outcome from the step log; the field-level resolution stays on the review page (the Integrations app reads
     only the Integrations domain).
+15. **AI usage records are host data without a tenant filter** (they carry the tenant id of the usage, AP-05). A shared-tier
+    tenant lives in the host database, so no tenant-side code may ever read `AiUsageRecords`; a later usage screen is a
+    host screen, or filters on `TenantId` explicitly.

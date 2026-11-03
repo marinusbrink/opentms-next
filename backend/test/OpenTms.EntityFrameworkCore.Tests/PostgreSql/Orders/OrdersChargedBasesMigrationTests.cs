@@ -55,14 +55,15 @@ public class OrdersChargedBasesMigrationTests : ReferenceDataPostgreSqlTestBase
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_migration_follows_the_previous_one_is_the_newest_and_nothing_is_pending(string? tenant)
+    public async Task The_migration_follows_the_previous_one_precedes_the_intake_one_and_nothing_is_pending(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(Migration);
+            /* Design 72 adds OrdersOrderIntake right after it, now the newest Orders migration. */
+            applied.IndexOf(OrdersOrderIntakeMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
         });

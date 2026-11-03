@@ -12,7 +12,7 @@ namespace OpenTms.EntityFrameworkCore.Platform.Features;
 
 /// <summary>
 /// The app and navigation feature definitions through the real definition manager (PO decision 2026-10-14,
-/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group; design 64, the host-only E-mail view; designs 66/68 D7, the Planboard app and its eight panes, default on): 75 toggles in the "Apps" group, each a child of the node
+/// docs/designs/tenants-and-editions.md, "App features"; design 48; PO 2026-10-16, one Master data group per domain; designs 51–53; design 54, the Platform group; design 64, the host-only E-mail view; designs 66/68 D7, the Planboard app and its eight panes, default on; design 72, the order-intake nodes): 82 toggles in the "Apps" group, each a child of the node
 /// above it so an edition's Features tab shows the tree, with the PO's defaults; the old ad-hoc features are gone.
 /// Risk class: High — a wrong default switches a screen on or off for every tenant without a stored value.
 /// </summary>
@@ -38,8 +38,12 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.Transport.Orders.Templates"] = ("Apps.Transport.Orders", "true"),
         ["Apps.Transport.Trips"] = ("Apps.Transport", "true"),
         ["Apps.Transport.Documents"] = ("Apps.Transport", "true"),
+        /* Design 72: the intake review queue, on like its siblings (the screens also check Integrations.OrderIntake). */
+        ["Apps.Transport.Intake"] = ("Apps.Transport", "true"),
         ["Apps.Finance"] = (null, "false"),
         ["Apps.Integrations"] = (null, "false"),
+        /* Design 72: Integrations → Received, on like its siblings beneath the (off) app. */
+        ["Apps.Integrations.Received"] = ("Apps.Integrations", "true"),
         ["Apps.Reports"] = (null, "false"),
 
         ["Apps.MasterData"] = (null, "true"),
@@ -67,6 +71,13 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
         ["Apps.MasterData.Platform.EmailTemplates"] = ("Apps.MasterData.Platform", "false"),
         ["Apps.MasterData.Platform.ReportDefinitions"] = ("Apps.MasterData.Platform", "false"),
         ["Apps.MasterData.Platform.DocumentTypes"] = ("Apps.MasterData.Platform", "false"),
+
+        /* Design 72: the Integrations group, its Order intake group and the three lists, all default on. */
+        ["Apps.MasterData.Integrations"] = ("Apps.MasterData", "true"),
+        ["Apps.MasterData.Integrations.Intake"] = ("Apps.MasterData.Integrations", "true"),
+        ["Apps.MasterData.Integrations.Intake.Mailboxes"] = ("Apps.MasterData.Integrations.Intake", "true"),
+        ["Apps.MasterData.Integrations.Intake.ApiClients"] = ("Apps.MasterData.Integrations.Intake", "true"),
+        ["Apps.MasterData.Integrations.Intake.ImportProfiles"] = ("Apps.MasterData.Integrations.Intake", "true"),
 
         /* Designs 51–53: the Orders, Planning & Execution and Financial groups. */
         ["Apps.MasterData.Orders"] = ("Apps.MasterData", "true"),
@@ -105,12 +116,12 @@ public class AppFeatureDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     };
 
     [Fact]
-    public async Task The_Apps_group_holds_exactly_the_75_tree_features()
+    public async Task The_Apps_group_holds_exactly_the_82_tree_features()
     {
         var manager = GetRequiredService<IFeatureDefinitionManager>();
         var group = (await manager.GetGroupsAsync()).Single(g => g.Name == AppFeatures.GroupName);
 
-        Expected.Count.ShouldBe(75);
+        Expected.Count.ShouldBe(82);
         group.GetFeaturesWithChildren().Select(f => f.Name).ShouldBe(Expected.Keys, ignoreOrder: true);
         group.Features.Select(f => f.Name).ShouldBe(Expected.Where(e => e.Value.Parent == null).Select(e => e.Key), ignoreOrder: true);
     }
