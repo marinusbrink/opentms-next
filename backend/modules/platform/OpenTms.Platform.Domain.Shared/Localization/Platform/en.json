@@ -1351,6 +1351,18 @@
     "Role:Master data manager": "Master data manager",
     "Role:Read-only": "Read-only",
     "Role:Platform operator": "Platform operator",
-    "Role:Tenant & edition manager": "Tenant & edition manager"
+    "Role:Tenant & edition manager": "Tenant & edition manager",
+    "Permission:Administration.Roles.ManagePermissions": "Change role permissions",
+    "Permission:Administration.Users.ManagePermissions": "Change user permissions",
+    "OpenTms.Platform:AdminRolePermissionsReadOnly": "The administrator role always has every permission; its permissions cannot be changed.",
+    "Administration:Permissions": "Permissions",
+    "Administration:PermissionsSaved": "Permissions saved",
+    "Administration:PermissionsSearch": "Search permissions",
+    "Administration:PermissionsAll": "All",
+    "Administration:PermissionsNone": "No permissions match the search.",
+    "Administration:PredefinedRolePermissionsNote": "This is a predefined role. You can change its permissions; a later release does not add back a permission you removed.",
+    "Administration:UserPermissionsNote": "Give permissions through roles where you can. A permission set here applies to this user only; permissions the user has through a role are shown greyed out.",
+    "Administration:GrantedThroughRole": "Through role: {0}",
+    "Administration:AdminRolePermissionsReadOnly": "The administrator role always has every permission"
   }
 }

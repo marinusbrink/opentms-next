@@ -60,6 +60,7 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         users.AddChild(PlatformPermissions.Administration.Users.BulkDelete, L("Permission:Administration.Users.BulkDelete"), bothSides);
         users.AddChild(PlatformPermissions.Administration.Users.ResetPassword, L("Permission:Administration.Users.ResetPassword"), bothSides);
         users.AddChild(PlatformPermissions.Administration.Users.Unlock, L("Permission:Administration.Users.Unlock"), bothSides);
+        users.AddChild(PlatformPermissions.Administration.Users.ManagePermissions, L("Permission:Administration.Users.ManagePermissions"), bothSides);
 
         var roles = group.AddPermission(
             PlatformPermissions.Administration.Roles.Default,
@@ -69,6 +70,8 @@ public class PlatformPermissionDefinitionProvider : PermissionDefinitionProvider
         roles.AddChild(PlatformPermissions.Administration.Roles.Update, L("Permission:Administration.Roles.Update"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.Delete, L("Permission:Administration.Roles.Delete"), bothSides);
         roles.AddChild(PlatformPermissions.Administration.Roles.BulkDelete, L("Permission:Administration.Roles.BulkDelete"), bothSides);
+        /* Design 73: changing a role's grants, and a user's direct grants, through ABP's permission-management API. */
+        roles.AddChild(PlatformPermissions.Administration.Roles.ManagePermissions, L("Permission:Administration.Roles.ManagePermissions"), bothSides);
 
         var organizationUnits = group.AddPermission(
             PlatformPermissions.Administration.OrganizationUnits.Default,

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,6 +16,7 @@ import type {
   OpenTmsGridProps,
 } from "@/components/ui/opentms-grid";
 import { BulkDeleteRolesDialog } from "@/apps/admin/components/BulkDeleteRolesDialog";
+import { PermissionsDialog } from "@/apps/admin/components/PermissionsDialog";
 import { RoleFormDialog } from "@/apps/admin/components/RoleFormDialog";
 import {
   roleDisplayName,
@@ -23,6 +24,7 @@ import {
   useRolesGridFetcher,
   type RoleRow,
 } from "@/domains/platform/administration-roles";
+import { ROLE_PROVIDER } from "@/domains/platform/administration-permissions";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
@@ -47,6 +49,9 @@ type EditorState = { mode: "create" | "edit"; role?: RoleRow; readOnly: boolean 
 type BulkTarget = { selection: GridSelectionDto; count: number } | null;
 type ConflictState = { id: string; name: string; userCount: number } | null;
 
+/** The role that always holds every permission (design 73): its grants are shown nowhere and changed by nobody. */
+const ADMIN_ROLE_NAME = "admin";
+
 export function RolesView() {
   const { t } = useL();
   const canView = useIsGranted("Platform.Administration.Roles");
@@ -54,12 +59,14 @@ export function RolesView() {
   const canUpdate = useIsGranted("Platform.Administration.Roles.Update");
   const canDelete = useIsGranted("Platform.Administration.Roles.Delete");
   const canBulkDelete = useIsGranted("Platform.Administration.Roles.BulkDelete");
+  const canManagePermissions = useIsGranted("Platform.Administration.Roles.ManagePermissions");
 
   const deleteRole = useDeleteRole();
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [editor, setEditor] = useState<EditorState>(null);
   const [roleToDelete, setRoleToDelete] = useState<RoleRow | undefined>();
+  const [permissionsRole, setPermissionsRole] = useState<RoleRow | undefined>();
   const [conflict, setConflict] = useState<ConflictState>(null);
   const [bulkTarget, setBulkTarget] = useState<BulkTarget>(null);
   const [selection, setSelection] = useState<GridSelectionDto>(EMPTY_SELECTION);
@@ -143,6 +150,19 @@ export function RolesView() {
               },
             ]
           : []),
+        ...(canManagePermissions && single
+          ? [
+              {
+                id: "permissions",
+                labelKey: "Administration:Permissions",
+                icon: ShieldCheck,
+                /* Business state (UI-PERM-005): admin always has every permission. */
+                disabled: single.name === ADMIN_ROLE_NAME,
+                disabledReasonKey: "Administration:AdminRolePermissionsReadOnly",
+                onClick: () => setPermissionsRole(single),
+              },
+            ]
+          : []),
         ...(canDelete
           ? [
               {
@@ -173,7 +193,7 @@ export function RolesView() {
           : []),
       ];
     },
-    [canBulkDelete, canDelete, canUpdate, openRecord],
+    [canBulkDelete, canDelete, canManagePermissions, canUpdate, openRecord],
   );
 
   const columnDefs = useMemo<ColDef<RoleRow>[]>(
@@ -268,6 +288,18 @@ export function RolesView() {
           open
           onClose={() => setEditor(null)}
           onSuccess={invalidateGrid}
+        />
+      )}
+
+      {permissionsRole?.name && (
+        <PermissionsDialog
+          key={permissionsRole.id}
+          providerName={ROLE_PROVIDER}
+          providerKey={permissionsRole.name}
+          subject={roleDisplayName(permissionsRole.name, t)}
+          isPredefinedRole={permissionsRole.isStatic === true}
+          open
+          onClose={() => setPermissionsRole(undefined)}
         />
       )}
 

@@ -94,6 +94,8 @@ public static class PlatformPermissions
             public const string BulkDelete = Default + ".BulkDelete";
             public const string ResetPassword = Default + ".ResetPassword";
             public const string Unlock = Default + ".Unlock";
+            /// <summary>Design 73: a user's direct grants (permission-management provider "U").</summary>
+            public const string ManagePermissions = Default + ".ManagePermissions";
         }
 
         public static class Roles
@@ -103,6 +105,8 @@ public static class PlatformPermissions
             public const string Update = Default + ".Update";
             public const string Delete = Default + ".Delete";
             public const string BulkDelete = Default + ".BulkDelete";
+            /// <summary>Design 73: a role's grants (permission-management provider "R").</summary>
+            public const string ManagePermissions = Default + ".ManagePermissions";
         }
 
         public static class OrganizationUnits

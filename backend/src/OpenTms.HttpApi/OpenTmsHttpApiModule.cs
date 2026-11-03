@@ -82,6 +82,9 @@ public class OpenTmsHttpApiModule : AbpModule
                 options.Map(code, HttpStatusCode.Conflict);
             }
 
+            /* Design 73: the admin role's grants cannot change; a state conflict, not a missing permission. */
+            options.Map(PlatformErrorCodes.AdminRolePermissionsReadOnly, HttpStatusCode.Conflict);
+
             /* The reference-data base of Orders, Financial and Planning & Execution (design 50); their own codes below. */
             foreach (var code in ReferenceDataErrorCodes.ConflictCodes)
             {

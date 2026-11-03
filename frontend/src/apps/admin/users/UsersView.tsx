@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { KeyRound, LockOpen, Mail, Pencil, Plus, Trash2 } from "lucide-react";
+import { KeyRound, LockOpen, Mail, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-command-bar";
@@ -15,9 +15,11 @@ import type {
   OpenTmsGridProps,
 } from "@/components/ui/opentms-grid";
 import { BulkDeleteUsersDialog } from "@/apps/admin/components/BulkDeleteUsersDialog";
+import { PermissionsDialog } from "@/apps/admin/components/PermissionsDialog";
 import { ResetPasswordDialog } from "@/apps/admin/components/ResetPasswordDialog";
 import { UserFormDialog } from "@/domains/platform/components/UserFormDialog";
 import { roleDisplayName } from "@/domains/platform/administration-roles";
+import { USER_PROVIDER } from "@/domains/platform/administration-permissions";
 import {
   useDeleteUser,
   useResendInvitation,
@@ -61,6 +63,7 @@ export function UsersView() {
   const canBulkDelete = useIsGranted("Platform.Administration.Users.BulkDelete");
   const canResetPassword = useIsGranted("Platform.Administration.Users.ResetPassword");
   const canUnlock = useIsGranted("Platform.Administration.Users.Unlock");
+  const canManagePermissions = useIsGranted("Platform.Administration.Users.ManagePermissions");
 
   const deleteUser = useDeleteUser();
   const unlockUser = useUnlockUser();
@@ -69,6 +72,7 @@ export function UsersView() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [editor, setEditor] = useState<EditorState>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserRow | undefined>();
+  const [permissionsUser, setPermissionsUser] = useState<UserRow | undefined>();
   const [userToDelete, setUserToDelete] = useState<UserRow | undefined>();
   const [bulkTarget, setBulkTarget] = useState<BulkTarget>(null);
   const [selection, setSelection] = useState<GridSelectionDto>(EMPTY_SELECTION);
@@ -179,6 +183,17 @@ export function UsersView() {
               },
             ]
           : []),
+        /* Direct grants, the rare exception next to roles (design 73). */
+        ...(canManagePermissions && single
+          ? [
+              {
+                id: "permissions",
+                labelKey: "Administration:Permissions",
+                icon: ShieldCheck,
+                onClick: () => setPermissionsUser(single),
+              },
+            ]
+          : []),
         /* Only while the invitation is open: once the user chose a password, Reset password applies. */
         ...(canCreate && single?.invitationPending
           ? [
@@ -229,7 +244,7 @@ export function UsersView() {
           : []),
       ];
     },
-    [canBulkDelete, canCreate, canDelete, canResetPassword, canUnlock, canUpdate, openRecord, resend, unlock],
+    [canBulkDelete, canCreate, canDelete, canManagePermissions, canResetPassword, canUnlock, canUpdate, openRecord, resend, unlock],
   );
 
   const columnDefs = useMemo<ColDef<UserRow>[]>(
@@ -346,6 +361,17 @@ export function UsersView() {
           open
           onClose={() => setEditor(null)}
           onSuccess={invalidateGrid}
+        />
+      )}
+
+      {permissionsUser?.id && (
+        <PermissionsDialog
+          key={permissionsUser.id}
+          providerName={USER_PROVIDER}
+          providerKey={permissionsUser.id}
+          subject={permissionsUser.userName ?? ""}
+          open
+          onClose={() => setPermissionsUser(undefined)}
         />
       )}
 

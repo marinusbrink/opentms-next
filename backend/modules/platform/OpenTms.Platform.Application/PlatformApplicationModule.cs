@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenTms.Platform.Emailing;
 using OpenTms.Platform.DocumentRendering;
 using Volo.Abp.Application;
+using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.AuditLogging;
 using OpenTms.Platform.Editions;
 using OpenTms.Platform.Permissions;
@@ -25,6 +26,7 @@ namespace OpenTms.Platform;
     typeof(AbpSettingManagementDomainModule),
     typeof(AbpIdentityDomainModule),
     typeof(AbpPermissionManagementDomainModule),
+    typeof(AbpPermissionManagementApplicationModule),
     typeof(AbpAuditLoggingDomainModule),
     typeof(AbpFeatureManagementDomainModule),
     typeof(AbpEmailingModule),
@@ -43,6 +45,15 @@ public class PlatformApplicationModule : AbpModule
         Configure<FeatureManagementOptions>(options =>
         {
             options.ProviderPolicies[EditionConsts.FeatureProviderName] = PlatformPermissions.Editions.ManageFeatures;
+        });
+
+        /* Design 73: ABP's permission-management API reads and writes a role's grants (provider "R") and a user's direct
+         * grants (provider "U") only with these permissions. PostConfigure: the Identity module sets its own
+         * AbpIdentity.*.ManagePermissions policies in ConfigureServices, and this must win regardless of module order. */
+        context.Services.PostConfigure<PermissionManagementOptions>(options =>
+        {
+            options.ProviderPolicies[RolePermissionValueProvider.ProviderName] = PlatformPermissions.Administration.Roles.ManagePermissions;
+            options.ProviderPolicies[UserPermissionValueProvider.ProviderName] = PlatformPermissions.Administration.Users.ManagePermissions;
         });
 
         /* Design 55: the interactive command budget of the report definition service ("Platform:DocumentRendering"). */
