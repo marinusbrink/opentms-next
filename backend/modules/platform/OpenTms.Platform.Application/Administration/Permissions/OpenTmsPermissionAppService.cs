@@ -14,7 +14,11 @@ namespace OpenTms.Platform.Administration.Permissions;
 /// <c>admin</c> role cannot be changed through the API, so no administrator can remove the administrators' own access.
 /// ABP's seed keeps giving <c>admin</c> every permission of its side. Everything else (the provider policies, the side
 /// check, a caller granting only what they hold) is ABP's own behavior.
+/// Served only through ABP's own <c>/api/permission-management/permissions</c> controller (it resolves
+/// <see cref="IPermissionAppService"/> to this class); <c>RemoteService(IsEnabled = false)</c> keeps the Platform's
+/// conventional controllers from publishing it a second time under <c>/api/platform</c>.
 /// </summary>
+[RemoteService(IsEnabled = false)]
 [Dependency(ReplaceServices = true)]
 [ExposeServices(typeof(IPermissionAppService), typeof(PermissionAppService), typeof(OpenTmsPermissionAppService))]
 public class OpenTmsPermissionAppService : PermissionAppService

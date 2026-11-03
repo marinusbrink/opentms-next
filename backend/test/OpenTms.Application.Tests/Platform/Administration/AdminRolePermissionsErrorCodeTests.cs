@@ -2,7 +2,9 @@ using System.Net;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using OpenTms.Platform.Administration.Permissions;
 using Shouldly;
+using Volo.Abp;
 using Volo.Abp.AspNetCore.ExceptionHandling;
 using Volo.Abp.Modularity;
 using Xunit;
@@ -30,5 +32,12 @@ public class AdminRolePermissionsErrorCodeTests
         var mappings = services.BuildServiceProvider().GetRequiredService<IOptions<AbpExceptionHttpStatusCodeOptions>>().Value.ErrorCodeToHttpStatusCodeMappings;
 
         mappings[PlatformErrorCodes.AdminRolePermissionsReadOnly].ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public void The_replaced_permission_service_is_not_published_a_second_time_under_api_platform()
+    {
+        /* ABP's /api/permission-management/permissions serves it; the Platform's conventional controllers must not. */
+        typeof(OpenTmsPermissionAppService).GetCustomAttribute<RemoteServiceAttribute>(inherit: false)!.IsEnabled.ShouldBeFalse();
     }
 }
