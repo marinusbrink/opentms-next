@@ -17,6 +17,13 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
     <!-- The pdfgeneratorapi connection test (design 55) and the routing check (design 60). -->
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
+    <!-- Design 72: the API clients are OpenIddict client-credentials applications in the host database with a client
+         permission grant; the OAuth state of a mailbox connection is data-protected; the host tab's Anthropic test. -->
+    <PackageReference Include="Volo.Abp.OpenIddict.Domain" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.PermissionManagement.Domain" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.UI.Navigation" Version="10.6.0" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.Abstractions" Version="10.0.9" />
+    <PackageReference Include="Anthropic" Version="13.4.0" />
   </ItemGroup>
 
   <ItemGroup>

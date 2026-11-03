@@ -11,6 +11,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Integrations.Localization;
+using OpenTms.Integrations.OrderIntake.Ai;
+using OpenTms.Integrations.OrderIntake.Channels;
 using OpenTms.Integrations.Permissions;
 using OpenTms.Integrations.Routing;
 using OpenTms.Platform.Administration.Maintenance;
@@ -38,17 +40,20 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
     private readonly ServiceSettingsOverlay _overlay;
     private readonly RoutingProbeCache _probes;
     private readonly IConfiguration _configuration;
+    private readonly MailboxOAuthUrls _mailboxUrls;
 
     public ServiceSettingsAppService(
         ISettingManager settings,
         ServiceSettingsOverlay overlay,
         RoutingProbeCache probes,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        MailboxOAuthUrls mailboxUrls)
     {
         _settings = settings;
         _overlay = overlay;
         _probes = probes;
         _configuration = configuration;
+        _mailboxUrls = mailboxUrls;
         LocalizationResource = typeof(IntegrationsResource);
     }
 
@@ -57,6 +62,8 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
         EnsureHostSide();
         var pdf = _configuration.GetSection(PdfGeneratorApiOptions.SectionName).Get<PdfGeneratorApiOptions>() ?? new PdfGeneratorApiOptions();
         var routing = _configuration.GetSection(RoutingIntegrationOptions.SectionName).Get<RoutingIntegrationOptions>() ?? new RoutingIntegrationOptions();
+        var ai = _configuration.GetSection(OrderIntakeAiOptions.SectionName).Get<OrderIntakeAiOptions>() ?? new OrderIntakeAiOptions();
+        var mail = _configuration.GetSection(MailOAuthOptions.SectionName).Get<MailOAuthOptions>() ?? new MailOAuthOptions();
 
         return new ServiceSettingsDto
         {
@@ -68,6 +75,14 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
             RouteFunctionBaseUrl = await GetAsync(ServiceSettingNames.Routing.RouteFunctionBaseUrl),
             HasRouteFunctionApiKey = !string.IsNullOrEmpty(await GetAsync(ServiceSettingNames.Routing.RouteFunctionApiKey)),
             VroomBaseUrl = await GetAsync(ServiceSettingNames.Routing.VroomBaseUrl),
+            HasAiApiKey = !string.IsNullOrEmpty(await GetAsync(ServiceSettingNames.Ai.ApiKey)),
+            AiLearningModel = await GetAsync(ServiceSettingNames.Ai.LearningModel),
+            AiExtractionModel = await GetAsync(ServiceSettingNames.Ai.ExtractionModel),
+            GoogleClientId = await GetAsync(ServiceSettingNames.Google.ClientId),
+            HasGoogleClientSecret = !string.IsNullOrEmpty(await GetAsync(ServiceSettingNames.Google.ClientSecret)),
+            MicrosoftClientId = await GetAsync(ServiceSettingNames.Microsoft.ClientId),
+            HasMicrosoftClientSecret = !string.IsNullOrEmpty(await GetAsync(ServiceSettingNames.Microsoft.ClientSecret)),
+            MailboxRedirectUri = await _mailboxUrls.FindRedirectUriAsync(),
             Defaults = new ServiceSettingsDefaultsDto
             {
                 PdfGeneratorApiBaseUrl = pdf.BaseUrl,
@@ -77,7 +92,14 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
                 OsrmBaseUrl = routing.Osrm.BaseUrl,
                 RouteFunctionBaseUrl = routing.RouteFunction.BaseUrl,
                 HasRouteFunctionApiKey = !string.IsNullOrWhiteSpace(routing.RouteFunction.ApiKey),
-                VroomBaseUrl = routing.Vroom.BaseUrl
+                VroomBaseUrl = routing.Vroom.BaseUrl,
+                HasAiApiKey = !string.IsNullOrWhiteSpace(ai.ApiKey),
+                AiLearningModel = ai.LearningModel,
+                AiExtractionModel = ai.ExtractionModel,
+                GoogleClientId = mail.Google.ClientId,
+                HasGoogleClientSecret = !string.IsNullOrWhiteSpace(mail.Google.ClientSecret),
+                MicrosoftClientId = mail.Microsoft.ClientId,
+                HasMicrosoftClientSecret = !string.IsNullOrWhiteSpace(mail.Microsoft.ClientSecret)
             }
         };
     }
@@ -109,6 +131,15 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
         await SetAsync(ServiceSettingNames.Routing.RouteFunctionBaseUrl, input.RouteFunctionBaseUrl);
         await SetAsync(ServiceSettingNames.Routing.VroomBaseUrl, input.VroomBaseUrl);
 
+        /* Design 72: the Integrations tab. */
+        await SetSecretAsync(ServiceSettingNames.Ai.ApiKey, input.AiApiKey, input.ClearAiApiKey);
+        await SetSecretAsync(ServiceSettingNames.Google.ClientSecret, input.GoogleClientSecret, input.ClearGoogleClientSecret);
+        await SetSecretAsync(ServiceSettingNames.Microsoft.ClientSecret, input.MicrosoftClientSecret, input.ClearMicrosoftClientSecret);
+        await SetAsync(ServiceSettingNames.Ai.LearningModel, input.AiLearningModel);
+        await SetAsync(ServiceSettingNames.Ai.ExtractionModel, input.AiExtractionModel);
+        await SetAsync(ServiceSettingNames.Google.ClientId, input.GoogleClientId);
+        await SetAsync(ServiceSettingNames.Microsoft.ClientId, input.MicrosoftClientId);
+
         /* Read back only after the commit: ABP's settings cache is unit-of-work aware. A cached probe of the old address
          * would otherwise answer for a minute. */
         var refresh = async () =>
@@ -137,6 +168,13 @@ public class ServiceSettingsAppService : ApplicationService, IServiceSettingsApp
             ServiceSettingsConsts.DocumentsService =>
                 [await RunAsync<PdfGeneratorApiHealthCheck>(PdfGeneratorApiHealthCheck.Name)],
             ServiceSettingsConsts.RoutingService => await RoutingAsync(),
+            /* Design 72: one result per section of the Integrations tab. */
+            ServiceSettingsConsts.IntegrationsService =>
+            [
+                await RunAsync<AnthropicHealthCheck>(AnthropicHealthCheck.Name),
+                await RunAsync<GoogleOAuthHealthCheck>(GoogleOAuthHealthCheck.Name),
+                await RunAsync<MicrosoftOAuthHealthCheck>(MicrosoftOAuthHealthCheck.Name)
+            ],
             _ => throw new UserFriendlyException(L["Services:UnknownService"])
         };
     }

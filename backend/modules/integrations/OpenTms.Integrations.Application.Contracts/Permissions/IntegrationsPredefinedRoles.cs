@@ -18,6 +18,17 @@ public static class IntegrationsPredefinedRoles
         options.Grant(PlatformRoleNames.MasterDataManager,
             IntegrationsPermissions.AddressLookup);
 
+        /* Design 72 "Predefined roles": the mailboxes and API clients of the order intake. */
+        options.Grant(PlatformRoleNames.MasterDataManager,
+            IntegrationsPermissions.Mailboxes.Default,
+            IntegrationsPermissions.Mailboxes.Manage,
+            IntegrationsPermissions.ApiClients.Default,
+            IntegrationsPermissions.ApiClients.Manage);
+
+        options.Grant(PlatformRoleNames.ReadOnly,
+            IntegrationsPermissions.Mailboxes.Default,
+            IntegrationsPermissions.ApiClients.Default);
+
         options.Grant(PlatformRoleNames.PlatformOperator,
             IntegrationsPermissions.ServiceSettings.Default,
             IntegrationsPermissions.ServiceSettings.Update,

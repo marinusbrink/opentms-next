@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using OpenTms.Integrations.AddressLookup;
 using OpenTms.Integrations.DocumentRendering.PdfGeneratorApi;
 using OpenTms.Integrations.Emailing.Postmark;
+using OpenTms.Integrations.OrderIntake.Ai;
+using OpenTms.Integrations.OrderIntake.Channels;
 using OpenTms.Integrations.Routing;
 using OpenTms.Integrations.ServiceSettings;
 using OpenTms.Platform;
@@ -16,6 +18,8 @@ using Volo.Abp.Application;
 using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.Caching;
 using Volo.Abp.Modularity;
+using Volo.Abp.OpenIddict;
+using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 
 namespace OpenTms.Integrations;
@@ -27,7 +31,10 @@ namespace OpenTms.Integrations;
     typeof(AbpDddApplicationModule),
     typeof(AbpCachingModule),
     typeof(AbpBackgroundWorkersModule),
-    typeof(AbpSettingManagementDomainModule)
+    typeof(AbpSettingManagementDomainModule),
+    /* Design 72: API clients are OpenIddict applications with a client permission grant in the host database. */
+    typeof(AbpOpenIddictDomainModule),
+    typeof(AbpPermissionManagementDomainModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {
@@ -46,6 +53,7 @@ public class IntegrationsApplicationModule : AbpModule
         ConfigurePdfGeneratorApi(context);
         ConfigureRouting(context);
         ConfigurePostmark(context);
+        ConfigureOrderIntakeChannels(context);
         ConfigureServiceSettings(context);
     }
 
@@ -55,6 +63,29 @@ public class IntegrationsApplicationModule : AbpModule
         await context.AddBackgroundWorkerAsync<RouteCachePurgeWorker>();
         /* Administration → Services: the stored settings, read at start and every minute. */
         await context.AddBackgroundWorkerAsync<ServiceSettingsRefreshWorker>();
+
+        /* Design 72: the mailbox sync, per instance (Integrations:OrderIntake:SyncEnabled). */
+        if (context.ServiceProvider.GetRequiredService<IOptions<MailboxSyncOptions>>().Value.SyncEnabled)
+        {
+            await context.AddBackgroundWorkerAsync<MailboxSyncWorker>();
+        }
+    }
+
+    /* Design 72 "Channels": the Gmail and Microsoft Graph clients are plain REST over named HttpClients (no provider SDKs),
+     * registered by provider here; their OAuth clients come from "Integrations:OrderIntake:Mail" overlaid by the host's
+     * Integrations tab. The sync's switches come from "Integrations:OrderIntake". The Anthropic SDK of the tab's test
+     * uses its own named client. */
+    private static void ConfigureOrderIntakeChannels(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        context.Services.Configure<MailOAuthOptions>(configuration.GetSection(MailOAuthOptions.SectionName));
+        context.Services.Configure<OrderIntakeAiOptions>(configuration.GetSection(OrderIntakeAiOptions.SectionName));
+        context.Services.Configure<MailboxSyncOptions>(configuration.GetSection(MailboxSyncOptions.SectionName));
+        context.Services.AddHttpClient(GmailClient.Name, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddHttpClient(MicrosoftGraphMailClient.Name, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddHttpClient(AnthropicHealthCheck.HttpClientName, client => client.Timeout = MailProviderClientBase.Timeout);
+        context.Services.AddTransient<IMailProviderClient, GmailClient>();
+        context.Services.AddTransient<IMailProviderClient, MicrosoftGraphMailClient>();
     }
 
     /* Administration → Services (docs/designs/maintenance-view.md, "Services"): the host's stored settings lie over the
@@ -66,12 +97,20 @@ public class IntegrationsApplicationModule : AbpModule
         context.Services.AddSingleton<ServiceSettingsOverlay>();
         context.Services.AddSingleton<IPostConfigureOptions<PdfGeneratorApiOptions>, ServiceSettingsPostConfigure>();
         context.Services.AddSingleton<IPostConfigureOptions<RoutingIntegrationOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IPostConfigureOptions<OrderIntakeAiOptions>, ServiceSettingsPostConfigure>();
+        context.Services.AddSingleton<IPostConfigureOptions<MailOAuthOptions>, ServiceSettingsPostConfigure>();
         context.Services.AddSingleton<IOptionsChangeTokenSource<PdfGeneratorApiOptions>, ServiceSettingsChangeTokenSource<PdfGeneratorApiOptions>>();
         context.Services.AddSingleton<IOptionsChangeTokenSource<RoutingIntegrationOptions>, ServiceSettingsChangeTokenSource<RoutingIntegrationOptions>>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<OrderIntakeAiOptions>, ServiceSettingsChangeTokenSource<OrderIntakeAiOptions>>();
+        context.Services.AddSingleton<IOptionsChangeTokenSource<MailOAuthOptions>, ServiceSettingsChangeTokenSource<MailOAuthOptions>>();
         context.Services.Replace(ServiceDescriptor.Transient<IOptions<PdfGeneratorApiOptions>>(
             services => Options.Create(services.GetRequiredService<IOptionsMonitor<PdfGeneratorApiOptions>>().CurrentValue)));
         context.Services.Replace(ServiceDescriptor.Transient<IOptions<RoutingIntegrationOptions>>(
             services => Options.Create(services.GetRequiredService<IOptionsMonitor<RoutingIntegrationOptions>>().CurrentValue)));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<OrderIntakeAiOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<OrderIntakeAiOptions>>().CurrentValue)));
+        context.Services.Replace(ServiceDescriptor.Transient<IOptions<MailOAuthOptions>>(
+            services => Options.Create(services.GetRequiredService<IOptionsMonitor<MailOAuthOptions>>().CurrentValue)));
     }
 
     /* Design 55: the pdfgeneratorapi.com adapter behind Platform's IReportRenderingProvider. Key and secret come from

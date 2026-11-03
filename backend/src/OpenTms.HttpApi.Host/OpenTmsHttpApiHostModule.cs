@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using OpenIddict.Validation.AspNetCore;
+using OpenTms.ApiClients;
 using OpenTms.DataProtection;
 using OpenTms.Hosting;
 using OpenTms.Impersonation;
@@ -131,6 +132,7 @@ public class OpenTmsHttpApiHostModule : AbpModule
         var hostingEnvironment = context.Services.GetHostingEnvironment();
 
         ConfigureImpersonation(context);
+        ConfigureApiClients();
         ConfigureSignInPage();
 
         if (!configuration.GetValue<bool>("App:DisablePII"))
@@ -184,6 +186,22 @@ public class OpenTmsHttpApiHostModule : AbpModule
         {
             var afterCurrentUser = options.TenantResolvers.FindIndex(r => r is CurrentUserTenantResolveContributor) + 1;
             options.TenantResolvers.Insert(afterCurrentUser, new SignInPageTenantResolveContributor());
+        });
+    }
+
+    /* Design 72 "Tokens for API clients": a client-credentials token of an API client carries the tenant of its OpenIddict
+     * application (never the requested __tenant), and the API resolves an API client's tenant from that claim before
+     * any other resolver; ABP's own claim resolver answers only for a signed-in user. */
+    private void ConfigureApiClients()
+    {
+        Configure<AbpOpenIddictClaimsPrincipalOptions>(options =>
+        {
+            options.ClaimsPrincipalHandlers.Add<ApiClientTenantClaimsPrincipalHandler>();
+        });
+
+        Configure<AbpTenantResolveOptions>(options =>
+        {
+            options.TenantResolvers.Insert(0, new ApiClientTenantResolveContributor());
         });
     }
 
@@ -357,8 +375,17 @@ public class OpenTmsHttpApiHostModule : AbpModule
                 opts => opts.RootPath = "financial");
             options.ConventionalControllers.Create(typeof(MasterDataApplicationModule).Assembly,
                 opts => opts.RootPath = "master-data");
-            options.ConventionalControllers.Create(typeof(IntegrationsApplicationModule).Assembly,
-                opts => opts.RootPath = "integrations");
+            options.ConventionalControllers.Create(typeof(IntegrationsApplicationModule).Assembly, opts =>
+            {
+                opts.RootPath = "integrations";
+                /* Design 72's routes are plural: /api/integrations/mailbox-connections, /api/integrations/api-clients. */
+                opts.UrlControllerNameNormalizer = c => c.ControllerName switch
+                {
+                    "MailboxConnection" => "MailboxConnections",
+                    "ApiClient" => "ApiClients",
+                    _ => c.ControllerName
+                };
+            });
             options.ConventionalControllers.Create(typeof(ReportingApplicationModule).Assembly,
                 opts => opts.RootPath = "reporting");
         });
