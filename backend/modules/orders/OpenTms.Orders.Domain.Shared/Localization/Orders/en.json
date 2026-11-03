@@ -665,6 +665,8 @@
     "Orders:IntakeResolutionMethod.Pattern": "Pattern",
     "Orders:IntakeStopContact": "Contact",
     "Orders:IntakeResolutionMethod.User": "Chosen by user",
+    "Orders:IntakeResolutionMethod.Fuzzy": "Similar name",
+    "Orders:IntakeResolutionMethod.Created": "Created in master data",
     "Orders:Nav.Intake": "Intake",
     "Orders:OrderIntake": "Order intake",
     "Orders:IntakeReviewTab": "Review",

@@ -68,23 +68,31 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
         }
 
         var settings = new OrderIntakeChannelSettings(input.SenderAddress, input.Subject, input.FileName, input.MappingConfidence, input.ProfileTrusted, input.AutoConfirm,
-            input.DefaultCustomerRelationId, input.FixedCustomerRelationId, input.DefaultTransportOrderTypeId);
+            input.DefaultCustomerRelationId, input.FixedCustomerRelationId, input.DefaultTransportOrderTypeId, input.NameSimilarityThreshold);
         var intake = new OrderIntake(GuidGenerator.Create(), CurrentTenant.Id, input.SourceDocumentId, input.IntakeIndex, input.Channel, input.SourceKind,
             OrderIntakeProcessor.Serialize(input.Payload), settings);
 
         var result = await _processor.ResolveAsync(intake, input.Payload);
+        /* Straight through (build note 26): what Master Data does not know is created now, only when nothing else blocks. */
+        await _processor.CreateMasterDataAsync(intake, result);
         await _processor.ApplyAsync(intake, input.Payload, result);
         await _intakes.InsertAsync(intake, autoSave: true, cancellationToken: cancellationToken);
 
         TransportOrder? order = null;
         if (result.IsComplete)
         {
-            /* Confirmed at once only when the profile is trusted, the channel auto-confirms and every field was resolved by a
-             * trusted rule; the type's Confirm rules still apply, and a refusal leaves a Draft (design 72). */
+            /* Confirmed at once when the mapping may confirm (a profile, a verified AI profile or the API's JSON), the channel
+             * auto-confirms and every field was resolved by a rule (build note 28); the type's Confirm rules still apply, and
+             * a refusal leaves a Draft (design 72). */
             var autoConfirm = intake.ProfileTrusted && intake.AutoConfirm && result.ResolvedByTrustedRules;
             /* A business rule refusal keeps the intake as the record of truth: NeedsReview with the refusal on the pseudo-field
              * "order", answered normally (design 72 build note 20); nothing of the order is written. */
             order = await _processor.TryCreateOrderAsync(intake, input.Payload, result, autoConfirm, confirmOnlyWhenComplete: true);
+            if (order != null)
+            {
+                /* The fuzzy and created resolutions become aliases once the order exists (build note 25). */
+                await _processor.LearnAliasesAsync(result);
+            }
         }
         else
         {
@@ -92,6 +100,7 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
                 intake.Id, input.SourceDocumentId, input.IntakeIndex, intake.OpenFieldCount);
         }
 
+        var (fuzzy, created) = OrderIntakeProcessor.MasterDataCounts(intake.Resolution);
         return new OrderIntakeSubmissionResultDto
         {
             IntakeId = intake.Id,
@@ -99,7 +108,9 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
             TransportOrderId = order?.Id,
             OrderNumber = order?.Number,
             Confirmed = order != null && order.Status != TransportOrderStatus.Draft,
-            Unresolved = order == null ? intake.Resolution.BlockingFieldPaths() : []
+            Unresolved = order == null ? intake.Resolution.BlockingFieldPaths() : [],
+            FuzzyMatchCount = fuzzy,
+            CreatedCount = created
         };
     }
 
@@ -145,6 +156,7 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
             confirmed = order != null && order.Status != TransportOrderStatus.Draft;
         }
 
+        var (fuzzy, created) = OrderIntakeProcessor.MasterDataCounts(intake.Resolution);
         return new OrderIntakeSubmissionResultDto
         {
             IntakeId = intake.Id,
@@ -152,7 +164,9 @@ public class OrderIntakeService : OrdersAppServiceBase, IOrderIntakeService
             TransportOrderId = intake.TransportOrderId,
             OrderNumber = number,
             Confirmed = confirmed,
-            Unresolved = intake.Status == OrderIntakeStatus.NeedsReview ? intake.Resolution.BlockingFieldPaths() : []
+            Unresolved = intake.Status == OrderIntakeStatus.NeedsReview ? intake.Resolution.BlockingFieldPaths() : [],
+            FuzzyMatchCount = fuzzy,
+            CreatedCount = created
         };
     }
 }

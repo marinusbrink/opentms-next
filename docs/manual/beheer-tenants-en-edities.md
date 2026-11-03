@@ -184,7 +184,13 @@ Financieel, verschijnen hier zodra hun eerste lijst er is.
 | Landen | `Apps.MasterData.General.Reference.Countries` | Groep Regio's en lijsten | uit |
 | Valuta's | `Apps.MasterData.General.Reference.Currencies` | Groep Regio's en lijsten | uit |
 | Geografische regio's | `Apps.MasterData.General.Reference.GeographicalRegions` | Groep Regio's en lijsten | uit |
-| App Integraties | `Apps.Integrations` | | uit |
+| App Integraties | `Apps.Integrations` | | aan |
+| Groep Orderinvoer | `Apps.Integrations.Intake` | App Integraties | aan |
+| Ontvangen | `Apps.Integrations.Intake.Received` | Groep Orderinvoer | aan |
+| Mailboxen | `Apps.Integrations.Intake.Mailboxes` | Groep Orderinvoer | aan |
+| API-clients | `Apps.Integrations.Intake.ApiClients` | Groep Orderinvoer | aan |
+| Importprofielen | `Apps.Integrations.Intake.ImportProfiles` | Groep Orderinvoer | aan |
+| Instellingen | `Apps.Integrations.Intake.Settings` | Groep Orderinvoer | aan |
 | App Rapporten | `Apps.Reports` | | uit |
 | App Beheer | `Apps.Administration` | | aan |
 | Gebruikers | `Apps.Administration.Users` | App Beheer | aan |

@@ -64,10 +64,9 @@ public class ApiClientTokenRoundTripTests
     private static readonly string[] IntakeFeatures =
     [
         IntegrationsFeatures.OrderIntake,
-        AppFeatures.MasterData.Default,
-        AppFeatures.MasterData.Integrations.Default,
-        AppFeatures.MasterData.Integrations.Intake.Default,
-        AppFeatures.MasterData.Integrations.Intake.ApiClients
+        AppFeatures.Integrations,
+        AppFeatures.IntegrationsApp.Intake.Default,
+        AppFeatures.IntegrationsApp.Intake.ApiClients
     ];
 
     private async Task InScopeAsync(Guid? tenant, Func<IServiceProvider, Task> action, ClaimsPrincipal? principal = null)

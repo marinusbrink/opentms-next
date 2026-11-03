@@ -607,6 +607,6 @@
     "MasterData:Numbering.NextNumberTooLow": "The next number cannot be lower than the current next number.",
     "MasterData:NotFound": "(not found)",
     "MasterData:ArchivedCannotBeDefault": "An archived record cannot be the default.",
-    "MasterData:Nav.Integrations": "Integrations"
+    "MasterData:CreatedByOrderIntake": "Created by order intake: the name was not known when an order arrived. Check and complete this record."
   }
 }

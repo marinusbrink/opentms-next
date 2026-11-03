@@ -22,6 +22,7 @@ using Volo.Abp.Features;
 using Volo.Abp.Guids;
 using Volo.Abp.MultiTenancy;
 using Volo.Abp.Timing;
+using Volo.Abp.Settings;
 using Volo.Abp.Uow;
 using Volo.Abp.Validation;
 
@@ -58,6 +59,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
     private readonly IntakeLearner _learner;
     private readonly IOrderIntakeService _orderIntake;
     private readonly IFeatureChecker _features;
+    private readonly ISettingProvider _settings;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
     private readonly ICurrentTenant _currentTenant;
     private readonly IGuidGenerator _guidGenerator;
@@ -77,6 +79,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
         IntakeLearner learner,
         IOrderIntakeService orderIntake,
         IFeatureChecker features,
+        ISettingProvider settings,
         IUnitOfWorkManager unitOfWorkManager,
         ICurrentTenant currentTenant,
         IGuidGenerator guidGenerator,
@@ -93,6 +96,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
         _learner = learner;
         _orderIntake = orderIntake;
         _features = features;
+        _settings = settings;
         _unitOfWorkManager = unitOfWorkManager;
         _currentTenant = currentTenant;
         _guidGenerator = guidGenerator;
@@ -333,7 +337,9 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
                 document.SetProfile(profile.Id, profile.Version);
                 AddStep(document, IntakeStep.ProfileMatched, StepOutcome.Success, IntakeStepKeys.ProfileMatched,
                     ("profileName", profile.Name), ("version", Number(profile.Version)), ("intakeCount", Number(match.Run!.Intakes.Count)));
-                await MapAndSubmitAsync(message, document, MappingMethod.Profile, match.Run.Intakes, 1m, profile.Status == ImportProfileStatus.Active, defaults, cancellationToken);
+                /* Any matched profile may lead to a confirmed order (PO decision 2026-11-03, build note 28): a Proposed one passed
+                 * the AI's verification or a repair's check; the matcher never returns a Retired one. */
+                await MapAndSubmitAsync(message, document, MappingMethod.Profile, match.Run.Intakes, 1m, profileTrusted: true, defaults, cancellationToken);
                 return null;
             }
         }
@@ -455,7 +461,9 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
             return;
         }
 
-        var trusted = false;
+        /* A profile the AI proposed and the executor verified may go straight through to a confirmed order (build note 28);
+         * an AI extraction without a verified profile becomes at most a Draft. */
+        var trusted = result.Method == MappingMethod.AiVerifiedProfile;
         await MapAndSubmitAsync(message, document, result.Method, result.Intakes, result.Confidence, trusted, defaults, cancellationToken);
     }
 
@@ -486,6 +494,7 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
 
         var anyFailed = false;
         var anyReview = false;
+        var threshold = await OrderIntakeSettingValues.NameSimilarityThresholdAsync(_settings);
         foreach (var intake in mapping.Intakes)
         {
             var submission = new OrderIntakeSubmissionDto
@@ -503,7 +512,8 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
                 AutoConfirm = defaults.AutoConfirm,
                 DefaultCustomerRelationId = defaults.DefaultCustomerRelationId,
                 FixedCustomerRelationId = defaults.FixedCustomerRelationId,
-                DefaultTransportOrderTypeId = defaults.DefaultTransportOrderTypeId
+                DefaultTransportOrderTypeId = defaults.DefaultTransportOrderTypeId,
+                NameSimilarityThreshold = threshold
             };
 
             OrderIntakeSubmissionResultDto result;
@@ -531,8 +541,11 @@ public class InboundMessageProcessor : IInboundMessageProcessor, ITransientDepen
                 throw new IntakeSubmitException(document.Id, intake.Index, ex);
             }
 
-            AddStep(document, IntakeStep.Submitted, StepOutcome.Info, IntakeStepKeys.Submitted, new StepIntakeReference(intake.Index, result.IntakeId),
-                ("intakeIndex", Number(intake.Index + 1)));
+            /* The trace says how much Orders matched by a similar name and created in master data (build note 25). */
+            AddStep(document, IntakeStep.Submitted, StepOutcome.Info,
+                result.FuzzyMatchCount + result.CreatedCount > 0 ? IntakeStepKeys.SubmittedWithMasterData : IntakeStepKeys.Submitted,
+                new StepIntakeReference(intake.Index, result.IntakeId),
+                ("intakeIndex", Number(intake.Index + 1)), ("fuzzyMatches", Number(result.FuzzyMatchCount)), ("created", Number(result.CreatedCount)));
             switch (result.Status)
             {
                 case OrderIntakeStatus.OrderCreated:

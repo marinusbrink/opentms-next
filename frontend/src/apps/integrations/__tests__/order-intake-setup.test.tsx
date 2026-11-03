@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-/* Design 72 "UI design", Master data → Integrations → Order intake: Mailboxes (connect flow: the display name, the
+/* Design 72 "UI design", Integrations → Order intake (PO 2026-11-03; formerly in the Master data app): Mailboxes (connect flow: the display name, the
  * request, the authorize URL the browser goes to; the OAuth return ?connected= opening the editor at the folder step and
  * ?connectError= showing the localized refusal; row actions Reconnect / Pause / Resume / Delete only with
  * Integrations.Mailboxes.Manage), API clients (the one-time secret dialog with client id, secret, token URL, scope and
@@ -13,7 +13,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  * class: Medium (UI flows); the server enforces permissions, features and tenant isolation (backend tests). */
 
 const navigateMock = vi.fn();
-let pathname = "/master-data/integrations/mailboxes";
+let pathname = "/integrations/mailboxes";
 let search: Record<string, unknown> = {};
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
@@ -52,8 +52,8 @@ const { editorProps, useRealMailboxEditor } = vi.hoisted(() => ({
   editorProps: { mailbox: null as Record<string, unknown> | null, apiClient: null as Record<string, unknown> | null },
   useRealMailboxEditor: { current: false },
 }));
-vi.mock("@/apps/master-data/editors/MailboxEditor", async (importOriginal) => {
-  const real = await importOriginal<typeof import("@/apps/master-data/editors/MailboxEditor")>();
+vi.mock("@/apps/integrations/editors/MailboxEditor", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/apps/integrations/editors/MailboxEditor")>();
   return {
     MailboxEditor: (props: Parameters<typeof real.MailboxEditor>[0]) => {
       if (useRealMailboxEditor.current) return real.MailboxEditor(props);
@@ -62,7 +62,7 @@ vi.mock("@/apps/master-data/editors/MailboxEditor", async (importOriginal) => {
     },
   };
 });
-vi.mock("@/apps/master-data/editors/ApiClientEditor", () => ({
+vi.mock("@/apps/integrations/editors/ApiClientEditor", () => ({
   ApiClientEditor: (props: { mode: string; id?: string; readOnly: boolean; onSecret: (secret: Record<string, string>, name: string) => void }) => {
     editorProps.apiClient = props as unknown as Record<string, unknown>;
     return (
@@ -77,10 +77,10 @@ vi.mock("@/apps/master-data/editors/ApiClientEditor", () => ({
 
 import { toast } from "sonner";
 
-import { ApiClientsView } from "@/apps/master-data/views/ApiClientsView";
-import { ImportProfilesView } from "@/apps/master-data/views/ImportProfilesView";
-import { MailboxesView } from "@/apps/master-data/views/MailboxesView";
-import { ImportProfileEditor } from "@/apps/master-data/editors/ImportProfileEditor";
+import { ApiClientsView } from "@/apps/integrations/views/ApiClientsView";
+import { ImportProfilesView } from "@/apps/integrations/views/ImportProfilesView";
+import { MailboxesView } from "@/apps/integrations/views/MailboxesView";
+import { ImportProfileEditor } from "@/apps/integrations/editors/ImportProfileEditor";
 import { DELETE, GET, POST, calls, lastCall, resetClient, routes } from "@/apps/transport/__tests__/test-setup-mocks";
 import { barButton, fail, gridRows, panel, ribbonButton, stubGlobals } from "@/apps/transport/__tests__/transport-test-mocks";
 
@@ -89,7 +89,8 @@ const NEW_SECRET = { id: "ac-1", clientId: "otms_ABCDEFGHIJKLMNOPQRSTUVWX", clie
 const INTAKE_FEATURES = {
   "Integrations.OrderIntake": "true",
   "Apps.Integrations": "true",
-  "Apps.Integrations.Received": "true",
+  "Apps.Integrations.Intake": "true",
+  "Apps.Integrations.Intake.Received": "true",
 };
 
 const assign = vi.fn();
@@ -107,7 +108,7 @@ beforeEach(() => {
   vi.stubGlobal("location", { ...window.location, assign });
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
-  pathname = "/master-data/integrations/mailboxes";
+  pathname = "/integrations/mailboxes";
   search = {};
   grants = {};
   features = { ...INTAKE_FEATURES };
@@ -272,7 +273,7 @@ describe("MailboxesView (design 72)", () => {
     expect(screen.getByTestId("mailbox-editor")).toHaveAttribute("data-readonly", "false");
     await waitFor(() => expect(navigateMock).toHaveBeenCalled());
     const call = navigateMock.mock.calls[0][0] as { to: string; replace: boolean; search: (previous: Record<string, unknown>) => Record<string, unknown> };
-    expect(call.to).toBe("/master-data/integrations/mailboxes");
+    expect(call.to).toBe("/integrations/mailboxes");
     expect(call.replace).toBe(true);
     expect(call.search({ connected: "mb-new", connectError: "x", keep: "1" })).toEqual({ keep: "1" });
     expect(toast.error).not.toHaveBeenCalled();
@@ -330,7 +331,7 @@ describe("ApiClientsView and the one-time secret dialog (design 72)", () => {
   const MANAGE = { ...VIEW, "Integrations.ApiClients.Manage": true };
 
   beforeEach(() => {
-    pathname = "/master-data/integrations/api-clients";
+    pathname = "/integrations/api-clients";
     routes.GET["/api/integrations/api-client"] = () => ({ rows: API_CLIENT_ROWS, totalCount: 2, filteredCount: 2 });
   });
 
@@ -462,7 +463,7 @@ describe("ImportProfilesView and the read-only rules (design 72)", () => {
   const MANAGE = { ...VIEW, "Integrations.ImportProfiles.Manage": true };
 
   beforeEach(() => {
-    pathname = "/master-data/integrations/import-profiles";
+    pathname = "/integrations/import-profiles";
     routes.GET["/api/integrations/import-profile"] = () => ({ rows: PROFILE_ROWS, totalCount: 3, filteredCount: 3 });
     routes.GET["/api/integrations/import-profile/{id}"] = () => PROFILE;
   });

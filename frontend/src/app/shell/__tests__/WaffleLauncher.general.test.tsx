@@ -56,7 +56,7 @@ describe("WaffleLauncher – the General domain group", () => {
   });
 
   it("hides the Master data tile when General is off and nothing else is on", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Integrations": "false", "Apps.MasterData.Platform": "false" };
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
@@ -82,15 +82,15 @@ describe("WaffleLauncher – the General domain group", () => {
     const isList = (k: string) => k.split(".").length === 5 || (k.startsWith("Apps.MasterData.Platform.") && k.split(".").length === 4);
     features = Object.fromEntries(Object.entries(masterDataOn()).map(([k, v]) => [k, isList(k) ? "false" : v]));
     /* Fifteen under General, sixteen in Orders, Planning & Execution and Financial (designs 41–53, 61), three under
-     * Integrations → Order intake (design 72, also at depth 5), three under Platform (design 54). */
-    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(37);
+     * Platform (design 54). */
+    expect(Object.values(features).filter((v) => v === "false")).toHaveLength(34);
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);
   });
 
   it("keeps the other apps' tiles when General is off", () => {
-    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Integrations": "false", "Apps.MasterData.Platform": "false", "Apps.Administration": "true", "Apps.Administration.Users": "true" };
+    features = { ...masterDataOn(), "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Platform": "false", "Apps.Administration": "true", "Apps.Administration.Users": "true" };
     render(<WaffleLauncher />);
     openLauncher();
     expect(tileNames()).not.toContain(masterData.nameKey);

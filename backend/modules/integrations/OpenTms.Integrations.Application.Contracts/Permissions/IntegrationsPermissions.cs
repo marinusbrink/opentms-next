@@ -49,6 +49,9 @@ public static class IntegrationsPermissions
         public const string Reprocess = Default + ".Reprocess";
     }
 
+    /// <summary>Design 72 build note 25: see and change the order intake's tenant settings (the name similarity threshold); tenant side.</summary>
+    public const string OrderIntakeSettings = GroupName + ".OrderIntakeSettings";
+
     /// <summary>Design 72: the intake API. Both sides; granted only to API clients (client provider), never to a role.</summary>
     public static class IntakeApi
     {

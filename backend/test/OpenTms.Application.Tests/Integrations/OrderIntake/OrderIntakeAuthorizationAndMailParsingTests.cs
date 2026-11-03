@@ -75,6 +75,8 @@ public class OrderIntakeAuthorizationTests
     [InlineData(typeof(OrderIntakeAppService), "RejectAsync", OrdersPermissions.OrderIntakes.Reject)]
     [InlineData(typeof(OrderIntakeAppService), "GetAliasesAsync", OrdersPermissions.OrderIntakes.Default)]
     [InlineData(typeof(OrderIntakeAppService), "DeleteAliasesAsync", OrdersPermissions.OrderIntakes.Resolve)]
+    [InlineData(typeof(OrderIntakeSettingsAppService), "GetAsync", IntegrationsPermissions.OrderIntakeSettings)]
+    [InlineData(typeof(OrderIntakeSettingsAppService), "UpdateAsync", IntegrationsPermissions.OrderIntakeSettings)]
     public void Every_method_carries_the_designed_permission(Type service, string method, string permission)
     {
         PolicyOf(service, method).ShouldBe(permission);
@@ -88,17 +90,19 @@ public class OrderIntakeAuthorizationTests
     [InlineData(typeof(InboundDocumentsAppService))]
     [InlineData(typeof(IntakeApiAppService))]
     [InlineData(typeof(OrderIntakeAppService))]
+    [InlineData(typeof(OrderIntakeSettingsAppService))]
     public void Every_order_intake_service_sits_behind_the_tenant_feature(Type service)
     {
         service.GetCustomAttributes<RequiresFeatureAttribute>().SelectMany(a => a.Features).ShouldContain(IntegrationsFeatures.OrderIntake);
     }
 
     [Theory]
-    [InlineData(typeof(MailboxConnectionAppService), AppFeatures.MasterData.Integrations.Intake.Mailboxes)]
-    [InlineData(typeof(ApiClientAppService), AppFeatures.MasterData.Integrations.Intake.ApiClients)]
-    [InlineData(typeof(ImportProfileAppService), AppFeatures.MasterData.Integrations.Intake.ImportProfiles)]
-    [InlineData(typeof(InboundMessageAppService), AppFeatures.IntegrationsApp.Received)]
+    [InlineData(typeof(MailboxConnectionAppService), AppFeatures.IntegrationsApp.Intake.Mailboxes)]
+    [InlineData(typeof(ApiClientAppService), AppFeatures.IntegrationsApp.Intake.ApiClients)]
+    [InlineData(typeof(ImportProfileAppService), AppFeatures.IntegrationsApp.Intake.ImportProfiles)]
+    [InlineData(typeof(InboundMessageAppService), AppFeatures.IntegrationsApp.Intake.Received)]
     [InlineData(typeof(OrderIntakeAppService), AppFeatures.TransportApp.Intake)]
+    [InlineData(typeof(OrderIntakeSettingsAppService), AppFeatures.IntegrationsApp.Intake.Settings)]
     public void Every_screen_service_sits_behind_its_nav_node_feature_with_all_required(Type service, string node)
     {
         var attribute = service.GetCustomAttributes<RequiresFeatureAttribute>().Single();
@@ -114,6 +118,8 @@ public class OrderIntakeAuthorizationTests
         typeof(IntakeApiAppService).GetCustomAttribute<RemoteServiceAttribute>()!.IsEnabled.ShouldBeFalse("served only by IntakeApiController");
         typeof(OrderIntakeService).GetCustomAttribute<RemoteServiceAttribute>()!.IsEnabled.ShouldBeFalse();
         typeof(OpenTms.MasterData.Published.MasterDataMatchQuery).GetCustomAttribute<RemoteServiceAttribute>()!.IsEnabled.ShouldBeFalse();
+        /* Design 72 build note 30: the Master Data writer is in-process only, never an HTTP endpoint. */
+        typeof(OpenTms.MasterData.Published.MasterDataIntakeWriter).GetCustomAttribute<RemoteServiceAttribute>()!.IsEnabled.ShouldBeFalse();
         typeof(InboundMessageAppService).GetMethod(nameof(InboundMessageAppService.ReprocessDocumentAsync))!.GetCustomAttribute<RemoteServiceAttribute>()!.IsEnabled.ShouldBeFalse();
     }
 

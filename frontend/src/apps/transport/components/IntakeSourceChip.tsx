@@ -16,7 +16,7 @@ export function IntakeSourceChip({ order }: { order: Pick<TransportOrderDto, "so
   const { t } = useL();
   const features = useAppFeatures();
   const canOpen = useIsGranted("Orders.OrderIntakes") && features.isFeatureEnabled("Apps.Transport.Intake");
-  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Received");
+  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Intake.Received");
   const intake = useOrderIntake(canOpen && canTrace && order?.sourceIntakeId ? order.sourceIntakeId : undefined);
   if (!order?.sourceIntakeId) return null;
   const label = t(enumKey(ORDER_SOURCES, order.source) || "Orders:OrderSource.Import");

@@ -42,6 +42,11 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     reason: "UI-PAGE-006: the body of a settings page (Administration → Services, one tab per service) is min-h-0 flex-1 overflow-auto under its command bar",
   },
   {
+    file: "apps/integrations/views/IntakeSettingsView.tsx",
+    token: "overflow-auto",
+    reason: "UI-PAGE-006: the body of a settings page (Integrations → Order intake → Settings, design 72 build note 25) is min-h-0 flex-1 overflow-auto under its command bar",
+  },
+  {
     file: "apps/transport/wizards/MaterialiseDetails.tsx",
     token: "overflow-y-auto",
     reason: "the list of orders to create (dates x copies, up to hundreds) beside the chosen order's details in the wizard's Details step: capped at max-h-72",
@@ -80,6 +85,11 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     file: "apps/master-data/components/EmailTemplateTagsPanel.tsx",
     token: "overflow-y-auto",
     reason: "the tags list: a min-h-0 flex-1 region under the fixed caption, hint and filter of the Tags panel",
+  },
+  {
+    file: "apps/integrations/pages/TracePage.tsx",
+    token: "overflow-y-auto",
+    reason: "the steps and the intakes of a received document (design 72; PO 2026-11-03): min-h-0 grow basis-0 regions under their captions in min-h-76 sections that share the document tab's height below the Details card (side by side from lg, stacked below); where both minimums do not fit, the tab panel scrolls, the trace page never does",
   },
   {
     file: "apps/planboard/panes/MapPane.tsx",

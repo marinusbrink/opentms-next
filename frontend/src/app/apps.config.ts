@@ -231,7 +231,7 @@ export const APPS: readonly AppDefinition[] = [
     id: "master-data",
     nameKey: "App:MasterData",
     path: "/master-data",
-    domains: ["MasterData", "Orders", "PlanningExecution", "Financial", "Integrations", "Platform"],
+    domains: ["MasterData", "Orders", "PlanningExecution", "Financial", "Platform"],
     icon: Database,
     tileClass: "bg-slate-600",
     feature: "Apps.MasterData",
@@ -245,7 +245,8 @@ export const APPS: readonly AppDefinition[] = [
      * Orders, Planning & Execution and Financial follow with their first lists (designs 51–53), then the Platform
      * domain's group (design 54) with its three lists directly under it, no sub-groups. The Transport run (design 61)
      * adds seven lists under the existing Orders, Planning & Execution and Financial groups.
-     * Design 72 adds the Integrations domain's group (Order intake: Mailboxes, API clients, Import profiles) before Platform.
+     * The order-intake setup of design 72 (Mailboxes, API clients, Import profiles) is not master data: it lives in the
+     * Integrations app (PO decision 2026-11-03), so the Integrations domain has no group here.
      * Views, not modules. The list routes did not move with the tree; the Relations list owns its group's path. */
     views: [
       {
@@ -379,25 +380,6 @@ export const APPS: readonly AppDefinition[] = [
         ],
       },
       {
-        nameKey: "MasterData:Nav.Integrations",
-        path: "/master-data/integrations",
-        feature: "Apps.MasterData.Integrations",
-        icon: Plug,
-        children: [
-          {
-            nameKey: "Integrations:Nav.OrderIntake",
-            path: "/master-data/integrations/intake",
-            feature: "Apps.MasterData.Integrations.Intake",
-            icon: Inbox,
-            children: [
-              { nameKey: "Integrations:Mailboxes", path: "/master-data/integrations/mailboxes", icon: MailPlus, feature: "Apps.MasterData.Integrations.Intake.Mailboxes" },
-              { nameKey: "Integrations:ApiClients", path: "/master-data/integrations/api-clients", icon: KeyRound, feature: "Apps.MasterData.Integrations.Intake.ApiClients" },
-              { nameKey: "Integrations:ImportProfiles", path: "/master-data/integrations/import-profiles", icon: FileCog, feature: "Apps.MasterData.Integrations.Intake.ImportProfiles" },
-            ],
-          },
-        ],
-      },
-      {
         nameKey: "Platform:Nav.Platform",
         path: "/master-data/platform",
         feature: "Apps.MasterData.Platform",
@@ -414,14 +396,31 @@ export const APPS: readonly AppDefinition[] = [
     id: "integrations",
     nameKey: "App:Integrations",
     path: "/integrations",
-    domains: ["Integrations"],
+    domains: ["Integrations", "MasterData", "Orders"],
     icon: Plug,
     tileClass: "bg-violet-600",
     feature: "Apps.Integrations",
-    /* Design 72: Received, the messages that came in through the mailboxes and the API, and their trace
-     * (/integrations/received/{messageId}). The screen also checks the tenant feature Integrations.OrderIntake. */
+    /* Design 72: the group Order intake. Received (the messages that came in through the mailboxes and the API, and
+     * their trace /integrations/received/{messageId}) is its first and default entry; the order-intake setup follows:
+     * Mailboxes, API clients, Import profiles (PO decision 2026-11-03: not master data, so not in the Master data app),
+     * and last Settings (build note 25: the name similarity threshold). The setup editors read relations (Master Data)
+     * and order types (Orders), hence the extra domains.
+     * The group path only redirects; the lists sit one segment under the app, as the Master data app's lists do under
+     * theirs. The screens also check the tenant feature Integrations.OrderIntake. */
     views: [
-      { nameKey: "Integrations:Nav.Received", path: "/integrations/received", feature: "Apps.Integrations.Received", icon: Inbox, requiredPermission: "Integrations.InboundMessages" },
+      {
+        nameKey: "Integrations:Nav.OrderIntake",
+        path: "/integrations/intake",
+        feature: "Apps.Integrations.Intake",
+        icon: Inbox,
+        children: [
+          { nameKey: "Integrations:Nav.Received", path: "/integrations/received", feature: "Apps.Integrations.Intake.Received", icon: Inbox, requiredPermission: "Integrations.InboundMessages" },
+          { nameKey: "Integrations:Mailboxes", path: "/integrations/mailboxes", feature: "Apps.Integrations.Intake.Mailboxes", icon: MailPlus, requiredPermission: "Integrations.Mailboxes" },
+          { nameKey: "Integrations:ApiClients", path: "/integrations/api-clients", feature: "Apps.Integrations.Intake.ApiClients", icon: KeyRound, requiredPermission: "Integrations.ApiClients" },
+          { nameKey: "Integrations:ImportProfiles", path: "/integrations/import-profiles", feature: "Apps.Integrations.Intake.ImportProfiles", icon: FileCog, requiredPermission: "Integrations.ImportProfiles" },
+          { nameKey: "Integrations:Nav.IntakeSettings", path: "/integrations/intake-settings", feature: "Apps.Integrations.Intake.Settings", icon: SlidersHorizontal, requiredPermission: "Integrations.OrderIntakeSettings" },
+        ],
+      },
     ],
   },
   {

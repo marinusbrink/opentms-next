@@ -534,6 +534,10 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
                         .HasPrecision(5, 4)
                         .HasColumnType("numeric(5,4)");
 
+                    b.Property<decimal?>("NameSimilarityThreshold")
+                        .HasPrecision(3, 2)
+                        .HasColumnType("numeric(3,2)");
+
                     b.Property<int>("OpenFieldCount")
                         .HasColumnType("integer");
 

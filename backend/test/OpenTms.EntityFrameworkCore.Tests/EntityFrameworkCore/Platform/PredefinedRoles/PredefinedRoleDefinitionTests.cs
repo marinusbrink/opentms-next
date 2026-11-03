@@ -130,14 +130,15 @@ public class PredefinedRoleDefinitionTests : OpenTmsEntityFrameworkCoreTestBase
     [InlineData(PlatformRoleNames.OrderEntry, 55)]
     [InlineData(PlatformRoleNames.Planner, 52)]
     [InlineData(PlatformRoleNames.Finance, 63)]
-    [InlineData(PlatformRoleNames.MasterDataManager, 142)]
+    [InlineData(PlatformRoleNames.MasterDataManager, 143)]
     [InlineData(PlatformRoleNames.ReadOnly, 45)]
     [InlineData(PlatformRoleNames.PlatformOperator, 21)]
     [InlineData(PlatformRoleNames.TenantManager, 9)]
     public void Each_role_has_as_many_permissions_as_design_71_lists(string role, int count)
     {
         /* Design 71 lists every permission per role; a change here changes that list in the same pull request. Design 72
-         * "Predefined roles" adds: Order entry +4, Planner +2, Master data manager +8, Read-only +5 (see the test below). */
+         * "Predefined roles" adds: Order entry +4, Planner +2, Master data manager +8, Read-only +5 (see the test below);
+         * build note 25 adds Integrations.OrderIntakeSettings to Master data manager (+1). */
         Permissions(role).Count.ShouldBe(count);
     }
 

@@ -532,10 +532,15 @@ Rechtsklikken geeft **Downloaden**; dubbelklik opent de order.
 ## Orderinvoer
 
 Orders die klanten per e-mail sturen of via de API insturen, worden automatisch gelezen (zie
-[Orderinvoer: mailboxen, API en importprofielen](orderinvoer-mailboxen-en-api.md)). Is alles herkend, dan wordt de
-order direct aangemaakt (als concept, of bevestigd als dat voor de mailbox of API-client is ingesteld). Kon het systeem
-een waarde niet zeker vinden, dan komt de order in **Transport → Orderinvoer** om te controleren. Dit onderdeel is er
-alleen als de functie *Orderinvoer* voor uw organisatie aan staat.
+[Orderinvoer: mailboxen, API en importprofielen](orderinvoer-mailboxen-en-api.md)). Klanten, adressen,
+transporteenheden, producten en temperaturen worden ook bij een typefout herkend aan een vergelijkbare naam; wat niet
+bestaat, maakt het systeem aan in de stamgegevens (zie
+[Onbekende klanten en adressen](orderinvoer-mailboxen-en-api.md#onbekende-klanten-en-adressen); hoe streng het
+vergelijkt, stelt u in bij **Integraties → Orderinvoer → Instellingen**). Daarna wordt de order direct aangemaakt (als
+concept, of bevestigd als dat voor de mailbox of API-client is ingesteld). Alleen als twee bestaande records ongeveer
+even goed passen, of als er gegevens ontbreken (geen datum, geen laadadres, een adres zonder straat, postcode of plaats),
+komt de order in **Transport → Orderinvoer** om te controleren. Dit onderdeel is er alleen als de functie *Orderinvoer*
+voor uw organisatie aan staat.
 
 ### De lijst Orderinvoer
 
@@ -555,9 +560,9 @@ heeft een kleur:
 
 | Kleur | Betekenis |
 |---|---|
-| Groen, *Herkend* | Gevonden; de manier staat erbij (meegegeven, exacte overeenkomst, geleerde alias, overeenkomst, standaard). |
+| Groen, *Herkend* | Gevonden; de manier staat erbij (meegegeven, exacte overeenkomst, geleerde alias, overeenkomst, standaard, vergelijkbare naam met de mate van overeenkomst, aangemaakt in stamgegevens). |
 | Oranje, *Meerdere mogelijkheden* | Meerdere mogelijkheden. Klik op een van de **suggesties** of kies zelf. |
-| Rood, *Niet herkend* | Niet gevonden. Kies de juiste waarde. |
+| Rood, *Niet herkend* | Niet gevonden. Kies de juiste waarde. Staat erbij dat het record wordt aangemaakt, dan maakt **Order aanmaken** het aan als u niets kiest. |
 
 Elke keuzelijst eindigt met **Nieuw … toevoegen…**; zonder getypte tekst opent het nieuwe record met de naam zoals die
 ontvangen is. Voor een adres kiest u eerst de relatie en dan het adres; een nieuwe relatie opent met de ontvangen naam

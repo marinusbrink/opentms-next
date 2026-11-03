@@ -89,17 +89,17 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         Off(platform, AppFeatures.MasterData.Platform.EmailTemplates);
         Off(platform, AppFeatures.MasterData.Platform.ReportDefinitions);
         Off(platform, AppFeatures.MasterData.Platform.DocumentTypes);
-        /* Design 72: the Integrations group and its order-intake lists default on; the screens also check
-         * Integrations.OrderIntake, which is off until a tenant switches it on. */
-        var integrations = On(masterData, AppFeatures.MasterData.Integrations.Default);
-        var intake = On(integrations, AppFeatures.MasterData.Integrations.Intake.Default);
-        On(intake, AppFeatures.MasterData.Integrations.Intake.Mailboxes);
-        On(intake, AppFeatures.MasterData.Integrations.Intake.ApiClients);
-        On(intake, AppFeatures.MasterData.Integrations.Intake.ImportProfiles);
-
-        var integrationsApp = Off(apps, AppFeatures.Integrations);
-        /* Design 72: Received, on beneath the app (which stays off until switched on). */
-        On(integrationsApp, AppFeatures.IntegrationsApp.Received);
+        var integrationsApp = On(apps, AppFeatures.Integrations);
+        /* Design 72: the group Order intake with Received, the order-intake setup (mailboxes, API clients, import
+         * profiles; in this app since PO decision 2026-11-03) and its settings. The app and its nodes default on (PO
+         * decision 2026-11-03); the screens also check the tenant feature Integrations.OrderIntake, which stays off until
+         * a tenant switches it on (constitution rule 4). */
+        var intake = On(integrationsApp, AppFeatures.IntegrationsApp.Intake.Default);
+        On(intake, AppFeatures.IntegrationsApp.Intake.Received);
+        On(intake, AppFeatures.IntegrationsApp.Intake.Mailboxes);
+        On(intake, AppFeatures.IntegrationsApp.Intake.ApiClients);
+        On(intake, AppFeatures.IntegrationsApp.Intake.ImportProfiles);
+        On(intake, AppFeatures.IntegrationsApp.Intake.Settings);
         Off(apps, AppFeatures.Reports);
 
         var administration = On(apps, AppFeatures.Administration.Default);

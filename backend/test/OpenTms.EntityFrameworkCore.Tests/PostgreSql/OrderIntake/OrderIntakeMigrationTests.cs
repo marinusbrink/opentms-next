@@ -238,14 +238,16 @@ namespace OpenTms.PostgreSql.Orders
         [Theory]
         [InlineData(null)]
         [InlineData("tenant-a")]
-        public async Task The_migration_follows_the_charged_bases_is_the_newest_and_nothing_is_pending(string? tenant)
+        public async Task The_migration_follows_the_charged_bases_and_nothing_is_pending(string? tenant)
         {
             await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
             {
                 var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-                applied.Last().ShouldBe(Migration);
+                /* No longer the newest: build note 28 added OrdersIntakeNameSimilarityThreshold right after it. */
+                applied.IndexOf(OrdersIntakeNameSimilarityThresholdMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
+                applied.Last().ShouldBe(OrdersIntakeNameSimilarityThresholdMigrationTests.Migration);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });
@@ -304,6 +306,109 @@ namespace OpenTms.PostgreSql.Orders
                 (await ChargedBasesMigrationRows.ColumnAsync(Scratch, OrdersDbProperties.DbSchema, "TransportOrders", "EditedAfterIntake")).ShouldBeNull();
                 (await ScalarAsync("SELECT to_regclass('orders.\"OrderIntakes\"')::text")).ShouldBe(DBNull.Value, "Down drops the table");
                 (await ChargedBasesMigrationRows.CountAsync(Scratch, OrdersDbProperties.DbSchema, "TransportOrders")).ShouldBe(2L, "Down keeps the rows");
+            }
+            finally
+            {
+                await ChargedBasesMigrationRows.RecreateAsync(Scratch, create: false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The OrdersIntakeNameSimilarityThreshold migration (design 72 "Migration strategy", build note 28): the newest Orders
+    /// migration, right after OrdersOrderIntake, nothing pending; Up adds only the nullable numeric(3,2) column
+    /// <c>OrderIntakes.NameSimilarityThreshold</c>; on a scratch database with data existing intakes read null (the default
+    /// threshold), the previous release's INSERT keeps working against the migrated schema (constitution rule 2), and Down
+    /// drops exactly the column and keeps the rows. Risk class: Critical (a migration on every tenant database).
+    /// </summary>
+    [Collection(PostgreSqlTestCollection.Name)]
+    public class OrdersIntakeNameSimilarityThresholdMigrationTests : ReferenceDataPostgreSqlTestBase
+    {
+        public const string Migration = "20261103180718_OrdersIntakeNameSimilarityThreshold";
+
+        /* Same length as the shared tenant database's postfix, so the name stays within PostgreSQL's 63-char limit. */
+        private static readonly string Scratch = PostgreSqlTestDatabases.HostDatabase + "_OrdNST";
+
+        static OrdersIntakeNameSimilarityThresholdMigrationTests()
+        {
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        }
+
+        private static async Task MigrateToAsync(string target)
+        {
+            await using var context = new OrdersDbContext(new DbContextOptionsBuilder<OrdersDbContext>()
+                .UseNpgsql(PostgreSqlTestDatabases.ConnectionStringFor(Scratch), b => b.MigrationsHistoryTable("__EFMigrationsHistory", OrdersDbProperties.DbSchema))
+                .Options);
+            await context.GetService<IMigrator>().MigrateAsync(target);
+        }
+
+        private static async Task<object?> ScalarAsync(string sql)
+        {
+            await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(Scratch));
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(sql, connection);
+            return await command.ExecuteScalarAsync();
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("tenant-a")]
+        public async Task The_migration_follows_the_order_intake_is_the_newest_and_nothing_is_pending(string? tenant)
+        {
+            await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
+            {
+                var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
+                var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
+                applied.IndexOf(Migration).ShouldBe(applied.IndexOf(OrdersOrderIntakeMigrationTests.Migration) + 1);
+                applied.Last().ShouldBe(Migration);
+                (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
+                context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
+            });
+        }
+
+        [Fact]
+        public void The_migration_is_expand_only_and_Down_drops_exactly_the_column()
+        {
+            var migration = new OrdersMigrations.OrdersIntakeNameSimilarityThreshold();
+
+            var column = migration.UpOperations.ShouldHaveSingleItem().ShouldBeOfType<AddColumnOperation>();
+            (column.Schema, column.Table, column.Name).ShouldBe(("orders", "OrderIntakes", "NameSimilarityThreshold"));
+            column.IsNullable.ShouldBeTrue("null is the default threshold: no backfill, old writers keep working");
+            column.ColumnType.ShouldBe("numeric(3,2)");
+            column.DefaultValue.ShouldBeNull();
+
+            var drop = migration.DownOperations.ShouldHaveSingleItem().ShouldBeOfType<DropColumnOperation>();
+            (drop.Schema, drop.Table, drop.Name).ShouldBe(("orders", "OrderIntakes", "NameSimilarityThreshold"));
+        }
+
+        [Fact]
+        public async Task Existing_intakes_take_the_default_the_previous_releases_insert_keeps_working_and_Down_keeps_the_rows()
+        {
+            await ChargedBasesMigrationRows.RecreateAsync(Scratch, create: true);
+            try
+            {
+                await MigrateToAsync(OrdersOrderIntakeMigrationTests.Migration);
+                var before = await ChargedBasesMigrationRows.InsertAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes");
+
+                await MigrateToAsync(Migration);
+
+                (await ChargedBasesMigrationRows.ColumnAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes", "NameSimilarityThreshold"))!.ShouldStartWith("numeric:YES");
+                (await ScalarAsync("SELECT numeric_precision || ',' || numeric_scale FROM information_schema.columns WHERE table_schema = 'orders' AND table_name = 'OrderIntakes' AND column_name = 'NameSimilarityThreshold'"))
+                    .ShouldBe("3,2");
+                (await ScalarAsync($"SELECT \"NameSimilarityThreshold\" FROM orders.\"OrderIntakes\" WHERE \"Id\" = '{before}'")).ShouldBe(DBNull.Value, "an existing intake resolves with the default");
+
+                /* The previous release keeps writing intakes without the new column. */
+                var oldWrite = await ChargedBasesMigrationRows.InsertAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes");
+                (await ScalarAsync($"SELECT \"NameSimilarityThreshold\" FROM orders.\"OrderIntakes\" WHERE \"Id\" = '{oldWrite}'")).ShouldBe(DBNull.Value);
+                /* The new release writes two decimals. */
+                var newWrite = await ChargedBasesMigrationRows.InsertAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes",
+                    new Dictionary<string, object> { ["NameSimilarityThreshold"] = 0.8m });
+                (await ScalarAsync($"SELECT \"NameSimilarityThreshold\" FROM orders.\"OrderIntakes\" WHERE \"Id\" = '{newWrite}'")).ShouldBe(0.80m);
+
+                await MigrateToAsync(OrdersOrderIntakeMigrationTests.Migration);
+
+                (await ChargedBasesMigrationRows.ColumnAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes", "NameSimilarityThreshold")).ShouldBeNull("Down drops the column");
+                (await ChargedBasesMigrationRows.CountAsync(Scratch, OrdersDbProperties.DbSchema, "OrderIntakes")).ShouldBe(3L, "Down keeps the rows");
             }
             finally
             {

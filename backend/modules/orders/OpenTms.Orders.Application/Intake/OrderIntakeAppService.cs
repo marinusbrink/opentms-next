@@ -150,9 +150,16 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
 
         var result = await _processor.ResolveAsync(intake, effective, input.Picks);
         var blocking = result.Resolution.BlockingFieldPaths();
+        if (blocking.Count == 0)
+        {
+            /* What is still unknown after the picks is created in Master Data (build note 26); a refused write blocks. */
+            await _processor.CreateMasterDataAsync(intake, result);
+            blocking = result.Resolution.BlockingFieldPaths();
+        }
+
         if (blocking.Count > 0)
         {
-            /* Nothing is kept: the clerk completes the picks and tries again (the transaction rolls back). */
+            /* Nothing is kept: the clerk completes the picks and tries again (the transaction rolls back, created rows too). */
             throw new BusinessException(OrdersErrorCodes.IntakeUnresolved).WithData("fields", string.Join(", ", blocking));
         }
 
@@ -263,6 +270,8 @@ public class OrderIntakeAppService : OrdersAppServiceBase, IOrderIntakeAppServic
                 TargetId = f.TargetId,
                 TargetName = f.TargetName,
                 Method = f.Method,
+                Score = f.Score,
+                Creatable = f.Creatable,
                 Candidates = f.Candidates.Select(c => new OrderIntakeCandidateDto { Id = c.Id, Name = c.Name, Detail = c.Detail }).ToList(),
                 ErrorCode = f.ErrorCode
             }).ToList(),

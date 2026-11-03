@@ -47,7 +47,7 @@ public class OrdersTransportOrdersMigrationTests : ReferenceDataPostgreSqlTestBa
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(OrdersOrderIntakeMigrationTests.Migration, "the newest Orders migration (design 72: the order intake)");
+            applied.Last().ShouldBe(OrdersIntakeNameSimilarityThresholdMigrationTests.Migration, "the newest Orders migration (design 72 build note 28: the intake's name similarity threshold)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

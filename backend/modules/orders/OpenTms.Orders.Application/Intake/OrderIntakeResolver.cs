@@ -18,6 +18,14 @@ namespace OpenTms.Orders.Intake;
 /// resolved it and the candidates. A clerk's picks override a field (method User). Reads Master Data through its published
 /// match query and reference lookup (module boundary rule 3, stated call 5) and Orders' own types and aliases; every read
 /// is batched per kind, address matches are cached per address within one intake. Writes nothing.
+/// <para>
+/// Straight through (PO decision 2026-11-03, build notes 25–26): after the exact rules a similar name (NameSimilarity: trigram or edit similarity
+/// at or above the channel's threshold, clearly ahead of the runner-up by <see cref="IntakeConsts.NameSimilarityMargin"/>)
+/// resolves a customer, address, transport unit, product or temperature by method Fuzzy; two similar candidates close to
+/// each other are Ambiguous; nothing close enough leaves the field Unresolved but <see cref="IntakeFieldResolution.Creatable"/>,
+/// with a plan in <see cref="IntakeResolveResult.Creations"/> that <see cref="IntakeMasterDataCreator"/> carries out when
+/// the order is created.
+/// </para>
 /// </summary>
 public class OrderIntakeResolver : ITransientDependency
 {
@@ -55,6 +63,7 @@ public class OrderIntakeResolver : ITransientDependency
         ResolveOrderType(run);
         ResolveOrderDate(run);
         await ResolveLinesAsync(run);
+        run.KeepCreatablePlans();
         return run.Result;
     }
 
@@ -176,17 +185,30 @@ public class OrderIntakeResolver : ITransientDependency
         var texts = names.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         foreach (var chunk in texts.Chunk(IMasterDataMatchQuery.MaxNames))
         {
-            foreach (var match in await _match.FindReferencesByNameAsync(new ReferenceNameMatchQuery { Kind = kind, Names = chunk.ToList() }))
-            {
-                if (!matches.TryGetValue(match.MatchedText, out var list))
-                {
-                    matches[match.MatchedText] = list = new List<ReferenceNameMatchDto>();
-                }
+            AddMatches(matches, await _match.FindReferencesByNameAsync(new ReferenceNameMatchQuery { Kind = kind, Names = chunk.ToList() }));
+        }
 
-                if (list.All(m => m.Id != match.Id))
-                {
-                    list.Add(match);
-                }
+        /* The similar names (build note 25) of the texts no exact name and no alias resolves: one bounded read per kind. */
+        var similar = run.SimilarNames[kind] = new Dictionary<string, List<ReferenceNameMatchDto>>(StringComparer.OrdinalIgnoreCase);
+        var open = texts.Where(t => !matches.ContainsKey(t) && run.Alias(aliasKind, null, IntakeTextNormalizer.Normalize(t)) == null).ToList();
+        foreach (var chunk in open.Chunk(IMasterDataMatchQuery.MaxNames))
+        {
+            AddMatches(similar, await _match.FindSimilarReferencesAsync(new ReferenceNameMatchQuery { Kind = kind, Names = chunk.ToList() }));
+        }
+    }
+
+    private static void AddMatches(Dictionary<string, List<ReferenceNameMatchDto>> byText, IEnumerable<ReferenceNameMatchDto> found)
+    {
+        foreach (var match in found)
+        {
+            if (!byText.TryGetValue(match.MatchedText, out var list))
+            {
+                byText[match.MatchedText] = list = new List<ReferenceNameMatchDto>();
+            }
+
+            if (list.All(m => m.Id != match.Id))
+            {
+                list.Add(match);
             }
         }
     }
@@ -274,23 +296,92 @@ public class OrderIntakeResolver : ITransientDependency
                 }
             }
 
+            /* Two relations share the strongest key the document gives (two with the name, one e-mail address on two): a tie. */
+            var tied = chosen == null
+                ? matches.Where(m => m.MatchKind != RelationMatchKind.SimilarName).GroupBy(m => m.MatchKind).OrderBy(g => g.Key).FirstOrDefault(g => g.Count() > 1)?.ToList()
+                : null;
+            var hints = matches.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name, Detail = m.Detail }).ToList();
+
             if (chosen != null)
             {
                 Resolve(field, chosen.Id, chosen.Name, method);
             }
-            else if (run.ActiveRelation(settings.DefaultCustomerRelationId) is { } fallback)
-            {
-                Resolve(field, fallback.Id, fallback.Name, IntakeResolutionMethod.Default);
-            }
             else
             {
-                Open(field, matches.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name, Detail = m.Detail }));
+                /* Fuzzy (build note 25): a similar name whose VAT, chamber of commerce number and e-mail domain do not
+                 * conflict with the document's, at or above the threshold and clearly ahead of the runner-up. */
+                var similar = tied == null ? await SimilarCustomersAsync(customer) : [];
+                var fuzzy = PickFuzzy(similar.Where(c => !c.ConflictsWithKeys).Select(c => (c, c.Similarity)), run.Threshold);
+                hints.AddRange(similar.Select(c => new IntakeCandidate { Id = c.Id, Name = c.Name, Detail = c.Detail }));
+                if (fuzzy.Chosen is { } best)
+                {
+                    Resolve(field, best.Item.Id, best.Item.Name, IntakeResolutionMethod.Fuzzy, best.Score);
+                    LearnLater(run, IntakeAliasKind.Customer, null, run.CustomerText, best.Item.Id, null);
+                }
+                else if (fuzzy.Ambiguous.Count > 0)
+                {
+                    Open(field, fuzzy.Ambiguous.Select(c => new IntakeCandidate { Id = c.Item.Id, Name = c.Item.Name, Detail = c.Item.Detail }));
+                }
+                else if (run.ActiveRelation(settings.DefaultCustomerRelationId) is { } fallback)
+                {
+                    Resolve(field, fallback.Id, fallback.Name, IntakeResolutionMethod.Default);
+                }
+                else if (tied != null)
+                {
+                    Open(field, tied.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name, Detail = m.Detail }));
+                }
+                else if (CustomerNameToCreate(customer, settings.SenderAddress) is { } newName && run.CustomerText.Length > 0)
+                {
+                    /* Nothing close enough (build note 26): a new customer from the document's customer block. */
+                    OpenCreatable(field, hints);
+                    run.Plan(IntakeCreationKind.Customer, run.CustomerText, field.FieldPath, () => new IntakeCreationPlan
+                    {
+                        Kind = IntakeCreationKind.Customer,
+                        Text = run.CustomerText,
+                        Name = newName,
+                        EmailAddress = Present(customer?.EmailAddress) ?? Present(settings.SenderAddress),
+                        VatNumber = Present(customer?.VatNumber),
+                        ChamberOfCommerceNumber = Present(customer?.ChamberOfCommerceNumber)
+                    });
+                }
+                else
+                {
+                    Open(field, hints, ambiguous: false);
+                }
             }
         }
 
         ApplyPick(run, field, run.CustomerText, null, (id, _) => (run.ActiveRelation(id)!.Name, null));
         run.Result.CustomerRelationId = field.Status == IntakeResolutionStatus.Resolved ? field.TargetId : null;
         run.Result.CustomerName = field.Status == IntakeResolutionStatus.Resolved ? field.TargetName : customer?.Name;
+    }
+
+    private async Task<List<SimilarRelationDto>> SimilarCustomersAsync(OrderIntakeCustomerDto? customer)
+    {
+        if (Present(customer?.Name) is not { } name)
+        {
+            return [];
+        }
+
+        /* Only the document's own customer keys rule a candidate out: the sender may be a forwarder with another domain. */
+        return await _match.FindSimilarRelationsAsync(new SimilarRelationQuery
+        {
+            Name = name,
+            VatNumber = customer!.VatNumber,
+            ChamberOfCommerceNumber = customer.ChamberOfCommerceNumber,
+            EmailAddress = customer.EmailAddress
+        });
+    }
+
+    /// <summary>The name of a customer to create: the document's customer name, else the domain of its e-mail address or the sender's.</summary>
+    public static string? CustomerNameToCreate(OrderIntakeCustomerDto? customer, string? senderAddress)
+        => Present(customer?.Name) ?? EmailDomain(customer?.EmailAddress) ?? EmailDomain(senderAddress);
+
+    private static string? EmailDomain(string? email)
+    {
+        var text = Present(email);
+        var at = text?.LastIndexOf('@') ?? -1;
+        return at < 0 || at == text!.Length - 1 ? null : text[(at + 1)..].ToLowerInvariant();
     }
 
     // ── order type and order date ──────────────────────────────────────────────
@@ -325,6 +416,11 @@ public class OrderIntakeResolver : ITransientDependency
             {
                 var only = run.OrderTypes.Values.Single();
                 Resolve(field, only.Id, run.NameOf(only.Name), IntakeResolutionMethod.Default);
+            }
+            else if (byName.Count == 0 && run.OrderTypes.Values.Where(t => t.IsDefault).ToList() is [var tenantDefault])
+            {
+                /* The tenant's default order type (PO 2026-11-03: an intake goes straight through). */
+                Resolve(field, tenantDefault.Id, run.NameOf(tenantDefault.Name), IntakeResolutionMethod.Default);
             }
             else
             {
@@ -393,7 +489,10 @@ public class OrderIntakeResolver : ITransientDependency
         }
     }
 
-    /// <summary>A transport unit, product or temperature: given id → alias → name exact → unresolved (design 72).</summary>
+    /// <summary>
+    /// A transport unit, product or temperature: given id → alias → name exact → similar name (Fuzzy) → created from the
+    /// name (design 72, build notes 25–26); without a name a transport unit is Unresolved.
+    /// </summary>
     private static Guid? ResolveReference(Run run, string path, IntakeAliasKind aliasKind, MasterDataReferenceKind kind, Guid? givenId, string? name, bool required)
     {
         var text = IntakeTextNormalizer.Normalize(name);
@@ -419,9 +518,29 @@ public class OrderIntakeResolver : ITransientDependency
             {
                 Resolve(field, byName[0].Id, byName[0].Name, IntakeResolutionMethod.Exact);
             }
-            else
+            else if (byName.Count > 1 || text.Length == 0)
             {
                 Open(field, byName.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name }));
+            }
+            else
+            {
+                var similar = run.SimilarNames[kind].GetValueOrDefault(name!.Trim()) ?? [];
+                var fuzzy = PickFuzzy(similar.Select(m => (m, m.Similarity ?? 0)), run.Threshold);
+                if (fuzzy.Chosen is { } best)
+                {
+                    Resolve(field, best.Item.Id, best.Item.Name, IntakeResolutionMethod.Fuzzy, best.Score);
+                    LearnLater(run, aliasKind, null, text, best.Item.Id, null);
+                }
+                else if (fuzzy.Ambiguous.Count > 0)
+                {
+                    Open(field, fuzzy.Ambiguous.Select(m => new IntakeCandidate { Id = m.Item.Id, Name = m.Item.Name }));
+                }
+                else
+                {
+                    OpenCreatable(field, similar.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name }));
+                    var trimmed = name.Trim();
+                    run.Plan(CreationKindOf(kind), text, path, () => new IntakeCreationPlan { Kind = CreationKindOf(kind), Text = text, Name = trimmed, ReferenceKind = kind });
+                }
             }
         }
 
@@ -452,29 +571,68 @@ public class OrderIntakeResolver : ITransientDependency
         {
             var matches = await MatchAddressAsync(run, stop.Address, addressText);
             var exact = matches.Where(m => m.MatchKind == AddressMatchKind.PostalCodeAndHouseNumber).ToList();
+            double? tieScore = null;
             if (exact.Count > 1)
             {
-                /* Several relations at one address (a business park): the name on the document tells them apart. */
+                /* Several relations at one address (a business park): the name on the document tells them apart — exactly,
+                 * else a name clearly the most similar (build note 25). */
                 var nameKey = IntakeTextNormalizer.Normalize(stop.Address.Name);
                 var named = nameKey.Length == 0 ? [] : exact.Where(m => IntakeTextNormalizer.Normalize(m.Name) == nameKey).ToList();
-                exact = named.Count == 1 ? named : exact;
+                if (named.Count == 1)
+                {
+                    exact = named;
+                }
+                else if (nameKey.Length > 0 && PickFuzzy(exact.Select(m => (m, NameSimilarity.Score(stop.Address.Name, m.Name))), run.Threshold).Chosen is { } closest)
+                {
+                    exact = [closest.Item];
+                    tieScore = closest.Score;
+                }
             }
 
             var byNameAndCity = matches.Where(m => m.MatchKind == AddressMatchKind.NameAndCity).ToList();
             var chosen = exact.Count == 1 ? exact[0] : exact.Count == 0 && byNameAndCity.Count == 1 ? byNameAndCity[0] : null;
             if (chosen != null)
             {
-                /* Postcode + house number is Exact; name + city is a Match (PO decision on design 72), never auto-confirmed. */
-                Resolve(addressField, chosen.Id, chosen.Name + ", " + chosen.Detail,
-                    chosen.MatchKind == AddressMatchKind.PostalCodeAndHouseNumber ? IntakeResolutionMethod.Exact : IntakeResolutionMethod.Match);
+                /* Postcode + house number is Exact; name + city is a Match (PO decision on design 72). */
+                var method = tieScore != null ? IntakeResolutionMethod.Fuzzy
+                    : chosen.MatchKind == AddressMatchKind.PostalCodeAndHouseNumber ? IntakeResolutionMethod.Exact : IntakeResolutionMethod.Match;
+                Resolve(addressField, chosen.Id, chosen.Name + ", " + chosen.Detail, method, tieScore);
                 run.AddressRelations[chosen.Id] = chosen.RelationId;
+                if (method == IntakeResolutionMethod.Fuzzy)
+                {
+                    LearnLater(run, IntakeAliasKind.Address, customerId, addressText, chosen.Id, chosen.RelationId);
+                }
+            }
+            else if (exact.Count > 1 || byNameAndCity.Count > 1)
+            {
+                OpenAddresses(run, addressField, matches, ambiguous: true);
             }
             else
             {
-                Open(addressField, matches.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name, Detail = m.Detail }));
-                foreach (var m in matches)
+                /* Fuzzy (build note 25): the relation's name similar to the document's address name, at the same postal code
+                 * or in the same city; else nothing is close enough and the place is created (build note 26). */
+                var similar = await SimilarAddressesAsync(run, stop.Address, addressText);
+                var fuzzy = PickFuzzy(similar.Select(m => (m, m.Similarity ?? 0)), run.Threshold);
+                if (fuzzy.Chosen is { } best)
                 {
-                    run.AddressRelations[m.Id] = m.RelationId;
+                    Resolve(addressField, best.Item.Id, best.Item.Name + ", " + best.Item.Detail, IntakeResolutionMethod.Fuzzy, best.Score);
+                    run.AddressRelations[best.Item.Id] = best.Item.RelationId;
+                    LearnLater(run, IntakeAliasKind.Address, customerId, addressText, best.Item.Id, best.Item.RelationId);
+                }
+                else if (fuzzy.Ambiguous.Count > 0)
+                {
+                    OpenAddresses(run, addressField, fuzzy.Ambiguous.Select(c => c.Item).ToList(), ambiguous: true);
+                }
+                else
+                {
+                    var hints = matches.Concat(similar).ToList();
+                    var plan = await AddressPlanAsync(run, stop.Address, addressText);
+                    OpenAddresses(run, addressField, hints, ambiguous: false);
+                    if (plan != null)
+                    {
+                        addressField.Creatable = true;
+                        run.Plan(plan.Kind, addressText, addressField.FieldPath, () => plan);
+                    }
                 }
             }
         }
@@ -496,6 +654,79 @@ public class OrderIntakeResolver : ITransientDependency
         resolved.WindowFrom = ResolveTime(run, IntakeFieldPaths.Stop(lineIndex, stopIndex, IntakeFieldPaths.TimeFromField), stop.TimeFrom);
         resolved.WindowTill = ResolveTime(run, IntakeFieldPaths.Stop(lineIndex, stopIndex, IntakeFieldPaths.TimeTillField), stop.TimeTill);
         return resolved;
+    }
+
+    private static void OpenAddresses(Run run, IntakeFieldResolution field, List<RelationAddressMatchDto> candidates, bool ambiguous)
+    {
+        Open(field, candidates.Select(m => new IntakeCandidate { Id = m.Id, Name = m.Name, Detail = m.Detail }), ambiguous);
+        foreach (var m in candidates)
+        {
+            run.AddressRelations[m.Id] = m.RelationId;
+        }
+    }
+
+    private async Task<List<RelationAddressMatchDto>> SimilarAddressesAsync(Run run, OrderIntakeAddressDto address, string addressText)
+    {
+        if (string.IsNullOrWhiteSpace(address.Name) || (string.IsNullOrWhiteSpace(address.PostalCode) && string.IsNullOrWhiteSpace(address.City)))
+        {
+            return [];
+        }
+
+        if (run.SimilarAddresses.TryGetValue(addressText, out var cached))
+        {
+            return cached;
+        }
+
+        var country = address.CountryCode?.Trim();
+        var similar = await _match.FindSimilarRelationAddressesAsync(new SimilarAddressQuery
+        {
+            Name = address.Name,
+            PostalCode = address.PostalCode,
+            City = address.City,
+            CountryCode = country is { Length: 2 } && country.All(char.IsAsciiLetter) ? country : null
+        });
+        run.SimilarAddresses[addressText] = similar;
+        return similar;
+    }
+
+    /// <summary>
+    /// How an unknown place is created (build note 26), or null when the document does not give enough to create one
+    /// (street, postal code and city are required): on the relation the address's name matches (exactly or by the fuzzy
+    /// rule) when that relation has no default address yet, else as a new relation named after the address — or after
+    /// street and city when the address has no name.
+    /// </summary>
+    private async Task<IntakeCreationPlan?> AddressPlanAsync(Run run, OrderIntakeAddressDto address, string addressText)
+    {
+        var street = Present(address.Street);
+        var city = Present(address.City);
+        if (street == null || city == null || Present(address.PostalCode) == null)
+        {
+            return null;
+        }
+
+        var name = Present(address.Name);
+        Guid? relationId = null;
+        if (name != null)
+        {
+            if (!run.SimilarRelations.TryGetValue(name, out var relations))
+            {
+                run.SimilarRelations[name] = relations = await _match.FindSimilarRelationsAsync(new SimilarRelationQuery { Name = name });
+            }
+
+            if (PickFuzzy(relations.Select(r => (r, r.Similarity)), run.Threshold).Chosen is { Item.HasDefaultAddress: false } owner)
+            {
+                relationId = owner.Item.Id;
+            }
+        }
+
+        return new IntakeCreationPlan
+        {
+            Kind = relationId != null ? IntakeCreationKind.StopAddress : IntakeCreationKind.StopRelation,
+            Text = addressText,
+            Name = name ?? street + ", " + city,
+            RelationId = relationId,
+            Address = address
+        };
     }
 
     private static void ResolveAddress(Run run, IntakeFieldResolution field, MasterDataAddressReferenceDto address, IntakeResolutionMethod method)
@@ -614,16 +845,22 @@ public class OrderIntakeResolver : ITransientDependency
 
     // ── helpers ────────────────────────────────────────────────────────────────
 
-    private static void Resolve(IntakeFieldResolution field, Guid? targetId, string? targetName, IntakeResolutionMethod method)
+    private static void Resolve(IntakeFieldResolution field, Guid? targetId, string? targetName, IntakeResolutionMethod method, double? score = null)
     {
         field.Status = IntakeResolutionStatus.Resolved;
         field.TargetId = targetId;
         field.TargetName = targetName;
         field.Method = method;
+        field.Score = score is { } value ? Math.Round((decimal)value, 2, MidpointRounding.AwayFromZero) : null;
+        field.Creatable = false;
         field.Candidates.Clear();
     }
 
-    private static void Open(IntakeFieldResolution field, IEnumerable<IntakeCandidate> candidates)
+    /// <summary>
+    /// An open field with its candidates: Ambiguous when they are real alternatives (several equal matches, similar names
+    /// close to each other), else Unresolved with them as hints (<paramref name="ambiguous"/> false).
+    /// </summary>
+    private static void Open(IntakeFieldResolution field, IEnumerable<IntakeCandidate> candidates, bool ambiguous = true)
     {
         field.Candidates = candidates.GroupBy(c => c.Id).Select(g => g.First()).Take(IntakeConsts.MaxCandidates).ToList();
         foreach (var candidate in field.Candidates)
@@ -631,11 +868,61 @@ public class OrderIntakeResolver : ITransientDependency
             candidate.Detail = candidate.Detail is { Length: > IntakeConsts.MaxCandidateDetailLength } d ? d[..IntakeConsts.MaxCandidateDetailLength] : candidate.Detail;
         }
 
-        field.Status = field.Candidates.Count > 0 ? IntakeResolutionStatus.Ambiguous : IntakeResolutionStatus.Unresolved;
+        field.Status = ambiguous && field.Candidates.Count > 0 ? IntakeResolutionStatus.Ambiguous : IntakeResolutionStatus.Unresolved;
         field.TargetId = null;
         field.TargetName = null;
         field.Method = null;
+        field.Score = null;
+        field.Creatable = false;
     }
+
+    /// <summary>Unresolved, to be created in Master Data when the order is created (build note 26); the candidates are hints.</summary>
+    private static void OpenCreatable(IntakeFieldResolution field, IEnumerable<IntakeCandidate> hints)
+    {
+        Open(field, hints, ambiguous: false);
+        field.Creatable = true;
+    }
+
+    /// <summary>
+    /// The fuzzy rule (build note 25): the candidates at or above <paramref name="threshold"/>, best first. One of them, or
+    /// a best one at least <see cref="IntakeConsts.NameSimilarityMargin"/> ahead of the runner-up, is chosen; otherwise the
+    /// passing candidates within the margin of the best are a tie (Ambiguous). None passing chooses nothing.
+    /// </summary>
+    public static FuzzyPick<T> PickFuzzy<T>(IEnumerable<(T Item, double Score)> scored, decimal threshold)
+    {
+        var floor = (double)threshold;
+        var margin = (double)IntakeConsts.NameSimilarityMargin;
+        var passing = scored.Where(s => s.Score >= floor).OrderByDescending(s => s.Score).ToList();
+        if (passing.Count == 0)
+        {
+            return new FuzzyPick<T>(null, []);
+        }
+
+        /* A small tolerance: 0.85 - 0.75 is 0.0999… in binary floating point and is meant as the margin itself. */
+        if (passing.Count == 1 || passing[0].Score - passing[1].Score >= margin - 1e-9)
+        {
+            return new FuzzyPick<T>(passing[0], []);
+        }
+
+        return new FuzzyPick<T>(null, passing.Where(p => passing[0].Score - p.Score < margin - 1e-9).ToList());
+    }
+
+    /// <summary>A fuzzy or created resolution is learned as an alias of the received text once the order is created (build note 25).</summary>
+    private static void LearnLater(Run run, IntakeAliasKind kind, Guid? scopeRelationId, string text, Guid targetId, Guid? targetRelationId)
+    {
+        if (text.Length > 0)
+        {
+            run.Result.AliasesToLearn.Add(new IntakeAliasToLearn(kind, kind == IntakeAliasKind.Address ? scopeRelationId : null, text, targetId, targetRelationId));
+        }
+    }
+
+    private static IntakeCreationKind CreationKindOf(MasterDataReferenceKind kind) => kind switch
+    {
+        MasterDataReferenceKind.TransportUnit => IntakeCreationKind.TransportUnit,
+        MasterDataReferenceKind.Product => IntakeCreationKind.Product,
+        MasterDataReferenceKind.Temperature => IntakeCreationKind.Temperature,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
 
     /// <summary>
     /// A clerk's pick wins over the rules (method User). A pick on a field the rules left Ambiguous or Unresolved is learned
@@ -697,11 +984,49 @@ public class OrderIntakeResolver : ITransientDependency
     /// <summary>The state of one resolver run.</summary>
     private sealed class Run
     {
+        private readonly Dictionary<(IntakeCreationKind Kind, string Text), IntakeCreationPlan> _plans = new();
+
         public Run(IntakeResolveRequest request, string culture)
         {
             Request = request;
             Culture = culture;
             CustomerText = OrderIntakeResolver.CustomerText(request.Payload.Customer, request.Settings.SenderAddress);
+            Threshold = Math.Clamp(request.Settings.EffectiveNameSimilarityThreshold, IntakeConsts.MinNameSimilarityThreshold, IntakeConsts.MaxNameSimilarityThreshold);
+        }
+
+        /// <summary>The name similarity a fuzzy match needs (build note 25).</summary>
+        public decimal Threshold { get; }
+
+        public Dictionary<MasterDataReferenceKind, Dictionary<string, List<ReferenceNameMatchDto>>> SimilarNames { get; } = new();
+
+        public Dictionary<string, List<RelationAddressMatchDto>> SimilarAddresses { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, List<SimilarRelationDto>> SimilarRelations { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>One plan per kind and received text, however many fields name it (two stops at one new place create one).</summary>
+        public void Plan(IntakeCreationKind kind, string text, string fieldPath, Func<IntakeCreationPlan> create)
+        {
+            var key = (kind is IntakeCreationKind.StopAddress ? IntakeCreationKind.StopRelation : kind, text);
+            if (!_plans.TryGetValue(key, out var plan))
+            {
+                _plans[key] = plan = create();
+                Result.Creations.Add(plan);
+            }
+
+            plan.FieldPaths.Add(fieldPath);
+        }
+
+        /// <summary>Drops the fields a clerk's pick resolved from the plans, and the plans left without a field.</summary>
+        public void KeepCreatablePlans()
+        {
+            foreach (var plan in Result.Creations.ToList())
+            {
+                plan.FieldPaths.RemoveAll(p => Result.Resolution.Find(p) is not { Status: not IntakeResolutionStatus.Resolved, Creatable: true });
+                if (plan.FieldPaths.Count == 0)
+                {
+                    Result.Creations.Remove(plan);
+                }
+            }
         }
 
         public IntakeResolveRequest Request { get; }
@@ -762,9 +1087,15 @@ public sealed record IntakeResolveRequest(OrderIntakeDto Payload, OrderIntakeCha
 /// <summary>The outcome of one resolver run: the resolution to store and the ids the order is built from.</summary>
 public sealed class IntakeResolveResult
 {
-    /// <summary>The methods that may lead to an automatically confirmed order (design 72).</summary>
+    /// <summary>
+    /// The methods that may lead to an automatically confirmed order: every rule of the resolver (PO decision 2026-11-03,
+    /// build note 28: Match, Fuzzy and Created too); only a clerk's pick (User) never does, the clerk confirms.
+    /// </summary>
     private static readonly HashSet<IntakeResolutionMethod> Trusted =
-        [IntakeResolutionMethod.Given, IntakeResolutionMethod.Exact, IntakeResolutionMethod.Alias, IntakeResolutionMethod.Pattern, IntakeResolutionMethod.Default];
+    [
+        IntakeResolutionMethod.Given, IntakeResolutionMethod.Exact, IntakeResolutionMethod.Alias, IntakeResolutionMethod.Pattern, IntakeResolutionMethod.Default,
+        IntakeResolutionMethod.Match, IntakeResolutionMethod.Fuzzy, IntakeResolutionMethod.Created
+    ];
 
     public IntakeResolution Resolution { get; } = new();
 
@@ -784,13 +1115,18 @@ public sealed class IntakeResolveResult
     /// <summary>The aliases the run resolved a field with (their use counter goes up when the resolution is kept).</summary>
     public List<IntakeAlias> UsedAliases { get; } = new();
 
-    /// <summary>The picks on fields the rules left open: learned as aliases when the order is created.</summary>
+    /// <summary>The picks on fields the rules left open, and the fuzzy and created resolutions: learned as aliases when the order is created.</summary>
     public List<IntakeAliasToLearn> AliasesToLearn { get; } = new();
 
-    /// <summary>Nothing blocks the order: every required field is resolved (product and temperature may be open).</summary>
+    /// <summary>What the intake creates in Master Data when the order is created (build note 26), one plan per new row.</summary>
+    public List<IntakeCreationPlan> Creations { get; } = new();
+
+    /// <summary>
+    /// Nothing blocks the order: every required field is resolved or to be created (product and temperature may be open).
+    /// </summary>
     public bool IsComplete => Resolution.BlockingFieldPaths().Count == 0;
 
-    /// <summary>Every field resolved, and only by Given, Exact, Alias, Pattern or Default (design 72 auto-confirm rule).</summary>
+    /// <summary>Every field resolved, by any rule but a clerk's pick (the auto-confirm rule, build note 28).</summary>
     public bool ResolvedByTrustedRules => Resolution.Fields.All(f => f.Status == IntakeResolutionStatus.Resolved && f.Method is { } m && Trusted.Contains(m));
 }
 
@@ -822,3 +1158,50 @@ public sealed class ResolvedIntakeStop
 
 /// <summary>An alias to store: the received text of a field a clerk picked a row for.</summary>
 public sealed record IntakeAliasToLearn(IntakeAliasKind Kind, Guid? ScopeRelationId, string Text, Guid TargetId, Guid? TargetRelationId);
+
+/// <summary>The outcome of the fuzzy rule: the chosen candidate with its score, or the tie of close candidates (Ambiguous).</summary>
+public sealed record FuzzyPick<T>((T Item, double Score)? Chosen, List<(T Item, double Score)> Ambiguous);
+
+/// <summary>What a creation plan writes in Master Data (build note 26).</summary>
+public enum IntakeCreationKind
+{
+    Customer = 1,
+
+    /// <summary>A new relation named after the place, with the address.</summary>
+    StopRelation = 2,
+
+    /// <summary>The address on the existing relation its name matches (that relation has no default address yet).</summary>
+    StopAddress = 3,
+
+    TransportUnit = 4,
+    Product = 5,
+    Temperature = 6
+}
+
+/// <summary>One row the intake creates in Master Data, and the fields it resolves (build note 26).</summary>
+public sealed class IntakeCreationPlan
+{
+    public IntakeCreationKind Kind { get; init; }
+
+    /// <summary>The normalised received text: the plan's key within one intake and the text of the alias learned for it.</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>The new row's name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary><see cref="IntakeCreationKind.StopAddress"/>: the relation the address goes to.</summary>
+    public Guid? RelationId { get; init; }
+
+    public string? EmailAddress { get; init; }
+
+    public string? VatNumber { get; init; }
+
+    public string? ChamberOfCommerceNumber { get; init; }
+
+    public OrderIntakeAddressDto? Address { get; init; }
+
+    public MasterDataReferenceKind? ReferenceKind { get; init; }
+
+    /// <summary>The fields this row resolves (two stops at one new place, two lines with one new unit).</summary>
+    public List<string> FieldPaths { get; } = new();
+}

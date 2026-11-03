@@ -55,7 +55,7 @@ export function ImportProfileEditor({ id, readOnly, open, onClose, onSaved }: Im
   const f = useFormat();
   const features = useAppFeatures();
   const canManage = useIsGranted("Integrations.ImportProfiles.Manage");
-  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Received");
+  const canTrace = useIsGranted("Integrations.InboundMessages") && features.isFeatureEnabled("Apps.Integrations.Intake.Received");
   const detail = useImportProfile(id);
   const rename = useRenameImportProfile();
   const activate = useActivateImportProfile();

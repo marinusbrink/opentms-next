@@ -39,8 +39,9 @@ public enum IntakeResolutionStatus
 }
 
 /// <summary>
-/// Which rule of the resolver resolved a field (design 72 "Resolution"). Only Given, Exact, Alias, Pattern and Default
-/// may lead to an automatically confirmed order; Match and User never do.
+/// Which rule of the resolver resolved a field (design 72 "Resolution"). Every method but User may lead to an automatically
+/// confirmed order (PO decision 2026-11-03, build note 28): Fuzzy is a similar name clearly ahead of the others (with its
+/// score), Created a row the intake created in Master Data because nothing was close enough (build note 26).
 /// </summary>
 public enum IntakeResolutionMethod
 {
@@ -50,5 +51,7 @@ public enum IntakeResolutionMethod
     Match = 4,
     Default = 5,
     Pattern = 6,
-    User = 7
+    User = 7,
+    Fuzzy = 8,
+    Created = 9
 }

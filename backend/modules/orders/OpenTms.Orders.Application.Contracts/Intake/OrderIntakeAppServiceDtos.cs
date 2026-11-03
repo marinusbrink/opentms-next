@@ -154,6 +154,12 @@ public class OrderIntakeFieldResolutionDto
 
     public IntakeResolutionMethod? Method { get; set; }
 
+    /// <summary>The name similarity (0–1) of a Fuzzy resolution, e.g. "Match (fuzzy, 0.82)"; null otherwise.</summary>
+    public decimal? Score { get; set; }
+
+    /// <summary>Unresolved, and created in Master Data from the received values when the order is created (build note 26).</summary>
+    public bool Creatable { get; set; }
+
     /// <summary>At most <see cref="IntakeConsts.MaxCandidates"/>, best first.</summary>
     public List<OrderIntakeCandidateDto> Candidates { get; set; } = new();
 

@@ -15,8 +15,10 @@ Zo werkt het, in het kort:
 3. Elk document wordt gelezen. Kent OpenTMS de opmaak al, dan leest een **importprofiel** het document, zonder AI en
    zonder kosten. Is de opmaak nieuw en staat AI aan, dan leert een taalmodel de opmaak één keer en stelt het een
    importprofiel voor.
-4. De gelezen waarden (klant, adressen, transporteenheden, data) worden opgezocht in de stamgegevens. Is alles
-   gevonden, dan wordt de order aangemaakt; anders komt hij in de controlelijst.
+4. De gelezen waarden (klant, adressen, transporteenheden, data) worden opgezocht in de stamgegevens, ook als er een
+   typefout in staat. Wat niet bestaat, wordt aangemaakt (zie [Onbekende klanten en adressen](#onbekende-klanten-en-adressen)).
+   Daarna wordt de order aangemaakt. Alleen als twee bestaande records even goed passen, of als er gegevens ontbreken
+   (geen datum, geen laadadres), komt de order in de controlelijst.
 5. Van elke stap is te zien wat er gebeurde: de **herkomst** (zie [De herkomst bekijken](#de-herkomst-bekijken)).
 
 ## Aan- en uitzetten
@@ -33,9 +35,11 @@ Orderinvoer is een functie per tenant, standaard **uit**. De host zet hem aan pe
 stopsoorten en transporteenheden, naar Anthropic. Relatie- en adresgegevens uit je stamgegevens gaan nooit mee.
 Anthropic traint niet op deze gegevens. Het aanzetten is de beslissing van de tenant.
 
-De schermen staan in de app **Stamgegevens**, groep **Integraties → Orderinvoer** (Mailboxen, API-clients,
-Importprofielen), in de app **Integraties** (Ontvangen) en in de app **Transport** (Orderinvoer). Elk navigatie-item
-is ook een eigen functie, standaard aan.
+De schermen staan in de app **Integraties**, groep **Orderinvoer** (Ontvangen, Mailboxen, API-clients,
+Importprofielen, Instellingen), en in de app **Transport** (Orderinvoer). Mailboxen, API-clients en importprofielen zijn
+geen stamgegevens: ze horen bij de koppelingen en staan daarom niet in de app Stamgegevens. De app **Integraties** en elk
+navigatie-item zijn ook een eigen functie, standaard aan; zolang de functie **Orderinvoer** uit staat, tonen de schermen
+dat de functie niet bij je pakket hoort.
 
 ## Een mailbox koppelen
 
@@ -43,7 +47,7 @@ OpenTMS leest één label (Gmail) of één map (Microsoft 365) van een mailbox. 
 verplaatst, gelabeld of als gelezen gemarkeerd. Alleen mail die **na** het koppelen in dat label of die map binnenkomt,
 wordt ingelezen; oudere mail niet.
 
-1. Ga naar **Stamgegevens → Integraties → Orderinvoer → Mailboxen**.
+1. Ga naar **Integraties → Orderinvoer → Mailboxen**.
 2. Klik op **Gmail koppelen** of **Microsoft 365 koppelen**.
 3. Geef de mailbox een naam, bijvoorbeeld *Orders klantenservice*, en klik op **Koppelen**.
 4. Je gaat naar Google of Microsoft. Log in met het account van de mailbox en sta het lezen van e-mail toe.
@@ -56,17 +60,51 @@ wordt ingelezen; oudere mail niet.
 Lukt het koppelen niet (je annuleerde het inloggen, of de provider is nog niet ingesteld), dan meldt de lijst waarom.
 De mailbox blijft staan met de status *Wacht op aanmelding*; met **Opnieuw koppelen** probeer je het nog eens.
 
-<!-- SCREENSHOT: Stamgegevens → Mailboxen met het venster Gmail koppelen -->
+<!-- SCREENSHOT: Integraties → Mailboxen met het venster Gmail koppelen -->
 
 ### Orders automatisch bevestigen
 
 Met **Orders automatisch bevestigen** uit (de standaard) wordt elke order uit de mailbox een **concept** dat iemand
-controleert en bevestigt. Zet je het aan, dan wordt een order direct bevestigd, maar alleen als:
+controleert en bevestigt. Zet je het aan, dan wordt een order direct bevestigd als:
 
-- een **actief** (vertrouwd) importprofiel het document las, en
-- elke waarde zonder twijfel in de stamgegevens is gevonden (exact, of via een geleerde alias).
+- een importprofiel het document las (ook een nieuw, net door de AI geleerd en gecontroleerd profiel), of de order via
+  de API als JSON binnenkwam, en
+- elke waarde in de stamgegevens is gevonden of aangemaakt (ook als hij aan een vergelijkbare naam herkend is).
 
-Is één van beide niet zo, dan blijft de order een concept.
+Las het taalmodel het document zonder gecontroleerd profiel (bijvoorbeeld een gescande PDF), dan blijft de order een
+concept. Lukt het bevestigen niet (een regel van de ordersoort), dan blijft de order ook een concept; de reden staat in
+de herkomst.
+
+### Onbekende klanten en adressen
+
+OpenTMS zoekt elke naam eerst exact op (code, btw-nummer, KvK-nummer, e-mailadres, postcode met huisnummer, naam). Vindt
+het niets, dan zoekt het een **vergelijkbare naam**, zodat een typefout ("Heinekn" voor "Heineken") geen probleem is:
+
+- Een klant met een vergelijkbare naam telt alleen als zijn btw-nummer, KvK-nummer en e-maildomein niet afwijken van
+  wat de order noemt.
+- Een adres telt alleen als de relatie een vergelijkbare naam heeft **en** het adres dezelfde postcode of dezelfde plaats
+  heeft.
+- Transporteenheden, producten en temperaturen worden op hun naam vergeleken.
+
+Hoe sterk een naam moet lijken, stel je in bij **Integraties → Orderinvoer → Instellingen** (*Naamovereenkomst*, van
+0,50 tot 0,95; standaard 0,75; zie [Instellingen](#instellingen)). Hoger is strenger: minder kans op een verkeerde klant, meer nieuwe
+records. Lijken twee bestaande records ongeveer even goed (minder dan 0,1 verschil), dan kiest OpenTMS niet zelf en komt
+de order in de controlelijst.
+
+Lijkt niets genoeg, dan **maakt OpenTMS het record aan**:
+
+- een **klant**: een nieuwe relatie met de rol *Klant*, met de naam, het e-mailadres, het btw- en KvK-nummer uit de
+  order (geen naam: het domein van het e-mailadres van de afzender);
+- een **laad- of losadres**: als er al een relatie met die naam is zonder (standaard)adres, krijgt die het adres;
+  anders een nieuwe relatie met de naam van het adres (zonder naam: straat en plaats) en dat adres. Straat, postcode en
+  plaats moeten in de order staan; zonder landcode wordt het standaardland van de tenant gebruikt, anders Nederland;
+- een **transporteenheid, product of temperatuur**: een nieuw record met alleen de naam uit de order.
+
+Ordersoort en stopsoort worden nooit aangemaakt; daarvoor gelden de standaardwaarden van de mailbox of API-client.
+
+Alles wat zo is aangemaakt, herken je aan de omschrijving *Aangemaakt door de orderinvoer…*; een aangemaakte relatie
+heeft daarnaast het externe kenmerk met bron `OrderIntake`. Controleer en vul deze records aan in de app Stamgegevens.
+De orderinvoer onthoudt wat hij herkende of aanmaakte, zodat de volgende order met dezelfde tekst het meteen vindt.
 
 ### Statussen en acties
 
@@ -87,7 +125,7 @@ Google- of Microsoft-account zelf.
 Een klant die orders vanuit zijn eigen systeem wil sturen, krijgt een **API-client**: een client-ID en een secret
 waarmee zijn systeem een token opvraagt (OAuth client credentials).
 
-1. Ga naar **Stamgegevens → Integraties → Orderinvoer → API-clients** en klik op **Nieuwe API-client**.
+1. Ga naar **Integraties → Orderinvoer → API-clients** en klik op **Nieuwe API-client**.
 2. Vul een **Naam** in en kies de **Klant**: alle orders van deze client zijn orders van die klant. Kies eventueel een
    **Standaard ordersoort** en of orders **automatisch bevestigd** worden.
 3. Klik op **Opslaan**. Er opent een venster met de **Client-ID**, het **Clientgeheim**, de **Token-URL**, de
@@ -112,15 +150,15 @@ welke waarde bevat. Profielen worden niet getypt maar **geleerd**:
 2. OpenTMS controleert de regels meteen: ze moeten precies dezelfde waarden lezen als het taalmodel. Alleen dan wordt
    het profiel opgeslagen, met de status **Voorgesteld**.
 3. Elke order die met het profiel gelezen is en zonder correctie wordt bevestigd, telt mee. Na drie bevestigingen
-   zonder correctie (in te stellen per tenant) wordt het profiel **Actief**: vanaf dan mag het tot automatisch
-   bevestigde orders leiden.
+   zonder correctie (in te stellen per tenant) wordt het profiel **Actief**. Ook een voorgesteld profiel mag al tot
+   automatisch bevestigde orders leiden.
 4. Verbetert iemand bij de controle een waarde, dan telt dat als correctie. Een actief profiel gaat terug naar
    *Voorgesteld* en wordt hersteld op basis van de verbeterde waarden (met AI, alleen bij een correctie).
 
 Een bekende opmaak kost dus geen AI meer. Een gescande PDF zonder tekstlaag kan geen profiel krijgen; die wordt elke
 keer door het taalmodel gelezen.
 
-In **Stamgegevens → Integraties → Orderinvoer → Importprofielen** zie je per profiel de afzender, het formaat, de
+In **Integraties → Orderinvoer → Importprofielen** zie je per profiel de afzender, het formaat, de
 status, de versie en hoe vaak het bevestigd en gecorrigeerd is. Open een profiel om:
 
 - de **naam** te wijzigen (en op te slaan);
@@ -132,6 +170,22 @@ status, de versie en hoe vaak het bevestigd en gecorrigeerd is. Open een profiel
 De regels zelf zijn alleen-lezen: een verkeerde waarde verbeter je bij de controle van de order, het profiel leert
 daarvan.
 
+## Instellingen
+
+Onder **Integraties → Orderinvoer → Instellingen** staat één instelling van je tenant:
+
+- **Naamovereenkomst**: hoe sterk een ontvangen naam moet lijken op een bestaande klant, een bestaand adres, een
+  transporteenheid, product of temperatuur om die te gebruiken in plaats van een nieuwe aan te maken. Kies een waarde van
+  0,50 tot 0,95, in stappen van 0,05; standaard is 0,75. Hoger is strenger: er worden minder tikfouten geaccepteerd, dus
+  er worden meer nieuwe gegevens aangemaakt. Lager is toleranter voor tikfouten, maar twee verschillende namen worden dan
+  eerder voor dezelfde aangezien.
+
+Kies de waarde en klik op **Opslaan**. De nieuwe waarde geldt voor orders die daarna binnenkomen; een order die al in de
+controlelijst staat, houdt de waarde waarmee hij binnenkwam. Je ziet dit scherm met het recht *Instellingen orderinvoer*
+(`Integrations.OrderIntakeSettings`); de vooraf ingestelde rol *Stamgegevensbeheerder* heeft dat recht.
+
+<!-- SCREENSHOT: Integraties → Orderinvoer → Instellingen -->
+
 ## AI-instelling (host)
 
 De host stelt de AI-leverancier en de koppelingen met Google en Microsoft in bij **Beheer → Diensten → Integraties**
@@ -141,18 +195,40 @@ koppelen; zonder Anthropic-sleutel worden onbekende documenten niet geleerd en w
 
 ## De herkomst bekijken
 
-In de app **Integraties → Ontvangen** staat elk bericht dat binnenkwam: ontvangen, kanaal, mailbox of API-client, van,
+In de app **Integraties → Orderinvoer → Ontvangen** staat elk bericht dat binnenkwam: ontvangen, kanaal, mailbox of API-client, van,
 onderwerp, het aantal documenten en de status. Filter op status, kanaal en periode. Dubbelklik op een bericht om de
 **herkomst** te openen:
 
-- bovenaan het bericht: kanaal, mailbox of API-client, afzender, onderwerp en ontvangstmoment;
-- een tabblad per document (de tekst van de mail en elke bijlage), met:
-  - **Origineel downloaden**: het bestand precies zoals het binnenkwam;
-  - het formaat, de opmaak-vingerafdruk en het **importprofiel** dat het las (klik om het profiel te openen);
+- een tabblad per document (de tekst van de mail en elke bijlage), met bovenaan het kader **Details**. Dat is
+  ingeklapt tot één regel: kanaal · mailbox of API-client · ontvangstmoment · status van het document · grootte ·
+  **importprofiel** (klik om het profiel te openen). Klik op het pijltje om het uit te klappen; dan zie je alles:
+  - het bericht: kanaal, mailbox of API-client, afzender, onderwerp, ontvangstmoment en bericht-ID;
+  - het document: soort, status, formaat, grootte, hoe het gelezen is, het importprofiel, de opmaak-vingerafdruk, de
+    afzendersleutel en **Origineel downloaden** (het bestand precies zoals het binnenkwam).
+
+  Uitgeklapt blijft het kader uitgeklapt als je naar een ander document-tabblad gaat; open je de herkomst opnieuw, dan
+  is het weer ingeklapt;
+- daaronder, naast elkaar (op een smal scherm onder elkaar):
   - de **stappen**: wanneer wat gebeurde, met een pictogram voor gelukt, waarschuwing of fout. Bij een AI-stap staan
-    het taalmodel, het aantal tokens en de kosten; bij een stap van een medewerker zijn naam;
-  - per gelezen order een **veldentabel**: elk veld, de waarde en waar die vandaan kwam (cel, regel met het stukje
-    tekst, XML-element), met links naar de **orderinvoer** en de **order**.
+    het taalmodel, het aantal tokens en de kosten; bij een stap van een medewerker zijn naam. Herkende de orderinvoer
+    iets aan een vergelijkbare naam of maakte hij iets aan, dan zegt de stap *Doorgegeven aan orderinvoer* hoeveel
+    (bijvoorbeeld "1 herkend aan een vergelijkbare naam, 2 aangemaakt in de stamgegevens");
+  - de **gelezen orders**: per order een **veldentabel** met elk veld, de waarde en waar die vandaan kwam (cel, regel
+    met het stukje tekst, XML-element), met links naar de **orderinvoer** en de **order**.
+
+De pagina zelf scrolt niet: zijn er veel stappen of velden, dan scrolt alleen de lijst met stappen of de lijst met
+gelezen orders. Is het scherm te laag om beide lijsten een bruikbare hoogte te geven (op een smal scherm onder elkaar,
+of met de details uitgeklapt), dan scrolt het tabblad zelf; de lijsten houden dan elk hun minimale hoogte.
+
+In de actiebalk, groep **Orderinvoer**:
+
+- **Beoordelen** opent de controlepagina in de app Transport van de order uit dit bericht die nog gecontroleerd moet
+  worden. Wachten er meer, dan opent de eerste; na de controle brengt **Beoordelen** je naar de volgende. Wacht er geen
+  enkele, dan is de knop uitgeschakeld en zegt de tooltip waarom. Je ziet de knop alleen met het recht *Orderinvoer*
+  (`Orders.OrderIntakes`) en als het navigatie-item **Transport → Orderinvoer** aan staat.
+- **Order openen** opent de transportorder als het bericht precies één order opleverde (met het recht
+  *Transportorders* en het navigatie-item **Transport → Orders**). Leverde het meer orders op, dan open je ze via de
+  links bij de gelezen orders.
 
 Met **Bericht downloaden** haal je het hele oorspronkelijke bericht op (de e-mail als `.eml`). **Opnieuw verwerken**
 leest het geopende document opnieuw, bijvoorbeeld nadat AI-mapping is aangezet of een profiel buiten gebruik is
@@ -163,7 +239,7 @@ Vanuit de orderinvoer (**Herkomst bekijken**) en vanaf de orderpagina (de knop *
 
 Een Customer Success Manager ziet deze herkomst door als gebruiker van de tenant mee te kijken (impersonatie).
 
-<!-- SCREENSHOT: Integraties → Ontvangen, de herkomst van een bericht -->
+<!-- SCREENSHOT: Integraties → Orderinvoer → Ontvangen, de herkomst van een bericht -->
 
 ## Rechten
 
@@ -177,10 +253,13 @@ Een Customer Success Manager ziet deze herkomst door als gebruiker van de tenant
 | **Importprofielen beheren** | `Integrations.ImportProfiles.Manage` | Activeren, buiten gebruik stellen, hernoemen en verwijderen. |
 | **Ontvangen berichten** | `Integrations.InboundMessages` | Ontvangen berichten en hun herkomst bekijken, originelen downloaden. |
 | **Opnieuw verwerken** | `Integrations.InboundMessages.Reprocess` | Een document opnieuw verwerken. |
+| **Instellingen orderinvoer** | `Integrations.OrderIntakeSettings` | De naamovereenkomst voor herkenning bekijken en wijzigen. |
 | **Orders via de API insturen** | `Integrations.IntakeApi.Submit` | Alleen voor API-clients, nooit voor een rol. |
 
 De rechten voor de controlelijst staan bij [Transport](transport.md#orderinvoer).
 
-De functies van de navigatie-items: `Apps.MasterData.Integrations`, `Apps.MasterData.Integrations.Intake`,
-`Apps.MasterData.Integrations.Intake.Mailboxes`, `Apps.MasterData.Integrations.Intake.ApiClients`,
-`Apps.MasterData.Integrations.Intake.ImportProfiles` en `Apps.Integrations.Received`.
+De functies van de navigatie-items: `Apps.Integrations.Intake` (de groep Orderinvoer),
+`Apps.Integrations.Intake.Received`, `Apps.Integrations.Intake.Mailboxes`, `Apps.Integrations.Intake.ApiClients`,
+`Apps.Integrations.Intake.ImportProfiles` en `Apps.Integrations.Intake.Settings`, onder de app `Apps.Integrations`
+(alle standaard aan). Een oude link naar
+*Stamgegevens → Integraties* brengt je naar dezelfde lijst in de app Integraties.

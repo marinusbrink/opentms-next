@@ -15,14 +15,14 @@ using Volo.Abp.Features;
 namespace OpenTms.Integrations.OrderIntake;
 
 /// <summary>
-/// Master data → Integrations → Order intake → Import profiles (design 72 §4): the list (design-50 paging, filters status
+/// Integrations app → Order intake → Import profiles (design 72 §4): the list (design-50 paging, filters status
 /// and format, the wildcard search covers name and sender), one profile with its rules (read-only: rules change through
 /// the review's repair), rename, activate, retire and delete. Feature <c>Integrations.OrderIntake</c> plus the app
 /// features of the node; tenant-filtered.
 /// </summary>
 [RequiresFeature(
-    IntegrationsFeatures.OrderIntake, AppFeatures.MasterData.Default, AppFeatures.MasterData.Integrations.Default, AppFeatures.MasterData.Integrations.Intake.Default,
-    AppFeatures.MasterData.Integrations.Intake.ImportProfiles, RequiresAll = true)]
+    IntegrationsFeatures.OrderIntake, AppFeatures.Integrations, AppFeatures.IntegrationsApp.Intake.Default,
+    AppFeatures.IntegrationsApp.Intake.ImportProfiles, RequiresAll = true)]
 [Authorize(IntegrationsPermissions.ImportProfiles.Default)]
 public class ImportProfileAppService : IntegrationsAppServiceBase, IImportProfileAppService
 {

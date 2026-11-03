@@ -42,7 +42,11 @@ public class OrderIntakeSubmissionDto
     [Range(0, 1)]
     public decimal MappingConfidence { get; set; }
 
-    /// <summary>The import profile that read the document is Active; only then may the order be confirmed automatically.</summary>
+    /// <summary>
+    /// The mapping may lead to a confirmed order (with <see cref="AutoConfirm"/>): an import profile (Active or Proposed —
+    /// a Proposed profile passed the AI's verification), a profile the AI proposed and the executor verified, or the API's
+    /// canonical JSON; false for an AI extraction without a verified profile (PO decision 2026-11-03, build note 28).
+    /// </summary>
     public bool ProfileTrusted { get; set; }
 
     /// <summary>The channel's auto-confirm setting (mailbox connection or API client).</summary>
@@ -55,6 +59,13 @@ public class OrderIntakeSubmissionDto
     public Guid? FixedCustomerRelationId { get; set; }
 
     public Guid? DefaultTransportOrderTypeId { get; set; }
+
+    /// <summary>
+    /// The tenant's Integrations setting <c>Integrations.OrderIntake.NameSimilarityThreshold</c> (build note 25): the name
+    /// similarity a fuzzy match needs; null takes <see cref="IntakeConsts.DefaultNameSimilarityThreshold"/>.
+    /// </summary>
+    [Range(0.5, 0.95)]
+    public decimal? NameSimilarityThreshold { get; set; }
 }
 
 /// <summary>What Orders made of one submitted intake; becomes the Submitted and OrderCreated/NeedsReview steps.</summary>
@@ -73,6 +84,12 @@ public class OrderIntakeSubmissionResultDto
 
     /// <summary>The field paths still unresolved (empty once an order exists).</summary>
     public List<string> Unresolved { get; set; } = new();
+
+    /// <summary>The distinct Master Data rows the resolution found by a similar name (method Fuzzy), for the trace.</summary>
+    public int FuzzyMatchCount { get; set; }
+
+    /// <summary>The distinct Master Data rows the intake created (method Created), for the trace.</summary>
+    public int CreatedCount { get; set; }
 }
 
 /// <summary>

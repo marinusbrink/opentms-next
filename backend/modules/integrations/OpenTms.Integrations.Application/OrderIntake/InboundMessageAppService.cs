@@ -28,7 +28,7 @@ namespace OpenTms.Integrations.OrderIntake;
 /// design's route). Feature <c>Integrations.OrderIntake</c> plus the app features of the Received node; tenant-filtered.
 /// This is what a Customer Success Manager sees through impersonation.
 /// </summary>
-[RequiresFeature(IntegrationsFeatures.OrderIntake, AppFeatures.Integrations, AppFeatures.IntegrationsApp.Received, RequiresAll = true)]
+[RequiresFeature(IntegrationsFeatures.OrderIntake, AppFeatures.Integrations, AppFeatures.IntegrationsApp.Intake.Default, AppFeatures.IntegrationsApp.Intake.Received, RequiresAll = true)]
 [Authorize(IntegrationsPermissions.InboundMessages.Default)]
 public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMessageAppService
 {
@@ -316,7 +316,7 @@ public class InboundMessageAppService : IntegrationsAppServiceBase, IInboundMess
 /// <c>POST /api/integrations/inbound-documents/{id}/reprocess</c>. Runs the document through the pipeline again (the
 /// job); intakes Orders already holds are not created twice.
 /// </summary>
-[RequiresFeature(IntegrationsFeatures.OrderIntake, AppFeatures.Integrations, AppFeatures.IntegrationsApp.Received, RequiresAll = true)]
+[RequiresFeature(IntegrationsFeatures.OrderIntake, AppFeatures.Integrations, AppFeatures.IntegrationsApp.Intake.Default, AppFeatures.IntegrationsApp.Intake.Received, RequiresAll = true)]
 [Authorize(IntegrationsPermissions.InboundMessages.Reprocess)]
 public class InboundDocumentsAppService : IntegrationsAppServiceBase
 {

@@ -17,6 +17,19 @@ public static class IntakeConsts
     /// <summary>The order types and waypoint types the resolver and the learning context read at most.</summary>
     public const int MaxTypes = 500;
 
+    /* Fuzzy matching (design 72 build note 25, PO decision 2026-11-03). The threshold is the Integrations tenant setting
+     * Integrations.OrderIntake.NameSimilarityThreshold, handed over with every submission and kept on the intake. */
+
+    /// <summary>The name similarity a candidate needs when the channel gives no threshold.</summary>
+    public const decimal DefaultNameSimilarityThreshold = 0.75m;
+
+    public const decimal MinNameSimilarityThreshold = 0.5m;
+
+    public const decimal MaxNameSimilarityThreshold = 0.95m;
+
+    /// <summary>How far the best similar candidate must lead the runner-up (when that one passes the threshold too).</summary>
+    public const decimal NameSimilarityMargin = 0.10m;
+
     /* The intake record. */
 
     /// <summary>The Integrations channel's name ("Gmail", "Microsoft365", "Api").</summary>

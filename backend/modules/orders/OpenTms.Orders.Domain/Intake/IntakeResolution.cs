@@ -17,9 +17,12 @@ public sealed class IntakeResolution
     /// <summary>The fields not Resolved, optional ones (product, temperature) included.</summary>
     public int OpenFieldCount => Fields.Count(f => f.Status != IntakeResolutionStatus.Resolved);
 
-    /// <summary>The fields that keep the intake from becoming an order: not Resolved and not optional.</summary>
+    /// <summary>
+    /// The fields that keep the intake from becoming an order: not Resolved, not optional, and not to be created in Master
+    /// Data when the order is created (<see cref="IntakeFieldResolution.Creatable"/>, build note 26).
+    /// </summary>
     public List<string> BlockingFieldPaths()
-        => Fields.Where(f => f.Status != IntakeResolutionStatus.Resolved && !IntakeFieldPaths.IsOptional(f.FieldPath)).Select(f => f.FieldPath).ToList();
+        => Fields.Where(f => f.Status != IntakeResolutionStatus.Resolved && !f.Creatable && !IntakeFieldPaths.IsOptional(f.FieldPath)).Select(f => f.FieldPath).ToList();
 
     public IntakeFieldResolution? Find(string fieldPath) => Fields.FirstOrDefault(f => f.FieldPath == fieldPath);
 
@@ -41,6 +44,15 @@ public sealed class IntakeFieldResolution
     public string? TargetName { get; set; }
 
     public IntakeResolutionMethod? Method { get; set; }
+
+    /// <summary>The name similarity (0–1, two decimals) of a <see cref="IntakeResolutionMethod.Fuzzy"/> resolution; null otherwise.</summary>
+    public decimal? Score { get; set; }
+
+    /// <summary>
+    /// Unresolved, and nothing in Master Data is close enough: the row is created from the received values when the order
+    /// is created (build note 26). Such a field does not block the order; it is Resolved with method Created afterwards.
+    /// </summary>
+    public bool Creatable { get; set; }
 
     public List<IntakeCandidate> Candidates { get; set; } = new();
 

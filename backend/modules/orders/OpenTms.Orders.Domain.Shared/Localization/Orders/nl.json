@@ -665,6 +665,8 @@
     "Orders:IntakeResolutionMethod.Pattern": "Patroon",
     "Orders:IntakeStopContact": "Contactpersoon",
     "Orders:IntakeResolutionMethod.User": "Gekozen door gebruiker",
+    "Orders:IntakeResolutionMethod.Fuzzy": "Vergelijkbare naam",
+    "Orders:IntakeResolutionMethod.Created": "Aangemaakt in stamgegevens",
     "Orders:Nav.Intake": "Orderinvoer",
     "Orders:OrderIntake": "Orderinvoer",
     "Orders:IntakeReviewTab": "Controle",

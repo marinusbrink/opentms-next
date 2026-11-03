@@ -19,8 +19,8 @@ public class MailboxOAuthUrls : ITransientDependency
 {
     public const string CallbackPath = "api/integrations/mailbox-oauth/callback";
 
-    /// <summary>The SPA page of the mailboxes (Master data → Integrations → Order intake → Mailboxes).</summary>
-    public const string MailboxesPagePath = "master-data/integrations/mailboxes";
+    /// <summary>The SPA page of the mailboxes (Integrations app → Order intake → Mailboxes).</summary>
+    public const string MailboxesPagePath = "integrations/mailboxes";
 
     private const string SelfApplicationName = "MVC";
 

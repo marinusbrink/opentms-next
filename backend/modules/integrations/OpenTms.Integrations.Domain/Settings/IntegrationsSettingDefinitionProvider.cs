@@ -20,5 +20,11 @@ public class IntegrationsSettingDefinitionProvider : SettingDefinitionProvider
             LocalizableString.Create<IntegrationsResource>("Integrations:Setting.ProfileActivationThreshold"),
             LocalizableString.Create<IntegrationsResource>("Integrations:Setting.ProfileActivationThresholdDescription"),
             isVisibleToClients: false));
+        context.Add(new SettingDefinition(
+            IntegrationsSettings.NameSimilarityThreshold,
+            OrderIntakeConsts.DefaultNameSimilarityThreshold.ToString(CultureInfo.InvariantCulture),
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.NameSimilarityThreshold"),
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.NameSimilarityThresholdDescription"),
+            isVisibleToClients: false));
     }
 }

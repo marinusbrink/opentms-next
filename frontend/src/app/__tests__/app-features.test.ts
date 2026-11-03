@@ -134,8 +134,8 @@ describe("apps.config – every app and node has its tree feature", () => {
   it("names the same 82 features as the backend's AppFeatures", () => {
     /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists; design 66/70
      * (PO decision D7) add the Planboard's eight pane nodes; design 72 ("Features", app features) adds seven:
-     * Integrations → Received, Transport → Intake, and the Master data group Integrations → Order intake with its
-     * three lists. */
+     * Transport → Intake, and the Integrations app's group Order intake with Received, Mailboxes, API clients,
+     * Import profiles (PO 2026-11-03: the setup lists moved there from the Master data app) and Settings. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
     expect(names).toHaveLength(82);
     expect(new Set(names).size).toBe(82);
@@ -202,15 +202,15 @@ describe("createAppFeatureChecker – tenant side", () => {
     const checker = tenant(values);
     const visible = paths(checker.visibleViews(masterData));
     expect(visible.join()).not.toContain("/master-data/countries");
-    /* General, Orders, Planning & Execution, Financial (designs 51–53), Integrations (design 72) and Platform (design 54). */
-    expect(visible).toHaveLength(6);
+    /* General, Orders, Planning & Execution, Financial (designs 51–53) and Platform (design 54). */
+    expect(visible).toHaveLength(5);
     expect(checker.visibleViews(masterData)[0].children).toHaveLength(3);
-    expect(checker.visibleViews(masterData)[5].path).toBe("/master-data/platform");
+    expect(checker.visibleViews(masterData)[4].path).toBe("/master-data/platform");
   });
 
   it("the Platform group off hides its three lists, even with the lists on; the other groups stay", () => {
     const checker = tenant({ ...allOn(masterData), "Apps.MasterData.Platform": "false" });
-    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general", "/master-data/orders", "/master-data/planning", "/master-data/financial", "/master-data/integrations"]);
+    expect(checker.visibleViews(masterData).map((v) => v.path)).toEqual(["/master-data/general", "/master-data/orders", "/master-data/planning", "/master-data/financial"]);
     for (const path of ["/master-data/email-templates", "/master-data/report-definitions", "/master-data/document-types"]) {
       expect(checker.isPathEnabled(masterData, path), path).toBe(false);
     }
@@ -391,8 +391,7 @@ describe("createAppFeatureChecker – firstEnabledPath", () => {
       tenant({ ...allOn(masterData), "Apps.MasterData.Platform.EmailTemplates": "false" }).firstEnabledPath(masterData, "/master-data/platform"),
     ).toBe("/master-data/report-definitions");
     expect(tenant({ ...allOn(masterData), "Apps.MasterData.General": "false" }).firstEnabledPath(masterData)).toBe("/master-data/transport-order-types");
-    /* Design 72 puts the Integrations group before Platform, so it is switched off too to reach Platform. */
-    const othersOff = { "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false", "Apps.MasterData.Integrations": "false" };
+    const othersOff = { "Apps.MasterData.General": "false", "Apps.MasterData.Orders": "false", "Apps.MasterData.PlanningExecution": "false", "Apps.MasterData.Financial": "false" };
     expect(tenant({ ...allOn(masterData), ...othersOff }).firstEnabledPath(masterData)).toBe("/master-data/email-templates");
     expect(tenant({ ...allOn(masterData), ...othersOff, "Apps.MasterData.Platform": "false" }).firstEnabledPath(masterData)).toBeUndefined();
   });

@@ -10,8 +10,8 @@ import { BoolCell, DateTimeCell } from "@/components/ui/grid-cells";
 import type { GridRowAction, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
-import { ApiClientSecretDialog } from "@/apps/master-data/components/ApiClientSecretDialog";
-import { ApiClientEditor } from "@/apps/master-data/editors/ApiClientEditor";
+import { ApiClientSecretDialog } from "@/apps/integrations/components/ApiClientSecretDialog";
+import { ApiClientEditor } from "@/apps/integrations/editors/ApiClientEditor";
 import {
   useActivateApiClient,
   useApiClientsGridFetcher,
@@ -27,7 +27,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
-/* Master data → Integrations → Order intake → API clients (design 72 "UI design"): name, client id, customer, active,
+/* Integrations → Order intake → API clients (design 72 "UI design"): name, client id, customer, active,
  * last used on a full-height server-side grid (UI-PAGE-001); New API client first (UI-ACT-001); the row actions Edit,
  * Regenerate secret, Deactivate / Activate and Delete (UI-GRID-008). A create or a regenerate shows the one-time secret
  * dialog. Order intake is a tenant feature (UI-PERM-006). */

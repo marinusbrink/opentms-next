@@ -25,6 +25,11 @@ public static class IntegrationsPredefinedRoles
             IntegrationsPermissions.ApiClients.Default,
             IntegrationsPermissions.ApiClients.Manage);
 
+        /* Design 72 build note 25: the order intake's settings go with the role that manages the mailboxes. One permission
+         * views and changes them, so Read-only does not get it. */
+        options.Grant(PlatformRoleNames.MasterDataManager,
+            IntegrationsPermissions.OrderIntakeSettings);
+
         options.Grant(PlatformRoleNames.ReadOnly,
             IntegrationsPermissions.Mailboxes.Default,
             IntegrationsPermissions.ApiClients.Default);

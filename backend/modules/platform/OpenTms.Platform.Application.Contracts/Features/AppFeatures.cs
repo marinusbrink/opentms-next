@@ -45,11 +45,27 @@ public static class AppFeatures
     public const string Finance = GroupName + ".Finance";
     public const string Integrations = GroupName + ".Integrations";
 
-    /// <summary>The Integrations app's navigation nodes (design 72).</summary>
+    /// <summary>
+    /// The Integrations app's navigation nodes (design 72). The group Order intake holds Received and the order-intake
+    /// setup: mailboxes, API clients and import profiles (PO decision 2026-11-03: not master data, so not in the Master
+    /// data app).
+    /// </summary>
     public static class IntegrationsApp
     {
-        /// <summary>Received messages and their trace.</summary>
-        public const string Received = Integrations + ".Received";
+        /// <summary>The group Order intake.</summary>
+        public static class Intake
+        {
+            public const string Default = Integrations + ".Intake";
+
+            /// <summary>Received messages and their trace.</summary>
+            public const string Received = Default + ".Received";
+            public const string Mailboxes = Default + ".Mailboxes";
+            public const string ApiClients = Default + ".ApiClients";
+            public const string ImportProfiles = Default + ".ImportProfiles";
+
+            /// <summary>The order intake's tenant settings (design 72 build note 25).</summary>
+            public const string Settings = Default + ".Settings";
+        }
     }
 
     public const string Reports = GroupName + ".Reports";
@@ -139,20 +155,6 @@ public static class AppFeatures
                 public const string TransportTripTypes = Default + ".TransportTripTypes";
                 public const string ViaDepotRules = Default + ".ViaDepotRules";
                 public const string TripAttributeDefinitions = Default + ".TripAttributeDefinitions";
-            }
-        }
-
-        /// <summary>The Integrations domain's group (design 72): Order intake with mailboxes, API clients and import profiles.</summary>
-        public static class Integrations
-        {
-            public const string Default = MasterData.Default + ".Integrations";
-
-            public static class Intake
-            {
-                public const string Default = Integrations.Default + ".Intake";
-                public const string Mailboxes = Default + ".Mailboxes";
-                public const string ApiClients = Default + ".ApiClients";
-                public const string ImportProfiles = Default + ".ImportProfiles";
             }
         }
 

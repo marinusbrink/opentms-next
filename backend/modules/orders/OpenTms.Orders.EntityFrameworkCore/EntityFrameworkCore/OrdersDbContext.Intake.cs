@@ -26,6 +26,7 @@ public partial class OrdersDbContext
             b.Property(i => i.ReviewedPayload).HasColumnType("jsonb");
             b.Property(i => i.Resolution).HasJsonbResolution();
             b.Property(i => i.MappingConfidence).HasPrecision(5, 4);
+            b.Property(i => i.NameSimilarityThreshold).HasPrecision(3, 2);
             b.Property(i => i.RejectReason).HasMaxLength(IntakeConsts.MaxRejectReasonLength);
             b.Property(i => i.CustomerReference).HasMaxLength(OrdersConsts.MaxCustomerReferenceLength);
             b.Property(i => i.CustomerName).HasMaxLength(IntakeConsts.MaxNameLength);

@@ -84,7 +84,10 @@ export function treePaths(views: readonly AppView[]): string[] {
 /* Sub-routes of the Master data app (design 41): every nav group and list path in apps.config.ts, at any depth,
  * resolves to the app component, which reads the pathname. */
 const masterDataApp = APPS.find((app) => app.id === "master-data")!;
-const masterDataSubRoutes = Array.from(new Set(treePaths(masterDataApp.views ?? []))).map((path) =>
+/* The order-intake setup moved to the Integrations app (PO decision 2026-11-03): its old addresses stay routes of the
+ * Master data app, which sends them on to the same list there (a bookmark, a mailbox OAuth return). */
+export const MASTER_DATA_MOVED_ROUTES = ["/master-data/integrations", "/master-data/integrations/$"] as const;
+const masterDataSubRoutes = [...new Set(treePaths(masterDataApp.views ?? [])), ...MASTER_DATA_MOVED_ROUTES].map((path) =>
     createRoute({
       getParentRoute: () => shellRoute,
       path,
@@ -105,8 +108,9 @@ const transportSubRoutes = [...new Set(treePaths(transportApp.views ?? [])), ...
   }),
 );
 
-/* Sub-routes of the Integrations app (design 72): the Received list, the trace page of one message
- * (/integrations/received/{messageId}). All resolve to the app component, which reads the pathname. */
+/* Sub-routes of the Integrations app (design 72): the group Order intake with the Received list and the order-intake
+ * setup lists, the trace page of one message (/integrations/received/{messageId}). All resolve to the app component,
+ * which reads the pathname. */
 const integrationsApp = APPS.find((app) => app.id === "integrations")!;
 export const INTEGRATIONS_RECORD_ROUTES = ["/integrations/received/$id", "/integrations/received/document/$documentId"] as const;
 const integrationsSubRoutes = [...new Set(treePaths(integrationsApp.views ?? [])), ...INTEGRATIONS_RECORD_ROUTES].map((path) =>

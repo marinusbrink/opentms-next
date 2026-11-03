@@ -40,7 +40,7 @@ export const RECORD_ROUTES: Readonly<Record<RecordType, RecordRoute>> = {
   OrderIntake: { listPath: "/transport/intake", permission: "Orders.OrderIntakes", feature: "Apps.Transport.Intake" },
   /* Design 72: the trace page of a received message (the same deviation, approved in docs/designs/72-order-intake.md,
    * "UI design": "the trace page /integrations/received/{messageId}"). */
-  InboundMessage: { listPath: "/integrations/received", permission: "Integrations.InboundMessages", feature: "Apps.Integrations.Received" },
+  InboundMessage: { listPath: "/integrations/received", permission: "Integrations.InboundMessages", feature: "Apps.Integrations.Intake.Received" },
 };
 
 /** Design 72: the route that opens the trace of the message a received document belongs to (other apps know only the

@@ -19,7 +19,7 @@ using Volo.Abp.Validation;
 namespace OpenTms.Integrations.OrderIntake.ApiClients;
 
 /// <summary>
-/// Master data → Integrations → Order intake → API clients (design 72 "API client"). Each client is an OpenIddict
+/// Integrations app → Order intake → API clients (design 72 "API client"). Each client is an OpenIddict
 /// client-credentials application in the host database (<see cref="ApiClientApplicationRegistrar"/>) plus this tenant
 /// row; the secret is returned once, by create and regenerate, and only its last four characters are kept. Deactivate
 /// removes the client's permission grant, so a token it still holds no longer passes the intake API; delete also removes
@@ -28,10 +28,9 @@ namespace OpenTms.Integrations.OrderIntake.ApiClients;
 [Authorize(IntegrationsPermissions.ApiClients.Default)]
 [RequiresFeature(
     IntegrationsFeatures.OrderIntake,
-    AppFeatures.MasterData.Default,
-    AppFeatures.MasterData.Integrations.Default,
-    AppFeatures.MasterData.Integrations.Intake.Default,
-    AppFeatures.MasterData.Integrations.Intake.ApiClients,
+    AppFeatures.Integrations,
+    AppFeatures.IntegrationsApp.Intake.Default,
+    AppFeatures.IntegrationsApp.Intake.ApiClients,
     RequiresAll = true)]
 public class ApiClientAppService : IntegrationsAppServiceBase, IApiClientAppService
 {
