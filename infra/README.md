@@ -40,4 +40,6 @@ terraform apply -var-file=../environments/staging.tfvars
   *Staging database* workflow or `infra/scripts/staging-database.sh start ryd-opentms-staging`.
 - Host administrator password of an environment:
   `gcloud secrets versions access latest --secret=host-admin-password --project=ryd-opentms-<env>`.
+- The AI connector's Gemini client secret, to enter in Gemini Enterprise (the client id is `OpenTms_Mcp_Gemini`):
+  `gcloud secrets versions access latest --secret=ai-connector-gemini-client-secret --project=ryd-opentms-<env>`.
 - Rolling back prod: `gcloud run services update-traffic opentms-api --to-revisions=<revision>=100 --project=ryd-opentms-prod --region=europe-west4`.
