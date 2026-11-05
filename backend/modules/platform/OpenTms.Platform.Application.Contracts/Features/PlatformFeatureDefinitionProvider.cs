@@ -100,6 +100,8 @@ public class PlatformFeatureDefinitionProvider : FeatureDefinitionProvider
         On(intake, AppFeatures.IntegrationsApp.Intake.ApiClients);
         On(intake, AppFeatures.IntegrationsApp.Intake.ImportProfiles);
         On(intake, AppFeatures.IntegrationsApp.Intake.Settings);
+        /* Design 74: off per tenant, set by the host; the tenant administrator then accepts the data sharing as well. */
+        Off(integrationsApp, AppFeatures.IntegrationsApp.AiConnector);
         Off(apps, AppFeatures.Reports);
 
         var administration = On(apps, AppFeatures.Administration.Default);

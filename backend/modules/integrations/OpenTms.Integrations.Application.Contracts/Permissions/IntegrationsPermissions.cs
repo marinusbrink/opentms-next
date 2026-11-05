@@ -52,6 +52,15 @@ public static class IntegrationsPermissions
     /// <summary>Design 72 build note 25: see and change the order intake's tenant settings (the name similarity threshold); tenant side.</summary>
     public const string OrderIntakeSettings = GroupName + ".OrderIntakeSettings";
 
+    /// <summary>Design 74: the AI connector (tenant side; only the predefined role admin holds these, which holds every permission).</summary>
+    public static class AiConnector
+    {
+        /// <summary>Connect and use the connector; see and switch off one's own connections.</summary>
+        public const string Use = GroupName + ".AiConnector.Use";
+        /// <summary>Accept and withdraw the data sharing; see and switch off every connection of the tenant.</summary>
+        public const string Manage = GroupName + ".AiConnector.Manage";
+    }
+
     /// <summary>Design 72: the intake API. Both sides; granted only to API clients (client provider), never to a role.</summary>
     public static class IntakeApi
     {

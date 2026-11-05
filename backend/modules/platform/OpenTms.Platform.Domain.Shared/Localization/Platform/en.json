@@ -690,6 +690,8 @@
     "Feature:Apps.MasterData.General.Reference.GeographicalRegions.Description": "Shows the Geographical regions list.",
     "Feature:Apps.Integrations": "Integrations app",
     "Feature:Apps.Integrations.Description": "Shows the Integrations app. The address lookup is a feature of its own.",
+    "Feature:Apps.Integrations.AiConnector": "AI connector",
+    "Feature:Apps.Integrations.AiConnector.Description": "Shows the AI connector of the Integrations app and lets users connect an approved AI tool (Claude, ChatGPT, Gemini) that reads data on their behalf. Off by default; the tenant administrator also has to accept the data sharing.",
     "Feature:Apps.Reports": "Reports app",
     "Feature:Apps.Reports.Description": "Shows the Reports app.",
     "Feature:Apps.Administration": "Administration app",

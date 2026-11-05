@@ -26,5 +26,20 @@ public class IntegrationsSettingDefinitionProvider : SettingDefinitionProvider
             LocalizableString.Create<IntegrationsResource>("Integrations:Setting.NameSimilarityThreshold"),
             LocalizableString.Create<IntegrationsResource>("Integrations:Setting.NameSimilarityThresholdDescription"),
             isVisibleToClients: false));
+        /* Design 74: the acceptance of the AI connector's data sharing. Only ever a tenant's own value. */
+        context.Add(new SettingDefinition(
+            IntegrationsSettings.AiConnectorAcceptedAt,
+            null,
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.AiConnectorAcceptedAt"),
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.AiConnectorAcceptedAtDescription"),
+            isVisibleToClients: false,
+            isInherited: false).WithProviders(TenantSettingValueProvider.ProviderName));
+        context.Add(new SettingDefinition(
+            IntegrationsSettings.AiConnectorAcceptedByUserId,
+            null,
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.AiConnectorAcceptedByUserId"),
+            LocalizableString.Create<IntegrationsResource>("Integrations:Setting.AiConnectorAcceptedByUserIdDescription"),
+            isVisibleToClients: false,
+            isInherited: false).WithProviders(TenantSettingValueProvider.ProviderName));
     }
 }
