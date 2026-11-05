@@ -987,6 +987,8 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TenantId", "SourceIntakeId");
 
+                    b.HasIndex("TenantId", "CustomerRelationId", "OrderDate");
+
                     b.HasIndex("TenantId", "Status", "OrderDate");
 
                     b.HasIndex(new[] { "CustomerName" }, "IX_TransportOrders_CustomerName_Trigram");
