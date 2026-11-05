@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTms.Integrations.AiConnector;
 using OpenTms.Integrations.OrderIntake;
 using OpenTms.Integrations.OrderIntake.Profiles;
 using OpenTms.Integrations.Routing;
@@ -31,6 +32,9 @@ public class IntegrationsDbContext : AbpDbContext<IntegrationsDbContext>
     /// <summary>AP-05: written with the host as the current tenant, so its rows live in the host database.</summary>
     public DbSet<AiUsageRecord> AiUsageRecords { get; set; } = default!;
 
+    /// <summary>Design 74: the AI tools users connected, in the tenant's database.</summary>
+    public DbSet<AiConnection> AiConnections { get; set; } = default!;
+
     public IntegrationsDbContext(DbContextOptions<IntegrationsDbContext> options)
         : base(options)
     {
@@ -62,6 +66,18 @@ public class IntegrationsDbContext : AbpDbContext<IntegrationsDbContext>
         });
 
         ConfigureOrderIntake(builder);
+
+        builder.Entity<AiConnection>(b =>
+        {
+            b.ToTable("AiConnections", IntegrationsDbProperties.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(c => c.ClientId).HasMaxLength(AiConnectorConsts.MaxClientIdLength).IsRequired();
+            b.Property(c => c.AuthorizationId).HasMaxLength(AiConnectorConsts.MaxAuthorizationIdLength).IsRequired();
+            /* The revocation check of every /mcp request, and what makes connecting twice reuse one row. */
+            b.HasIndex(c => c.AuthorizationId).IsUnique();
+            /* A user's own connections, and removing a deleted user's. */
+            b.HasIndex(c => c.UserId);
+        });
     }
 
     private const string NotDeleted = "\"IsDeleted\" = false";
