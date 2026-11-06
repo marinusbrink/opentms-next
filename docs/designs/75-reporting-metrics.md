@@ -390,6 +390,15 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   which the count of groups is a separate statement because the answer is truncated. Count only: p95 168 ms. Five years by month: p95 175 ms.
   A year's trips by carrier and month with four metrics: p95 97 ms. The plan reads (`TenantId`, `OrderDate`) and then the table's rows; the margin to the
   300 ms budget is small, so the real test decides.
+- **The real test missed the budget, so the query changed; the budget did not.** The first CI run answered the worst case in p95 355 ms, median
+  301 ms, about twice a local run, with 133,103 records in 74,002 groups. Timed per statement on a copy of that data: the groups 103 ms, the
+  separate count of groups 40 ms, coverage and the currency check about 14 ms each. JIT is not the cause: every statement stays under its
+  threshold. `count(*) OVER ()` in the groups statement costs nothing measurable and removes the separate count. EF has no window functions, so
+  `ReportingDbFunctions.GroupsBeforeLimit` maps to that fixed text, with no input (`DEVIATION(coding-conventions-raw-sql)`, a performance
+  exception). The currency check now reads one currency and asks for any other: it stops at the first other, and a period in one currency
+  still reads the whole period, as the distinct did. Old and new alternated locally, two runs each: p95 176 ms became 135 to 145 ms. The rollup
+  table stays unbuilt: with this many customers a day-level rollup would hardly shrink the rows. The hash aggregate spills 7.6 MB to disk at
+  PostgreSQL's default `work_mem` of 4 MB; 64 MB gained about 15 % locally, and that is a database setting left for when production shows the need.
 - **The timeout.** At a limit of 40 ms a statement on the volume above answered `timeout` after 67 ms, with no rows.
 
 **Choices where the design was silent:**

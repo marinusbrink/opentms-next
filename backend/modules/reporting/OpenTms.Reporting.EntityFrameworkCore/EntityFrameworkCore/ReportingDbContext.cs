@@ -1,4 +1,6 @@
+using System;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using OpenTms.Reporting.Facts;
 using Volo.Abp.Data;
 using Volo.Abp.EntityFrameworkCore;
@@ -29,6 +31,12 @@ public class ReportingDbContext : AbpDbContext<ReportingDbContext>
         /* Every table of this module lives in its own schema ("reporting").
          * Never map an entity of another module into this context. */
         builder.HasDefaultSchema(ReportingDbProperties.DbSchema);
+
+        /* Design 75: the count of groups in the statement that reads them, so a truncated answer does not group the period twice.
+         * EF has no window functions; the name is fixed text and takes no input. design 75 "Build notes", DEVIATION(coding-conventions-raw-sql). */
+        builder.HasDbFunction(typeof(ReportingDbFunctions).GetMethod(nameof(ReportingDbFunctions.GroupsBeforeLimit))!)
+            .HasStoreType("bigint")
+            .HasTranslation(_ => new SqlFunctionExpression("count(*) OVER", [], nullable: false, argumentsPropagateNullability: [], typeof(long), typeMapping: null));
 
         /* Design 75: the columns' precision follows the source's; the indexes are the design's list, the volume test decides. */
         builder.Entity<OrderFact>(b =>

@@ -138,7 +138,7 @@ public class AiConnectorClientRegistrar : ITransientDependency
 
         /* Find-then-create is one step per client id on every instance, canary revisions included: all of them use this host
          * database, and OpenIddictApplications.ClientId has no unique index to stop a second row. Released by the commit, so
-         * the next holder finds the row. The only raw SQL here; it reads no data (design 74 "Build notes"). */
+         * the next holder finds the row. The only raw SQL here; it reads no data. design 74 "Build notes", DEVIATION(coding-conventions-raw-sql). */
         var dbContext = await _openIddictDbContext.GetDbContextAsync();
         await dbContext.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({clientId}, 0))", cancellationToken);
 

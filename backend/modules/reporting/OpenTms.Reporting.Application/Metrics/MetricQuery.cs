@@ -189,9 +189,7 @@ public class MetricQuery : IMetricQuery, ITransientDependency
             MetricSqlBuilder.Groups(counted, shape, plan.GroupBy, metricKeys, splitByCurrency, plan.Sort).Take(plan.Top + 1),
             cancellationToken);
         var truncated = rows.Count > plan.Top;
-        var totalGroups = truncated
-            ? await executer.LongCountAsync(MetricSqlBuilder.GroupCount(counted, shape, plan.GroupBy, splitByCurrency), cancellationToken)
-            : rows.Count;
+        var totalGroups = rows.Count == 0 ? 0 : rows[0].TotalGroups;
         rows = rows.Take(plan.Top).ToList();
 
         var coverage = await executer.ToListAsync(MetricSqlBuilder.Coverage(scoped, shape, metricKeys), cancellationToken);
@@ -235,8 +233,12 @@ public class MetricQuery : IMetricQuery, ITransientDependency
             : MetricCatalog.DefaultOrderStatuses.Select(s => (int)s).ToList();
         var shape = OrderFactShape.Instance;
         var query = shape.WithStatus(shape.InPeriod(await _orderFacts.GetQueryableAsync(), plan.From, plan.To), statuses);
-        var currencies = await _orderFacts.AsyncExecuter.ToListAsync(query.Select(f => f.CurrencyCode).Distinct().Take(2), cancellationToken);
-        return currencies.Count > 1 ? [MetricWarnings.MixedCurrencies] : null;
+
+        /* One currency, then any other: it stops at the first order in another currency, where a distinct reads the whole period. */
+        var first = await _orderFacts.AsyncExecuter.FirstOrDefaultAsync(query.Select(f => f.CurrencyCode), cancellationToken);
+        return first != null && await _orderFacts.AsyncExecuter.AnyAsync(query.Where(f => f.CurrencyCode != first), cancellationToken)
+            ? [MetricWarnings.MixedCurrencies]
+            : null;
     }
 
     private MetricRowDto ToRow<TFact>(MetricGroupRow row, MetricPlan plan, IFactShape<TFact> shape, IReadOnlyDictionary<string, IReadOnlyDictionary<Guid, string>> names)

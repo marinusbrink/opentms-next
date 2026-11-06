@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using OpenTms.Reporting.Facts;
 
 namespace OpenTms.Reporting.Metrics;
 
@@ -12,13 +13,14 @@ namespace OpenTms.Reporting.Metrics;
 /// </summary>
 public static class MetricSqlBuilder
 {
-    /// <summary>The groups, sorted; the caller adds <c>Take</c>.</summary>
+    /// <summary>The groups, sorted, each with the number of groups before the limit; the caller adds <c>Take</c>.</summary>
     public static IQueryable<MetricGroupRow> Groups<TFact>(IQueryable<TFact> query, IFactShape<TFact> shape, IReadOnlyList<string> groupBy, IReadOnlyList<string> metrics, bool splitByCurrency, string? sort)
     {
         var grouped = GroupByKey(query, shape, groupBy, splitByCurrency);
         var group = Expression.Parameter(typeof(IGrouping<MetricGroupKey, TFact>), "g");
         var bindings = new List<MemberBinding>();
         var key = Expression.Property(group, nameof(IGrouping<MetricGroupKey, TFact>.Key));
+        bindings.Add(Expression.Bind(typeof(MetricGroupRow).GetProperty(nameof(MetricGroupRow.TotalGroups))!, Expression.Call(typeof(ReportingDbFunctions), nameof(ReportingDbFunctions.GroupsBeforeLimit), Type.EmptyTypes)));
 
         foreach (var slot in SlotsOf(shape, groupBy))
         {
@@ -41,10 +43,6 @@ public static class MetricSqlBuilder
             Expression.MemberInit(Expression.New(typeof(MetricGroupRow)), bindings), group);
         return Sort(grouped.Select(selector), shape, groupBy, metrics, splitByCurrency, sort);
     }
-
-    /// <summary>The number of groups without their aggregates; only asked for when the answer is truncated.</summary>
-    public static IQueryable<int> GroupCount<TFact>(IQueryable<TFact> query, IFactShape<TFact> shape, IReadOnlyList<string> groupBy, bool splitByCurrency)
-        => GroupByKey(query, shape, groupBy, splitByCurrency).Select(_ => 1);
 
     /// <summary>One row per status: its records, those without a value for a chosen metric, and the newest fact.</summary>
     public static IQueryable<MetricCoverageRow> Coverage<TFact>(IQueryable<TFact> query, IFactShape<TFact> shape, IReadOnlyList<string> metrics)

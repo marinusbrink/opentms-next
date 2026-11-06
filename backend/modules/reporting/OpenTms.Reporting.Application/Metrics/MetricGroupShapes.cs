@@ -29,6 +29,8 @@ public sealed class MetricGroupKey
 /// <summary>One row of a query as it leaves SQL: the key's slots and a value per chosen metric, by position.</summary>
 public sealed class MetricGroupRow
 {
+    public long TotalGroups { get; set; }
+
     public Guid? IdA { get; set; }
 
     public DateOnly? DateA { get; set; }
