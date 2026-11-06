@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using OpenTms.HostIntegration;
 using OpenTms.Integrations.AiConnector;
@@ -709,6 +711,108 @@ public class RegistrationHostTests
         var limit = typeof(AiConnectorRegistrationController).GetMethod(nameof(AiConnectorRegistrationController.RegisterAsync))!
             .GetCustomAttributes(inherit: true).OfType<Microsoft.AspNetCore.Http.Metadata.IRequestSizeLimitMetadata>().ShouldHaveSingleItem();
         limit.MaxRequestBodySize.ShouldBe(16 * 1024);
+    }
+
+    /* ---------- The cap (design 74 "Build notes") ---------- */
+
+    private async Task<long> ChatGptClientCountAsync()
+        => await _h.CountAsync(null, "SELECT count(*) FROM \"OpenIddictApplications\" WHERE \"ClientId\" LIKE @prefix", ("prefix", AiConnectorConsts.ChatGptClientIdPrefix + "%"));
+
+    private static async Task<string> ClientIdOfAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(HttpStatusCode.Created, body);
+        return JsonDocument.Parse(body).RootElement.GetProperty("client_id").GetString()!;
+    }
+
+    /// <summary>Runs with the cap at exactly the applications that exist now, and always puts it back. Options are a singleton, so the running registrar reads this value.</summary>
+    private async Task AtTheCapAsync(Func<long, Task> action)
+    {
+        var options = _h.Services.GetRequiredService<IOptions<AiConnectorRegistrationOptions>>().Value;
+        var cap = options.MaxChatGptClients;
+        var count = await ChatGptClientCountAsync();
+        options.MaxChatGptClients = (int)count;
+        try
+        {
+            await action(count);
+        }
+        finally
+        {
+            options.MaxChatGptClients = cap;
+        }
+    }
+
+    [Fact]
+    public async Task At_the_cap_a_registered_uri_still_returns_its_client_and_writes_nothing()
+    {
+        var uri = ChatGptBase + "conn_" + Guid.NewGuid().ToString("N")[..16];
+        using var first = await RegisterUrisAsync(uri);
+        var clientId = await ClientIdOfAsync(first);
+
+        await AtTheCapAsync(async count =>
+        {
+            var before = _h.Host.Logs.Entries.Count;
+            using var again = await RegisterUrisAsync(uri);
+            (await ClientIdOfAsync(again)).ShouldBe(clientId);
+
+            (await ChatGptClientCountAsync()).ShouldBe(count);
+            _h.Host.Logs.Entries.Skip(before).ShouldNotContain(e => e.Level >= LogLevel.Error, "a registered URI is not refused");
+
+            /* A tool with fixed URIs writes nothing either, so the cap has no say. */
+            using var claude = await RegisterUrisAsync(HostIntegrationFixture.ClaudeRedirectUri);
+            (await ClientIdOfAsync(claude)).ShouldBe(ClaudeClient);
+        });
+    }
+
+    [Fact]
+    public async Task At_the_cap_a_new_uri_gets_400_writes_nothing_and_logs_an_error_with_the_count_and_the_cap_and_no_uri()
+    {
+        /* At least one application exists, so the cap is not zero. */
+        using (var seed = await RegisterUrisAsync(ChatGptBase + "conn_" + Guid.NewGuid().ToString("N")[..16]))
+        {
+            await ClientIdOfAsync(seed);
+        }
+
+        var connection = "conn_" + Guid.NewGuid().ToString("N")[..16];
+        var uri = ChatGptBase + connection;
+        await AtTheCapAsync(async count =>
+        {
+            var before = _h.Host.Logs.Entries.Count;
+            var applications = await ApplicationCountAsync();
+
+            using var refused = await RegisterUrisAsync(uri);
+            var body = await refused.Content.ReadAsStringAsync();
+
+            refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+            var json = JsonDocument.Parse(body).RootElement;
+            json.GetProperty("error").GetString().ShouldBe("invalid_redirect_uri");
+            json.TryGetProperty("client_id", out _).ShouldBeFalse(body);
+            body.ShouldNotContain(count.ToString(System.Globalization.CultureInfo.InvariantCulture), Case.Sensitive, "an anonymous caller learns nothing about the count");
+            body.ShouldNotContain("cap", Case.Insensitive, "an anonymous caller learns nothing about the cap");
+
+            (await ApplicationCountAsync()).ShouldBe(applications, "nothing written");
+            (await ChatGptClientCountAsync()).ShouldBe(count);
+
+            var entries = _h.Host.Logs.Entries.Skip(before).ToList();
+            var error = entries.Where(e => e.Level >= LogLevel.Error).ShouldHaveSingleItem();
+            error.Category.ShouldBe(typeof(AiConnectorClientRegistrar).FullName);
+            error.Message.ShouldContain(count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " exist");
+            error.Message.ShouldContain("the cap is " + count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+            /* Not the URI, not its connection id, not the hash that stands for it: in no line of the request, at any level. */
+            var clientId = AiConnectorClients.ChatGptClientId(uri);
+            foreach (var entry in entries)
+            {
+                var text = entry.Message + " " + entry.Exception;
+                text.ShouldNotContain(connection, Case.Insensitive, entry.Category);
+                text.ShouldNotContain(clientId, Case.Insensitive, entry.Category);
+                text.ShouldNotContain("chatgpt.com/connector", Case.Insensitive, entry.Category);
+            }
+        });
+
+        /* The cap is the only reason: once there is room the same URI registers. */
+        using var allowed = await RegisterUrisAsync(uri);
+        (await ClientIdOfAsync(allowed)).ShouldBe(AiConnectorClients.ChatGptClientId(uri));
     }
 
     [Fact]
