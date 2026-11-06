@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using OpenTms.Orders.Published;
@@ -23,7 +24,8 @@ namespace OpenTms.PostgreSql.Reporting;
 /// <summary>
 /// Design 75 "Backfill" (risk class High) on PostgreSQL through the real scheduler, dispatcher and job: the backfill resumes after an interruption, stays
 /// <c>not_ready</c> until every fact exists rather than merely was requested, its results equal the source, it never runs for a tenant with the feature off,
-/// turning the feature off and on clears and restarts it, and counts that still differ an hour after the position ran out start the sweep again without clearing.
+/// turning the feature off and on clears and restarts it, and counts that still differ an hour after the position ran out start the sweep again without clearing, up to the last sweep, which
+/// completes with the difference on record: <c>query_metrics</c> answers <c>ok</c> with <c>facts_incomplete</c> and <c>factsMissing</c> for that grain only, until the daily repair's recount reaches 0.
 /// Each test works in a tenant whose facts it starts by clearing; rows commit.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
@@ -33,7 +35,30 @@ public class ReportingBackfillPostgreSqlTests : ReportingPostgreSqlTestBase
 
     private const int BatchSize = 3;
 
-    private ReportingFactBackfillRunner Runner => GetRequiredService<ReportingFactBackfillRunner>();
+    private readonly CapturingLogger<ReportingFactBackfillRunner> _backfillLog = new();
+
+    private ReportingFactBackfillRunner Runner
+    {
+        get
+        {
+            var runner = GetRequiredService<ReportingFactBackfillRunner>();
+            runner.Logger = _backfillLog;
+            return runner;
+        }
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            => Entries.Add((logLevel, formatter(state, exception)));
+    }
 
     private async Task<bool> PassAsync(CancellationToken cancellationToken = default)
     {
@@ -329,6 +354,282 @@ public class ReportingBackfillPostgreSqlTests : ReportingPostgreSqlTestBase
         (await CompletedAtAsync()).ShouldNotBeNull("the second sweep finishes the job");
         var (orders, trips) = await SourceCountsAsync();
         (await FactCountsAsync()).ShouldBe((orders, trips));
+    }
+
+    /* ---------- A calculation that keeps failing (design 75 "Backfill", "Incomplete facts") ---------- */
+
+    private static readonly DateOnly WindowFrom = new(2025, 3, 3);
+    private static readonly DateOnly WindowTo = new(2025, 3, 20);
+
+    private MetricQueryRequestDto OrdersAsked => Ask(WindowFrom, WindowTo, [MetricKeys.OrderCount]);
+
+    private MetricQueryRequestDto TripsAsked => Ask(WindowFrom, WindowTo, [MetricKeys.TripCount]);
+
+    private async Task<MetricAnswerDto> AnswerAsync(MetricQueryRequestDto request, Guid? tenant = null)
+        => await CommittedAsync(tenant ?? Tenant, () => QueryAsync(request), transactional: false);
+
+    private async Task RepairAsync()
+    {
+        using (AsBackgroundProcess())
+        using (CurrentTenant.Change(Tenant))
+        {
+            await GetRequiredService<ReportingFactRepairRunner>().RunForCurrentTenantAsync();
+        }
+
+        /* Those jobs would rebuild the facts; here their calculations go on failing. */
+        ForgetRecordedJobs();
+    }
+
+    private async Task<ReportingFactsMissing?> MissingOnRecordAsync()
+        => await CommittedAsync(Tenant, () => State.GetFactsMissingAsync(), transactional: false);
+
+    private async Task<List<Guid>> OrderFactIdsAsync(int take)
+        => await CommittedAsync(Tenant, async () => (await OrderFacts.GetQueryableAsync()).Where(f => f.OrderDate >= WindowFrom && f.OrderDate <= WindowTo).OrderBy(f => f.Id).Select(f => f.Id).Take(take).ToList(), transactional: false);
+
+    private async Task<List<Guid>> TripFactIdsAsync(int take)
+        => await CommittedAsync(Tenant, async () => (await TripFacts.GetQueryableAsync()).Where(f => f.TripDate >= WindowFrom && f.TripDate <= WindowTo).OrderBy(f => f.Id).Select(f => f.Id).Take(take).ToList(), transactional: false);
+
+    private async Task LoseFactsAsync(IEnumerable<Guid> orderFacts, IEnumerable<Guid> tripFacts)
+        => await CommittedAsync(Tenant, async () =>
+        {
+            foreach (var id in orderFacts)
+            {
+                await OrderFacts.DeleteAsync(id, autoSave: true);
+            }
+
+            foreach (var id in tripFacts)
+            {
+                await TripFacts.DeleteAsync(id, autoSave: true);
+            }
+        });
+
+    /// <summary>
+    /// Every sweep the design allows, for real: the passes request everything, the jobs run, and after each sweep <paramref name="failing"/> leaves the same records without a fact, as a calculation that
+    /// keeps failing does. An hour later the pass goes on to the next sweep, and after the last one completes.
+    /// </summary>
+    private async Task RunOutOfSweepsAsync(Func<Task> failing)
+    {
+        var maxSweeps = GetRequiredService<IOptions<ReportingMetricsOptions>>().Value.BackfillMaxSweeps;
+        maxSweeps.ShouldBe(3, "the design's default, the first sweep included");
+        for (var sweep = 1; sweep <= maxSweeps; sweep++)
+        {
+            for (var i = 0; i < 2_000; i++)
+            {
+                await PassAsync();
+                if (await PositionAsync() is { OrdersDone: true, TripsDone: true })
+                {
+                    break;
+                }
+            }
+
+            await DriveFactsAsync(Tenant);
+            await failing();
+            ForgetRecordedJobs();
+
+            var position = (await PositionAsync()).ShouldNotBeNull();
+            position.Sweep.ShouldBe(sweep);
+            position.OrdersDone.ShouldBeTrue();
+            position.TripsDone.ShouldBeTrue();
+            (await CompletedAtAsync()).ShouldBeNull("not before the last sweep has run out: sweep " + sweep);
+
+            position.ExhaustedAt = DateTime.Now.AddMinutes(-61);
+            await CommittedAsync(Tenant, () => State.SetBackfillPositionAsync(position));
+            (await PassAsync()).ShouldBeTrue();
+
+            if (sweep < maxSweeps)
+            {
+                (await CompletedAtAsync()).ShouldBeNull("a failure gets another chance after sweep " + sweep);
+                var next = (await PositionAsync()).ShouldNotBeNull();
+                next.Sweep.ShouldBe(sweep + 1);
+                next.OrdersDone.ShouldBeFalse("the position starts over");
+            }
+        }
+    }
+
+    private static void ShouldWarn(MetricAnswerDto answer, long missing)
+    {
+        answer.Status.ShouldBe(MetricAnswerStatus.Ok, answer.Message);
+        answer.Warnings.ShouldNotBeNull().ShouldContain(MetricWarnings.FactsIncomplete);
+        answer.FactsMissing.ShouldBe(missing);
+    }
+
+    private static void ShouldNotWarn(MetricAnswerDto answer)
+    {
+        answer.Status.ShouldBe(MetricAnswerStatus.Ok, answer.Message);
+        (answer.Warnings ?? []).ShouldNotContain(MetricWarnings.FactsIncomplete);
+        answer.FactsMissing.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(2, 0)]
+    [InlineData(0, 3)]
+    [InlineData(2, 1)]
+    public async Task A_backfill_out_of_sweeps_completes_answers_ok_and_warns_for_the_grain_that_lacks_facts_only(int ordersFailing, int tripsFailing)
+    {
+        using var features = MetricFeaturesOn();
+        await StartOverAsync();
+        List<Guid>? orders = null;
+        List<Guid>? trips = null;
+
+        await RunOutOfSweepsAsync(async () =>
+        {
+            orders ??= await OrderFactIdsAsync(ordersFailing);
+            trips ??= await TripFactIdsAsync(tripsFailing);
+            await LoseFactsAsync(orders, trips);
+        });
+
+        (await CompletedAtAsync()).ShouldNotBeNull("it stops refusing");
+        var missing = (await MissingOnRecordAsync()).ShouldNotBeNull();
+        missing.Orders.ShouldBe(ordersFailing);
+        missing.Trips.ShouldBe(tripsFailing);
+
+        /* An error a human reads: the tenant and the two numbers, nothing of a record. */
+        var error = _backfillLog.Entries.Where(e => e.Level == LogLevel.Error).ShouldHaveSingleItem().Message;
+        error.ShouldContain(Tenant.ToString());
+        error.ShouldContain("3 sweeps");
+        error.ShouldContain($"{ordersFailing} orders");
+        error.ShouldContain($"{tripsFailing} trips");
+
+        foreach (var (asked, lacking) in new[] { (OrdersAsked, (long)ordersFailing), (TripsAsked, (long)tripsFailing) })
+        {
+            var answer = await AnswerAsync(asked);
+            answer.Rows.ShouldNotBeNull().ShouldNotBeEmpty("it answers from the facts that exist");
+            if (lacking > 0)
+            {
+                ShouldWarn(answer, lacking);
+            }
+            else
+            {
+                ShouldNotWarn(answer);
+            }
+        }
+
+        /* From the facts that exist, not the sources. */
+        var factsInWindow = await CommittedAsync(Tenant, async () => await OrderFacts.LongCountAsync(f => f.OrderDate >= WindowFrom && f.OrderDate <= WindowTo), transactional: false);
+        (await AnswerAsync(OrdersAsked)).Rows!.ShouldHaveSingleItem().Values[MetricKeys.OrderCount].ShouldBe(factsInWindow);
+
+        /* It stays finished: no more sweeps, no more requests. */
+        ForgetRecordedJobs();
+        (await PassAsync()).ShouldBeFalse("a finished backfill does no more");
+        (await DriveFactsAsync(Tenant)).ShouldBe(0, "nothing was requested again");
+        (await CommittedAsync(Tenant, () => Metrics.ListAsync(), transactional: false)).FactsReady.ShouldBeTrue("the warning belongs to the answer whose numbers it qualifies");
+    }
+
+    [Fact]
+    public async Task A_surplus_fact_counts_as_a_difference_too()
+    {
+        using var features = MetricFeaturesOn();
+        await StartOverAsync();
+        var surplus = Guid.NewGuid();
+
+        await RunOutOfSweepsAsync(async () =>
+        {
+            if (await OrderFactAsync(Tenant, surplus) == null)
+            {
+                await CommittedAsync(Tenant, async () =>
+                {
+                    var fact = new OrderFact(surplus, Tenant);
+                    fact.Apply(new DateOnly(2020, 1, 1), TransportOrderStatus.Open, Guid.NewGuid(), null, Guid.NewGuid(), "EUR", 1m, null, null, null, DateTime.Now);
+                    await OrderFacts.InsertAsync(fact);
+                });
+            }
+        });
+
+        ShouldWarn(await AnswerAsync(OrdersAsked), 1);
+        ShouldNotWarn(await AnswerAsync(TripsAsked));
+    }
+
+    [Fact]
+    public async Task The_repairs_recount_lowers_the_number_and_removes_it_at_0_which_ends_the_warning()
+    {
+        using var features = MetricFeaturesOn();
+        await StartOverAsync();
+        List<Guid>? orders = null;
+        List<Guid>? trips = null;
+        await RunOutOfSweepsAsync(async () =>
+        {
+            orders ??= await OrderFactIdsAsync(2);
+            trips ??= await TripFactIdsAsync(1);
+            await LoseFactsAsync(orders, trips);
+        });
+        ShouldWarn(await AnswerAsync(OrdersAsked), 2);
+        ShouldWarn(await AnswerAsync(TripsAsked), 1);
+
+        /* Nothing has changed: the repair keeps the number. */
+        await RepairAsync();
+        ShouldWarn(await AnswerAsync(OrdersAsked), 2);
+        ShouldWarn(await AnswerAsync(TripsAsked), 1);
+
+        /* One record's calculation succeeds, and one trip's: the order's number falls, the trip's warning goes. */
+        await CommittedAsync(Tenant, async () =>
+        {
+            await CalculateOrderFactAsync(orders![0]);
+            await CalculateTripFactAsync(trips![0]);
+        });
+        ShouldWarn(await AnswerAsync(OrdersAsked), 2);
+        await RepairAsync();
+        ShouldWarn(await AnswerAsync(OrdersAsked), 1);
+        ShouldNotWarn(await AnswerAsync(TripsAsked));
+        var left = (await MissingOnRecordAsync()).ShouldNotBeNull();
+        left.Orders.ShouldBe(1);
+        left.Trips.ShouldBe(0);
+
+        /* The last one: at 0 the number is gone. */
+        await CommittedAsync(Tenant, () => CalculateOrderFactAsync(orders![1]));
+        await RepairAsync();
+        (await MissingOnRecordAsync()).ShouldBeNull("removed at 0");
+        ShouldNotWarn(await AnswerAsync(OrdersAsked));
+        ShouldNotWarn(await AnswerAsync(TripsAsked));
+        (await CompletedAtAsync()).ShouldNotBeNull("the backfill stays finished");
+
+        /* With no number on record the repair counts nothing: a later difference is the repair's own to catch, not a new warning. */
+        await LoseFactsAsync([orders![0]], []);
+        await RepairAsync();
+        (await MissingOnRecordAsync()).ShouldBeNull();
+        ShouldNotWarn(await AnswerAsync(OrdersAsked));
+    }
+
+    [Fact]
+    public async Task The_warning_of_one_tenant_is_not_the_warning_of_another()
+    {
+        using var features = MetricFeaturesOn();
+        await StartOverAsync();
+        List<Guid>? orders = null;
+        await RunOutOfSweepsAsync(async () =>
+        {
+            orders ??= await OrderFactIdsAsync(1);
+            await LoseFactsAsync(orders, []);
+        });
+        ShouldWarn(await AnswerAsync(OrdersAsked), 1);
+
+        var shared = PostgreSqlTestDatabases.TransportSharedTenantId;
+        await CommittedAsync(shared, () => State.SetBackfillCompletedAtAsync(DateTime.Now));
+        (await CommittedAsync(shared, () => State.GetFactsMissingAsync(), transactional: false)).ShouldBeNull();
+        ShouldNotWarn(await AnswerAsync(OrdersAsked, shared));
+        ShouldNotWarn(await AnswerAsync(TripsAsked, shared));
+    }
+
+    [Fact]
+    public async Task Turning_the_feature_off_forgets_the_number_so_a_new_backfill_starts_clean()
+    {
+        using var features = MetricFeaturesOn();
+        await StartOverAsync(orders: 2, trips: 1);
+        List<Guid>? orders = null;
+        await RunOutOfSweepsAsync(async () =>
+        {
+            orders ??= await OrderFactIdsAsync(1);
+            await LoseFactsAsync(orders, []);
+        });
+        (await MissingOnRecordAsync()).ShouldNotBeNull();
+
+        using (OpenTms.Features.TestFeatureValueProvider.Override(ReportingFeatures.Metrics, null))
+        {
+            await RepairAsync();
+        }
+
+        (await MissingOnRecordAsync()).ShouldBeNull();
+        await RunToTheEndAsync();
+        ShouldNotWarn(await AnswerAsync(OrdersAsked));
     }
 
     [Fact]

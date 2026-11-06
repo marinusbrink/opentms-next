@@ -24,6 +24,7 @@ using OpenTms.Reporting.Metrics;
 using OpenTms.Reporting.Published;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.SettingManagement;
 using Xunit;
 using static OpenTms.AiConnector.AiConnectorHarness;
 
@@ -118,6 +119,56 @@ public class McpMetricsHostTests
         }
 
         return args;
+    }
+
+    /* ---------- A backfill that ran out of sweeps (design 75 "Incomplete facts") ---------- */
+
+    [Theory]
+    [InlineData("own", 3L, 0L)]
+    [InlineData("own", 0L, 5L)]
+    [InlineData("shared", 3L, 0L)]
+    [InlineData("shared", 0L, 5L)]
+    public async Task Query_metrics_answers_ok_with_facts_incomplete_and_factsMissing_for_the_grain_asked_and_that_tenant_only(string tier, long orders, long trips)
+    {
+        var (mine, other, _) = _h.Pair(tier);
+        await FactsOfAsync(mine);
+        await FactsOfAsync(other);
+        var token = await TokenAsync(mine);
+        var otherToken = await TokenAsync(other);
+        await _h.InScopeAsync(mine, services => services.GetRequiredService<ReportingFactState>().SetFactsMissingAsync(new ReportingFactsMissing { Orders = orders, Trips = trips }));
+
+        try
+        {
+            foreach (var (metric, missing) in new[] { (MetricKeys.OrderCount, orders), (MetricKeys.TripCount, trips) })
+            {
+                var answer = await _h.ToolJsonAsync(token, ToolNames.QueryMetrics, Ask([metric]));
+                answer.GetProperty("status").GetString().ShouldBe("ok", answer.ToString());
+                answer.GetProperty("rows").GetArrayLength().ShouldBeGreaterThan(0, "it answers from the facts that exist");
+                if (missing > 0)
+                {
+                    answer.GetProperty("warnings").EnumerateArray().Select(w => w.GetString()).ShouldBe(["facts_incomplete"], answer.ToString());
+                    answer.GetProperty("factsMissing").GetInt64().ShouldBe(missing);
+                }
+                else
+                {
+                    answer.TryGetProperty("warnings", out _).ShouldBeFalse(metric + " is of the other grain: " + answer);
+                    answer.TryGetProperty("factsMissing", out _).ShouldBeFalse(metric + " is of the other grain: " + answer);
+                }
+
+                /* The other tenant's facts are not this tenant's number. */
+                var theirs = await _h.ToolJsonAsync(otherToken, ToolNames.QueryMetrics, Ask([metric]));
+                theirs.GetProperty("status").GetString().ShouldBe("ok", theirs.ToString());
+                theirs.TryGetProperty("warnings", out _).ShouldBeFalse(theirs.ToString());
+                theirs.TryGetProperty("factsMissing", out _).ShouldBeFalse(theirs.ToString());
+            }
+
+            /* The warning belongs to the answer whose numbers it qualifies. */
+            (await _h.ToolJsonAsync(token, ToolNames.ListMetrics)).GetProperty("factsReady").GetBoolean().ShouldBeTrue();
+        }
+        finally
+        {
+            await _h.InScopeAsync(mine, async services => await services.GetRequiredService<ISettingManager>().SetForCurrentTenantAsync(OpenTms.Reporting.Settings.ReportingSettings.FactsMissing, null));
+        }
     }
 
     /* ---------- Over HTTP ---------- */
