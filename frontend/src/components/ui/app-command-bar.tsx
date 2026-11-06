@@ -308,18 +308,30 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, trailing, 
           } else {
             label = t(command.labelKey);
           }
+          const buttonProps = {
+            type: "button" as const,
+            className: cn(
+              "inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              command.variant === "destructive" ? "text-destructive" : "text-brand",
+              isDisabled && "cursor-default opacity-50",
+            ),
+            "aria-disabled": isDisabled || undefined,
+            onClick: () => { if (!isDisabled) command.onClick(); },
+          };
+          // UI-PERM-005: a command disabled for a reason says why, as primary and secondary commands do.
+          if (command.disabled && command.disabledReasonKey) {
+            return (
+              <Tooltip key={command.id}>
+                <TooltipTrigger render={<button {...buttonProps} />}>
+                  {Icon && <Icon size={16} />}
+                  {label}
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t(command.disabledReasonKey)}</TooltipContent>
+              </Tooltip>
+            );
+          }
           return (
-            <button
-              key={command.id}
-              type="button"
-              className={cn(
-                "inline-flex items-center gap-1.5 m-[5px] bg-transparent px-3 py-1 text-sm hover:bg-brand/20 hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                command.variant === "destructive" ? "text-destructive" : "text-brand",
-                isDisabled && "cursor-default opacity-50",
-              )}
-              aria-disabled={isDisabled || undefined}
-              onClick={() => { if (!isDisabled) command.onClick(); }}
-            >
+            <button key={command.id} {...buttonProps}>
               {Icon && <Icon size={16} />}
               {label}
             </button>

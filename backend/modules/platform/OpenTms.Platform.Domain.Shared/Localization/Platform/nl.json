@@ -690,6 +690,8 @@
     "Feature:Apps.MasterData.General.Reference.GeographicalRegions.Description": "Toont de lijst Geografische regio's.",
     "Feature:Apps.Integrations": "App Integraties",
     "Feature:Apps.Integrations.Description": "Toont de app Integraties. Het opzoeken van adressen is een eigen functie.",
+    "Feature:Apps.Integrations.AiConnector": "AI-koppeling",
+    "Feature:Apps.Integrations.AiConnector.Description": "Toont de AI-koppeling in de app Integraties en laat gebruikers een goedgekeurde AI-tool (Claude, ChatGPT, Gemini) koppelen die namens hen gegevens leest. Standaard uit; de beheerder van de organisatie moet het delen van gegevens ook accepteren.",
     "Feature:Apps.Reports": "App Rapporten",
     "Feature:Apps.Reports.Description": "Toont de app Rapporten.",
     "Feature:Apps.Administration": "App Beheer",

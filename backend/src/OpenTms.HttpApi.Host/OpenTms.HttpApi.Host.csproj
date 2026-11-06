@@ -27,6 +27,8 @@
     <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <!-- Design 74: the official SDK implements the MCP protocol and its versions, which we would otherwise maintain ourselves. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.3.1" />
   </ItemGroup>
 
   <ItemGroup>

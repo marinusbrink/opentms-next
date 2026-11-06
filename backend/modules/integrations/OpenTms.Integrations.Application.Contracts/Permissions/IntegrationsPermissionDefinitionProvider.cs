@@ -28,6 +28,9 @@ public class IntegrationsPermissionDefinitionProvider : PermissionDefinitionProv
         messages.AddChild(IntegrationsPermissions.InboundMessages.Reprocess, L("Permission:InboundMessages.Reprocess"), MultiTenancySides.Tenant);
         /* Design 72 build note 25: the order intake's tenant settings (the name similarity threshold). */
         group.AddPermission(IntegrationsPermissions.OrderIntakeSettings, L("Permission:OrderIntakeSettings"), MultiTenancySides.Tenant);
+        /* Design 74: the AI connector, tenant data only. */
+        group.AddPermission(IntegrationsPermissions.AiConnector.Use, L("Permission:AiConnector.Use"), MultiTenancySides.Tenant);
+        group.AddPermission(IntegrationsPermissions.AiConnector.Manage, L("Permission:AiConnector.Manage"), MultiTenancySides.Tenant);
         /* The intake API's permission is granted to API clients only (ABP's client provider "C"), so no role editor offers it. */
         group.AddPermission(IntegrationsPermissions.IntakeApi.Submit, L("Permission:IntakeApi.Submit"), MultiTenancySides.Both)
             .WithProviders(ClientPermissionValueProvider.ProviderName);

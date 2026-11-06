@@ -66,7 +66,7 @@ public class TestDatasetResetPostgreSqlTests : OpenTmsTestBase<TestDatasetPostgr
         using var scope = ServiceProvider.CreateScope();
         var services = scope.ServiceProvider;
         var contributors = services.GetRequiredService<IEnumerable<ITestDatasetContributor>>().OrderBy(c => c.Order).ToList();
-        contributors.Count.ShouldBe(5);
+        contributors.Count.ShouldBe(6);
         var addresses = await services.GetRequiredService<TestAddressRegister>().LoadAsync();
         var context = new TestDatasetContext(
             tenantId, profile, new TestAddressBook(addresses, new Random(profile.Seed)), services.GetRequiredService<IClock>().Now);

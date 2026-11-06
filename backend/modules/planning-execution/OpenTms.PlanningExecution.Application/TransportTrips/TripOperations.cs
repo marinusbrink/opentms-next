@@ -391,6 +391,9 @@ public class TripOperations : ITransientDependency
         await _notices.TripAsync(trip);
     }
 
+    /// <summary>Design 75: Reporting's trip fact goes with the trip.</summary>
+    public Task DeletedAsync(TransportTrip trip) => _events.PublishAsync(new TransportTripDeletedEto { TripId = trip.Id });
+
     public async Task ChangedAsync(TransportTrip trip, TripChangeKind change, bool recalculate)
     {
         await RefreshSearchKeyAsync(trip, null);

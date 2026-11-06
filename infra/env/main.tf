@@ -109,6 +109,13 @@ resource "random_password" "string_encryption" {
   special = false
 }
 
+resource "random_password" "gemini_client_secret" {
+  # The AI connector's confidential client (docs/designs/74-ai-connector.md). An administrator enters it in Gemini Enterprise,
+  # read from Secret Manager; the migrator seeds the client only with this secret, and OpenIddict stores it hashed.
+  length  = 48
+  special = false
+}
+
 resource "tls_private_key" "openiddict" {
   algorithm = "RSA"
   rsa_bits  = 2048
@@ -146,6 +153,10 @@ locals {
     "string-encryption-passphrase" = {
       value     = random_password.string_encryption.result
       accessors = ["api", "migrator"]
+    }
+    "ai-connector-gemini-client-secret" = {
+      value     = random_password.gemini_client_secret.result
+      accessors = ["migrator"]
     }
   }
 
@@ -285,10 +296,11 @@ resource "google_cloud_run_v2_job" "migrator" {
 
         dynamic "env" {
           for_each = {
-            ConnectionStrings__Default              = "connection-string-default"
-            Tenancy__Provisioning__ConnectionString = "connection-string-provisioning"
-            StringEncryption__DefaultPassPhrase     = "string-encryption-passphrase"
-            Seed__HostAdminPassword                 = "host-admin-password"
+            ConnectionStrings__Default                                 = "connection-string-default"
+            Tenancy__Provisioning__ConnectionString                    = "connection-string-provisioning"
+            StringEncryption__DefaultPassPhrase                        = "string-encryption-passphrase"
+            Seed__HostAdminPassword                                    = "host-admin-password"
+            OpenIddict__Applications__OpenTms_Mcp_Gemini__ClientSecret = "ai-connector-gemini-client-secret"
           }
           content {
             name = env.key

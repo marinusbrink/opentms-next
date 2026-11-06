@@ -1,0 +1,66 @@
+@using Microsoft.Extensions.Localization
+@using OpenTms.AiConnector
+@using OpenTms.Integrations.Localization
+@using Volo.Abp.AspNetCore.Mvc.UI.Theming
+@model OpenTms.AiConnector.ConnectScreenModel
+@inject IStringLocalizer<IntegrationsResource> L
+@inject IThemeManager ThemeManager
+@* The connect screen of the AI connector (docs/designs/74-ai-connector.md, "UI design"), on the account layout of design 62. *@
+
+@{
+    Layout = ThemeManager.CurrentTheme.GetAccountLayout();
+}
+
+<div>
+    @if (Model.Refusal is { } refusal)
+    {
+        <h1 class="ots-title">@L["AiConnector:Connect.Refused.Title", Model.ToolName]</h1>
+        <p class="mt-3" data-refusal="@refusal">@L["AiConnector:Connect.Refused." + refusal]</p>
+        <p class="text-muted">@L["AiConnector:Connect.Refused.Hint", Model.ToolName]</p>
+    }
+    else
+    {
+        <h1 class="ots-title">@L["AiConnector:Connect.Title", Model.ToolName]</h1>
+        @if (Model.OrganizationName != null)
+        {
+            <p class="mt-3">@L["AiConnector:Connect.Intro", Model.ToolName, Model.OrganizationName, Model.UserName]</p>
+        }
+        else
+        {
+            <p class="mt-3">@L["AiConnector:Connect.IntroNoOrganisation", Model.ToolName, Model.UserName]</p>
+        }
+
+        <p class="mb-1">@L["AiConnector:Connect.DataIntro", Model.ToolName]</p>
+        <ul>
+            <li>@L["AiConnector:Connect.DataOrders"]</li>
+            <li>@L["AiConnector:Connect.DataTrips"]</li>
+            <li>@L["AiConnector:Connect.DataRelations"]</li>
+            <li>@L["AiConnector:Connect.DataMoney"]</li>
+        </ul>
+        <p class="text-muted">@L["AiConnector:Connect.DataLeft", Model.ToolName]</p>
+    }
+
+    <form method="post" action="@Url.Content("~/connect/authorize/callback")" class="mt-4">
+        @Html.AntiForgeryToken()
+        @foreach (var parameter in Model.Parameters)
+        {
+            <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+        }
+
+        <div class="d-grid gap-2">
+            @if (Model.Refusal == null)
+            {
+                <button type="submit" class="btn btn-primary btn-lg" name="@ConnectorAuthorizeController.AllowField" value="1">@L["AiConnector:Connect.Allow"]</button>
+                <button type="submit" class="btn btn-outline-secondary" name="@ConnectorAuthorizeController.DenyField" value="1">@L["AiConnector:Connect.Deny"]</button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-outline-secondary" name="@ConnectorAuthorizeController.DenyField" value="1">@L["AiConnector:Connect.Back", Model.ToolName]</button>
+            }
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-link btn-sm p-0" name="@ConnectorAuthorizeController.DifferentAccountField" value="1">@L["AiConnector:Connect.DifferentAccount"]</button>
+        </div>
+    </form>
+</div>

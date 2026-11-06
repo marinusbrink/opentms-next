@@ -1,0 +1,445 @@
+# Design 75: Reporting — metrics for open questions through the AI connector
+
+**PBI:** Marinus, 2026-11-06 (chat): customers can think of countless questions, so how do we make sure they can be answered,
+with short response times? He accepted the proposal of a fixed list of metrics and breakdowns on Reporting, as a design of
+its own after design 74.
+**Status:** built; gate 1 and 2 with the PR (see *Build notes*). Risk class **high** (tenant data in a new read path, money behind
+permissions); critical parts named under *Test risk analysis*. Builds on design 74, which must be built first.
+**Date:** 2026-11-06
+
+## PO decisions (2026-11-06)
+
+Recorded as AD-23 in `docs/architecture/decisions.md`.
+
+1. **No tool per question, and no SQL from a model.** One tool answers from a fixed list of metrics, breakdowns and filters.
+2. **Numbers come from Reporting's own tables,** prepared in advance and updated through events.
+3. **The promise is honest:** every question gets a correct answer or a clear "not available", never a guess. Every answer
+   states its definition, its period and what it left out.
+
+**For gate 1: added by this design, beyond the three decisions.**
+
+- **The first list of metrics** and its definitions, above all *on time*: a stop is on time at most 15 minutes after its
+  planned arrival. The 15 minutes is this design's choice.
+- **Left out of the first list:** the region breakdown from the earlier example (see *Out of scope*), drivers (PO decision 4
+  of design 74).
+- **Two new events.** AO-01 keeps events open and says a design depending on it stops, so these two need the PO's
+  approval here: `TransportOrderRecalculatedEto`, `TransportTripDeletedEto`. The rest of AO-01 stays open.
+- **Two more money tools than AD-22 named:** `list_metrics` shows and `query_metrics` returns amounts, always behind
+  `Financial.RateLines`. AD-22 and design 74 are amended accordingly.
+- **Currencies are not fully separable today** (found in the code, see *Currency*). This design reports it in the answer rather
+  than hiding it; the underlying calculation is unchanged.
+- **Denormalised tables, on purpose.** The PO rejected Planning-owned read tables for the planboard. These tables are not that:
+  they are Reporting's, serve no planboard and hold no copies of names. They are still a second copy of numbers, so the PO
+  sees that here.
+- **Feature `Reporting.Metrics`,** two new published interfaces and the two background processes below.
+
+## How the question types are answered
+
+| Question | Example | Answered by |
+|---|---|---|
+| Finding a record | "Where is order 123?" | The search and detail tools of design 74 |
+| Numbers and totals | "Revenue per customer per month" | `query_metrics` |
+| Combining and explaining | "Which customer fell the most?" | The AI tool, calling `query_metrics` more than once |
+| Anything else | "Why is this customer angry?" | "Not available": the tool's answer says what does exist |
+
+## Domain impact
+
+**Architecture references.** AD-23, AD-22 (the connector), AD-07 and flow 2 of `02-flows.md` (a stored calculated value uses
+the derived-value mechanism; **this design extends flow 2**), AD-16 (events through the outbox), AD-03. The domain map gives
+Reporting "dashboards, data warehouse, sustainability/CO₂; read-only". Dashboard and Reports may later read the same tables,
+but no screen is part of this design.
+
+**Module: Reporting.** It owns its entities, its `reporting` schema and the metric catalog.
+
+**New entities** (`reporting` schema, in the tenant's database, `IMultiTenant`; ids only, no names):
+
+`OrderFact`, one row per order:
+
+| Field | Type | Note |
+|---|---|---|
+| `Id` | `Guid` | The order's id |
+| `TenantId` | `Guid?` | |
+| `OrderDate` | `DateOnly` | |
+| `OrderWeek`, `OrderMonth` | `DateOnly` | Monday of the week and first of the month, for grouping |
+| `Status` | `TransportOrderStatus` | |
+| `CustomerRelationId` | `Guid` | |
+| `OrganizationUnitId` | `Guid?` | |
+| `TransportOrderTypeId` | `Guid` | |
+| `CurrencyCode` | `string(3)` | The order's own currency |
+| `RevenueAmount`, `CostOfRevenueAmount`, `MarginAmount`, `Co2Kg` | `decimal?` | Null while not calculated |
+| `FactUpdatedAt` | `DateTime` | |
+
+`TripFact`, one row per trip:
+
+| Field | Type | Note |
+|---|---|---|
+| `Id` | `Guid` | The trip's id |
+| `TenantId` | `Guid?` | |
+| `TripDate` | `DateOnly` | |
+| `TripWeek`, `TripMonth` | `DateOnly` | |
+| `Status` | `TransportTripStatus` | |
+| `Execution` | `TripExecution` | Own fleet or subcontracted |
+| `CarrierRelationId` | `Guid?` | |
+| `PrimaryVehicleId` | `Guid?` | The first vehicle by position; a trip counts once |
+| `OrganizationUnitId` | `Guid?` | |
+| `TransportTripTypeId` | `Guid` | |
+| `CostAmount`, `RevenueAmount`, `Co2Kg`, `LoadFactor` | `decimal?` | A trip's revenue is stored as 0 while no allocation exists, see `trip_margin` |
+| `PlannedDistanceM`, `ActualDistanceM` | `int?` | |
+| `StopsMeasured`, `StopsOnTime` | `int` | Stops with both a planned and an actual arrival; of those, on time |
+| `FactUpdatedAt` | `DateTime` | |
+
+**Indexes.** The volume test decides whether these meet the budget; a group query may still read table rows:
+
+- `OrderFact`: (`TenantId`, `OrderDate`), (`TenantId`, `CustomerRelationId`, `OrderDate`), (`TenantId`, `TransportOrderTypeId`,
+  `OrderDate`), (`TenantId`, `OrganizationUnitId`, `OrderDate`).
+- `TripFact`: (`TenantId`, `TripDate`), (`TenantId`, `CarrierRelationId`, `TripDate`), (`TenantId`, `PrimaryVehicleId`,
+  `TripDate`), (`TenantId`, `TransportTripTypeId`, `TripDate`), (`TenantId`, `OrganizationUnitId`, `TripDate`).
+
+**How a fact stays current (flow 2).** Target types `Reporting.OrderFact` and `Reporting.TripFact`, registered with
+`AddCalculator` (watch permissions `Orders.TransportOrders` and `PlanningExecution.TransportTrips`; no screen watches them
+yet). Handlers in `OpenTms.Reporting.Application` skip a tenant without the feature, and otherwise call
+`IDerivedValueScheduler.RequestAsync`. The calculator reads the source through the published reader and upserts or deletes
+the fact. It is idempotent, and a newer save discards an older run, as for every derived value.
+
+| Event | Emitted by | Consumed by | New? |
+|---|---|---|---|
+| `TransportOrderRecalculatedEto { OrderId, Version }` | Orders (`OrderSummaryCalculator`, as `TripCalculator` does) | Reporting | **New** |
+| `TransportOrderStatusChangedEto` | Orders | Reporting | Existing |
+| `TransportOrderCancelledEto` | Orders (also fires on both order delete paths); the calculator finds no order and deletes the fact | Reporting | Existing |
+| `TransportTripCreatedEto` | Planning & Execution; needed because the recalculated event never fires while routing fails | Reporting | Existing |
+| `TransportTripRecalculatedEto` | Planning & Execution | Reporting | Existing |
+| `TransportTripStatusChangedEto` | Planning & Execution | Reporting | Existing |
+| `TransportTripChangedEto` | Planning & Execution | Reporting | Existing |
+| `TransportTripDeletedEto { TripId }` | Planning & Execution (`DeleteAsync`) | Reporting | **New** |
+
+**Cross-module synchronous calls (module boundary rule 3): stated here on purpose.** All are in-process and read-only.
+
+| Caller | Interface | Status |
+|---|---|---|
+| Reporting | `IOrderFactReader.GetAsync(orderId)`, `.GetCountAsync()`, `.GetIdsAfterAsync(afterId, take)`, `.GetIdsModifiedSinceAsync(since, afterId, take)` (created or last modified since; includes soft-deleted ids, so a lost delete is repaired), `.GetTypeNamesAsync(ids)` in `OpenTms.Orders.Application.Contracts/Published/` | **New** |
+| Reporting | `ITripFactReader`, the same five methods, in `OpenTms.PlanningExecution.Application.Contracts/Published/` | **New** |
+| Reporting | `IMasterDataReferenceLookup`, for relation and vehicle names at read time | Existing |
+| Reporting | `IOrganizationUnitNameLookup.GetAsync(ids)` in `OpenTms.Platform.Application.Contracts/Published/`. A Platform change, so risk class critical | **New** |
+| Integrations | `IMetricQuery` in `OpenTms.Reporting.Application.Contracts/Published/` | **New** |
+
+`OpenTms.Reporting.Domain` gains a reference to Platform's `Domain` for `IDerivedValueCalculator`, as the other modules have.
+`OpenTms.Reporting.Domain.Shared` references Orders' and Planning's `Domain.Shared` for their status and execution enums and events,
+`OpenTms.Reporting.Application.Contracts` the `Application.Contracts` of Platform, Orders, Planning, Financial and Master Data, and
+`OpenTms.Integrations.Application.Contracts` that of Reporting.
+
+Reporting reads no other module's table and joins nothing across schemas. Names are looked up per request for at most 100
+rows, so a renamed customer is right at once and no copy of a name exists.
+
+**Out of scope:**
+
+- **A region breakdown.** A geographical region needs the rule that places an order or trip in a region, which does not
+  exist. It returns as an addition to the catalog with that rule.
+- **Drivers,** by PO decision 4 of design 74.
+- **Order lines, products and legs as a grain,** such as revenue per product. A later catalog addition, which would add
+  a third fact table.
+- **Screens,** Dashboard and Reports. Write tools. Forecasts and targets. Comparing tenants, which constitution rule 1 forbids.
+- **`get_customer_revenue`** stays as design 74 defines it. A test keeps both answers equal; retiring it is a later choice.
+
+## API contract
+
+**No HTTP route for tenants' browsers.** `IMetricQuery` is in-process, so the OpenAPI document and typed client do not change.
+Both tools are added to `/mcp` of design 74, with all of its checks.
+
+### `list_metrics`
+
+No input. Answers only what this user may ask: `{ metrics[{ key, unit, description, definition, breakdowns, filters }], factsReady }`.
+
+### `query_metrics`
+
+| Input | Rule |
+|---|---|
+| `metrics` | 1 to 5 keys, all of one grain (order or trip) |
+| `dateFrom`, `dateTo` | Required; at most five years |
+| `groupBy` | 0 to 2 breakdowns allowed for that grain |
+| `filters` | `status[]`; order grain: `customerRelationId`, `transportOrderTypeId`, `organizationUnitId`; trip grain: `carrierRelationId`, `vehicleId`, `transportTripTypeId`, `execution`, `organizationUnitId` |
+| `sort` | A chosen metric, or a period ascending; default the first metric descending |
+| `top` | Default 25, at most 100 groups |
+
+**Answer**
+
+```
+{
+  status: "ok",
+  period: { dateFrom, dateTo },
+  definitions: [{ metric, text }],
+  rows: [{ groups: [{ breakdown, id?, name }], currencyCode?, values: { <metric>: number | null } }],
+  totalGroups, truncated,
+  coverage: { recordsIncluded, recordsWithoutValue, excludedByStatus },
+  lastFactUpdateAt,
+  warnings?,
+  factsMissing?
+}
+```
+
+`recordsIncluded` counts the records of the period and filters with a counted status; `recordsWithoutValue`, those of them without a
+value for at least one chosen metric; `excludedByStatus`, the records of the period and filters left out by the status rule.
+`lastFactUpdateAt` is the newest change among the records of the period and filters. A value is `null` when no record of the group has
+one, never 0.
+
+**Currency.** `order_revenue` splits by the order's currency, on top of `groupBy`. The other money metrics cannot, because the
+existing calculators already combine amounts: a trip's revenue sums its orders' revenue (`TripCalculator`), an order's cost and
+margin come from its trips (`OrderSummaryCalculator`), and a trip stores no currency of its own. They return the stored value, as the
+screens do. When a period holds orders in more than one currency, every answer with such a metric adds
+`warnings: ["mixed_currencies"]`, and the definition says the amount is not converted. The AI tool cannot then present it as a
+clean total. Correcting the calculators is out of scope.
+
+**Incomplete facts.** A backfill that ran out of sweeps (*Migration strategy*) answers `ok` from the facts that exist, adds
+`warnings: ["facts_incomplete"]` and states `factsMissing`: how many records of the asked grain, in the whole tenant rather than in the
+period, differ from their facts. Neither appears when that number is 0. The honest promise holds through the warning: the figures may
+leave those records out, and the tool's description tells the model to say so.
+
+**Refusals** come back as a tool result, not a server error, so the AI tool can say what happened. `{ status, message, hint }`:
+
+| Status | When |
+|---|---|
+| `unknown_metric`, `unsupported_combination` | Not in the catalog, or a breakdown of the other grain; `hint` names what is allowed |
+| `invalid_period` | Missing, reversed or over five years |
+| `not_allowed` | The user lacks a catalog metric's permission or feature. The names of the catalog are not secret; only values are protected |
+| `not_ready` | The backfill of this tenant has not finished; `hint` gives the progress |
+| `timeout` | The query passed 2 seconds (a linked `CancellationTokenSource` passed to EF, which cancels the command in PostgreSQL); `hint` asks for a shorter period or a filter. Never a partial result |
+
+### The catalog (a list in code, in `OpenTms.Reporting.Domain.Shared/Metrics/`)
+
+`Domain.Shared` cannot see permission and feature constants. The permissions and features below follow from a metric's grain and
+whether it is money, in `MetricAccessRules` in `OpenTms.Reporting.Application.Contracts/Metrics/`; both grains also need
+`Reporting.Metrics`.
+
+Default statuses: orders `Open`, `ReadyForInvoicing`, `Invoiced`, `Archived`; trips every status except the cancelled one.
+
+**Order grain.** Breakdowns: `customer`, `order_type`, `organization_unit`, `status`, `day`, `week`, `month`. Features for all:
+`Apps.Transport`, `Apps.Transport.Orders`.
+
+| Metric | Definition | Permissions |
+|---|---|---|
+| `order_count` | Number of orders by order date | `Orders.TransportOrders` |
+| `order_revenue` | Sum of stored calculated revenue. Not invoiced revenue | `Orders.TransportOrders`, `Financial.RateLines` |
+| `order_cost` | Sum of stored cost of revenue | `Orders.TransportOrders`, `Financial.RateLines` |
+| `order_margin` | Sum of stored margin | `Orders.TransportOrders`, `Financial.RateLines` |
+| `order_co2_kg` | Sum of stored CO₂ in kg | `Orders.TransportOrders` |
+
+**Trip grain.** Breakdowns: `carrier`, `vehicle`, `trip_type`, `execution`, `organization_unit`, `status`, `day`, `week`, `month`.
+Features for all: `Apps.Transport` or `Apps.Planboard`, and `Apps.Transport.Trips` or `Apps.Planboard`.
+
+| Metric | Definition | Permissions |
+|---|---|---|
+| `trip_count` | Number of trips by trip date | `PlanningExecution.TransportTrips` |
+| `trip_cost` | Sum of stored trip cost | `PlanningExecution.TransportTrips`, `Financial.RateLines` |
+| `trip_revenue` | Sum of stored revenue allocated to the trip | `PlanningExecution.TransportTrips`, `Financial.RateLines` |
+| `trip_margin` | `trip_revenue` minus `trip_cost`, only over trips with a cost and with revenue above 0, because a missing allocation is stored as 0. Coverage counts the others | `PlanningExecution.TransportTrips`, `Financial.RateLines` |
+| `trip_co2_kg` | Sum of stored CO₂ in kg | `PlanningExecution.TransportTrips` |
+| `average_load_factor` | Plain average over trips with a load factor | `PlanningExecution.TransportTrips` |
+| `planned_distance_km`, `actual_distance_km` | Sum of stored distance, in km | `PlanningExecution.TransportTrips` |
+| `on_time_stop_percentage` | Stops at most 15 minutes after the current planned arrival (a recalculation can move the plan, so this is not the first promise made), as a share of stops with both a planned and an actual arrival. Coverage reports how many trips had none | `PlanningExecution.TransportTrips` |
+
+Query implementation: LINQ over the facts through ABP's repositories, so the tenant filter applies; no raw SQL and no
+`IgnoreMultiTenancy`. Adding a metric or breakdown means one catalog entry, its SQL form in `FactShapes` and, when a column is new, one
+column, one index and a backfill.
+
+## Migration strategy
+
+Expand-only. One migration on `ReportingDbContext` adds both tables and indexes, and one each on the Orders and Planning contexts
+adds indexes on (`TenantId`, `LastModificationTime`) and (`TenantId`, `CreationTime`) for the repair; the DbMigrator applies them everywhere. Facts stay empty until
+a tenant turns the feature on.
+
+- **Backfill:** a `ReportingFactBackfillWorker` (`AsyncPeriodicBackgroundWorker`, every minute, per tenant in its own context,
+  like `TemplateMaterialisationWorker`) finds tenants with the feature on and no `Reporting.Metrics.BackfillCompletedAt` setting.
+  On its first pass it clears the tenant's facts. It requests up to 1,000 orders and 1,000 trips per pass through the derived-value
+  scheduler and keeps its position in a setting: about eight hours at the worst-case volume, far less for most tenants. The
+  completion setting is set when the position is exhausted **and** the fact counts equal the sources' counts, because
+  requesting is not the same as having run. Until then `query_metrics` answers `not_ready`. When the counts still differ an hour after
+  the position ran out, a calculation failed for good or a record came in behind the position, so the sweep starts again, without clearing,
+  up to `Reporting:Metrics:BackfillMaxSweeps` sweeps (default 3, the first included). When the counts still differ an hour after the last
+  sweep ran out, the backfill stops resweeping, logs an error with the tenant id and the two numbers, stores the difference in the setting
+  `Reporting.Metrics.FactsMissing` and completes, so `query_metrics` answers with the warning `facts_incomplete` instead of refusing forever.
+- **Repair:** a `ReportingFactRepairWorker` looks every 15 minutes which tenants are due, and a tenant is due 24 hours after its last run,
+  stored in the setting `Reporting.Metrics.RepairLastRunAt`, because a deploy restarts every timer. It requests recalculation of records
+  created or modified in the last 48 hours, soft-deleted ones included, where the calculator removes the fact. Delivery is at least once
+  and failing events have no dead-letter store (AO-10), so this catches a lost update within a day. It also recounts a `FactsMissing` number
+  on record, and removes it at 0, which ends the warning.
+- **Feature off, then on again:** facts go stale while it is off. The daily repair clears the completion and position settings of a tenant
+  whose feature is off, so turning it on starts a new backfill, which clears the facts first. A feature turned off and on within one day
+  keeps its facts, and the 48-hour repair covers that gap.
+- **Test datasets:** a Reporting contributor to `TestDatasetResetJob` (order 500) clears the facts and the completion and position settings
+  when a tenant's dataset is reset, so `demo` holds no stale numbers. It clears again after generation, because a backfill pass may have
+  started meanwhile, and the generators raise no events, so a new backfill prepares the new data.
+
+There is no contract step. Removing the feature leaves unused rows, which tenant deletion removes with the database.
+
+## UI design
+
+Not applicable: no screen. The feature appears in the Tenants app like every feature. The manual page
+`docs/manual/ai-koppeling.md` of design 74 gains a section on the questions it answers, the definitions, and that revenue here is
+calculated revenue rather than invoiced.
+
+## Test risk analysis
+
+| Part | Risk | Must prove |
+|---|---|---|
+| Tenant isolation | **Critical** | On PostgreSQL, for tenants with their own database and a shared-tier pair: each tool, each grain and a group query return only the tenant's facts; a job and a handler write only under the raising tenant; a filter id of another tenant gives zero rows and no name |
+| Money behind permissions | **Critical** | Each money metric refused without `Financial.RateLines`, absent from `list_metrics`, and refused in a mix with an allowed metric; no refusal reveals a value |
+| Correctness | **High** | For a seeded dataset, each metric, breakdown and filter equals a sum computed independently from the source tables; `order_revenue` per customer equals `get_customer_revenue`; `order_revenue` splits by currency; `mixed_currencies` appears exactly when a period holds several; null counts in coverage, not as zero; trips with revenue 0 stay out of `trip_margin`; on-time boundary at exactly 15 minutes |
+| Fact updates | **High** | On PostgreSQL through the outbox: a change, status change and delete each reach the fact; a trip without a working route still gets a fact; a duplicate event changes nothing; a newer save discards an older run; a lost update and a lost delete are repaired by the nightly worker |
+| Backfill | **High** | Resumes after an interruption; `not_ready` until every fact exists, not merely was requested; results equal the source afterwards; no run for a tenant with the feature off; feature off and on clears and restarts it; a dataset reset leaves no facts; a calculation that keeps failing stops resweeping after the last sweep, completes and answers `ok` with `facts_incomplete` and `factsMissing` for that grain only; the repair's recount lowers the number and ends the warning at 0 |
+| Module boundaries | **High** | No cross-schema mapping or join; the architecture tests pass with the new references |
+| Performance | **High** | k6 and PostgreSQL volume test: p95 < 300 ms for `query_metrics`, warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
+| Freshness | **Medium** | p95 under 60 seconds from a save to the fact, under normal job load |
+| Refusals and limits | **Medium** | Each status above; `top` capped; a 2-second timeout gives `timeout`, not a partial answer; logs hold no filter values |
+| Answer quality | **Medium, manual** | A list of 50 to 100 questions with known answers at `docs/testing/ai-connector-questions.md`, run on staging per release on ChatGPT, Claude and Gemini. Results go to the PO. The PO supplies real customer questions; a model can still explain a right number wrongly, which is what this measures |
+
+## Flag & rollout plan
+
+- **Feature:** `Reporting.Metrics`, default off per tenant, set by the host. Without it, both tools are absent from `tools/list`, the
+  handlers skip, and no fact is written. The tools also need `Apps.Integrations` and `Apps.Integrations.AiConnector`; with only
+  `Reporting.Metrics` on, facts are written but nothing reads them.
+- **Order:** staging with `demo` → the health tenant → friendly tenants → all on request. Each tenant's backfill finishes before
+  its first answer.
+
+## Cost & SLO impact
+
+- **Tokens:** none for us; the customer's AI subscription pays. Fewer, smaller tool answers also cost the customer fewer tokens.
+- **Compute:** about one to two extra derived-value jobs per save that changes an order or trip, for tenants with the feature on.
+  The Jobs role is not split yet (AD-11), so these run in the one host; the load test covers it.
+- **Storage:** two small tables and nine indexes per tenant database, two more indexes each on orders and trips, and one derived-value
+  state row per fact in `platform`; the amount is measured in the volume test. No new service.
+- **A backfill** costs one job and one `DerivedValuesRecalculatedEto` outbox row per record, at up to 2,000 per minute per tenant, for at
+  most `BackfillMaxSweeps` sweeps. While a sweep waits for its jobs, each pass counts facts and sources, for at most an hour per sweep.
+- **Tenants with the feature off are not free.** The backfill worker makes one feature check per tenant per minute. The repair worker looks
+  every 15 minutes: it reads `RepairLastRunAt` and, for a tenant with no last run (which a feature-off tenant keeps), also checks the feature
+  and reads the two backfill settings. Settings and features come through ABP's caches, so this reaches the database only on a cold cache.
+  `OrderSummaryCalculator` writes one new `TransportOrderRecalculatedEto` outbox row per recalculation and `TripOperations` one
+  `TransportTripDeletedEto` per deleted trip, whether or not the feature is on: Orders and Planning cannot know. Those, and the existing events
+  Reporting subscribes to, each cost its handler one feature check before it skips.
+- **Budgets touched:** interactive reads p95 < 300 ms (the query) and heavy operations "never block a request over 2 s" (the
+  timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation, for every tenant.
+- **What we do not control:** the time the AI tool itself takes. A complete answer in ChatGPT includes its model time and is measured
+  on staging, but no budget of ours can promise it.
+- **Margin per tenant:** small and only for tenants with the feature on. Whether to charge for it is the PO's choice and not part of
+  this design.
+
+## Assumptions
+
+- **AP-06** (event names) and **AP-17** (the mapping of events onto domains) are followed for the new events. **AO-10** stays open, which
+  is why the repair worker exists.
+- **Group queries:** a dynamic two-key `GroupBy` with `top` and `totalGroups` translates through EF, measured at build for every metric and
+  breakdown pair on PostgreSQL (*Build notes*).
+- **Workers:** a timer restarted by a deploy would delay a daily timer for good, measured at build, so the repair stores its last run in a
+  setting (*Build notes*).
+- **`LastModificationTime`** changes on child-only and soft-delete changes, measured at build; the reader needs no children's dates. It does
+  not change on an insert, so the reader also looks at `CreationTime` (*Build notes*).
+- **One vehicle per trip for the `vehicle` breakdown:** the first by position. A trailer's numbers appear only under the vehicle in first
+  position. The definition says so.
+- **Order date** is the period for order metrics, not the first or last stop date. A trip's numbers count by trip date.
+- **Reach of the fallback:** covering indexes are expected to meet the budget, without a measurement yet. The volume test decides.
+- **15 minutes** applies to all tenants in this version.
+- **Index builds block writes briefly.** `OrdersRepairIndexes` and `PlanningRepairIndexes` are plain `CREATE INDEX` statements in the migration's
+  transaction, because this repository has no pattern for `CONCURRENTLY` and `suppressTransaction`: every index in it, the trigram ones on
+  inbound messages included, is built this way. The previous revision serves while they run, so on each database reads go on and writes to that
+  table wait. Sizes assumed: at most 1,000,000 orders and 250,000 trips in one tenant, the worst case of this design; the sizes in prod were not
+  read. Measured on local PostgreSQL 17 on a scratch table of 1,000,000 rows (781 MB): two indexes in one transaction took 0.9 seconds, so about
+  a quarter of that for trips. Cloud SQL was not measured; the assumption is under 30 seconds per migration at that volume. Writes wait and do not fail.
+
+## Security quickscan
+
+**New permissions, in full:** none. The metrics use existing permissions:
+
+`Orders.TransportOrders`, `PlanningExecution.TransportTrips`, `Financial.RateLines`. Connecting needs `Integrations.AiConnector.Use`
+from design 74.
+
+**New features, in full:** `Reporting.Metrics`.
+
+**Input validation:** keys only from the catalog, typed ids, a limited period, group count and row count. No text filter, so no search on
+hidden values and no user-supplied text reaches a query.
+
+**Attack surface:** two more tools on `/mcp`, in-process interfaces, no new route. `IMetricQuery` has no ABP attributes for permissions, so it
+checks each metric's permissions and features itself, and a test calls it directly without them.
+
+**Inference from totals:** a user who may read orders can already see them one by one, and an aggregate reveals nothing more. Money stays behind
+`Financial.RateLines` in every form, including `order_margin` as a difference.
+
+**Prompt injection:** only numbers, ids and names of master data return. Customer names can carry text, as in design 74; the tool still cannot write.
+
+**Logging (constitution rule 5):** tenant id, user id, metric keys, breakdown keys, status, duration and row count. No filter ids or values.
+
+**GDPR:** the facts hold no names, addresses or driver data, and no user ids. Relation ids of sole traders and vehicle ids are references only:
+names come at read time, so anonymising or deleting the relation removes them from answers. Art. 15 and art. 17 need no new route for these tables.
+Data sent to an AI vendor is covered in design 74.
+
+## Build notes
+
+Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state it").
+
+**What the build measured, on PostgreSQL 17 through the real DbMigrator, outbox dispatcher and derived-value job:**
+
+- **EF translation.** Every metric alone and per breakdown, all ordered breakdown pairs, and sorts by metric and period: 264 queries, all
+  answered. What it found: EF turns `Sum` over nothing into `COALESCE(sum(x), 0)`, which would have shown no value as zero, so each sum first
+  asks whether the group has a value. `ICustomerRevenueReader` of design 74 keeps its own count and is not affected.
+- **`LastModificationTime`** moved on a trip stop's change alone and on an order line's change alone (both tracked, without touching the
+  root), and on a soft delete of an order and of a trip. An insert leaves it null, and a trip whose calculation keeps failing is never saved
+  again, so the repair also reads `CreationTime`, and that needs its own index (`CreationTime` was not indexed).
+- **The timer.** `AbpAsyncTimer` does not run on start, and a restart begins the period again: restarted every 300 ms, a 600 ms timer fired
+  zero times. The workers are plain timers in this host (only background *jobs* run on Hangfire). A 24-hour timer on a host that deploys on
+  every merge would therefore not run at all, which is why the last run is a setting. A tenant 25 hours past its last run is due on the
+  first sweep; prod keeps one instance with CPU always allocated, and staging repairs when it is awake.
+- **Volume, one local run in a Debug build,** not the k6 test the design asks for: 1,000,000 order facts and 250,000 trip facts in one tenant,
+  25 calls each through `IMetricQuery`. A year's orders by customer and month with revenue, margin and count (64,657 groups): p95 288 ms, of
+  which the count of groups is a separate statement because the answer is truncated. Count only: p95 168 ms. Five years by month: p95 175 ms.
+  A year's trips by carrier and month with four metrics: p95 97 ms. The plan reads (`TenantId`, `OrderDate`) and then the table's rows; the margin to the
+  300 ms budget is small, so the real test decides.
+- **The real test missed the budget, so the query changed; the budget did not.** The first CI run answered the worst case in p95 355 ms, median
+  301 ms, about twice a local run, with 133,103 records in 74,002 groups. Timed per statement on a copy of that data: the groups 103 ms, the
+  separate count of groups 40 ms, coverage and the currency check about 14 ms each. JIT is not the cause: every statement stays under its
+  threshold. `count(*) OVER ()` in the groups statement costs nothing measurable and removes the separate count. EF has no window functions, so
+  `ReportingDbFunctions.GroupsBeforeLimit` maps to that fixed text, with no input (`DEVIATION(coding-conventions-raw-sql)`, a performance
+  exception). The currency check now reads one currency and asks for any other: it stops at the first other, and a period in one currency
+  still reads the whole period, as the distinct did. Old and new alternated locally, two runs each: p95 176 ms became 135 to 145 ms. The rollup
+  table stays unbuilt: with this many customers a day-level rollup would hardly shrink the rows. The hash aggregate spills 7.6 MB to disk at
+  PostgreSQL's default `work_mem` of 4 MB; 64 MB gained about 15 % locally, and that is a database setting left for when production shows the need.
+- **The timeout.** At a limit of 40 ms a statement on the volume above answered `timeout` after 67 ms, with no rows.
+
+**Choices where the design was silent:**
+
+- **Coverage** is defined under *Answer*. A record counts as without a value when any chosen metric has none for it.
+- **Names.** A record without such an id (no organisation unit) is `(none)` with no id; an id without a name (a deleted or anonymised
+  relation) is `(unknown)` with its id. A status or execution is its enum name. A day and a week are `yyyy-MM-dd`, the week being its Monday;
+  a month is `yyyy-MM`.
+- **Rounding** of an answer: count 0, money 2, CO₂ and km 3, load factor 4, percentage 2 decimals. The sum is exact before rounding.
+- **`mixed_currencies`** looks at the query's statuses on the order grain and at the default order statuses on the trip grain, not at the other
+  filters: the period's orders can have mixed even when the filter does not show it, and a warning too many costs nothing. A known limit: on
+  the trip grain the orders of the period are by order date, so a trip early in a period carrying only a foreign order dated before it does not warn.
+- **Order of refusals:** the catalog and the period first, which need no read, then `not_allowed`, then `not_ready`, so a user without the
+  permission learns nothing about the progress. `not_ready`'s progress counts only the grain asked for.
+- **Input.** `metrics`, `dateFrom` and `dateTo` are optional in the JSON schema though required, so leaving one out gets the refusal the design
+  names rather than a schema error; their descriptions say required. No metrics or more than five is `unsupported_combination`, and so is a
+  filter of the other grain or a status or execution that does not exist. `top` below 1 becomes 1, above 100 becomes 100. A date that is not a
+  date is the connector's `Invalid arguments` result of design 74. A status filter replaces the default statuses.
+- **Sorting.** A metric sorts largest first with no-value groups last, which PostgreSQL would otherwise put first; a period sorts oldest first. The
+  group's slots decide a tie, so `top` is deterministic. A question without any record answers `ok` with no rows, not a row of zeros.
+- **Refusal in the tool result:** `isError` stays false for all refusals, because the status is the answer; a failure of the tool itself stays
+  `isError`, as in design 74. The two tools need only the feature in `tools/list`; `list_metrics` for a user with no permission is an empty list.
+- **Facts cover every order and trip,** whatever their status, so `status` filters and `excludedByStatus` work, and archived trips count.
+- **`FactUpdatedAt`** moves only when a value changed, so a duplicate event changes nothing at all.
+- **The calculators also check the feature,** for a job requested just before it went off.
+- **Texts for the model** are English constants, like design 74's tool texts. The feature's texts are in nl and en. The feature has a group of its
+  own, `Reporting`, because it is not an app or nav node.
+- **Daily, not nightly by the clock:** the repair drifts with its last run. Fixing an hour would need the same catch-up for a host that was
+  asleep at that hour, for little gain at this load.
+- **Settings:** `Reporting:Metrics` in configuration holds the workers' switch (`WorkersEnabled`), periods, batch size, the sweep cap
+  (`BackfillMaxSweeps`) and the query's timeout.
+- **The sweep cap (found in review).** Without one, one calculation that always fails kept a tenant `not_ready` forever, re-requested every record
+  hourly and counted every minute. Default 3 sweeps: a failure gets two second chances, and a tenant stops within a few hours of its first sweep
+  running out. Refusing forever would keep every other number from the user, so the answer warns and states the number instead.
+- **What `factsMissing` counts:** the absolute difference of two counts per grain, because no query across modules can name the records. A surplus fact
+  counts too, and a surplus and a missing fact of one grain cancel out. It is the whole tenant's, because the period of a record without a fact is unknown.
+  `list_metrics` still says `factsReady: true`: the warning belongs to the answer whose numbers it qualifies.
+- **What the repair does for those records:** it requests only records changed in the last 48 hours, so an old record whose calculation keeps failing
+  stays out, and the warning stays, until the record changes or a backfill starts again. A large tenant whose jobs lag an hour behind each sweep can also
+  reach the cap early; it then answers with a warning sooner, and the daily recount lowers the number as the jobs finish.
+
+**Exists, not yet run as designed:** the k6 script `tests/load/ai-connector.js` has never run. The PostgreSQL volume test
+(`MetricVolumeTests`) runs locally with the other PostgreSQL tests. The question list `docs/testing/ai-connector-questions.md` exists and its first run is on staging.
+A real AI tool has not called these tools over `/mcp`.

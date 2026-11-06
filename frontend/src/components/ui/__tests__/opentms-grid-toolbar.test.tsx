@@ -98,6 +98,13 @@ describe("OpenTmsGridToolbar", () => {
     expect(input).toBeInTheDocument();
   });
 
+  it("leaves out the search box with hideSearch, for a list endpoint that has no search (design 74)", () => {
+    render(<OpenTmsGridToolbar {...defaultProps} hideSearch />);
+    expect(screen.queryByPlaceholderText("Grid:Search")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Grid:Search" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Grid:Reset" })).toBeInTheDocument();
+  });
+
   it("calls onSearchChange with the typed value when the search input changes", () => {
     const onSearchChange = vi.fn();
     render(<OpenTmsGridToolbar {...defaultProps} onSearchChange={onSearchChange} />);

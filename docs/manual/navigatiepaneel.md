@@ -36,6 +36,11 @@ de lijsten. Elk niveau springt een stap verder in. Klik op een groep om hem open
 of dicht te klappen. De groepen waarin de geopende lijst staat, klappen vanzelf
 open, zodat je altijd ziet waar je bent.
 
+**Groepen en losse items naast elkaar:** in de app Integraties staat de groep
+**Orderinvoer** (zie [Orderinvoer](orderinvoer-mailboxen-en-api.md)) naast het losse
+item **AI-koppeling** (zie [AI-koppeling](ai-koppeling.md)). Je ziet alleen de items
+waarvoor je organisatie de functie en jij de rechten hebt.
+
 <!-- SCREENSHOT: uitgevouwen paneel — actief blad-item met blauwe achtergrond,
      bovenliggend item vet maar zonder vulling -->
 

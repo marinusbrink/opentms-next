@@ -191,6 +191,7 @@ Financieel, verschijnen hier zodra hun eerste lijst er is.
 | API-clients | `Apps.Integrations.Intake.ApiClients` | Groep Orderinvoer | aan |
 | Importprofielen | `Apps.Integrations.Intake.ImportProfiles` | Groep Orderinvoer | aan |
 | Instellingen | `Apps.Integrations.Intake.Settings` | Groep Orderinvoer | aan |
+| AI-koppeling (zie [AI-koppeling](ai-koppeling.md)) | `Apps.Integrations.AiConnector` | App Integraties | uit |
 | App Rapporten | `Apps.Reports` | | uit |
 | App Beheer | `Apps.Administration` | | aan |
 | Gebruikers | `Apps.Administration.Users` | App Beheer | aan |
@@ -202,6 +203,7 @@ Financieel, verschijnen hier zodra hun eerste lijst er is.
 | Onderhoud | `Apps.Administration.Maintenance` | App Beheer | uit |
 | Adres opzoeken op postcode | `Integrations.AddressLookup` | | uit |
 | E-mailverzending | `Platform.EmailDelivery` | | uit |
+| Cijfers via de AI-koppeling (zie [AI-koppeling](ai-koppeling.md#welke-vragen-de-ai-tool-beantwoordt)) | `Reporting.Metrics` | | uit |
 | Instellingenbeheer inschakelen | `SettingManagement.Enable` | | aan |
 | E-mailinstellingen mogen wijzigen | `SettingManagement.AllowChangingEmailSettings` | Instellingenbeheer inschakelen | uit |
 

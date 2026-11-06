@@ -52,3 +52,11 @@ public class TransportOrderStatusChangedEto
 
     public TransportOrderStatus Status { get; set; }
 }
+
+/// <summary>The order summary calculator stored new values (revenue, cost, margin, CO₂, progress); Reporting's order fact follows (design 75).</summary>
+public class TransportOrderRecalculatedEto
+{
+    public Guid OrderId { get; set; }
+
+    public long Version { get; set; }
+}

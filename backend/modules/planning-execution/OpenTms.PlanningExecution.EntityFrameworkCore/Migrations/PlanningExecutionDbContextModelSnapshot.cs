@@ -689,6 +689,10 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TenantId", "CreatedFromOrderId");
 
+                    b.HasIndex("TenantId", "CreationTime");
+
+                    b.HasIndex("TenantId", "LastModificationTime");
+
                     b.HasIndex("TenantId", "Number")
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");

@@ -128,6 +128,10 @@ export interface OpenTmsGridProps<TRow> {
   rowActions?: (rows: TRow[]) => GridRowAction[];
   /** UI-GRID-005: the page's filter controls, rendered next to the search box. */
   filters?: ReactNode;
+  /** UI-PAGE-005: the no-rows text when the design names one, already translated; a filtered grid keeps its own text. */
+  emptyMessage?: string;
+  /** Leaves out the search box, for a list endpoint that has no search: a box that does nothing is worse than none. */
+  hideSearch?: boolean;
   /** UI-GRID-013: shows the Export button when the design includes export; it receives the current request and the
    * columns in display order (a column definition with `context: { export: false }` is not offered). */
   onExport?: (context: GridExportContext) => void;
@@ -212,10 +216,11 @@ function BlockLoadCellRenderer({ emitter, onManualRetry, t }: BlockLoadCellRende
 interface NoRowsOverlayProps {
   getIsFiltered: () => boolean;
   onClearFilter: () => void;
+  emptyMessage?: string;
   t: (key: string) => string;
 }
 
-function NoRowsOverlay({ getIsFiltered, onClearFilter, t }: NoRowsOverlayProps) {
+function NoRowsOverlay({ getIsFiltered, onClearFilter, emptyMessage, t }: NoRowsOverlayProps) {
   const hasFilter = getIsFiltered();
 
   if (hasFilter) {
@@ -229,7 +234,7 @@ function NoRowsOverlay({ getIsFiltered, onClearFilter, t }: NoRowsOverlayProps) 
     );
   }
 
-  return <span className="text-sm text-muted-foreground">{t("Grid:Empty")}</span>;
+  return <span className="text-sm text-muted-foreground">{emptyMessage ?? t("Grid:Empty")}</span>;
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -242,6 +247,8 @@ export function OpenTmsGrid<TRow>({
   onOpen,
   rowActions,
   filters,
+  emptyMessage,
+  hideSearch = false,
   onExport,
   treeData,
   clickSelects = false,
@@ -708,9 +715,10 @@ export function OpenTmsGrid<TRow>({
     () => ({
       getIsFiltered,
       onClearFilter: handleClearFilter,
+      emptyMessage,
       t,
     }),
-    [getIsFiltered, handleClearFilter, t],
+    [getIsFiltered, handleClearFilter, emptyMessage, t],
   );
 
   // ── Row selection config ──────────────────────────────────────────────────
@@ -794,6 +802,7 @@ export function OpenTmsGrid<TRow>({
         onRefresh={handleRefresh}
         onExport={onExport ? handleExport : undefined}
         filters={filters}
+        hideSearch={hideSearch}
       />
 
       <div className="min-h-0 flex-1">

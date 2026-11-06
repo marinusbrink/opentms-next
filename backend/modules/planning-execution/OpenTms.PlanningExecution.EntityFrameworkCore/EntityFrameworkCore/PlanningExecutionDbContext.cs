@@ -162,6 +162,9 @@ public class PlanningExecutionDbContext : AbpDbContext<PlanningExecutionDbContex
             b.HasIndex(t => new { t.TenantId, t.Number }).IsUnique().AreNullsDistinct(false).HasFilter(NotDeleted);
             b.HasIndex(t => new { t.TenantId, t.Status, t.TripDate });
             b.HasIndex(t => new { t.TenantId, t.CarrierRelationId });
+            /* Design 75: the nightly repair of Reporting's trip facts finds what changed. */
+            b.HasIndex(t => new { t.TenantId, t.LastModificationTime });
+            b.HasIndex(t => new { t.TenantId, t.CreationTime });
             b.HasIndex(t => new { t.TenantId, t.PlannedDepartureUtc });
             /* Design 68 §1: the Scheduler's window overlap reads both ends. */
             b.HasIndex(t => new { t.TenantId, t.PlannedArrivalUtc });

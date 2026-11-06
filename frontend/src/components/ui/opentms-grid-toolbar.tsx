@@ -32,6 +32,7 @@ interface OpenTmsGridToolbarProps<TRow> {
   onRefresh?: () => void;
   onExport?: () => void;
   filters?: ReactNode;
+  hideSearch?: boolean;
   className?: string;
 }
 
@@ -64,6 +65,7 @@ export function OpenTmsGridToolbar<TRow>({
   onRefresh,
   onExport,
   filters,
+  hideSearch = false,
   className,
 }: OpenTmsGridToolbarProps<TRow>) {
   const { t } = useL();
@@ -75,16 +77,18 @@ export function OpenTmsGridToolbar<TRow>({
   return (
     <TooltipProvider>
       <div className={cn("flex items-center gap-2 border-b bg-surface-page px-3 py-2", className)}>
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-8"
-            placeholder={t("Grid:Search")}
-            aria-label={t("Grid:Search")}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-        </div>
+        {!hideSearch && (
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder={t("Grid:Search")}
+              aria-label={t("Grid:Search")}
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </div>
+        )}
 
         {filters && (
           <div data-slot="grid-filters" className="flex items-center gap-2">

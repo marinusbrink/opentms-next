@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenTms.Reporting.Domain.Shared\OpenTms.Reporting.Domain.Shared.csproj" />
+    <!-- Design 75: IDerivedValueCalculator and the test-dataset contributor, as the other modules have. -->
+    <ProjectReference Include="..\..\platform\OpenTms.Platform.Domain\OpenTms.Platform.Domain.csproj" />
   </ItemGroup>
 
 </Project>

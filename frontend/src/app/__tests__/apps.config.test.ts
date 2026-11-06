@@ -143,9 +143,16 @@ describe("apps.config – AppView extension (low risk)", () => {
     expect(treePathsOf(masterData).filter((p) => p.startsWith("/master-data/integrations"))).toEqual([]);
   });
 
-  it("the Integrations app has the group Order intake: Received first, then Mailboxes, API clients, Import profiles and Settings (design 72; PO 2026-11-03)", () => {
+  it("the Integrations app has the group Order intake: Received first, then Mailboxes, API clients, Import profiles and Settings (design 72; PO 2026-11-03), and the AI connector as its sibling (design 74)", () => {
     const integrations = APPS.find((a) => a.id === "integrations")!;
-    expect(integrations.views!.map((v) => [v.nameKey, v.path, v.feature])).toEqual([["Integrations:Nav.OrderIntake", "/integrations/intake", "Apps.Integrations.Intake"]]);
+    expect(integrations.views!.map((v) => [v.nameKey, v.path, v.feature])).toEqual([
+      ["Integrations:Nav.OrderIntake", "/integrations/intake", "Apps.Integrations.Intake"],
+      ["Integrations:Nav.AiConnector", "/integrations/ai-connector", "Apps.Integrations.AiConnector"],
+    ]);
+    const aiConnector = integrations.views![1];
+    expect(aiConnector.requiredPermission).toEqual(["Integrations.AiConnector.Use", "Integrations.AiConnector.Manage"]);
+    expect(aiConnector.children).toBeUndefined();
+    expect(aiConnector.icon).toBeTruthy();
     expect(integrations.views![0].children!.map((c) => [c.nameKey, c.path, c.feature, c.requiredPermission])).toEqual([
       ["Integrations:Nav.Received", "/integrations/received", "Apps.Integrations.Intake.Received", "Integrations.InboundMessages"],
       ["Integrations:Mailboxes", "/integrations/mailboxes", "Apps.Integrations.Intake.Mailboxes", "Integrations.Mailboxes"],
@@ -158,6 +165,7 @@ describe("apps.config – AppView extension (low risk)", () => {
       expect(child.icon).toBeTruthy();
     });
     expect(findAppByPath("/integrations/mailboxes")?.id).toBe("integrations");
+    expect(findAppByPath("/integrations/ai-connector")?.id).toBe("integrations");
   });
 
   it("the Platform domain group holds its three lists directly under it, no sub-groups (design 54, Assumption 4)", () => {

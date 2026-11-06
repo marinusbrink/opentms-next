@@ -16,4 +16,13 @@ public static class IntegrationsSettings
     /// Integrations app (<c>/api/integrations/order-intake-settings</c>) and handed to Orders with every intake.
     /// </summary>
     public const string NameSimilarityThreshold = "Integrations.OrderIntake.NameSimilarityThreshold";
+
+    /// <summary>
+    /// When the tenant administrator accepted the data sharing of the AI connector (design 74), as an ISO 8601 UTC instant;
+    /// unset means not accepted. Tenant only, not visible to clients other than through the status endpoint.
+    /// </summary>
+    public const string AiConnectorAcceptedAt = "Integrations.AiConnector.AcceptedAt";
+
+    /// <summary>Who accepted (a user id). Cleared when that user is deleted (design 74 "GDPR"); the acceptance stands.</summary>
+    public const string AiConnectorAcceptedByUserId = "Integrations.AiConnector.AcceptedByUserId";
 }
