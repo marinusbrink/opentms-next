@@ -47,7 +47,7 @@ namespace OpenTms.Reporting.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("FactUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal?>("MarginAmount")
                         .HasPrecision(18, 2)
@@ -115,7 +115,7 @@ namespace OpenTms.Reporting.EntityFrameworkCore.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("FactUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<decimal?>("LoadFactor")
                         .HasPrecision(9, 4)

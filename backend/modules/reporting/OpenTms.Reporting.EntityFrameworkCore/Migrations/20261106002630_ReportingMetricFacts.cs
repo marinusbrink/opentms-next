@@ -33,7 +33,7 @@ namespace OpenTms.Reporting.EntityFrameworkCore.Migrations
                     CostOfRevenueAmount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
                     MarginAmount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
                     Co2Kg = table.Column<decimal>(type: "numeric(18,3)", precision: 18, scale: 3, nullable: true),
-                    FactUpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    FactUpdatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -64,7 +64,7 @@ namespace OpenTms.Reporting.EntityFrameworkCore.Migrations
                     ActualDistanceM = table.Column<int>(type: "integer", nullable: true),
                     StopsMeasured = table.Column<int>(type: "integer", nullable: false),
                     StopsOnTime = table.Column<int>(type: "integer", nullable: false),
-                    FactUpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    FactUpdatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false)
                 },
                 constraints: table =>
                 {
