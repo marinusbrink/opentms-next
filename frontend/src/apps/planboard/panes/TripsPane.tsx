@@ -443,6 +443,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
           fetchRows={fetchRows}
           onSelectionChange={onSelectionChange}
           clickSelects
+          popupsOnPage
           onGridReady={grid.capture}
           onOpen={(row) => row.id && openTrip(row.id)}
           rowActions={rowActions}

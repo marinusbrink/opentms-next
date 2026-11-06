@@ -301,13 +301,13 @@ function LegEndFields({
       <FormField label={t("PlanningExecution:WindowFrom")} htmlFor={id("from-date")} floating="always">
         <DatePicker id={id("from-date")} value={end.windowFromDate} onChange={(next) => patch({ windowFromDate: next })} disabled={readOnly} />
       </FormField>
-      <FormField label={t("Orders:Time")} htmlFor={id("from-time")} error={invalidTime("windowFromTime")}>
+      <FormField label={t("Orders:Time")} htmlFor={id("from-time")} error={invalidTime("windowFromTime")} floating="always">
         <Input id={id("from-time")} value={end.windowFromTime} onChange={(e) => patch({ windowFromTime: e.target.value })} placeholder="HH:mm" disabled={readOnly} />
       </FormField>
       <FormField label={t("PlanningExecution:WindowTill")} htmlFor={id("till-date")} floating="always">
         <DatePicker id={id("till-date")} value={end.windowTillDate} onChange={(next) => patch({ windowTillDate: next })} disabled={readOnly} />
       </FormField>
-      <FormField label={t("Orders:Time")} htmlFor={id("till-time")} error={invalidTime("windowTillTime")}>
+      <FormField label={t("Orders:Time")} htmlFor={id("till-time")} error={invalidTime("windowTillTime")} floating="always">
         <Input id={id("till-time")} value={end.windowTillTime} onChange={(e) => patch({ windowTillTime: e.target.value })} placeholder="HH:mm" disabled={readOnly} />
       </FormField>
       <FormField label={t("PlanningExecution:Reference")} htmlFor={id("reference")} className="col-span-2">

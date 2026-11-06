@@ -161,10 +161,14 @@ a business error saying why. Empty cell: `create-trip` gains `orderId`.
 
 ## 9. The work after a save
 
-Measured first (see *Measurements*). Changes:
-- Hangfire: `PostgreSqlStorageOptions.QueuePollInterval` from the 15-second default to 1 second, configurable
-  (`Hangfire:QueuePollInterval`), with `EnableLongPolling`; each hop in the chain waited on that poll.
-- `SetFieldAsync` and other text-only edits (name, remarks, driver instructions) no longer recalculate the trip.
+Measured first (see *Measurements*). The assumption that Hangfire's 15-second queue poll caused the wait was **wrong**: in
+one instance a job enqueued in-process wakes a worker at once, so Hangfire's settings stay as they are (long polling only
+cost one extra connection per worker). The cause was design 68's stored route: `GetMatrixAsync` with geometry or toll asked
+every stop pair one after the other, each with the engine, the function and its own cache read and write.
+
+- `RoutingService.GetMatrixAsync` reads the cache once, asks the missing pairs at most 4 at a time and writes the cache once.
+- `SetFieldAsync` and other text-only edits (name, remarks, driver instructions, a stop's remarks) no longer recalculate the
+  trip or start Financial's rate job (`TripChangeKind.HeaderText`).
 - `UnassignAsync` requests one calculation per affected trip, not one per leg.
 - The frontend does not call `refreshBars` straight after a command with values it knows are old; it patches from the
   command's response and shows `CalculatingIndicator` until the notice arrives.
@@ -183,8 +187,15 @@ Measured first (see *Measurements*). Changes:
 
 ## Measurements
 
-To be filled in with before and after numbers from a local run (request end to the trip's `CalculatedAt` and the record
-notice), in the PR.
+Local, Average dataset, one instance. From the end of the assign command until the trip's `CalculatedAt` changed.
+
+| Situation | Command | Result on screen |
+|---|---|---|
+| No routing configured, Hangfire default poll without long polling | 50–200 ms | 280–750 ms |
+| Simulated engine at 300 ms per call, sequential (before), 10–15 stops | 60–170 ms | 3.7–5.8 s |
+| Same engine, at most 4 at a time (after), 9–10 stops | 45–230 ms | 1.1–1.8 s |
+
+The engine is simulated, so real latency in production will differ; no production logs were read.
 
 ## Out of scope
 

@@ -100,7 +100,7 @@ export function SplitLineDialog({ leg, onClose, onDone }: SplitLineDialogProps) 
 
   const column = (id: string, labelKey: string, text: string, onChange: (text: string) => void, measures: LineMeasures | undefined) => (
     <div className="flex flex-col gap-3" data-slot={`split-line-${id}`}>
-      <FormField label={t(labelKey)} htmlFor={`split-line-${id}`} required error={rangeError}>
+      <FormField label={t(labelKey)} htmlFor={`split-line-${id}`} required error={rangeError} floating="always">
         <Input id={`split-line-${id}`} inputMode="decimal" className="tabular-nums" value={text} onChange={(e) => onChange(e.target.value)} disabled={busy} autoFocus={id === "new"} />
       </FormField>
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1">

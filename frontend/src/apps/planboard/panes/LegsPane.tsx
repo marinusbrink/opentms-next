@@ -172,6 +172,7 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
         fetchRows={fetchRows}
         onSelectionChange={onSelectionChange}
         clickSelects
+        popupsOnPage
         onOpen={(leg) => canUpdate && setEditing(leg)}
         rowActions={rowActions}
       />

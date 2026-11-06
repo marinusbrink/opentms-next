@@ -330,6 +330,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
         treeData={treeData}
         onSelectionChange={onSelectionChange}
         clickSelects
+        popupsOnPage
         onGridReady={grid.capture}
         onOpen={(leg) => !isGroupRow(leg) && leg.orderId && openRecord("TransportOrder", leg.orderId, { returnTo: "/planboard" })}
         rowActions={rowActions}
