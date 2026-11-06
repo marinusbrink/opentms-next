@@ -53,7 +53,7 @@ export function useOpenPlanboardTrip(): (tripId: string) => void {
         peek(tripId);
         return;
       }
-      openRecord("TransportTrip", tripId);
+      openRecord("TransportTrip", tripId, { returnTo: "/planboard" });
     },
     [peek, features, isGranted, openRecord, t],
   );

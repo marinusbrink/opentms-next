@@ -91,6 +91,9 @@ public class TransportOrderRowDto
     public bool HasTripRequest { get; set; }
     /// <summary>Set when Planning could not honour the order's trip request ("OpenTms.Orders:TripRequestNotHonoured", OrdersWarningCodes); the legs stay unplanned.</summary>
     public string? TripRequestWarningCode { get; set; }
+    /// <summary>Design 74 §6: the Planboard's Orders pane edits the remarks inline, against the stamp.</summary>
+    public string? InternalRemarks { get; set; }
+    public string ConcurrencyStamp { get; set; } = string.Empty;
     public DateTime CreationTime { get; set; }
     public DateTime? LastModificationTime { get; set; }
 }

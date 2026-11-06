@@ -1,6 +1,7 @@
 import { TriangleAlert } from "lucide-react";
 
 import type { BarData, BarField } from "@/apps/planboard/panes/scheduler/model";
+import { CalculatingIndicator, type CalculatingIndicatorProps } from "@/components/ui/calculating-indicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { planboardWarningKey, type PlanboardResourceMode } from "@/domains/planning-execution/planboard-scheduler";
 import { TRANSPORT_TRIP_STATUSES } from "@/domains/planning-execution/trips";
@@ -16,6 +17,8 @@ export interface BarContentProps {
   fields: readonly BarField[];
   names: Readonly<Record<string, string>>;
   mode: PlanboardResourceMode;
+  /** The trip's calculation state: the bar says so while its values are about to change (flow 2, design 74 §9). */
+  calculation?: CalculatingIndicatorProps["state"];
 }
 
 const nameOf = (names: Readonly<Record<string, string>>, id: string | null | undefined) => {
@@ -23,7 +26,7 @@ const nameOf = (names: Readonly<Record<string, string>>, id: string | null | und
   return names[id] ?? names[id.toLowerCase()] ?? Object.entries(names).find(([key]) => key.toLowerCase() === id.toLowerCase())?.[1] ?? "";
 };
 
-export function BarContent({ data, fields, names, mode }: BarContentProps) {
+export function BarContent({ data, fields, names, mode, calculation }: BarContentProps) {
   const { t } = useL();
   const f = useFormat();
   const { bar } = data;
@@ -49,6 +52,7 @@ export function BarContent({ data, fields, names, mode }: BarContentProps) {
 
   return (
     <span className="flex min-w-0 items-center gap-1">
+      <CalculatingIndicator state={calculation} showLabel={false} className="shrink-0" />
       {warnings.length > 0 && (
         <Tooltip>
           <TooltipTrigger

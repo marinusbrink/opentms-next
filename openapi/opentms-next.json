@@ -11916,6 +11916,143 @@
         "format": "int32",
         "type": "integer"
       },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderField": {
+        "enum": [
+          1,
+          2
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderFieldResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
+          "customerReference": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "internalRemarks": {
+            "nullable": true,
+            "type": "string"
+          },
+          "lastModificationTime": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderFieldUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "field": {
+            "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderField"
+          },
+          "value": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "concurrencyStamp",
+          "field"
+        ],
+        "type": "object"
+      },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderLineField": {
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "format": "int32",
+        "type": "integer"
+      },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastModificationTime": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lineId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "productId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "productName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "temperatureId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "temperatureName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "transportUnitId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "transportUnitName": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "field": {
+            "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineField"
+          },
+          "value": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "concurrencyStamp",
+          "field"
+        ],
+        "type": "object"
+      },
       "OpenTms.Orders.TransportOrders.PricePreviewRequestDto": {
         "additionalProperties": false,
         "properties": {
@@ -14152,6 +14289,10 @@
             "nullable": true,
             "type": "number"
           },
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
           "costOfRevenueAmount": {
             "format": "double",
             "nullable": true,
@@ -14198,6 +14339,10 @@
           },
           "id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "internalRemarks": {
+            "nullable": true,
             "type": "string"
           },
           "lastModificationTime": {
@@ -16071,6 +16216,149 @@
         "format": "int32",
         "type": "integer"
       },
+      "OpenTms.PlanningExecution.Legs.LegChainDto": {
+        "additionalProperties": false,
+        "properties": {
+          "isChain": {
+            "type": "boolean"
+          },
+          "orderId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "orderLineId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainRowDto"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegChainEndInputDto": {
+        "additionalProperties": false,
+        "properties": {
+          "plannedDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "reference": {
+            "maxLength": 128,
+            "nullable": true,
+            "type": "string"
+          },
+          "relationAddressId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "relationId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "waypointTypeId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "windowFrom": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "windowTill": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegChainRowDto": {
+        "additionalProperties": false,
+        "properties": {
+          "hasActuals": {
+            "type": "boolean"
+          },
+          "isReadOnly": {
+            "type": "boolean"
+          },
+          "leg": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegDto"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegChainRowInputDto": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainEndInputDto"
+          },
+          "id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainEndInputDto"
+          },
+          "remarks": {
+            "maxLength": 2500,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegChainStampDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concurrencyStamp",
+          "id"
+        ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegChainUpdateDto": {
+        "additionalProperties": false,
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainRowInputDto"
+            },
+            "type": "array"
+          },
+          "stamps": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainStampDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "stamps"
+        ],
+        "type": "object"
+      },
       "OpenTms.PlanningExecution.Legs.LegDto": {
         "additionalProperties": false,
         "properties": {
@@ -16156,6 +16444,10 @@
             "nullable": true,
             "type": "number"
           },
+          "orderConcurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
           "orderId": {
             "format": "uuid",
             "type": "string"
@@ -16177,6 +16469,10 @@
           },
           "productId": {
             "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "productName": {
             "nullable": true,
             "type": "string"
           },
@@ -16218,6 +16514,10 @@
             "nullable": true,
             "type": "string"
           },
+          "temperatureName": {
+            "nullable": true,
+            "type": "string"
+          },
           "tollDistanceM": {
             "format": "int32",
             "nullable": true,
@@ -16225,6 +16525,10 @@
           },
           "transportUnitId": {
             "format": "uuid",
+            "type": "string"
+          },
+          "transportUnitName": {
+            "nullable": true,
             "type": "string"
           },
           "tripId": {
@@ -16410,6 +16714,51 @@
         ],
         "type": "object"
       },
+      "OpenTms.PlanningExecution.Legs.LegSplitOrderLineDto": {
+        "additionalProperties": false,
+        "properties": {
+          "quantity": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "quantity"
+        ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "newLegs": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "newLineId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "newQuantity": {
+            "format": "double",
+            "type": "number"
+          },
+          "remainingLegs": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "remainingQuantity": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.PlanningExecution.Legs.LegTimeWindowDto": {
         "additionalProperties": false,
         "properties": {
@@ -16503,6 +16852,98 @@
           "concurrencyStamp",
           "driverId"
         ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderDto": {
+        "additionalProperties": false,
+        "properties": {
+          "allowOutsideWindow": {
+            "type": "boolean"
+          },
+          "concurrencyStamp": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "orderId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concurrencyStamp",
+          "orderId"
+        ],
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderPreviewDto": {
+        "additionalProperties": false,
+        "properties": {
+          "legs": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "movableCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pulledFrom": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardPulledFromDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "stuck": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto": {
+        "additionalProperties": false,
+        "properties": {
+          "concurrencyStamp": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastModificationTime": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "moved": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "pulledFrom": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardPulledFromDto"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "stuck": {
+            "items": {
+              "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
         "type": "object"
       },
       "OpenTms.PlanningExecution.Planboard.PlanboardBarDto": {
@@ -16732,6 +17173,11 @@
           },
           "mode": {
             "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardResourceMode"
+          },
+          "orderId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           },
           "plannedDeparture": {
             "format": "date-time",
@@ -17067,6 +17513,70 @@
         },
         "type": "object"
       },
+      "OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto": {
+        "additionalProperties": false,
+        "properties": {
+          "destinationCity": {
+            "nullable": true,
+            "type": "string"
+          },
+          "destinationName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "orderLineId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "originCity": {
+            "nullable": true,
+            "type": "string"
+          },
+          "originName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "position": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "stuckReason": {
+            "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardStuckReason"
+          },
+          "tripId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "tripNumber": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OpenTms.PlanningExecution.Planboard.PlanboardPulledFromDto": {
+        "additionalProperties": false,
+        "properties": {
+          "legCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "number": {
+            "nullable": true,
+            "type": "string"
+          },
+          "tripId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "OpenTms.PlanningExecution.Planboard.PlanboardRescheduleDto": {
         "additionalProperties": false,
         "properties": {
@@ -17346,6 +17856,14 @@
           }
         },
         "type": "object"
+      },
+      "OpenTms.PlanningExecution.Planboard.PlanboardStuckReason": {
+        "enum": [
+          1,
+          2
+        ],
+        "format": "int32",
+        "type": "integer"
       },
       "OpenTms.PlanningExecution.Planboard.PlanboardTripField": {
         "enum": [
@@ -19274,6 +19792,10 @@
             "nullable": true,
             "type": "string"
           },
+          "countryCode": {
+            "nullable": true,
+            "type": "string"
+          },
           "estimatedArrival": {
             "format": "date-time",
             "nullable": true,
@@ -19281,6 +19803,10 @@
           },
           "estimatedDeparture": {
             "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "houseNumber": {
             "nullable": true,
             "type": "string"
           },
@@ -19336,8 +19862,16 @@
             "format": "int32",
             "type": "integer"
           },
+          "postalCode": {
+            "nullable": true,
+            "type": "string"
+          },
           "relationAddressId": {
             "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "relationEmail": {
             "nullable": true,
             "type": "string"
           },
@@ -19345,11 +19879,23 @@
             "format": "uuid",
             "type": "string"
           },
+          "relationMobile": {
+            "nullable": true,
+            "type": "string"
+          },
           "relationName": {
             "nullable": true,
             "type": "string"
           },
+          "relationPhone": {
+            "nullable": true,
+            "type": "string"
+          },
           "remarks": {
+            "nullable": true,
+            "type": "string"
+          },
+          "street": {
             "nullable": true,
             "type": "string"
           },
@@ -19385,6 +19931,14 @@
             "format": "uuid",
             "type": "string"
           },
+          "destinationCity": {
+            "nullable": true,
+            "type": "string"
+          },
+          "destinationName": {
+            "nullable": true,
+            "type": "string"
+          },
           "distanceM": {
             "format": "int32",
             "nullable": true,
@@ -19411,6 +19965,14 @@
             "type": "string"
           },
           "orderNumber": {
+            "nullable": true,
+            "type": "string"
+          },
+          "originCity": {
+            "nullable": true,
+            "type": "string"
+          },
+          "originName": {
             "nullable": true,
             "type": "string"
           },
@@ -19618,6 +20180,16 @@
             "format": "int32",
             "nullable": true,
             "type": "integer"
+          },
+          "relationAddressId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "relationId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           },
           "remarks": {
             "maxLength": 2500,
@@ -74187,6 +74759,253 @@
         ]
       }
     },
+    "/api/orders/planboard-order/{id}/field": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldUpdateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderFieldResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "PlanboardOrder"
+        ]
+      }
+    },
+    "/api/orders/planboard-order/{id}/line/{lineId}/field": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lineId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldUpdateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "PlanboardOrderLine"
+        ]
+      }
+    },
     "/api/orders/time-slot": {
       "get": {
         "parameters": [
@@ -86415,6 +87234,343 @@
         ]
       }
     },
+    "/api/planning/leg/line/{lineId}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lineId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Leg"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lineId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainUpdateDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegChainDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Leg"
+        ]
+      }
+    },
     "/api/planning/leg/{id}": {
       "get": {
         "parameters": [
@@ -87308,6 +88464,185 @@
               "text/plain": {
                 "schema": {
                   "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Leg"
+        ]
+      }
+    },
+    "/api/planning/leg/{id}/split-order-line": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto"
                 }
               }
             },
@@ -88429,17 +89764,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardChangeDto"
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardChangeDto"
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
                 }
               },
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardChangeDto"
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
                 }
               }
             },
@@ -88807,6 +90142,354 @@
               "text/plain": {
                 "schema": {
                   "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardChangeDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Planboard"
+        ]
+      }
+    },
+    "/api/planning/planboard/{id}/assign-order": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderDto"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/Volo.Abp.Http.RemoteServiceErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "tags": [
+          "Planboard"
+        ]
+      }
+    },
+    "/api/planning/planboard/{id}/assign-order-preview": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "OrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderPreviewDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderPreviewDto"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderPreviewDto"
                 }
               }
             },
@@ -111139,6 +112822,9 @@
     },
     {
       "name": "PlanboardOrder"
+    },
+    {
+      "name": "PlanboardOrderLine"
     },
     {
       "name": "PlanboardStopOptimization"

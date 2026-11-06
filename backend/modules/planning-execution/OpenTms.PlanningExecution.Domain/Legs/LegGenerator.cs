@@ -284,7 +284,6 @@ public class LegGenerator : DomainService
         }
     }
 
-    /// <summary>A reshaped line: the planner's legs stay; ends that still point at an order stop follow the stop's facts.</summary>
     /// <summary>
     /// A return leg (design 59 note 10, trips.md 22) mirrors the original: its ends follow the order stops' places and dates,
     /// but keep their swapped activities, and it never arrives before it departs. The stored source keys stay the order
@@ -315,6 +314,7 @@ public class LegGenerator : DomainService
         leg.InheritSourceKeys(originKey, destinationKey);
     }
 
+    /// <summary>A reshaped line: the planner's legs stay; ends that still point at an order stop follow the stop's facts, and unit, product and temperature follow the line (design 74 §6).</summary>
     private static void RefreshReshapedLine(LegGenerationLine line, List<Leg> current, LegGenerationResult result)
     {
         var stops = line.Stops.ToDictionary(s => s.Snapshot.StopId, s => s.Snapshot);
@@ -323,9 +323,23 @@ public class LegGenerator : DomainService
             /* Only an end that still points at an order stop follows it; the planner's ends (synthetic stops) stay as they are. */
             var originChanged = stops.TryGetValue(leg.OriginStopId, out var o) && leg.OriginDiffersFrom(o);
             var destinationChanged = stops.TryGetValue(leg.DestinationStopId, out var d) && leg.DestinationDiffersFrom(d);
-            if (!originChanged && !destinationChanged)
+            /* Design 74 §6: what the freight is follows the line (a Planboard edit must reach the legs); how much stays the planner's. */
+            var goodsChanged = leg.TransportUnitId != line.Quantities.TransportUnitId || leg.ProductId != line.Quantities.ProductId || leg.TemperatureId != line.Quantities.TemperatureId;
+            if (!originChanged && !destinationChanged && !goodsChanged)
             {
                 result.Unchanged.Add(leg);
+                continue;
+            }
+
+            if (goodsChanged)
+            {
+                leg.SetQuantities(leg.Quantities with { TransportUnitId = line.Quantities.TransportUnitId, ProductId = line.Quantities.ProductId, TemperatureId = line.Quantities.TemperatureId });
+            }
+
+            if (!originChanged && !destinationChanged)
+            {
+                /* The stops are the same: the leg stays on its trip. */
+                result.Updated.Add(leg);
                 continue;
             }
 

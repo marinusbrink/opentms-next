@@ -18,7 +18,12 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * Close land on the list exactly as it was. A record the user may not view is not opened: `toast.error(PermissionDenied)`
  * (UI-PERM-004); a record whose app node is off is not opened either (UI-PERM-006). On the page itself, a record that
  * does not exist (deleted meanwhile, another tenant's id) renders `RecordNotFound`; the shell renders
- * `FeatureUnavailable` for a node that is off and the page `PermissionDenied` without the view permission. */
+ * `FeatureUnavailable` for a node that is off and the page `PermissionDenied` without the view permission.
+ *
+ * Design 74 §5: `openRecord(type, id, { returnTo })` puts the screen to come back to in the `returnTo` search param, and
+ * `useCloseRecord` goes there instead of the list. The param is in the URL, so it survives a reload and travels with the
+ * record's own navigation (a record opened from this record, New handing over to the created record). Only internal
+ * paths count (`isInternalPath`): the URL can be shared, so it must not be an open redirect. */
 
 export type RecordType = "TransportOrder" | "TransportOrderTemplate" | "TransportTrip" | "OrderIntake" | "InboundMessage";
 
@@ -78,6 +83,23 @@ export interface OpenRecordOptions {
   replace?: boolean;
   /** Search params that belong to the page being left, not to the record (the new order's `type`). */
   omitSearch?: string[];
+  /** Where closing the record goes instead of its list (design 74 §5); ignored unless it is an internal path. */
+  returnTo?: string;
+}
+
+/** The search param that carries where closing a record goes (design 74 §5). */
+export const RETURN_TO_PARAM = "returnTo";
+
+/** Whether a path stays on this origin: it starts with one `/`, and the URL parser agrees (it also reads a backslash or an
+ *  embedded tab after that `/` as the start of another host). */
+export function isInternalPath(path: unknown): path is string {
+  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return false;
+  const base = "http://internal.invalid";
+  try {
+    return new URL(path, base).origin === base;
+  } catch {
+    return false;
+  }
 }
 
 /** The id a record route takes for a record that does not exist yet (design 61 "Order page, legacy tab structure" 9: New opens
@@ -111,7 +133,14 @@ export function useOpenRecord(): OpenRecord {
         return false;
       }
       const omit = options?.omitSearch ?? [];
-      const search = omit.length === 0 ? keepSearch : (previous: Record<string, unknown>) => Object.fromEntries(Object.entries(previous).filter(([key]) => !omit.includes(key)));
+      const returnTo = isInternalPath(options?.returnTo) ? options.returnTo : undefined;
+      const search =
+        omit.length === 0 && !returnTo
+          ? keepSearch
+          : (previous: Record<string, unknown>) => ({
+              ...Object.fromEntries(Object.entries(previous).filter(([key]) => !omit.includes(key))),
+              ...(returnTo ? { [RETURN_TO_PARAM]: returnTo } : {}),
+            });
       void navigate({ to: recordPath(type, id), search, replace: options?.replace });
       return true;
     },
@@ -144,14 +173,25 @@ export function useOpenNewRecord(): (type: RecordType, extra?: Record<string, st
   );
 }
 
-/** Closing a record page: back to its list, with the filters the list had. */
+/** Closing a record page: to where it was opened from when that was passed (`returnTo`, design 74 §5), else back to its
+ *  list with the filters the list had. A list never keeps the param. */
 export function useCloseRecord(): (type: RecordType) => void {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const returnTo = (search as Record<string, unknown> | undefined)?.[RETURN_TO_PARAM];
   return useCallback(
     (type) => {
-      void navigate({ to: RECORD_ROUTES[type].listPath, search: keepSearch });
+      if (isInternalPath(returnTo)) {
+        const target = new URL(returnTo, "http://internal.invalid");
+        void navigate({ to: target.pathname, search: Object.fromEntries(target.searchParams) });
+        return;
+      }
+      void navigate({
+        to: RECORD_ROUTES[type].listPath,
+        search: (previous: Record<string, unknown>) => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== RETURN_TO_PARAM)),
+      });
     },
-    [navigate],
+    [navigate, returnTo],
   );
 }
 

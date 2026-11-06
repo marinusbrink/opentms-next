@@ -10,10 +10,12 @@ import "@/styles/resource-scheduler.css";
 
 import {
   parseSlotDate,
+  rowAtY,
   slotDurationMs,
   timeAtX,
   toTimelineEvents,
   toVisibleRange,
+  type MeasuredRow,
   type MeasuredSlot,
   type SchedulerBackgroundEvent,
   type SchedulerEvent,
@@ -60,6 +62,8 @@ export interface ResourceSchedulerProps<TData = unknown> {
    * drag's data (read it with the feature's payload parser) and the bar it landed on, if any.
    */
   onExternalDrop?: (resourceId: string, start: Date, payload: DataTransfer, targetEventId: string | null) => void;
+  /** A drag that may drop here was let go outside the rows (the row labels, the header, below the last row). */
+  onExternalDropMiss?: () => void;
   /** Whether a drag from outside may drop here, judged from its types during dragover; default: any drag. */
   acceptExternalDrag?: (types: readonly string[]) => boolean;
   /** An empty stretch of a row was selected (e.g. to create a trip there). */
@@ -149,8 +153,11 @@ export function ResourceScheduler<TData = unknown>(props: ResourceSchedulerProps
     return <div className="opentms-sched-event-content">{eventContent ? eventContent(source) : (source.title ?? arg.event.title)}</div>;
   };
 
-  /* Drops from other panes (HTML5 drag and drop): FullCalendar handles only its own drags, so the row and time are
-   * found from the drop target and the slot under the pointer. */
+  /* Drops from other panes (HTML5 drag and drop): FullCalendar handles only its own drags. The row and time come from
+   * the pointer's position, not from the drop target: on an empty stretch the element under the pointer is the slot
+   * table, which lies over the lanes and belongs to no row (only bars and blocks sit inside a lane's element). Only the
+   * timeline's body counts: the row labels carry a resource id too, but with the timeline scrolled sideways a slot lies
+   * behind them and would give a wrong time. Measured at the drop, so scrolling either way and both zooms need no care. */
   const measureSlots = useCallback((): MeasuredSlot[] => {
     const cells = containerRef.current?.querySelectorAll<HTMLElement>("td.fc-timeline-slot-lane[data-date]") ?? [];
     const slots: MeasuredSlot[] = [];
@@ -163,27 +170,37 @@ export function ResourceScheduler<TData = unknown>(props: ResourceSchedulerProps
     return slots;
   }, []);
 
+  const measureRows = useCallback((): MeasuredRow[] => {
+    const cells = containerRef.current?.querySelectorAll<HTMLElement>("td.fc-timeline-lane[data-resource-id]") ?? [];
+    const rows: MeasuredRow[] = [];
+    cells.forEach((cell) => {
+      const rect = cell.getBoundingClientRect();
+      rows.push({ resourceId: cell.dataset.resourceId ?? "", top: rect.top, bottom: rect.bottom });
+    });
+    return rows;
+  }, []);
+
   const accepts = (e: DragEvent) => {
     if (!handlers.current.onExternalDrop) return false;
     const types = Array.from(e.dataTransfer.types);
     return handlers.current.acceptExternalDrag ? handlers.current.acceptExternalDrag(types) : true;
   };
 
+  /* Everywhere in the scheduler, so a drop beside the rows reaches `onDrop` and can say why nothing happens. */
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-    if (!accepts(e)) return;
-    const target = e.target as Element | null;
-    if (!target?.closest("[data-resource-id]")) return;
-    e.preventDefault();
+    if (accepts(e)) e.preventDefault();
   };
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     if (!accepts(e)) return;
-    const target = e.target as Element | null;
-    const resourceId = target?.closest<HTMLElement>("[data-resource-id]")?.dataset.resourceId;
-    if (!resourceId) return;
     e.preventDefault();
-    const start = timeAtX(measureSlots(), e.clientX, slotDurationMs(zoom));
-    if (!start) return;
+    const target = e.target as Element | null;
+    const resourceId = target?.closest(".fc-timeline-body") ? rowAtY(measureRows(), e.clientY) : null;
+    const start = resourceId ? timeAtX(measureSlots(), e.clientX, slotDurationMs(zoom)) : null;
+    if (!resourceId || !start) {
+      handlers.current.onExternalDropMiss?.();
+      return;
+    }
     const targetEventId = target?.closest<HTMLElement>("[data-event-id]")?.dataset.eventId ?? null;
     handlers.current.onExternalDrop?.(resourceId, start, e.dataTransfer, targetEventId);
   };

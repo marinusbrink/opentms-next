@@ -1,6 +1,7 @@
 /* Drag and drop between Planboard panes (design 70, "Drag and drop"): a typed payload per MIME type. Legs travel from
  * Legs to schedule / Legs onto a trips-pane row, a Scheduler row or bar, or the map's selected trip; a driver from
- * Resources onto a trip row or a bar; a trip from the trips pane or a bar. The payload carries ids only.
+ * Resources onto a trip row or a bar; a trip from the trips pane or a bar; an order from Transport orders onto a trip row,
+ * a bar, an empty Scheduler cell or the map's trip card (design 74 §8). The payload carries ids only.
  *
  * During `dragover` the browser hides the data and shows only the types, so a drop target decides with
  * `planboardDragKind(dataTransfer.types)` and reads the payload with `readDragPayload` in `drop`. Parsing is safe: a
@@ -9,6 +10,7 @@
 export const DND_LEGS = "application/x-opentms-legs";
 export const DND_DRIVER = "application/x-opentms-driver";
 export const DND_TRIP = "application/x-opentms-trip";
+export const DND_ORDER = "application/x-opentms-order";
 
 /** The most legs one drag may carry (a multi-selection in Legs to schedule); more is treated as malformed. */
 export const MAX_DRAGGED_LEGS = 500;
@@ -30,11 +32,17 @@ export interface TripDragPayload {
   tripId: string;
 }
 
-export type PlanboardDragPayload = LegsDragPayload | DriverDragPayload | TripDragPayload;
+/** An order from the Transport orders pane (design 74 §8): its legs go on the trip it lands on. */
+export interface OrderDragPayload {
+  kind: "order";
+  orderId: string;
+}
+
+export type PlanboardDragPayload = LegsDragPayload | DriverDragPayload | TripDragPayload | OrderDragPayload;
 export type PlanboardDragKind = PlanboardDragPayload["kind"];
 
-const MIME_BY_KIND: Record<PlanboardDragKind, string> = { legs: DND_LEGS, driver: DND_DRIVER, trip: DND_TRIP };
-const KIND_BY_MIME: Record<string, PlanboardDragKind> = { [DND_LEGS]: "legs", [DND_DRIVER]: "driver", [DND_TRIP]: "trip" };
+const MIME_BY_KIND: Record<PlanboardDragKind, string> = { legs: DND_LEGS, driver: DND_DRIVER, trip: DND_TRIP, order: DND_ORDER };
+const KIND_BY_MIME: Record<string, PlanboardDragKind> = { [DND_LEGS]: "legs", [DND_DRIVER]: "driver", [DND_TRIP]: "trip", [DND_ORDER]: "order" };
 
 export function mimeTypeOf(kind: PlanboardDragKind): string {
   return MIME_BY_KIND[kind];
@@ -51,6 +59,8 @@ export function encodeDragPayload(payload: PlanboardDragPayload): string {
       return JSON.stringify({ driverId: payload.driverId });
     case "trip":
       return JSON.stringify({ tripId: payload.tripId });
+    case "order":
+      return JSON.stringify({ orderId: payload.orderId });
   }
 }
 
@@ -77,10 +87,12 @@ export function decodeDragPayload(mimeType: string, raw: string | null | undefin
       return isId(data.driverId) ? { kind, driverId: data.driverId } : null;
     case "trip":
       return isId(data.tripId) ? { kind, tripId: data.tripId } : null;
+    case "order":
+      return isId(data.orderId) ? { kind, orderId: data.orderId } : null;
   }
 }
 
-/** Puts the payload on a drag that starts (`dragstart`); the effect is "move" for legs and trips, "link" for a driver. */
+/** Puts the payload on a drag that starts (`dragstart`); the effect is "move" for legs, trips and orders, "link" for a driver. */
 export function setDragPayload(dataTransfer: DataTransfer, payload: PlanboardDragPayload): void {
   dataTransfer.setData(mimeTypeOf(payload.kind), encodeDragPayload(payload));
   dataTransfer.effectAllowed = payload.kind === "driver" ? "link" : "move";

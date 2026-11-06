@@ -3,6 +3,9 @@
 > **Vertaling:** deze pagina is de bronversie (Nederlands). De Engelse vertaling
 > wordt gegenereerd als onderdeel van de documentatiestap na deze draft.
 
+Het planbord gebruikt de hele breedte van het scherm. Panelen open je met **Paneel toevoegen** in
+de werkbalk.
+
 ---
 
 ## Lijsten: filter van het planbord
@@ -23,6 +26,9 @@ de Transport-app. Heeft je organisatie de Transport-app niet, dan schuift rechts
 met de rit: de gegevens van de rit, de voertuigen en chauffeurs, de stops en de legs. Dat paneel
 is alleen om te lezen; wijzigen doe je in de lijsten en de planner van het planbord. Sluit het
 met het kruisje of Esc.
+
+Sluit je een rit of order die je vanaf het planbord hebt geopend, dan kom je terug op het planbord.
+De geselecteerde rit en stop staan er dan nog.
 
 ### Legs buiten het ritvenster
 
@@ -45,8 +51,9 @@ De ritten waarvan de geplande uitvoering in de periode valt (gearchiveerde ritte
 - **Dubbelklik** (of Enter) opent de rit (zie *Een rit openen*).
 - **Naam**, **Opmerkingen** en **Chauffeursinstructies**: ga op de cel staan en klik op het
   potlood. Enter of verder klikken slaat op, Esc breekt af.
-- **Vervoerder**, **Voertuigen** en **Chauffeurs**: het potlood in de cel opent een klein venster
-  om ze te wijzigen (alleen bij geplande of lopende ritten).
+- **Vervoerder**, **Voertuigen** en **Chauffeurs**: het potlood in de cel opent een keuzelijst in
+  de cel zelf (alleen bij geplande of lopende ritten). Kies je een andere vervoerder, dan vervalt de
+  contactpersoon; die kies je via **Middelen** in het rechtermuismenu.
 - Met de rechtermuisknop: **Rit openen**, **Middelen**
   (vervoerder, voertuigen, chauffeurs), **Starten**, **Afronden** (je vult het werkelijke vertrek
   en de werkelijke aankomst in; stops zonder werkelijke tijden krijgen die ingevuld), **Stops
@@ -65,7 +72,7 @@ draaiend teken zolang de berekening loopt.
 
 ## Transportorders
 
-De transportorders die in de periode gepland staan, alleen om te lezen. Het gaat om de geplande
+De transportorders die in de periode gepland staan. Het gaat om de geplande
 datums van de stops, niet om de orderdatum: een order staat in de lijst als de periode van zijn
 eerste tot zijn laatste stop de periode van het planbord raakt. Kies je organisatie-eenheden,
 dan toont de lijst de orders van al die eenheden. Dubbelklik opent de order in de Transport-app.
@@ -73,21 +80,46 @@ dan toont de lijst de orders van al die eenheden. Dubbelklik opent de order in d
 Selecteer je één order, dan kun je in *Te plannen legs* **Alleen order …** aanvinken om alleen de
 ongeplande legs van die order te zien.
 
+- **Klantreferentie** en **Interne opmerkingen**: ga op de cel staan en klik op het potlood.
+- **Sleep een order** aan het greepje naar een rit (in *Transportritten*, op een balk in de planner
+  of op de samenvatting op de kaart): alle legs van de order gaan naar die rit. Staan er legs op een
+  andere rit, dan vraagt het planbord eerst of ze daar weg mogen en noemt het die ritten.
+- Laat je de order op een lege plek in de planner los, dan komt er een nieuwe rit met die legs.
+- Legs die niet weg kunnen blijven staan: legs op een afgeronde of geannuleerde rit en legs waarvan
+  de stops al werkelijke tijden hebben. Het planbord noemt ze in een melding.
+
 ---
 
 ## Ritstops
 
-De stops van de geselecteerde rit: positie, activiteit, relatie, plaats, tijdvenster, geplande,
-verwachte en werkelijke tijden en opmerkingen. De kolom **Te laat** toont **Op tijd** of
-**… min te laat**: de verwachte aankomst vergeleken met het einde van het tijdvenster.
+De stops van de geselecteerde rit als tijdlijn, van boven naar beneden, met per stop de tijden, de
+relatie, de activiteit, de plaats, de orders, het tijdvenster en de opmerkingen.
 
+- **De tijden** staan links, aankomst boven vertrek. Een groen vinkje betekent werkelijke tijden,
+  een vrachtwagen verwachte tijden; zonder teken zijn het de geplande tijden.
+- **De lijn** is doorgetrokken voor het deel dat de rit heeft gereden en gestippeld voor wat nog komt.
+- **De markering Nu** laat zien waar de rit nu is: bij een stop of onderweg, met de vertraging ten
+  opzichte van de planning. Ze schuift elke minuut mee en verdwijnt als de rit is afgerond. Zijn
+  alle verwachte tijden voorbij en is er niets gemeld, dan blijft ze bij de laatste stop staan.
+- **Op tijd**, **Krap** of **… min te laat** vergelijkt de verwachte aankomst met het tijdvenster.
+- **Klik** op een stop om hem te selecteren; hij wordt dan ook op de kaart geselecteerd, en andersom.
+- **Dubbelklik** (of Enter) opent het venster met de stopgegevens.
 - **Sleep** een stop aan het greepje naar een andere stop om hem op die plek te zetten. Ook kan
   het met de rechtermuisknop: **Omhoog** en **Omlaag**. Een stop met werkelijke tijden blijft
   staan.
-- **Opmerkingen**: klik op het potlood in de cel.
+- **Opmerkingen**: ga met de muis op de stop staan en klik op het potlood.
 - **Werkelijke tijden vastleggen** (rechtermuisknop): aankomst, vertrek en de kilometerstand.
 - **Stop toevoegen** voegt een handmatige stop toe; **Stop verwijderen** (rechtermuisknop) kan
   alleen bij een handmatige stop.
+
+### Het venster Stop
+
+- **Algemeen**: adres en contactgegevens, de geplande en verwachte tijden (om te lezen), en een kaart.
+  Je wijzigt hier de **werkelijke aankomst en vertrek**, de **opmerkingen** en de **geplande duur**.
+  Bij een stop zonder legs kun je ook de **relatie en het adres** kiezen.
+- **Legs**: de legs van deze stop.
+
+Geplande en verwachte tijden berekent het systeem; die kun je niet met de hand wijzigen.
 
 Je hebt het recht *stops beheren* nodig om stops te wijzigen.
 
@@ -100,6 +132,10 @@ aantallen, referenties, opmerkingen, afstand en de toegerekende kosten en opbren
 
 - **Referenties en opmerkingen** (dubbelklik of rechtermuisknop) wijzigt de referenties van
   herkomst en bestemming en de opmerkingen.
+- **In de cel wijzigen** (ga op de cel staan en klik op het potlood): referenties, opmerkingen,
+  tijdvensters en datums, en klantreferentie, transporteenheid, product en temperatuur. Die laatste
+  vier horen bij de order en gelden daarom voor alle legs van die order of vrachtregel. Een leg op een
+  afgeronde of geannuleerde rit wijzig je niet meer.
 - **Legs losmaken** zet de geselecteerde legs terug in *Te plannen legs*.
 - **Apart uitvoeren** geeft de leg eigen stops.
 - **Sleep** legs aan het greepje naar een andere rit (in *Transportritten*, de planner of de
@@ -115,8 +151,18 @@ De legs zonder rit met een herkomstdatum in de periode.
   Elke groep toont het aantal legs; klap een groep open voor de legs.
 - Selecteer legs door op een rij te klikken (met Ctrl of Shift erbij selecteer je er meer) of met de
   vinkjes, en **sleep** ze aan het greepje naar een rit, een rij of balk in de planner of de kaart.
-- Met de rechtermuisknop: **Transportorder openen**, **Regel splitsen** (een deel van het aantal
-  gaat naar een nieuwe leg), **Leg splitsen op …** en **Retourleg**.
+- De velden wijzig je in de cel, net als bij *Legs*.
+- Met de rechtermuisknop: **Transportorder openen**, **Deeltraject toevoegen of aanpassen**,
+  **Regel splitsen**, **Leg splitsen op …** en **Retourleg**.
+- **Deeltraject toevoegen of aanpassen** opent het venster **Deeltrajecten beheren** met alle legs van
+  de vrachtregel. Voeg een leg toe of verwijder er een; de legs sluiten vanzelf op elkaar aan: kies je
+  een bestemming, dan wordt die de herkomst van de volgende leg. Het begin en het einde van de route
+  liggen vast. Een leg die op een rit staat of werkelijke tijden heeft, kun je hier alleen bekijken.
+- **Regel splitsen** splitst de hele vrachtregel. Je geeft het aantal op en ziet gewicht, colli,
+  volume, laadmeters, laadfactor en EPQ per deel meerekenen. De order krijgt een tweede vrachtregel
+  en elke leg een kopie. De kopie van de leg die je koos komt in *Te plannen legs*; de kopieën van
+  de andere legs komen op dezelfde rit als het origineel, tenzij dat origineel niet meer kan wijzigen
+  (afgeronde of geannuleerde rit, of werkelijke tijden): dan blijft de kopie ongepland.
 - **Leg splitsen op …** maakt van de leg twee legs die elkaar treffen op een adres dat je kiest,
   bijvoorbeeld een depot of overslagpunt. Beide legs blijven in *Te plannen legs* staan.
 - Organisatie-eenheden filteren deze lijst niet: legs hebben (nog) geen eenheid.
@@ -168,8 +214,12 @@ zonder rit en de bezetting.
 - **Sleep over een lege plek** in een rij om daar een nieuwe rit te maken. Je kiest het
   rittype; het standaard rittype staat al klaar.
 - **Sleep legs** uit *Te plannen legs* op een lege plek in een rij: er komt een
-  nieuwe rit met die legs. Laat je ze op een balk los, dan gaan ze naar die rit. Vallen ze buiten
-  het ritvenster, dan vraagt het planbord eerst of je ze toch wilt plannen.
+  nieuwe rit met die legs, op die tijd en dat voertuig of die chauffeur. Zijn er meer rittypes, dan
+  kies je er eerst een. Laat je ze op een balk los, dan gaan ze naar die rit. Vallen ze buiten
+  het ritvenster, dan vraagt het planbord eerst of je ze toch wilt plannen. Lukt het slepen niet,
+  bijvoorbeeld omdat je niet op een rij loslaat of geen recht hebt, dan meldt het planbord waarom.
+- Laat je legs op een blok (bijvoorbeeld verlof) los, dan vraagt het planbord eerst of je er toch
+  een rit wilt maken.
 - **Sleep een chauffeur** uit *Resources* op een balk om hem aan de rit toe te voegen (maximaal
   drie chauffeurs per rit).
 - **Sleep een chauffeur** op een lege plek in een rij: het venster voor een nieuwe rit opent op

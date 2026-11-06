@@ -122,6 +122,11 @@ export interface AppDefinition {
   /** Left-nav views. Absent → no pane, full-width layout. */
   views?: readonly AppView[];
   /**
+   * The app keeps its `views` (they are its feature tree) but shows no left pane: the views are reached another way
+   * (design 74 §1: the Planboard's panes open through Add pane).
+   */
+  hideNavPane?: boolean;
+  /**
    * Permission the tile needs; absent → always shown. A list means any one of them. Host-side permissions keep
    * an app off the tenant side.
    */
@@ -156,6 +161,7 @@ export const APPS: readonly AppDefinition[] = [
     tileClass: "bg-emerald-600",
     feature: "Apps.Planboard",
     tenantOnly: true,
+    hideNavPane: true,
     /* Design 70 (PO decisions D6, D7): one page, the dockable workspace. Every pane is a nav node with its feature; a
      * node does not route to a page of its own but opens (or focuses) its pane: it links to the workspace with
      * `?pane=<type>`, which the workspace consumes (src/apps/planboard/panes/registry.tsx holds the same types). */

@@ -59,13 +59,13 @@ remove for manual stops, and live refresh. Click selects, double click opens the
   - Editable: **actual arrival and departure** (the existing `record-stop-actuals` rules), **remarks**, **planned duration
     in minutes**, and the **relation and address on a stop without legs**.
 - **Legs**: the legs of the stop, read-only list with order, customer, origin, destination and quantity.
-- **Record**: created and modified, by whom and when.
 
+No Record tab (PO 2026-11-06): stops are rebuilt from the legs and have no audit of their own; the trip has its own.
 Questionnaire and attachments are left out: they do not exist in this app (PO).
 
 Backend: `UpdateStopDto` gains `RelationId?` and `RelationAddressId?`; changing them on a stop with legs is refused with a
-business error. `TripStopDto` gains what the window needs (audit fields, address and contact fields come through Master
-Data's published lookups, batched). A change requests the recalculation; remarks alone do not.
+business error. `TripStopDto` gains what the window needs (address and relation-level contact fields, through Master Data's
+published address lookup, batched; additive). A change requests the recalculation; remarks alone do not.
 
 ## 4. Manage legs
 
@@ -89,9 +89,10 @@ Rules (legacy made correct):
   run backwards, required activities and relations are present. Legacy only checked this in the client, and not properly.
 
 Backend: `GET leg/line/{lineId}` and `PUT leg/line/{lineId}` (rows with `id` or none, and the line's concurrency: each
-leg's stamp), one transaction. New and changed legs become `LegSource.Split` so the generator treats the line as reshaped
-(design 59) and keeps them. Intermediate ends get synthetic stop ids (`Leg.SyntheticStopId`). Routing is requested per
-new or changed leg through `IDerivedValueScheduler`.
+leg's stamp), one transaction. New legs and legs with another place or activity become `LegSource.Split` so the generator treats the line as reshaped
+(design 59) and keeps them. Intermediate ends get synthetic stop ids (`Leg.SyntheticStopId`). Dates, windows, references and remarks do not reshape the line,
+so it keeps following the order's quantities. Routing is requested per
+new or changed-place leg through `IDerivedValueScheduler`.
 
 ## 5. Back to the Planboard after closing
 
@@ -106,13 +107,15 @@ The selection survives the round trip: `PlanboardSelection` keeps `focusedTripId
 |---|---|---|
 | Trips | carrier, vehicles, drivers (a popup lookup in the cell, in place of the dialog) next to name, remarks, driver instructions | existing resource commands |
 | Legs, Legs to schedule | origin/destination reference, remarks, window from/till, planned dates | `PUT leg/{id}` |
-| Legs, Legs to schedule | order name, order reference, transport unit, product, temperature | Orders, new |
-| Orders | reference, remarks | Orders, new |
+| Legs, Legs to schedule | customer reference, transport unit, product, temperature (no order name: an order has none, PO 2026-11-06) | Orders, new |
+| Orders | customer reference, internal remarks | Orders, new |
 
 Orders gets `PUT /api/orders/planboard-order/{id}/field` and `PUT .../line/{lineId}/field` (a narrow field enum, concurrency
 stamp, `Planboard` + `PlanboardApp.Orders` feature, `TransportOrders.Update` permission), publishing the normal facts
 (`TransportOrderLinesChangedEto`). A leg on a completed or cancelled trip is read-only. Cells use the existing
-`InlineTextCell` and a new popup lookup/date cell, patch the row from the response and show a 409 as the usual stale message.
+`InlineTextCell` and a new popup lookup/date cell and patch the row from the response. Background jobs also move a stamp, so
+on a 409 the cell refetches the row: if the field the user edited still has the value they saw, it retries once with the
+fresh stamp; otherwise it shows the usual stale message.
 
 `RefreshReshapedLine` in `LegGenerator` also takes over unit, product and temperature (not quantities), otherwise a freight
 edit does not reach a reshaped line's legs.
@@ -138,7 +141,8 @@ The server decides the quantities. `POST leg/{id}/split-order-line {quantity}` i
    - **Reshaped line:** every leg is cloned with its `Source`, ends mapped to the new stop ids (synthetic ends stay), quantities
      scaled; the originals scaled in place.
 3. Every clone goes on its original's trip, **except the clone of the leg the planner chose**, which stays unplanned. Those
-   trips are recomposed and recalculated. Trips that are completed or cancelled keep their legs, and the clone stays unplanned.
+   trips are recomposed and recalculated. The clone also stays unplanned when the original is stuck in §8's sense (a
+   completed or cancelled trip, or actuals on its stops).
 
 Later delivery of the LinesChanged event changes nothing (idempotent). The Transport app's split (part of a leg, to another
 trip) stays as it is.

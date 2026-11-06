@@ -11,6 +11,16 @@ public enum PlanboardResourceMode
     Driver = 3
 }
 
+/// <summary>Design 74 §8: why a leg of a dragged order stays where it is.</summary>
+public enum PlanboardStuckReason
+{
+    /// <summary>On a completed or cancelled trip.</summary>
+    TripFinal = 1,
+
+    /// <summary>Actual times are recorded on its stops.</summary>
+    HasActuals = 2
+}
+
 /// <summary>The trip header fields the trips pane edits inline (design 68 "Update header field").</summary>
 public enum PlanboardTripField
 {

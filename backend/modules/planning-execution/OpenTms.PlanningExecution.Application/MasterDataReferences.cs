@@ -124,6 +124,36 @@ public class MasterDataReferences : ITransientDependency
             : addresses.OrderBy(a => a.AddressTypeId == null ? 0 : 1).ThenBy(a => a.Id).FirstOrDefault();
     }
 
+    /// <summary>Every address of the relations, one batched lookup per 500 relations (design 74 §4: the new places of a leg chain).</summary>
+    public async Task<ILookup<Guid, MasterDataAddressReferenceDto>> AddressesOfRelationsAsync(IEnumerable<Guid> relationIds)
+    {
+        var rows = new List<MasterDataAddressReferenceDto>();
+        foreach (var chunk in relationIds.Where(id => id != Guid.Empty).Distinct().Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetAddressesOfRelationsAsync(chunk));
+        }
+
+        return rows.ToLookup(a => a.RelationId);
+    }
+
+    /// <summary>The given address when it belongs to the addresses, else without an address the first (as <see cref="AddressOfRelationAsync"/>).</summary>
+    public static MasterDataAddressReferenceDto? PickAddress(IEnumerable<MasterDataAddressReferenceDto> addresses, Guid? addressId)
+        => addressId != null
+            ? addresses.FirstOrDefault(a => a.Id == addressId)
+            : addresses.OrderBy(a => a.AddressTypeId == null ? 0 : 1).ThenBy(a => a.Id).FirstOrDefault();
+
+    /// <summary>Names of Master Data rows of one kind (design 74 §6: the unit, product and temperature of the leg grids), one batched lookup per 500 ids.</summary>
+    public async Task<Dictionary<Guid, string>> ReferenceNamesAsync(MasterDataReferenceKind kind, IEnumerable<Guid> ids)
+    {
+        var rows = new List<MasterDataReferenceDto>();
+        foreach (var chunk in ids.Where(id => id != Guid.Empty).Distinct().Chunk(IMasterDataReferenceLookup.MaxKeys))
+        {
+            rows.AddRange(await _lookup.GetReferencesAsync(kind, chunk));
+        }
+
+        return rows.ToDictionary(r => r.Id, r => r.Name);
+    }
+
     public static DepotLocation ToDepot(MasterDataAddressReferenceDto address)
         => new(address.RelationId, address.Id, address.RelationName, address.City, address.CountryCode, address.Latitude, address.Longitude, address.TimeZoneId);
 

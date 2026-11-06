@@ -223,6 +223,21 @@ public class PlanboardOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
         method.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Default);
         method.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
         method.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
-        typeof(IPlanboardOrderAppService).GetMethods().Select(m => m.Name).ShouldBe([nameof(IPlanboardOrderAppService.GetListAsync)], "read-only: the pane issues no commands of its own");
+
+        /* Design 74 §6 (PO decision): the pane reads with the read permission and writes its two inline fields with the update permission, nothing else. */
+        typeof(IPlanboardOrderAppService).GetMethods().Select(m => m.Name)
+            .ShouldBe([nameof(IPlanboardOrderAppService.GetListAsync), nameof(IPlanboardOrderAppService.UpdateFieldAsync)], ignoreOrder: true);
+        var write = typeof(PlanboardOrderAppService).GetMethod(nameof(PlanboardOrderAppService.UpdateFieldAsync)).ShouldNotBeNull();
+        write.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Update);
+        write.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
+        write.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
+
+        var lineGate = typeof(PlanboardOrderLineFieldAppService).GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull();
+        lineGate.Features.ShouldBe([AppFeatures.Planboard, AppFeatures.PlanboardApp.Orders], ignoreOrder: true);
+        lineGate.RequiresAll.ShouldBeTrue();
+        typeof(IPlanboardOrderLineFieldAppService).GetMethods().Select(m => m.Name).ShouldBe([nameof(IPlanboardOrderLineFieldAppService.UpdateLineFieldAsync)]);
+        var lineWrite = typeof(PlanboardOrderLineFieldAppService).GetMethod(nameof(PlanboardOrderLineFieldAppService.UpdateLineFieldAsync)).ShouldNotBeNull();
+        lineWrite.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Update);
+        lineWrite.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
     }
 }

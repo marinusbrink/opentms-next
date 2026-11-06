@@ -256,13 +256,22 @@ public class OpenTmsHttpApiHostModule : AbpModule
     {
         /* Hangfire backs IBackgroundJobManager (e.g. the Platform tenant-provisioning job).
          * Storage lives in the host database, "hangfire" schema. Hangfire manages that schema
-         * itself; it is not part of the EF migrations owned by OpenTms.DbMigrator. */
+         * itself; it is not part of the EF migrations owned by OpenTms.DbMigrator.
+         * Design 74 §9: every hop of the chain after a save waited on the queue's poll, 15 seconds by default. An enqueue now
+         * sends NOTIFY, which wakes a waiting worker at once; the poll (Hangfire:QueuePollInterval) is what remains when
+         * no notification arrives. Long polling needs one extra connection per waiting worker and a direct connection: LISTEN
+         * does not work through a transaction-mode pooler. */
+        var storage = new PostgreSqlStorageOptions
+        {
+            QueuePollInterval = configuration.GetValue<TimeSpan?>("Hangfire:QueuePollInterval") ?? TimeSpan.FromSeconds(1),
+            EnableLongPolling = true
+        };
         context.Services.AddHangfire(config =>
         {
             config.UsePostgreSqlStorage(options =>
             {
                 options.UseNpgsqlConnection(configuration.GetConnectionString("Default"));
-            });
+            }, storage);
         });
     }
 

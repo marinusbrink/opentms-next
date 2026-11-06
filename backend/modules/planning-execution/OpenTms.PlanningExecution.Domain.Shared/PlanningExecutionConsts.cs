@@ -25,6 +25,9 @@ public static class PlanningExecutionConsts
     /// <summary>Legs one assignment command may name.</summary>
     public const int MaxLegsPerCommand = 200;
 
+    /// <summary>Design 74 §10: a trip created on the Planboard arrives this long after its departure until a route says otherwise (legacy).</summary>
+    public const int NewTripDefaultDurationHours = 2;
+
     public const int MaxAttributes = 20;
 
     public const int MaxAttributeKeyLength = 32;

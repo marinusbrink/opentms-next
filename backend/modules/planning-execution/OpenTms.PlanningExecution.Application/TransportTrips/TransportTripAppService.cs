@@ -425,6 +425,8 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         var drivers = await _masterData.DriverNamesAsync(t.Drivers.Select(d => d.DriverId));
         var orders = await _ops.OrderReferencesAsync(legs.Select(l => l.OrderId));
         var legById = legs.ToDictionary(l => l.Id);
+        /* Design 74 §3: the stop window's address and contact details, one batched lookup. */
+        var addresses = await _masterData.AddressesAsync(t.Stops.Select(s => s.RelationAddressId));
 
         var dto = new TransportTripDto
         {
@@ -480,7 +482,10 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             CostAmount = t.CostAmount,
             RevenueAmount = t.RevenueAmount,
             CalculatedAt = t.CalculatedAt,
-            Stops = t.OrderedStops.Select(s => new TripStopDto
+            Stops = t.OrderedStops.Select(s =>
+            {
+                var address = s.RelationAddressId != null ? addresses.GetValueOrDefault(s.RelationAddressId.Value) : null;
+                return new TripStopDto
             {
                 Id = s.Id,
                 Position = s.Position,
@@ -489,6 +494,13 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
                 RelationName = Name(relationNames, s.RelationId),
                 RelationAddressId = s.RelationAddressId,
                 Name = s.Name,
+                Street = address?.Street,
+                HouseNumber = address?.HouseNumber,
+                PostalCode = address?.PostalCode,
+                CountryCode = address?.CountryCode,
+                RelationPhone = address?.RelationPhone,
+                RelationMobile = address?.RelationMobile,
+                RelationEmail = address?.RelationEmail,
                 City = s.City,
                 Latitude = s.Latitude,
                 Longitude = s.Longitude,
@@ -509,6 +521,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
                     .OrderBy(l => legById[l.LegId].TripPosition).ThenBy(l => l.Role)
                     .Select(l => MapStopLeg(legById[l.LegId], l.Role, orders.GetValueOrDefault(legById[l.LegId].OrderId)))
                     .ToList()
+            };
             }).ToList(),
             CreationTime = t.CreationTime,
             CreatorId = t.CreatorId,
@@ -537,6 +550,10 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             Quantity = l.Quantity,
             WeightKg = l.WeightKg,
             LoadingMeters = l.LoadingMeters,
+            OriginName = l.OriginName,
+            OriginCity = l.OriginCity,
+            DestinationName = l.DestinationName,
+            DestinationCity = l.DestinationCity,
             Reference = end.Reference,
             PlannedDate = end.PlannedDate,
             WindowFrom = end.WindowFrom,
@@ -590,6 +607,9 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         return await ToDtoAsync(trip.Id);
     }
 
+    private static bool SameAttributes(IReadOnlyDictionary<string, string>? a, IReadOnlyDictionary<string, string>? b)
+        => (a?.Count ?? 0) == (b?.Count ?? 0) && (a == null || a.All(kv => b!.TryGetValue(kv.Key, out var value) && value == kv.Value));
+
     [RequiresFeature(Trips, AppFeatures.Planboard)]
     [Authorize(PlanningExecutionPermissions.TransportTrips.Update)]
     public virtual async Task<TransportTripDto> UpdateAsync(Guid id, TransportTripUpdateDto input)
@@ -610,6 +630,11 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
                             || input.DepartureAddressId != trip.DepartureAddressId || input.ArrivalAddressId != trip.ArrivalAddressId
                             || input.FirstLastStopRule != trip.FirstLastStopRule;
         var compositionChanged = input.StopCompositionMode != trip.StopCompositionMode;
+        /* Design 74 §9: name, remarks and driver instructions alone start nothing (HeaderText); anything else is a header change. */
+        var textOnly = !timingChanged && !compositionChanged && input.TripDate == trip.TripDate
+                       && input.DepartureRelationId == trip.DepartureRelationId && input.ArrivalRelationId == trip.ArrivalRelationId
+                       && input.OrganizationUnitId == trip.OrganizationUnitId && input.Execution == trip.Execution
+                       && SameAttributes(input.Attributes, trip.Attributes);
         trip.SetHeader(input.Name, input.TripDate, input.PlannedDeparture, input.PlannedArrival, input.DepartureRelationId, input.DepartureAddressId,
             input.ArrivalRelationId, input.ArrivalAddressId, input.Remarks, input.DriverInstructions, input.OrganizationUnitId, input.Execution,
             input.StopCompositionMode, input.FirstLastStopRule, input.Attributes);
@@ -632,7 +657,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             await _legs.UpdateManyAsync(legs, autoSave: true);
         }
 
-        await _ops.ChangedAsync(trip, TripChangeKind.Header, timingChanged || compositionChanged);
+        await _ops.ChangedAsync(trip, textOnly ? TripChangeKind.HeaderText : TripChangeKind.Header, timingChanged || compositionChanged);
         if (distanceChanged)
         {
             /* Financial's own-fleet distance line follows the actual distance (design 57). */
@@ -772,9 +797,34 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
             stop.SetPlannedDurationMin(input.PlannedDurationMin);
         }
 
-        await _ops.ChangedAsync(trip, TripChangeKind.Stops, recalculate: moved || stayChanged);
+        var placeChanged = await ChangeStopPlaceAsync(trip, stop, input);
+
+        /* Design 74 §3: a change of place, order or stay recalculates; remarks alone do not. */
+        var recalculate = moved || stayChanged || placeChanged;
+        await _ops.ChangedAsync(trip, recalculate ? TripChangeKind.Stops : TripChangeKind.HeaderText, recalculate);
         await CurrentUnitOfWork!.SaveChangesAsync();
         return await ToDtoAsync(id);
+    }
+
+    /// <summary>Design 74 §3: the stop's relation and address, when the request changes them; the same values again are no change, on any stop.</summary>
+    private async Task<bool> ChangeStopPlaceAsync(TransportTrip trip, TripStop stop, UpdateStopDto input)
+    {
+        var relationId = input.RelationId ?? stop.RelationId;
+        if (relationId == stop.RelationId && (input.RelationAddressId == null || input.RelationAddressId == stop.RelationAddressId))
+        {
+            return false;
+        }
+
+        if (stop.Legs.Count > 0)
+        {
+            /* Before the lookup: the refusal does not depend on the address. */
+            throw new BusinessException(PlanningExecutionErrorCodes.StopHasLegs).WithData("stopId", stop.Id);
+        }
+
+        var address = await _masterData.AddressOfRelationAsync(relationId, input.RelationAddressId)
+                      ?? throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "relationAddressId").WithData("value", input.RelationAddressId?.ToString() ?? relationId.ToString());
+        trip.ChangeStopPlace(stop.Id, address.RelationId, address.Id, address.RelationName, address.City, address.Latitude, address.Longitude, address.TimeZoneId);
+        return true;
     }
 
     [RequiresFeature(Trips, AppFeatures.Planboard)]

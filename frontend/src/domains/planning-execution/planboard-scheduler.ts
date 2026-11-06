@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
+import { withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { legKeys } from "@/domains/planning-execution/legs";
 import { TRIP_WARNING_CODES, transportTripKeys } from "@/domains/planning-execution/trips";
@@ -20,6 +21,7 @@ export type PlanboardSchedulerKpisDto = Schemas["OpenTms.PlanningExecution.Planb
 export type PlanboardChangeDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardChangeDto"];
 export type PlanboardResourceModeValue = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardResourceMode"];
 export type PlanboardCreateTripDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardCreateTripDto"];
+export type PlanboardCreateTripResultDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"];
 
 /** The Scheduler's modes as the pane stores them, mapped onto the API's enum. */
 export type PlanboardResourceMode = "tractor" | "trailer" | "driver";
@@ -113,13 +115,14 @@ export function usePlanboardScheduler(query: PlanboardSchedulerQuery, enabled = 
   });
 }
 
-const unwrap = <T,>(result: { data?: T; error?: unknown }): T => {
-  if (result.error) throw result.error;
+const unwrap = <T,>(result: { data?: T; error?: unknown; response?: Response }): T => {
+  /* With the status: the Scheduler tells a stale stamp from a business refusal by it (`isConcurrencyConflict`). */
+  if (result.error) throw withStatus(result.error, result.response);
   return result.data as T;
 };
 
 /** A narrow command: the trip's own record and the lists that show it are refreshed; the Scheduler reconciles itself. */
-function usePlanboardCommand<TArgs>(run: (args: TArgs) => Promise<PlanboardChangeDto>, touchesLegs = false) {
+function usePlanboardCommand<TArgs, TResult extends PlanboardChangeDto = PlanboardChangeDto>(run: (args: TArgs) => Promise<TResult>, touchesLegs = false) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: run,
@@ -173,13 +176,15 @@ export interface CreatePlanboardTripArgs {
   resourceId?: string | null;
   plannedDeparture: string;
   legIds?: string[];
+  /** An order dropped on an empty cell (design 74 §8): its legs go on the new trip; not together with `legIds`. */
+  orderId?: string | null;
 }
 
-/** A trip from an empty Scheduler cell or a leg drop on a row: the type's defaults, the resource in its slot, the legs. */
+/** A trip from an empty Scheduler cell or a drop of legs or an order on a row: the type's defaults, the resource in its slot, the legs. */
 export function useCreatePlanboardTrip() {
   return usePlanboardCommand(
-    async ({ mode, legIds, ...rest }: CreatePlanboardTripArgs) =>
-      unwrap(
+    async ({ mode, legIds, ...rest }: CreatePlanboardTripArgs): Promise<PlanboardCreateTripResultDto> =>
+      unwrap<PlanboardCreateTripResultDto>(
         await apiClient.POST("/api/planning/planboard/trip", {
           body: { ...rest, mode: mode ? RESOURCE_MODE_VALUE[mode] : undefined, legIds: legIds && legIds.length > 0 ? legIds : undefined },
         }),

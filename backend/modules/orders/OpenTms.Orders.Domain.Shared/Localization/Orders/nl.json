@@ -778,6 +778,10 @@
     "Orders:IntakeField.address.fullText": "Adres zoals ontvangen",
     "Orders:IntakeField.relationId": "Relatie (id)",
     "Orders:IntakeField.relationAddressId": "Adres (id)",
-    "Orders:IntakeViewSource": "Herkomst bekijken"
+    "Orders:IntakeViewSource": "Herkomst bekijken",
+    "OpenTms.Orders:InvalidLineSplit": "Beide delen van een splitsing moeten boven nul liggen: {quantity} van {max} kan niet worden afgesplitst.",
+    "OpenTms.Orders:LineOnFinalTrip": "Een leg van deze regel staat op afgeronde of geannuleerde rit {tripNumber}; de vracht kan hier niet worden gewijzigd.",
+    "Orders:PlanboardOrderField.CustomerReference": "Referentie",
+    "Orders:PlanboardOrderField.InternalRemarks": "Opmerkingen"
   }
 }

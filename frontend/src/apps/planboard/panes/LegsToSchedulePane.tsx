@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { CornerUpLeft, MapPinPlus, Split } from "lucide-react";
+import { CornerUpLeft, ListTree, MapPinPlus, Split } from "lucide-react";
 import { toast } from "sonner";
 
 import { usePaneFilters } from "@/apps/planboard/filters";
@@ -10,17 +10,19 @@ import { DRAG_COLUMN, lower, useGridApiCapture } from "@/apps/planboard/panes/li
 import { DragHandleCell } from "@/apps/planboard/panes/lists/grid-support";
 import { PaneFilterBar } from "@/apps/planboard/panes/lists/PaneFilterBar";
 import { useSelectedOrder } from "@/apps/planboard/panes/lists/selected-order";
-import { SplitLegLineDialog } from "@/apps/planboard/panes/lists/stop-leg-dialogs";
+import { useLegInlineColumns } from "@/apps/planboard/panes/lists/leg-columns";
 import type { PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { usePlanboardSelection } from "@/apps/planboard/selection";
 import { usePaneSettings } from "@/apps/planboard/settings-store";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AmountCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
+import { AmountCell, NumberCell } from "@/components/ui/grid-cells";
 import type { GridRequest, GridResponse, GridRowAction, GridSelectionDto, GridTreeDataOptions } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ManageLegsDialog } from "@/domains/planning-execution/components/ManageLegsDialog";
 import { SplitLegDialog } from "@/domains/planning-execution/components/SplitLegDialog";
+import { SplitLineDialog } from "@/domains/planning-execution/components/SplitLineDialog";
 import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
 import {
   fetchUnplannedLegGroups,
@@ -41,9 +43,10 @@ import { useOpenRecord } from "@/lib/use-open-record";
 /* Design 70, "Legs to schedule": the unplanned legs of the board's range (origin date) in a server-side OpenTmsGrid,
  * optionally grouped on the D18 whitelist (origin date, customer, origin city, destination city): the groups come from
  * `/leg/groups` with their counts and expand into their legs (`groupKey`), all on the server. Multi-select; the drag handle
- * drags the selected legs (or the row's own) onto a trip row, a Scheduler row or bar, or the map. Row actions: split line,
- * split at address (the Transport app's dialog, shared from the Planning domain), return leg (design 68 §7, without a
- * trip), open the order. With an order selected in Transport orders, "This order"
+ * drags the selected legs (or the row's own) onto a trip row, a Scheduler row or bar, or the map. Row actions: add or modify legs
+ * (design 74 §4), split line (design 74 §7), split at address (the Transport app's dialog, shared from the Planning domain),
+ * return leg (design 68 §7, without a trip), open the order. The editable columns are edited in the cell (design 74 §6,
+ * leg-columns.tsx). With an order selected in Transport orders, "This order"
  * shows that order's unplanned legs.
  *
  * Legs carry no organisation unit (design 68 assumption 1), so the units filter shows every leg and live notices are not
@@ -80,6 +83,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   const returnLeg = useUnplannedReturnLeg();
   const [splitting, setSplitting] = useState<LegDto | null>(null);
   const [splittingAt, setSplittingAt] = useState<LegDto | null>(null);
+  const [managing, setManaging] = useState<LegDto | null>(null);
 
   const filters = useMemo<PlanboardListFilters>(
     () => ({ from: paneFilters.filters.range.from, till: paneFilters.filters.range.till, organizationUnitIds: paneFilters.filters.organizationUnitIds }),
@@ -205,6 +209,20 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
     [groupBy, t],
   );
 
+  /* A flat list patches its rows from the answer; a grouped one reloads the visible blocks, as its live updates do. */
+  const editable = useLegInlineColumns<LegRow>({
+    patchRows: (match, patch) => {
+      const api = grid.current();
+      if (!api || groupBy) {
+        resync();
+        return;
+      }
+      const update = [...rows.current.values()].filter(match).map(patch);
+      remember(update);
+      if (update.length > 0) api.applyServerSideTransaction({ update });
+    },
+  });
+
   const columns = useMemo<ColDef<LegRow>[]>(
     () => [
       ...(canDrag
@@ -220,20 +238,26 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
       { field: "customerName", headerName: t("PlanningExecution:Customer"), minWidth: 150, sortable: false },
       { colId: "origin", headerName: t("PlanningExecution:Origin"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.origin) },
       { colId: "destination", headerName: t("PlanningExecution:Destination"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.destination) },
-      { colId: "originDate", headerName: t("Planboard:Lists.OriginDate"), minWidth: 110, sortable: false, valueGetter: (p) => p.data?.origin?.plannedDate, cellRenderer: DateCell },
-      { colId: "destinationDate", headerName: t("Planboard:Lists.DestinationDate"), minWidth: 110, sortable: false, valueGetter: (p) => p.data?.destination?.plannedDate, cellRenderer: DateCell },
+      editable.customerReference(),
+      editable.transportUnit(),
+      editable.product(),
+      editable.temperature({ hide: true }),
+      editable.originDate(),
+      editable.destinationDate(),
+      editable.originWindow({ hide: true }),
+      editable.destinationWindow({ hide: true }),
       { field: "quantity", headerName: t("PlanningExecution:Quantity"), minWidth: 90, cellRenderer: NumberCell, type: "rightAligned" },
       { field: "weightKg", headerName: t("PlanningExecution:WeightKg"), minWidth: 100, cellRenderer: NumberCell, type: "rightAligned" },
       { field: "loadingMeters", headerName: t("PlanningExecution:LoadingMeters"), minWidth: 100, cellRenderer: NumberCell, type: "rightAligned" },
-      { colId: "originReference", headerName: t("Planboard:Lists.OriginReference"), minWidth: 130, sortable: false, hide: true, valueGetter: (p) => p.data?.origin?.reference },
-      { colId: "destinationReference", headerName: t("Planboard:Lists.DestinationReference"), minWidth: 130, sortable: false, hide: true, valueGetter: (p) => p.data?.destination?.reference },
-      { field: "remarks", headerName: t("PlanningExecution:Remarks"), minWidth: 150, sortable: false, hide: true },
+      editable.originReference({ hide: true }),
+      editable.destinationReference({ hide: true }),
+      editable.remarks({ hide: true }),
       { colId: "distance", headerName: `${t("PlanningExecution:Distance")} (km)`, minWidth: 100, sortable: false, type: "rightAligned", valueGetter: (p) => (p.data?.distanceM == null ? null : p.data.distanceM / 1000), valueFormatter: (p) => f.number(p.value as number | null, { maxDecimals: 1 }), cellClass: "tabular-nums" },
       { field: "allocatedRevenueAmount", headerName: t("PlanningExecution:AllocatedRevenue"), minWidth: 110, sortable: false, hide: true, cellRenderer: AmountCell, type: "rightAligned" },
     ],
     // draggedIds reads refs only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, f, canDrag],
+    [t, f, canDrag, editable],
   );
 
   if (!canView) return <PermissionDenied />;
@@ -252,10 +276,12 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
     const leg = list[0];
     if (!leg?.id || isGroupRow(leg)) return [];
     return [
-      { id: "open-order", labelKey: "PlanningExecution:OpenOrder", onClick: () => leg.orderId && openRecord("TransportOrder", leg.orderId) },
+      { id: "open-order", labelKey: "PlanningExecution:OpenOrder", onClick: () => leg.orderId && openRecord("TransportOrder", leg.orderId, { returnTo: "/planboard" }) },
       ...(canUpdate
         ? [
-            { id: "split-line", labelKey: "PlanningExecution:SplitLine", icon: Split, disabled: (leg.quantity ?? 0) <= 1, disabledReasonKey: "Planboard:Lists.NothingToSplit", onClick: () => setSplitting(leg) },
+            { id: "manage-legs", labelKey: "PlanningExecution:ManageLegsAction", icon: ListTree, onClick: () => setManaging(leg) },
+            /* The server splits decimals: only a line without a quantity has nothing to split. */
+            { id: "split-line", labelKey: "PlanningExecution:SplitLine", icon: Split, disabled: (leg.quantity ?? 0) <= 0, disabledReasonKey: "Planboard:Lists.NothingToSplit", onClick: () => setSplitting(leg) },
             { id: "split-at-address", labelKey: "PlanningExecution:SplitLegAt", icon: MapPinPlus, onClick: () => setSplittingAt(leg) },
             { id: "return-leg", labelKey: "PlanningExecution:ReturnLeg", icon: CornerUpLeft, onClick: () => void runReturnLeg(leg) },
           ]
@@ -305,11 +331,12 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
         onSelectionChange={onSelectionChange}
         clickSelects
         onGridReady={grid.capture}
-        onOpen={(leg) => !isGroupRow(leg) && leg.orderId && openRecord("TransportOrder", leg.orderId)}
+        onOpen={(leg) => !isGroupRow(leg) && leg.orderId && openRecord("TransportOrder", leg.orderId, { returnTo: "/planboard" })}
         rowActions={rowActions}
         filters={filterBar}
       />
-      {splitting && <SplitLegLineDialog leg={splitting} onClose={() => setSplitting(null)} onDone={resync} />}
+      {managing && <ManageLegsDialog leg={managing} onClose={() => setManaging(null)} onDone={resync} />}
+      {splitting && <SplitLineDialog leg={splitting} onClose={() => setSplitting(null)} onDone={resync} />}
       {splittingAt && <SplitLegDialog leg={splittingAt} onClose={() => setSplittingAt(null)} onDone={resync} />}
     </div>
   );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { planboardDragKind, readDragPayload, setDragPayload } from "@/apps/planboard/dnd";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { hintsConcern, PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { useOrderDrop } from "@/apps/planboard/order-drop";
 import { useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import { MapLegend } from "@/apps/planboard/panes/map/MapLegend";
 import { allTripsFeatures, fitPoints, nearLegPoint, orderedStops, pointOf, routeFeatures, stopPoint, stopState, type StopState } from "@/apps/planboard/panes/map/model";
@@ -156,6 +157,13 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
   const [nearPopupId, setNearPopupId] = useState<string | null>(null);
   const tripTakesLegs = detail != null && (detail.status === 1 || detail.status === 2);
   const { run: runOutsideWindow, dialog: outsideWindowDialog } = useOutsideWindowConfirm();
+  const orderDrop = useOrderDrop();
+  const dropOrder = async (orderId: string) => {
+    if (!detail?.id) return;
+    await orderDrop.dropOnTrip({ orderId, tripId: detail.id, tripNumber: detail.number, stamp: detail.concurrencyStamp });
+    void queryClient.invalidateQueries({ queryKey: planboardMapKeys.trip(detail.id) });
+    void queryClient.invalidateQueries({ queryKey: ["planning", "planboard", "map", "near"] });
+  };
   const assign = useCallback(
     async (legIds: string[]) => {
       if (!detail?.id) return;
@@ -394,7 +402,7 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
           <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
           {detail && (
             <div className="pointer-events-auto">
-              <TripSummaryCard map={detail} onDropLegs={canAssign && tripTakesLegs ? (legIds) => void assign(legIds) : undefined} busy={assignLegs.isPending} />
+              <TripSummaryCard map={detail} onDropLegs={canAssign && tripTakesLegs ? (legIds) => void assign(legIds) : undefined} onDropOrder={canAssign && tripTakesLegs ? (orderId) => void dropOrder(orderId) : undefined} busy={assignLegs.isPending} />
             </div>
           )}
           {!focusedTripId && (
@@ -422,6 +430,7 @@ function MapPaneBody({ instanceId }: PlanboardPaneProps) {
         </div>
       </div>
       {outsideWindowDialog}
+      {orderDrop.dialog}
     </div>
   );
 }

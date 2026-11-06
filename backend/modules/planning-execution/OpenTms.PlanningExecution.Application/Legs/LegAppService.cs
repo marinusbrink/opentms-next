@@ -41,6 +41,8 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
     private readonly TripOperations _ops;
     private readonly OrderLegGeneration _generation;
     private readonly IDistributedEventBus _events;
+    private readonly LegChainService _chain;
+    private readonly IOrderLineSplitter _lineSplitter;
 
     private PlanningRecordNotices Notices => _ops.Notices;
 
@@ -53,7 +55,9 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         ITransportOrderLookup orderLookup,
         TripOperations ops,
         OrderLegGeneration generation,
-        IDistributedEventBus events)
+        IDistributedEventBus events,
+        LegChainService chain,
+        IOrderLineSplitter lineSplitter)
     {
         _legs = legs;
         _mapper = mapper;
@@ -64,6 +68,8 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         _ops = ops;
         _generation = generation;
         _events = events;
+        _chain = chain;
+        _lineSplitter = lineSplitter;
     }
 
     [RequiresFeature(AppFeatures.TransportApp.Trips, AppFeatures.Planboard)]
@@ -279,6 +285,7 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
     public virtual async Task<LegDto> UpdateAsync(Guid id, LegUpdateDto input)
     {
         var leg = await _legs.GetAsync(id);
+        await EnsureNotOnFinalTripAsync(leg);
         var before = (leg.OriginPlannedDate, leg.DestinationPlannedDate, leg.OriginWindowFrom, leg.OriginWindowTill, leg.DestinationWindowFrom, leg.DestinationWindowTill);
         leg.SetEditable(input.OriginReference, input.DestinationReference, input.Remarks, input.OriginPlannedDate, input.DestinationPlannedDate,
             input.OriginWindow == null ? null : new LegWindow(input.OriginWindow.From, input.OriginWindow.Till),
@@ -447,6 +454,227 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         await Notices.LegAsync(returnLeg);
         Logger.LogInformation("Return leg {NewLegId} created for unplanned leg {LegId} of order {OrderId}.", returnLeg.Id, leg.Id, leg.OrderId);
         return (await _mapper.MapAsync([returnLeg])).Single();
+    }
+
+    /// <summary>Design 74 §4: the legs of an order line for Manage legs, in route order. Statements: the legs, their actuals, the mapper's batches.</summary>
+    [RequiresFeature(AppFeatures.TransportApp.Trips, AppFeatures.Planboard)]
+    [Authorize(PlanningExecutionPermissions.Legs.Default)]
+    public virtual async Task<LegChainDto> GetLineAsync(Guid lineId) => await ChainDtoAsync(await LegsOfLineAsync(lineId));
+
+    /// <summary>
+    /// Design 74 §4: saves the chain by the rules of <see cref="LegChainService"/>, in one transaction. The line must still be as it
+    /// was read (each leg's stamp, none added or removed: 409). Publishes <c>LegsGenerated</c> when anything changed and requests the
+    /// route of every new or changed leg. Refused on a cancelled order. Legs on trips stay as they are, so no trip recalculates.
+    /// </summary>
+    [RequiresFeature(AppFeatures.TransportApp.Trips, AppFeatures.Planboard)]
+    [Authorize(PlanningExecutionPermissions.Legs.Update)]
+    public virtual async Task<LegChainDto> UpdateLineAsync(Guid lineId, LegChainUpdateDto input)
+    {
+        var current = await LegsOfLineAsync(lineId);
+        await EnsureOrderNotCancelledAsync(current[0].OrderId);
+        EnsureAsRead(lineId, current, input);
+
+        var actuals = await _ops.LegsWithActualsAsync(current.Where(l => l.TripId != null).Select(l => l.Id).ToList());
+        var readOnly = current.Where(l => l.TripId != null || actuals.Contains(l.Id)).Select(l => l.Id).ToHashSet();
+        await EnsureWaypointTypesExistAsync(input.Rows);
+        var rows = input.Rows.Select(r => new LegChainRowInput(r.Id, ToEnd(r.Origin), ToEnd(r.Destination), r.Remarks)).ToList();
+
+        /* The places the line does not know yet come from Master Data, one batched lookup. */
+        var ends = current.SelectMany(l => new[] { l.Origin, l.Destination }).ToList();
+        var newRelations = rows.SelectMany(r => new[] { r.Origin, r.Destination })
+            .Where(e => !ends.Any(k => k.RelationId == e.RelationId && (e.RelationAddressId == null || k.RelationAddressId == e.RelationAddressId)))
+            .Select(e => e.RelationId);
+        var addresses = await _masterData.AddressesOfRelationsAsync(newRelations);
+        var result = _chain.Apply(current, rows, readOnly, (relationId, addressId) => MasterDataReferences.PickAddress(addresses[relationId], addressId) is { } address ? MasterDataReferences.ToDepot(address) : null, GuidGenerator.Create);
+        if (!result.HasChanges)
+        {
+            return await ChainDtoAsync(current);
+        }
+
+        /* Removed first: a kept leg may take over the stops of the unique key a removed leg held. */
+        if (result.Removed.Count > 0)
+        {
+            await _legs.DeleteManyAsync(result.Removed, autoSave: true);
+        }
+
+        var updated = result.Changed.Concat(result.Edited).Concat(result.Repositioned).ToList();
+        if (updated.Count > 0)
+        {
+            await _legs.UpdateManyAsync(updated, autoSave: true);
+        }
+
+        if (result.Created.Count > 0)
+        {
+            await _legs.InsertManyAsync(result.Created, autoSave: true);
+        }
+
+        await AfterReshapeAsync(current[0].OrderId, result.Created.Concat(result.Changed).Select(l => l.Id).ToList(), "LegChainChanged");
+        await Notices.LegsAsync(result.Created.Concat(updated));
+        await Notices.LegsAsync(result.Removed, deleted: true);
+        Logger.LogInformation("Legs of line {LineId} of order {OrderId} managed: {Created} created, {Changed} changed, {Removed} removed.", lineId, current[0].OrderId, result.Created.Count, result.Changed.Count, result.Removed.Count);
+        return await ChainDtoAsync(await LegsOfLineAsync(lineId));
+    }
+
+    /// <summary>
+    /// Design 74 §7, the documented synchronous call of CLAUDE.md rule 3: splits the order line in Orders and its legs here, in one
+    /// unit of work. A generator-owned line regenerates (the old legs keep their ends and their trips); of a reshaped line every leg
+    /// is cloned with its source, order stops mapped to the new line's, synthetic ends kept. Every clone goes on its original's
+    /// trip, except the clone of the chosen leg and those of a stuck original (<see cref="TripOperations.StuckLegsAsync"/>: on a
+    /// completed or cancelled trip, or with actuals on its stops), which stay unplanned. The later delivery of the line's event
+    /// changes nothing.
+    /// </summary>
+    [RequiresFeature(AppFeatures.TransportApp.Trips, AppFeatures.Planboard)]
+    [Authorize(PlanningExecutionPermissions.Legs.Update)]
+    public virtual async Task<LegSplitOrderLineResultDto> SplitOrderLineAsync(Guid id, LegSplitOrderLineDto input)
+    {
+        var chosen = await _legs.GetAsync(id);
+        var originals = await LegsOfLineAsync(chosen.OrderLineId);
+        var generatorOwned = originals.All(l => l.IsGeneratorOwned);
+        var split = await _lineSplitter.SplitAsync(chosen.OrderId, chosen.OrderLineId, input.Quantity);
+
+        var clones = generatorOwned
+            ? (await _generation.RegenerateAsync(chosen.OrderId, "OrderLineSplit")).Created.Where(l => l.OrderLineId == split.NewLineId).OrderBy(l => l.Position).ToList()
+            : await CloneReshapedLegsAsync(originals, split);
+
+        /* Pairs by position: a reshaped line's clones have their original's; generated legs pair up in route order. */
+        var pairs = originals.OrderBy(l => l.Position).ThenBy(l => l.Id).Zip(clones, (original, clone) => (Original: original, Clone: clone)).ToList();
+        var (stuck, _) = await _ops.StuckLegsAsync(originals);
+        var receiving = new HashSet<Guid>();
+        foreach (var group in pairs.Where(p => p.Original.TripId != null && p.Original.Id != chosen.Id && !stuck.ContainsKey(p.Original.Id)).GroupBy(p => p.Original.TripId!.Value))
+        {
+            var trip = await _ops.GetWithDetailsAsync(group.Key);
+            await _ops.AssignAsync(trip, group.Select(p => p.Clone).ToList(), allowOutsideWindow: true, afterStopId: null, moving: false);
+            receiving.Add(trip.Id);
+        }
+
+        if (!generatorOwned)
+        {
+            /* The generator asks this itself; here the originals' new quantities must still reach the trips that got no clone. */
+            foreach (var tripId in originals.Where(l => l.TripId != null).Select(l => l.TripId!.Value).Distinct().Where(t => !receiving.Contains(t)))
+            {
+                await _ops.RequestRecalculationAsync(tripId, "OrderLineSplit");
+            }
+        }
+
+        await CurrentUnitOfWork!.SaveChangesAsync();
+        Logger.LogInformation("Line {LineId} of order {OrderId} split into {NewLineId}: {CloneCount} new legs, {OnTrips} trips received one.", chosen.OrderLineId, chosen.OrderId, split.NewLineId, clones.Count, receiving.Count);
+        var mapped = await _mapper.MapAsync(originals.Concat(clones).ToList());
+        return new LegSplitOrderLineResultDto
+        {
+            NewLineId = split.NewLineId,
+            RemainingQuantity = split.RemainingQuantity,
+            NewQuantity = split.NewQuantity,
+            NewLegs = mapped.Where(l => l.OrderLineId == split.NewLineId).ToList(),
+            RemainingLegs = mapped.Where(l => l.OrderLineId != split.NewLineId).ToList()
+        };
+    }
+
+    /// <summary>
+    /// A reshaped line keeps its shape: each leg is cloned with its source and scaled, the original keeps the rest, so the totals stay
+    /// exact. An end at an order stop moves to the new line's stop and follows it from now on (its source key); a synthetic end stays.
+    /// </summary>
+    private async Task<List<Leg>> CloneReshapedLegsAsync(List<Leg> originals, OrderLineSplitResultDto split)
+    {
+        var factor = split.NewQuantity / split.TotalQuantity;
+        var newStops = await _generation.StopsOfLineAsync(originals[0].OrderId, split.NewLineId);
+        var clones = new List<Leg>();
+        foreach (var leg in originals)
+        {
+            var part = leg.Quantities.Scale(factor);
+            var originStop = split.StopIdMap.GetValueOrDefault(leg.OriginStopId, leg.OriginStopId);
+            var destinationStop = split.StopIdMap.GetValueOrDefault(leg.DestinationStopId, leg.DestinationStopId);
+            var clone = new Leg(GuidGenerator.Create(), leg.TenantId, leg.OrderId, split.NewLineId, leg.CustomerRelationId, leg.Position, leg.Source,
+                leg.Origin with { StopId = originStop }, leg.Destination with { StopId = destinationStop }, part);
+            if (leg.ViaDepotRuleId != null)
+            {
+                clone.MarkViaDepot(leg.ViaDepotRuleId.Value);
+            }
+
+            /* SplitFromLegId stays empty: the leg a split at an address replaced belongs to the old line, so only there can the split be removed. */
+            clone.SetEditable(leg.OriginReference, leg.DestinationReference, leg.Remarks, null, null);
+            clone.InheritSourceKeys(newStops.TryGetValue(originStop, out var origin) ? Leg.SourceKey(origin) : null, newStops.TryGetValue(destinationStop, out var destination) ? Leg.SourceKey(destination) : null);
+            leg.SetQuantities(leg.Quantities.Without(part));
+            clones.Add(clone);
+        }
+
+        await _legs.InsertManyAsync(clones, autoSave: true);
+        await _legs.UpdateManyAsync(originals, autoSave: true);
+        await AfterReshapeAsync(originals[0].OrderId, clones.Select(l => l.Id).ToList(), "OrderLineSplit");
+        await Notices.LegsAsync(originals.Concat(clones));
+        return clones;
+    }
+
+    private async Task<List<Leg>> LegsOfLineAsync(Guid lineId)
+    {
+        var legs = await _legs.GetListAsync(l => l.OrderLineId == lineId);
+        return legs.Count == 0
+            ? throw new Volo.Abp.Domain.Entities.EntityNotFoundException(typeof(Leg), lineId)
+            : legs.OrderBy(l => l.Position).ThenBy(l => l.Id).ToList();
+    }
+
+    private async Task<LegChainDto> ChainDtoAsync(List<Leg> legs)
+    {
+        var actuals = await _ops.LegsWithActualsAsync(legs.Where(l => l.TripId != null).Select(l => l.Id).ToList());
+        return new LegChainDto
+        {
+            OrderId = legs[0].OrderId,
+            OrderLineId = legs[0].OrderLineId,
+            IsChain = LegChainService.IsChain(legs),
+            Rows = (await _mapper.MapAsync(legs)).Select(l => new LegChainRowDto
+            {
+                Leg = l,
+                HasActuals = actuals.Contains(l.Id),
+                IsReadOnly = l.TripId != null || actuals.Contains(l.Id)
+            }).ToList()
+        };
+    }
+
+    /// <summary>The stamps name exactly the legs the line has now, each as it was read; every row names one of them or none.</summary>
+    private static void EnsureAsRead(Guid lineId, List<Leg> current, LegChainUpdateDto input)
+    {
+        var stamps = input.Stamps.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().ConcurrencyStamp);
+        var named = input.Rows.Where(r => r.Id != null).Select(r => r.Id!.Value).ToList();
+        if (stamps.Count != current.Count
+            || current.Any(l => !stamps.TryGetValue(l.Id, out var stamp) || !string.Equals(stamp, l.ConcurrencyStamp, StringComparison.Ordinal))
+            || named.Distinct().Count() != named.Count
+            || named.Any(id => !stamps.ContainsKey(id)))
+        {
+            throw new AbpDbConcurrencyException($"The legs of order line {lineId} were changed after they were read.");
+        }
+    }
+
+    private async Task EnsureWaypointTypesExistAsync(List<LegChainRowInputDto> rows)
+    {
+        if (rows.Count > PlanningExecutionConsts.MaxLegsPerCommand)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.TooManyLegs).WithData("max", PlanningExecutionConsts.MaxLegsPerCommand);
+        }
+
+        var ids = rows.SelectMany(r => new[] { r.Origin.WaypointTypeId, r.Destination.WaypointTypeId }).Where(t => t != Guid.Empty).Distinct().ToList();
+        var found = (await _orderLookup.GetWaypointTypesAsync(ids)).Select(t => t.Id).ToHashSet();
+        var missing = ids.FirstOrDefault(t => !found.Contains(t));
+        if (missing != Guid.Empty)
+        {
+            throw new BusinessException(ReferenceDataErrorCodes.ReferenceNotFound).WithData("field", "waypointTypeId").WithData("value", missing);
+        }
+    }
+
+    private static LegChainEndInput ToEnd(LegChainEndInputDto end)
+        => new(end.WaypointTypeId, end.RelationId, end.RelationAddressId, end.PlannedDate, end.WindowFrom, end.WindowTill, end.Reference);
+
+    /// <summary>Design 74 §6: a leg on a completed or cancelled trip is read-only.</summary>
+    private async Task EnsureNotOnFinalTripAsync(Leg leg)
+    {
+        if (leg.TripId == null)
+        {
+            return;
+        }
+
+        var states = await _ops.TripStatesAsync([leg.TripId.Value]);
+        if (states.TryGetValue(leg.TripId.Value, out var trip) && trip.Status is TransportTripStatus.Completed or TransportTripStatus.Cancelled)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.LegOnFinalTrip).WithData("legId", leg.Id).WithData("number", trip.Number);
+        }
     }
 
     private async Task<Leg> GetUnplannedAsync(Guid id)

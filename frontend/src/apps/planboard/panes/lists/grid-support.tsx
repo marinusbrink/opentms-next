@@ -10,7 +10,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
 /* Grid support of the Planboard's list panes (design 70 "Panes"): the panes embed normal OpenTmsGrids (UI-BSP-002) and add
- * the visual pieces the board needs around them: the drag handle, inline text editing, the dialog edit cell, the warnings
+ * the visual pieces the board needs around them: the drag handle, inline text editing, the warnings
  * cell and the lateness badge. The non-visual helpers live in grid-helpers.ts. */
 
 /** The drag handle of a row (utility column): drags the payload `payloadOf` builds for the row. */
@@ -144,39 +144,6 @@ export function InlineTextCell<TRow>({ value, data, canEdit, maxLength, onCommit
                   setDraft(shown ?? "");
                   open.current = true;
                   setEditing(true);
-                }}
-                onDoubleClick={(event) => event.stopPropagation()}
-              >
-                <Pencil aria-hidden="true" />
-              </Button>
-            }
-          />
-          <TooltipContent>{t("Edit")}</TooltipContent>
-        </Tooltip>
-      )}
-    </span>
-  );
-}
-
-/** A text cell with an edit pencil that opens a dialog (carrier, vehicles, drivers of a trip). */
-export function DialogEditCell({ text, canEdit, onEdit }: { text: string; canEdit: boolean; onEdit: () => void }) {
-  const { t } = useL();
-  return (
-    <span className="group flex h-full items-center gap-1">
-      <span className="min-w-0 flex-1 truncate">{text}</span>
-      {canEdit && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={t("Edit")}
-                className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onEdit();
                 }}
                 onDoubleClick={(event) => event.stopPropagation()}
               >

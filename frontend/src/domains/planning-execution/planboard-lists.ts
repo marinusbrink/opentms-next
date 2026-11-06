@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-q
 
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
+import { isConcurrencyConflict, withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 import { legKeys, type LegDto } from "@/domains/planning-execution/legs";
 import { transportTripKeys, type TransportTripDto, type TransportTripRow } from "@/domains/planning-execution/trips";
@@ -10,7 +11,7 @@ import { transportTripKeys, type TransportTripDto, type TransportTripRow } from 
  * the trips list on the board's range and organisation units (with `?ids=` for the live refetch), the unplanned legs
  * (plain, grouped by the D18 whitelist with counts, one group's legs, `?ids=`), and the narrow Planboard commands the
  * list panes run (header field, assign / unassign / move legs, add driver, complete with ATD and ATA, optimise stops) plus
- * the split-line and return-leg commands on an unplanned leg. Every Planboard command carries the trip's concurrency
+ * the return-leg command on an unplanned leg. Every Planboard command carries the trip's concurrency
  * stamp: the trips list row's (`TransportTripRowDto.concurrencyStamp`) where the caller has the row, otherwise read fresh
  * from the trip (`readTripStamp`); a stale stamp is refused by the server (409). After a command the trip's detail, its legs and the leg lists are refetched; the panes patch their rows. */
 
@@ -20,6 +21,13 @@ export type PlanboardChangeDto = Schemas["OpenTms.PlanningExecution.Planboard.Pl
 export type PlanboardTripField = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardTripField"];
 export type PlanboardOptimizeStopsDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardOptimizeStopsDto"];
 export type LegGroupDto = Schemas["OpenTms.PlanningExecution.Legs.LegGroupDto"];
+export type PlanboardAssignOrderPreviewDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderPreviewDto"];
+export type PlanboardAssignOrderResultDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardAssignOrderResultDto"];
+export type PlanboardOrderLegDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardOrderLegDto"];
+export type PlanboardPulledFromDto = Schemas["OpenTms.PlanningExecution.Planboard.PlanboardPulledFromDto"];
+
+/** Why a leg of a dragged order stays where it is (`PlanboardOrderLegDto.stuckReason`). */
+export const PLANBOARD_STUCK_REASON = { TripFinal: 1, HasActuals: 2 } as const;
 
 /** The header fields the trips pane edits inline (`PlanboardTripField`). */
 export const PLANBOARD_TRIP_FIELD = { Name: 1, Remarks: 2, DriverInstructions: 3 } as const satisfies Record<string, PlanboardTripField>;
@@ -68,8 +76,9 @@ export function executionWindow(filters: Pick<PlanboardListFilters, "from" | "ti
   };
 }
 
-const throwOnError = <T>(result: { data?: T; error?: unknown }): T => {
-  if (result.error !== undefined) throw result.error;
+const throwOnError = <T>(result: { data?: T; error?: unknown; response?: Response }): T => {
+  /* With the status: a caller tells a stale stamp from a business refusal by it (`isConcurrencyConflict`). */
+  if (result.error !== undefined) throw withStatus(result.error, result.response);
   return result.data as T;
 };
 
@@ -201,6 +210,20 @@ async function stampFor(queryClient: QueryClient, tripId: string, given: string 
   return given ? given : readTripStamp(queryClient, tripId);
 }
 
+/**
+ * A command that carries a trip's stamp, retried once with a fresh stamp when the stamp was stale (design 74 §10): the
+ * calculator saves the trip after every change, so a stale stamp on an assign says nothing about the planner's intent, and an
+ * assign overwrites nothing the stamp protects. Any other failure, and a stale stamp on the retry, goes to the caller.
+ */
+export async function retryOnStaleStamp<T>(queryClient: QueryClient, tripId: string, stamp: string | null | undefined, attempt: (stamp: string) => Promise<T>): Promise<T> {
+  try {
+    return await attempt(stamp ?? "");
+  } catch (error) {
+    if (!isConcurrencyConflict(error)) throw error;
+    return attempt(await readTripStamp(queryClient, tripId));
+  }
+}
+
 /** After a command on trips: their details, their legs and the leg lists are stale. */
 function invalidateTrips(queryClient: QueryClient, tripIds: readonly (string | null | undefined)[]) {
   for (const id of tripIds) {
@@ -235,6 +258,21 @@ export function useAssignLegsToTrip() {
       return throwOnError(await apiClient.POST("/api/planning/planboard/{id}/assign-legs", { ...tripPath(tripId), body: { legIds, concurrencyStamp, allowOutsideWindow } }));
     },
     onSuccess: (_change, { tripId }) => invalidateTrips(queryClient, [tripId]),
+  });
+}
+
+/** What dropping an order on a trip would do (design 74 §8): the legs that would leave which trips, and those that stay. */
+export async function fetchAssignOrderPreview(tripId: string, orderId: string): Promise<PlanboardAssignOrderPreviewDto> {
+  return throwOnError(await apiClient.GET("/api/planning/planboard/{id}/assign-order-preview", { params: { path: { id: tripId }, query: { OrderId: orderId } } }));
+}
+
+/** An order dropped on a trip (`POST planboard/{id}/assign-order`): every leg except the stuck, leaving their old trips. */
+export function useAssignOrderToTrip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ tripId, orderId, allowOutsideWindow, concurrencyStamp }: { tripId: string; orderId: string; allowOutsideWindow: boolean; concurrencyStamp: string }): Promise<PlanboardAssignOrderResultDto> =>
+      throwOnError(await apiClient.POST("/api/planning/planboard/{id}/assign-order", { ...tripPath(tripId), body: { orderId, allowOutsideWindow, concurrencyStamp } })),
+    onSuccess: (result, { tripId }) => invalidateTrips(queryClient, [tripId, ...(result.pulledFrom ?? []).map((trip) => trip.tripId)]),
   });
 }
 
@@ -290,16 +328,6 @@ export function useOptimizeTripStops() {
   return useMutation({
     mutationFn: async (tripId: string): Promise<PlanboardOptimizeStopsDto | undefined> =>
       throwOnError(await apiClient.POST("/api/planning/planboard/{id}/optimize-stops", tripPath(tripId))),
-  });
-}
-
-/** Split quantity off an unplanned leg (`POST leg/{id}/split-line`, design 68 §7). Returns the new leg. */
-export function useSplitUnplannedLeg() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ legId, quantity }: { legId: string; quantity: number }): Promise<LegDto> =>
-      throwOnError(await apiClient.POST("/api/planning/leg/{id}/split-line", { ...tripPath(legId), body: { quantity } })),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
   });
 }
 

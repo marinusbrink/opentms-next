@@ -89,6 +89,10 @@ public class TripStopLegDto
     public decimal Quantity { get; set; }
     public double? WeightKg { get; set; }
     public double? LoadingMeters { get; set; }
+    public string? OriginName { get; set; }
+    public string? OriginCity { get; set; }
+    public string? DestinationName { get; set; }
+    public string? DestinationCity { get; set; }
     public string? Reference { get; set; }
     public DateOnly PlannedDate { get; set; }
     public DateTimeOffset? WindowFrom { get; set; }
@@ -108,6 +112,15 @@ public class TripStopDto
     public string? RelationName { get; set; }
     public Guid? RelationAddressId { get; set; }
     public string Name { get; set; } = string.Empty;
+    /// <summary>Design 74 §3: the address as Master Data knows it now (a batched lookup; null when the address is gone).</summary>
+    public string? Street { get; set; }
+    public string? HouseNumber { get; set; }
+    public string? PostalCode { get; set; }
+    public string? CountryCode { get; set; }
+    /// <summary>Design 74 §3: the relation's general contact details; a stop has no contact person of its own.</summary>
+    public string? RelationPhone { get; set; }
+    public string? RelationMobile { get; set; }
+    public string? RelationEmail { get; set; }
     public string? City { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
@@ -377,10 +390,16 @@ public class AddManualStopDto
     public string? Remarks { get; set; }
 }
 
-/// <summary>PUT /{id}/stops/{stopId}: move (position) and/or remarks.</summary>
+/// <summary>PUT /{id}/stops/{stopId}: move (position), remarks, the stay and, on a stop without legs, the relation and address (design 74 §3).</summary>
 public class UpdateStopDto
 {
     public int? Position { get; set; }
+
+    /// <summary>The stop's new relation; null keeps it. A change on a stop with legs is refused.</summary>
+    public Guid? RelationId { get; set; }
+
+    /// <summary>The stop's new address; with a new relation and no address, the relation's first.</summary>
+    public Guid? RelationAddressId { get; set; }
 
     [MaxLength(PlanningExecutionConsts.MaxRemarksLength)]
     public string? Remarks { get; set; }

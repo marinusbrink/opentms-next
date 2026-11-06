@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { ArrowDown, ArrowUp, ClipboardCheck, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardCheck, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,6 +19,7 @@ import { joinDateTime, splitDateTime } from "@/apps/transport/orders/order-form"
 import { AddressField, RelationField } from "@/domains/master-data/components/RelationFields";
 import { WarningsCell, warningsOf } from "@/apps/transport/components/WarningsCell";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
+import { StopDetailDialog } from "@/domains/planning-execution/components/StopDetailDialog";
 import type { RelationOption } from "@/domains/master-data/entities";
 import { waypointTypes } from "@/domains/orders/reference-data";
 import { parseTimeOfDay } from "@/domains/orders/reference-data";
@@ -31,7 +32,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 /* The Stops tab of the trip editor (design 61): an OpenTmsGrid of the trip's stops (position, activity, relation,
  * address, planned/estimated/actual times, cumulative distance, legs count, warnings) with the row actions Move
  * up/down, Record actuals (dialog), Remove (manual only) and the command Add manual stop. The stops come with the
- * trip (design 59 `GET /{id}`), so the grid's fetcher serves them from the record; every change is a command. */
+ * trip (design 59 `GET /{id}`), so the grid's fetcher serves them from the record; every change is a command. Opening a
+ * row shows the stop detail window (design 74 §3). */
 
 export interface TripStopsTabProps {
   trip: TransportTripDto;
@@ -43,12 +45,14 @@ export function TripStopsTab({ trip, canManage }: TripStopsTabProps) {
   const f = useFormat();
   const [actuals, setActuals] = useState<TripStopDto | null>(null);
   const [adding, setAdding] = useState(false);
+  const [detailStopId, setDetailStopId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const update = useUpdateStop();
   const remove = useRemoveStop();
   const stops = useMemo(() => [...(trip.stops ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)), [trip.stops]);
   const waypointLookup = waypointTypes.useLookup();
   const waypointName = (id: string | undefined) => waypointLookup.data?.find((w) => w.id === id)?.name ?? "";
+  const detailStop = detailStopId ? stops.find((stop) => stop.id === detailStopId) : undefined;
 
   const fetchRows = useMemo(
     () => async (_request: GridRequest): Promise<GridResponse<TripStopDto>> => ({ rows: stops, totalCount: stops.length, filteredCount: stops.length }),
@@ -101,20 +105,24 @@ export function TripStopsTab({ trip, canManage }: TripStopsTabProps) {
           gridId="planning.transport.tripStops"
           columnDefs={columns}
           fetchRows={fetchRows}
+          onOpen={(stop) => setDetailStopId(stop.id ?? null)}
           rowActions={(rows) => {
             const stop = rows[0];
             const hasActuals = stop?.actualArrival != null || stop?.actualDeparture != null;
+            const open = { id: "open", labelKey: "PlanningExecution:OpenStop", icon: Pencil, onClick: () => setDetailStopId(stop?.id ?? null) };
             return canManage
               ? [
+                  open,
                   { id: "up", labelKey: "Orders:MoveUp", icon: ArrowUp, disabled: (stop?.position ?? 1) <= 1 || hasActuals, disabledReasonKey: "OpenTms.PlanningExecution:StopHasActuals", onClick: () => move(stop, -1) },
                   { id: "down", labelKey: "Orders:MoveDown", icon: ArrowDown, disabled: (stop?.position ?? 0) >= stops.length || hasActuals, disabledReasonKey: "OpenTms.PlanningExecution:StopHasActuals", onClick: () => move(stop, 1) },
                   { id: "actuals", labelKey: "PlanningExecution:RecordActuals", icon: ClipboardCheck, onClick: () => setActuals(stop) },
                   { id: "remove", labelKey: "PlanningExecution:RemoveStop", icon: Trash2, destructive: true, disabled: stop?.isManual !== true, disabledReasonKey: "OpenTms.PlanningExecution:NotManualStop", onClick: () => run(remove.mutateAsync({ id: trip.id!, stopId: stop.id! }), "PlanningExecution:StopRemoved") },
                 ]
-              : [{ id: "actuals", labelKey: "PlanningExecution:RecordActuals", icon: ClipboardCheck, disabled: true, disabledReasonKey: "PermissionDenied", onClick: () => undefined }];
+              : [open, { id: "actuals", labelKey: "PlanningExecution:RecordActuals", icon: ClipboardCheck, disabled: true, disabledReasonKey: "PermissionDenied", onClick: () => undefined }];
           }}
         />
       </div>
+      {detailStop && <StopDetailDialog key={detailStop.id} tripId={trip.id!} stop={detailStop} canEdit={canManage} onClose={() => setDetailStopId(null)} />}
       {actuals && <RecordActualsDialog tripId={trip.id!} stop={actuals} onClose={() => setActuals(null)} />}
       {adding && <AddManualStopDialog tripId={trip.id!} stopCount={stops.length} onClose={() => setAdding(false)} />}
     </div>

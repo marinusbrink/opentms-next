@@ -2,6 +2,23 @@ using System;
 
 namespace OpenTms.Orders.TransportOrders;
 
+/// <summary>The order fields the Planboard edits inline (design 74 §6).</summary>
+public enum PlanboardOrderField
+{
+    /// <summary>The order's reference.</summary>
+    CustomerReference = 1,
+
+    InternalRemarks = 2
+}
+
+/// <summary>The freight fields the Planboard's leg panes edit inline (design 74 §6).</summary>
+public enum PlanboardOrderLineField
+{
+    TransportUnit = 1,
+    Product = 2,
+    Temperature = 3
+}
+
 /// <summary>
 /// The order's lifecycle (design 56 "Status machines", PO decision Q5). Draft replaces OpenTMS's PendingAcceptance and is
 /// the unconfirmed order a boundary agent or a person confirms; Invoiced is written by the invoicing run only.

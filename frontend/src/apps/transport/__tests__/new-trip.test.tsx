@@ -214,10 +214,17 @@ describe("NewTripDialog", () => {
   });
 
   it("a planned departure date the user changed no longer follows the trip date", async () => {
+    /* Relative to today: the form opens with both dates on today, and a departure date equal to the trip date follows it. */
+    const dayFromToday = (days: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return toIsoDate(date);
+    };
+    const changedDeparture = dayFromToday(1);
     await openNewTrip();
-    fireEvent.change(control<HTMLInputElement>("departureDate"), { target: { value: "2026-11-06" } });
-    fireEvent.change(control<HTMLInputElement>("tripDate"), { target: { value: "2026-11-05" } });
-    expect(control<HTMLInputElement>("departureDate").value).toBe("2026-11-06");
+    fireEvent.change(control<HTMLInputElement>("departureDate"), { target: { value: changedDeparture } });
+    fireEvent.change(control<HTMLInputElement>("tripDate"), { target: { value: dayFromToday(-1) } });
+    expect(control<HTMLInputElement>("departureDate").value).toBe(changedDeparture);
   });
 
   it("another type switches the fields still holding the previous preset and keeps the user's", async () => {
