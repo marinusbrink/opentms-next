@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { PowerOff } from "lucide-react";
 import { toast } from "sonner";
@@ -137,11 +137,16 @@ function AiConnectorContent({ canManage, canSwitchOff }: { canManage: boolean; c
     setSelection(EMPTY_SELECTION);
   };
 
-  const question = target?.row
-    ? t("AiConnector:SwitchOff.Question")
-        .replace("{0}", target.row.toolName ?? "")
-        .replace("{1}", target.row.userName ?? "")
-    : countText(t, "AiConnector:SwitchOff.NQuestion", target?.ids.length ?? 0);
+  /* The last question stays while the dialog animates closed, so it never reads "0 connections". */
+  const lastQuestion = useRef("");
+  if (target) {
+    lastQuestion.current = target.row
+      ? t("AiConnector:SwitchOff.Question")
+          .replace("{0}", target.row.toolName ?? "")
+          .replace("{1}", target.row.userName ?? "")
+      : countText(t, "AiConnector:SwitchOff.NQuestion", target.ids.length);
+  }
+  const question = lastQuestion.current;
 
   return (
     <div className="flex h-full flex-col" data-slot="ai-connector-view">
