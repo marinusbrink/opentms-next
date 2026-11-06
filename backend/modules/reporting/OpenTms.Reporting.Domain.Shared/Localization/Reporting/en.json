@@ -2,6 +2,15 @@
   "culture": "en",
   "texts": {
     "Permission:Reporting": "Reporting",
-    "Module:Reporting": "Reporting"
+    "Module:Reporting": "Reporting",
+    "Feature:Reporting": "Reporting",
+    "Feature:Metrics": "Metrics for the AI connector",
+    "Feature:Metrics.Description": "Prepares numbers on orders and trips and lets a connected AI tool ask for them: totals, breakdowns and definitions. The tools also need the AI connector to be on.",
+    "Reporting:Setting.BackfillCompletedAt": "Metrics prepared at",
+    "Reporting:Setting.BackfillCompletedAtDescription": "When this tenant's numbers were first fully prepared. Until then the metric tools answer that they are not ready.",
+    "Reporting:Setting.BackfillPosition": "Metrics preparation position",
+    "Reporting:Setting.BackfillPositionDescription": "How far preparing this tenant's numbers has come.",
+    "Reporting:Setting.RepairLastRunAt": "Metrics last repaired at",
+    "Reporting:Setting.RepairLastRunAtDescription": "When the daily repair of this tenant's numbers last finished."
   }
 }

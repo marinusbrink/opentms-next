@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Design 75: the facts carry these modules' status and execution enums; the handlers consume their events. -->
+    <ProjectReference Include="..\..\orders\OpenTms.Orders.Domain.Shared\OpenTms.Orders.Domain.Shared.csproj" />
+    <ProjectReference Include="..\..\planning-execution\OpenTms.PlanningExecution.Domain.Shared\OpenTms.PlanningExecution.Domain.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Localization\Reporting\*.json" />
     <Content Remove="Localization\Reporting\*.json" />
   </ItemGroup>

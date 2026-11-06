@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="Volo.Abp.Ddd.Application" Version="10.6.0" />
+    <!-- Design 75: the backfill and repair workers, and their per-tenant state. -->
+    <PackageReference Include="Volo.Abp.BackgroundWorkers" Version="10.6.0" />
+    <PackageReference Include="Volo.Abp.SettingManagement.Domain" Version="10.6.0" />
   </ItemGroup>
 
   <ItemGroup>

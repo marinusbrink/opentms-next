@@ -2,6 +2,15 @@
   "culture": "nl",
   "texts": {
     "Permission:Reporting": "Rapportage",
-    "Module:Reporting": "Rapportage"
+    "Module:Reporting": "Rapportage",
+    "Feature:Reporting": "Rapportage",
+    "Feature:Metrics": "Cijfers voor de AI-koppeling",
+    "Feature:Metrics.Description": "Bereidt cijfers over orders en ritten voor en laat een gekoppelde AI-tool ze opvragen: totalen, uitsplitsingen en definities. De tools hebben ook de AI-koppeling nodig.",
+    "Reporting:Setting.BackfillCompletedAt": "Cijfers voorbereid op",
+    "Reporting:Setting.BackfillCompletedAtDescription": "Wanneer de cijfers van deze tenant voor het eerst volledig waren voorbereid. Tot die tijd antwoorden de tools dat de cijfers nog niet klaar zijn.",
+    "Reporting:Setting.BackfillPosition": "Voortgang voorbereiden cijfers",
+    "Reporting:Setting.BackfillPositionDescription": "Hoe ver het voorbereiden van de cijfers van deze tenant is.",
+    "Reporting:Setting.RepairLastRunAt": "Cijfers laatst hersteld op",
+    "Reporting:Setting.RepairLastRunAtDescription": "Wanneer het dagelijkse herstel van de cijfers van deze tenant voor het laatst klaar was."
   }
 }
