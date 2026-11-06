@@ -243,7 +243,7 @@ Route root `/api/integrations/ai-connector`, features `Apps.Integrations` and `A
 | `GET /status` | `Integrations.AiConnector.Use` or `Integrations.AiConnector.Manage` | | `AiConnectorStatusDto { ConnectorUrl, IsAccepted, AcceptedAt?, AcceptedByUserName? }` |
 | `POST /accept` | `Integrations.AiConnector.Manage` | | `AiConnectorStatusDto` |
 | `POST /withdraw` | `Integrations.AiConnector.Manage` | | `AiConnectorStatusDto`. Revokes every connection of the tenant. |
-| `GET /connections` | `Integrations.AiConnector.Use` (own) or `Integrations.AiConnector.Manage` (all) | Grid request | `GridResponse<AiConnectionRowDto { Id, UserId, UserName, ToolName, ConnectedAt, LastUsedAt?, RevokedAt? }>` |
+| `GET /connections` | `Integrations.AiConnector.Use` (own) or `Integrations.AiConnector.Manage` (all) | Grid request | `GridResponse<AiConnectionRowDto { Id, UserId, UserName, ToolName, ConnectedAt, LastUsedAt?, RevokedAt?, Status }>`. `Status` is the enum `AiConnectionStatus`, computed at read time: `Live` = 1, `NotWorking` = 2, `Expired` = 3, `SwitchedOff` = 4 (see *Build notes*) |
 | `POST /connections/{id}/revoke` | Own connection: `Integrations.AiConnector.Use`. Anyone's: `Integrations.AiConnector.Manage` | | 204; idempotent |
 
 **Revoke** sets `RevokedAt`, which blocks `/mcp` at once, and then revokes the OpenIddict authorization and its tokens in
@@ -273,7 +273,7 @@ the link. No record picker or grid. Strings in nl and en.
 | Part | Shows | Components |
 |---|---|---|
 | Status | Connector URL with a copy button; whether sharing is accepted, by whom and when; **Accept**/**Withdraw** for `Integrations.AiConnector.Manage` | `FormSection` (built here per the UI rule), `ConfirmDialog` |
-| Connections | Status **Live** or **Switched off**, user, tool, connected, last used, switched off; row action **Switch off** (the revoke endpoint). Own rows only without `Integrations.AiConnector.Manage`. Live rows sort first | `OpenTmsGrid` with `rowActions`, `useFormat()`, `ConfirmDialog` |
+| Connections | Status **Live**, **Not working**, **Expired** or **Switched off** (`StatusBadge`, from the server's `Status`; the screen derives nothing), user, tool, connected, last used, switched off; row action **Switch off** (the revoke endpoint) on every row that is not switched off, because a Not working connection may become live again. Own rows only without `Integrations.AiConnector.Manage`. Live rows sort first | `OpenTmsGrid` with `rowActions`, `useFormat()`, `ConfirmDialog` |
 
 - **Accept dialog** lists which data leaves, to which kind of vendor, and that the tenant's own agreement with that vendor
   applies. **Withdraw** says that all connections stop.
@@ -449,7 +449,30 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   at most 2,048 characters in a body of at most 16 KB, answers 201 in the shape of RFC 7591, and a body that is not JSON gets
   `invalid_client_metadata`.
 - **Clients may also revoke** their own tokens (`/connect/revocat`), as a tool does on disconnect. The connection then still
-  shows as live until the tool reconnects or someone switches it off.
+  shows as live until the tool reconnects, someone switches it off or it expires. A disconnect on the vendor's side stays
+  undetectable, so the manual names *last used* as the hint for that.
+- **A row's status is what `/mcp` would do, read per row (PO decision 6).** A row that read Live while `/mcp` refused it broke the
+  decision, so `AiConnectionAppService` computes `Status` at read time and the screen shows it. `SwitchedOff`: `RevokedAt` is set.
+  `Expired`: neither `LastUsedAt` nor `ConnectedAt` is within `AiConnectorConsts.RefreshTokenLifetime`, the constant the token
+  lifetime itself uses (moved there from `AiConnectorClients`, because Integrations cannot see the host's `OpenTms.Domain`).
+  `NotWorking`: the user is inactive or missing, or does not hold `Integrations.AiConnector.Use`. `Live`: none of these. The
+  other refusals of `/mcp` need no state: a host user or impersonator never gets a row, without the feature this endpoint refuses
+  too, and withdrawing the acceptance switches every row off.
+- **Expired wins over NotWorking** when both hold: reactivating the user does not bring a lapsed token back, so the user has to
+  connect again whatever is fixed first.
+- **Expired is a reading of `LastUsedAt`, not of the token,** because the token is in the host database and names no tenant. A tool
+  that renews after its last call keeps a token some hours beyond the row's Expired; its next call turns the row Live again.
+- **The permission check is the one `/mcp` makes:** `IPermissionChecker.IsGrantedAsync(principal, name)` with a principal built
+  from the user's id, the tenant and the roles, so the screen and `/mcp` cannot disagree. Read in ABP's source (10.6): no permission
+  API spans users; the batch overloads of `IPermissionChecker`, `IPermissionStore` and `IPermissionManager` take many permissions
+  for one provider key. So the page's roles come from one batched `IIdentityUserRepository.GetRoleNamesAsync(userIds)`, which includes
+  the roles of organisation units as `/mcp`'s claims do, and each distinct active user of the page gets one check, skipped for rows
+  already switched off or expired. A check reads ABP's permission cache and reaches the database only on a cold cache, once per
+  user or role. Querying `PermissionGrants` directly would be one query but a second definition of "granted".
+- **Sorting:** SQL puts switched-off rows last and expired rows before them, then the column the grid asks for. Whether a user still
+  qualifies lives in Platform's tables, so SQL cannot order on it, and each page then puts Live before NotWorking. Across the grid's
+  blocks of 100 rows a NotWorking row can therefore precede a Live row of the next block; ordering across all rows would mean
+  checking every connected user of the tenant per request.
 - **Metadata:** the protected-resource document also answers on `/.well-known/oauth-protected-resource/mcp`, the address RFC 9728
   derives from `/mcp`, and the server metadata adds `none` to the token endpoint's authentication methods.
 - **Refusals on `/mcp`** answer 403 with `{ error: "access_denied", reason }`, the reason being the check's name: the holder of

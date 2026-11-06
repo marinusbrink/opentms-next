@@ -128,23 +128,33 @@ status en de koppelings-URL.
 
 ### Zien wat er live is
 
-Onder de status staat de lijst met koppelingen: elke gekoppelde AI-tool, met de status **Live** of **Uitgezet**, de
-gebruiker, de tool, wanneer hij is gekoppeld, wanneer hij voor het laatst is gebruikt en wanneer hij is uitgezet. De live
-koppelingen staan altijd bovenaan. Zo zie je op één plek welke tools nu toegang hebben.
+Onder de status staat de lijst met koppelingen: elke gekoppelde AI-tool, met zijn status, de gebruiker, de tool, wanneer hij
+is gekoppeld, wanneer hij voor het laatst is gebruikt en wanneer hij is uitgezet. De live koppelingen staan bovenaan. Zo zie je
+op één plek welke tools nu toegang hebben. OpenTMS bepaalt de status elke keer dat je de lijst opent.
 
-**Wat Live precies betekent:** de koppeling is gemaakt en niemand heeft hem in OpenTMS uitgezet. Let op deze gevallen:
+| Status | Wat het betekent | Wat je doet |
+|---|---|---|
+| **Live** | OpenTMS laat de tool nu toe. | Niets. Wil je het stoppen, zet de koppeling dan uit. |
+| **Werkt niet** | De gebruiker is gedeactiveerd of heeft het recht **De AI-koppeling gebruiken** niet meer. OpenTMS weigert de tool. | Activeer de gebruiker of geef het recht terug: de koppeling is dan weer **Live**, zonder opnieuw koppelen. Hoeft dat niet, zet hem dan uit. |
+| **Verlopen** | De tool heeft de koppeling 90 dagen niet gebruikt, dus zijn toegang is vervallen. | De gebruiker koppelt de tool opnieuw, of je zet de koppeling uit. |
+| **Uitgezet** | Iemand heeft de koppeling in OpenTMS uitgezet. | Niets. De gebruiker kan de tool opnieuw koppelen. |
 
-- De kolom **Laatst gebruikt** toont of de tool ook echt iets leest. Die wordt hooguit eens per vijf minuten bijgewerkt.
-- Verbreekt iemand de koppeling in de AI-tool zelf, dan blijft de rij **Live** tot je hem hier uitzet of de tool opnieuw
-  koppelt.
-- Deactiveer je een gebruiker of neem je het recht **De AI-koppeling gebruiken** af, dan weigert OpenTMS de tool meteen, maar
-  blijft de rij **Live** staan. Ook een koppeling die 90 dagen niet is gebruikt, blijft in de lijst **Live** tot je hem
-  uitzet. Zet zo'n koppeling uit als je de lijst actueel wilt houden.
+Let op deze gevallen:
+
+- **Een koppeling die in de AI-tool zelf is verbroken, kan OpenTMS niet zien.** De rij blijft dan **Live**, tot je hem uitzet of
+  tot hij na 90 dagen **Verlopen** wordt. De kolom **Laatst gebruikt** is daarvoor je aanwijzing: staat die al lang stil, dan
+  gebruikt de tool de koppeling waarschijnlijk niet meer. Die kolom wordt hooguit eens per vijf minuten bijgewerkt.
+- Geldt zowel **Werkt niet** als **Verlopen**, dan zie je **Verlopen**: ook na het activeren moet de gebruiker dan opnieuw
+  koppelen.
+- Heb je meer dan 100 koppelingen, dan kan een rij **Werkt niet** boven een **Live**-rij staan die pas verderop in de lijst
+  wordt geladen. **Verlopen** en **Uitgezet** staan altijd onderaan.
 - Verwijder je een gebruiker, dan verdwijnen zijn koppelingen uit de lijst.
 
 ### Een koppeling uitzetten
 
-Klik met de rechtermuisknop op de rij en kies **Uitzetten**, of selecteer rijen en kies **Uitzetten** in de actiebalk.
+Klik met de rechtermuisknop op de rij en kies **Uitzetten**, of selecteer rijen en kies **Uitzetten** in de actiebalk. Dat kan
+bij elke rij die nog niet is uitgezet, dus ook bij **Werkt niet** en **Verlopen**: een koppeling die nu niet werkt, kan anders later
+weer live worden.
 Na bevestigen stopt de tool meteen: de volgende vraag van de tool wordt al geweigerd, en hij kan zijn toegang niet meer
 vernieuwen.
 
