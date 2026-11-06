@@ -94,6 +94,9 @@ public interface IPlanboardOrderAppService : IApplicationService
 {
     Task<GridResponse<TransportOrderRowDto>> GetListAsync(PlanboardOrderListRequestDto input);
 
+    /// <summary><c>GET /api/orders/planboard-order/{id}</c>: one row as it is now (the refetch after a stale stamp).</summary>
+    Task<TransportOrderRowDto> GetAsync(Guid id);
+
     /// <summary><c>PUT /api/orders/planboard-order/{id}/field</c>.</summary>
     Task<PlanboardOrderFieldResultDto> UpdateFieldAsync(Guid id, PlanboardOrderFieldUpdateDto input);
 }

@@ -462,6 +462,28 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
     public virtual async Task<LegChainDto> GetLineAsync(Guid lineId) => await ChainDtoAsync(await LegsOfLineAsync(lineId));
 
     /// <summary>
+    /// Design 74 §7: what the leg's order line carries, through Orders' published splitter, so the split dialog needs no Transport
+    /// feature nor the right to read orders. The leg itself does not do: a part of a line on a reshaped line carries less.
+    /// </summary>
+    [RequiresFeature(AppFeatures.TransportApp.Trips, AppFeatures.Planboard)]
+    [Authorize(PlanningExecutionPermissions.Legs.Default)]
+    public virtual async Task<LegLineTotalsDto> GetLineTotalsAsync(Guid id)
+    {
+        var leg = await _legs.GetAsync(id);
+        var totals = await _lineSplitter.GetLineTotalsAsync(leg.OrderId, leg.OrderLineId);
+        return new LegLineTotalsDto
+        {
+            Quantity = totals.Quantity,
+            Colli = totals.Colli,
+            WeightKg = totals.WeightKg,
+            VolumeM3 = totals.VolumeM3,
+            LoadingMeters = totals.LoadingMeters,
+            LoadFactor = totals.LoadFactor,
+            Epq = totals.Epq
+        };
+    }
+
+    /// <summary>
     /// Design 74 §4: saves the chain by the rules of <see cref="LegChainService"/>, in one transaction. The line must still be as it
     /// was read (each leg's stamp, none added or removed: 409). Publishes <c>LegsGenerated</c> when anything changed and requests the
     /// route of every new or changed leg. Refused on a cancelled order. Legs on trips stay as they are, so no trip recalculates.
@@ -539,8 +561,27 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         /* Pairs by position: a reshaped line's clones have their original's; generated legs pair up in route order. */
         var pairs = originals.OrderBy(l => l.Position).ThenBy(l => l.Id).Zip(clones, (original, clone) => (Original: original, Clone: clone)).ToList();
         var (stuck, _) = await _ops.StuckLegsAsync(originals);
+        bool JoinsTheTrip(Leg original) => original.TripId != null && original.Id != chosen.Id && !stuck.ContainsKey(original.Id);
+        foreach (var (original, clone) in pairs)
+        {
+            /* Before the assignment, so the composer sees it; the flag only means something on a trip (Leg.Unassign clears it). The
+             * reshaped path copied the planner's edits with the ends; generated legs start from the order's stops. Same places only:
+             * new via-depot rules may have changed the route meanwhile. */
+            clone.SetCarriedOutSeparately(JoinsTheTrip(original) && original.IsCarriedOutSeparately);
+            if (generatorOwned && original.OriginRelationId == clone.OriginRelationId && original.DestinationRelationId == clone.DestinationRelationId)
+            {
+                clone.SetEditable(original.OriginReference, original.DestinationReference, original.Remarks, original.OriginPlannedDate, original.DestinationPlannedDate,
+                    new LegWindow(original.OriginWindowFrom, original.OriginWindowTill), new LegWindow(original.DestinationWindowFrom, original.DestinationWindowTill));
+            }
+        }
+
+        if (clones.Count > 0)
+        {
+            await _legs.UpdateManyAsync(clones, autoSave: true);
+        }
+
         var receiving = new HashSet<Guid>();
-        foreach (var group in pairs.Where(p => p.Original.TripId != null && p.Original.Id != chosen.Id && !stuck.ContainsKey(p.Original.Id)).GroupBy(p => p.Original.TripId!.Value))
+        foreach (var group in pairs.Where(p => JoinsTheTrip(p.Original)).GroupBy(p => p.Original.TripId!.Value))
         {
             var trip = await _ops.GetWithDetailsAsync(group.Key);
             await _ops.AssignAsync(trip, group.Select(p => p.Clone).ToList(), allowOutsideWindow: true, afterStopId: null, moving: false);

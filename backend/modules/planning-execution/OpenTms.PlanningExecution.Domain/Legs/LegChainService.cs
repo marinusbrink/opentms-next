@@ -116,6 +116,9 @@ public class LegChainService : DomainService
                 continue;
             }
 
+            /* The dialog keeps windows at the minute: a window equal at the minute is unchanged, and keeps its seconds. */
+            from = KeepSeconds(from, leg.Origin);
+            till = KeepSeconds(till, leg.Destination);
             var reshaped = false;
             if (leg.OriginStopId != stops[i].StopId || leg.OriginWaypointTypeId != from.Input.WaypointTypeId || !SamePlace(leg.Origin, from))
             {
@@ -305,7 +308,19 @@ public class LegChainService : DomainService
 
     private static bool Same(LegEndSnapshot end, ResolvedEnd row)
         => SamePlace(end, row) && end.WaypointTypeId == row.Input.WaypointTypeId && end.PlannedDate == row.Input.PlannedDate
-           && end.WindowFrom == row.Input.WindowFrom && end.WindowTill == row.Input.WindowTill && end.Reference == Text(row.Input.Reference);
+           && SameMinute(end.WindowFrom, row.Input.WindowFrom) && SameMinute(end.WindowTill, row.Input.WindowTill) && end.Reference == Text(row.Input.Reference);
+
+    private static bool SameMinute(DateTimeOffset? a, DateTimeOffset? b)
+        => a == null || b == null ? a == b : a.Value.UtcTicks / TimeSpan.TicksPerMinute == b.Value.UtcTicks / TimeSpan.TicksPerMinute;
+
+    private static ResolvedEnd KeepSeconds(ResolvedEnd row, LegEndSnapshot end) => row with
+    {
+        Input = row.Input with
+        {
+            WindowFrom = SameMinute(end.WindowFrom, row.Input.WindowFrom) ? end.WindowFrom : row.Input.WindowFrom,
+            WindowTill = SameMinute(end.WindowTill, row.Input.WindowTill) ? end.WindowTill : row.Input.WindowTill
+        }
+    };
 
     private static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

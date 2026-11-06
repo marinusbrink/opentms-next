@@ -43,7 +43,8 @@ import { DND_ORDER } from "@/apps/planboard/dnd";
 
 const LIST = "/api/orders/planboard-order";
 const FIELD = "/api/orders/planboard-order/{id}/field";
-const ORDER = "/api/orders/transport-order/{id}";
+const ORDER = "/api/orders/planboard-order/{id}";
+const TRANSPORT_ORDER = "/api/orders/transport-order/{id}";
 
 const ORDER_ROW = { id: "o1", number: "O-1", concurrencyStamp: "s1", customerReference: "CR", internalRemarks: "IR" };
 
@@ -188,6 +189,31 @@ describe("OrdersPane: saving a cell", () => {
     await waitFor(() => expect(gridApi.applyServerSideTransaction).toHaveBeenCalledTimes(1));
     expect(calls(PUT, FIELD)).toHaveLength(2);
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("on a tenant without Transport the retry works: it reads the Planboard's own endpoint, never the Transport order", async () => {
+    features = { "Apps.Planboard": "true", "Apps.Planboard.Orders": "true", "Apps.Transport": "false", "Apps.Transport.Orders": "false" };
+    routes.GET[TRANSPORT_ORDER] = () => fail("Feature disabled", 403);
+    routes.GET[ORDER] = () => ({ ...ORDER_ROW, concurrencyStamp: "fresh" });
+    routes.PUT[FIELD] = (init) => ((init!.body as { concurrencyStamp: string }).concurrencyStamp === "fresh" ? { concurrencyStamp: "s3", customerReference: "NEW", internalRemarks: "IR" } : conflict());
+    await show();
+    await edit("customerReference", "NEW");
+    await waitFor(() => expect(gridApi.applyServerSideTransaction).toHaveBeenCalledTimes(1));
+    expect(lastCall(GET, ORDER)).toMatchObject({ params: { path: { id: "o1" } } });
+    expect(calls(GET, TRANSPORT_ORDER)).toHaveLength(0);
+    expect(calls(PUT, FIELD)).toHaveLength(2);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("a stale retry whose read is refused goes to the toast: no patch, the old value back", async () => {
+    routes.GET[ORDER] = () => fail("Refused read", 403);
+    routes.PUT[FIELD] = () => conflict();
+    await show();
+    await edit("customerReference", "NEW");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(calls(PUT, FIELD)).toHaveLength(1);
+    expect(gridApi.applyServerSideTransaction).not.toHaveBeenCalled();
+    await waitFor(() => expect(cell("customerReference").textContent).toContain("CR"));
   });
 
   it("a 409 with the field changed stands: the message, no patch, the old value back", async () => {

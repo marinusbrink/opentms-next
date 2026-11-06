@@ -18,6 +18,26 @@ public interface IOrderLineSplitter
     /// when the order cannot be edited or either part would not be above zero.
     /// </summary>
     Task<OrderLineSplitResultDto> SplitAsync(Guid orderId, Guid lineId, decimal quantity, CancellationToken cancellationToken = default);
+
+    /// <summary>What the line carries now, the base of a split; a missing order or line is not found. Tenant-filtered, read-only.</summary>
+    Task<OrderLineTotalsDto> GetLineTotalsAsync(Guid orderId, Guid lineId, CancellationToken cancellationToken = default);
+}
+
+public class OrderLineTotalsDto
+{
+    public decimal Quantity { get; set; }
+
+    public decimal? Colli { get; set; }
+
+    public double? WeightKg { get; set; }
+
+    public double? VolumeM3 { get; set; }
+
+    public double? LoadingMeters { get; set; }
+
+    public double? LoadFactor { get; set; }
+
+    public double? Epq { get; set; }
 }
 
 public class OrderLineSplitResultDto

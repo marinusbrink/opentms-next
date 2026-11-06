@@ -25,6 +25,21 @@ public class OrderLineSplitter : OrdersAppServiceBase, IOrderLineSplitter
         _commands = commands;
     }
 
+    public virtual async Task<OrderLineTotalsDto> GetLineTotalsAsync(Guid orderId, Guid lineId, CancellationToken cancellationToken = default)
+    {
+        var freight = (await _orders.GetAsync(orderId, includeDetails: true, cancellationToken)).GetLine(lineId).Freight;
+        return new OrderLineTotalsDto
+        {
+            Quantity = freight.Quantity,
+            Colli = freight.Colli,
+            WeightKg = freight.WeightKg,
+            VolumeM3 = freight.VolumeM3,
+            LoadingMeters = freight.LoadingMeters,
+            LoadFactor = freight.LoadFactor,
+            Epq = freight.Epq
+        };
+    }
+
     public virtual async Task<OrderLineSplitResultDto> SplitAsync(Guid orderId, Guid lineId, decimal quantity, CancellationToken cancellationToken = default)
     {
         var order = await _orders.GetAsync(orderId, includeDetails: true, cancellationToken);

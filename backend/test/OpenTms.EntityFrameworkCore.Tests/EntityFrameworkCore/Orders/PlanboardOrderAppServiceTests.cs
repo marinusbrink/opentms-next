@@ -226,7 +226,11 @@ public class PlanboardOrderAppServiceTests : TransportOrderTestBase<OpenTmsEntit
 
         /* Design 74 §6 (PO decision): the pane reads with the read permission and writes its two inline fields with the update permission, nothing else. */
         typeof(IPlanboardOrderAppService).GetMethods().Select(m => m.Name)
-            .ShouldBe([nameof(IPlanboardOrderAppService.GetListAsync), nameof(IPlanboardOrderAppService.UpdateFieldAsync)], ignoreOrder: true);
+            .ShouldBe([nameof(IPlanboardOrderAppService.GetListAsync), nameof(IPlanboardOrderAppService.GetAsync), nameof(IPlanboardOrderAppService.UpdateFieldAsync)], ignoreOrder: true);
+        var read = typeof(PlanboardOrderAppService).GetMethod(nameof(PlanboardOrderAppService.GetAsync)).ShouldNotBeNull();
+        read.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Default);
+        read.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
+        read.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
         var write = typeof(PlanboardOrderAppService).GetMethod(nameof(PlanboardOrderAppService.UpdateFieldAsync)).ShouldNotBeNull();
         write.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Update);
         write.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();

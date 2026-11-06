@@ -347,6 +347,84 @@ public class PlanboardReviewPostgreSqlTests : PlanningPostgreSqlTestBase
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
+    public async Task The_review_fixes_run_against_the_real_schema(bool ownDatabase)
+    {
+        var tenantId = ownDatabase ? TenantA : SharedTenant;
+        await InRolledBackTransactionAsync(tenantId, async () =>
+        {
+            var a = await PlaceAsync("RFA", "A", 52.0, 5.0);
+            var b = await PlaceAsync("RFB", "B", 52.5, 5.5);
+            var c = await PlaceAsync("RFC", "C", 52.6, 5.6);
+
+            /* The totals of a parallel part are the line's, not the leg's. */
+            var parallel = (await OrderAsync(a.RelationId, LineOf(10, 1000, StopAt(a.RelationId, a.AddressId, Load), StopAt(b.RelationId, b.AddressId, Unload)))).Id;
+            var whole = (await ConfirmAsync(parallel)).Single();
+            await Legs.SplitLineAsync(whole.Id, new LegSplitLineDto { Quantity = 3 });
+            await FlushAsync();
+            var totals = await Legs.GetLineTotalsAsync(whole.Id);
+            totals.Quantity.ShouldBe(10);
+            totals.WeightKg.ShouldBe(1000);
+            (await Legs.GetAsync(whole.Id)).Quantity.ShouldBe(7, "the control: the leg carries less");
+
+            var orderId = (await OrderAsync(a.RelationId, LineOf(10, 1000, StopAt(a.RelationId, a.AddressId, Load), StopAt(b.RelationId, b.AddressId, Unload), StopAt(c.RelationId, c.AddressId, Unload)))).Id;
+            var legs = (await ConfirmAsync(orderId)).OrderBy(l => l.Position).ToList();
+            var (firstId, secondId, lineId) = (legs[0].Id, legs[1].Id, legs[0].OrderLineId);
+
+            /* A window with seconds, on a leg carried out separately on a trip. */
+            var stored = await Legs.UpdateAsync(firstId, new LegUpdateDto
+            {
+                Remarks = "ring first", OriginReference = "OREF",
+                OriginWindow = new LegTimeWindowDto { From = At(8).AddSeconds(30), Till = At(10).AddSeconds(45) },
+                ConcurrencyStamp = legs[0].ConcurrencyStamp
+            });
+            await FlushAsync();
+            var trip = await CreateTripAsync(await SeededTripTypeAsync());
+            await Operations.AssignAsync(trip, await LegRepository.GetListAsync(l => l.Id == firstId), allowOutsideWindow: true, afterStopId: null, moving: false);
+            await FlushAsync();
+            await Trips.CarryOutSeparatelyAsync(trip.Id, new LegReferenceDto { LegId = firstId });
+            await FlushAsync();
+
+            /* Manage legs: the read-only leg comes back at the minute and the save goes through. */
+            static DateTimeOffset? Cut(DateTimeOffset? v) => v == null ? null : new DateTimeOffset(v.Value.UtcTicks / TimeSpan.TicksPerMinute * TimeSpan.TicksPerMinute, TimeSpan.Zero);
+            static LegChainEndInputDto End(LegEndSnapshotDto e) => new() { WaypointTypeId = e.WaypointTypeId, RelationId = e.RelationId, RelationAddressId = e.RelationAddressId, PlannedDate = e.PlannedDate, WindowFrom = Cut(e.WindowFrom), WindowTill = Cut(e.WindowTill), Reference = e.Reference };
+            static LegChainRowInputDto Row(LegDto l) => new() { Id = l.Id, Remarks = l.Remarks, Origin = End(l.Origin), Destination = End(l.Destination) };
+            var read = await Legs.GetLineAsync(lineId);
+            read.Rows[0].IsReadOnly.ShouldBeTrue();
+            var saved = await Legs.UpdateLineAsync(lineId, new LegChainUpdateDto
+            {
+                Stamps = read.Rows.Select(r => new LegChainStampDto { Id = r.Leg.Id, ConcurrencyStamp = r.Leg.ConcurrencyStamp }).ToList(),
+                Rows = [Row(read.Rows[0].Leg), Row(read.Rows[1].Leg)]
+            });
+            await FlushAsync();
+            saved.Rows[0].Leg.Origin.WindowFrom.ShouldBe(stored.Origin.WindowFrom, "not truncated");
+            saved.Rows[0].Leg.ConcurrencyStamp.ShouldBe(read.Rows[0].Leg.ConcurrencyStamp);
+
+            /* The split: the clone keeps the flag and the edits, on its own stops; a later delivery changes nothing. */
+            var split = await Legs.SplitOrderLineAsync(secondId, new LegSplitOrderLineDto { Quantity = 3 });
+            await FlushAsync();
+            var clone = split.NewLegs.Single(l => l.Position == 1);
+            clone.TripId.ShouldBe(trip.Id);
+            clone.IsCarriedOutSeparately.ShouldBeTrue();
+            clone.Remarks.ShouldBe("ring first");
+            clone.Origin.Reference.ShouldBe("OREF");
+            clone.Origin.WindowFrom.ShouldBe(stored.Origin.WindowFrom);
+            clone.Quantity.ShouldBe(3);
+            var own = (await Trips.GetAsync(trip.Id)).Stops.Where(s => s.Legs.Any(l => l.LegId == clone.Id)).ToList();
+            own.Count.ShouldBe(2);
+            own.ShouldAllBe(s => s.Legs.Count == 1);
+
+            string Facts(IEnumerable<Leg> rows) => string.Join(";", rows.OrderBy(l => l.Id).Select(l => $"{l.Id}:{l.Quantity}:{l.TripId}:{l.Remarks}:{l.IsCarriedOutSeparately}"));
+            var facts = Facts(await LegRepository.GetListAsync(l => l.OrderId == orderId));
+            await Handler.HandleEventAsync(new TransportOrderLinesChangedEto { OrderId = orderId });
+            await FlushAsync();
+            Facts(await LegRepository.GetListAsync(l => l.OrderId == orderId)).ShouldBe(facts);
+            (await Orders.GetAsync(orderId)).Lines.Sum(l => l.Quantity).ShouldBe(10);
+        });
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
     public async Task Negative_tenant_isolation_another_tenant_reaches_no_new_read_or_write(bool ownDatabase)
     {
         var tenantId = ownDatabase ? TenantA : SharedTenant;
@@ -383,6 +461,9 @@ public class PlanboardReviewPostgreSqlTests : PlanningPostgreSqlTestBase
 
                 /* Reads. */
                 await Should.ThrowAsync<EntityNotFoundException>(() => Legs.GetLineAsync(lineId));
+                await Should.ThrowAsync<EntityNotFoundException>(() => Legs.GetLineTotalsAsync(leg.Id));
+                await Should.ThrowAsync<EntityNotFoundException>(() => GetRequiredService<IOrderLineSplitter>().GetLineTotalsAsync(orderId, lineId));
+                await Should.ThrowAsync<EntityNotFoundException>(() => OrderFields.GetAsync(orderId));
                 await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.GetAssignOrderPreviewAsync(trip.Id, new PlanboardAssignOrderPreviewRequestDto { OrderId = orderId }));
                 var preview = await Planboard.GetAssignOrderPreviewAsync(own.Id, new PlanboardAssignOrderPreviewRequestDto { OrderId = orderId });
                 preview.Legs.ShouldBeEmpty();
@@ -439,6 +520,8 @@ public class PlanboardReviewPostgreSqlTests : PlanningPostgreSqlTestBase
             stored.Lines.ShouldHaveSingleItem().Quantity.ShouldBe(10);
             stored.Lines[0].TransportUnitId.ShouldBe(ownerUnit);
             (await Legs.GetLineAsync(lineId)).Rows.ShouldHaveSingleItem().Leg.Quantity.ShouldBe(10);
+            (await Legs.GetLineTotalsAsync(leg.Id)).Quantity.ShouldBe(10);
+            (await OrderFields.GetAsync(orderId)).ConcurrencyStamp.ShouldBe(ownerStamp);
             (await Planboard.GetAssignOrderPreviewAsync(free.Id, new PlanboardAssignOrderPreviewRequestDto { OrderId = orderId })).MovableCount.ShouldBe(1);
         });
     }

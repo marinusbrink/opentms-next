@@ -264,6 +264,24 @@ public class LegSplitOrderLineDto
     public decimal Quantity { get; set; }
 }
 
+/// <summary>Design 74 §7: <c>GET leg/{id}/line-totals</c>: what the leg's order line carries, the base of the split dialog.</summary>
+public class LegLineTotalsDto
+{
+    public decimal Quantity { get; set; }
+
+    public decimal? Colli { get; set; }
+
+    public double? WeightKg { get; set; }
+
+    public double? VolumeM3 { get; set; }
+
+    public double? LoadingMeters { get; set; }
+
+    public double? LoadFactor { get; set; }
+
+    public double? Epq { get; set; }
+}
+
 /// <summary>The outcome of a split of an order line: the new line, its legs and the legs of the old line with their new quantities.</summary>
 public class LegSplitOrderLineResultDto
 {
@@ -390,4 +408,7 @@ public interface ILegAppService : IApplicationService
 
     /// <summary><c>POST /api/planning/leg/{id}/split-order-line</c> (design 74 §7).</summary>
     Task<LegSplitOrderLineResultDto> SplitOrderLineAsync(Guid id, LegSplitOrderLineDto input);
+
+    /// <summary><c>GET /api/planning/leg/{id}/line-totals</c> (design 74 §7).</summary>
+    Task<LegLineTotalsDto> GetLineTotalsAsync(Guid id);
 }

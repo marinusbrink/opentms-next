@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using OpenTms.Orders;
+using OpenTms.Orders.Permissions;
 using OpenTms.Orders.Published;
 using OpenTms.Orders.TransportOrders;
 using OpenTms.PlanningExecution.Legs;
@@ -44,6 +45,7 @@ public class PlanboardReviewContractTests
 
     [Theory]
     [InlineData(nameof(LegAppService.GetLineAsync), PlanningExecutionPermissions.Legs.Default)]
+    [InlineData(nameof(LegAppService.GetLineTotalsAsync), PlanningExecutionPermissions.Legs.Default)]
     [InlineData(nameof(LegAppService.UpdateLineAsync), PlanningExecutionPermissions.Legs.Update)]
     [InlineData(nameof(LegAppService.SplitOrderLineAsync), PlanningExecutionPermissions.Legs.Update)]
     public void The_leg_endpoints_carry_their_permission_and_either_app_feature(string name, string permission)
@@ -65,6 +67,18 @@ public class PlanboardReviewContractTests
         method.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull(name);
         method.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
         typeof(PlanboardAppService).GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull().Features.ShouldBe([AppFeatures.Planboard]);
+    }
+
+    [Fact]
+    public void The_order_row_needs_the_read_permission_and_both_planboard_features()
+    {
+        var method = Method(typeof(PlanboardOrderAppService), nameof(PlanboardOrderAppService.GetAsync));
+        method.GetCustomAttribute<AuthorizeAttribute>().ShouldNotBeNull().Policy.ShouldBe(OrdersPermissions.TransportOrders.Default);
+        method.GetCustomAttribute<AllowAnonymousAttribute>().ShouldBeNull();
+        method.IsVirtual.ShouldBeTrue("ABP's interceptors need a virtual method");
+        var gate = typeof(PlanboardOrderAppService).GetCustomAttribute<RequiresFeatureAttribute>().ShouldNotBeNull();
+        gate.Features.ShouldBe([AppFeatures.Planboard, AppFeatures.PlanboardApp.Orders], ignoreOrder: true);
+        gate.RequiresAll.ShouldBeTrue();
     }
 
     [Fact]
@@ -106,6 +120,8 @@ public class PlanboardReviewContractTests
     [InlineData("/api/planning/leg/line/{lineId}", "get")]
     [InlineData("/api/planning/leg/line/{lineId}", "put")]
     [InlineData("/api/planning/leg/{id}/split-order-line", "post")]
+    [InlineData("/api/planning/leg/{id}/line-totals", "get")]
+    [InlineData("/api/orders/planboard-order/{id}", "get")]
     [InlineData("/api/planning/planboard/{id}/assign-order-preview", "get")]
     [InlineData("/api/planning/planboard/{id}/assign-order", "post")]
     [InlineData("/api/orders/planboard-order/{id}/field", "put")]
@@ -117,6 +133,7 @@ public class PlanboardReviewContractTests
 
     [Theory]
     [InlineData("LegChainDto", "isChain", "rows", "orderLineId")]
+    [InlineData("LegLineTotalsDto", "quantity", "colli", "weightKg", "volumeM3", "loadingMeters", "loadFactor", "epq")]
     [InlineData("LegChainRowDto", "leg", "hasActuals", "isReadOnly")]
     [InlineData("LegChainUpdateDto", "rows", "stamps")]
     [InlineData("LegSplitOrderLineResultDto", "newLineId", "remainingQuantity", "newQuantity", "newLegs", "remainingLegs")]

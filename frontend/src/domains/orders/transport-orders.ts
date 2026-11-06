@@ -252,6 +252,13 @@ export async function fetchTransportOrder(id: string): Promise<TransportOrderDto
   return data!;
 }
 
+/** One row of the Planboard's Orders pane as it is now, for the refetch after a stale stamp; needs no Transport feature. */
+export async function fetchPlanboardOrder(id: string): Promise<TransportOrderRow> {
+  const { data, error, response } = await apiClient.GET("/api/orders/planboard-order/{id}", { params: { path: { id } } });
+  if (error) throw withStatus(error, response);
+  return data!;
+}
+
 /** The fields of an order and of its lines the Planboard edits in a cell (design 74 §6). */
 export type PlanboardOrderField = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderField"];
 export type PlanboardOrderLineField = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderLineField"];

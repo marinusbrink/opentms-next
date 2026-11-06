@@ -22,6 +22,7 @@ export type LegChainUpdateDto = Schemas["OpenTms.PlanningExecution.Legs.LegChain
 export type LegChainRowInputDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainRowInputDto"];
 export type LegChainEndInputDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainEndInputDto"];
 export type LegSplitOrderLineResultDto = Schemas["OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto"];
+export type LegLineTotalsDto = Schemas["OpenTms.PlanningExecution.Legs.LegLineTotalsDto"];
 
 export const LEG_SOURCES: { value: LegSource; key: string }[] = [
   { value: 1, key: "PlanningExecution:LegSource.Generated" },
@@ -39,6 +40,7 @@ export const legKeys = {
   ofOrder: (orderId: string | undefined) => ["planning", "legs", "order", orderId?.toLowerCase()] as const,
   ofTrip: (tripId: string | undefined) => ["planning", "legs", "trip", tripId?.toLowerCase()] as const,
   chain: (lineId: string | undefined) => ["planning", "legs", "chain", lineId?.toLowerCase()] as const,
+  lineTotals: (legId: string | undefined) => ["planning", "legs", "line-totals", legId?.toLowerCase()] as const,
 };
 
 export interface LegListFilters {
@@ -145,6 +147,22 @@ export function useUpdateLegChain() {
       return data!;
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
+  });
+}
+
+/** What the leg's order line carries, the base of Split line (design 74 §7); needs only the right to read legs. */
+export function useLegLineTotals(legId: string | undefined) {
+  return useQuery({
+    queryKey: legKeys.lineTotals(legId),
+    enabled: legId != null,
+    /* A dialog works on what the line is now. */
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async (): Promise<LegLineTotalsDto> => {
+      const { data, error, response } = await apiClient.GET("/api/planning/leg/{id}/line-totals", { params: { path: { id: legId! } } });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
   });
 }
 

@@ -446,6 +446,158 @@ public class PlanboardReviewManageLegsTests : PlanboardReviewTestBase
         after.Remarks.ShouldBe("ring first");
     }
 
+    /* Windows are compared at the minute: the dialog keeps minutes, an order or a single-leg edit may hold seconds. */
+
+    private static DateTimeOffset? Minute(DateTimeOffset? value)
+        => value == null ? null : new DateTimeOffset(value.Value.UtcTicks / TimeSpan.TicksPerMinute * TimeSpan.TicksPerMinute, TimeSpan.Zero).ToOffset(value.Value.Offset);
+
+    /// <summary>The row as the dialog sends it back: every window cut to the minute.</summary>
+    private static LegChainRowInputDto AtTheMinute(LegDto leg)
+    {
+        var row = Row(leg);
+        (row.Origin.WindowFrom, row.Origin.WindowTill) = (Minute(row.Origin.WindowFrom), Minute(row.Origin.WindowTill));
+        (row.Destination.WindowFrom, row.Destination.WindowTill) = (Minute(row.Destination.WindowFrom), Minute(row.Destination.WindowTill));
+        return row;
+    }
+
+    /// <summary>A → B → C, the first leg's windows holding seconds, as stored.</summary>
+    private async Task<(FleetSet F, Guid OrderId, LegDto WithSeconds, LegDto Other)> LegWithSecondsAsync(string code)
+    {
+        var f = await FleetAsync();
+        var c = await PlaceAsync(code, "Cee", 52.5, 5.5);
+        var orderId = await ConfirmedOrderAsync(f.CustomerA.RelationId, LineOf(10, 1000, StopAt(f.CustomerA, Load, Day), StopAt(f.CustomerB, Unload, Day), StopAt(c, Unload, Day)));
+        var legs = await LegRowsAsync(orderId);
+        var saved = await Legs.UpdateAsync(legs[0].Id, new LegUpdateDto
+        {
+            OriginWindow = new LegTimeWindowDto { From = At(8).AddSeconds(30), Till = At(10).AddSeconds(45) },
+            DestinationWindow = new LegTimeWindowDto { From = At(12).AddSeconds(15), Till = At(14).AddSeconds(5) },
+            ConcurrencyStamp = legs[0].ConcurrencyStamp
+        });
+        saved.Origin.WindowFrom!.Value.Second.ShouldBe(30, "the control: the seconds are stored");
+        return (f, orderId, saved, legs[1]);
+    }
+
+    private static void ShouldKeepItsWindows(LegDto leg, LegDto stored)
+    {
+        leg.Origin.WindowFrom.ShouldBe(stored.Origin.WindowFrom);
+        leg.Origin.WindowTill.ShouldBe(stored.Origin.WindowTill);
+        leg.Destination.WindowFrom.ShouldBe(stored.Destination.WindowFrom);
+        leg.Destination.WindowTill.ShouldBe(stored.Destination.WindowTill);
+    }
+
+    [Fact]
+    public async Task A_read_only_leg_with_seconds_does_not_fail_the_save_of_the_line()
+    {
+        using var _ = InTenantA();
+        var (f, _, stored, _) = await LegWithSecondsAsync("SECR");
+        var trip = await OnTripAsync(await TripWithAsync(f.Type, At(6), At(18)), stored.Id);
+        var read = await Legs.GetLineAsync(stored.OrderLineId);
+        read.Rows[0].IsReadOnly.ShouldBeTrue();
+        var requests = TripRequests(trip.Id);
+        var other = Row(At(read, 1));
+        other.Remarks = "around it";
+
+        var saved = await SaveAsync(read, AtTheMinute(At(read, 0)), other);
+
+        ShouldKeepItsWindows(At(saved, 0), stored);
+        At(saved, 0).ConcurrencyStamp.ShouldBe(At(read, 0).ConcurrencyStamp, "it stays exactly as it is");
+        At(saved, 0).TripId.ShouldBe(trip.Id);
+        At(saved, 1).Remarks.ShouldBe("around it");
+        TripRequests(trip.Id).ShouldBe(requests);
+    }
+
+    [Fact]
+    public async Task A_read_only_leg_still_refuses_a_window_another_minute_on()
+    {
+        using var _ = InTenantA();
+        var (f, _, stored, _) = await LegWithSecondsAsync("SECM");
+        await OnTripAsync(await TripWithAsync(f.Type, At(6), At(18)), stored.Id);
+        var read = await Legs.GetLineAsync(stored.OrderLineId);
+        var moved = AtTheMinute(At(read, 0));
+        moved.Origin.WindowFrom = moved.Origin.WindowFrom!.Value.AddMinutes(1);
+
+        (await RefusedAsync(read, moved, Row(At(read, 1)))).ShouldBe(PlanningExecutionErrorCodes.LegChainReadOnlyLeg);
+
+        var cleared = AtTheMinute(At(read, 0));
+        cleared.Destination.WindowTill = null;
+        (await RefusedAsync(read, cleared, Row(At(read, 1)))).ShouldBe(PlanningExecutionErrorCodes.LegChainReadOnlyLeg);
+    }
+
+    [Fact]
+    public async Task An_editable_leg_with_seconds_is_not_truncated_and_does_not_count_as_edited()
+    {
+        using var _ = InTenantA();
+        var (_, orderId, stored, _) = await LegWithSecondsAsync("SECE");
+        var read = await Legs.GetLineAsync(stored.OrderLineId);
+        read.Rows[0].IsReadOnly.ShouldBeFalse();
+        var before = (await LegRowsAsync(orderId)).Select(Fingerprint).ToList();
+        var (notices, routes) = (NoticesOf(stored.Id).Count, LegRequests(stored.Id));
+
+        var saved = await SaveAsync(read, AtTheMinute(At(read, 0)), Row(At(read, 1)));
+
+        ShouldKeepItsWindows(At(saved, 0), stored);
+        (await LegRowsAsync(orderId)).Select(Fingerprint).ShouldBe(before, "nothing was stored");
+        NoticesOf(stored.Id).Count.ShouldBe(notices, "no notice of a change that is none");
+        LegRequests(stored.Id).ShouldBe(routes);
+        At(saved, 0).Source.ShouldBe(LegSource.Generated);
+    }
+
+    [Fact]
+    public async Task Other_seconds_in_the_same_minute_are_the_same_window_and_the_stored_ones_stay()
+    {
+        using var _ = InTenantA();
+        var (_, _, stored, _) = await LegWithSecondsAsync("SECO");
+        var read = await Legs.GetLineAsync(stored.OrderLineId);
+        var row = AtTheMinute(At(read, 0));
+        row.Origin.WindowFrom = row.Origin.WindowFrom!.Value.AddSeconds(59);
+
+        var saved = await SaveAsync(read, row, Row(At(read, 1)));
+
+        ShouldKeepItsWindows(At(saved, 0), stored);
+        At(saved, 0).ConcurrencyStamp.ShouldBe(At(read, 0).ConcurrencyStamp);
+    }
+
+    [Fact]
+    public async Task A_real_change_on_a_leg_with_seconds_still_counts_and_its_other_windows_keep_their_seconds()
+    {
+        using var _ = InTenantA();
+        var (_, _, stored, _) = await LegWithSecondsAsync("SECC");
+        var read = await Legs.GetLineAsync(stored.OrderLineId);
+        var notices = NoticesOf(stored.Id).Count;
+        var row = AtTheMinute(At(read, 0));
+        var wanted = row.Origin.WindowFrom!.Value.AddMinutes(1);
+        row.Origin.WindowFrom = wanted;
+
+        var saved = await SaveAsync(read, row, Row(At(read, 1)));
+
+        At(saved, 0).Origin.WindowFrom.ShouldBe(wanted, "another minute is a change, stored as sent");
+        At(saved, 0).Origin.WindowTill.ShouldBe(stored.Origin.WindowTill);
+        At(saved, 0).Destination.WindowFrom.ShouldBe(stored.Destination.WindowFrom);
+        At(saved, 0).Destination.WindowTill.ShouldBe(stored.Destination.WindowTill);
+        At(saved, 0).ConcurrencyStamp.ShouldNotBe(At(read, 0).ConcurrencyStamp);
+        At(saved, 0).Source.ShouldBe(LegSource.Generated, "a window is no reshape");
+        NoticesOf(stored.Id).Count.ShouldBeGreaterThan(notices);
+
+        /* A text on the same leg counts too, and leaves the seconds alone. */
+        var again = await Legs.GetLineAsync(stored.OrderLineId);
+        var remark = AtTheMinute(At(again, 0));
+        remark.Origin.WindowFrom = At(again, 0).Origin.WindowFrom;
+        remark.Remarks = "ring first";
+        var remarked = await SaveAsync(again, remark, Row(At(again, 1)));
+        At(remarked, 0).Remarks.ShouldBe("ring first");
+        At(remarked, 0).Origin.WindowTill.ShouldBe(stored.Origin.WindowTill);
+        At(remarked, 0).ConcurrencyStamp.ShouldNotBe(At(again, 0).ConcurrencyStamp);
+
+        /* Clearing a window is a change as well. */
+        var third = await Legs.GetLineAsync(stored.OrderLineId);
+        var cleared = AtTheMinute(At(third, 0));
+        cleared.Destination.WindowFrom = null;
+        cleared.Destination.WindowTill = null;
+        var empty = await SaveAsync(third, cleared, Row(At(third, 1)));
+        At(empty, 0).Destination.WindowFrom.ShouldBeNull();
+        At(empty, 0).Destination.WindowTill.ShouldBeNull();
+    }
+
     [Fact]
     public async Task Another_tenant_reaches_no_line_and_cannot_name_another_tenants_relation()
     {

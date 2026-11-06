@@ -34,6 +34,10 @@ public class PlanboardOrderAppService : OrdersAppServiceBase, IPlanboardOrderApp
         _commands = commands;
     }
 
+    [Authorize(OrdersPermissions.TransportOrders.Default)]
+    public virtual async Task<TransportOrderRowDto> GetAsync(Guid id)
+        => (await _mapper.ToRowsAsync([await _orders.GetAsync(id, includeDetails: false)])).Single();
+
     [Authorize(OrdersPermissions.TransportOrders.Update)]
     public virtual async Task<PlanboardOrderFieldResultDto> UpdateFieldAsync(Guid id, PlanboardOrderFieldUpdateDto input)
     {

@@ -34,6 +34,9 @@ public class PlanboardReviewSplitLineTests : PlanboardReviewTestBase
     [InlineData("7", "2.5", 33.33333d, "2.5", "4.5")]
     [InlineData("100", "33.33", 999.99999d, "33.33", "66.67")]
     [InlineData("1", "0.0001", 0.00003d, "0.0001", "0.9999")]
+    [InlineData("10", "0.00005", 1000d, "0.0001", "9.9999")]
+    [InlineData("10", "3.33345", 1000d, "3.3335", "6.6665")]
+    [InlineData("10", "9.99994", 1000d, "9.9999", "0.0001")]
     public async Task The_line_splits_pro_rata_and_every_total_stays_exact(string total, string part, double weight, string expectedNew, string expectedRemaining)
     {
         using var _ = InTenantA();
@@ -108,7 +111,10 @@ public class PlanboardReviewSplitLineTests : PlanboardReviewTestBase
     [InlineData("10")]
     [InlineData("11")]
     [InlineData("0.00001")]
+    [InlineData("0.00004")]
     [InlineData("9.99999")]
+    [InlineData("9.99996")]
+    [InlineData("9.99995")]
     public async Task A_quantity_that_leaves_either_part_empty_is_refused_and_changes_nothing(string quantity)
     {
         using var _ = InTenantA();

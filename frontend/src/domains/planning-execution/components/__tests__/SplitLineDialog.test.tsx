@@ -13,12 +13,13 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 
 import { toast } from "sonner";
 import { fail, stubGlobals } from "@/apps/transport/__tests__/transport-test-mocks";
-import { calls, lastCall, POST, resetClient, routes } from "@/apps/transport/__tests__/test-setup-mocks";
+import { calls, GET, lastCall, POST, resetClient, routes } from "@/apps/transport/__tests__/test-setup-mocks";
 import { SplitLineDialog } from "@/domains/planning-execution/components/SplitLineDialog";
 import type { LegDto } from "@/domains/planning-execution/legs";
 
 const SPLIT = "/api/planning/leg/{id}/split-order-line";
-const ORDER = "/api/orders/transport-order/{id}";
+const TOTALS = "/api/planning/leg/{id}/line-totals";
+const TRANSPORT_ORDER = "/api/orders/transport-order/{id}";
 
 const LEG = {
   id: "l1",
@@ -37,19 +38,23 @@ const LEG = {
   destination: { name: "Dest Co", city: "Breda" },
 } as unknown as LegDto;
 
-const LINE = { id: "LINE-1", quantity: 10, colli: 20, weightKg: 1000, volumeM3: 5, loadingMeters: null, loadFactor: null, epq: null };
+const LINE = { quantity: 10, colli: 20, weightKg: 1000, volumeM3: 5, loadingMeters: null, loadFactor: null, epq: null };
 
 const onClose = vi.fn();
 const onDone = vi.fn();
 
-async function open(line: Record<string, unknown> | null = LINE, leg: LegDto = LEG) {
-  routes.GET[ORDER] = () => (line ? { id: "o1", lines: [line] } : fail("Forbidden", 403));
+function renderDialog(leg: LegDto = LEG) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <SplitLineDialog leg={leg} onClose={onClose} onDone={onDone} />
     </QueryClientProvider>,
   );
+}
+
+async function open(line: Record<string, unknown> | null = LINE, leg: LegDto = LEG) {
+  routes.GET[TOTALS] = () => line ?? fail("Forbidden", 403);
+  renderDialog(leg);
   await act(async () => undefined);
   if (line) await waitFor(() => expect(hint()).toHaveTextContent("PlanningExecution:SplitLineHint"));
 }
@@ -129,18 +134,95 @@ describe("SplitLineDialog: what it shows", () => {
     expect(measure("new", "Orders:WeightKg")).toBe("–");
   });
 
-  it("without the right to read the order the leg's own measures are the base", async () => {
-    await open(null);
-    type("new", "2");
-    expect(amount("remaining").value).toBe("6");
-    expect(measure("new", "Orders:WeightKg")).toBe("20");
-    expect(measure("remaining", "Orders:WeightKg")).toBe("60");
-  });
-
-  it("finds the order's line whatever the case of its id: the line's total, not the leg's", async () => {
+  it("the base is the line's total, not the leg's", async () => {
     await open();
+    expect(lastCall(GET, TOTALS)).toMatchObject({ params: { path: { id: "l1" } } });
     type("new", "9");
     expect(amount("remaining").value).toBe("1");
+    expect(measure("new", "Orders:WeightKg")).toBe("900");
+  });
+
+  it("needs no Transport: the dialog never reads the Transport order", async () => {
+    routes.GET[TRANSPORT_ORDER] = () => fail("Feature disabled", 403);
+    await open();
+    expect(calls(GET, TRANSPORT_ORDER)).toHaveLength(0);
+  });
+});
+
+describe("SplitLineDialog: while the line's totals load", () => {
+  async function loading() {
+    let release: (value: unknown) => void = () => undefined;
+    GET.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
+    renderDialog();
+    await act(async () => undefined);
+    return (value: unknown) => act(async () => release(value));
+  }
+
+  it("the amounts and OK are disabled, no total shows, and Cancel works", async () => {
+    await loading();
+    expect(amount("new")).toBeDisabled();
+    expect(amount("remaining")).toBeDisabled();
+    expect(ok()).toBeDisabled();
+    expect(hint()).toBeNull();
+    expect(measure("new", "Orders:WeightKg")).toBe("–");
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not fall back on the leg's own quantities, and a submit sends nothing", async () => {
+    await loading();
+    expect(document.body.textContent).not.toContain("8");
+    await submit();
+    expect(calls(POST, SPLIT)).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("opens up when they arrive, with the line's total as the base", async () => {
+    const arrive = await loading();
+    await arrive({ data: LINE, response: new Response() });
+    await waitFor(() => expect(amount("new")).toBeEnabled());
+    expect(ok()).toBeEnabled();
+    expect(hint()).toHaveTextContent("PlanningExecution:SplitLineHint");
+    type("new", "4");
+    expect(amount("remaining").value).toBe("6");
+  });
+});
+
+describe("SplitLineDialog: when the line's totals fail", () => {
+  beforeEach(() => {
+    routes.GET[TOTALS] = () => fail("Could not read the line", 500);
+  });
+
+  it("shows the error; the amounts and OK stay disabled, and no total shows", async () => {
+    renderDialog();
+    expect(await screen.findByText("Could not read the line")).toBeInTheDocument();
+    expect(amount("new")).toBeDisabled();
+    expect(amount("remaining")).toBeDisabled();
+    expect(ok()).toBeDisabled();
+    expect(hint()).toBeNull();
+  });
+
+  it("no split is possible, and the leg's own measures are never the base", async () => {
+    renderDialog();
+    await screen.findByText("Could not read the line");
+    fireEvent.change(amount("new"), { target: { value: "2" } });
+    expect(amount("remaining").value).toBe("");
+    expect(measure("new", "Orders:WeightKg")).toBe("–");
+    expect(measure("remaining", "Orders:WeightKg")).toBe("–");
+    await submit();
+    expect(calls(POST, SPLIT)).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("without the right to read legs: the same, with the refusal's message; Cancel closes", async () => {
+    routes.GET[TOTALS] = () => fail("Forbidden", 403);
+    renderDialog();
+    expect(await screen.findByText("Forbidden")).toBeInTheDocument();
+    expect(ok()).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
   });
 });
 
@@ -154,6 +236,10 @@ describe("SplitLineDialog: OK needs both amounts above zero", () => {
     ["more than the total", "new", "11"],
     ["a remaining amount of 0", "remaining", "0"],
     ["a remaining amount of the whole total", "remaining", "10"],
+    ["a new amount below 0.00005", "new", "0.00004"],
+    ["a new amount within 0.00005 of the total", "new", "9.99996"],
+    ["a remaining amount below 0.00005", "remaining", "0.00004"],
+    ["a remaining amount within 0.00005 of the total", "remaining", "9.99996"],
   ] as const)("refuses %s: the reason shows and nothing is sent", async (_name, name, value) => {
     await open();
     type(name, value);

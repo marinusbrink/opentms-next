@@ -131,7 +131,7 @@ The server decides the quantities. `POST leg/{id}/split-order-line {quantity}` i
 
 1. Orders' **new published interface** `IOrderLineSplitter.SplitAsync(orderId, lineId, quantity)`
    (`OpenTms.Orders.Published`): clones the line at the end of the order with new line and stop ids, pro-rata quantities and
-   measurements (5 decimals, new = total − remaining, so the total stays exact), and publishes `TransportOrderLinesChangedEto`
+   measurements (4 decimals for quantity, positions and colli, 5 for measures; new = total − remaining, so the total stays exact), and publishes `TransportOrderLinesChangedEto`
    for both lines. Returns the new line id and the map old stop id → new stop id. This synchronous cross-module call is
    the documented exception of CLAUDE.md rule 3: it is what makes the split atomic.
 2. The line's legs:

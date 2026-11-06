@@ -16,8 +16,8 @@ import { PermissionDenied } from "@/components/ui/permission-denied";
 import { StatusCell } from "@/components/ui/status-badge";
 import {
   EXECUTION_PROGRESSES,
+  fetchPlanboardOrder,
   fetchPlanboardOrders,
-  fetchTransportOrder,
   orderStatusName,
   PLANBOARD_ORDER_EDIT_FEATURES,
   PLANBOARD_ORDER_FIELD,
@@ -91,7 +91,7 @@ export default function OrdersPane({ instanceId }: PlanboardPaneProps) {
               const result = await saveWithStaleRetry({
                 row,
                 save: (current) => updateField({ orderId: current.id!, field: orderField, value, concurrencyStamp: current.concurrencyStamp ?? "" }),
-                refetch: (current) => fetchTransportOrder(current.id!) as Promise<TransportOrderRow>,
+                refetch: (current) => fetchPlanboardOrder(current.id!),
                 unchanged: (fresh, seen) => sameValue(fresh[field], seen[field]),
               });
               const next: TransportOrderRow = { ...row, customerReference: result.customerReference, internalRemarks: result.internalRemarks, concurrencyStamp: result.concurrencyStamp };
