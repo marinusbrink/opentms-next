@@ -160,9 +160,20 @@ public class MetricQuery : IMetricQuery, ITransientDependency
 
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellation.Token);
         limit.CancelAfter(_options.QueryTimeout);
-        return plan.Grain == MetricGrain.Order
+        var answer = plan.Grain == MetricGrain.Order
             ? await RunAsync(await _orderFacts.GetQueryableAsync(), OrderFactShape.Instance, _orderFacts, plan, limit.Token)
             : await RunAsync(await _tripFacts.GetQueryableAsync(), TripFactShape.Instance, _tripFacts, plan, limit.Token);
+
+        /* The promise is honesty (design 75): a backfill that ran out of sweeps answers from what exists and says what it lacks. */
+        var missing = await _state.GetFactsMissingAsync();
+        var missingOfGrain = missing == null ? 0 : plan.Grain == MetricGrain.Order ? missing.Orders : missing.Trips;
+        if (missingOfGrain > 0)
+        {
+            answer.Warnings = [.. answer.Warnings ?? [], MetricWarnings.FactsIncomplete];
+            answer.FactsMissing = missingOfGrain;
+        }
+
+        return answer;
     }
 
     private async Task<MetricAnswerDto> RunAsync<TFact>(IQueryable<TFact> facts, IFactShape<TFact> shape, IRepository<TFact, Guid> repository, MetricPlan plan, CancellationToken cancellationToken)

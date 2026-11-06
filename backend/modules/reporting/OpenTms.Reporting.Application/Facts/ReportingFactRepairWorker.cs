@@ -24,7 +24,8 @@ namespace OpenTms.Reporting.Facts;
 /// The daily repair for the current tenant (design 75 "Repair"): failing events have no dead-letter store (AO-10), so it requests
 /// again every record created, changed or deleted in the last 48 hours, each page in its own transaction. A soft-deleted one
 /// reaches the calculator, which removes the fact. For a tenant whose feature is off it clears the backfill's settings instead,
-/// so turning the feature on starts a new backfill, which clears the stale facts first.
+/// so turning the feature on starts a new backfill, which clears the stale facts first. A number left by a backfill that ran out of
+/// sweeps is recounted here, so the <c>facts_incomplete</c> warning follows the facts, a day late at most.
 /// </summary>
 public class ReportingFactRepairRunner : ITransientDependency
 {
@@ -110,7 +111,12 @@ public class ReportingFactRepairRunner : ITransientDependency
         using (var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true))
         {
             await _state.SetRepairLastRunAtAsync(_clock.Now);
+            var missing = await _state.RecountFactsMissingAsync(cancellationToken);
             await unitOfWork.CompleteAsync(cancellationToken);
+            if (missing != null)
+            {
+                Logger.LogInformation("Metric facts: {MissingOrders} orders and {MissingTrips} trips still differ from their facts.", missing.Orders, missing.Trips);
+            }
         }
 
         Logger.LogInformation("Metric facts: repair requested {OrderCount} orders and {TripCount} trips.", orders, trips);

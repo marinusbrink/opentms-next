@@ -23,8 +23,9 @@ namespace OpenTms.Reporting.Facts;
 /// <summary>
 /// One backfill pass for the current tenant (design 75 "Backfill"): the first pass clears its facts; each pass requests the next
 /// batch of orders and trips through the derived-value scheduler and stores its position in the same transaction, so an
-/// interrupted pass repeats. The backfill is finished only when the position ran out <b>and</b> the fact counts equal the
-/// sources' counts, because requesting is not the same as having run.
+/// interrupted pass repeats. The backfill is finished when the position ran out <b>and</b> the fact counts equal the sources'
+/// counts, because requesting is not the same as having run; or when that is still not so after
+/// <see cref="ReportingMetricsOptions.BackfillMaxSweeps"/> sweeps, with the difference on record, so the answers warn about it.
 /// </summary>
 public class ReportingFactBackfillRunner : ITransientDependency
 {
@@ -37,6 +38,7 @@ public class ReportingFactBackfillRunner : ITransientDependency
     private readonly IFeatureChecker _features;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
     private readonly IClock _clock;
+    private readonly ICurrentTenant _currentTenant;
     private readonly ReportingMetricsOptions _options;
 
     public ILogger<ReportingFactBackfillRunner> Logger { get; set; } = NullLogger<ReportingFactBackfillRunner>.Instance;
@@ -51,6 +53,7 @@ public class ReportingFactBackfillRunner : ITransientDependency
         IFeatureChecker features,
         IUnitOfWorkManager unitOfWorkManager,
         IClock clock,
+        ICurrentTenant currentTenant,
         IOptions<ReportingMetricsOptions> options)
     {
         _state = state;
@@ -62,6 +65,7 @@ public class ReportingFactBackfillRunner : ITransientDependency
         _features = features;
         _unitOfWorkManager = unitOfWorkManager;
         _clock = clock;
+        _currentTenant = currentTenant;
         _options = options.Value;
     }
 
@@ -97,22 +101,40 @@ public class ReportingFactBackfillRunner : ITransientDependency
             position.ExhaustedAt ??= _clock.Now;
             if (await CountsMatchAsync(cancellationToken))
             {
-                await _state.SetBackfillCompletedAtAsync(_clock.Now);
-                /* The first repair is due a full interval from now: feature off and on within a day keeps these facts. */
-                await _state.SetRepairLastRunAtAsync(_clock.Now);
+                await FinishAsync();
                 Logger.LogInformation("Metric facts: backfill finished.");
             }
             else if (_clock.Now - position.ExhaustedAt.Value >= _options.BackfillResweepAfter)
             {
-                /* A calculation failed for good, or records came in behind the position: ask for everything once more, without clearing. */
-                position = new ReportingBackfillPosition();
-                Logger.LogWarning("Metric facts: the fact counts still differ from the sources' after the sweep; sweeping again.");
+                if (position.Sweep >= _options.BackfillMaxSweeps)
+                {
+                    /* Refusing for good would help nobody: answer from what exists and say how much is left out. A human should look. */
+                    var missing = await _state.CountFactsMissingAsync(cancellationToken);
+                    await _state.SetFactsMissingAsync(missing);
+                    await FinishAsync();
+                    Logger.LogError(
+                        "Metric facts: backfill of tenant {TenantId} stopped after {Sweeps} sweeps with {MissingOrders} orders and {MissingTrips} trips differing from their facts; query_metrics warns facts_incomplete.",
+                        _currentTenant.Id, position.Sweep, missing.Orders, missing.Trips);
+                }
+                else
+                {
+                    /* A calculation failed for good, or records came in behind the position: ask for everything once more, without clearing. */
+                    position = new ReportingBackfillPosition { Sweep = position.Sweep + 1 };
+                    Logger.LogWarning("Metric facts: the fact counts still differ from the sources' after the sweep; starting sweep {Sweep}.", position.Sweep);
+                }
             }
         }
 
         await _state.SetBackfillPositionAsync(position);
         await unitOfWork.CompleteAsync(cancellationToken);
         return true;
+    }
+
+    private async Task FinishAsync()
+    {
+        await _state.SetBackfillCompletedAtAsync(_clock.Now);
+        /* The first repair is due a full interval from now: feature off and on within a day keeps these facts. */
+        await _state.SetRepairLastRunAtAsync(_clock.Now);
     }
 
     private async Task RequestNextOrdersAsync(ReportingBackfillPosition position, CancellationToken cancellationToken)
@@ -156,7 +178,8 @@ public class ReportingFactBackfillRunner : ITransientDependency
 
 /// <summary>
 /// Visits every tenant in the tenant store, shared-tier ones too, each in its own context, the way
-/// <c>TemplateMaterialisationWorker</c> does; a tenant without the feature costs one feature check. One failing tenant never
+/// <c>TemplateMaterialisationWorker</c> does. In this worker a tenant without the feature costs one feature check per pass; it
+/// also gets <see cref="ReportingFactRepairWorker"/>'s check every 15 minutes (design 75 "Cost &amp; SLO impact"). One failing tenant never
 /// stops the others. Registered by <c>ReportingApplicationModule</c> when <c>Reporting:Metrics:WorkersEnabled</c>.
 /// </summary>
 public class ReportingFactBackfillWorker : AsyncPeriodicBackgroundWorkerBase

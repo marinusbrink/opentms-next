@@ -569,6 +569,8 @@ public class AiMetricAnswer : IAiToolRowCount
 
     public List<string>? Warnings { get; set; }
 
+    public long? FactsMissing { get; set; }
+
     [JsonIgnore]
     public int RowCount => Rows?.Count ?? 0;
 }

@@ -32,6 +32,9 @@ public static class MetricAnswerStatus
 public static class MetricWarnings
 {
     public const string MixedCurrencies = "mixed_currencies";
+
+    /// <summary>The backfill stopped with records of this grain differing from their facts: <see cref="MetricAnswerDto.FactsMissing"/> says how many.</summary>
+    public const string FactsIncomplete = "facts_incomplete";
 }
 
 public class MetricListDto
@@ -121,6 +124,9 @@ public class MetricAnswerDto
     public DateTime? LastFactUpdateAt { get; set; }
 
     public List<string>? Warnings { get; set; }
+
+    /// <summary>With warning <see cref="MetricWarnings.FactsIncomplete"/>: how many records of this grain, in the whole tenant, differ from their facts.</summary>
+    public long? FactsMissing { get; set; }
 }
 
 public class MetricPeriodDto

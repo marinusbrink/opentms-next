@@ -460,6 +460,7 @@ public class AiConnectorToolService : IntegrationsAppServiceBase, IAiConnectorTo
             },
             LastFactUpdateAt = answer.LastFactUpdateAt,
             Warnings = answer.Warnings,
+            FactsMissing = answer.FactsMissing,
         };
     }
 

@@ -150,7 +150,7 @@ public static class AiConnectorToolCatalog
             (tools, input) => tools.ListMetricsAsync(input)),
         Define<QueryMetricsInput, AiMetricAnswer>(
             QueryMetrics, "Query the metrics",
-            "Answers numbers from a fixed list: choose metrics of one kind (order or trip), a period, breakdowns and filters. The database adds up, so never add rows of different currencies yourself. Report a figure with its definition, its period and what coverage left out; with warning mixed_currencies an amount is not a clean total. Any other status than ok is a refusal: tell the user what it says, never guess a number.",
+            "Answers numbers from a fixed list: choose metrics of one kind (order or trip), a period, breakdowns and filters. The database adds up, so never add rows of different currencies yourself. Report a figure with its definition, its period and what coverage left out; with warning mixed_currencies an amount is not a clean total; with warning facts_incomplete, factsMissing records of this organisation could not be prepared, so the figures may leave them out: say so. Any other status than ok is a refusal: tell the user what it says, never guess a number.",
             [], Metrics,
             (tools, input) => tools.QueryMetricsAsync(input)),
     ];

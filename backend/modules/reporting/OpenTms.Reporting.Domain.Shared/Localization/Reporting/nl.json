@@ -10,6 +10,8 @@
     "Reporting:Setting.BackfillCompletedAtDescription": "Wanneer de cijfers van deze tenant voor het eerst volledig waren voorbereid. Tot die tijd antwoorden de tools dat de cijfers nog niet klaar zijn.",
     "Reporting:Setting.BackfillPosition": "Voortgang voorbereiden cijfers",
     "Reporting:Setting.BackfillPositionDescription": "Hoe ver het voorbereiden van de cijfers van deze tenant is.",
+    "Reporting:Setting.FactsMissing": "Cijfers niet voorbereid",
+    "Reporting:Setting.FactsMissingDescription": "Hoeveel orders en ritten nog afwijken van de voorbereide cijfers nadat het voorbereiden is gestopt.",
     "Reporting:Setting.RepairLastRunAt": "Cijfers laatst hersteld op",
     "Reporting:Setting.RepairLastRunAtDescription": "Wanneer het dagelijkse herstel van de cijfers van deze tenant voor het laatst klaar was."
   }

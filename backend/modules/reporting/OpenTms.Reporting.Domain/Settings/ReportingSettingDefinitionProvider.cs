@@ -11,6 +11,7 @@ public class ReportingSettingDefinitionProvider : SettingDefinitionProvider
     {
         Add(context, ReportingSettings.BackfillCompletedAt, "Reporting:Setting.BackfillCompletedAt");
         Add(context, ReportingSettings.BackfillPosition, "Reporting:Setting.BackfillPosition");
+        Add(context, ReportingSettings.FactsMissing, "Reporting:Setting.FactsMissing");
         Add(context, ReportingSettings.RepairLastRunAt, "Reporting:Setting.RepairLastRunAt");
     }
 

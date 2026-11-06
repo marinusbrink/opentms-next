@@ -22,6 +22,13 @@ public class ReportingMetricsOptions
     /// </summary>
     public TimeSpan BackfillResweepAfter { get; set; } = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// How many sweeps a backfill makes, the first one included. When the counts still differ after the last, it finishes with the
+    /// difference on record and <c>query_metrics</c> warns <c>facts_incomplete</c>: one calculation that always fails must not keep
+    /// a tenant <c>not_ready</c> and re-requesting everything for good (design 75 "Backfill").
+    /// </summary>
+    public int BackfillMaxSweeps { get; set; } = 3;
+
     /// <summary>How often the repair worker looks whether a tenant is due. Short on purpose: a deploy restarts this timer.</summary>
     public TimeSpan RepairCheckPeriod { get; set; } = TimeSpan.FromMinutes(15);
 
