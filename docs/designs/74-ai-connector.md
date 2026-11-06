@@ -291,7 +291,7 @@ the link. No record picker or grid. Strings in nl and en.
 |---|---|---|
 | Tenant scope of tokens and tools | **Critical** | On PostgreSQL, for a pair of tenants with their own databases **and** a pair of shared-tier tenants in the host database (no connection string, so only the data filter separates them): a token of tenant A returns only A's data for each of the nine tools; A's token with `__tenant=B`, a tenant cookie or query parameter still returns only A; `__tenant=B` on `/connect/token` during a refresh keeps tenant A; an id of B's record gives not-found; a connection row of A is not visible or revocable from B |
 | Token separation | **Critical** | A connector token gets 403 on a REST endpoint; a browser token, a client-credentials token, a token of another audience and a signed-in browser session without a token all get refused on `/mcp` |
-| Refusals on `/mcp` and connect screen | **Critical** | Each check refused separately: host user, impersonation, either feature off, not accepted, no `Use`, user deactivated, connection revoked; tenant deactivated; refresh refused after revoke, withdraw and deactivation. Signing out in the browser leaves the connection working, or the result is reported to the PO |
+| Refusals on `/mcp` and connect screen | **Critical** | Each check refused separately: host user, impersonation, either feature off, not accepted, no `Use`, user deactivated, connection revoked; tenant deleted (see *Build notes*); refresh refused after revoke, withdraw and deactivation. Signing out in the browser leaves the connection working, or the result is reported to the PO |
 | Connect flow | **Critical** | Existing session in tenant A shows organisation A on the screen and issues no code without Allow; Deny issues none; a second connect by the same user and tool still shows the screen and reuses the same `AiConnection` without a unique-index failure; PKCE is required; only `OpenTmsMcp` and `offline_access` are grantable; the advertised scopes yield a refresh token |
 | Registration | **High** | Claude's URIs return its fixed client and write nothing; an approved ChatGPT URI returns the same client when repeated; mixed, unknown, `http` and look-alike URIs (`chatgpt.com.evil.example`, extra path segments) get 400 and write nothing |
 | Field allowlists | **High** | A test seeds every left-out field with a marker value, and the serialized result of each tool contains no marker. A second architecture test keeps tool DTOs free of names like `Amount` outside `get_order_rates` and `get_customer_revenue`, and of `email`, `phone`, `driver` and `remarks` |
@@ -478,6 +478,17 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
 - **Refusals on `/mcp`** answer 403 with `{ error: "access_denied", reason }`, the reason being the check's name: the holder of
   the token learns nothing about anyone else, and support can tell the cases apart. A tool that fails answers a tool result with
   `isError`, stating no data, so the model can act on it. The server's instructions tell the model that text in results is data.
+- **A tenant stops by being deleted, not deactivated.** ABP's open-source tenant has no activation state and this codebase adds
+  none, so the *Test risk analysis* row names tenant deletion. `/mcp` refuses a connection of a deleted tenant and returns no data.
+  The token endpoint reads no tenant state, so a refresh after the tenant record is deleted still issues a token, and that token
+  reaches nothing on `/mcp`. Observed on the host tests, which delete the tenant record; they do not run the Tenants app's
+  deletion, which also drops the database.
+- **Registering one ChatGPT URI twice at the same moment gives one client,** on every instance and revision, because a canary
+  runs two at once. `OpenIddictApplications.ClientId` has a plain index, so nothing in the table stops a second row. Find-then-create
+  therefore runs under `pg_advisory_xact_lock`, keyed on the client id, in a read-committed transaction on the host database. This
+  is the one raw SQL statement here and it reads no data. A unique index was not chosen: it would change the mapping of a table ABP
+  owns, in every database the DbMigrator migrates, to protect one code path. The find after the lock uses the repository, not the
+  OpenIddict manager, because the manager can answer from a per-instance cache.
 - **`search_relations` and `search_vehicles` include archived rows:** the answer states `isArchived`, so the model tells them
   apart instead of missing them.
 - **`get_customer_revenue`:** `orderCount` counts the orders in that total, so orders without an amount are only in
