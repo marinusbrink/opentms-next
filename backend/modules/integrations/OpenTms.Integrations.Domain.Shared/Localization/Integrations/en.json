@@ -487,6 +487,8 @@
     "AiConnector:Withdraw.Title": "Withdraw data sharing",
     "AiConnector:Withdraw.Question": "Withdraw the data sharing of the AI connector? All connections stop at once, and AI tools cannot connect until someone accepts the data sharing again.",
     "AiConnector:State.Live": "Live",
+    "AiConnector:State.NotWorking": "Not working",
+    "AiConnector:State.Expired": "Expired",
     "AiConnector:State.SwitchedOff": "Switched off",
     "AiConnector:Column.User": "User",
     "AiConnector:Column.Tool": "AI tool",

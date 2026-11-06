@@ -19,7 +19,7 @@ public class AiConnectorStatusDto
     public string? AcceptedByUserName { get; set; }
 }
 
-/// <summary>A row of the connections grid. Live rows have no <see cref="RevokedAt"/>.</summary>
+/// <summary>A row of the connections grid.</summary>
 public class AiConnectionRowDto
 {
     public Guid Id { get; set; }
@@ -35,6 +35,9 @@ public class AiConnectionRowDto
     public DateTime? LastUsedAt { get; set; }
 
     public DateTime? RevokedAt { get; set; }
+
+    /// <summary>Computed at read time: whether <c>/mcp</c> would serve this connection now, as far as OpenTMS can tell.</summary>
+    public AiConnectionStatus Status { get; set; }
 }
 
 /// <summary>The AI connector's status and data sharing, route root <c>/api/integrations/ai-connector</c>.</summary>
@@ -52,7 +55,7 @@ public interface IAiConnectorAppService : IApplicationService
 /// <summary>The connections of the AI connector, route <c>/api/integrations/ai-connector/connections</c>.</summary>
 public interface IAiConnectionAppService : IApplicationService
 {
-    /// <summary>The caller's own connections, or every connection with <c>Integrations.AiConnector.Manage</c>; live rows first.</summary>
+    /// <summary>The caller's own connections, or every connection with <c>Integrations.AiConnector.Manage</c>; live rows first within a page.</summary>
     Task<GridResponse<AiConnectionRowDto>> GetListAsync(ReferenceDataListRequestDto input);
 
     /// <summary>Idempotent: revoking a revoked connection answers 204 and retries the host side.</summary>

@@ -26,6 +26,12 @@ public static class AiConnectorConsts
     /// <summary><c>AiConnection.LastUsedAt</c> is written at most this often per connection.</summary>
     public static readonly TimeSpan LastUsedThrottle = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long a connector client's refresh token lasts; renewing rolls it on. OpenIddict's default of 14 days would drop a
+    /// connection after two quiet weeks. A connection unused for longer reads as <see cref="AiConnectionStatus.Expired"/>.
+    /// </summary>
+    public static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(90);
+
     /// <summary>True for a client id of an approved AI tool.</summary>
     public static bool IsConnectorClient(string? clientId) =>
         clientId != null && clientId.StartsWith(ClientIdPrefix, StringComparison.Ordinal);

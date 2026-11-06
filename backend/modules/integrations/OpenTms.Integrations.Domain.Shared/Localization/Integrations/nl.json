@@ -487,6 +487,8 @@
     "AiConnector:Withdraw.Title": "Delen van gegevens intrekken",
     "AiConnector:Withdraw.Question": "Het delen van gegevens via de AI-koppeling intrekken? Alle koppelingen stoppen meteen, en AI-tools kunnen pas weer koppelen als iemand het delen opnieuw accepteert.",
     "AiConnector:State.Live": "Live",
+    "AiConnector:State.NotWorking": "Werkt niet",
+    "AiConnector:State.Expired": "Verlopen",
     "AiConnector:State.SwitchedOff": "Uitgezet",
     "AiConnector:Column.User": "Gebruiker",
     "AiConnector:Column.Tool": "AI-tool",

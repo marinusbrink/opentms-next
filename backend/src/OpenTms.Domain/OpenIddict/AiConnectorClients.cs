@@ -16,13 +16,10 @@ namespace OpenTms.OpenIddict;
 /// <c>/connect/register</c>: explicit consent, authorization code and refresh token only, scopes
 /// <see cref="AiConnectorConsts.Scope"/> and <c>offline_access</c> only, exact redirect URIs, and PKCE required of a public
 /// client. A connection is meant to stay established (the PBI), so a refresh token lasts
-/// <see cref="RefreshTokenLifetime"/> and renewing rolls it on; revoking or deactivating stops it far sooner.
+/// <see cref="AiConnectorConsts.RefreshTokenLifetime"/> and renewing rolls it on; revoking or deactivating stops it far sooner.
 /// </summary>
 public static class AiConnectorClients
 {
-    /// <summary>OpenIddict's default of 14 days would drop a connection after two quiet weeks.</summary>
-    public static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(90);
-
     /// <summary>ChatGPT's fixed callback.</summary>
     public const string ChatGptPlatformRedirectUri = "https://chatgpt.com/connector_platform_oauth_redirect";
 
@@ -85,7 +82,7 @@ public static class AiConnectorClients
         }
 
         descriptor.Settings[OpenIddictConstants.Settings.TokenLifetimes.RefreshToken] =
-            RefreshTokenLifetime.ToString("c", CultureInfo.InvariantCulture);
+            AiConnectorConsts.RefreshTokenLifetime.ToString("c", CultureInfo.InvariantCulture);
 
         return descriptor;
     }
