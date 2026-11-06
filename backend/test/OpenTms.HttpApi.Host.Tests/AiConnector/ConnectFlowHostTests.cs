@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
 using OpenTms.HostIntegration;
 using OpenTms.Integrations.AiConnector;
+using OpenTms.OpenIddict;
 using OpenTms.Integrations.Permissions;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -173,14 +174,10 @@ public class ConnectFlowHostTests
 
         body.ShouldNotContain("name=\"allow\"", Case.Sensitive, "no screen to allow on");
         ShouldHaveNoCode(response);
-        if (response.StatusCode == HttpStatusCode.Found)
-        {
-            QueryValue(response.Headers.Location, "error").ShouldBe("invalid_request");
-        }
-        else
-        {
-            response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
-        }
+        response.Headers.Location.ShouldBeNull("OpenIddict answers on its own page, no redirect");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        body.ShouldContain("error:invalid_request", Case.Sensitive);
+        body.ShouldContain("ID2054", Case.Sensitive, "the code_challenge is what is missing");
     }
 
     [Fact]
@@ -194,6 +191,8 @@ public class ConnectFlowHostTests
         var body = await response.Content.ReadAsStringAsync();
         body.ShouldNotContain("name=\"allow\"", Case.Sensitive);
         ShouldHaveNoCode(response);
+        response.StatusCode.ShouldBe(HttpStatusCode.Found, body);
+        QueryValue(response.Headers.Location, "error").ShouldBe("invalid_request", response.Headers.Location?.ToString());
     }
 
     [Fact]
@@ -226,10 +225,10 @@ public class ConnectFlowHostTests
 
         body.ShouldNotContain("name=\"allow\"", Case.Sensitive, scope);
         ShouldHaveNoCode(response);
-        if (response.StatusCode == HttpStatusCode.Found)
-        {
-            QueryValue(response.Headers.Location, "error").ShouldBe("invalid_scope", scope);
-        }
+        response.Headers.Location.ShouldBeNull("OpenIddict answers on its own page, no redirect: " + scope);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, scope + ": " + body);
+        body.ShouldContain("error:invalid_request", Case.Sensitive, scope);
+        body.ShouldContain("ID2051", Case.Sensitive, "this client is not allowed the scope: " + scope);
     }
 
     [Theory]
@@ -690,11 +689,26 @@ public class RegistrationHostTests
     }
 
     [Fact]
-    public async Task A_body_over_16_kb_is_refused()
+    public async Task A_redirect_uri_over_the_length_limit_gets_400_and_writes_nothing()
     {
-        var body = "{\"redirect_uris\":[\"" + new string('a', 20_000) + "\"]}";
-        using var response = await RegisterAsync(body);
-        response.IsSuccessStatusCode.ShouldBeFalse();
+        var before = await ApplicationCountAsync();
+        using var response = await RegisterUrisAsync(ChatGptBase + new string('a', 20_000));
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, body);
+        JsonDocument.Parse(body).RootElement.GetProperty("error").GetString().ShouldBe("invalid_redirect_uri");
+        (await ApplicationCountAsync()).ShouldBe(before);
+    }
+
+    /// <summary>
+    /// The 16 KB limit on the body itself is Kestrel's to enforce: <see cref="Microsoft.AspNetCore.TestHost.TestServer"/> has no maximum request body size feature, so a request here cannot
+    /// reach it, and a body over the limit proves nothing on this host. What can be proved here is that the limit is declared on the action.
+    /// </summary>
+    [Fact]
+    public void The_registration_action_declares_a_body_limit_of_16_kb()
+    {
+        var limit = typeof(AiConnectorRegistrationController).GetMethod(nameof(AiConnectorRegistrationController.RegisterAsync))!
+            .GetCustomAttributes(inherit: true).OfType<Microsoft.AspNetCore.Http.Metadata.IRequestSizeLimitMetadata>().ShouldHaveSingleItem();
+        limit.MaxRequestBodySize.ShouldBe(16 * 1024);
     }
 
     [Fact]

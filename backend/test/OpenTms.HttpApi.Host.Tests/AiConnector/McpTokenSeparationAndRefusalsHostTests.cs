@@ -517,10 +517,11 @@ public class McpRefusalHostTests
 
     /// <summary>
     /// The design's "tenant deactivated": ABP's open-source tenant has no activation state and this codebase adds none, so the one way a tenant stops is being deleted (the Tenants app).
-    /// A connection of a deleted tenant then gets no data, and no renewal.
+    /// With only the record deleted (a shared-tier tenant has nothing else to delete), <c>/mcp</c> refuses and returns no data; the token endpoint reads no tenant state, so a refresh still
+    /// issues a token (design 74 "Build notes"), and that token reaches nothing.
     /// </summary>
     [Fact]
-    public async Task A_deleted_tenant_is_refused_with_no_data_on_mcp_and_at_the_token_endpoint()
+    public async Task A_deleted_tenants_token_is_refused_on_mcp_with_no_data_while_a_refresh_still_issues_a_token_that_reaches_nothing()
     {
         var tenant = await _h.NewTenantAsync();
         var (_, token) = await ConnectedAsync(tenant);
@@ -528,19 +529,68 @@ public class McpRefusalHostTests
 
         await _h.InScopeAsync(null, services => services.GetRequiredService<ITenantRepository>().DeleteAsync(tenant, autoSave: true));
 
-        using var response = await _h.PostMcpAsync(token.AccessToken, "tools/call", new Dictionary<string, object?> { ["name"] = ToolNames.SearchOrders, ["arguments"] = new Dictionary<string, object?>() });
-        var body = await response.Content.ReadAsStringAsync();
-        response.IsSuccessStatusCode.ShouldBeFalse(body);
-        body.ShouldNotContain("\"rows\"");
+        await ShouldHoldNothingOnMcpAsync(token.AccessToken!);
 
-        /* Whatever the token endpoint answers (it reads no tenant state; see the test report), a renewed token reaches nothing either. */
         var refreshed = await _h.RefreshAsync(ClaudeClient, token.RefreshToken!);
-        if (refreshed.AccessToken != null)
+        refreshed.Status.ShouldBe(HttpStatusCode.OK, refreshed.Body);
+        refreshed.AccessToken.ShouldNotBeNullOrEmpty(refreshed.Body);
+        await ShouldHoldNothingOnMcpAsync(refreshed.AccessToken!);
+    }
+
+    /// <summary>
+    /// What a real deletion in the Tenants app ends in for a tenant with its own database (<c>TenantAdministrationAppService.DeleteAsync</c> and <c>TenantDatabaseDropJob</c>): the record soft-deleted and
+    /// the database gone. A token still in a tool's hands then gets no tenant data on <c>/mcp</c> or at the token endpoint, and no answer says how the host failed.
+    /// </summary>
+    [Fact]
+    public async Task A_deleted_tenants_token_with_the_database_dropped_gets_no_data_and_no_detail_on_mcp_or_at_the_token_endpoint()
+    {
+        var (tenant, database) = await _h.NewTenantWithOwnDatabaseAsync();
+        try
         {
-            using var renewed = await _h.PostMcpAsync(refreshed.AccessToken, "tools/call", new Dictionary<string, object?> { ["name"] = ToolNames.SearchOrders, ["arguments"] = new Dictionary<string, object?>() });
-            var renewedBody = await renewed.Content.ReadAsStringAsync();
-            renewed.IsSuccessStatusCode.ShouldBeFalse(renewedBody);
-            renewedBody.ShouldNotContain("\"rows\"");
+            const string relation = "Dropped tenant relation";
+            await _h.InScopeAsync(tenant, services => services.GetRequiredService<IRepository<OpenTms.MasterData.Relations.Relation, Guid>>()
+                .InsertAsync(new OpenTms.MasterData.Relations.Relation(Guid.NewGuid(), tenant, "DROPPED", relation, OpenTms.MasterData.Relations.RelationRoles.Customer)));
+            var (user, token) = await ConnectedAsync(tenant);
+            var served = await _h.CallToolAsync(token.AccessToken!, ToolNames.SearchRelations);
+            served.IsError.ShouldBeFalse(served.Text);
+            served.Text.ShouldContain(relation, Case.Sensitive, "the control: this token did reach this tenant's data");
+
+            await _h.DeleteTenantAndDropDatabaseAsync(tenant, database);
+
+            await ShouldHoldNothingOnMcpAsync(token.AccessToken!, relation, database, user.Email);
+
+            var refreshed = await _h.RefreshAsync(ClaudeClient, token.RefreshToken!);
+            ShouldStateNoDetail(refreshed.Body, relation, database, user.Email);
+            refreshed.Status.ShouldBe(HttpStatusCode.BadRequest, refreshed.Body);
+            refreshed.AccessToken.ShouldBeNull();
+            JsonDocument.Parse(refreshed.Body).RootElement.GetProperty("error").GetString().ShouldBe("invalid_grant", "unlike a deleted record alone: with the database gone no user can be read to renew for");
+        }
+        finally
+        {
+            await _h.DropDatabaseAsync(database);
+        }
+    }
+
+    private async Task ShouldHoldNothingOnMcpAsync(string token, params string[] secrets)
+    {
+        foreach (var method in new[] { "tools/list", "tools/call" })
+        {
+            using var response = await _h.PostMcpAsync(token, method, method == "tools/list" ? null : new Dictionary<string, object?> { ["name"] = ToolNames.SearchRelations, ["arguments"] = new Dictionary<string, object?>() });
+            var body = await response.Content.ReadAsStringAsync();
+            /* ABP's tenant resolution answers before any check of the connector runs: its own page, naming only the id the token itself states, not the connector's 403. */
+            response.StatusCode.ShouldBe(HttpStatusCode.NotFound, method + ": " + body);
+            body.ShouldContain("Tenant not found!", Case.Sensitive, method);
+            body.ShouldNotContain("\"rows\"");
+            body.ShouldNotContain("\"tools\"");
+            ShouldStateNoDetail(body, secrets);
+        }
+    }
+
+    private static void ShouldStateNoDetail(string body, params string[] secrets)
+    {
+        foreach (var detail in secrets.Concat(["Npgsql", "Exception", "PostgreSQL", "3D000", "Host=", "Database=", "Password", "   at "]))
+        {
+            body.ShouldNotContain(detail, Case.Insensitive, "an answer states no detail of the failure");
         }
     }
 
@@ -617,11 +667,19 @@ public class McpRefusalHostTests
         /* The real sign-out. */
         using (var signOut = await browser.GetAsync("/connect/endsession"))
         {
-            signOut.IsSuccessStatusCode.ShouldBe(signOut.StatusCode != HttpStatusCode.Found && signOut.StatusCode != HttpStatusCode.Redirect);
+            signOut.StatusCode.ShouldBe(HttpStatusCode.OK, await signOut.Content.ReadAsStringAsync());
         }
 
-        using (var html = await browser.GetAsync("/Account/Logout"))
+        using (var logout = await browser.GetAsync("/Account/Logout"))
         {
+            logout.StatusCode.ShouldBe(HttpStatusCode.Found, await logout.Content.ReadAsStringAsync());
+        }
+
+        /* The sign-out did happen: the session no longer reaches the connect screen. */
+        using (var after = await browser.GetAsync(ClaudeRequest(NewVerifier()).Url))
+        {
+            after.StatusCode.ShouldBe(HttpStatusCode.Found, await after.Content.ReadAsStringAsync());
+            after.Headers.Location!.OriginalString.ShouldContain("/Account/Login", Case.Insensitive);
         }
 
         ClaimsOf(token.AccessToken!).ShouldNotContain(c => c.Type == "sid", "a connector token is tied to no browser session");

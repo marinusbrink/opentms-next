@@ -273,20 +273,26 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
     }
 }
 
+/// <summary>One line the host logged, with what a rendered line does not say: its level and its exception.</summary>
+public sealed record HostLogEntry(LogLevel Level, string Category, string Message, Exception? Exception);
+
 /// <summary>Keeps every rendered log line and its structured values, for the tests of what a log line may hold (constitution rule 5).</summary>
 public sealed class HostLogCapture : ILoggerProvider
 {
     private readonly System.Collections.Concurrent.ConcurrentQueue<string> _lines = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<HostLogEntry> _entries = new();
 
     public IReadOnlyCollection<string> Lines => _lines;
 
-    public ILogger CreateLogger(string categoryName) => new CapturingLogger(categoryName, _lines);
+    public IReadOnlyCollection<HostLogEntry> Entries => _entries;
+
+    public ILogger CreateLogger(string categoryName) => new CapturingLogger(categoryName, _lines, _entries);
 
     public void Dispose()
     {
     }
 
-    private sealed class CapturingLogger(string category, System.Collections.Concurrent.ConcurrentQueue<string> lines) : ILogger
+    private sealed class CapturingLogger(string category, System.Collections.Concurrent.ConcurrentQueue<string> lines, System.Collections.Concurrent.ConcurrentQueue<HostLogEntry> entries) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
@@ -297,7 +303,9 @@ public sealed class HostLogCapture : ILoggerProvider
         {
             if (IsEnabled(logLevel) && (category.StartsWith("OpenTms", StringComparison.Ordinal) || category.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) == false))
             {
-                lines.Enqueue(category + ": " + formatter(state, exception));
+                var message = formatter(state, exception);
+                lines.Enqueue(category + ": " + message);
+                entries.Enqueue(new HostLogEntry(logLevel, category, message, exception));
             }
         }
     }

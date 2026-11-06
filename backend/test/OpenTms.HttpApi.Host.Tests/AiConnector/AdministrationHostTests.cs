@@ -141,8 +141,8 @@ public class AdministrationHostTests
         await _h.ReadyAsync(Tenant);
         using (var anonymous = await _h.RestAsync(null, new HttpMethod(method), path))
         {
-            anonymous.IsSuccessStatusCode.ShouldBeFalse(path);
-            ((int)anonymous.StatusCode).ShouldBeInRange(300, 403);
+            anonymous.StatusCode.ShouldBe(HttpStatusCode.Found, path);
+            anonymous.Headers.Location!.OriginalString.ShouldContain("/Account/Login", Case.Insensitive, path);
         }
 
         var nobody = await _h.CreateUserAsync(Tenant);
@@ -171,7 +171,6 @@ public class AdministrationHostTests
             await _h.WithFeatureOffAsync(tenant, feature, async () =>
             {
                 using var response = await _h.RestAsync(token, new HttpMethod(method), path);
-                response.IsSuccessStatusCode.ShouldBeFalse(feature + " " + path);
                 response.StatusCode.ShouldBe(HttpStatusCode.Forbidden, feature + " " + path + ": " + await response.Content.ReadAsStringAsync());
             });
         }

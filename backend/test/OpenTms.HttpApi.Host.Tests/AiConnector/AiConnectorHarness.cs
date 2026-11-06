@@ -592,6 +592,72 @@ public class AiConnectorHarness
         return await client.SendAsync(request);
     }
 
+    /* ---------- Faults and a tenant that can be dropped ---------- */
+
+    /// <summary>
+    /// Makes PostgreSQL refuse the update of these rows until disposed: the real code path meets a real failure, with nothing replaced in the host.
+    /// <paramref name="atCommit"/> refuses only at COMMIT, after every statement of the request has succeeded.
+    /// </summary>
+    public async Task<IAsyncDisposable> FailUpdatesAsync(Guid? tenant, string table, string column, Guid value, bool atCommit = false)
+    {
+        var name = "test_fail_" + Guid.NewGuid().ToString("N")[..12];
+        var when = $"WHEN (OLD.\"{column}\" = '{value}')";
+        var trigger = atCommit
+            ? $"CREATE CONSTRAINT TRIGGER {name} AFTER UPDATE ON {table} DEFERRABLE INITIALLY DEFERRED FOR EACH ROW {when} EXECUTE FUNCTION public.{name}();"
+            : $"CREATE TRIGGER {name} BEFORE UPDATE ON {table} FOR EACH ROW {when} EXECUTE FUNCTION public.{name}();";
+        await ExecuteAsync(tenant, $"CREATE FUNCTION public.{name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION '{InjectedFailure}'; END $$; {trigger}");
+        return new Fault(() => ExecuteAsync(tenant, $"DROP FUNCTION public.{name}() CASCADE"));
+    }
+
+    /// <summary>What a fault says: it must never reach a caller.</summary>
+    public const string InjectedFailure = "injected test failure";
+
+    private sealed class Fault(Func<Task> remove) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync() => await remove();
+    }
+
+    /// <summary>
+    /// A tenant with a database of its own, as the Tenants app leaves it: a copy of a migrated tenant database, whose rows belong to that other tenant and so are never this tenant's.
+    /// The copy needs the source idle; this collection runs alone and with no workers, so closing the idle pooled connections is enough.
+    /// </summary>
+    public async Task<(Guid Tenant, string Database)> NewTenantWithOwnDatabaseAsync()
+    {
+        var database = HostIntegrationFixture.HostDatabase + "_Drop" + Guid.NewGuid().ToString("N")[..8];
+        NpgsqlConnection.ClearAllPools();
+        await ExecuteOnServerAsync($"CREATE DATABASE \"{database}\" TEMPLATE \"{HostIntegrationFixture.TenantCDatabase}\"");
+        var tenant = await InScopeAsync(null, async services =>
+        {
+            var created = await services.GetRequiredService<ITenantManager>().CreateAsync("host-test-" + Guid.NewGuid().ToString("N")[..10]);
+            created.SetDefaultConnectionString(HostIntegrationFixture.ConnectionStringFor(database));
+            await services.GetRequiredService<ITenantRepository>().InsertAsync(created, autoSave: true);
+            return created.Id;
+        });
+        await ReadyAsync(tenant);
+        return (tenant, database);
+    }
+
+    /// <summary>What the Tenants app's delete and its <c>TenantDatabaseDropJob</c> leave: the tenant soft-deleted and its database gone, with connections to it cut.</summary>
+    public async Task DeleteTenantAndDropDatabaseAsync(Guid tenant, string database)
+    {
+        await InScopeAsync(null, async services =>
+        {
+            var tenants = services.GetRequiredService<ITenantRepository>();
+            await tenants.DeleteAsync(await tenants.GetAsync(tenant), autoSave: true);
+        });
+        await DropDatabaseAsync(database);
+    }
+
+    public Task DropDatabaseAsync(string database) => ExecuteOnServerAsync($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)");
+
+    private static async Task ExecuteOnServerAsync(string sql)
+    {
+        await using var connection = new NpgsqlConnection(HostIntegrationFixture.ConnectionStringFor("postgres"));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        await command.ExecuteNonQueryAsync();
+    }
+
     /* ---------- Direct reads ---------- */
 
     public async Task<long> CountAsync(Guid? tenant, string sql, params (string Name, object Value)[] parameters)

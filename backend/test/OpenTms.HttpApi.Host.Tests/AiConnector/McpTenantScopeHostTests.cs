@@ -155,24 +155,29 @@ public class McpTenantScopeHostTests
             answer.Text.ShouldBe("Not found.", tool);
         }
 
-        /* A list or a sum over another tenant's id holds nothing. */
-        var legs = await _h.CallToolAsync(token.AccessToken!, ToolNames.GetLegs, new Dictionary<string, object?> { ["orderId"] = other.OrderId });
-        if (!legs.IsError)
+        /* A list or a sum over another tenant's id holds nothing: an empty answer, never a failure of the tool. */
+        foreach (var args in new[] { new Dictionary<string, object?> { ["orderId"] = other.OrderId }, new Dictionary<string, object?> { ["tripId"] = other.TripId } })
         {
-            legs.Json.GetProperty("rows").GetArrayLength().ShouldBe(0);
+            var legs = await _h.CallToolAsync(token.AccessToken!, ToolNames.GetLegs, args);
+            legs.IsError.ShouldBeFalse(legs.Text);
+            legs.Json.GetProperty("rows").GetArrayLength().ShouldBe(0, legs.Text);
+            legs.Json.GetProperty("total").GetInt64().ShouldBe(0, legs.Text);
         }
 
-        var legsOfTrip = await _h.CallToolAsync(token.AccessToken!, ToolNames.GetLegs, new Dictionary<string, object?> { ["tripId"] = other.TripId });
-        if (!legsOfTrip.IsError)
+        foreach (var side in new object?[] { null, "Revenue", "Cost" })
         {
-            legsOfTrip.Json.GetProperty("rows").GetArrayLength().ShouldBe(0);
-        }
+            var args = new Dictionary<string, object?> { ["orderId"] = other.OrderId };
+            if (side != null)
+            {
+                args["side"] = side;
+            }
 
-        var rates = await _h.CallToolAsync(token.AccessToken!, ToolNames.GetOrderRates, new Dictionary<string, object?> { ["orderId"] = other.OrderId });
-        rates.Text.ShouldNotContain(other.RateDescription);
-        if (!rates.IsError)
-        {
-            rates.Json.GetProperty("lines").GetArrayLength().ShouldBe(0, "no line of the other tenant");
+            var rates = await _h.CallToolAsync(token.AccessToken!, ToolNames.GetOrderRates, args);
+            rates.IsError.ShouldBeFalse(rates.Text);
+            rates.Text.ShouldNotContain(other.RateDescription);
+            rates.Json.GetProperty("lines").GetArrayLength().ShouldBe(0, "no line of the other tenant: " + rates.Text);
+            rates.Json.GetProperty("totals").GetProperty("total").GetDecimal().ShouldBe(0m, rates.Text);
+            rates.Json.TryGetProperty("currencyCode", out _).ShouldBeFalse("no currency of the other tenant: " + rates.Text);
         }
 
         var revenue = await _h.ToolJsonAsync(token.AccessToken!, ToolNames.GetCustomerRevenue, new Dictionary<string, object?> { ["customerRelationId"] = other.CustomerId, ["dateFrom"] = "2026-01-01", ["dateTo"] = "2026-12-31" });
