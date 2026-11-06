@@ -13,6 +13,7 @@ using OpenTms.MasterData.Permissions;
 using OpenTms.Orders.Permissions;
 using OpenTms.PlanningExecution.Permissions;
 using OpenTms.Platform.Features;
+using OpenTms.Reporting.Features;
 
 namespace OpenTms.Integrations.AiConnector;
 
@@ -62,7 +63,7 @@ public sealed class AiConnectorToolDefinition
     public JsonElement InputSchema => _inputSchema.Value;
 }
 
-/// <summary>The nine tools of design 74 "Tool contract", all read-only.</summary>
+/// <summary>The nine tools of design 74 "Tool contract" and the two of design 75, all read-only.</summary>
 public static class AiConnectorToolCatalog
 {
     public const string SearchOrders = "search_orders";
@@ -74,6 +75,8 @@ public static class AiConnectorToolCatalog
     public const string SearchVehicles = "search_vehicles";
     public const string GetOrderRates = "get_order_rates";
     public const string GetCustomerRevenue = "get_customer_revenue";
+    public const string ListMetrics = "list_metrics";
+    public const string QueryMetrics = "query_metrics";
 
     /// <summary>The fixed text every revenue answer carries (design 74 "get_customer_revenue").</summary>
     public const string RevenueDefinition =
@@ -87,6 +90,9 @@ public static class AiConnectorToolCatalog
 
     private static readonly string[][] TransportOrPlanboardTrips =
         [[AppFeatures.Transport, AppFeatures.Planboard], [AppFeatures.TransportApp.Trips, AppFeatures.Planboard]];
+
+    /* Design 75: the feature only; which metric this user may ask is IMetricQuery's check, per metric. */
+    private static readonly string[][] Metrics = [[ReportingFeatures.Metrics]];
 
     public static readonly IReadOnlyList<AiConnectorToolDefinition> All =
     [
@@ -137,6 +143,16 @@ public static class AiConnectorToolCatalog
             "The revenue of one customer in a period, per currency, added up by the database. Report the figures with their definition, never as invoiced revenue. " + RevenueDefinition,
             [FinancialPermissions.RateLines.Default, OrdersPermissions.TransportOrders.Default], TransportOrders,
             (tools, input) => tools.GetCustomerRevenueAsync(input)),
+        Define<ListMetricsInput, AiMetricList>(
+            ListMetrics, "List the metrics",
+            "The numbers this user may ask with query_metrics: each metric with its unit, its exact definition, its breakdowns and its filters. factsReady says whether the numbers are prepared yet. Start here for any question about totals, counts or trends.",
+            [], Metrics,
+            (tools, input) => tools.ListMetricsAsync(input)),
+        Define<QueryMetricsInput, AiMetricAnswer>(
+            QueryMetrics, "Query the metrics",
+            "Answers numbers from a fixed list: choose metrics of one kind (order or trip), a period, breakdowns and filters. The database adds up, so never add rows of different currencies yourself. Report a figure with its definition, its period and what coverage left out; with warning mixed_currencies an amount is not a clean total. Any other status than ok is a refusal: tell the user what it says, never guess a number.",
+            [], Metrics,
+            (tools, input) => tools.QueryMetricsAsync(input)),
     ];
 
     public static AiConnectorToolDefinition? Find(string name) => All.FirstOrDefault(tool => tool.Name == name);

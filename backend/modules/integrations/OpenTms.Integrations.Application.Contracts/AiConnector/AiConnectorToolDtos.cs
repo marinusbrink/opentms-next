@@ -463,3 +463,154 @@ public class AiCustomerRevenue
 
     public int ExcludedCancelledCount { get; set; }
 }
+
+// ── metrics (design 75) ────────────────────────────────────────────────────────
+
+public class ListMetricsInput
+{
+}
+
+public class QueryMetricsInput
+{
+    [Description("Required: 1 to 5 metric keys from list_metrics, all order metrics or all trip metrics.")]
+    public List<string>? Metrics { get; set; }
+
+    [Description("Required. First day, inclusive: the order date for order metrics, the trip date for trip metrics.")]
+    public DateOnly? DateFrom { get; set; }
+
+    [Description("Required. Last day, inclusive, at most five years after dateFrom.")]
+    public DateOnly? DateTo { get; set; }
+
+    [Description("0 to 2 breakdowns list_metrics names for these metrics.")]
+    public List<string>? GroupBy { get; set; }
+
+    [Description("Filters list_metrics names for these metrics.")]
+    public QueryMetricsFilters? Filters { get; set; }
+
+    [Description("A chosen metric, largest first, or a period among groupBy (day, week, month), oldest first. Default: the first metric, largest first.")]
+    public string? Sort { get; set; }
+
+    [Description("Groups to return. Default 25, at most 100; a larger value is capped.")]
+    public int? Top { get; set; }
+}
+
+public class QueryMetricsFilters
+{
+    [Description("Statuses to count, replacing the default: orders Open, ReadyForInvoicing, Invoiced and Archived; trips every status except Cancelled.")]
+    public List<string>? Status { get; set; }
+
+    [Description("Order metrics. Find the id with search_relations.")]
+    public Guid? CustomerRelationId { get; set; }
+
+    [Description("Order metrics.")]
+    public Guid? TransportOrderTypeId { get; set; }
+
+    public Guid? OrganizationUnitId { get; set; }
+
+    [Description("Trip metrics. Find the id with search_relations.")]
+    public Guid? CarrierRelationId { get; set; }
+
+    [Description("Trip metrics. Find the id with search_vehicles.")]
+    public Guid? VehicleId { get; set; }
+
+    [Description("Trip metrics.")]
+    public Guid? TransportTripTypeId { get; set; }
+
+    [Description("Trip metrics: OwnFleet or Subcontracted.")]
+    public string? Execution { get; set; }
+}
+
+public class AiMetricList : IAiToolRowCount
+{
+    public List<AiMetricListItem> Metrics { get; set; } = new();
+
+    public bool FactsReady { get; set; }
+
+    [JsonIgnore]
+    public int RowCount => Metrics.Count;
+}
+
+public class AiMetricListItem
+{
+    public string Key { get; set; } = string.Empty;
+
+    public string Unit { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public string Definition { get; set; } = string.Empty;
+
+    public List<string> Breakdowns { get; set; } = new();
+
+    public List<string> Filters { get; set; } = new();
+}
+
+public class AiMetricAnswer : IAiToolRowCount
+{
+    public string Status { get; set; } = string.Empty;
+
+    public string? Message { get; set; }
+
+    public string? Hint { get; set; }
+
+    public AiMetricPeriod? Period { get; set; }
+
+    public List<AiMetricDefinitionText>? Definitions { get; set; }
+
+    public List<AiMetricRow>? Rows { get; set; }
+
+    public long? TotalGroups { get; set; }
+
+    public bool? Truncated { get; set; }
+
+    public AiMetricCoverage? Coverage { get; set; }
+
+    public DateTime? LastFactUpdateAt { get; set; }
+
+    public List<string>? Warnings { get; set; }
+
+    [JsonIgnore]
+    public int RowCount => Rows?.Count ?? 0;
+}
+
+public class AiMetricPeriod
+{
+    public DateOnly DateFrom { get; set; }
+
+    public DateOnly DateTo { get; set; }
+}
+
+public class AiMetricDefinitionText
+{
+    public string Metric { get; set; } = string.Empty;
+
+    public string Text { get; set; } = string.Empty;
+}
+
+public class AiMetricRow
+{
+    public List<AiMetricGroup> Groups { get; set; } = new();
+
+    public string? CurrencyCode { get; set; }
+
+    /// <summary>Per chosen metric; a null stays in the answer, because no value is not zero.</summary>
+    public Dictionary<string, decimal?> Values { get; set; } = new();
+}
+
+public class AiMetricGroup
+{
+    public string Breakdown { get; set; } = string.Empty;
+
+    public Guid? Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+}
+
+public class AiMetricCoverage
+{
+    public long RecordsIncluded { get; set; }
+
+    public long RecordsWithoutValue { get; set; }
+
+    public long ExcludedByStatus { get; set; }
+}

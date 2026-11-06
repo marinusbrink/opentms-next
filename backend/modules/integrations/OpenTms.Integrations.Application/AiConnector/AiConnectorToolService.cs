@@ -13,6 +13,7 @@ using OpenTms.PlanningExecution.Legs;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Grid;
+using OpenTms.Reporting.Published;
 using Volo.Abp;
 using Volo.Abp.Authorization;
 using Volo.Abp.Features;
@@ -40,6 +41,7 @@ public class AiConnectorToolService : IntegrationsAppServiceBase, IAiConnectorTo
     private readonly IRateLineAppService _rateLines;
     private readonly ICustomerRevenueReader _revenue;
     private readonly IAiConnectorToolAccess _access;
+    private readonly IMetricQuery _metrics;
 
     public AiConnectorToolService(
         ITransportOrderAppService orders,
@@ -49,7 +51,8 @@ public class AiConnectorToolService : IntegrationsAppServiceBase, IAiConnectorTo
         IVehicleAppService vehicles,
         IRateLineAppService rateLines,
         ICustomerRevenueReader revenue,
-        IAiConnectorToolAccess access)
+        IAiConnectorToolAccess access,
+        IMetricQuery metrics)
     {
         _orders = orders;
         _trips = trips;
@@ -59,6 +62,7 @@ public class AiConnectorToolService : IntegrationsAppServiceBase, IAiConnectorTo
         _rateLines = rateLines;
         _revenue = revenue;
         _access = access;
+        _metrics = metrics;
     }
 
     public virtual async Task<AiToolList<AiOrderRow>> SearchOrdersAsync(SearchOrdersInput input)
@@ -388,6 +392,74 @@ public class AiConnectorToolService : IntegrationsAppServiceBase, IAiConnectorTo
             OrdersWithoutAmount = revenue.OrdersWithoutAmount,
             ExcludedDraftCount = revenue.ExcludedDraftCount,
             ExcludedCancelledCount = revenue.ExcludedCancelledCount,
+        };
+    }
+
+    /// <summary>Design 75: <see cref="IMetricQuery"/> checks each metric's permissions and features for this user itself.</summary>
+    public virtual async Task<AiMetricList> ListMetricsAsync(ListMetricsInput input)
+    {
+        var list = await _metrics.ListAsync();
+        return new AiMetricList
+        {
+            FactsReady = list.FactsReady,
+            Metrics = list.Metrics.Select(m => new AiMetricListItem
+            {
+                Key = m.Key,
+                Unit = m.Unit,
+                Description = m.Description,
+                Definition = m.Definition,
+                Breakdowns = m.Breakdowns,
+                Filters = m.Filters,
+            }).ToList(),
+        };
+    }
+
+    public virtual async Task<AiMetricAnswer> QueryMetricsAsync(QueryMetricsInput input)
+    {
+        var answer = await _metrics.QueryAsync(new MetricQueryRequestDto
+        {
+            Metrics = input.Metrics,
+            DateFrom = input.DateFrom,
+            DateTo = input.DateTo,
+            GroupBy = input.GroupBy,
+            Sort = input.Sort,
+            Top = input.Top,
+            Filters = input.Filters == null ? null : new MetricFiltersDto
+            {
+                Status = input.Filters.Status,
+                CustomerRelationId = input.Filters.CustomerRelationId,
+                TransportOrderTypeId = input.Filters.TransportOrderTypeId,
+                OrganizationUnitId = input.Filters.OrganizationUnitId,
+                CarrierRelationId = input.Filters.CarrierRelationId,
+                VehicleId = input.Filters.VehicleId,
+                TransportTripTypeId = input.Filters.TransportTripTypeId,
+                Execution = input.Filters.Execution,
+            },
+        });
+
+        return new AiMetricAnswer
+        {
+            Status = answer.Status,
+            Message = answer.Message,
+            Hint = answer.Hint,
+            Period = answer.Period == null ? null : new AiMetricPeriod { DateFrom = answer.Period.DateFrom, DateTo = answer.Period.DateTo },
+            Definitions = answer.Definitions?.Select(d => new AiMetricDefinitionText { Metric = d.Metric, Text = d.Text }).ToList(),
+            Rows = answer.Rows?.Select(r => new AiMetricRow
+            {
+                Groups = r.Groups.Select(g => new AiMetricGroup { Breakdown = g.Breakdown, Id = g.Id, Name = g.Name }).ToList(),
+                CurrencyCode = r.CurrencyCode,
+                Values = r.Values,
+            }).ToList(),
+            TotalGroups = answer.TotalGroups,
+            Truncated = answer.Truncated,
+            Coverage = answer.Coverage == null ? null : new AiMetricCoverage
+            {
+                RecordsIncluded = answer.Coverage.RecordsIncluded,
+                RecordsWithoutValue = answer.Coverage.RecordsWithoutValue,
+                ExcludedByStatus = answer.Coverage.ExcludedByStatus,
+            },
+            LastFactUpdateAt = answer.LastFactUpdateAt,
+            Warnings = answer.Warnings,
         };
     }
 
