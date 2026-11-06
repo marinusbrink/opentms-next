@@ -80,6 +80,15 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
     Skipped: { tone: "neutral", labelKey: "Integrations:InboundDocumentStatus.Skipped" },
     Failed: { tone: "danger", labelKey: "Integrations:InboundDocumentStatus.Failed" },
   },
+  /* Design 74 (AI connector), PO decision 6: every connected AI tool shows as live until it is switched off. */
+  AiConnection: {
+    Live: { tone: "success", labelKey: "AiConnector:State.Live" },
+    SwitchedOff: { tone: "neutral", labelKey: "AiConnector:State.SwitchedOff" },
+  },
+  AiConnectorSharing: {
+    Accepted: { tone: "success", labelKey: "AiConnector:Status.Accepted" },
+    NotAccepted: { tone: "warning", labelKey: "AiConnector:Status.NotAccepted" },
+  },
   OrderIntake: {
     NeedsReview: { tone: "warning", labelKey: "Orders:OrderIntakeStatus.NeedsReview" },
     OrderCreated: { tone: "success", labelKey: "Orders:OrderIntakeStatus.OrderCreated" },
