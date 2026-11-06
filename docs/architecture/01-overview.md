@@ -137,7 +137,7 @@ connections it is: who sends what to whom.
 | Ingest service | Records facts reported from outside | **DECIDED**, not built | Ingest role; adapters **PROPOSED** in Integrations |
 | Boundary agents | Email/PDF/photo → command | **BUILT** for transport orders from mailboxes and the intake API (design 72); carrier invoices and POD not built | Integrations (pipeline, as Hangfire jobs until the Agents role exists); Orders (intake) |
 | Decision agents, policies, autonomy ladder, exception inbox | The operating system, the **LOS** app (AD-19) | **DECIDED** as concept, not built; no domain owns its records yet (**OPEN**, AO-02) | — |
-| MCP server | TMS as a source in a user's own AI tool, read-only first | **DECIDED** (AD-22), not built; design 74 | Integrations (tools), Api role (endpoint) |
+| MCP server | TMS as a source in a user's own AI tool, read-only first | **BUILT** (AD-22, design 74) | Integrations (tools), Api role (endpoint) |
 | Metrics for open questions | Fixed metrics, breakdowns and filters on Reporting's own tables, for the MCP server | **BUILT** (AD-23, design 75) | Reporting |
 | In-app chat | Chat inside the TMS, using the same tools | **PROPOSED** | Api role |
 | Metering of agent runs | Token cost per tenant and agent | **PROPOSED** | Platform |
