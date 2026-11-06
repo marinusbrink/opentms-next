@@ -19,7 +19,7 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 /// <summary>
 /// The PlanningPlanboardAvailability migration (design 68 part 2: a trip's stored route and toll totals, resource
 /// unavailability and working patterns) on the databases the real DbMigrator created (applied right after
-/// PlanningPlanboard, the newest Planning migration, nothing pending, the snapshot current, the six trip columns, the two
+/// PlanningPlanboard, nothing pending, the snapshot current, the six trip columns, the two
 /// tables with their check constraints and the three indexes in place on the host and a tenant database) and on a
 /// scratch database with data: a trip the previous release stored reads with no route, the previous release's INSERT
 /// without the columns keeps working (expand only, constitution rule 2), and Down drops exactly the columns and the
@@ -106,14 +106,14 @@ public class PlanningPlanboardAvailabilityMigrationTests : PlanningPostgreSqlTes
     [Theory]
     [InlineData(null)]
     [InlineData("tenant-a")]
-    public async Task The_migration_follows_the_previous_one_is_the_newest_and_nothing_is_pending(string? tenant)
+    public async Task The_migration_follows_the_previous_one_and_nothing_slipped_in_after_it_and_nothing_is_pending(string? tenant)
     {
         await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
         {
             var context = await GetRequiredService<IDbContextProvider<PlanningExecutionDbContext>>().GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(Migration);
+            applied[applied.IndexOf(Migration) + 1].ShouldBe(AiConnectorMigrationConsts.PlanningRepairIndexes, "nothing slipped in after it; the newest one is checked by its own test");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

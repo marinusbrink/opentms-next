@@ -43,7 +43,6 @@ public class PlanningLegsAndTripsMigrationTests : PlanningPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.ShouldContain(Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-            applied.Last().ShouldBe(PlanningPlanboardAvailabilityMigrationTests.Migration, "the newest Planning migration (design 68 part 2, the Planboard availability)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);

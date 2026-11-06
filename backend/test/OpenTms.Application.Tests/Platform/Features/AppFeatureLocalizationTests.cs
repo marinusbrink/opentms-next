@@ -54,16 +54,16 @@ public class AppFeatureLocalizationTests
     }
 
     [Fact]
-    public void The_constants_name_exactly_82_distinct_features()
+    public void The_constants_name_exactly_83_distinct_features()
     {
         /* 35 nodes up to design 48, plus the Platform domain group and its four lists (design 49), ... 67 up to design 64;
          * designs 66/68 add the Planboard's eight panes (the app constant itself already existed); Administration → Services
          * (maintenance-view, "Services") replaces the E-mail node. Design 72 adds seven: Transport → Intake, and the
          * Integrations app's group Order intake with Received, Mailboxes, API clients, Import profiles (PO 2026-11-03:
-         * the setup lists moved there from the Master data app) and Settings (build note 25). */
+         * the setup lists moved there from the Master data app) and Settings (build note 25). Design 74 adds the Integrations app's AI connector node. */
         var all = AllAppFeatures();
-        all.Count.ShouldBe(82);
-        all.Distinct().Count().ShouldBe(82);
+        all.Count.ShouldBe(83);
+        all.Distinct().Count().ShouldBe(83);
         all.Where(n => n.StartsWith(AppFeatures.Planboard + ".", System.StringComparison.Ordinal)).ShouldBe(
             [AppFeatures.PlanboardApp.Trips, AppFeatures.PlanboardApp.Scheduler, AppFeatures.PlanboardApp.Orders, AppFeatures.PlanboardApp.Stops,
              AppFeatures.PlanboardApp.Legs, AppFeatures.PlanboardApp.LegsToSchedule, AppFeatures.PlanboardApp.Map, AppFeatures.PlanboardApp.Resources], ignoreOrder: true);
