@@ -975,7 +975,11 @@ namespace OpenTms.Orders.EntityFrameworkCore.Migrations
 
                     b.HasIndex("TransportOrderTypeId");
 
+                    b.HasIndex("TenantId", "CreationTime");
+
                     b.HasIndex("TenantId", "CustomerRelationId");
+
+                    b.HasIndex("TenantId", "LastModificationTime");
 
                     b.HasIndex("TenantId", "Number")
                         .IsUnique()
