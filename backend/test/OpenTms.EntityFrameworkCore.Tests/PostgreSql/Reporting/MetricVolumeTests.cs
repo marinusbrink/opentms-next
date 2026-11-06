@@ -40,6 +40,14 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
         _output = output;
     }
 
+    /// <summary>A timed call must have done the work: a refusal or a timeout answers fast too, and would pass the budget.</summary>
+    private async Task AnsweredAsync(MetricQueryRequestDto request)
+    {
+        var answer = await Metrics.QueryAsync(request);
+        answer.Status.ShouldBe(MetricAnswerStatus.Ok, answer.Message);
+        answer.Rows.ShouldNotBeNull().ShouldNotBeEmpty();
+    }
+
     private async Task P95Async(string name, Func<Task> call)
     {
         await call();
@@ -111,11 +119,11 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
             _output.WriteLine($"The worst case has {answer.TotalGroups} groups, of {answer.Coverage!.RecordsIncluded} records.");
             answer.TotalGroups!.Value.ShouldBeGreaterThan(50_000, "the worst case the design names, not an easy spread");
 
-            await P95Async("a year's orders by customer and month, three metrics", () => Metrics.QueryAsync(worst));
-            await P95Async("a year's orders by customer and month, count only", () => Metrics.QueryAsync(Ask(from, to, [MetricKeys.OrderCount], [MetricBreakdowns.Customer, MetricBreakdowns.Month])));
-            await P95Async("five years of orders by month", () => Metrics.QueryAsync(Ask(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), [MetricKeys.OrderCount], [MetricBreakdowns.Month])));
-            await P95Async("a year of one customer's orders by month", () => Metrics.QueryAsync(Ask(from, to, [MetricKeys.OrderRevenue], [MetricBreakdowns.Month], new MetricFiltersDto { CustomerRelationId = Guid.Parse("00000000-0000-0000-0000-000000000007") })));
-            await P95Async("a year's trips by carrier and month, four metrics", () => Metrics.QueryAsync(Ask(from, to, [MetricKeys.TripCost, MetricKeys.TripRevenue, MetricKeys.PlannedDistanceKm, MetricKeys.OnTimeStopPercentage], [MetricBreakdowns.Carrier, MetricBreakdowns.Month])));
+            await P95Async("a year's orders by customer and month, three metrics", () => AnsweredAsync(worst));
+            await P95Async("a year's orders by customer and month, count only", () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderCount], [MetricBreakdowns.Customer, MetricBreakdowns.Month])));
+            await P95Async("five years of orders by month", () => AnsweredAsync(Ask(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), [MetricKeys.OrderCount], [MetricBreakdowns.Month])));
+            await P95Async("a year of one customer's orders by month", () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderRevenue], [MetricBreakdowns.Month], new MetricFiltersDto { CustomerRelationId = Guid.Parse("00000000-0000-0000-0000-000000000007") })));
+            await P95Async("a year's trips by carrier and month, four metrics", () => AnsweredAsync(Ask(from, to, [MetricKeys.TripCost, MetricKeys.TripRevenue, MetricKeys.PlannedDistanceKm, MetricKeys.OnTimeStopPercentage], [MetricBreakdowns.Carrier, MetricBreakdowns.Month])));
         });
     }
 
@@ -148,8 +156,8 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
             var to = new DateOnly(2025, 12, 31);
             var revenue = await reader.GetAsync(customer, from, to);
             revenue.Totals.Sum(t => t.OrderCount).ShouldBeGreaterThan(40_000);
-            await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", () => reader.GetAsync(customer, from, to));
-            await P95Async("get_customer_revenue, one year", () => reader.GetAsync(customer, new DateOnly(2025, 1, 1), to));
+            await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", async () => (await reader.GetAsync(customer, from, to)).Totals.ShouldNotBeEmpty());
+            await P95Async("get_customer_revenue, one year", async () => (await reader.GetAsync(customer, new DateOnly(2025, 1, 1), to)).Totals.ShouldNotBeEmpty());
         });
     }
 
