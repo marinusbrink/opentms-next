@@ -24,4 +24,11 @@
     <ProjectReference Include="..\..\src\OpenTms.HttpApi.Host\OpenTms.HttpApi.Host.csproj" />
   </ItemGroup>
 
+  <!-- The one world builder of the transport tests and the EF command capture, compiled in here as well: the AI connector tests
+       build their tenants' data through the real services of the real host (AiConnector/). -->
+  <ItemGroup>
+    <Compile Include="..\OpenTms.EntityFrameworkCore.Tests\TransportRun\TransportRunFixture.cs" Link="AiConnector\Linked\TransportRunFixture.cs" />
+    <Compile Include="..\OpenTms.EntityFrameworkCore.Tests\EntityFrameworkCore\EfCommandCapture.cs" Link="AiConnector\Linked\EfCommandCapture.cs" />
+  </ItemGroup>
+
 </Project>

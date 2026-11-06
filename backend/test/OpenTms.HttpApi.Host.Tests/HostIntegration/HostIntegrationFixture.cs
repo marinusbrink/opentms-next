@@ -32,8 +32,8 @@ namespace OpenTms.HostIntegration;
 /// <summary>
 /// The real API host (<see cref="OpenTmsHttpApiHostModule"/>, the same module, middleware pipeline, OpenIddict server and
 /// validation as <c>Program.Main</c>) on an in-memory <see cref="TestServer"/>, against PostgreSQL databases of its own:
-/// a host database, tenant A with its own database (database-per-tenant default) and tenant B in the host database
-/// (shared tier). The databases are dropped, created and migrated by the production migration service
+/// a host database, tenants A and C with their own databases (database-per-tenant default) and tenants B and D in the host
+/// database (shared tier), so a pair of each tier exists for the isolation tests. The databases are dropped, created and migrated by the production migration service
 /// (<see cref="OpenTmsDbMigrationService"/>, as <c>OpenTms.DbMigrator</c> runs it) once per test run, so every run starts
 /// clean and the schema under test is the one that ships.
 ///
@@ -55,13 +55,35 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
 
     public static readonly string TenantADatabase = Prefix + Suffix + "_TenantA";
 
+    public static readonly string TenantCDatabase = Prefix + Suffix + "_TenantC";
+
     public const string TenantAName = "host-test-a";
 
     public const string TenantBName = "host-test-b";
 
+    public const string TenantCName = "host-test-c";
+
+    public const string TenantDName = "host-test-d";
+
+    /// <summary>The secret of the confidential AI tool (design 74, Gemini): the DbMigrator seeds it only with a secret.</summary>
+    public const string GeminiClientSecret = "host-test-gemini-secret-0123456789-0123456789";
+
+    public const string GeminiRedirectUri = "https://vertexaisearch.cloud.google.com/oauth-redirect";
+
+    public const string ClaudeRedirectUri = "https://claude.ai/api/mcp/auth_callback";
+
+    public const string ClaudeComRedirectUri = "https://claude.com/api/mcp/auth_callback";
+
     public Guid TenantAId { get; private set; }
 
     public Guid TenantBId { get; private set; }
+
+    public Guid TenantCId { get; private set; }
+
+    public Guid TenantDId { get; private set; }
+
+    /// <summary>What the host logged from Information up: the log-content tests read it. The console stays at Warning.</summary>
+    public HostLogCapture Logs { get; } = new();
 
     public WebApplication App { get; private set; } = null!;
 
@@ -84,7 +106,7 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
         await DropDatabasesAsync();
         var configuration = BuildConfiguration();
         await MigrateAsync(configuration);
-        App = await StartHostAsync(configuration);
+        App = await StartHostAsync(configuration, Logs);
     }
 
     public async Task DisposeAsync()
@@ -146,6 +168,16 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
         ["OpenIddict:Applications:OpenTms_App:RootUrl"] = "http://localhost:5173",
         ["OpenIddict:Applications:OpenTms_Swagger:ClientId"] = "OpenTms_Swagger",
         ["OpenIddict:Applications:OpenTms_Swagger:RootUrl"] = "http://localhost:44301/",
+        /* As the DbMigrator's appsettings (design 74 "Approved tools"), with a secret for the confidential tool. */
+        ["OpenIddict:Applications:OpenTms_Mcp_Claude:ClientId"] = "OpenTms_Mcp_Claude",
+        ["OpenIddict:Applications:OpenTms_Mcp_Claude:DisplayName"] = "Claude",
+        ["OpenIddict:Applications:OpenTms_Mcp_Claude:RedirectUris:0"] = ClaudeRedirectUri,
+        ["OpenIddict:Applications:OpenTms_Mcp_Claude:RedirectUris:1"] = ClaudeComRedirectUri,
+        ["OpenIddict:Applications:OpenTms_Mcp_Gemini:ClientId"] = "OpenTms_Mcp_Gemini",
+        ["OpenIddict:Applications:OpenTms_Mcp_Gemini:DisplayName"] = "Gemini",
+        ["OpenIddict:Applications:OpenTms_Mcp_Gemini:ClientType"] = "confidential",
+        ["OpenIddict:Applications:OpenTms_Mcp_Gemini:ClientSecret"] = GeminiClientSecret,
+        ["OpenIddict:Applications:OpenTms_Mcp_Gemini:RedirectUris:0"] = GeminiRedirectUri,
         ["Serilog:MinimumLevel:Default"] = "Warning"
     };
 
@@ -153,7 +185,7 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
     {
         await using var connection = new NpgsqlConnection(ConnectionStringFor("postgres"));
         await connection.OpenAsync();
-        foreach (var database in new[] { HostDatabase, TenantADatabase })
+        foreach (var database in new[] { HostDatabase, TenantADatabase, TenantCDatabase })
         {
             await using var command = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", connection);
             await command.ExecuteNonQueryAsync();
@@ -187,9 +219,16 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
             await tenants.InsertAsync(tenantA);
             var tenantB = await tenantManager.CreateAsync(TenantBName);
             await tenants.InsertAsync(tenantB);
+            var tenantC = await tenantManager.CreateAsync(TenantCName);
+            tenantC.SetDefaultConnectionString(ConnectionStringFor(TenantCDatabase));
+            await tenants.InsertAsync(tenantC);
+            var tenantD = await tenantManager.CreateAsync(TenantDName);
+            await tenants.InsertAsync(tenantD);
             await unitOfWork.CompleteAsync();
             TenantAId = tenantA.Id;
             TenantBId = tenantB.Id;
+            TenantCId = tenantC.Id;
+            TenantDId = tenantD.Id;
         }
 
         ThrowIfFailed(await migrator.MigrateAsync());
@@ -206,7 +245,7 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
     }
 
     /// <summary>Program.Main's sequence (AddApplicationAsync, Build, InitializeApplicationAsync, start) on a TestServer.</summary>
-    private static async Task<WebApplication> StartHostAsync(IConfiguration configuration)
+    private static async Task<WebApplication> StartHostAsync(IConfiguration configuration, HostLogCapture logs)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -217,7 +256,9 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
         builder.Configuration.AddInMemoryCollection(Overrides());
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
-        builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Warning);
+        builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Information);
+        builder.Logging.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(null, LogLevel.Warning);
+        builder.Logging.AddProvider(logs);
         builder.Host.UseAutofac();
         await builder.AddApplicationAsync<OpenTmsHttpApiHostModule>();
 
@@ -229,6 +270,36 @@ public sealed class HostIntegrationFixture : IAsyncLifetime
         await app.InitializeApplicationAsync();
         await app.StartAsync();
         return app;
+    }
+}
+
+/// <summary>Keeps every rendered log line and its structured values, for the tests of what a log line may hold (constitution rule 5).</summary>
+public sealed class HostLogCapture : ILoggerProvider
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _lines = new();
+
+    public IReadOnlyCollection<string> Lines => _lines;
+
+    public ILogger CreateLogger(string categoryName) => new CapturingLogger(categoryName, _lines);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class CapturingLogger(string category, System.Collections.Concurrent.ConcurrentQueue<string> lines) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel) && (category.StartsWith("OpenTms", StringComparison.Ordinal) || category.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) == false))
+            {
+                lines.Enqueue(category + ": " + formatter(state, exception));
+            }
+        }
     }
 }
 
