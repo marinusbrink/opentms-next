@@ -308,7 +308,7 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, trailing, 
           } else {
             label = t(command.labelKey);
           }
-          return (
+          const button = (
             <button
               key={command.id}
               type="button"
@@ -323,6 +323,14 @@ function AppCommandBarNewStyle({ commands, selectionCount, className, trailing, 
               {Icon && <Icon size={16} />}
               {label}
             </button>
+          );
+          // UI-PERM-005: a command disabled for a reason says why, as primary and secondary commands do.
+          if (!command.disabled || !command.disabledReasonKey) return button;
+          return (
+            <Tooltip key={command.id}>
+              <TooltipTrigger render={button} />
+              <TooltipContent side="bottom">{t(command.disabledReasonKey)}</TooltipContent>
+            </Tooltip>
           );
         })}
 
