@@ -5,6 +5,7 @@ import { APPS } from "@/app/apps.config";
 import { useAppFeatures } from "@/app/app-features";
 import { DocumentTraceRedirect } from "@/apps/integrations/pages/DocumentTraceRedirect";
 import { TracePage } from "@/apps/integrations/pages/TracePage";
+import { AiConnectorView } from "@/apps/integrations/views/AiConnectorView";
 import { ApiClientsView } from "@/apps/integrations/views/ApiClientsView";
 import { ImportProfilesView } from "@/apps/integrations/views/ImportProfilesView";
 import { IntakeSettingsView } from "@/apps/integrations/views/IntakeSettingsView";
@@ -18,7 +19,8 @@ import { DOCUMENT_TRACE_PREFIX, parseRecordPath } from "@/lib/use-open-record";
  * profiles; in this app since PO decision 2026-11-03; the mailbox OAuth return lands on Mailboxes), the order intake's
  * Settings; a record
  * path (/integrations/received/{messageId}) renders the message's trace page; a document path
- * (/integrations/received/document/{documentId}) resolves the document's message and moves on to its trace page. */
+ * (/integrations/received/document/{documentId}) resolves the document's message and moves on to its trace page. The AI
+ * connector (design 74) is a sibling of the group: /integrations/ai-connector. */
 
 const integrationsApp = APPS.find((app) => app.id === "integrations")!;
 
@@ -44,6 +46,7 @@ export function IntegrationsApp() {
   if (pathname.startsWith("/integrations/api-clients")) return <ApiClientsView />;
   if (pathname.startsWith("/integrations/import-profiles")) return <ImportProfilesView />;
   if (pathname.startsWith("/integrations/intake-settings")) return <IntakeSettingsView />;
+  if (pathname.startsWith("/integrations/ai-connector")) return <AiConnectorView />;
   if (redirect) return null;
   return <ReceivedView />;
 }
