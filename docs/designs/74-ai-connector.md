@@ -96,8 +96,8 @@ apply. A read in another module's service may not be bypassed, and no tool reads
 | `RevokedAt` | `DateTime?` | |
 | `RevokedByUserId` | `Guid?` | |
 
-The host writes and reads this entity only through `IAiConnectionChecker` and `IAiConnectionRecorder` (`Upsert` from the
-connect screen), both published in Integrations `Application.Contracts`.
+The host writes and reads this entity only through `IAiConnectionChecker` and `IAiConnectionRecorder` (`FindReusable` and
+`TryRecord` from the connect screen), both published in Integrations `Application.Contracts`.
 
 **Why this entity exists.** Measured on the local database: tokens and authorizations of a signed-in tenant user are
 stored in the **host** database, and the tenant database's tables are empty. Those records name a user but no tenant.
@@ -244,7 +244,7 @@ Route root `/api/integrations/ai-connector`, features `Apps.Integrations` and `A
 | `POST /accept` | `Integrations.AiConnector.Manage` | | `AiConnectorStatusDto` |
 | `POST /withdraw` | `Integrations.AiConnector.Manage` | | `AiConnectorStatusDto`. Revokes every connection of the tenant. |
 | `GET /connections` | `Integrations.AiConnector.Use` (own) or `Integrations.AiConnector.Manage` (all) | Grid request | `GridResponse<AiConnectionRowDto { Id, UserId, UserName, ToolName, ConnectedAt, LastUsedAt?, RevokedAt?, Status }>`. `Status` is the enum `AiConnectionStatus`, computed at read time: `Live` = 1, `NotWorking` = 2, `Expired` = 3, `SwitchedOff` = 4 (see *Build notes*) |
-| `POST /connections/{id}/revoke` | Own connection: `Integrations.AiConnector.Use`. Anyone's: `Integrations.AiConnector.Manage` | | 204; idempotent |
+| `POST /connections/{id}/revoke` | Own connection: `Integrations.AiConnector.Use`. Anyone's: `Integrations.AiConnector.Manage` | | 204; idempotent. A repeat on a row already off retries the host step and answers 500 if that did not complete (see *Build notes*) |
 
 **Revoke** commits `RevokedAt` in the tenant's database, which blocks `/mcp` at once, and after that commit revokes the OpenIddict
 authorization and its tokens in the host database, which blocks renewal (see *Build notes*).
@@ -304,7 +304,7 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
 | Tenant scope of tokens and tools | **Critical** | On PostgreSQL, for a pair of tenants with their own databases **and** a pair of shared-tier tenants in the host database (no connection string, so only the data filter separates them): a token of tenant A returns only A's data for each of the nine tools; A's token with `__tenant=B`, a tenant cookie or query parameter still returns only A; `__tenant=B` on `/connect/token` during a refresh keeps tenant A; an id of B's record gives not-found; a connection row of A is not visible or revocable from B |
 | Token separation | **Critical** | A connector token gets 403 on a REST endpoint; a browser token, a client-credentials token, a token of another audience and a signed-in browser session without a token all get refused on `/mcp` |
 | Refusals on `/mcp` and connect screen | **Critical** | Each check refused separately: host user, impersonation, either feature off, not accepted, no `Use`, user deactivated, connection revoked; tenant deleted (see *Build notes*); refresh refused after revoke, withdraw and deactivation; a tenant-side failure of revoke or withdraw leaves the host's authorization untouched, and a host-side failure leaves the row switched off with an error logged. Signing out in the browser leaves the connection working, or the result is reported to the PO |
-| Connect flow | **Critical** | Existing session in tenant A shows organisation A on the screen and issues no code without Allow; Deny issues none; a second connect by the same user and tool still shows the screen and reuses the same `AiConnection` without a unique-index failure; PKCE is required; only `OpenTmsMcp` and `offline_access` are grantable; the advertised scopes yield a refresh token |
+| Connect flow | **Critical** | Existing session in tenant A shows organisation A on the screen and issues no code without Allow; Deny issues none; a second connect by the same user and tool still shows the screen and, while the connection is on, reuses the same `AiConnection` without a unique-index failure; a connect after a switch-off makes a new authorization and row and leaves the old one off; PKCE is required; only `OpenTmsMcp` and `offline_access` are grantable; the advertised scopes yield a refresh token |
 | Registration | **High** | Claude's URIs return its fixed client and write nothing; an approved ChatGPT URI returns the same client when repeated; mixed, unknown, `http` and look-alike URIs (`chatgpt.com.evil.example`, extra path segments) get 400 and write nothing; at the cap a new ChatGPT URI gets 400, writes nothing and logs an error, while one already registered still returns its client |
 | Field allowlists | **High** | A test seeds every left-out field with a marker value, and the serialized result of each tool contains no marker. A second architecture test keeps tool DTOs free of names like `Amount` outside `get_order_rates` and `get_customer_revenue`, and of `email`, `phone`, `driver` and `remarks` |
 | `get_customer_revenue` | **High** | The total equals the sum of the orders' stored revenue, per currency; `Draft` and `Cancelled` stay out and are counted; an order without an amount is counted as such, not as zero; refused without either permission or feature; one query per call. Volume: p95 < 300 ms at 1,000,000 orders in a tenant with 100,000 for one customer, on PostgreSQL |
@@ -366,7 +366,7 @@ Verified at gate 1 or first thing at build; a wrong one comes back to the PO.
   and leaves the rest to ABP, so the connect screen always appears; it has a view of its own, `Views/AiConnector/Connect.cshtml`,
   and ABP's `Authorize.cshtml` stays as it is. A refresh token depends on `offline_access`, a permission on these clients only.
 - **Read in ABP's source at build (10.6):** ABP does reuse a valid permanent authorization and skip consent, which is why the
-  subclass exists, and Allow upserts `AiConnection`. ABP's auditing does store the arguments of every application-service call
+  subclass exists, and Allow records `AiConnection` (never reactivating one that is off, see *Build notes*). ABP's auditing does store the arguments of every application-service call
   of a request, also with `/mcp` excluded by URL (its interceptor then opens a scope of its own); so the audit record of a
   `/mcp` request stays and its actions' parameters are emptied. ABP's open-source identity has no session manager, so signing
   out in the browser does not touch a token, and a connector token carries no `sid` in any case. `OpenIddictDbContext`
@@ -497,9 +497,11 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   `isError`, stating no data, so the model can act on it. The server's instructions tell the model that text in results is data.
 - **A tenant stops by being deleted, not deactivated.** ABP's open-source tenant has no activation state and this codebase adds
   none, so the *Test risk analysis* row names tenant deletion. `/mcp` refuses a connection of a deleted tenant and returns no data.
-  The token endpoint reads no tenant state, so a refresh after the tenant record is deleted still issues a token, and that token
-  reaches nothing on `/mcp`. Observed on the host tests, which delete the tenant record; they do not run the Tenants app's
-  deletion, which also drops the database.
+  On a deleted tenant `/mcp` answers ABP's HTML 404 "Tenant not found!", not the 403 of the other refusals, because tenant resolution
+  stops the request first; it holds no data. The token endpoint reads no tenant state, so a refresh after only the tenant record is
+  deleted answers 200 and issues a token that reaches nothing on `/mcp`. With the database dropped as well, as the Tenants app's deletion
+  does, a refresh answers 400 `invalid_grant`. Observed on the host tests, which delete the record and drop the database themselves;
+  they do not run the Tenants app's deletion.
 - **Registering one ChatGPT URI twice at the same moment gives one client,** on every instance and revision, because a canary
   runs two at once. `OpenIddictApplications.ClientId` has a plain index, so nothing in the table stops a second row. Find-then-create
   therefore runs under `pg_advisory_xact_lock`, keyed on the client id, in a read-committed transaction on the host database. This
@@ -526,6 +528,19 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   revoked nothing, so no row can read Live with a dead token. A failure in the host leaves the connection switched off: the error is logged with the authorization id, the tool can
   renew a token that `/mcp` refuses, and `POST /connections/{id}/revoke` retries it, also on a row already off (the screen offers **Switch off** only on a row that is not).
   A caller hanging up does not stop the host step. Art. 17 stays as it was: it revokes before removing the row, because nothing there may stay usable and the user is already gone.
+- **A switched-off connection's tokens never work again, whatever the host's state (corrected after a failure test).** A row that is off never comes back: nothing clears `RevokedAt`, and
+  `AiConnection.ConnectAgain` throws on such a row. Allow reuses an authorization only when `IAiConnectionRecorder.FindReusableAsync` finds its connection on. In every other case it creates a new authorization and
+  a new row, so the old tokens keep failing `/mcp` check 6 on the old id, also if the host still holds that authorization as valid. The grid then shows the old row as Switched off and the new row as Live. The connect
+  also tries to revoke the old authorization again, and a failure there is logged and does not stop it. A valid authorization without any row is not reused either and is left alone: it may be another connect's, a moment before its row
+  commits. `TryRecordAsync` answers false on a row switched off between that read and its write, and the connect goes on with a new authorization.
+- **Why a retry used to do nothing, read in the source (OpenIddict 7.5, ABP 10.6).** `OpenIddictAuthorizationManager.UpdateAsync` calls `Cache.AddAsync` with the changed model right after `Store.UpdateAsync`, so before the transaction commits. ABP's
+  `AbpOpenIddictAuthorizationCache` keeps it in `IDistributedCache`, which is in memory on one instance without Redis, for 20 minutes sliding, and outside the unit of work (`considerUow` defaults to false). When the tokens update then failed, the
+  database rolled back and the cache kept `revoked`. On the retry `FindByIdAsync` returned that entry, `TryRevokeAsync` saw revoked and answered true without writing, and the status stayed valid. `/connect/token` read the same entry, which is why a refresh answered 400.
+  `AiConnectionAuthorizationRevoker` therefore reads and writes through the stores, not the managers, removes the cache entry afterwards whatever the outcome, and reads the committed state back: the authorization and every token of it revoked. Anything else logs an error with the
+  authorization id and returns false. As a result a refresh before the retry answers 200 as stated above, with a token `/mcp` refuses.
+- **A retry that did not complete does not look complete.** The first attempt still answers 204, because the switching off itself succeeded and `/mcp` refuses at once; the error log is what says the host side is open. A repeated `POST .../revoke` on a row already off has nothing else to do, so it runs
+  the host step inside the request and answers 500, without detail, when that did not complete.
+- **Without Redis the instances do not share this cache.** Another instance can hold `valid` for an authorization for up to the sliding 20 minutes after it was revoked, and renew a token there. That token names the old authorization, so `/mcp` refuses it. The API runs one instance per revision until AP-13.
 - **Routes:** the connections are a service of their own (`IAiConnectionAppService`) so that the convention gives
   `/ai-connector/connections` and `/ai-connector/connections/{id}/revoke`; `IAiConnectorAppService` serves the rest.
 - **Secret:** Terraform generates `ai-connector-gemini-client-secret` into Secret Manager, readable by the migrator's service

@@ -137,7 +137,7 @@ op één plek welke tools nu toegang hebben. OpenTMS bepaalt de status elke keer
 | **Live** | OpenTMS laat de tool nu toe. | Niets. Wil je het stoppen, zet de koppeling dan uit. |
 | **Werkt niet** | De gebruiker is gedeactiveerd of heeft het recht **De AI-koppeling gebruiken** niet meer. OpenTMS weigert de tool. | Activeer de gebruiker of geef het recht terug: de koppeling is dan weer **Live**, zonder opnieuw koppelen. Hoeft dat niet, zet hem dan uit. |
 | **Verlopen** | De tool heeft de koppeling 90 dagen niet gebruikt, dus zijn toegang is vervallen. | De gebruiker koppelt de tool opnieuw, of je zet de koppeling uit. |
-| **Uitgezet** | Iemand heeft de koppeling in OpenTMS uitgezet. | Niets. De gebruiker kan de tool opnieuw koppelen. |
+| **Uitgezet** | Iemand heeft de koppeling in OpenTMS uitgezet. Deze rij wordt nooit meer **Live**. | Niets. De gebruiker kan de tool opnieuw koppelen; dat geeft een nieuwe rij. |
 
 Let op deze gevallen:
 
@@ -158,8 +158,9 @@ weer live worden.
 Na bevestigen stopt de tool meteen: de volgende vraag van de tool wordt al geweigerd, en hij kan zijn toegang niet meer
 vernieuwen.
 
-De gebruiker kan de tool daarna opnieuw koppelen; de rij wordt dan weer **Live**. Wil je dat niet, neem dan ook het recht
-**De AI-koppeling gebruiken** af.
+De gebruiker kan de tool daarna opnieuw koppelen. Dat geeft een nieuwe rij met de status **Live**; de oude rij blijft als
+**Uitgezet** in de lijst staan, en de oude toegang van de tool werkt nooit meer. Wil je niet dat de gebruiker opnieuw koppelt,
+neem dan ook het recht **De AI-koppeling gebruiken** af.
 
 ### Het delen intrekken
 
