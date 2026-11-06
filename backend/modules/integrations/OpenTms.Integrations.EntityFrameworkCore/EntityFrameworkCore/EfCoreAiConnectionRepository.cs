@@ -27,6 +27,14 @@ public class EfCoreAiConnectionRepository : EfCoreRepository<IntegrationsDbConte
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.LastUsedAt, at), GetCancellationToken(cancellationToken));
     }
 
+    public virtual async Task<bool> TryConnectAgainAsync(Guid id, DateTime at, CancellationToken cancellationToken = default)
+    {
+        var updated = await (await GetDbSetAsync())
+            .Where(c => c.Id == id && c.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ConnectedAt, at), GetCancellationToken(cancellationToken));
+        return updated > 0;
+    }
+
     public virtual async Task<bool> TryInsertAsync(AiConnection connection, CancellationToken cancellationToken = default)
     {
         var dbContext = await GetDbContextAsync();

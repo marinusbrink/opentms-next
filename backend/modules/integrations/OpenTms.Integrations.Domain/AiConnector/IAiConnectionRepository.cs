@@ -15,6 +15,12 @@ public interface IAiConnectionRepository : IRepository<AiConnection, Guid>
     Task RecordUseAsync(Guid id, DateTime at, DateTime staleBefore, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets <see cref="AiConnection.ConnectedAt"/> in one set-based update, only while the connection is not switched off.
+    /// False when it is, including when a switch-off committed while this update waited for the row.
+    /// </summary>
+    Task<bool> TryConnectAgainAsync(Guid id, DateTime at, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Inserts <paramref name="connection"/> unless a row with its authorization id exists (a double click on Allow). False
     /// when it lost that race; the caller's transaction stays usable and it reads the winner.
     /// </summary>

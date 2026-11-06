@@ -114,10 +114,10 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
             return false;
         }
 
-        if (existing != null)
+        /* Conditional in the database: a switch-off committing after the read above is seen here, never overwritten. */
+        if (existing != null && !await _connections.TryConnectAgainAsync(existing.Id, now, cancellationToken))
         {
-            existing.ConnectAgain(now);
-            await _connections.UpdateAsync(existing, cancellationToken: cancellationToken);
+            return false;
         }
 
         await unitOfWork.CompleteAsync(cancellationToken);

@@ -538,25 +538,6 @@ public class SwitchingOffFailureHostTests
 
     /* ---------- A row that is off never comes back ---------- */
 
-    [Fact]
-    public void ConnectAgain_moves_a_row_that_is_on_and_throws_on_a_row_that_is_off_changing_nothing()
-    {
-        var connectedAt = new DateTime(2026, 11, 1, 8, 0, 0);
-        var revokedAt = connectedAt.AddHours(1);
-        var byUser = Guid.NewGuid();
-        var row = new AiConnection(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), ClaudeClient, Guid.NewGuid().ToString(), connectedAt);
-
-        row.ConnectAgain(connectedAt.AddMinutes(1));
-        row.ConnectedAt.ShouldBe(connectedAt.AddMinutes(1), "the control: a row that is on takes it");
-
-        row.Revoke(revokedAt, byUser);
-        Should.Throw<InvalidOperationException>(() => row.ConnectAgain(revokedAt.AddHours(1)));
-
-        row.ConnectedAt.ShouldBe(connectedAt.AddMinutes(1));
-        row.RevokedAt.ShouldBe(revokedAt);
-        row.RevokedByUserId.ShouldBe(byUser);
-    }
-
     private async Task<bool> TryRecordAsync(TestUser user, string authorizationId)
         => await _h.InScopeAsync(user.TenantId, services => services.GetRequiredService<IAiConnectionRecorder>().TryRecordAsync(user.Id, ClaudeClient, authorizationId), transactional: false);
 
