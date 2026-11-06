@@ -44,7 +44,7 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
     {
         var context = await GetRequiredService<IDbContextProvider<TContext>>().GetDbContextAsync();
         (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
-        context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
+        context.Database.HasPendingModelChanges().ShouldBeFalse(typeof(TContext).Name + ": the model snapshot must describe the model that runs");
         return (await context.Database.GetAppliedMigrationsAsync()).ToList();
     }
 
