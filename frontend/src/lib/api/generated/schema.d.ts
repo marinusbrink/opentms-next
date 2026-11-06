@@ -53352,11 +53352,17 @@ export interface components {
             lastUsedAt?: string | null;
             /** Format: date-time */
             revokedAt?: string | null;
+            status?: components["schemas"]["OpenTms.Integrations.AiConnector.AiConnectionStatus"];
             toolName?: string | null;
             /** Format: uuid */
             userId?: string;
             userName?: string | null;
         };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "OpenTms.Integrations.AiConnector.AiConnectionStatus": 1 | 2 | 3 | 4;
         "OpenTms.Integrations.AiConnector.AiConnectorStatusDto": {
             /** Format: date-time */
             acceptedAt?: string | null;

@@ -3157,6 +3157,9 @@
             "nullable": true,
             "type": "string"
           },
+          "status": {
+            "$ref": "#/components/schemas/OpenTms.Integrations.AiConnector.AiConnectionStatus"
+          },
           "toolName": {
             "nullable": true,
             "type": "string"
@@ -3171,6 +3174,16 @@
           }
         },
         "type": "object"
+      },
+      "OpenTms.Integrations.AiConnector.AiConnectionStatus": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "format": "int32",
+        "type": "integer"
       },
       "OpenTms.Integrations.AiConnector.AiConnectorStatusDto": {
         "additionalProperties": false,
