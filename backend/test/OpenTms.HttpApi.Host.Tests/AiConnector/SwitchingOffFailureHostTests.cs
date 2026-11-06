@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using OpenTms.HostIntegration;
 using OpenTms.Integrations.AiConnector;
 using OpenTms.Integrations.Permissions;
@@ -355,7 +356,433 @@ public class SwitchingOffFailureHostTests
         }
     }
 
+    /* ---------- Never retried: the user just connects again ---------- */
+
+    private sealed record Row(Guid Id, string AuthorizationId, DateTime ConnectedAt, DateTime? RevokedAt, Guid? RevokedByUserId);
+
+    private async Task<List<Row>> RowsOfAsync(TestUser user)
+        => await _h.InScopeAsync(user.TenantId, async services =>
+            (await services.GetRequiredService<IRepository<AiConnection, Guid>>().GetListAsync(c => c.UserId == user.Id))
+            .Select(c => new Row(c.Id, c.AuthorizationId, c.ConnectedAt, c.RevokedAt, c.RevokedByUserId)).ToList());
+
+    /// <summary>Design 74 lets a refresh renew while the host still holds the authorization as valid; under a fault on its tokens it may fail instead. What it may never give is a token <c>/mcp</c> serves.</summary>
+    private async Task<string> RefreshShouldGiveNothingMcpServesAsync(string refreshToken)
+    {
+        var renewed = await _h.RefreshAsync(ClaudeClient, refreshToken);
+        if (renewed.AccessToken != null)
+        {
+            await ShouldBeRefusedAsync(renewed, nameof(AiConnectorRefusal.ConnectionRevoked));
+        }
+
+        return renewed.RefreshToken ?? refreshToken;
+    }
+
+    private async Task ShouldBeARefusedRefreshAsync(string refreshToken)
+    {
+        var refused = await _h.RefreshAsync(ClaudeClient, refreshToken);
+        refused.Status.ShouldBe(HttpStatusCode.BadRequest, refused.Body);
+        refused.AccessToken.ShouldBeNull();
+    }
+
+    private async Task ShouldBeAWorkingNewConnectionAsync(Connection old, TokenAnswer again, Row oldRowBefore)
+    {
+        var authorization = AuthorizationIdOf(again.AccessToken!);
+        authorization.ShouldNotBe(old.AuthorizationId.ToString(), "a new authorization");
+
+        var rows = await RowsOfAsync(old.User);
+        rows.Count.ShouldBe(2, "the old row and a new one");
+        var newRow = rows.Single(r => r.AuthorizationId == authorization);
+        newRow.Id.ShouldNotBe(old.RowId, "a new row");
+        newRow.RevokedAt.ShouldBeNull();
+        rows.Single(r => r.Id == old.RowId).ShouldBe(oldRowBefore, "the old row stays exactly as it was switched off");
+
+        await ShouldBeServedAsync(again);
+        var renewed = await _h.RefreshAsync(ClaudeClient, again.RefreshToken!);
+        renewed.Status.ShouldBe(HttpStatusCode.OK, renewed.Body);
+        await ShouldBeServedAsync(renewed);
+        (await RevokedAuthorizationsAsync(Guid.Parse(authorization))).ShouldBe(0, "the new authorization is valid");
+    }
+
+    /// <summary>The critical invariant: a switching off that never completed in the host, and no retry. The connect revokes the old authorization on the way, and nothing of the old connection works.</summary>
+    [Theory]
+    [InlineData("own", TokensTable, "AuthorizationId")]
+    [InlineData("own", AuthorizationsTable, "Id")]
+    [InlineData("shared", TokensTable, "AuthorizationId")]
+    [InlineData("shared", AuthorizationsTable, "Id")]
+    public async Task Connecting_again_after_a_host_side_failure_never_retried_makes_a_new_connection_revokes_the_old_authorization_and_the_old_tokens_stay_refused(string tier, string table, string column)
+    {
+        var tenant = RevokeTenant(tier);
+        var (connection, _, _) = await RevokeWithAHostFailureAsync(tenant, table, column);
+        await ShouldBeUntouchedInTheHostAsync(connection); /* The control: the host still holds the old authorization as valid. */
+        var oldRow = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+        oldRow.RevokedAt.ShouldNotBeNull();
+
+        var mark = _h.Host.Logs.Entries.Count;
+        var again = await _h.ConnectAsync(connection.User);
+
+        await ShouldBeAWorkingNewConnectionAsync(connection, again, oldRow);
+        RevokerErrorsSince(mark).ShouldBeEmpty("revoking the old authorization succeeded");
+        await ShouldBeRevokedInTheHostAsync(connection.AuthorizationId);
+        await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+        await ShouldBeARefusedRefreshAsync(connection.Token.RefreshToken!);
+    }
+
+    /// <summary>The fault still stands while the user connects: revoking the old authorization fails again, is logged, does not stop the connect, and the old tokens stay refused because they name the old row. The next connect repairs the host.</summary>
+    [Theory]
+    [InlineData("own", TokensTable, "AuthorizationId")]
+    [InlineData("own", AuthorizationsTable, "Id")]
+    [InlineData("shared", TokensTable, "AuthorizationId")]
+    [InlineData("shared", AuthorizationsTable, "Id")]
+    public async Task Connecting_again_while_the_old_authorization_cannot_be_revoked_logs_an_error_and_the_old_tokens_stay_refused_anyway(string tier, string table, string column)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+        var manager = await ManagerTokenAsync(tenant);
+        TokenAnswer again;
+        Row oldRow;
+        string oldRefresh;
+
+        await using (await _h.FailUpdatesAsync(null, table, column, connection.AuthorizationId))
+        {
+            using (var response = await RevokeAsync(manager, connection.RowId))
+            {
+                response.StatusCode.ShouldBe(HttpStatusCode.NoContent, await response.Content.ReadAsStringAsync());
+            }
+
+            oldRow = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+            oldRow.RevokedAt.ShouldNotBeNull();
+
+            var mark = _h.Host.Logs.Entries.Count;
+            again = await _h.ConnectAsync(connection.User);
+
+            var error = RevokerErrorsSince(mark).ShouldHaveSingleItem("the connect tried to revoke the old authorization once");
+            error.Message.ShouldContain(connection.AuthorizationId.ToString(), Case.Insensitive);
+            error.Message.ShouldNotContain(connection.User.Email, Case.Insensitive);
+            error.Exception.ShouldNotBeNull();
+
+            await ShouldBeAWorkingNewConnectionAsync(connection, again, oldRow);
+            await ShouldBeUntouchedInTheHostAsync(connection);
+            await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+            oldRefresh = await RefreshShouldGiveNothingMcpServesAsync(connection.Token.RefreshToken!);
+        }
+
+        /* The fault is gone and still nobody retried: the old tokens are as refused as they were. */
+        await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+        oldRefresh = await RefreshShouldGiveNothingMcpServesAsync(oldRefresh);
+
+        /* Connecting once more stays on the new connection and completes the old one in the host. */
+        var third = await _h.ConnectAsync(connection.User);
+        AuthorizationIdOf(third.AccessToken!).ShouldBe(AuthorizationIdOf(again.AccessToken!), "the new connection is on, so it is reused");
+        (await RowsOfAsync(connection.User)).Count.ShouldBe(2);
+        await ShouldBeServedAsync(third);
+        await ShouldBeRevokedInTheHostAsync(connection.AuthorizationId);
+        await ShouldBeARefusedRefreshAsync(oldRefresh);
+    }
+
+    /* ---------- A retry under a standing fault ---------- */
+
+    [Theory]
+    [InlineData("own", TokensTable, "AuthorizationId")]
+    [InlineData("own", AuthorizationsTable, "Id")]
+    [InlineData("shared", TokensTable, "AuthorizationId")]
+    [InlineData("shared", AuthorizationsTable, "Id")]
+    public async Task A_retry_under_a_standing_fault_answers_500_without_detail_and_logs_an_error_and_after_the_fault_a_retry_answers_204_and_completes_the_host_side(string tier, string table, string column)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+        var manager = await ManagerTokenAsync(tenant);
+        DateTime? revokedAt;
+
+        await using (await _h.FailUpdatesAsync(null, table, column, connection.AuthorizationId))
+        {
+            using (var first = await RevokeAsync(manager, connection.RowId))
+            {
+                first.StatusCode.ShouldBe(HttpStatusCode.NoContent, await first.Content.ReadAsStringAsync());
+            }
+
+            revokedAt = await RevokedAtAsync(tenant, connection.RowId);
+            revokedAt.ShouldNotBeNull();
+
+            var mark = _h.Host.Logs.Entries.Count;
+            using (var retry = await RevokeAsync(manager, connection.RowId))
+            {
+                await ShouldHaveFailedWithoutDetailAsync(retry);
+                var body = await retry.Content.ReadAsStringAsync();
+                foreach (var detail in new[] { connection.AuthorizationId.ToString(), connection.RowId.ToString(), "host side", "OpenIddict" })
+                {
+                    body.ShouldNotContain(detail, Case.Insensitive, "the caller learns nothing of how it failed");
+                }
+            }
+
+            var error = RevokerErrorsSince(mark).ShouldHaveSingleItem();
+            error.Message.ShouldContain(connection.AuthorizationId.ToString(), Case.Insensitive);
+            error.Message.ShouldNotContain(connection.User.Email, Case.Insensitive);
+            error.Exception.ShouldNotBeNull();
+
+            (await RevokedAtAsync(tenant, connection.RowId)).ShouldBe(revokedAt, "the failed retry changes nothing in the tenant");
+            await ShouldBeUntouchedInTheHostAsync(connection);
+            await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+        }
+
+        var markAfter = _h.Host.Logs.Entries.Count;
+        using (var retry = await RevokeAsync(manager, connection.RowId))
+        {
+            retry.StatusCode.ShouldBe(HttpStatusCode.NoContent, await retry.Content.ReadAsStringAsync());
+        }
+
+        RevokerErrorsSince(markAfter).ShouldBeEmpty();
+        (await RevokedAtAsync(tenant, connection.RowId)).ShouldBe(revokedAt, "the first switching off stays on record");
+        await ShouldBeRevokedInTheHostAsync(connection.AuthorizationId);
+        await ShouldBeARefusedRefreshAsync(connection.Token.RefreshToken!);
+    }
+
+    /* ---------- A row that is off never comes back ---------- */
+
+    [Fact]
+    public void ConnectAgain_moves_a_row_that_is_on_and_throws_on_a_row_that_is_off_changing_nothing()
+    {
+        var connectedAt = new DateTime(2026, 11, 1, 8, 0, 0);
+        var revokedAt = connectedAt.AddHours(1);
+        var byUser = Guid.NewGuid();
+        var row = new AiConnection(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), ClaudeClient, Guid.NewGuid().ToString(), connectedAt);
+
+        row.ConnectAgain(connectedAt.AddMinutes(1));
+        row.ConnectedAt.ShouldBe(connectedAt.AddMinutes(1), "the control: a row that is on takes it");
+
+        row.Revoke(revokedAt, byUser);
+        Should.Throw<InvalidOperationException>(() => row.ConnectAgain(revokedAt.AddHours(1)));
+
+        row.ConnectedAt.ShouldBe(connectedAt.AddMinutes(1));
+        row.RevokedAt.ShouldBe(revokedAt);
+        row.RevokedByUserId.ShouldBe(byUser);
+    }
+
+    private async Task<bool> TryRecordAsync(TestUser user, string authorizationId)
+        => await _h.InScopeAsync(user.TenantId, services => services.GetRequiredService<IAiConnectionRecorder>().TryRecordAsync(user.Id, ClaudeClient, authorizationId), transactional: false);
+
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task TryRecord_answers_false_on_a_row_that_is_off_also_while_the_host_still_holds_it_as_valid_and_changes_nothing(string tier)
+    {
+        var tenant = RevokeTenant(tier);
+        var (connection, _, _) = await RevokeWithAHostFailureAsync(tenant, TokensTable, "AuthorizationId");
+        await ShouldBeUntouchedInTheHostAsync(connection);
+        var before = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+
+        (await TryRecordAsync(connection.User, connection.AuthorizationId.ToString())).ShouldBeFalse();
+
+        (await RowsOfAsync(connection.User)).ShouldHaveSingleItem().ShouldBe(before);
+    }
+
+    /// <summary>Design 74's window: <c>FindReusableAsync</c> has read the row as on and answered its authorization, a real revoke commits, and only then <c>TryRecordAsync</c> runs.</summary>
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task TryRecord_answers_false_when_a_switch_off_lands_after_FindReusable_read_the_row_as_on(string tier)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+        var manager = await ManagerTokenAsync(tenant);
+        var authorization = connection.AuthorizationId.ToString();
+
+        async Task<string?> FindReusableAsync() => await _h.InScopeAsync(tenant, services =>
+            services.GetRequiredService<IAiConnectionRecorder>().FindReusableAsync(connection.User.Id, ClaudeClient, [authorization]));
+
+        (await FindReusableAsync()).ShouldBe(authorization, "the control: the row is on and reused");
+
+        using (var response = await RevokeAsync(manager, connection.RowId))
+        {
+            response.StatusCode.ShouldBe(HttpStatusCode.NoContent, await response.Content.ReadAsStringAsync());
+        }
+
+        var before = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+
+        (await TryRecordAsync(connection.User, authorization)).ShouldBeFalse();
+
+        (await RowsOfAsync(connection.User)).ShouldHaveSingleItem().ShouldBe(before);
+        (await FindReusableAsync()).ShouldBeNull("a row that is off is never reused");
+    }
+
+    /// <summary>
+    /// Holds a switching off open in the tenant's database, its <c>RevokedAt</c> written and not committed, while <paramref name="action"/> runs. A plain read still sees the row as on and a write to the row
+    /// waits for this transaction, so committing once that write waits lands the switch-off exactly between the action's read and its write. This is what the revoke endpoint's own transaction looks like to PostgreSQL.
+    /// </summary>
+    private async Task<T> WithASwitchOffLandingBetweenReadAndWriteAsync<T>(Guid tenant, Guid rowId, Func<Task<T>> action)
+    {
+        await using var connection = new NpgsqlConnection(HostIntegrationFixture.ConnectionStringFor(_h.DatabaseOf(tenant)));
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using (var switchOff = new NpgsqlCommand($"UPDATE {ConnectionsTable} SET \"RevokedAt\" = now() WHERE \"Id\" = @id", connection, transaction))
+        {
+            switchOff.Parameters.AddWithValue("id", rowId);
+            (await switchOff.ExecuteNonQueryAsync()).ShouldBe(1);
+        }
+
+        var running = Task.Run(action);
+        var waited = false;
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (!running.IsCompleted && !waited && DateTime.UtcNow < deadline)
+            {
+                waited = await _h.CountAsync(tenant, "SELECT count(*) FROM pg_stat_activity WHERE @blocker = ANY(pg_blocking_pids(pid))", ("blocker", connection.ProcessID)) > 0;
+                if (!waited)
+                {
+                    await Task.Delay(25);
+                }
+            }
+        }
+        finally
+        {
+            await transaction.CommitAsync();
+        }
+
+        var result = await running;
+        waited.ShouldBeTrue("the control: the write really waited for the switch-off, so the window was hit");
+        return result;
+    }
+
+    /// <summary>The window inside <c>TryRecordAsync</c> itself: its read saw the row on, its write lands after the switch-off committed. Design 74: answers false, changes nothing.</summary>
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task TryRecord_answers_false_and_changes_nothing_when_a_switch_off_lands_between_its_read_and_its_write(string tier)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+        var before = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+        before.RevokedAt.ShouldBeNull();
+
+        var recorded = await WithASwitchOffLandingBetweenReadAndWriteAsync(tenant, connection.RowId, () => TryRecordAsync(connection.User, connection.AuthorizationId.ToString()));
+
+        var after = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+        after.RevokedAt.ShouldNotBeNull("the critical part: the write did not switch the row back on");
+        await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+        recorded.ShouldSatisfyAllConditions(
+            () => recorded.ShouldBeFalse("the row was off when the write landed, so the connect must go on with a new authorization"),
+            () => after.ConnectedAt.ShouldBe(before.ConnectedAt, "false changes nothing"));
+    }
+
+    /// <summary>The same window over the real connect flow. Design 74: "the connect goes on with a new authorization", so the user ends up with a connection that works.</summary>
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task Connecting_while_a_switch_off_lands_between_read_and_write_goes_on_with_a_new_authorization_that_works(string tier)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+
+        var again = await WithASwitchOffLandingBetweenReadAndWriteAsync(tenant, connection.RowId, () => _h.ConnectAsync(connection.User));
+
+        (await RowsOfAsync(connection.User)).Single(r => r.Id == connection.RowId).RevokedAt.ShouldNotBeNull("the old row stays off");
+        await ShouldBeRefusedAsync(connection.Token, nameof(AiConnectorRefusal.ConnectionRevoked));
+
+        using var mcp = await _h.PostMcpAsync(again.AccessToken, "tools/list");
+        var authorization = AuthorizationIdOf(again.AccessToken!);
+        authorization.ShouldSatisfyAllConditions(
+            () => authorization.ShouldNotBe(connection.AuthorizationId.ToString(), "the row went off before the write, so this connect may not stay on its authorization"),
+            () => mcp.StatusCode.ShouldBe(HttpStatusCode.OK, "the user just allowed the tool and gets a connection that works"));
+    }
+
+    /* ---------- The grid's history ---------- */
+
+    private async Task<List<JsonElement>> GridRowsAsync(string token, string query = "")
+    {
+        using var response = await _h.RestAsync(token, HttpMethod.Get, Root + "/connections?StartRow=0&EndRow=200" + query);
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
+        return JsonDocument.Parse(body).RootElement.GetProperty("rows").EnumerateArray().ToList();
+    }
+
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task The_grid_shows_the_new_row_Live_first_and_the_old_row_SwitchedOff_for_the_user_and_for_a_manager_and_nothing_to_another_tenant(string tier)
+    {
+        var (tenant, other, _) = _h.Pair(tier);
+        var (connection, manager, _) = await RevokeWithAHostFailureAsync(tenant, TokensTable, "AuthorizationId");
+        var again = await _h.ConnectAsync(connection.User);
+        var newRow = (await RowsOfAsync(connection.User)).Single(r => r.AuthorizationId == AuthorizationIdOf(again.AccessToken!)).Id;
+
+        /* Oldest first by the column asked for: the old row would lead if Live did not sort before it. */
+        var own = await _h.BrowserTokenAsync(connection.User);
+        foreach (var query in new[] { string.Empty, "&SortBy=connectedAt&SortDir=asc" })
+        {
+            var rows = await GridRowsAsync(own, query);
+            rows.Select(r => r.GetProperty("id").GetGuid()).ShouldBe([newRow, connection.RowId], query);
+            rows[0].GetProperty("status").GetInt32().ShouldBe((int)AiConnectionStatus.Live);
+            rows[0].GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
+            rows[1].GetProperty("status").GetInt32().ShouldBe((int)AiConnectionStatus.SwitchedOff);
+            rows[1].GetProperty("revokedAt").ValueKind.ShouldNotBe(JsonValueKind.Null);
+
+            var all = await GridRowsAsync(manager, query);
+            var ids = all.Select(r => r.GetProperty("id").GetGuid()).ToList();
+            ids.IndexOf(newRow).ShouldBeGreaterThanOrEqualTo(0);
+            ids.IndexOf(connection.RowId).ShouldBeGreaterThan(ids.IndexOf(newRow));
+        }
+
+        await _h.ReadyAsync(other);
+        var foreignIds = (await GridRowsAsync(await ManagerTokenAsync(other))).Select(r => r.GetProperty("id").GetGuid()).ToList();
+        foreignIds.ShouldNotContain(newRow);
+        foreignIds.ShouldNotContain(connection.RowId);
+    }
+
+    /* ---------- While the connection is on ---------- */
+
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task Connecting_again_while_the_connection_is_live_keeps_the_row_and_the_authorization_and_the_old_token_keeps_working(string tier)
+    {
+        var tenant = RevokeTenant(tier);
+        var connection = await ConnectAsync(tenant);
+        var before = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem();
+        var mark = _h.Host.Logs.Entries.Count;
+
+        var again = await _h.ConnectAsync(connection.User);
+
+        AuthorizationIdOf(again.AccessToken!).ShouldBe(connection.AuthorizationId.ToString(), "the same authorization");
+        var after = (await RowsOfAsync(connection.User)).ShouldHaveSingleItem("the same row, no second one");
+        after.Id.ShouldBe(connection.RowId);
+        after.RevokedAt.ShouldBeNull();
+        after.ConnectedAt.ShouldBeGreaterThan(before.ConnectedAt, "it was connected again");
+
+        RevokerErrorsSince(mark).ShouldBeEmpty();
+        await ShouldBeUntouchedInTheHostAsync(connection);
+        await ShouldBeServedAsync(connection.Token);
+        await ShouldBeServedAsync(again);
+
+        var renewed = await _h.RefreshAsync(ClaudeClient, connection.Token.RefreshToken!);
+        renewed.Status.ShouldBe(HttpStatusCode.OK, renewed.Body);
+        await ShouldBeServedAsync(renewed);
+    }
+
     /* ---------- Isolation ---------- */
+
+    /// <summary>The recorder reads through the tenant filter: in the shared tier only that filter keeps the other tenant's row out, so its find must neither reuse the row nor revoke its authorization.</summary>
+    [Theory]
+    [InlineData("own")]
+    [InlineData("shared")]
+    public async Task Connecting_again_after_a_host_side_failure_touches_nothing_of_another_tenant_and_another_tenants_recorder_cannot_see_the_row(string tier)
+    {
+        var (mine, other, _) = _h.Pair(tier);
+        var theirs = await ConnectAsync(other);
+        var (connection, _, _) = await RevokeWithAHostFailureAsync(mine, TokensTable, "AuthorizationId");
+
+        var seen = await _h.InScopeAsync(other, services => services.GetRequiredService<IAiConnectionRecorder>()
+            .FindReusableAsync(connection.User.Id, ClaudeClient, [connection.AuthorizationId.ToString()]));
+        seen.ShouldBeNull();
+        await ShouldBeUntouchedInTheHostAsync(connection);
+
+        var again = await _h.ConnectAsync(connection.User);
+        await ShouldBeServedAsync(again);
+
+        await ShouldBeUntouchedInTheHostAsync(theirs);
+        await ShouldBeServedAsync(theirs.Token);
+        (await RevokedAtAsync(other, theirs.RowId)).ShouldBeNull();
+        (await RowsOfAsync(theirs.User)).ShouldHaveSingleItem();
+    }
 
     [Fact]
     public async Task A_host_side_failure_of_one_tenants_revoke_touches_no_connection_of_another_tenant()
