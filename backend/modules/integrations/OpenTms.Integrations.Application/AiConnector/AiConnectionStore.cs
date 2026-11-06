@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,6 +26,7 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
     private readonly IClock _clock;
     private readonly IAsyncQueryableExecuter _queries;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
+    private readonly AiConnectionAuthorizationRevoker _revoker;
 
     public AiConnectionStore(
         IAiConnectionRepository connections,
@@ -33,7 +35,8 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
         IGuidGenerator guids,
         IClock clock,
         IAsyncQueryableExecuter queries,
-        IUnitOfWorkManager unitOfWorkManager)
+        IUnitOfWorkManager unitOfWorkManager,
+        AiConnectionAuthorizationRevoker revoker)
     {
         _connections = connections;
         _settings = settings;
@@ -42,6 +45,7 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
         _clock = clock;
         _queries = queries;
         _unitOfWorkManager = unitOfWorkManager;
+        _revoker = revoker;
     }
 
     [UnitOfWork(isTransactional: false)]
@@ -70,7 +74,29 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
     public virtual async Task<bool> IsAcceptedAsync(CancellationToken cancellationToken = default)
         => !string.IsNullOrEmpty(await _settings.GetOrNullAsync(IntegrationsSettings.AiConnectorAcceptedAt));
 
-    public virtual async Task UpsertAsync(Guid userId, string clientId, string authorizationId, CancellationToken cancellationToken = default)
+    public virtual async Task<string?> FindReusableAsync(Guid userId, string clientId, IReadOnlyCollection<string> validAuthorizationIds, CancellationToken cancellationToken = default)
+    {
+        if (validAuthorizationIds.Count == 0)
+        {
+            return null;
+        }
+
+        /* Bounded: the authorizations of one user and one tool. */
+        var ids = validAuthorizationIds.ToList();
+        var query = (await _connections.GetQueryableAsync())
+            .Where(c => ids.Contains(c.AuthorizationId) && c.UserId == userId && c.ClientId == clientId)
+            .Select(c => new { c.AuthorizationId, c.ConnectedAt, c.RevokedAt });
+        var rows = await _queries.ToListAsync(query, cancellationToken);
+
+        foreach (var switchedOff in rows.Where(r => r.RevokedAt != null))
+        {
+            await _revoker.RevokeAsync(switchedOff.AuthorizationId);
+        }
+
+        return rows.Where(r => r.RevokedAt == null).OrderByDescending(r => r.ConnectedAt).FirstOrDefault()?.AuthorizationId;
+    }
+
+    public virtual async Task<bool> TryRecordAsync(Guid userId, string clientId, string authorizationId, CancellationToken cancellationToken = default)
     {
         /* A unit of work of its own: the row must be committed before the authorization code leaves for the AI tool. */
         using var unitOfWork = _unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
@@ -83,12 +109,18 @@ public class AiConnectionStore : IAiConnectionChecker, IAiConnectionRecorder, IT
             existing = inserted ? null : await _connections.FirstAsync(c => c.AuthorizationId == authorizationId, cancellationToken);
         }
 
+        if (existing?.RevokedAt != null)
+        {
+            return false;
+        }
+
         if (existing != null)
         {
-            existing.Reconnect(now);
+            existing.ConnectAgain(now);
             await _connections.UpdateAsync(existing, cancellationToken: cancellationToken);
         }
 
         await unitOfWork.CompleteAsync(cancellationToken);
+        return true;
     }
 }

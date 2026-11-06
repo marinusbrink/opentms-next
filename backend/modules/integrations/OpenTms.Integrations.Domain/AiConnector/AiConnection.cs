@@ -48,12 +48,19 @@ public class AiConnection : Entity<Guid>, IMultiTenant
         ConnectedAt = connectedAt;
     }
 
-    /// <summary>The user allowed the tool again on the same authorization: it is live from now on.</summary>
-    public void Reconnect(DateTime at)
+    /// <summary>
+    /// The user allowed the tool again while this connection is on, so it keeps its authorization. Nothing brings a connection
+    /// back once it is off: its tokens name this row's authorization and must never work again, so connecting after that makes a
+    /// new authorization and a new row (design 74, "A switched-off connection's tokens never work again").
+    /// </summary>
+    public void ConnectAgain(DateTime at)
     {
+        if (RevokedAt != null)
+        {
+            throw new InvalidOperationException($"AI connection {Id} is switched off and cannot be connected again.");
+        }
+
         ConnectedAt = at;
-        RevokedAt = null;
-        RevokedByUserId = null;
     }
 
     /// <summary>Switches the connection off. A connection already off keeps its first revocation.</summary>

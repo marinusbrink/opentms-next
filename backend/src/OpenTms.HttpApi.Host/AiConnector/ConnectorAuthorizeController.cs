@@ -150,10 +150,8 @@ public class ConnectorAuthorizeController : AuthorizeController
             return await ConnectScreenAsync(application, user, refusal);
         }
 
-        var authorizationId = await FindOrCreateAuthorizationAsync(application, user);
-
-        /* Committed before the code leaves for the AI tool: its first /mcp request looks for this row. */
-        await LazyServiceProvider.LazyGetRequiredService<IAiConnectionRecorder>().UpsertAsync(user.Id, request.ClientId!, authorizationId);
+        /* The row is committed before the code leaves for the AI tool: its first /mcp request looks for it. */
+        var authorizationId = await ConnectAsync(application, user, request.ClientId!);
 
         var principal = await SignInManager.CreateUserPrincipalAsync(user);
         principal.SetScopes(ConnectorScopes);
@@ -168,10 +166,52 @@ public class ConnectorAuthorizeController : AuthorizeController
     }
 
     /// <summary>
-    /// OpenIddict's rows live in the host database (design 74), so this runs in the host's context, committed by itself:
-    /// the tenant's connection row names this authorization next. A second connect reuses the valid authorization.
+    /// The authorization this connect runs on, its connection recorded. Only a connection that is on keeps its authorization. A
+    /// switched-off connection's tokens never work again whatever the host's state, so a connect after that always gets a new
+    /// authorization and a new row, and the old row stays off with the old id that <c>/mcp</c> check 6 refuses (design 74).
     /// </summary>
-    private async Task<string> FindOrCreateAuthorizationAsync(object application, IdentityUser user)
+    private async Task<string> ConnectAsync(object application, IdentityUser user, string clientId)
+    {
+        var recorder = LazyServiceProvider.LazyGetRequiredService<IAiConnectionRecorder>();
+        var reusable = await recorder.FindReusableAsync(user.Id, clientId, await FindValidAuthorizationsAsync(application, user));
+
+        /* Refused only when someone switched it off a moment ago: it stays off, and this connect goes on with a new one. */
+        if (reusable != null && await recorder.TryRecordAsync(user.Id, clientId, reusable))
+        {
+            return reusable;
+        }
+
+        var created = await CreateAuthorizationAsync(application, user);
+        if (!await recorder.TryRecordAsync(user.Id, clientId, created))
+        {
+            throw new InvalidOperationException($"The new OpenIddict authorization {created} already has a switched-off connection.");
+        }
+
+        return created;
+    }
+
+    /// <summary>OpenIddict's rows live in the host database (design 74), so this reads in the host's context. This find reads the store, not the entity cache.</summary>
+    private async Task<IReadOnlyCollection<string>> FindValidAuthorizationsAsync(object application, IdentityUser user)
+    {
+        var subject = await UserManager.GetUserIdAsync(user);
+        using (CurrentTenant.Change(null))
+        {
+            var unitOfWorkManager = LazyServiceProvider.LazyGetRequiredService<IUnitOfWorkManager>();
+            using var unitOfWork = unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: false), requiresNew: true);
+            var applicationId = await ApplicationManager.GetIdAsync(application);
+            var ids = new List<string>();
+            await foreach (var existing in AuthorizationManager.FindAsync(subject, applicationId, OpenIddictConstants.Statuses.Valid, OpenIddictConstants.AuthorizationTypes.Permanent, ConnectorScopes, default))
+            {
+                ids.Add((await AuthorizationManager.GetIdAsync(existing))!);
+            }
+
+            await unitOfWork.CompleteAsync();
+            return ids;
+        }
+    }
+
+    /// <summary>In the host's context and committed by itself: the tenant's connection row names this authorization next.</summary>
+    private async Task<string> CreateAuthorizationAsync(object application, IdentityUser user)
     {
         var subject = await UserManager.GetUserIdAsync(user);
         using (CurrentTenant.Change(null))
@@ -179,18 +219,8 @@ public class ConnectorAuthorizeController : AuthorizeController
             var unitOfWorkManager = LazyServiceProvider.LazyGetRequiredService<IUnitOfWorkManager>();
             using var unitOfWork = unitOfWorkManager.Begin(new AbpUnitOfWorkOptions(isTransactional: true), requiresNew: true);
             var applicationId = await ApplicationManager.GetIdAsync(application);
-            object? authorization = null;
-            await foreach (var existing in AuthorizationManager.FindAsync(subject, applicationId, OpenIddictConstants.Statuses.Valid, OpenIddictConstants.AuthorizationTypes.Permanent, ConnectorScopes, default))
-            {
-                authorization = existing;
-            }
-
-            if (authorization == null)
-            {
-                var principal = await SignInManager.CreateUserPrincipalAsync(user);
-                authorization = await AuthorizationManager.CreateAsync(principal, subject, applicationId!, OpenIddictConstants.AuthorizationTypes.Permanent, ConnectorScopes);
-            }
-
+            var principal = await SignInManager.CreateUserPrincipalAsync(user);
+            var authorization = await AuthorizationManager.CreateAsync(principal, subject, applicationId!, OpenIddictConstants.AuthorizationTypes.Permanent, ConnectorScopes);
             var id = await AuthorizationManager.GetIdAsync(authorization);
             await unitOfWork.CompleteAsync();
             return id!;
