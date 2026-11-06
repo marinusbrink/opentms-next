@@ -102,10 +102,8 @@ public class AiConnectorAppService : IntegrationsAppServiceBase, IAiConnectorApp
             }
         }
 
-        foreach (var authorizationId in authorizationIds)
-        {
-            await _revoker.RevokeAsync(authorizationId);
-        }
+        /* After this tenant's transaction, so a failure there has revoked nothing; see AiConnectionAuthorizationRevoker. */
+        _revoker.RevokeAfterCommit(authorizationIds);
 
         Logger.LogInformation("AI connector data sharing withdrawn in tenant {TenantId} by user {UserId}; {Count} connections revoked", CurrentTenant.Id, CurrentUser.Id, revoked);
         return await BuildStatusAsync(null, null);

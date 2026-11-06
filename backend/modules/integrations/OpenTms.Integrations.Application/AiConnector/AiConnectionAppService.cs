@@ -118,8 +118,9 @@ public class AiConnectionAppService : IntegrationsAppServiceBase, IAiConnectionA
         connection.Revoke(Clock.Now, CurrentUser.Id);
         await _connections.UpdateAsync(connection, autoSave: true);
 
-        /* RevokedAt blocks /mcp, this blocks renewal. Idempotent: revoking again retries a failure here. */
-        await _revoker.RevokeAsync(connection.AuthorizationId);
+        /* RevokedAt blocks /mcp, this blocks renewal, after this tenant's transaction so a failure there has revoked nothing.
+         * Idempotent: revoking again retries a failure of the host step. */
+        _revoker.RevokeAfterCommit([connection.AuthorizationId]);
         Logger.LogInformation("AI connection {ConnectionId} revoked in tenant {TenantId} by user {UserId}", connection.Id, CurrentTenant.Id, CurrentUser.Id);
     }
 
