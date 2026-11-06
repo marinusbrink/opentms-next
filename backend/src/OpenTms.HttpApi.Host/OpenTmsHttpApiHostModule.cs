@@ -228,6 +228,7 @@ public class OpenTmsHttpApiHostModule : AbpModule
             .WithCallToolHandler(McpToolHandlers.CallAsync);
 
         context.Services.AddRateLimiter(AiConnectorRateLimits.Configure);
+        context.Services.Configure<AiConnectorRegistrationOptions>(context.Services.GetConfiguration().GetSection(AiConnectorRegistrationOptions.SectionName));
 
         Configure<AbpOpenIddictClaimsPrincipalOptions>(options =>
         {

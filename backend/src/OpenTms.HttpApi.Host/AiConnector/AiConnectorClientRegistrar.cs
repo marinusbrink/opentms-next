@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using OpenTms.Integrations.AiConnector;
 using OpenTms.OpenIddict;
@@ -21,10 +22,23 @@ namespace OpenTms.AiConnector;
 /// <summary>The approved client a registration gets.</summary>
 public sealed record AiConnectorRegisteredClient(string ClientId, string DisplayName);
 
+/// <summary>The limits of <c>/connect/register</c> ("AiConnector:Registration"; design 74 "Build notes").</summary>
+public class AiConnectorRegistrationOptions
+{
+    public const string SectionName = "AiConnector:Registration";
+
+    /// <summary>
+    /// How many ChatGPT applications the host database may hold. Registering is anonymous and each new approved URI writes a permanent
+    /// row, so the rate limit alone leaves about 14,400 per day per IP address.
+    /// </summary>
+    public int MaxChatGptClients { get; set; } = 10_000;
+}
+
 /// <summary>
 /// The rule behind <c>/connect/register</c> (design 74 "Registration"). A tool with fixed URIs has one seeded client, found by
 /// its URIs, and nothing is written. An approved URI of ChatGPT's gets an application of its own, because OpenIddict compares
-/// redirect URIs exactly; its id is a hash of the URI, so registering again returns the same client. A confidential client
+/// redirect URIs exactly; its id is a hash of the URI, so registering again returns the same client, and at the cap of
+/// <see cref="AiConnectorRegistrationOptions.MaxChatGptClients"/> only a new URI is refused. A confidential client
 /// (Gemini) is never handed out here: its administrator enters it by hand. OpenIddict's rows live in the host database, so
 /// this runs in the host's context whatever the request names.
 /// </summary>
@@ -38,6 +52,7 @@ public class AiConnectorClientRegistrar : ITransientDependency
     private readonly IDbContextProvider<IOpenIddictDbContext> _openIddictDbContext;
     private readonly ICurrentTenant _currentTenant;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
+    private readonly AiConnectorRegistrationOptions _options;
     private readonly ILogger<AiConnectorClientRegistrar> _logger;
 
     public AiConnectorClientRegistrar(
@@ -46,6 +61,7 @@ public class AiConnectorClientRegistrar : ITransientDependency
         IDbContextProvider<IOpenIddictDbContext> openIddictDbContext,
         ICurrentTenant currentTenant,
         IUnitOfWorkManager unitOfWorkManager,
+        IOptions<AiConnectorRegistrationOptions> options,
         ILogger<AiConnectorClientRegistrar> logger)
     {
         _applications = applications;
@@ -53,6 +69,7 @@ public class AiConnectorClientRegistrar : ITransientDependency
         _openIddictDbContext = openIddictDbContext;
         _currentTenant = currentTenant;
         _unitOfWorkManager = unitOfWorkManager;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -110,7 +127,7 @@ public class AiConnectorClientRegistrar : ITransientDependency
         return client;
     }
 
-    private async Task<AiConnectorRegisteredClient> FindOrCreateChatGptClientAsync(string redirectUri, CancellationToken cancellationToken)
+    private async Task<AiConnectorRegisteredClient?> FindOrCreateChatGptClientAsync(string redirectUri, CancellationToken cancellationToken)
     {
         var clientId = AiConnectorClients.ChatGptClientId(redirectUri);
 
@@ -129,6 +146,18 @@ public class AiConnectorClientRegistrar : ITransientDependency
          * the previous holder of the lock committed on another instance. */
         if (await _applicationRepository.FindByClientIdAsync(clientId, cancellationToken) == null)
         {
+            /* Only a new URI gets here, so the count is rare, and under the rate limit. The lock is per client id, so registrations
+             * of different URIs at the same moment can pass the cap by those few: it bounds growth, nothing depends on the exact number. */
+            var chatGptClients = await dbContext.Applications.LongCountAsync(a => a.ClientId!.StartsWith(AiConnectorConsts.ChatGptClientIdPrefix), cancellationToken);
+            if (chatGptClients >= _options.MaxChatGptClients)
+            {
+                _logger.LogError(
+                    "AI connector: a new ChatGPT client was refused, {Count} exist and the cap is {Cap} (AiConnector:Registration:MaxChatGptClients)",
+                    chatGptClients, _options.MaxChatGptClients);
+                await unitOfWork.CompleteAsync(cancellationToken);
+                return null;
+            }
+
             await _applications.CreateAsync(
                 AiConnectorClients.CreateDescriptor(clientId, AiConnectorConsts.ChatGptDisplayName, null, [redirectUri]), cancellationToken);
             _logger.LogInformation("AI connector client {ClientId} registered", clientId);
