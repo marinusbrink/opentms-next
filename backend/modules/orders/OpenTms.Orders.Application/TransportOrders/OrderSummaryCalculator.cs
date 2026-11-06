@@ -5,11 +5,13 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTms.Financial.Tariffs.Published;
+using OpenTms.Orders.Events;
 using OpenTms.PlanningExecution.Published;
 using OpenTms.PlanningExecution.TransportTrips;
 using OpenTms.Platform.DerivedValues;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.EventBus.Distributed;
 using Volo.Abp.Timing;
 
 namespace OpenTms.Orders.TransportOrders;
@@ -27,16 +29,18 @@ public class OrderSummaryCalculator : IDerivedValueCalculator, ITransientDepende
     private readonly ILegReader _legs;
     private readonly OrdersReferences _references;
     private readonly IClock _clock;
+    private readonly IDistributedEventBus _events;
 
     public ILogger<OrderSummaryCalculator> Logger { get; set; } = NullLogger<OrderSummaryCalculator>.Instance;
 
-    public OrderSummaryCalculator(IRepository<TransportOrder, Guid> orders, IRateLineReader rateLines, ILegReader legs, OrdersReferences references, IClock clock)
+    public OrderSummaryCalculator(IRepository<TransportOrder, Guid> orders, IRateLineReader rateLines, ILegReader legs, OrdersReferences references, IClock clock, IDistributedEventBus events)
     {
         _orders = orders;
         _rateLines = rateLines;
         _legs = legs;
         _references = references;
         _clock = clock;
+        _events = events;
     }
 
     public async Task CalculateAsync(DerivedValueCalculationContext context)
@@ -62,6 +66,8 @@ public class OrderSummaryCalculator : IDerivedValueCalculator, ITransientDepende
         }
 
         await _orders.UpdateAsync(order, cancellationToken: context.CancellationToken);
+        /* Design 75: Reporting's order fact follows the stored values, as TripCalculator publishes for the trip's. */
+        await _events.PublishAsync(new TransportOrderRecalculatedEto { OrderId = order.Id, Version = context.Version });
         Logger.LogInformation("Order summary of {OrderId} v{Version}: {Progress}, {LegCount} legs.", order.Id, context.Version, summary.ExecutionProgress, legs.Count);
     }
 

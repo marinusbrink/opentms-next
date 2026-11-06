@@ -52,6 +52,12 @@ public static class AppFeatures
     /// </summary>
     public static class IntegrationsApp
     {
+        /// <summary>
+        /// The AI connector (design 74): the nav node and the connector itself, a sibling of the group Order intake. Default
+        /// off per tenant (constitution rule 4): without it <c>/mcp</c> and the connect screen refuse and the node is hidden.
+        /// </summary>
+        public const string AiConnector = Integrations + ".AiConnector";
+
         /// <summary>The group Order intake.</summary>
         public static class Intake
         {

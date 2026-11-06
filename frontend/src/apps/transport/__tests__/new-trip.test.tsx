@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* New trip on the Trips list (design 61 "Trip type defaults" 4 and 5, build note 3; PO 2026-10-29 superseding "no New"):
  * the ribbon New only with PlanningExecution.TransportTrips.Create; the dialog preselects the default type and presets
@@ -213,11 +213,43 @@ describe("NewTripDialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("a planned departure date the user changed no longer follows the trip date", async () => {
-    await openNewTrip();
-    fireEvent.change(control<HTMLInputElement>("departureDate"), { target: { value: "2026-11-06" } });
-    fireEvent.change(control<HTMLInputElement>("tripDate"), { target: { value: "2026-11-05" } });
-    expect(control<HTMLInputElement>("departureDate").value).toBe("2026-11-06");
+  describe("at a fixed time", () => {
+    /* Only Date is faked, so the waits of the dialog keep running on real timers. */
+    const setNow = (now: Date) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(now);
+    };
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("a planned departure date the user changed no longer follows the trip date", async () => {
+      /* A fixed day: on the real 2026-11-06 the change below would be no change at all, because the field already held that
+       * date, and the field then rightly kept following the trip date. */
+      setNow(new Date(2026, 5, 15, 12, 0));
+      await openNewTrip();
+      expect(control<HTMLInputElement>("departureDate").value).toBe("2026-06-15");
+      fireEvent.change(control<HTMLInputElement>("departureDate"), { target: { value: "2026-11-06" } });
+      fireEvent.change(control<HTMLInputElement>("tripDate"), { target: { value: "2026-11-05" } });
+      expect(control<HTMLInputElement>("departureDate").value).toBe("2026-11-06");
+    });
+
+    it("a planned departure date still on today follows the trip date, on any day", async () => {
+      setNow(new Date(2026, 10, 6, 14, 0));
+      await openNewTrip();
+      fireEvent.change(control<HTMLInputElement>("tripDate"), { target: { value: "2026-11-05" } });
+      expect(control<HTMLInputElement>("departureDate").value).toBe("2026-11-05");
+    });
+
+    it("just after local midnight, today is the new local day, in the fields and in the saved trip", async () => {
+      setNow(new Date(2026, 10, 6, 0, 5));
+      await openNewTrip();
+      expect(control<HTMLInputElement>("tripDate").value).toBe("2026-11-06");
+      expect(control<HTMLInputElement>("departureDate").value).toBe("2026-11-06");
+      await save();
+      await waitFor(() => expect(calls(POST, "/api/planning/transport-trip")).toHaveLength(1));
+      expect(lastCall(POST, "/api/planning/transport-trip")!.body).toMatchObject({ tripDate: "2026-11-06", plannedDeparture: new Date(2026, 10, 6, 6, 30).toISOString() });
+    });
   });
 
   it("another type switches the fields still holding the previous preset and keeps the user's", async () => {

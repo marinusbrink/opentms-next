@@ -20,6 +20,7 @@ using Volo.Abp.BackgroundJobs;
 using Volo.Abp.BackgroundWorkers;
 using Volo.Abp.BlobStoring;
 using Volo.Abp.Caching;
+using Volo.Abp.Identity;
 using Volo.Abp.Modularity;
 using Volo.Abp.OpenIddict;
 using Volo.Abp.PermissionManagement;
@@ -39,7 +40,9 @@ namespace OpenTms.Integrations;
     typeof(AbpOpenIddictDomainModule),
     typeof(AbpPermissionManagementDomainModule),
     typeof(AbpBlobStoringModule),
-    typeof(AbpBackgroundJobsAbstractionsModule)
+    typeof(AbpBackgroundJobsAbstractionsModule),
+    /* Design 74: ABP's user events (art. 17) and user names. */
+    typeof(AbpIdentityDomainModule)
 )]
 public class IntegrationsApplicationModule : AbpModule
 {

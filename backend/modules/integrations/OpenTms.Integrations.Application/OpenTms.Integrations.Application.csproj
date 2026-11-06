@@ -31,6 +31,8 @@
     <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Anthropic" Version="13.4.0" />
+    <!-- Design 74: the art. 17 handler on ABP's user events, and the user names of the connections grid. -->
+    <PackageReference Include="Volo.Abp.Identity.Domain" Version="10.6.0" />
   </ItemGroup>
 
   <ItemGroup>

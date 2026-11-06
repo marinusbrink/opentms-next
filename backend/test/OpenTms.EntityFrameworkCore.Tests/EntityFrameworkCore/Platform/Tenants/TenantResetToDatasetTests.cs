@@ -438,14 +438,15 @@ public class TenantResetToDatasetTests : OpenTmsTestBase<TenantAdministrationTes
     {
         var contributors = GetRequiredService<IEnumerable<ITestDatasetContributor>>().ToList();
 
-        contributors.Select(c => c.Order).OrderBy(o => o).ShouldBe(new[] { 0, 100, 200, 300, 400 });
+        contributors.Select(c => c.Order).OrderBy(o => o).ShouldBe(new[] { 0, 100, 200, 300, 400, 500 });
         contributors.Select(c => c.GetType().Name).ShouldBe(new[]
         {
             "PlatformTestDatasetContributor",
             "MasterDataTestDatasetContributor",
             "FinancialTestDatasetContributor",
             "OrdersTestDatasetContributor",
-            "PlanningExecutionTestDatasetContributor"
+            "PlanningExecutionTestDatasetContributor",
+            "ReportingTestDatasetContributor"
         }, ignoreOrder: true);
     }
 }

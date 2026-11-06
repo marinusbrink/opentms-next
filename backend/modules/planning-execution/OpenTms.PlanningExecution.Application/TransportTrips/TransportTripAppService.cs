@@ -888,6 +888,7 @@ public class TransportTripAppService : PlanningExecutionAppServiceBase, ITranspo
         }
 
         await _trips.DeleteAsync(trip);
+        await _ops.DeletedAsync(trip);
         await _ops.Overlaps.RequestForTripAsync(trip, "OverlappingTripDeleted", force: true);
         await Notices.TripAsync(trip, deleted: true);
     }

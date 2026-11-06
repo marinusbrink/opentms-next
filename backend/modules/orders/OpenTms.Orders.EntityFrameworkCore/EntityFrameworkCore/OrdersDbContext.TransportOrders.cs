@@ -79,6 +79,11 @@ public partial class OrdersDbContext
             b.HasIndex(o => new { o.TenantId, o.Status, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.CustomerRelationId });
+            /* Design 74: the revenue of one customer in a period (get_customer_revenue). */
+            b.HasIndex(o => new { o.TenantId, o.CustomerRelationId, o.OrderDate });
+            /* Design 75: the nightly repair of Reporting's order facts finds what changed. */
+            b.HasIndex(o => new { o.TenantId, o.LastModificationTime });
+            b.HasIndex(o => new { o.TenantId, o.CreationTime });
             b.HasIndex(o => o.TransportOrderTypeId);
             /* Design 72: the order of an intake (the review's link, the confirm event). */
             b.HasIndex(o => new { o.TenantId, o.SourceIntakeId });

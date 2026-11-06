@@ -131,16 +131,17 @@ describe("apps.config – every app and node has its tree feature", () => {
     expect(masterData.hostAlwaysEnabled).not.toBe(true);
   });
 
-  it("names the same 82 features as the backend's AppFeatures", () => {
+  it("names the same 83 features as the backend's AppFeatures", () => {
     /* 55 up to design 54; design 56/61 add the Transport app's four nodes and seven Master data lists; design 66/70
      * (PO decision D7) add the Planboard's eight pane nodes; design 72 ("Features", app features) adds seven:
      * Transport → Intake, and the Integrations app's group Order intake with Received, Mailboxes, API clients,
-     * Import profiles (PO 2026-11-03: the setup lists moved there from the Master data app) and Settings. */
+     * Import profiles (PO 2026-11-03: the setup lists moved there from the Master data app) and Settings; design 74
+     * adds the Integrations app's node AI connector. */
     const names = APPS.flatMap((app) => Object.keys(allOn(app)));
-    expect(names).toHaveLength(82);
-    expect(new Set(names).size).toBe(82);
+    expect(names).toHaveLength(83);
+    expect(new Set(names).size).toBe(83);
     const backend = backendAppFeatures();
-    expect(backend).toHaveLength(82);
+    expect(backend).toHaveLength(83);
     expect([...names].sort()).toEqual([...backend].sort());
   });
 

@@ -103,7 +103,9 @@ public class AuthorizationCoverageTests
         "MasterDataReferenceLookup", "OrderPricingReader", "TransportOrderLookup", "FinancialReferenceLookup", "RateLineReader",
         "PricePreviewService", "LegReader", "TransportTripLookup",
         /* Design 72: the Master Data match query and the Orders intake service the pipeline calls in its job. */
-        "MasterDataMatchQuery", "OrderIntakeService"
+        "MasterDataMatchQuery", "OrderIntakeService",
+        /* Designs 74 and 75: the readers behind get_customer_revenue and the fact tables, and the metric query the connector calls. */
+        "CustomerRevenueReader", "OrderFactReader", "TripFactReader", "OrganizationUnitNameLookup", "MetricQuery"
     };
 
     [Fact]

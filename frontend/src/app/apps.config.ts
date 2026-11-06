@@ -4,6 +4,7 @@ import {
   BarChart3,
   Boxes,
   BookOpen,
+  Bot,
   Building2,
   CalendarArrowDown,
   CalendarClock,
@@ -406,7 +407,8 @@ export const APPS: readonly AppDefinition[] = [
      * and last Settings (build note 25: the name similarity threshold). The setup editors read relations (Master Data)
      * and order types (Orders), hence the extra domains.
      * The group path only redirects; the lists sit one segment under the app, as the Master data app's lists do under
-     * theirs. The screens also check the tenant feature Integrations.OrderIntake. */
+     * theirs. The screens also check the tenant feature Integrations.OrderIntake.
+     * Design 74: the AI connector sits next to the group, with its own feature (default off) and either permission. */
     views: [
       {
         nameKey: "Integrations:Nav.OrderIntake",
@@ -420,6 +422,13 @@ export const APPS: readonly AppDefinition[] = [
           { nameKey: "Integrations:ImportProfiles", path: "/integrations/import-profiles", feature: "Apps.Integrations.Intake.ImportProfiles", icon: FileCog, requiredPermission: "Integrations.ImportProfiles" },
           { nameKey: "Integrations:Nav.IntakeSettings", path: "/integrations/intake-settings", feature: "Apps.Integrations.Intake.Settings", icon: SlidersHorizontal, requiredPermission: "Integrations.OrderIntakeSettings" },
         ],
+      },
+      {
+        nameKey: "Integrations:Nav.AiConnector",
+        path: "/integrations/ai-connector",
+        feature: "Apps.Integrations.AiConnector",
+        icon: Bot,
+        requiredPermission: ["Integrations.AiConnector.Use", "Integrations.AiConnector.Manage"],
       },
     ],
   },

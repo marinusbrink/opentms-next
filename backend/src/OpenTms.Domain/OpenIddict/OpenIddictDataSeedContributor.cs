@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using OpenIddict.Abstractions;
+using OpenTms.Integrations.AiConnector;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.OpenIddict;
@@ -41,6 +43,14 @@ public class OpenIddictDataSeedContributor : OpenIddictDataSeedContributorBase, 
             Name = "OpenTms", 
             DisplayName = "OpenTms API", 
             Resources = { "OpenTms" }
+        });
+
+        /* Design 74: the AI connector's scope; its resource is a token's only audience, so the token reaches /mcp alone. */
+        await CreateScopesAsync(new OpenIddictScopeDescriptor
+        {
+            Name = AiConnectorConsts.Scope,
+            DisplayName = "OpenTms AI connector",
+            Resources = { AiConnectorConsts.Resource }
         });
     }
 
@@ -109,6 +119,46 @@ public class OpenIddictDataSeedContributor : OpenIddictDataSeedContributorBase, 
             );
         }
 
+        await CreateAiConnectorClientsAsync(configurationSection);
+    }
 
+    /// <summary>
+    /// Design 74 "Approved tools": every entry of <c>OpenIddict:Applications</c> whose key starts with
+    /// <see cref="AiConnectorConsts.ClientIdPrefix"/> is an approved AI tool, so adding one is a configuration change.
+    /// A confidential tool (Gemini) is seeded only when its secret is configured; ChatGPT's clients arrive at registration.
+    /// </summary>
+    private async Task CreateAiConnectorClientsAsync(IConfigurationSection applications)
+    {
+        foreach (var tool in applications.GetChildren().Where(section => AiConnectorConsts.IsConnectorClient(section.Key)))
+        {
+            var clientId = tool["ClientId"];
+            if (clientId.IsNullOrWhiteSpace())
+            {
+                continue;
+            }
+
+            var secret = tool["ClientSecret"];
+            var isConfidential = string.Equals(tool["ClientType"], OpenIddictConstants.ClientTypes.Confidential, StringComparison.OrdinalIgnoreCase);
+            if (isConfidential && secret.IsNullOrWhiteSpace())
+            {
+                continue;
+            }
+
+            var descriptor = AiConnectorClients.CreateDescriptor(
+                clientId!,
+                tool["DisplayName"] ?? clientId!,
+                isConfidential ? secret : null,
+                tool.GetSection("RedirectUris").GetChildren().Select(uri => uri.Value!).ToList());
+
+            var existing = await OpenIddictApplicationRepository.FindByClientIdAsync(clientId!);
+            if (existing == null)
+            {
+                await ApplicationManager.CreateAsync(descriptor);
+            }
+            else
+            {
+                await ApplicationManager.UpdateAsync(existing.ToModel(), descriptor);
+            }
+        }
     }
 }

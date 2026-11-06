@@ -48,9 +48,8 @@ namespace OpenTms.PostgreSql.Integrations
                 var context = await GetRequiredService<IDbContextProvider<IntegrationsDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-                /* The review's search migration (design 72 review M2) came after it and is now the newest. */
+                /* The review's search migration (design 72 review M2) came right after it; the newest one is checked by its own test. */
                 applied.IndexOf(IntegrationsInboundMessageSearchMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
-                applied.Last().ShouldBe(IntegrationsInboundMessageSearchMigrationTests.Migration);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });
@@ -102,14 +101,14 @@ namespace OpenTms.PostgreSql.Integrations
         [Theory]
         [InlineData(null)]
         [InlineData("tenant-a")]
-        public async Task The_migration_follows_the_order_intake_is_the_newest_and_nothing_is_pending(string? tenant)
+        public async Task The_migration_follows_the_order_intake_and_nothing_slipped_in_after_it_and_nothing_is_pending(string? tenant)
         {
             await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
             {
                 var context = await GetRequiredService<IDbContextProvider<IntegrationsDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(IntegrationsOrderIntakeMigrationTests.Migration) + 1);
-                applied.Last().ShouldBe(Migration);
+                applied[applied.IndexOf(Migration) + 1].ShouldBe(AiConnectorMigrationConsts.IntegrationsAiConnections, "nothing slipped in after it; the newest one is checked by its own test");
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });
@@ -245,9 +244,8 @@ namespace OpenTms.PostgreSql.Orders
                 var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
-                /* No longer the newest: build note 28 added OrdersIntakeNameSimilarityThreshold right after it. */
+                /* Build note 28 added OrdersIntakeNameSimilarityThreshold right after it; the newest one is checked by its own test. */
                 applied.IndexOf(OrdersIntakeNameSimilarityThresholdMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
-                applied.Last().ShouldBe(OrdersIntakeNameSimilarityThresholdMigrationTests.Migration);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });
@@ -353,14 +351,14 @@ namespace OpenTms.PostgreSql.Orders
         [Theory]
         [InlineData(null)]
         [InlineData("tenant-a")]
-        public async Task The_migration_follows_the_order_intake_is_the_newest_and_nothing_is_pending(string? tenant)
+        public async Task The_migration_follows_the_order_intake_and_nothing_slipped_in_after_it_and_nothing_is_pending(string? tenant)
         {
             await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
             {
                 var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
                 applied.IndexOf(Migration).ShouldBe(applied.IndexOf(OrdersOrderIntakeMigrationTests.Migration) + 1);
-                applied.Last().ShouldBe(Migration);
+                applied[applied.IndexOf(Migration) + 1].ShouldBe(AiConnectorMigrationConsts.OrdersCustomerRevenueIndex, "nothing slipped in after it; the newest one is checked by its own test");
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             });

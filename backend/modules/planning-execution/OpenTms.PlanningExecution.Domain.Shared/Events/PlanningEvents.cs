@@ -98,3 +98,9 @@ public class TransportTripRecalculatedEto
 
     public List<Guid> OrderIds { get; set; } = new();
 }
+
+/// <summary>The trip was deleted; Reporting's trip fact goes with it (design 75).</summary>
+public class TransportTripDeletedEto
+{
+    public Guid TripId { get; set; }
+}

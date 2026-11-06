@@ -103,7 +103,6 @@ public class PlanningTripTypeDefaultsMigrationTests : PlanningPostgreSqlTestBase
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
             applied.IndexOf(PlanningPlanboardMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1, "the Planboard migration follows (design 68)");
-            applied.Last().ShouldBe(PlanningPlanboardAvailabilityMigrationTests.Migration, "the newest Planning migration (design 68 part 2)");
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse("the model snapshot must describe the model that runs");
             context.Database.GetDbConnection().Database.ShouldBe(tenant == null ? PostgreSqlTestDatabases.HostDatabase : PostgreSqlTestDatabases.TenantADatabase);
