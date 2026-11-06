@@ -11,6 +11,7 @@ using OpenTms.Integrations.Permissions;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Grid;
 using OpenTms.Platform.ReferenceData;
+using Volo.Abp;
 using Volo.Abp.Authorization;
 using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.Domain.Entities;
@@ -115,11 +116,22 @@ public class AiConnectionAppService : IntegrationsAppServiceBase, IAiConnectionA
             throw new AbpAuthorizationException(code: AbpAuthorizationErrorCodes.GivenPolicyHasNotGranted);
         }
 
+        if (connection.RevokedAt != null)
+        {
+            /* A retry of the host step: nothing changes here, so it runs now and the caller sees its outcome. A failure of the
+             * first attempt cannot answer differently, because the switching off itself did succeed. */
+            if (!await _revoker.RevokeAsync(connection.AuthorizationId))
+            {
+                throw new AbpException($"The host side of switching off AI connection {connection.Id} did not complete.");
+            }
+
+            return;
+        }
+
         connection.Revoke(Clock.Now, CurrentUser.Id);
         await _connections.UpdateAsync(connection, autoSave: true);
 
-        /* RevokedAt blocks /mcp, this blocks renewal, after this tenant's transaction so a failure there has revoked nothing.
-         * Idempotent: revoking again retries a failure of the host step. */
+        /* RevokedAt blocks /mcp, this blocks renewal, after this tenant's transaction so a failure there has revoked nothing. */
         _revoker.RevokeAfterCommit([connection.AuthorizationId]);
         Logger.LogInformation("AI connection {ConnectionId} revoked in tenant {TenantId} by user {UserId}", connection.Id, CurrentTenant.Id, CurrentUser.Id);
     }
