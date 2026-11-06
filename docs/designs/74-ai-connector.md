@@ -3,7 +3,7 @@
 **PBI:** Marinus, 2026-11-05 (chat): a user adds opentms-next as a custom connector in Claude, ChatGPT, Gemini, Cowork and
 similar tools, and signs in to opentms-next from there with the correct tenant scope. The connection then stays
 established, and the AI tool answers questions or runs tasks based on data from opentms-next.
-**Status:** in review. Risk class **critical** (authorization server, tenant isolation, a new public endpoint).
+**Status:** built; gate 1 and 2 with the PR. Risk class **critical** (authorization server, tenant isolation, a new public endpoint).
 **Date:** 2026-11-05
 
 ## PO decisions (2026-11-05)
@@ -133,8 +133,8 @@ to one tool, it answers with that tool's client and `token_endpoint_auth_method:
 A tool with fixed URIs has one fixed client and nothing is written. ChatGPT's callback differs per connector
 (`https://chatgpt.com/connector/oauth/<id>`), and OpenIddict compares redirect URIs exactly, so an approved URI of that form
 gets an application of its own: its id is `OpenTms_Mcp_ChatGPT_` plus a hash of the URI, so registering again returns the same
-client. The registration rate limit bounds growth, the URI must match the approved pattern, and the name on the connect screen
-comes from our configuration, never from the caller.
+client. The registration rate limit and a host-wide cap on these applications bound growth (see *Build notes*), the URI must match the
+approved pattern, and the name on the connect screen comes from our configuration, never from the caller.
 
 **Approved tools** (`OpenIddict:Applications`, seeded by the DbMigrator into the host database; consent type explicit;
 only scopes `OpenTmsMcp` and `offline_access`):
@@ -246,8 +246,8 @@ Route root `/api/integrations/ai-connector`, features `Apps.Integrations` and `A
 | `GET /connections` | `Integrations.AiConnector.Use` (own) or `Integrations.AiConnector.Manage` (all) | Grid request | `GridResponse<AiConnectionRowDto { Id, UserId, UserName, ToolName, ConnectedAt, LastUsedAt?, RevokedAt?, Status }>`. `Status` is the enum `AiConnectionStatus`, computed at read time: `Live` = 1, `NotWorking` = 2, `Expired` = 3, `SwitchedOff` = 4 (see *Build notes*) |
 | `POST /connections/{id}/revoke` | Own connection: `Integrations.AiConnector.Use`. Anyone's: `Integrations.AiConnector.Manage` | | 204; idempotent |
 
-**Revoke** sets `RevokedAt`, which blocks `/mcp` at once, and then revokes the OpenIddict authorization and its tokens in
-the host database, which blocks renewal.
+**Revoke** commits `RevokedAt` in the tenant's database, which blocks `/mcp` at once, and after that commit revokes the OpenIddict
+authorization and its tokens in the host database, which blocks renewal (see *Build notes*).
 
 ## Migration strategy
 
@@ -256,7 +256,8 @@ Expand-only. One migration on `IntegrationsDbContext` adds `integrations."AiConn
 (`TenantId`, `CustomerRelationId`, `OrderDate`) for `get_customer_revenue`. The DbMigrator applies both to the host and
 every tenant database. The
 DbMigrator seeds scope `OpenTmsMcp` and the approved clients in the host database. There is no contract step, no existing
-data changes, and the previous revision ignores the new table during a canary.
+data changes, and the previous revision ignores the new table during a canary. The orders index blocks writes to that table briefly; see
+*Assumptions*.
 
 ## UI design
 
@@ -282,6 +283,17 @@ the link. No record picker or grid. Strings in nl and en.
   follows the app's standard route handling.
 - **Optimistic updates:** none. Accept, withdraw and revoke are security actions, so they wait for the server.
 
+### UI deviations
+
+Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state it"); the PO approves them with the PR at gate 1 and 2. The markers in
+`AiConnectorView.tsx` cite this section.
+
+| Rule | Deviation | Reason |
+|---|---|---|
+| `UI-PAGE-001` | A status section sits between the command bar and the grid | The connector URL and the acceptance belong to the tenant, not to a row, and a user needs them before the list means anything |
+| `UI-GRID-005` | The grid's search box is hidden | `GET /connections` does not search, and a tenant's connections are a short list |
+| `UI-GRID-007` | Double click and Enter do not open a row (no `onOpen`) | A connection has no record dialog: the row shows all its fields, and its only action is **Switch off** |
+
 **Manual:** new Dutch page `docs/manual/ai-koppeling.md`, for users (connecting in Claude and ChatGPT) and administrators
 (accepting, revoking, Gemini set-up); links from `docs/manual/navigatiepaneel.md` as that page does for other apps.
 
@@ -291,9 +303,9 @@ the link. No record picker or grid. Strings in nl and en.
 |---|---|---|
 | Tenant scope of tokens and tools | **Critical** | On PostgreSQL, for a pair of tenants with their own databases **and** a pair of shared-tier tenants in the host database (no connection string, so only the data filter separates them): a token of tenant A returns only A's data for each of the nine tools; A's token with `__tenant=B`, a tenant cookie or query parameter still returns only A; `__tenant=B` on `/connect/token` during a refresh keeps tenant A; an id of B's record gives not-found; a connection row of A is not visible or revocable from B |
 | Token separation | **Critical** | A connector token gets 403 on a REST endpoint; a browser token, a client-credentials token, a token of another audience and a signed-in browser session without a token all get refused on `/mcp` |
-| Refusals on `/mcp` and connect screen | **Critical** | Each check refused separately: host user, impersonation, either feature off, not accepted, no `Use`, user deactivated, connection revoked; tenant deleted (see *Build notes*); refresh refused after revoke, withdraw and deactivation. Signing out in the browser leaves the connection working, or the result is reported to the PO |
+| Refusals on `/mcp` and connect screen | **Critical** | Each check refused separately: host user, impersonation, either feature off, not accepted, no `Use`, user deactivated, connection revoked; tenant deleted (see *Build notes*); refresh refused after revoke, withdraw and deactivation; a tenant-side failure of revoke or withdraw leaves the host's authorization untouched, and a host-side failure leaves the row switched off with an error logged. Signing out in the browser leaves the connection working, or the result is reported to the PO |
 | Connect flow | **Critical** | Existing session in tenant A shows organisation A on the screen and issues no code without Allow; Deny issues none; a second connect by the same user and tool still shows the screen and reuses the same `AiConnection` without a unique-index failure; PKCE is required; only `OpenTmsMcp` and `offline_access` are grantable; the advertised scopes yield a refresh token |
-| Registration | **High** | Claude's URIs return its fixed client and write nothing; an approved ChatGPT URI returns the same client when repeated; mixed, unknown, `http` and look-alike URIs (`chatgpt.com.evil.example`, extra path segments) get 400 and write nothing |
+| Registration | **High** | Claude's URIs return its fixed client and write nothing; an approved ChatGPT URI returns the same client when repeated; mixed, unknown, `http` and look-alike URIs (`chatgpt.com.evil.example`, extra path segments) get 400 and write nothing; at the cap a new ChatGPT URI gets 400, writes nothing and logs an error, while one already registered still returns its client |
 | Field allowlists | **High** | A test seeds every left-out field with a marker value, and the serialized result of each tool contains no marker. A second architecture test keeps tool DTOs free of names like `Amount` outside `get_order_rates` and `get_customer_revenue`, and of `email`, `phone`, `driver` and `remarks` |
 | `get_customer_revenue` | **High** | The total equals the sum of the orders' stored revenue, per currency; `Draft` and `Cancelled` stay out and are counted; an order without an amount is counted as such, not as zero; refused without either permission or feature; one query per call. Volume: p95 < 300 ms at 1,000,000 orders in a tenant with 100,000 for one customer, on PostgreSQL |
 | Permissions and features | **High** | Each tool is refused without its permission and feature, and is absent from `tools/list`; `Integrations.AiConnector.Use` alone returns no business data |
@@ -371,6 +383,11 @@ Verified at gate 1 or first thing at build; a wrong one comes back to the PO.
 - **Margin on existing endpoints:** the order and trip endpoints return amounts with only the read permission of the
   order or trip. This design does not change them; the tools remove the amounts. Whether the screens should change is a
   separate question.
+- **The orders index blocks writes briefly.** `OrdersCustomerRevenueIndex` is a plain `CREATE INDEX` in the migration's transaction, because this repository has no
+  pattern for `CONCURRENTLY` and `suppressTransaction`: every index in it, the trigram ones on inbound messages included, is built this way. The previous revision
+  serves meanwhile, so on each database reads go on and writes to the orders table wait. Size assumed: at most 1,000,000 orders in one tenant, as in the volume test;
+  the sizes in prod were not read. Measured on local PostgreSQL 17 on a scratch table of 1,000,000 rows (781 MB): 0.35 seconds. Cloud SQL was not measured; the
+  assumption is under 30 seconds at that volume. Writes wait and do not fail. Design 75 *Assumptions* states the same for its two migrations.
 - **Interpretation:** "tenant administrator accepts" is a recorded action on the Integrations screen, while switching the
   feature on stays with the host, as for every feature.
 
@@ -489,12 +506,26 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   is the one raw SQL statement here and it reads no data. A unique index was not chosen: it would change the mapping of a table ABP
   owns, in every database the DbMigrator migrates, to protect one code path. The find after the lock uses the repository, not the
   OpenIddict manager, because the manager can answer from a per-instance cache.
+- **A cached miss does not refuse a newly registered client on another instance.** Read in the source (ABP 10.6, OpenIddict 7.5): `AbpOpenIddictApplicationCache.FindByClientIdAsync`
+  caches a miss as JSON `null`, and ABP's `DistributedCache.GetOrAddAsync` treats a null value as absent, so it asks the store again. `/connect/authorize` and `/connect/token`
+  find a client that way, so the client registered on one instance is found on the other. `FindByRedirectUriAsync` does remember a miss, as an empty array, on one instance, for
+  ABP's default cache lifetime. Only `/connect/register`'s path for fixed clients reads it, a ChatGPT URI never takes that path, and a new revision starts with an empty cache,
+  so a URI seeded by a deploy is not affected. No change was needed.
+- **A cap on ChatGPT applications.** Registration is anonymous and a new approved URI writes a permanent row, so the rate limit alone leaves about 14,400 rows per day per IP
+  address. `AiConnector:Registration:MaxChatGptClients` (default 10,000) caps the applications whose id starts with `OpenTms_Mcp_ChatGPT_`, host-wide. At the cap a new URI gets
+  the usual `400 invalid_redirect_uri`, so an anonymous caller learns nothing about the count, and an error is logged with the count and the cap, never the URI. A URI already
+  registered returns its client, without counting. The count runs inside the same lock path, only for a new URI. That lock is per client id, so registrations of different URIs at
+  the same moment can pass the cap by those few. A second, global lock would serialise every new registration to make an approximate limit exact, which nothing needs.
 - **`search_relations` and `search_vehicles` include archived rows:** the answer states `isArchived`, so the model tells them
   apart instead of missing them.
 - **`get_customer_revenue`:** `orderCount` counts the orders in that total, so orders without an amount are only in
   `ordersWithoutAmount`.
-- **Accepting twice** keeps the first acceptance on record. Withdrawing clears both settings first, so `/mcp` refuses at once,
-  then revokes the connections. Art. 17 clears the accepting user's id and leaves the acceptance standing.
+- **Accepting twice** keeps the first acceptance on record. Art. 17 clears the accepting user's id and leaves the acceptance standing.
+- **Switching off commits in the tenant first (corrected in review).** The tenant's and host's databases share no transaction. Withdraw and revoke commit the settings and
+  `RevokedAt` first, which makes `/mcp` refuse at once, and revoke in the host only after that commit (`IUnitOfWork.OnCompleted`). A failure on the tenant's side therefore has
+  revoked nothing, so no row can read Live with a dead token. A failure in the host leaves the connection switched off: the error is logged with the authorization id, the tool can
+  renew a token that `/mcp` refuses, and `POST /connections/{id}/revoke` retries it, also on a row already off (the screen offers **Switch off** only on a row that is not).
+  A caller hanging up does not stop the host step. Art. 17 stays as it was: it revokes before removing the row, because nothing there may stay usable and the user is already gone.
 - **Routes:** the connections are a service of their own (`IAiConnectionAppService`) so that the convention gives
   `/ai-connector/connections` and `/ai-connector/connections/{id}/revoke`; `IAiConnectorAppService` serves the rest.
 - **Secret:** Terraform generates `ai-connector-gemini-client-secret` into Secret Manager, readable by the migrator's service

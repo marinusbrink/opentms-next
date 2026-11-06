@@ -42,4 +42,7 @@ terraform apply -var-file=../environments/staging.tfvars
   `gcloud secrets versions access latest --secret=host-admin-password --project=ryd-opentms-<env>`.
 - The AI connector's Gemini client secret, to enter in Gemini Enterprise (the client id is `OpenTms_Mcp_Gemini`):
   `gcloud secrets versions access latest --secret=ai-connector-gemini-client-secret --project=ryd-opentms-<env>`.
+  The migrator seeds that client only when it has the secret. If `deploy.yml` runs before `prod-infra` is approved, Gemini stays
+  unseeded until the next migrator run: the next deploy, or by hand after the approval:
+  `gcloud run jobs execute opentms-migrator --wait --project=ryd-opentms-prod --region=europe-west4`.
 - Rolling back prod: `gcloud run services update-traffic opentms-api --to-revisions=<revision>=100 --project=ryd-opentms-prod --region=europe-west4`.

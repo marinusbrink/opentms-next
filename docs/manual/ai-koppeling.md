@@ -204,6 +204,10 @@ De cijfers zijn een eigen functie: **Cijfers via de AI-koppeling** (`Reporting.M
 de host. Na het aanzetten vult OpenTMS eerst de cijfers van je organisatie. Tot dat klaar is, antwoordt de tool dat de
 cijfers nog niet beschikbaar zijn. Daarna worden ze na elke wijziging bijgewerkt; het doel is binnen een minuut.
 
+Lukt het voor sommige orders of ritten niet om de cijfers voor te bereiden, dan blijft de tool niet weigeren. Hij antwoordt met wat
+er is en met een waarschuwing hoeveel orders of ritten mogelijk ontbreken. Die waarschuwing verdwijnt zodra de cijfers weer kloppen;
+OpenTMS controleert dat dagelijks.
+
 ### De definities
 
 **Per order**, op orderdatum. Standaard tellen de statussen *Open*, *Gereed voor facturatie*, *Gefactureerd* en *Gearchiveerd*

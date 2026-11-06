@@ -85,7 +85,7 @@ agent on. The PO needs margin per order and wants the autonomous layer priced on
 from the base subscription. The PO's cost rule: document intake by boundary agents counts as
 a cost of the TMS; decisions count as a cost of the operating system.
 
-## MCP server (DECIDED, AD-22) and in-app chat (PROPOSED, AP-02)
+## MCP server (BUILT, AD-22) and in-app chat (PROPOSED, AP-02)
 
 The PO decided the first direction on 2026-11-05, read-only first (design 74), and on 2026-11-06 how open questions are
 answered: a fixed list of metrics on Reporting's own tables (AD-23, design 75). The second direction is not decided.

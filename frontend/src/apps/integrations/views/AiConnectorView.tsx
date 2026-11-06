@@ -41,10 +41,10 @@ import { cn } from "@/lib/utils";
 /* Integrations → AI connector (design 74 "UI design"; PO decision 6: every connected AI tool shows here with its status from the
  * server, so a tenant always knows which integrations are live, and it can be switched off here).
  *
- * DEVIATION(UI-PAGE-001): a status section sits between the command bar and the grid, approved in design 74 "UI design".
- * DEVIATION(UI-GRID-007): no onOpen, because a connection has no record dialog and the row shows all its fields; design 74
- * "UI design" names rowActions only.
- * DEVIATION(UI-GRID-005): no search box, because GET /connections does not search; design 74 names no search.
+ * DEVIATION(UI-PAGE-001): a status section sits between the command bar and the grid, approved in design 74 "UI deviations".
+ * DEVIATION(UI-GRID-007): no onOpen, because a connection has no record dialog and the row shows all its fields, approved in
+ * design 74 "UI deviations".
+ * DEVIATION(UI-GRID-005): no search box, because GET /connections does not search, approved in design 74 "UI deviations".
  *
  * The feature Apps.Integrations.AiConnector is handled by the shell (FeatureUnavailable on the route, the nav node hidden).
  * Nothing updates optimistically: accepting, withdrawing and switching off wait for the server. */

@@ -3,7 +3,7 @@
 **PBI:** Marinus, 2026-11-06 (chat): customers can think of countless questions, so how do we make sure they can be answered,
 with short response times? He accepted the proposal of a fixed list of metrics and breakdowns on Reporting, as a design of
 its own after design 74.
-**Status:** backend built on `feat/ai-connector`, see *Build notes*. Risk class **high** (tenant data in a new read path, money behind
+**Status:** built; gate 1 and 2 with the PR (see *Build notes*). Risk class **high** (tenant data in a new read path, money behind
 permissions); critical parts named under *Test risk analysis*. Builds on design 74, which must be built first.
 **Date:** 2026-11-06
 
@@ -171,7 +171,8 @@ No input. Answers only what this user may ask: `{ metrics[{ key, unit, descripti
   totalGroups, truncated,
   coverage: { recordsIncluded, recordsWithoutValue, excludedByStatus },
   lastFactUpdateAt,
-  warnings?
+  warnings?,
+  factsMissing?
 }
 ```
 
@@ -186,6 +187,11 @@ margin come from its trips (`OrderSummaryCalculator`), and a trip stores no curr
 screens do. When a period holds orders in more than one currency, every answer with such a metric adds
 `warnings: ["mixed_currencies"]`, and the definition says the amount is not converted. The AI tool cannot then present it as a
 clean total. Correcting the calculators is out of scope.
+
+**Incomplete facts.** A backfill that ran out of sweeps (*Migration strategy*) answers `ok` from the facts that exist, adds
+`warnings: ["facts_incomplete"]` and states `factsMissing`: how many records of the asked grain, in the whole tenant rather than in the
+period, differ from their facts. Neither appears when that number is 0. The honest promise holds through the warning: the figures may
+leave those records out, and the tool's description tells the model to say so.
 
 **Refusals** come back as a tool result, not a server error, so the AI tool can say what happened. `{ status, message, hint }`:
 
@@ -244,13 +250,17 @@ a tenant turns the feature on.
   like `TemplateMaterialisationWorker`) finds tenants with the feature on and no `Reporting.Metrics.BackfillCompletedAt` setting.
   On its first pass it clears the tenant's facts. It requests up to 1,000 orders and 1,000 trips per pass through the derived-value
   scheduler and keeps its position in a setting: about eight hours at the worst-case volume, far less for most tenants. The
-  completion setting is set only when the position is exhausted **and** the fact counts equal the sources' counts, because
+  completion setting is set when the position is exhausted **and** the fact counts equal the sources' counts, because
   requesting is not the same as having run. Until then `query_metrics` answers `not_ready`. When the counts still differ an hour after
-  the position ran out, a calculation failed for good or a record came in behind the position, so the sweep starts again, without clearing.
+  the position ran out, a calculation failed for good or a record came in behind the position, so the sweep starts again, without clearing,
+  up to `Reporting:Metrics:BackfillMaxSweeps` sweeps (default 3, the first included). When the counts still differ an hour after the last
+  sweep ran out, the backfill stops resweeping, logs an error with the tenant id and the two numbers, stores the difference in the setting
+  `Reporting.Metrics.FactsMissing` and completes, so `query_metrics` answers with the warning `facts_incomplete` instead of refusing forever.
 - **Repair:** a `ReportingFactRepairWorker` looks every 15 minutes which tenants are due, and a tenant is due 24 hours after its last run,
   stored in the setting `Reporting.Metrics.RepairLastRunAt`, because a deploy restarts every timer. It requests recalculation of records
   created or modified in the last 48 hours, soft-deleted ones included, where the calculator removes the fact. Delivery is at least once
-  and failing events have no dead-letter store (AO-10), so this catches a lost update within a day.
+  and failing events have no dead-letter store (AO-10), so this catches a lost update within a day. It also recounts a `FactsMissing` number
+  on record, and removes it at 0, which ends the warning.
 - **Feature off, then on again:** facts go stale while it is off. The daily repair clears the completion and position settings of a tenant
   whose feature is off, so turning it on starts a new backfill, which clears the facts first. A feature turned off and on within one day
   keeps its facts, and the 48-hour repair covers that gap.
@@ -274,7 +284,7 @@ calculated revenue rather than invoiced.
 | Money behind permissions | **Critical** | Each money metric refused without `Financial.RateLines`, absent from `list_metrics`, and refused in a mix with an allowed metric; no refusal reveals a value |
 | Correctness | **High** | For a seeded dataset, each metric, breakdown and filter equals a sum computed independently from the source tables; `order_revenue` per customer equals `get_customer_revenue`; `order_revenue` splits by currency; `mixed_currencies` appears exactly when a period holds several; null counts in coverage, not as zero; trips with revenue 0 stay out of `trip_margin`; on-time boundary at exactly 15 minutes |
 | Fact updates | **High** | On PostgreSQL through the outbox: a change, status change and delete each reach the fact; a trip without a working route still gets a fact; a duplicate event changes nothing; a newer save discards an older run; a lost update and a lost delete are repaired by the nightly worker |
-| Backfill | **High** | Resumes after an interruption; `not_ready` until every fact exists, not merely was requested; results equal the source afterwards; no run for a tenant with the feature off; feature off and on clears and restarts it; a dataset reset leaves no facts |
+| Backfill | **High** | Resumes after an interruption; `not_ready` until every fact exists, not merely was requested; results equal the source afterwards; no run for a tenant with the feature off; feature off and on clears and restarts it; a dataset reset leaves no facts; a calculation that keeps failing stops resweeping after the last sweep, completes and answers `ok` with `facts_incomplete` and `factsMissing` for that grain only; the repair's recount lowers the number and ends the warning at 0 |
 | Module boundaries | **High** | No cross-schema mapping or join; the architecture tests pass with the new references |
 | Performance | **High** | k6 and PostgreSQL volume test: p95 < 300 ms for `query_metrics`, warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
 | Freshness | **Medium** | p95 under 60 seconds from a save to the fact, under normal job load |
@@ -296,9 +306,16 @@ calculated revenue rather than invoiced.
   The Jobs role is not split yet (AD-11), so these run in the one host; the load test covers it.
 - **Storage:** two small tables and nine indexes per tenant database, two more indexes each on orders and trips, and one derived-value
   state row per fact in `platform`; the amount is measured in the volume test. No new service.
-- **A backfill** costs one job and one `DerivedValuesRecalculatedEto` outbox row per record, at up to 2,000 per minute per tenant.
+- **A backfill** costs one job and one `DerivedValuesRecalculatedEto` outbox row per record, at up to 2,000 per minute per tenant, for at
+  most `BackfillMaxSweeps` sweeps. While a sweep waits for its jobs, each pass counts facts and sources, for at most an hour per sweep.
+- **Tenants with the feature off are not free.** The backfill worker makes one feature check per tenant per minute. The repair worker looks
+  every 15 minutes: it reads `RepairLastRunAt` and, for a tenant with no last run (which a feature-off tenant keeps), also checks the feature
+  and reads the two backfill settings. Settings and features come through ABP's caches, so this reaches the database only on a cold cache.
+  `OrderSummaryCalculator` writes one new `TransportOrderRecalculatedEto` outbox row per recalculation and `TripOperations` one
+  `TransportTripDeletedEto` per deleted trip, whether or not the feature is on: Orders and Planning cannot know. Those, and the existing events
+  Reporting subscribes to, each cost its handler one feature check before it skips.
 - **Budgets touched:** interactive reads p95 < 300 ms (the query) and heavy operations "never block a request over 2 s" (the
-  timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation.
+  timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation, for every tenant.
 - **What we do not control:** the time the AI tool itself takes. A complete answer in ChatGPT includes its model time and is measured
   on staging, but no budget of ours can promise it.
 - **Margin per tenant:** small and only for tenants with the feature on. Whether to charge for it is the PO's choice and not part of
@@ -319,6 +336,12 @@ calculated revenue rather than invoiced.
 - **Order date** is the period for order metrics, not the first or last stop date. A trip's numbers count by trip date.
 - **Reach of the fallback:** covering indexes are expected to meet the budget, without a measurement yet. The volume test decides.
 - **15 minutes** applies to all tenants in this version.
+- **Index builds block writes briefly.** `OrdersRepairIndexes` and `PlanningRepairIndexes` are plain `CREATE INDEX` statements in the migration's
+  transaction, because this repository has no pattern for `CONCURRENTLY` and `suppressTransaction`: every index in it, the trigram ones on
+  inbound messages included, is built this way. The previous revision serves while they run, so on each database reads go on and writes to that
+  table wait. Sizes assumed: at most 1,000,000 orders and 250,000 trips in one tenant, the worst case of this design; the sizes in prod were not
+  read. Measured on local PostgreSQL 17 on a scratch table of 1,000,000 rows (781 MB): two indexes in one transaction took 0.9 seconds, so about
+  a quarter of that for trips. Cloud SQL was not measured; the assumption is under 30 seconds per migration at that volume. Writes wait and do not fail.
 
 ## Security quickscan
 
@@ -396,7 +419,18 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   own, `Reporting`, because it is not an app or nav node.
 - **Daily, not nightly by the clock:** the repair drifts with its last run. Fixing an hour would need the same catch-up for a host that was
   asleep at that hour, for little gain at this load.
-- **Settings:** `Reporting:Metrics` in configuration holds the workers' switch (`WorkersEnabled`), periods, batch size and the query's timeout.
+- **Settings:** `Reporting:Metrics` in configuration holds the workers' switch (`WorkersEnabled`), periods, batch size, the sweep cap
+  (`BackfillMaxSweeps`) and the query's timeout.
+- **The sweep cap (found in review).** Without one, one calculation that always fails kept a tenant `not_ready` forever, re-requested every record
+  hourly and counted every minute. Default 3 sweeps: a failure gets two second chances, and a tenant stops within a few hours of its first sweep
+  running out. Refusing forever would keep every other number from the user, so the answer warns and states the number instead.
+- **What `factsMissing` counts:** the absolute difference of two counts per grain, because no query across modules can name the records. A surplus fact
+  counts too, and a surplus and a missing fact of one grain cancel out. It is the whole tenant's, because the period of a record without a fact is unknown.
+  `list_metrics` still says `factsReady: true`: the warning belongs to the answer whose numbers it qualifies.
+- **What the repair does for those records:** it requests only records changed in the last 48 hours, so an old record whose calculation keeps failing
+  stays out, and the warning stays, until the record changes or a backfill starts again. A large tenant whose jobs lag an hour behind each sweep can also
+  reach the cap early; it then answers with a warning sooner, and the daily recount lowers the number as the jobs finish.
 
-**Not done here:** the manual section (another agent), the question list at `docs/testing/ai-connector-questions.md`, the k6 test and the PostgreSQL
-volume test as tests. A real AI tool has not called these tools over `/mcp`.
+**Exists, not yet run as designed:** the k6 script `tests/load/ai-connector.js` has never run. The PostgreSQL volume test
+(`MetricVolumeTests`) runs locally with the other PostgreSQL tests. The question list `docs/testing/ai-connector-questions.md` exists and its first run is on staging.
+A real AI tool has not called these tools over `/mcp`.
