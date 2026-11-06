@@ -7,8 +7,8 @@ import { withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 
 /* The AI connector's administration (design 74, "Connector administration"; PO decision 6): the status with the acceptance
- * of the data sharing, and the connections, each live until someone switches it off. The server decides whose rows a user
- * sees. Accepting, withdrawing and switching off are security actions, so nothing here updates optimistically: the screen
+ * of the data sharing, and the connections with whether each is live. The server decides whose rows a user sees and computes
+ * each row's status. Accepting, withdrawing and switching off are security actions, so nothing here updates optimistically: the screen
  * changes when the server has answered. */
 
 type Schemas = components["schemas"];
@@ -23,9 +23,12 @@ export const aiConnectorKeys = {
   status: ["integrations", "aiConnector", "status"] as const,
 };
 
-/** A connection is live until it is switched off (`revokedAt`); a state of the `AiConnection` status badge. */
-export function aiConnectionState(row: Pick<AiConnectionRow, "revokedAt">): "Live" | "SwitchedOff" {
-  return row.revokedAt == null ? "Live" : "SwitchedOff";
+/** `AiConnectionStatus` of the contract, by the state names of the `AiConnection` status badge. */
+export const AI_CONNECTION_STATUSES = { 1: "Live", 2: "NotWorking", 3: "Expired", 4: "SwitchedOff" } as const;
+
+/** Every row but a switched-off one can be switched off: a NotWorking connection may become live again. */
+export function canSwitchOffAiConnection(row: Pick<AiConnectionRow, "status">): boolean {
+  return row.status !== 4;
 }
 
 const unwrap = <T,>(result: { data?: T; error?: unknown; response?: Response }): T => {

@@ -80,9 +80,11 @@ const STATUS_REGISTRY: Record<string, Record<string, StatusDefinition>> = {
     Skipped: { tone: "neutral", labelKey: "Integrations:InboundDocumentStatus.Skipped" },
     Failed: { tone: "danger", labelKey: "Integrations:InboundDocumentStatus.Failed" },
   },
-  /* Design 74 (AI connector), PO decision 6: every connected AI tool shows as live until it is switched off. */
+  /* Design 74 (AI connector), PO decision 6: every connected AI tool, with whether /mcp would serve it now. */
   AiConnection: {
     Live: { tone: "success", labelKey: "AiConnector:State.Live" },
+    NotWorking: { tone: "warning", labelKey: "AiConnector:State.NotWorking" },
+    Expired: { tone: "neutral", labelKey: "AiConnector:State.Expired" },
     SwitchedOff: { tone: "neutral", labelKey: "AiConnector:State.SwitchedOff" },
   },
   AiConnectorSharing: {

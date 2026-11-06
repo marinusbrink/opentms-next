@@ -20,7 +20,8 @@ import { StatusBadge, StatusCell } from "@/components/ui/status-badge";
 import {
   AI_CONNECTOR_MANAGE,
   AI_CONNECTOR_USE,
-  aiConnectionState,
+  AI_CONNECTION_STATUSES,
+  canSwitchOffAiConnection,
   useAcceptAiConnector,
   useAiConnectionsGridFetcher,
   useAiConnectorStatus,
@@ -29,6 +30,7 @@ import {
   type AiConnectionRow,
   type AiConnectorStatus,
 } from "@/domains/integrations/ai-connector";
+import { enumName } from "@/domains/integrations/order-intake";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
 import { useFormat } from "@/lib/format";
@@ -36,8 +38,8 @@ import { countText } from "@/lib/i18n/count-text";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { cn } from "@/lib/utils";
 
-/* Integrations → AI connector (design 74 "UI design"; PO decision 6: every connected AI tool shows as live, so a tenant
- * always knows which integrations are live, and it can be switched off here).
+/* Integrations → AI connector (design 74 "UI design"; PO decision 6: every connected AI tool shows here with its status from the
+ * server, so a tenant always knows which integrations are live, and it can be switched off here).
  *
  * DEVIATION(UI-PAGE-001): a status section sits between the command bar and the grid, approved in design 74 "UI design".
  * DEVIATION(UI-GRID-007): no onOpen, because a connection has no record dialog and the row shows all its fields; design 74
@@ -73,12 +75,11 @@ function AiConnectorContent({ canManage, canSwitchOff }: { canManage: boolean; c
   const columns = useMemo<ColDef<AiConnectionRow>[]>(
     () => [
       {
-        colId: "status",
+        field: "status",
         headerName: t("Integrations:Status"),
         minWidth: 130,
         sortable: false,
-        valueGetter: (p) => (p.data ? aiConnectionState(p.data) : undefined),
-        cellRenderer: (p: { value: string | undefined }) => <StatusCell entity="AiConnection" value={p.value} />,
+        cellRenderer: (p: { value: number | undefined }) => <StatusCell entity="AiConnection" value={enumName(AI_CONNECTION_STATUSES, p.value)} />,
       },
       { field: "userName", headerName: t("AiConnector:Column.User"), flex: 1, minWidth: 160, sortable: false },
       { field: "toolName", headerName: t("AiConnector:Column.Tool"), flex: 1, minWidth: 120, sortable: false },
@@ -109,8 +110,8 @@ function AiConnectorContent({ canManage, canSwitchOff }: { canManage: boolean; c
       : [];
 
   const rowActions = (rows: AiConnectionRow[]): GridRowAction[] => {
-    const live = rows.filter((row) => row.id != null && aiConnectionState(row) === "Live");
-    if (!canSwitchOff || live.length === 0) return [];
+    const switchable = rows.filter((row) => row.id != null && canSwitchOffAiConnection(row));
+    if (!canSwitchOff || switchable.length === 0) return [];
     return [
       {
         id: "switch-off",
@@ -118,7 +119,7 @@ function AiConnectorContent({ canManage, canSwitchOff }: { canManage: boolean; c
         icon: PowerOff,
         destructive: true,
         multi: true,
-        onClick: () => setTarget({ ids: live.map((row) => row.id!), row: live.length === 1 ? live[0] : undefined }),
+        onClick: () => setTarget({ ids: switchable.map((row) => row.id!), row: switchable.length === 1 ? switchable[0] : undefined }),
       },
     ];
   };
