@@ -25,6 +25,8 @@ namespace OpenTms.Integrations.Routing;
 /// </summary>
 public class RoutingService : IRoutingService, ITransientDependency
 {
+    private const int MaxConcurrentRouteCalls = 4;
+
     private readonly IEnumerable<IRouteProvider> _providers;
     private readonly IRouteFunction _function;
     private readonly IRepository<RouteCacheEntry, Guid> _cache;
@@ -81,6 +83,20 @@ public class RoutingService : IRoutingService, ITransientDependency
             return ToResult(hit, provider.Name, now, fromCache: true);
         }
 
+        var fetched = await FetchRouteAsync(provider, function, from, to, vehicle, options, now, cancellationToken);
+        if (fetched is { Storable: true })
+        {
+            await StoreAsync([(key, cacheProvider, fetched.Result)], now, cancellationToken);
+        }
+
+        return fetched?.Result;
+    }
+
+    private sealed record FetchedRoute(RouteResult Result, bool Storable);
+
+    /// <summary>Asks the engine and the function for one pair; no database, so several pairs can run at once.</summary>
+    private static async Task<FetchedRoute?> FetchRouteAsync(IRouteProvider provider, IRouteFunction? function, GeoPoint from, GeoPoint to, VehicleSpec? vehicle, RoutingOptions options, DateTimeOffset now, CancellationToken cancellationToken)
+    {
         var route = await provider.GetRouteAsync([from, to], vehicle, options.IncludeGeometry, cancellationToken);
         if (route == null)
         {
@@ -104,12 +120,7 @@ public class RoutingService : IRoutingService, ITransientDependency
             FromCache: false);
 
         /* A row is written only when every asked part is in hand: a function outage must not pin "no toll" for 30 days. */
-        if (function == null || extra != null)
-        {
-            await StoreAsync([(key, cacheProvider, result)], now, cancellationToken);
-        }
-
-        return result;
+        return new FetchedRoute(result, function == null || extra != null);
     }
 
     public async Task<RouteMatrix?> GetMatrixAsync(IReadOnlyList<GeoPoint> points, VehicleSpec? vehicle, CancellationToken cancellationToken = default)
@@ -226,18 +237,49 @@ public class RoutingService : IRoutingService, ITransientDependency
         }
 
         var now = _time.GetUtcNow();
-        var legs = new List<RouteResult>(Math.Max(0, points.Count - 1));
-        for (var i = 0; i + 1 < points.Count; i++)
-        {
-            var leg = await GetRouteAsync(points[i], points[i + 1], vehicle, options, cancellationToken);
-            if (leg == null)
-            {
-                return null;
-            }
+        var wantsFunction = options.IncludeToll || options.IncludeCo2;
+        var function = wantsFunction && _function.IsConfigured && provider is not IRouteFunction ? _function : null;
+        var cacheProvider = function == null ? provider.Name : provider.Name + "+" + RoutingConsts.RouteFunctionProviderName;
 
-            legs.Add(leg);
+        var pairs = Math.Max(0, points.Count - 1);
+        var keys = Enumerable.Range(0, pairs).Select(i => RouteCacheKey.Build(points[i], points[i + 1], vehicle, cacheProvider, options)).ToList();
+        var distinctKeys = keys.Distinct().ToList();
+        var hits = (await _cache.GetListAsync(e => distinctKeys.Contains(e.Key) && e.ExpiresAt > now.UtcDateTime, cancellationToken: cancellationToken))
+            .ToDictionary(e => e.Key);
+
+        /* Design 74 §9: the wait after a save was this, one pair after the other. A pair the cache misses is asked at most
+         * MaxConcurrentRouteCalls at a time, the cache is read and written once. */
+        var missing = Enumerable.Range(0, pairs).Where(i => !hits.ContainsKey(keys[i])).DistinctBy(i => keys[i]).ToList();
+        var fetched = new FetchedRoute?[pairs];
+        using var gate = new SemaphoreSlim(MaxConcurrentRouteCalls);
+        try
+        {
+            await Task.WhenAll(missing.Select(async i =>
+            {
+                await gate.WaitAsync(cancellationToken);
+                try
+                {
+                    fetched[i] = await FetchRouteAsync(provider, function, points[i], points[i + 1], vehicle, options, now, cancellationToken);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }));
+        }
+        finally
+        {
+            /* What came back is worth keeping when another pair failed: the retry asks only the rest. */
+            await StoreAsync(missing.Where(i => fetched[i] is { Storable: true }).Select(i => (keys[i], cacheProvider, fetched[i]!.Result)).ToList(), now, cancellationToken);
         }
 
+        if (missing.Any(i => fetched[i] == null))
+        {
+            return null;
+        }
+
+        var byKey = missing.ToDictionary(i => keys[i], i => fetched[i]!.Result);
+        var legs = keys.Select(key => hits.TryGetValue(key, out var hit) ? ToResult(hit, provider.Name, now, fromCache: true) : byKey[key]).ToList();
         return new RouteMatrix(legs, provider.Name, now);
     }
 

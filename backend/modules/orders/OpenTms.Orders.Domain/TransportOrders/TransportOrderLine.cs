@@ -65,6 +65,9 @@ public class TransportOrderLine : Entity<Guid>, IMultiTenant
         return SetStops(input.Stops, newId);
     }
 
+    /// <summary>Replaces the freight facts only (design 74 §6 and §7); the stops, measurements and characteristics stay.</summary>
+    public void SetFreight(FreightInput freight) => Freight = FreightDetails.From(freight);
+
     public void SetMeasurements(IReadOnlyList<MeasurementInput> measurements)
     {
         Check.NotNull(measurements, nameof(measurements));

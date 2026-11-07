@@ -81,6 +81,8 @@ public class TransportOrderDtoMapper : ITransientDependency
             TripNumbers = o.TripNumbers,
             HasTripRequest = o.TripRequest != null,
             TripRequestWarningCode = o.TripRequest?.WarningCode,
+            InternalRemarks = o.InternalRemarks,
+            ConcurrencyStamp = o.ConcurrencyStamp,
             CreationTime = o.CreationTime,
             LastModificationTime = o.LastModificationTime
         }).ToList();

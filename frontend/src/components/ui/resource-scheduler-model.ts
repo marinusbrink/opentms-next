@@ -136,6 +136,18 @@ export function parseSlotDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** A row of the timeline's body as measured on screen. */
+export interface MeasuredRow {
+  resourceId: string;
+  top: number;
+  bottom: number;
+}
+
+/** The row under a vertical screen position; null above, below or between the rows. */
+export function rowAtY(rows: readonly MeasuredRow[], y: number): string | null {
+  return rows.find((row) => y >= row.top && y < row.bottom)?.resourceId ?? null;
+}
+
 /** The time under a horizontal screen position, snapped to `snapMinutes`; null outside every slot. */
 export function timeAtX(slots: readonly MeasuredSlot[], x: number, slotMs: number, snapMinutes = SNAP_MINUTES): Date | null {
   const slot = slots.find((s) => x >= s.left && x < s.left + s.width);

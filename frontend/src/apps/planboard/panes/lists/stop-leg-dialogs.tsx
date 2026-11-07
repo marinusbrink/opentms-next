@@ -16,16 +16,13 @@ import type { RelationOption } from "@/domains/master-data/entities";
 import { parseTimeOfDay, waypointTypes } from "@/domains/orders/reference-data";
 import { toOptions } from "@/domains/planning-execution/components/form-fields";
 import { legEndLabel, useUpdateLeg, type LegDto } from "@/domains/planning-execution/legs";
-import { useSplitUnplannedLeg } from "@/domains/planning-execution/planboard-lists";
 import { useAddManualStop, useRecordStopActuals, type TripStopDto } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { parseInteger, parseNumber } from "@/lib/forms/use-form-state";
-import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The dialogs of the Trip stops, Legs and Legs to schedule panes (design 70 "Panes"): record a stop's actual times, add a
- * manual stop (design 59), edit a leg's references and remarks (Planning fields only, D19) and split quantity off an
- * unplanned leg (design 68 §7). Errors show inside the dialog (UI-FB-004); success closes and confirms. */
+ * manual stop (design 59) and edit a leg's references and remarks (Planning fields only, D19). Errors show inside the dialog (UI-FB-004); success closes and confirms. */
 
 function Footer({ busy, onCancel, form, label }: { busy: boolean; onCancel: () => void; form: string; label: string }) {
   const { t } = useL();
@@ -245,55 +242,6 @@ export function LegReferencesDialog({ leg, onClose }: { leg: LegDto; onClose: ()
         </FormField>
         <FormField label={t("PlanningExecution:Remarks")} htmlFor="planboard-leg-remarks" floating="always">
           <Textarea id="planboard-leg-remarks" rows={3} maxLength={2500} value={remarks} onChange={(e) => setRemarks(e.target.value)} disabled={busy} />
-        </FormField>
-      </form>
-    </EntityDialog>
-  );
-}
-
-/** Split quantity off an unplanned leg (design 68 §7): the leg keeps the rest, a new unplanned leg carries the quantity. */
-export function SplitLegLineDialog({ leg, onClose, onDone }: { leg: LegDto; onClose: () => void; onDone: () => void }) {
-  const { t } = useL();
-  const f = useFormat();
-  const split = useSplitUnplannedLeg();
-  const total = leg.quantity ?? 0;
-  const [quantity, setQuantity] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const busy = split.isPending;
-  const parsed = parseNumber(quantity);
-  const invalid = parsed == null || Number.isNaN(parsed) || parsed <= 0 || parsed >= total;
-  const rangeError = submitted && invalid ? t("PlanningExecution:SplitQuantityRange").replace("{0}", f.number(total)) : undefined;
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setSubmitted(true);
-    if (invalid || parsed == null) return;
-    setError(null);
-    try {
-      await split.mutateAsync({ legId: leg.id!, quantity: parsed });
-      toast.success(t("PlanningExecution:QuantitySplit"));
-      onClose();
-      onDone();
-    } catch (err) {
-      setError(getApiErrorMessage(err, t));
-    }
-  };
-
-  return (
-    <EntityDialog
-      open
-      onOpenChange={(next) => !next && onClose()}
-      variant="action"
-      size="sm"
-      title={`${t("PlanningExecution:SplitLine")} ${leg.orderNumber ?? ""}`}
-      isBusy={busy}
-      footer={<Footer busy={busy} onCancel={onClose} form="planboard-split-line" label={t("PlanningExecution:Split")} />}
-    >
-      <form id="planboard-split-line" onSubmit={(e) => void submit(e)} noValidate className="grid grid-cols-1 gap-3">
-        <ErrorAlert message={error} />
-        <FormField label={t("PlanningExecution:SplitQuantity")} htmlFor="planboard-split-quantity" required error={rangeError} hint={t("PlanningExecution:SplitQuantityHint")}>
-          <Input id="planboard-split-quantity" inputMode="decimal" className="tabular-nums" value={quantity} onChange={(e) => setQuantity(e.target.value)} disabled={busy} autoFocus />
         </FormField>
       </form>
     </EntityDialog>

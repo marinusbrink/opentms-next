@@ -163,6 +163,12 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
     public OrderHeaderInput HeaderFor()
         => new(TransportOrderTypeId, CustomerRelationId, CustomerContactPersonId, CustomerName, OrderDate, CustomerReference, OrganizationUnitId, InternalRemarks, InvoicingRemarks);
 
+    /// <summary>The order's reference (design 74 §6: the Planboard's inline edit).</summary>
+    public void SetCustomerReference(string? reference) => CustomerReference = OrderValues.Text(reference, OrdersConsts.MaxCustomerReferenceLength, "customerReference");
+
+    /// <summary>The order's internal remarks (design 74 §6: the Planboard's inline edit).</summary>
+    public void SetInternalRemarks(string? remarks) => InternalRemarks = OrderValues.Text(remarks, OrdersConsts.MaxRemarksLength, "internalRemarks");
+
     public void SetCustomerName(string name) => CustomerName = OrderValues.Text(name, OrdersConsts.MaxStopNameLength, "customerName") ?? string.Empty;
 
     public void SetDraftConfidence(decimal? confidence)
@@ -409,6 +415,66 @@ public class TransportOrder : FullAuditedAggregateRoot<Guid>, IMultiTenant
         {
             line.SetPosition(position++);
         }
+    }
+
+    /// <summary>
+    /// Design 74 §7: part of a line becomes a new line at the end of the order, with the same freight, characteristics, attributes and
+    /// stops (new ids). The new line takes <paramref name="quantity"/>; the quantities and measurements scale pro rata: the
+    /// remaining part is rounded (four decimals for the decimal columns, five for the measures) and the new part is the total
+    /// minus the remaining part, so the total stays exact. Both amounts must be above zero.
+    /// </summary>
+    /// <returns>The new line and the map old stop id → new stop id.</returns>
+    public (TransportOrderLine NewLine, IReadOnlyDictionary<Guid, Guid> StopIds) SplitLine(Guid lineId, decimal quantity, Func<Guid> newId)
+    {
+        var line = GetLine(lineId);
+        var total = line.Freight.Quantity;
+        var newQuantity = Math.Round(quantity, OrdersConsts.LineQuantityDecimals, MidpointRounding.AwayFromZero);
+        if (newQuantity <= 0 || newQuantity >= total)
+        {
+            throw new BusinessException(OrdersErrorCodes.InvalidLineSplit).WithData("quantity", quantity).WithData("max", total);
+        }
+
+        var remainingShare = (total - newQuantity) / total;
+        (decimal? Remaining, decimal? New) Amount(decimal? value)
+        {
+            if (value == null)
+            {
+                return (null, null);
+            }
+
+            var remaining = Math.Round(value.Value * remainingShare, OrdersConsts.LineQuantityDecimals, MidpointRounding.AwayFromZero);
+            return (remaining, value.Value - remaining);
+        }
+
+        (double? Remaining, double? New) Measure(double? value)
+        {
+            if (value == null)
+            {
+                return (null, null);
+            }
+
+            var remaining = Math.Round(value.Value * (double)remainingShare, OrdersConsts.LineMeasureDecimals, MidpointRounding.AwayFromZero);
+            return (remaining, Math.Round(value.Value - remaining, OrdersConsts.LineMeasureDecimals, MidpointRounding.AwayFromZero));
+        }
+
+        var source = line.ToInput();
+        var f = source.Freight;
+        var (positions, colli, weight, volume, meters, factor, epq) = (Amount(f.Positions), Amount(f.Colli), Measure(f.WeightKg), Measure(f.VolumeM3), Measure(f.LoadingMeters), Measure(f.LoadFactor), Measure(f.Epq));
+        var measurements = source.Measurements.Select(m => (Input: m, Parts: Measure(m.Value))).ToList();
+
+        var newLine = AddLine(new LineInput(
+            null,
+            f with { Quantity = newQuantity, Positions = positions.New, Colli = colli.New, WeightKg = weight.New, VolumeM3 = volume.New, LoadingMeters = meters.New, LoadFactor = factor.New, Epq = epq.New },
+            measurements.Select(m => m.Input with { Value = m.Parts.New!.Value }).ToList(),
+            source.RequiredTransportCharacteristicIds,
+            source.Stops.Select(s => s with { Id = null }).ToList(),
+            source.Attributes), newId);
+
+        line.SetFreight(f with { Quantity = total - newQuantity, Positions = positions.Remaining, Colli = colli.Remaining, WeightKg = weight.Remaining, VolumeM3 = volume.Remaining, LoadingMeters = meters.Remaining, LoadFactor = factor.Remaining, Epq = epq.Remaining });
+        line.SetMeasurements(measurements.Select(m => m.Input with { Value = m.Parts.Remaining!.Value }).ToList());
+
+        var stopIds = line.Stops.OrderBy(s => s.Position).Zip(newLine.Stops.OrderBy(s => s.Position)).ToDictionary(p => p.First.Id, p => p.Second.Id);
+        return (newLine, stopIds);
     }
 
     // ── references ──────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { EntityDialog } from "@/components/ui/entity-dialog";
 import { FormField } from "@/components/ui/form-field";
 import { ReferenceCombobox } from "@/components/ui/reference-combobox";
 import { useCreateInPlace } from "@/domains/master-data/components/create-in-place";
-import { useAddTripDriver, useCreatePlanboardTrip, type PlanboardChangeDto, type PlanboardResourceMode } from "@/domains/planning-execution/planboard-scheduler";
+import { useAddTripDriver, useCreatePlanboardTrip, type PlanboardCreateTripResultDto, type PlanboardResourceMode } from "@/domains/planning-execution/planboard-scheduler";
 import { transportTripTypes, useDefaultTransportTripTypeId, type TransportTripTypeDto } from "@/domains/planning-execution/reference-data";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useFormat } from "@/lib/format";
@@ -17,7 +17,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
  * defaults to the tenant's default type (else the first); the server fills the type's defaults, puts the row's resource
  * in its mode's slot and plans the departure at the selected time. A driver dropped on an empty cell opens the same
  * dialog with `driverId`: after the create the driver is added to the new trip (unless the row is that driver already,
- * in the Driver mode). */
+ * in the Driver mode). Legs or an order dropped on an empty cell open it when there is more than one trip type to choose
+ * from (design 74 §10); they go on the new trip, and cancelling undoes the drop: nothing has happened yet. */
 
 export interface CreateTripDialogProps {
   mode: PlanboardResourceMode;
@@ -28,11 +29,15 @@ export interface CreateTripDialogProps {
   driverId?: string;
   /** The dropped driver's name, when known (shown in the summary). */
   driverName?: string;
+  /** Legs dropped on the cell: they go on the new trip. */
+  legIds?: string[];
+  /** An order dropped on the cell: its legs go on the new trip; the caller reports the result. */
+  orderId?: string;
   onClose: () => void;
-  onCreated: (change: PlanboardChangeDto) => void;
+  onCreated: (change: PlanboardCreateTripResultDto) => void;
 }
 
-export function CreateTripDialog({ mode, resourceId, resourceName, start, driverId, driverName, onClose, onCreated }: CreateTripDialogProps) {
+export function CreateTripDialog({ mode, resourceId, resourceName, start, driverId, driverName, legIds, orderId, onClose, onCreated }: CreateTripDialogProps) {
   const { t } = useL();
   const f = useFormat();
   const create = useCreatePlanboardTrip();
@@ -58,8 +63,8 @@ export function CreateTripDialog({ mode, resourceId, resourceName, start, driver
     e.preventDefault();
     setError(null);
     try {
-      const change = await create.mutateAsync({ transportTripTypeId: typeId, mode, resourceId, plannedDeparture: start.toISOString() });
-      toast.success(t("Planboard:Scheduler.TripCreated"));
+      const change = await create.mutateAsync({ transportTripTypeId: typeId, mode, resourceId, plannedDeparture: start.toISOString(), legIds, orderId });
+      if (!orderId) toast.success(t(legIds?.length ? "Planboard:Scheduler.TripCreatedWithLegs" : "Planboard:Scheduler.TripCreated"));
       if (driverToAdd && change.id) {
         try {
           await addDriver.mutateAsync({ tripId: change.id, driverId: driverToAdd, concurrencyStamp: change.concurrencyStamp ?? "" });

@@ -105,6 +105,13 @@ public class MasterDataAddressReferenceDto
 
     public string RelationName { get; set; } = string.Empty;
 
+    /// <summary>The relation's general contact details (design 74 §3, the stop window). Business contact data of the caller's tenant; never log it (rule 5).</summary>
+    public string? RelationPhone { get; set; }
+
+    public string? RelationMobile { get; set; }
+
+    public string? RelationEmail { get; set; }
+
     public Guid? AddressTypeId { get; set; }
 
     public string Street { get; set; } = string.Empty;

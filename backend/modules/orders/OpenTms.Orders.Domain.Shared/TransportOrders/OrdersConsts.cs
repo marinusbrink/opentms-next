@@ -22,6 +22,12 @@ public static class OrdersConsts
 
     public const int MaxLines = 200;
 
+    /// <summary>Design 74 §7: the decimals a split rounds to: those of the line's decimal columns (quantity, positions, colli).</summary>
+    public const int LineQuantityDecimals = 4;
+
+    /// <summary>Design 74 §7: the decimals a split rounds its measures to (weight, volume, loading metres, load factor, EPQ, measurements).</summary>
+    public const int LineMeasureDecimals = 5;
+
     public const int MaxStopsPerLine = 50;
 
     public const int MinStopsPerLine = 2;

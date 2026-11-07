@@ -94,6 +94,91 @@ public class PlanboardCreateTripDto
 
     /// <summary>At most 200 unplanned legs; dropped legs go on the trip whatever their window (the planner chose the cell).</summary>
     public List<Guid> LegIds { get; set; } = new();
+
+    /// <summary>
+    /// Design 74 §8: an order dropped on an empty cell: all its legs except the stuck go on the new trip, whatever their window,
+    /// leaving their old trips. Not together with <see cref="LegIds"/>.
+    /// </summary>
+    public Guid? OrderId { get; set; }
+}
+
+/// <summary>Design 74 §8: <c>GET planboard/{id}/assign-order-preview</c>.</summary>
+public class PlanboardAssignOrderPreviewRequestDto
+{
+    [Required]
+    public Guid OrderId { get; set; }
+}
+
+/// <summary>Design 74 §8: <c>POST planboard/{id}/assign-order</c>: all legs of the order except the stuck go on the trip, in one unit of work.</summary>
+public class PlanboardAssignOrderDto
+{
+    [Required]
+    public Guid OrderId { get; set; }
+
+    /// <summary>Overrides <c>LegOutsideTripWindow</c>.</summary>
+    public bool AllowOutsideWindow { get; set; }
+
+    [Required]
+    public string ConcurrencyStamp { get; set; } = string.Empty;
+}
+
+/// <summary>What a drop of the order would do. A confirmation is due only when <see cref="PulledFrom"/> is not empty.</summary>
+public class PlanboardAssignOrderPreviewDto
+{
+    /// <summary>Every leg of the order: those that would move, those stuck and those on this trip already.</summary>
+    public List<PlanboardOrderLegDto> Legs { get; set; } = new();
+
+    public List<PlanboardPulledFromDto> PulledFrom { get; set; } = new();
+
+    public List<PlanboardOrderLegDto> Stuck { get; set; } = new();
+
+    /// <summary>The legs a drop would move; zero means the command is refused with the reason.</summary>
+    public int MovableCount { get; set; }
+}
+
+/// <summary>The change of an order drop (or a new trip): the trip's new stamp plus what moved and what stayed.</summary>
+public class PlanboardAssignOrderResultDto : PlanboardChangeDto
+{
+    public List<PlanboardOrderLegDto> Moved { get; set; } = new();
+
+    public List<PlanboardOrderLegDto> Stuck { get; set; } = new();
+
+    public List<PlanboardPulledFromDto> PulledFrom { get; set; } = new();
+}
+
+/// <summary>A trip legs leave: its number and how many.</summary>
+public class PlanboardPulledFromDto
+{
+    public Guid TripId { get; set; }
+
+    public string Number { get; set; } = string.Empty;
+
+    public int LegCount { get; set; }
+}
+
+/// <summary>A leg of a dragged order, enough to name it in a confirmation or a warning.</summary>
+public class PlanboardOrderLegDto
+{
+    public Guid Id { get; set; }
+
+    public Guid OrderLineId { get; set; }
+
+    public int Position { get; set; }
+
+    public string OriginName { get; set; } = string.Empty;
+
+    public string? OriginCity { get; set; }
+
+    public string DestinationName { get; set; } = string.Empty;
+
+    public string? DestinationCity { get; set; }
+
+    public Guid? TripId { get; set; }
+
+    public string? TripNumber { get; set; }
+
+    /// <summary>Set on a stuck leg: why it stays.</summary>
+    public PlanboardStuckReason? StuckReason { get; set; }
 }
 
 /// <summary>Legs put on or taken off a trip by a drop.</summary>
@@ -299,8 +384,14 @@ public interface IPlanboardAppService : IApplicationService
     /// <summary><c>POST /api/planning/planboard/{id}/set-field</c>.</summary>
     Task<PlanboardChangeDto> SetFieldAsync(Guid id, PlanboardUpdateFieldDto input);
 
-    /// <summary><c>POST /api/planning/planboard/trip</c>.</summary>
-    Task<PlanboardChangeDto> CreateTripAsync(PlanboardCreateTripDto input);
+    /// <summary><c>POST /api/planning/planboard/trip</c>; with an order, <c>Moved</c>, <c>Stuck</c> and <c>PulledFrom</c> say what it did.</summary>
+    Task<PlanboardAssignOrderResultDto> CreateTripAsync(PlanboardCreateTripDto input);
+
+    /// <summary><c>GET /api/planning/planboard/{id}/assign-order-preview?orderId=</c> (design 74 §8).</summary>
+    Task<PlanboardAssignOrderPreviewDto> GetAssignOrderPreviewAsync(Guid id, PlanboardAssignOrderPreviewRequestDto input);
+
+    /// <summary><c>POST /api/planning/planboard/{id}/assign-order</c> (design 74 §8).</summary>
+    Task<PlanboardAssignOrderResultDto> AssignOrderAsync(Guid id, PlanboardAssignOrderDto input);
 
     /// <summary><c>POST /api/planning/planboard/{id}/assign-legs</c>.</summary>
     Task<PlanboardChangeDto> AssignLegsAsync(Guid id, PlanboardLegsDto input);

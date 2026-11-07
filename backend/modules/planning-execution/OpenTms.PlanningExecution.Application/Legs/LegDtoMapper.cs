@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenTms.MasterData.Published;
 using OpenTms.Orders.Published;
 using OpenTms.PlanningExecution.TransportTrips;
 using Volo.Abp.DependencyInjection;
@@ -9,16 +10,18 @@ using Volo.Abp.Domain.Repositories;
 
 namespace OpenTms.PlanningExecution.Legs;
 
-/// <summary>Maps legs to their DTO with the order references (Orders lookup, one batch) and trip numbers (one query).</summary>
+/// <summary>Maps legs to their DTO with the order references (Orders lookup, one batch), trip numbers (one query) and the names of the unit, product and temperature (Master Data, one batch per kind).</summary>
 public class LegDtoMapper : ITransientDependency
 {
     private readonly ITransportOrderLookup _orders;
     private readonly IRepository<TransportTrip, Guid> _trips;
+    private readonly MasterDataReferences _masterData;
 
-    public LegDtoMapper(ITransportOrderLookup orders, IRepository<TransportTrip, Guid> trips)
+    public LegDtoMapper(ITransportOrderLookup orders, IRepository<TransportTrip, Guid> trips, MasterDataReferences masterData)
     {
         _orders = orders;
         _trips = trips;
+        _masterData = masterData;
     }
 
     public async Task<List<LegDto>> MapAsync(IReadOnlyList<Leg> legs)
@@ -34,7 +37,18 @@ public class LegDtoMapper : ITransientDependency
             ? new Dictionary<Guid, (string Number, TransportTripStatus Status)>()
             : (await _trips.GetListAsync(t => tripIds.Contains(t.Id))).ToDictionary(t => t.Id, t => (t.Number, t.Status));
 
-        return legs.Select(l => Map(l, orders.GetValueOrDefault(l.OrderId), trips.TryGetValue(l.TripId ?? Guid.Empty, out var trip) ? trip : null)).ToList();
+        var units = await _masterData.ReferenceNamesAsync(MasterDataReferenceKind.TransportUnit, legs.Select(l => l.TransportUnitId));
+        var products = await _masterData.ReferenceNamesAsync(MasterDataReferenceKind.Product, legs.Where(l => l.ProductId != null).Select(l => l.ProductId!.Value));
+        var temperatures = await _masterData.ReferenceNamesAsync(MasterDataReferenceKind.Temperature, legs.Where(l => l.TemperatureId != null).Select(l => l.TemperatureId!.Value));
+
+        return legs.Select(l =>
+        {
+            var dto = Map(l, orders.GetValueOrDefault(l.OrderId), trips.TryGetValue(l.TripId ?? Guid.Empty, out var trip) ? trip : null);
+            dto.TransportUnitName = units.GetValueOrDefault(l.TransportUnitId);
+            dto.ProductName = l.ProductId == null ? null : products.GetValueOrDefault(l.ProductId.Value);
+            dto.TemperatureName = l.TemperatureId == null ? null : temperatures.GetValueOrDefault(l.TemperatureId.Value);
+            return dto;
+        }).ToList();
     }
 
     public async Task<Dictionary<Guid, TransportOrderReferenceDto>> OrderReferencesAsync(IEnumerable<Guid> orderIds)
@@ -61,6 +75,7 @@ public class LegDtoMapper : ITransientDependency
         CustomerRelationId = l.CustomerRelationId,
         CustomerName = order?.CustomerName,
         CustomerReference = order?.CustomerReference,
+        OrderConcurrencyStamp = order?.ConcurrencyStamp,
         Position = l.Position,
         Source = l.Source,
         IsViaLeg = l.IsViaLeg,

@@ -399,6 +399,11 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   still reads the whole period, as the distinct did. Old and new alternated locally, two runs each: p95 176 ms became 135 to 145 ms. The rollup
   table stays unbuilt: with this many customers a day-level rollup would hardly shrink the rows. The hash aggregate spills 7.6 MB to disk at
   PostgreSQL's default `work_mem` of 4 MB; 64 MB gained about 15 % locally, and that is a database setting left for when production shows the need.
+- **The budget missed once more on main, next to other tests; the budget did not change.** After the changes above the same code passed on the PR
+  and answered p95 338 ms, median 302 ms, on main. Alone on a developer machine: p95 121 ms. Per statement the groups take 94 ms, coverage 17 ms, the
+  rest under 2 ms. On that data no rewrite of the groups statement frees more than 13 % (without `count(*) OVER ()` and the count filters; `work_mem`
+  at 64 MB gains 7 %): the hash aggregate over 74,002 groups is the cost. xUnit ran the PostgreSQL collection next to the SQLite collection of 1,474
+  tests, so the timed calls shared the runner's cores. The PostgreSQL collection now runs on its own, after the other.
 - **The timeout.** At a limit of 40 ms a statement on the volume above answered `timeout` after 67 ms, with no rows.
 
 **Choices where the design was silent:**

@@ -86,6 +86,15 @@ public class OrderLegGeneration : ITransientDependency
         return result;
     }
 
+    /// <summary>The stops of one line as the generator sees them, by stop id (design 74 §7: a reshaped line's clones follow them).</summary>
+    public async Task<Dictionary<Guid, LegEndSnapshot>> StopsOfLineAsync(Guid orderId, Guid lineId)
+    {
+        var snapshot = await _orders.GetSnapshotAsync(orderId);
+        return snapshot == null
+            ? []
+            : ToInput(snapshot).Lines.Where(l => l.LineId == lineId).SelectMany(l => l.Stops).ToDictionary(s => s.Snapshot.StopId, s => s.Snapshot);
+    }
+
     /// <summary>The order was cancelled or deleted (the fact itself, whatever the reader still shows): every leg goes.</summary>
     public async Task<LegGenerationResult> RemoveAllAsync(Guid orderId, string reason)
     {

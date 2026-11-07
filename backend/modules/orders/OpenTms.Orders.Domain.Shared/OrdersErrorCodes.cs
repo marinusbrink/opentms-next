@@ -120,11 +120,20 @@ public static class OrdersErrorCodes
     /// <summary>A pick names a field the intake does not have, or a row that does not exist ({field}).</summary>
     public const string IntakePickInvalid = Namespace + ":IntakePickInvalid";
 
+    /* Design 74: the Planboard's edits and split of a line. */
+
+    /// <summary>A split needs both amounts above zero ({quantity} of {max}).</summary>
+    public const string InvalidLineSplit = Namespace + ":InvalidLineSplit";
+
+    /// <summary>A leg of the line is on completed or cancelled trip {tripNumber}: its freight is read-only here.</summary>
+    public const string LineOnFinalTrip = Namespace + ":LineOnFinalTrip";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         InvalidTransition, OrderNotEditable, StopLockedByTrip, CancelRefusedTripInProgress, DeleteRefusedLegsAssigned,
-        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive, RenderTimedOut, IntakeNotInReview
+        ApprovalResultsStale, ApprovalHasErrors, OrderDatePeriodLocked, TemplateInactive, RenderTimedOut, IntakeNotInReview,
+        LineOnFinalTrip
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -134,7 +143,7 @@ public static class OrdersErrorCodes
         StopAddressMismatch, RevisionReasonRequired, InvalidAttributes, TooManyTripRequestMembers, MaterialisationInputInvalid,
         InvalidSchedule, ConsignmentNoteTemplateMissing, NothingToPrint, InvalidCopies, MaterialisationLineUnknown,
         MaterialisationOverrideInvalid, ExportTooManyRows, ExportUnknownColumn, TripRequestLineUnknown, IntakeUnresolved,
-        IntakePickInvalid
+        IntakePickInvalid, InvalidLineSplit
     ];
 }
 

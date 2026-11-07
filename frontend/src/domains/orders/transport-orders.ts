@@ -252,6 +252,49 @@ export async function fetchTransportOrder(id: string): Promise<TransportOrderDto
   return data!;
 }
 
+/** One row of the Planboard's Orders pane as it is now, for the refetch after a stale stamp; needs no Transport feature. */
+export async function fetchPlanboardOrder(id: string): Promise<TransportOrderRow> {
+  const { data, error, response } = await apiClient.GET("/api/orders/planboard-order/{id}", { params: { path: { id } } });
+  if (error) throw withStatus(error, response);
+  return data!;
+}
+
+/** The fields of an order and of its lines the Planboard edits in a cell (design 74 §6). */
+export type PlanboardOrderField = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderField"];
+export type PlanboardOrderLineField = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderLineField"];
+export type PlanboardOrderFieldResultDto = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderFieldResultDto"];
+export type PlanboardOrderLineFieldResultDto = Schemas["OpenTms.Orders.TransportOrders.PlanboardOrderLineFieldResultDto"];
+export const PLANBOARD_ORDER_FIELD = { CustomerReference: 1, InternalRemarks: 2 } as const satisfies Record<string, PlanboardOrderField>;
+export const PLANBOARD_ORDER_LINE_FIELD = { TransportUnit: 1, Product: 2, Temperature: 3 } as const satisfies Record<string, PlanboardOrderLineField>;
+/** The features the server requires on those commands, next to the `Orders.TransportOrders.Update` permission. */
+export const PLANBOARD_ORDER_EDIT_FEATURES = ["Apps.Planboard", "Apps.Planboard.Orders"] as const;
+
+/** `PUT planboard-order/{id}/field`; the order's stamp, which every line of the order shares. */
+export function usePlanboardOrderField() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, field, value, concurrencyStamp }: { orderId: string; field: PlanboardOrderField; value: string | null; concurrencyStamp: string }): Promise<PlanboardOrderFieldResultDto> => {
+      const { data, error, response } = await apiClient.PUT("/api/orders/planboard-order/{id}/field", { params: { path: { id: orderId } }, body: { field, value, concurrencyStamp } });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+    onSuccess: (_result, { orderId }) => void queryClient.invalidateQueries({ queryKey: transportOrderKeys.detail(orderId) }),
+  });
+}
+
+/** `PUT planboard-order/{id}/line/{lineId}/field`; the legs follow when `TransportOrderLinesChanged` is delivered. */
+export function usePlanboardOrderLineField() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, lineId, field, value, concurrencyStamp }: { orderId: string; lineId: string; field: PlanboardOrderLineField; value: string | null; concurrencyStamp: string }): Promise<PlanboardOrderLineFieldResultDto> => {
+      const { data, error, response } = await apiClient.PUT("/api/orders/planboard-order/{id}/line/{lineId}/field", { params: { path: { id: orderId, lineId } }, body: { field, value, concurrencyStamp } });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+    onSuccess: (_result, { orderId }) => void queryClient.invalidateQueries({ queryKey: transportOrderKeys.detail(orderId) }),
+  });
+}
+
 export function useTransportOrder(id: string | undefined) {
   return useQuery({
     queryKey: transportOrderKeys.detail(id),

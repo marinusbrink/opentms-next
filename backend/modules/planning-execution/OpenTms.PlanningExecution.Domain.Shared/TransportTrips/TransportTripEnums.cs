@@ -65,5 +65,8 @@ public enum TripChangeKind
     Vehicles = 3,
     Drivers = 4,
     Distance = 5,
-    Stops = 6
+    Stops = 6,
+
+    /// <summary>Design 74 §9: name, remarks or driver instructions only: nothing a calculation or a rate line depends on.</summary>
+    HeaderText = 7
 }

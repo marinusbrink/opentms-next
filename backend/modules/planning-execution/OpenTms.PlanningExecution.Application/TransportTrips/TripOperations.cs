@@ -8,6 +8,7 @@ using OpenTms.Orders.Published;
 using OpenTms.PlanningExecution.Availability;
 using OpenTms.PlanningExecution.Events;
 using OpenTms.PlanningExecution.Legs;
+using OpenTms.PlanningExecution.Planboard;
 using OpenTms.Platform.DerivedValues;
 using OpenTms.Platform.NumberSequences;
 using OpenTms.Platform.ReferenceData;
@@ -30,6 +31,9 @@ namespace OpenTms.PlanningExecution.TransportTrips;
 /// </summary>
 public class TripOperations : ITransientDependency
 {
+    /// <summary>What a command needs to know about a trip a leg is on.</summary>
+    public sealed record TripState(Guid Id, string Number, TransportTripStatus Status);
+
     public ILogger<TripOperations> Logger { get; set; } = NullLogger<TripOperations>.Instance;
 
     private readonly IRepository<TransportTrip, Guid> _trips;
@@ -47,6 +51,8 @@ public class TripOperations : ITransientDependency
     private readonly TripTypeDefaults _typeDefaults;
     private readonly PlanningRecordNotices _notices;
     private readonly TripOverlapFanOut _overlaps;
+    private readonly IRepository<TripStop, Guid> _stops;
+    private readonly IRepository<TripStopLeg> _stopLegs;
 
     public TripOperations(
         IRepository<TransportTrip, Guid> trips,
@@ -63,7 +69,9 @@ public class TripOperations : ITransientDependency
         IClock clock,
         TripTypeDefaults typeDefaults,
         PlanningRecordNotices notices,
-        TripOverlapFanOut overlaps)
+        TripOverlapFanOut overlaps,
+        IRepository<TripStop, Guid> stops,
+        IRepository<TripStopLeg> stopLegs)
     {
         _trips = trips;
         _legs = legs;
@@ -80,6 +88,8 @@ public class TripOperations : ITransientDependency
         _typeDefaults = typeDefaults;
         _notices = notices;
         _overlaps = overlaps;
+        _stops = stops;
+        _stopLegs = stopLegs;
     }
 
     /// <summary>The record channel (design 68 "Live updates"): every trip and leg change this class persists is noticed here.</summary>
@@ -99,6 +109,60 @@ public class TripOperations : ITransientDependency
     }
 
     public Task<List<Leg>> LegsOnTripAsync(Guid tripId) => _legs.GetListAsync(l => l.TripId == tripId);
+
+    /// <summary>Number and status of the trips (one statement, design 74 §4 and §8).</summary>
+    public async Task<Dictionary<Guid, TripState>> TripStatesAsync(IEnumerable<Guid> tripIds)
+    {
+        var ids = tripIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await AsyncExecuterOf(_trips).ToListAsync((await _trips.GetQueryableAsync()).Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, t.Number, t.Status }));
+        return rows.ToDictionary(t => t.Id, t => new TripState(t.Id, t.Number, t.Status));
+    }
+
+    /// <summary>
+    /// Design 74 §7 and §8, the one stuck check: the legs of these that stay where they are, because their trip is completed or
+    /// cancelled or actual times are recorded on their stops, with the trips they are on. Two statements; unplanned legs are never stuck.
+    /// </summary>
+    public async Task<(Dictionary<Guid, PlanboardStuckReason> Stuck, Dictionary<Guid, TripState> Trips)> StuckLegsAsync(IEnumerable<Leg> legs)
+    {
+        var planned = legs.Where(l => l.TripId != null).ToList();
+        var trips = await TripStatesAsync(planned.Select(l => l.TripId!.Value));
+        var actuals = await LegsWithActualsAsync(planned.Select(l => l.Id).ToList());
+        var stuck = new Dictionary<Guid, PlanboardStuckReason>();
+        foreach (var leg in planned)
+        {
+            if (trips.TryGetValue(leg.TripId!.Value, out var trip) && trip.Status is TransportTripStatus.Completed or TransportTripStatus.Cancelled)
+            {
+                stuck[leg.Id] = PlanboardStuckReason.TripFinal;
+            }
+            else if (actuals.Contains(leg.Id))
+            {
+                stuck[leg.Id] = PlanboardStuckReason.HasActuals;
+            }
+        }
+
+        return (stuck, trips);
+    }
+
+    /// <summary>The legs of these with actual times on a stop they are at (one statement, design 74 §4 and §8).</summary>
+    public async Task<HashSet<Guid>> LegsWithActualsAsync(IReadOnlyCollection<Guid> legIds)
+    {
+        var ids = legIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var query = from link in await _stopLegs.GetQueryableAsync()
+                    join stop in await _stops.GetQueryableAsync() on link.TripStopId equals stop.Id
+                    where ids.Contains(link.LegId) && (stop.ActualArrival != null || stop.ActualDeparture != null)
+                    select link.LegId;
+        return (await AsyncExecuterOf(_trips).ToListAsync(query.Distinct())).ToHashSet();
+    }
 
     public async Task<List<Leg>> LegsAsync(IReadOnlyCollection<Guid> legIds)
     {
@@ -240,7 +304,9 @@ public class TripOperations : ITransientDependency
     {
         await EnsureOrdersPlannableAsync(legs);
         var onTrip = await LegsOnTripAsync(trip.Id);
-        var sourceTrips = legs.Where(l => l.TripId != null && l.TripId != trip.Id).Select(l => l.TripId!.Value).Distinct().ToList();
+        /* Design 74 §8: the legs of an order can leave several trips at once; each trip hears only of its own. */
+        var sourceOf = legs.Where(l => l.TripId != null && l.TripId != trip.Id).ToDictionary(l => l.Id, l => l.TripId!.Value);
+        var sourceTrips = sourceOf.Values.Distinct().ToList();
         var movingIds = legs.Select(l => l.Id).ToHashSet();
 
         /* A moved leg leaves its old stops first: a leg's end is at one stop (the unique key of TripStopLegs). */
@@ -275,8 +341,9 @@ public class TripOperations : ITransientDependency
 
         foreach (var source in sources)
         {
-            await RecomposeAsync(source, legs.Select(l => l.OrderId), "LegsMovedAway");
-            foreach (var leg in legs)
+            var left = legs.Where(l => sourceOf.GetValueOrDefault(l.Id) == source.Id).ToList();
+            await RecomposeAsync(source, left.Select(l => l.OrderId), "LegsMovedAway");
+            foreach (var leg in left)
             {
                 await _events.PublishAsync(new LegUnassignedEto { LegId = leg.Id, TripId = source.Id, OrderId = leg.OrderId });
             }
@@ -291,8 +358,13 @@ public class TripOperations : ITransientDependency
         foreach (var leg in legs)
         {
             await _events.PublishAsync(new LegUnassignedEto { LegId = leg.Id, TripId = trip.Id, OrderId = leg.OrderId });
-            /* An unplanned leg's CO₂ falls back to the great-circle estimate. */
-            await _scheduler.RequestAsync(PlanningExecutionApplicationModule.LegTargetType, leg.Id, "LegUnassigned");
+        }
+
+        /* An unplanned leg's CO₂ falls back to the great-circle estimate: its own calculation, requested as one batch (design 74 §9).
+         * The trip itself is requested once, in AfterLegsChangedAsync; an unplanned leg's route asks no trip again. */
+        if (legs.Count > 0)
+        {
+            await _scheduler.RequestManyAsync(PlanningExecutionApplicationModule.LegTargetType, legs.Select(l => l.Id).ToList(), "LegUnassigned");
         }
 
         await _notices.LegsAsync(legs);

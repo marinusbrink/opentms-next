@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using OpenTms.Orders.Permissions;
 using OpenTms.Platform.Features;
 using OpenTms.Platform.Grid;
+using OpenTms.Platform.ReferenceData;
+using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Features;
 
@@ -13,7 +15,8 @@ namespace OpenTms.Orders.TransportOrders;
 /// <summary>
 /// The Planboard's Orders pane (design 70; route <c>/api/orders/planboard-order</c>). A separate service because the
 /// Transport list is gated on the Transport app and a tenant may have the Planboard without it (design 66 D7). The
-/// filters, search and sort are the Transport list's (<see cref="TransportOrderListQuery"/>).
+/// filters, search and sort are the Transport list's (<see cref="TransportOrderListQuery"/>). Design 74 §6: the pane's inline
+/// fields, a narrow command against the order's stamp, as the Transport page's header save: no fact, the summary follows.
 /// </summary>
 [RequiresFeature(AppFeatures.Planboard, AppFeatures.PlanboardApp.Orders, RequiresAll = true)]
 public class PlanboardOrderAppService : OrdersAppServiceBase, IPlanboardOrderAppService
@@ -21,12 +24,49 @@ public class PlanboardOrderAppService : OrdersAppServiceBase, IPlanboardOrderApp
     private readonly IRepository<TransportOrder, Guid> _orders;
     private readonly TransportOrderDtoMapper _mapper;
     private readonly OrdersClock _clock;
+    private readonly TransportOrderCommands _commands;
 
-    public PlanboardOrderAppService(IRepository<TransportOrder, Guid> orders, TransportOrderDtoMapper mapper, OrdersClock clock)
+    public PlanboardOrderAppService(IRepository<TransportOrder, Guid> orders, TransportOrderDtoMapper mapper, OrdersClock clock, TransportOrderCommands commands)
     {
         _orders = orders;
         _mapper = mapper;
         _clock = clock;
+        _commands = commands;
+    }
+
+    [Authorize(OrdersPermissions.TransportOrders.Default)]
+    public virtual async Task<TransportOrderRowDto> GetAsync(Guid id)
+        => (await _mapper.ToRowsAsync([await _orders.GetAsync(id, includeDetails: false)])).Single();
+
+    [Authorize(OrdersPermissions.TransportOrders.Update)]
+    public virtual async Task<PlanboardOrderFieldResultDto> UpdateFieldAsync(Guid id, PlanboardOrderFieldUpdateDto input)
+    {
+        var order = await _orders.GetAsync(id);
+        order.BeginEdit();
+        /* ABP compares this stamp with the stored one on save and throws AbpDbConcurrencyException (409). */
+        order.ConcurrencyStamp = input.ConcurrencyStamp;
+        switch (input.Field)
+        {
+            case PlanboardOrderField.CustomerReference:
+                order.SetCustomerReference(input.Value);
+                break;
+            case PlanboardOrderField.InternalRemarks:
+                order.SetInternalRemarks(input.Value);
+                break;
+            default:
+                throw new BusinessException(ReferenceDataErrorCodes.InvalidCode).WithData("field", "field").WithData("value", (int)input.Field);
+        }
+
+        await _orders.UpdateAsync(order, autoSave: true);
+        await _commands.RequestSummaryAsync(order, "HeaderChanged");
+        return new PlanboardOrderFieldResultDto
+        {
+            Id = order.Id,
+            CustomerReference = order.CustomerReference,
+            InternalRemarks = order.InternalRemarks,
+            ConcurrencyStamp = order.ConcurrencyStamp,
+            LastModificationTime = order.LastModificationTime
+        };
     }
 
     [Authorize(OrdersPermissions.TransportOrders.Default)]

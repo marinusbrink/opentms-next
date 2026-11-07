@@ -559,6 +559,28 @@ public class TransportTrip : FullAuditedAggregateRoot<Guid>, IMultiTenant
         ApplyFirstLastStopRule();
     }
 
+    /// <summary>
+    /// Design 74 §3: the relation and address of a stop without legs (a stop with legs follows them, <see cref="PlanningExecutionErrorCodes.StopHasLegs"/>;
+    /// one with actuals happened there, <see cref="PlanningExecutionErrorCodes.StopHasActuals"/>). The planned times stay until the calculator refills them.
+    /// </summary>
+    public void ChangeStopPlace(Guid stopId, Guid relationId, Guid? relationAddressId, string name, string? city, double? latitude, double? longitude, string? timeZoneId)
+    {
+        EnsureAssignable();
+        var stop = GetStop(stopId);
+        if (stop.Legs.Count > 0)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.StopHasLegs).WithData("stopId", stopId);
+        }
+
+        if (stop.HasActuals)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.StopHasActuals).WithData("stopId", stopId);
+        }
+
+        stop.SetPlace(relationId, relationAddressId, name, city, latitude, longitude, timeZoneId);
+        ApplyFirstLastStopRule();
+    }
+
     public void RecordStopActual(Guid stopId, DateTimeOffset? arrival, DateTimeOffset? departure, int? cumulativeDistanceM)
     {
         EnsureEditable();
@@ -846,6 +868,17 @@ public class TripStop : Entity<Guid>, IMultiTenant
         => RelationId == relationId && RelationAddressId == relationAddressId && WaypointTypeId == waypointTypeId;
 
     public void SetPosition(int position) => Position = position;
+
+    internal void SetPlace(Guid relationId, Guid? relationAddressId, string name, string? city, double? latitude, double? longitude, string? timeZoneId)
+    {
+        RelationId = relationId;
+        RelationAddressId = relationAddressId;
+        Name = Cut(name, PlanningExecutionConsts.MaxSnapshotNameLength) ?? string.Empty;
+        City = Cut(city, PlanningExecutionConsts.MaxCityLength);
+        Latitude = latitude;
+        Longitude = longitude;
+        TimeZoneId = Cut(timeZoneId, PlanningExecutionConsts.MaxTimeZoneIdLength);
+    }
 
     public void SetPlannedDurationMin(int? minutes) => PlannedDurationMin = minutes is < 0 ? null : minutes;
 

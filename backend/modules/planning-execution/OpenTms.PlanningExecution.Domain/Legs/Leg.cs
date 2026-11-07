@@ -102,6 +102,19 @@ public sealed record LegQuantities(
         };
     }
 
+    /// <summary>What is left of these quantities once <paramref name="part"/> is taken off (a split): the totals stay exact.</summary>
+    public LegQuantities Without(LegQuantities part) => this with
+    {
+        Quantity = Quantity - part.Quantity,
+        WeightKg = Minus(WeightKg, part.WeightKg),
+        VolumeM3 = Minus(VolumeM3, part.VolumeM3),
+        LoadingMeters = Minus(LoadingMeters, part.LoadingMeters),
+        Epq = Minus(Epq, part.Epq),
+        LoadFactor = Minus(LoadFactor, part.LoadFactor)
+    };
+
+    private static double? Minus(double? a, double? b) => a == null ? null : Math.Round(a.Value - (b ?? 0), 5);
+
     public static LegQuantities Empty(Guid transportUnitId) => new(0, null, null, null, null, null, transportUnitId, null, null, []);
 }
 
@@ -360,6 +373,14 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
     }
 
     public void MarkOutsourced() => Source = LegSource.Outsourced;
+
+    /// <summary>Design 74 §4: the planner shaped this leg in Manage legs, so the generator treats the line as reshaped and keeps it.</summary>
+    public void MarkShapedByPlanner()
+    {
+        Source = LegSource.Split;
+        IsViaLeg = false;
+        ViaDepotRuleId = null;
+    }
 
     /// <summary>Design 61 point 5: a half of <paramref name="legId"/> split at an address.</summary>
     public void MarkSplitAtAddress(Guid legId)

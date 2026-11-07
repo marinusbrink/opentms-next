@@ -162,7 +162,7 @@ or the mapping are PO decisions** — agents never create a module per app.
 | App | Route | Reads from domain(s) |
 |---|---|---|
 | Dashboard | `/dashboard` | Reporting |
-| Planboard (tenant side only, PO 2026-10-31) | `/planboard` | Planning & Execution; Orders and Master Data read-only (PO decision D6, design 66) |
+| Planboard (tenant side only, PO 2026-10-31) | `/planboard` | Planning & Execution; Master Data read-only; Orders read, order and freight fields written through Orders (PO decisions D6 and 2026-11-06, designs 66 and 74) |
 | Transport (tenant side only, PO 2026-10-29) | `/transport` | Orders, Planning & Execution |
 | Finance | `/finance` | Financial |
 | Master data (tenant side only, PO 2026-10-29) | `/master-data` | All domains (their master-data lists, one nav group per domain; PO 2026-10-16); creates Platform users and organisation units in place from its pickers (PO 2026-10-16, UI-LOOK-004); the order-intake setup is not master data and lives in Integrations (PO 2026-11-03) |

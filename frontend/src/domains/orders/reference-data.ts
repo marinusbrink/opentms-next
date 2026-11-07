@@ -1,8 +1,8 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
-import { createReferenceDataHooks } from "@/lib/reference-data/crud-hooks";
+import { createReferenceDataHooks, referenceDataQueryKey } from "@/lib/reference-data/crud-hooks";
 
 /* The Orders reference data shown in the Master data app (design 51). Row = grid, Dto = editor, Create/Update = what
  * the editor sends; the schema names carry the backend namespaces. */
@@ -70,6 +70,29 @@ export const waypointTypes = createReferenceDataHooks<
   WaypointTypeUpdateDto,
   { includeArchived?: boolean }
 >("waypointTypes", "/api/orders/waypoint-type");
+
+/**
+ * Per activity the activity that follows it (design 51), for chaining the legs of a line (design 74 §4): the lookup does not
+ * carry it, and activities are a short list. Null while unknown or when the activity has none.
+ */
+export function useWaypointSuccessors(enabled = true): (waypointTypeId: string | null | undefined) => string | null {
+  const lookup = waypointTypes.useLookup(enabled);
+  const ids = (lookup.data ?? []).map((type) => type.id).filter((id): id is string => !!id);
+  const details = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: referenceDataQueryKey("waypointTypes", "detail", id),
+      enabled,
+      staleTime: 60 * 1000,
+      queryFn: async (): Promise<WaypointTypeDto> => {
+        const { data, error } = await apiClient.GET("/api/orders/waypoint-type/{id}", { params: { path: { id } } });
+        if (error) throw error;
+        return data as WaypointTypeDto;
+      },
+    })),
+  });
+  const byId = new Map(details.flatMap((query, index) => (query.data ? [[ids[index].toLowerCase(), query.data.successiveWaypointTypeId ?? null] as const] : [])));
+  return (waypointTypeId) => (waypointTypeId ? (byId.get(waypointTypeId.toLowerCase()) ?? null) : null);
+}
 
 export const timeSlots = createReferenceDataHooks<
   TimeSlotRow,

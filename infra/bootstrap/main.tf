@@ -253,6 +253,14 @@ resource "google_project_service_identity" "run_agent" {
   depends_on = [google_project_service.environment]
 }
 
+# Cloud Run checks that whoever updates a service or job may read its image, also when only its environment changes.
+resource "google_artifact_registry_repository_iam_member" "terraform_apply_read" {
+  repository = google_artifact_registry_repository.opentms.name
+  location   = var.region
+  role       = "roles/artifactregistry.reader"
+  member     = google_service_account.terraform_apply.member
+}
+
 resource "google_artifact_registry_repository_iam_member" "run_agent_pull" {
   for_each   = var.environments
   repository = google_artifact_registry_repository.opentms.name
