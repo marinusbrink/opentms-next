@@ -97,6 +97,11 @@ const ALLOWED: { file: string; token: string; reason: string }[] = [
     reason: "the map's overlay column (design 70, trip summary card and notices): a min-h-0 region above the legend, so a short Map pane scrolls the card instead of clipping it",
   },
   {
+    file: "apps/planboard/panes/stops/StopTimeline.tsx",
+    token: "overflow-y-auto",
+    reason: "the stops of the Stops pane's timeline (design 74 §2): a min-h-0 flex-1 region of the pane's flex column, under its fixed command bar",
+  },
+  {
     file: "apps/planboard/panes/ResourcesPane.tsx",
     token: "overflow-y-auto",
     reason: "the resource list of the Resources pane (design 70): a min-h-0 flex-1 region of the pane's flex column, above its fixed pager",

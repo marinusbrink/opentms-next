@@ -100,7 +100,7 @@ public class TransportOrderLookup : OrdersAppServiceBase, ITransportOrderLookup
             .Where(o => keys.Contains(o.Id))
             .Select(o => new TransportOrderReferenceDto
             {
-                Id = o.Id, Number = o.Number, Status = o.Status, CustomerRelationId = o.CustomerRelationId, CustomerName = o.CustomerName, CustomerReference = o.CustomerReference
+                Id = o.Id, Number = o.Number, Status = o.Status, CustomerRelationId = o.CustomerRelationId, CustomerName = o.CustomerName, CustomerReference = o.CustomerReference, ConcurrencyStamp = o.ConcurrencyStamp
             });
         return await AsyncExecuter.ToListAsync(query, cancellationToken);
     }

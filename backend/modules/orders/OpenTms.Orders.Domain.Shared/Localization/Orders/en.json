@@ -778,6 +778,10 @@
     "Orders:IntakeField.address.fullText": "Address as received",
     "Orders:IntakeField.relationId": "Relation (id)",
     "Orders:IntakeField.relationAddressId": "Address (id)",
-    "Orders:IntakeViewSource": "View source"
+    "Orders:IntakeViewSource": "View source",
+    "OpenTms.Orders:InvalidLineSplit": "Both parts of a split must be above zero: {quantity} of {max} cannot be split off.",
+    "OpenTms.Orders:LineOnFinalTrip": "A leg of this line is on completed or cancelled trip {tripNumber}, so its freight cannot be changed here.",
+    "Orders:PlanboardOrderField.CustomerReference": "Reference",
+    "Orders:PlanboardOrderField.InternalRemarks": "Remarks"
   }
 }

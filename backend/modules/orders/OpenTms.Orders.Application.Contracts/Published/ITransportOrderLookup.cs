@@ -90,4 +90,7 @@ public class TransportOrderReferenceDto
     public string CustomerName { get; set; } = string.Empty;
 
     public string? CustomerReference { get; set; }
+
+    /// <summary>Design 74 §6: for the inline edits of the order from another module's grid.</summary>
+    public string ConcurrencyStamp { get; set; } = string.Empty;
 }

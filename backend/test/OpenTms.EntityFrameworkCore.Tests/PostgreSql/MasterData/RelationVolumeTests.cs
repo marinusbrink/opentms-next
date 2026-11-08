@@ -26,7 +26,8 @@ namespace OpenTms.PostgreSql.MasterData;
 /// the relation list, the lookup page by name fragment, the matcher on every rule and the driver list
 /// are timed cold (first run, EF Core compiles the query shape) and warm. The two hottest reads of the
 /// product, the lookup page by term and the matcher's name-only path, are asserted against the 300 ms
-/// budget warm; the rest against the run-1 tripwire (1,500 ms), with every number reported.
+/// budget warm; the rest against the run-1 tripwire (1,500 ms), with every number reported. Timed after ANALYZE, so the
+/// planner has production-like statistics.
 /// Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
@@ -77,6 +78,33 @@ public class RelationVolumeTests : MasterDataPostgreSqlTestBase
 
     [Fact]
     public async Task List_lookup_page_matcher_and_driver_list_stay_within_the_interactive_read_budget_at_five_times_the_expected_volume()
+    {
+        try
+        {
+            await RunAsync();
+        }
+        finally
+        {
+            await CleanUpStatisticsAsync();
+        }
+    }
+
+    /// <summary>
+    /// The rolled-back rows leave dead tuples and, once autovacuum's ANALYZE has run, statistics that no longer describe
+    /// the (unchanged) tables; the next volume test in this collection would plan its queries on them. VACUUM ANALYZE
+    /// here puts tenant A's database back as it was, synchronously (as <see cref="VehicleVolumeTests"/> does).
+    /// </summary>
+    private async Task CleanUpStatisticsAsync()
+    {
+        var clean = Stopwatch.StartNew();
+        await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(PostgreSqlTestDatabases.TenantADatabase));
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("VACUUM ANALYZE", connection) { CommandTimeout = 300 };
+        await command.ExecuteNonQueryAsync();
+        _output.WriteLine($"VACUUM ANALYZE of tenant A's database after the rollback: {clean.Elapsed.TotalSeconds:F1} s");
+    }
+
+    private async Task RunAsync()
     {
         await InRolledBackTransactionAsync(TenantA, async () =>
         {
@@ -243,6 +271,25 @@ public class RelationVolumeTests : MasterDataPostgreSqlTestBase
         context.ChangeTracker.Clear();
 
         _output.WriteLine($"inserted {Relations} relations with {addresses} addresses and {Drivers} drivers with {Drivers * QualificationsPerDriver} qualifications in {insert.Elapsed.TotalSeconds:F1} s");
+        await AnalyzeAsync();
+    }
+
+    /// <summary>
+    /// Gives the planner the statistics autovacuum keeps for committed tables in production. Without them its estimate
+    /// depends on whatever an earlier test left behind: on CI (run 42356503981) it estimated one row for 100,000
+    /// relations and the first list page ran past Npgsql's 30-second timeout. ANALYZE may run inside the transaction;
+    /// the statistics it writes roll back with it.
+    /// </summary>
+    private async Task AnalyzeAsync()
+    {
+        var context = await _contextProvider.GetDbContextAsync();
+        var connection = (NpgsqlConnection)context.Database.GetDbConnection();
+        var transaction = (NpgsqlTransaction?)context.Database.CurrentTransaction?.GetDbTransaction();
+        foreach (var table in new[] { "Relations", "RelationAddresses", "RelationCategoryMemberships", "Drivers", "DriverQualifications" })
+        {
+            await using var command = new NpgsqlCommand($"ANALYZE masterdata.\"{table}\"", connection, transaction);
+            await command.ExecuteNonQueryAsync();
+        }
     }
 
     /// <summary>
@@ -278,7 +325,7 @@ public class RelationVolumeTests : MasterDataPostgreSqlTestBase
                 }
             }
 
-            _output.WriteLine("planner (no statistics inside the rolled-back transaction, so the estimate is not the production plan):\n" + string.Join("\n", plan));
+            _output.WriteLine("planner (statistics from ANALYZE inside the rolled-back transaction):\n" + string.Join("\n", plan));
             await transaction.ReleaseAsync("explain_probe");
         }
         catch (Exception ex)

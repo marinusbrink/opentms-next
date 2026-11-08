@@ -845,19 +845,27 @@ public class PlanboardAppService : PlanningExecutionAppServiceBase, IPlanboardAp
                 throw new BusinessException(ReferenceDataErrorCodes.InvalidCode).WithData("field", "field").WithData("value", (int)input.Field);
         }
 
-        await _ops.ChangedAsync(trip, TripChangeKind.Header, recalculate: true);
+        /* Design 74 §9: text only: no trip calculation and no rate lines. ChangedAsync still saves, refreshes the search key,
+         * publishes the fact and sends the record notice; a footprint that did not change asks no other trip. */
+        await _ops.ChangedAsync(trip, TripChangeKind.HeaderText, recalculate: false);
         return await SavedAsync(trip);
     }
 
     /// <summary>
     /// A new trip from an empty cell or a leg drop on a row: the type's defaults fill the empty groups (design 61), then the
-    /// row's resource takes its mode's slot (a tractor also fills the empty driver and carrier slots, D11); the dropped legs
-    /// are assigned in the same unit of work whatever their window.
+    /// row's resource takes its mode's slot (a tractor also fills the empty driver and carrier slots, D11); the dropped legs,
+    /// or the movable legs of a dropped order (design 74 §8), are assigned in the same unit of work whatever their window. The
+    /// arrival is the departure plus two hours until a route says otherwise (design 74 §10, legacy).
     /// </summary>
     [Authorize(PlanningExecutionPermissions.TransportTrips.Create)]
-    public virtual async Task<PlanboardChangeDto> CreateTripAsync(PlanboardCreateTripDto input)
+    public virtual async Task<PlanboardAssignOrderResultDto> CreateTripAsync(PlanboardCreateTripDto input)
     {
-        if (input.LegIds.Count > 0)
+        if (input.OrderId != null && input.LegIds.Count > 0)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.CreateTripOrderOrLegs);
+        }
+
+        if (input.LegIds.Count > 0 || input.OrderId != null)
         {
             await AuthorizationService.CheckAsync(PlanningExecutionPermissions.TransportTrips.AssignLegs);
         }
@@ -868,18 +876,149 @@ public class PlanboardAppService : PlanningExecutionAppServiceBase, IPlanboardAp
         }
 
         var typeId = input.TransportTripTypeId ?? await DefaultTripTypeIdAsync();
-        var legs = input.LegIds.Count > 0 ? await _ops.LegsAsync(input.LegIds) : [];
+        var order = input.OrderId == null ? null : EnsureMovable(await OrderLegsAsync(input.OrderId.Value, null), null);
+        var legs = order?.Movable ?? (input.LegIds.Count > 0 ? await _ops.LegsAsync(input.LegIds) : []);
         var trip = await _ops.CreateAsync(
-            new TransportTripCreateDto { TransportTripTypeId = typeId, PlannedDeparture = input.PlannedDeparture },
+            new TransportTripCreateDto
+            {
+                TransportTripTypeId = typeId,
+                PlannedDeparture = input.PlannedDeparture,
+                PlannedArrival = input.PlannedDeparture.AddHours(PlanningExecutionConsts.NewTripDefaultDurationHours)
+            },
             null, null, null,
             input.ResourceId == null ? null : filled => PlaceInNewTripAsync(filled, input.Mode!.Value, input.ResourceId.Value));
+        var result = order?.ToResult() ?? new PlanboardAssignOrderResultDto();
         if (legs.Count > 0)
         {
-            await _ops.AssignAsync(trip, legs, allowOutsideWindow: true, afterStopId: null, moving: false);
+            await _ops.AssignAsync(trip, legs, allowOutsideWindow: true, afterStopId: null, moving: order != null);
         }
 
         await _ops.RequestRecalculationAsync(trip.Id, "Created");
-        return await SavedAsync(trip);
+        var change = await SavedAsync(trip);
+        result.Id = change.Id;
+        result.ConcurrencyStamp = change.ConcurrencyStamp;
+        result.LastModificationTime = change.LastModificationTime;
+        return result;
+    }
+
+    /// <summary>
+    /// Design 74 §8: what a drop of the order on the trip would do. Statements: the order's legs (Planning's own table, no Orders
+    /// call), the trips they are on, the actuals on their stops, the target's status.
+    /// </summary>
+    [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
+    public virtual async Task<PlanboardAssignOrderPreviewDto> GetAssignOrderPreviewAsync(Guid id, PlanboardAssignOrderPreviewRequestDto input)
+    {
+        if (!(await _ops.TripStatesAsync([id])).ContainsKey(id))
+        {
+            throw new EntityNotFoundException(typeof(TransportTrip), id);
+        }
+
+        var order = await OrderLegsAsync(input.OrderId, id);
+        return new PlanboardAssignOrderPreviewDto
+        {
+            Legs = order.All,
+            PulledFrom = order.PulledFrom(),
+            Stuck = order.Stuck,
+            MovableCount = order.Movable.Count
+        };
+    }
+
+    /// <summary>
+    /// Design 74 §8: every leg of the order except the stuck goes on the trip, leaving its old trip (recomposed and recalculated), in
+    /// one unit of work. An order without a movable leg is refused with the reason. The moved and stuck legs are returned.
+    /// </summary>
+    [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]
+    public virtual async Task<PlanboardAssignOrderResultDto> AssignOrderAsync(Guid id, PlanboardAssignOrderDto input)
+    {
+        var trip = await LoadAsync(id, input.ConcurrencyStamp);
+        var order = EnsureMovable(await OrderLegsAsync(input.OrderId, id), trip.Number);
+        var result = order.ToResult();
+        await _ops.AssignAsync(trip, order.Movable, input.AllowOutsideWindow, afterStopId: null, moving: true);
+        var change = await SavedAsync(trip);
+        result.Id = change.Id;
+        result.ConcurrencyStamp = change.ConcurrencyStamp;
+        result.LastModificationTime = change.LastModificationTime;
+        return result;
+    }
+
+    /// <summary>The legs of an order sorted out for a drop on a trip (null: a new trip).</summary>
+    private sealed record OrderLegs(List<Leg> Movable, List<PlanboardOrderLegDto> All, List<PlanboardOrderLegDto> Stuck, int OnTheTrip, Dictionary<Guid, TripOperations.TripState> Trips)
+    {
+        private List<PlanboardOrderLegDto> MovedDtos => All.Where(l => Movable.Any(m => m.Id == l.Id)).ToList();
+
+        public List<PlanboardPulledFromDto> PulledFrom() => Movable.Where(l => l.TripId != null).GroupBy(l => l.TripId!.Value)
+            .Select(g => new PlanboardPulledFromDto { TripId = g.Key, Number = Trips.TryGetValue(g.Key, out var trip) ? trip.Number : string.Empty, LegCount = g.Count() })
+            .OrderBy(p => p.Number, StringComparer.Ordinal)
+            .ToList();
+
+        /// <summary>Taken before the assignment: the legs still name the trips they leave.</summary>
+        public PlanboardAssignOrderResultDto ToResult() => new() { Moved = MovedDtos, Stuck = Stuck, PulledFrom = PulledFrom() };
+    }
+
+    private async Task<OrderLegs> OrderLegsAsync(Guid orderId, Guid? targetTripId)
+    {
+        var legs = (await _legs.GetListAsync(l => l.OrderId == orderId)).OrderBy(l => l.OrderLineId).ThenBy(l => l.Position).ThenBy(l => l.Id).ToList();
+        if (legs.Count > PlanningExecutionConsts.MaxLegsPerCommand)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.TooManyLegs).WithData("max", PlanningExecutionConsts.MaxLegsPerCommand);
+        }
+
+        var (stuckLegs, trips) = await _ops.StuckLegsAsync(legs.Where(l => l.TripId != targetTripId));
+
+        var movable = new List<Leg>();
+        var all = new List<PlanboardOrderLegDto>();
+        var stuck = new List<PlanboardOrderLegDto>();
+        var onTheTrip = 0;
+        foreach (var leg in legs)
+        {
+            var trip = leg.TripId != null && trips.TryGetValue(leg.TripId.Value, out var state) ? state : null;
+            var dto = new PlanboardOrderLegDto
+            {
+                Id = leg.Id,
+                OrderLineId = leg.OrderLineId,
+                Position = leg.Position,
+                OriginName = leg.OriginName,
+                OriginCity = leg.OriginCity,
+                DestinationName = leg.DestinationName,
+                DestinationCity = leg.DestinationCity,
+                TripId = leg.TripId,
+                TripNumber = trip?.Number
+            };
+            all.Add(dto);
+            if (leg.TripId != null && leg.TripId == targetTripId)
+            {
+                onTheTrip++;
+            }
+            else if (stuckLegs.TryGetValue(leg.Id, out var reason))
+            {
+                dto.StuckReason = reason;
+                stuck.Add(dto);
+            }
+            else
+            {
+                movable.Add(leg);
+            }
+        }
+
+        return new OrderLegs(movable, all, stuck, onTheTrip, trips);
+    }
+
+    /// <summary>Why an order has nothing to move: no legs yet, all stuck, or all on the trip already.</summary>
+    private static OrderLegs EnsureMovable(OrderLegs order, string? tripNumber)
+    {
+        if (order.Movable.Count > 0)
+        {
+            return order;
+        }
+
+        if (order.All.Count == 0)
+        {
+            throw new BusinessException(PlanningExecutionErrorCodes.OrderHasNoLegs);
+        }
+
+        throw order.Stuck.Count > 0
+            ? new BusinessException(PlanningExecutionErrorCodes.OrderLegsStuck).WithData("count", order.Stuck.Count)
+            : new BusinessException(PlanningExecutionErrorCodes.OrderAlreadyOnTrip).WithData("number", tripNumber ?? string.Empty);
     }
 
     [Authorize(PlanningExecutionPermissions.TransportTrips.AssignLegs)]

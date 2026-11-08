@@ -9,6 +9,7 @@ import {
   type PlanboardResourceRowDto,
   type PlanboardSchedulerDto,
 } from "@/domains/planning-execution/planboard-scheduler";
+import { DerivedValueStatus, type RecordUpdateMessage } from "@/lib/realtime/record-updates";
 
 /* The pure part of the Scheduler pane (design 70 "Scheduler"): the pane's settings and their repair, the mapping of a
  * Scheduler read onto the adapter's rows, bars and blocks, conflict detection (overlap on a row, or over a block),
@@ -288,6 +289,36 @@ export function mergeBars(dto: PlanboardSchedulerDto, requestedIds: readonly str
   const requested = new Set(requestedIds.map((id) => id.toLowerCase()));
   const kept = (dto.bars ?? []).filter((bar) => !bar.id || !requested.has(bar.id.toLowerCase()));
   return { ...dto, bars: [...kept, ...fresh.filter((b) => b.id)], names: { ...(dto.names ?? {}), ...names } };
+}
+
+/** The blocks of a row at one moment: a drop there is a new trip, after the warning (design 74 §10). */
+export function blocksAt(rowId: string, moment: Date, blocks: readonly SchedulerBackgroundEvent[]): SchedulerBackgroundEvent[] {
+  const at = moment.getTime();
+  return blocks.filter((block) => block.resourceId === rowId && time(block.start) <= at && at < time(block.end));
+}
+
+/**
+ * What a drop on an empty cell does about the trip type (design 74 §10): with more than one type, or before the list is known,
+ * the type picker asks; with one it is that type; with none the server says what is missing.
+ */
+export function tripTypeChoice(types: readonly { id?: string }[] | undefined): { ask: true } | { ask: false; typeId: string | null } {
+  if (!types || types.length > 1) return { ask: true };
+  return { ask: false, typeId: types[0]?.id ?? null };
+}
+
+/**
+ * Which ids of a batch of notices need the bar refetched (design 74 §9). A Pending notice does not: its values are about to
+ * change. Nor does a plain "changed" notice on a trip that is calculating: the notice that ends the calculation brings it all
+ * at once. A removed record always does: its bar must go.
+ */
+export function idsToRefetch(messages: readonly RecordUpdateMessage[], isCalculating: (lowerId: string) => boolean): string[] {
+  return messages
+    .filter((message) => {
+      if (message.hints?.removed) return true;
+      if (message.status === DerivedValueStatus.Pending) return false;
+      return !(message.status == null && isCalculating(message.targetId.toLowerCase()));
+    })
+    .map((message) => message.targetId.toLowerCase());
 }
 
 /** The ids of every resource on the page (rows) for the live-update filter. */

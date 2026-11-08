@@ -13,17 +13,19 @@ import { cn } from "@/lib/utils";
 
 /* The focused trip's summary card on the map (design 70 "Map", like legacy): distance, duration, toll amount and toll-km
  * share, CO₂, and the per-segment toll list on expand. It is also the drop target for unplanned legs (a leg marker or a
- * row of Legs to schedule dragged onto it assigns the legs to the trip). */
+ * row of Legs to schedule dragged onto it assigns the legs to the trip), and for an order (design 74 §8). */
 
 export interface TripSummaryCardProps {
   map: PlanboardTripMapDto;
   /** Legs dropped on the card; absent when the user may not assign or the trip takes no legs. */
   onDropLegs?: (legIds: string[]) => void;
+  /** An order dropped on the card; absent when the user may not assign or the trip takes no legs. */
+  onDropOrder?: (orderId: string) => void;
   /** True while an assignment runs. */
   busy?: boolean;
 }
 
-export function TripSummaryCard({ map, onDropLegs, busy }: TripSummaryCardProps) {
+export function TripSummaryCard({ map, onDropLegs, onDropOrder, busy }: TripSummaryCardProps) {
   const { t } = useL();
   const f = useFormat();
   const [expanded, setExpanded] = useState(false);
@@ -37,7 +39,10 @@ export function TripSummaryCard({ map, onDropLegs, busy }: TripSummaryCardProps)
   const tollShare = tollSharePercent(map);
   const currency = map.tollCurrencyCode ?? "";
 
-  const accepts = (e: DragEvent) => !!onDropLegs && planboardDragKind(e.dataTransfer.types) === "legs";
+  const accepts = (e: DragEvent) => {
+    const kind = planboardDragKind(e.dataTransfer.types);
+    return (kind === "legs" && !!onDropLegs) || (kind === "order" && !!onDropOrder);
+  };
 
   return (
     <section
@@ -57,8 +62,9 @@ export function TripSummaryCard({ map, onDropLegs, busy }: TripSummaryCardProps)
         setDragOver(false);
         if (!accepts(e)) return;
         e.preventDefault();
-        const payload = readDragPayload(e.dataTransfer, ["legs"]);
+        const payload = readDragPayload(e.dataTransfer, ["legs", "order"]);
         if (payload?.kind === "legs") onDropLegs?.(payload.legIds);
+        else if (payload?.kind === "order") onDropOrder?.(payload.orderId);
       }}
       aria-busy={busy || undefined}
     >

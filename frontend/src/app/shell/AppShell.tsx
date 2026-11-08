@@ -45,7 +45,7 @@ export function AppShell() {
     return <FullScreenSpinner />;
   }
 
-  const hasNav = activeApp?.views != null && activeApp.views.length > 0 && features.visibleViews(activeApp).length > 0;
+  const hasNav = activeApp?.views != null && activeApp.views.length > 0 && !activeApp.hideNavPane && features.visibleViews(activeApp).length > 0;
 
   return (
     /* Pinned to the viewport: the nav pane and the view scroll on their own, never the page (a long nav tree used to

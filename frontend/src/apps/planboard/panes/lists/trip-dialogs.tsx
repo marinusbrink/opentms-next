@@ -21,7 +21,7 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The dialogs of the trips pane (design 70 "Transport trips"): complete with the actual departure and arrival (the
  * Planboard's complete command, P:Q17, with the row's concurrency stamp) and the trip's carrier / vehicles / drivers (the
- * existing set commands of design 59). Remarks and driver instructions are edited inline in the pane. Errors show inside the dialog (UI-FB-004); success closes, confirms and hands over to the pane's refresh. */
+ * existing set commands of design 59). The same pickers open in the trips pane's cells (`TripResourcePopup`). Remarks and driver instructions are edited inline in the pane. Errors show inside the dialog (UI-FB-004); success closes, confirms and hands over to the pane's refresh. */
 
 /** Relations with the Carrier role (design 43 flags). */
 const CARRIER_ROLE = 2;
@@ -134,7 +134,8 @@ export function TripResourcesDialog({ tripId, kind, onClose, onDone }: { tripId:
   return <TripResourcesForm trip={trip.data} kind={kind} title={title} onClose={onClose} onDone={onDone} />;
 }
 
-function TripResourcesForm({ trip, kind, title, onClose, onDone }: { trip: TransportTripDto; kind: TripResourceKind; title: string; onClose: () => void; onDone: () => void }) {
+/** The form state and the save of one resource kind: the dialog and the cell's popup share them. */
+function useTripResourcesForm(trip: TransportTripDto, kind: TripResourceKind, onClose: () => void, onDone: () => void) {
   const { t } = useL();
   const setCarrier = useSetTripCarrier();
   const setVehicles = useSetTripVehicles();
@@ -162,6 +163,78 @@ function TripResourcesForm({ trip, kind, title, onClose, onDone }: { trip: Trans
     }
   };
 
+  return { carrier, setCarrierValue, contactId, setContactId, combinationId, setCombinationId, vehicles, setVehiclesValue, drivers, setDriversValue, error, busy, submit };
+}
+
+type TripResourcesFormState = ReturnType<typeof useTripResourcesForm>;
+
+/** The pickers of one resource kind; `idPrefix` keeps the ids apart, `withContact` adds the carrier's contact person. */
+function TripResourceFields({ trip, kind, form, idPrefix, withContact }: { trip: TransportTripDto; kind: TripResourceKind; form: TripResourcesFormState; idPrefix: string; withContact: boolean }) {
+  const { t } = useL();
+  const { busy } = form;
+  return (
+    <>
+      {kind === "carrier" && (
+        <>
+          <RelationField id={`${idPrefix}-carrier`} label={t("PlanningExecution:Carrier")} value={form.carrier} onChange={(next) => { form.setCarrierValue(next); form.setContactId(null); }} roles={CARRIER_ROLE} disabled={busy} />
+          {withContact && (
+            <ContactPersonField id={`${idPrefix}-carrier-contact`} labelKey="PlanningExecution:CarrierContactPerson" relationId={form.carrier?.id} value={form.contactId} onChange={form.setContactId} hint={form.carrier ? undefined : t("PlanningExecution:ContactPersonHint")} disabled={busy} />
+          )}
+        </>
+      )}
+      {kind === "vehicles" && (
+        <>
+          <VehicleCombinationField
+            id={`${idPrefix}-combination`}
+            label={t("PlanningExecution:VehicleCombination")}
+            value={form.combinationId}
+            onChange={(next) => {
+              form.setCombinationId(next);
+              if (next) form.setVehiclesValue([]);
+            }}
+            stored={{ id: trip.vehicleCombinationId, name: trip.vehicleCombinationName }}
+            disabled={busy}
+            createDisabled={busy}
+          />
+          <VehiclesField
+            id={`${idPrefix}-vehicles`}
+            label={t("PlanningExecution:Vehicles")}
+            value={form.vehicles}
+            onChange={(next) => {
+              form.setVehiclesValue(next);
+              if (next.length > 0) form.setCombinationId(null);
+            }}
+            onAdd={(vehicle) => {
+              form.setVehiclesValue((current) => (current.some((v) => v.id === vehicle.id) ? current : [...current, vehicle].slice(0, MAX_TRIP_VEHICLES)));
+              form.setCombinationId(null);
+            }}
+            max={MAX_TRIP_VEHICLES}
+            hint={t("PlanningExecution:VehiclesOrCombinationHint").replace("{0}", String(MAX_TRIP_VEHICLES))}
+            disabled={busy || form.combinationId != null}
+            createDisabled={busy}
+          />
+        </>
+      )}
+      {kind === "drivers" && (
+        <DriversField
+          id={`${idPrefix}-drivers`}
+          label={t("PlanningExecution:Drivers")}
+          value={form.drivers}
+          onChange={form.setDriversValue}
+          onAdd={(driver) => form.setDriversValue((current) => (current.some((d) => d.id === driver.id) ? current : [...current, driver].slice(0, MAX_TRIP_DRIVERS)))}
+          max={MAX_TRIP_DRIVERS}
+          hint={t("PlanningExecution:DriversHint").replace("{0}", String(MAX_TRIP_DRIVERS))}
+          disabled={busy}
+          createDisabled={busy}
+        />
+      )}
+    </>
+  );
+}
+
+function TripResourcesForm({ trip, kind, title, onClose, onDone }: { trip: TransportTripDto; kind: TripResourceKind; title: string; onClose: () => void; onDone: () => void }) {
+  const { t } = useL();
+  const form = useTripResourcesForm(trip, kind, onClose, onDone);
   return (
     <EntityDialog
       open
@@ -169,64 +242,40 @@ function TripResourcesForm({ trip, kind, title, onClose, onDone }: { trip: Trans
       variant="action"
       size="sm"
       title={`${title} ${trip.number ?? ""}`}
-      isBusy={busy}
-      footer={<DialogFooter busy={busy} onCancel={onClose} form="planboard-trip-resources" label={t("Save")} busyLabel={t("Saving")} />}
+      isBusy={form.busy}
+      footer={<DialogFooter busy={form.busy} onCancel={onClose} form="planboard-trip-resources" label={t("Save")} busyLabel={t("Saving")} />}
     >
-      <form id="planboard-trip-resources" onSubmit={(e) => void submit(e)} noValidate className="grid grid-cols-1 gap-3">
-        <ErrorAlert message={error} />
-        {kind === "carrier" && (
-          <>
-            <RelationField id="planboard-trip-carrier" label={t("PlanningExecution:Carrier")} value={carrier} onChange={(next) => { setCarrierValue(next); setContactId(null); }} roles={CARRIER_ROLE} disabled={busy} />
-            <ContactPersonField id="planboard-trip-carrier-contact" labelKey="PlanningExecution:CarrierContactPerson" relationId={carrier?.id} value={contactId} onChange={setContactId} hint={carrier ? undefined : t("PlanningExecution:ContactPersonHint")} disabled={busy} />
-          </>
-        )}
-        {kind === "vehicles" && (
-          <>
-            <VehicleCombinationField
-              id="planboard-trip-combination"
-              label={t("PlanningExecution:VehicleCombination")}
-              value={combinationId}
-              onChange={(next) => {
-                setCombinationId(next);
-                if (next) setVehiclesValue([]);
-              }}
-              stored={{ id: trip.vehicleCombinationId, name: trip.vehicleCombinationName }}
-              disabled={busy}
-              createDisabled={busy}
-            />
-            <VehiclesField
-              id="planboard-trip-vehicles"
-              label={t("PlanningExecution:Vehicles")}
-              value={vehicles}
-              onChange={(next) => {
-                setVehiclesValue(next);
-                if (next.length > 0) setCombinationId(null);
-              }}
-              onAdd={(vehicle) => {
-                setVehiclesValue((current) => (current.some((v) => v.id === vehicle.id) ? current : [...current, vehicle].slice(0, MAX_TRIP_VEHICLES)));
-                setCombinationId(null);
-              }}
-              max={MAX_TRIP_VEHICLES}
-              hint={t("PlanningExecution:VehiclesOrCombinationHint").replace("{0}", String(MAX_TRIP_VEHICLES))}
-              disabled={busy || combinationId != null}
-              createDisabled={busy}
-            />
-          </>
-        )}
-        {kind === "drivers" && (
-          <DriversField
-            id="planboard-trip-drivers"
-            label={t("PlanningExecution:Drivers")}
-            value={drivers}
-            onChange={setDriversValue}
-            onAdd={(driver) => setDriversValue((current) => (current.some((d) => d.id === driver.id) ? current : [...current, driver].slice(0, MAX_TRIP_DRIVERS)))}
-            max={MAX_TRIP_DRIVERS}
-            hint={t("PlanningExecution:DriversHint").replace("{0}", String(MAX_TRIP_DRIVERS))}
-            disabled={busy}
-            createDisabled={busy}
-          />
-        )}
+      <form id="planboard-trip-resources" onSubmit={(e) => void form.submit(e)} noValidate className="grid grid-cols-1 gap-3">
+        <ErrorAlert message={form.error} />
+        <TripResourceFields trip={trip} kind={kind} form={form} idPrefix="planboard-trip" withContact />
       </form>
     </EntityDialog>
+  );
+}
+
+/** Carrier, vehicles or drivers in the cell's popup (design 74 §6), over the same commands; the contact person stays in the dialog. */
+export function TripResourcePopup({ tripId, kind, onClose, onDone }: { tripId: string; kind: TripResourceKind; onClose: () => void; onDone: () => void }) {
+  const { t } = useL();
+  const trip = useTransportTrip(tripId);
+  if (!trip.data) return trip.isError ? <ErrorAlert message={getApiErrorMessage(trip.error, t)} /> : <Skeleton className="h-16 w-full" />;
+  return <TripResourcePopupForm trip={trip.data} kind={kind} onClose={onClose} onDone={onDone} />;
+}
+
+function TripResourcePopupForm({ trip, kind, onClose, onDone }: { trip: TransportTripDto; kind: TripResourceKind; onClose: () => void; onDone: () => void }) {
+  const { t } = useL();
+  const form = useTripResourcesForm(trip, kind, onClose, onDone);
+  return (
+    <form onSubmit={(e) => void form.submit(e)} noValidate className="grid grid-cols-1 gap-3">
+      <ErrorAlert message={form.error} />
+      <TripResourceFields trip={trip} kind={kind} form={form} idPrefix={`planboard-trip-cell-${trip.id}`} withContact={false} />
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={form.busy}>
+          {t("Cancel")}
+        </Button>
+        <Button type="submit" size="sm" disabled={form.busy}>
+          {form.busy ? t("Saving") : t("Save")}
+        </Button>
+      </div>
+    </form>
   );
 }

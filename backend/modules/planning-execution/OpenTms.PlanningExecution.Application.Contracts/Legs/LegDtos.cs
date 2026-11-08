@@ -24,7 +24,11 @@ public class LegDto
 
     public string? CustomerName { get; set; }
 
+    /// <summary>The order's reference (Orders' <c>CustomerReference</c>), editable through <c>PUT /api/orders/planboard-order/{id}/field</c>.</summary>
     public string? CustomerReference { get; set; }
+
+    /// <summary>Design 74 §6: the order's stamp, for the inline edits of the order and its line; every leg of the order shows the same one.</summary>
+    public string? OrderConcurrencyStamp { get; set; }
 
     public int Position { get; set; }
 
@@ -84,9 +88,15 @@ public class LegDto
 
     public Guid TransportUnitId { get; set; }
 
+    public string? TransportUnitName { get; set; }
+
     public Guid? ProductId { get; set; }
 
+    public string? ProductName { get; set; }
+
     public Guid? TemperatureId { get; set; }
+
+    public string? TemperatureName { get; set; }
 
     public List<Guid> RequiredTransportCharacteristicIds { get; set; } = new();
 
@@ -247,6 +257,126 @@ public class LegSplitAtAddressDto
     public DateOnly? Date { get; set; }
 }
 
+/// <summary>Design 74 §7: <c>POST leg/{id}/split-order-line</c>: the amount the new order line takes (0 &lt; q &lt; the line's quantity); the server decides the rest.</summary>
+public class LegSplitOrderLineDto
+{
+    [Required]
+    public decimal Quantity { get; set; }
+}
+
+/// <summary>Design 74 §7: <c>GET leg/{id}/line-totals</c>: what the leg's order line carries, the base of the split dialog.</summary>
+public class LegLineTotalsDto
+{
+    public decimal Quantity { get; set; }
+
+    public decimal? Colli { get; set; }
+
+    public double? WeightKg { get; set; }
+
+    public double? VolumeM3 { get; set; }
+
+    public double? LoadingMeters { get; set; }
+
+    public double? LoadFactor { get; set; }
+
+    public double? Epq { get; set; }
+}
+
+/// <summary>The outcome of a split of an order line: the new line, its legs and the legs of the old line with their new quantities.</summary>
+public class LegSplitOrderLineResultDto
+{
+    public Guid NewLineId { get; set; }
+
+    public decimal RemainingQuantity { get; set; }
+
+    public decimal NewQuantity { get; set; }
+
+    /// <summary>The legs of the new line, each on its original's trip except the clone of the chosen leg and those of a stuck original (on a completed or cancelled trip, or with actuals on its stops).</summary>
+    public List<LegDto> NewLegs { get; set; } = new();
+
+    public List<LegDto> RemainingLegs { get; set; } = new();
+}
+
+/// <summary>Design 74 §4: the legs of an order line for Manage legs, in route order.</summary>
+public class LegChainDto
+{
+    public Guid OrderId { get; set; }
+
+    public Guid OrderLineId { get; set; }
+
+    /// <summary>False when legs of the line run in parallel (a split part of a leg): the dialog cannot save such a line.</summary>
+    public bool IsChain { get; set; }
+
+    public List<LegChainRowDto> Rows { get; set; } = new();
+}
+
+public class LegChainRowDto
+{
+    public LegDto Leg { get; set; } = new();
+
+    public bool HasActuals { get; set; }
+
+    /// <summary>On a trip (<see cref="LegDto.TripNumber"/> names it) or with actuals: every field of the row stays.</summary>
+    public bool IsReadOnly { get; set; }
+}
+
+/// <summary>
+/// Design 74 §4: <c>PUT leg/line/{lineId}</c>. <see cref="Rows"/> is the wanted chain in route order; a row without an id is a new
+/// leg, a leg the rows no longer name is removed. <see cref="Stamps"/> is the line as it was read: a leg that was added,
+/// changed or removed meanwhile makes the request stale (409).
+/// </summary>
+public class LegChainUpdateDto
+{
+    [Required]
+    public List<LegChainRowInputDto> Rows { get; set; } = new();
+
+    [Required]
+    public List<LegChainStampDto> Stamps { get; set; } = new();
+}
+
+public class LegChainStampDto
+{
+    [Required]
+    public Guid Id { get; set; }
+
+    [Required]
+    public string ConcurrencyStamp { get; set; } = string.Empty;
+}
+
+public class LegChainRowInputDto
+{
+    /// <summary>The existing leg; null for a new one.</summary>
+    public Guid? Id { get; set; }
+
+    [Required]
+    public LegChainEndInputDto Origin { get; set; } = new();
+
+    [Required]
+    public LegChainEndInputDto Destination { get; set; } = new();
+
+    [MaxLength(PlanningExecutionConsts.MaxRemarksLength)]
+    public string? Remarks { get; set; }
+}
+
+public class LegChainEndInputDto
+{
+    public Guid WaypointTypeId { get; set; }
+
+    public Guid RelationId { get; set; }
+
+    /// <summary>Null: the address the line already knows for the relation, else the relation's first.</summary>
+    public Guid? RelationAddressId { get; set; }
+
+    public DateOnly PlannedDate { get; set; }
+
+    public DateTimeOffset? WindowFrom { get; set; }
+
+    public DateTimeOffset? WindowTill { get; set; }
+
+    [MaxLength(PlanningExecutionConsts.MaxReferenceLength)]
+    public string? Reference { get; set; }
+}
+
 public interface ILegAppService : IApplicationService
 {
     Task<GridResponse<LegDto>> GetListAsync(LegListRequestDto input);
@@ -269,4 +399,16 @@ public interface ILegAppService : IApplicationService
 
     /// <summary><c>POST /api/planning/leg/{id}/return-leg</c> on an unplanned leg (design 68 §7): returns the mirrored leg.</summary>
     Task<LegDto> ReturnLegAsync(Guid id);
+
+    /// <summary><c>GET /api/planning/leg/line/{lineId}</c> (design 74 §4).</summary>
+    Task<LegChainDto> GetLineAsync(Guid lineId);
+
+    /// <summary><c>PUT /api/planning/leg/line/{lineId}</c> (design 74 §4): one transaction; returns the line as saved.</summary>
+    Task<LegChainDto> UpdateLineAsync(Guid lineId, LegChainUpdateDto input);
+
+    /// <summary><c>POST /api/planning/leg/{id}/split-order-line</c> (design 74 §7).</summary>
+    Task<LegSplitOrderLineResultDto> SplitOrderLineAsync(Guid id, LegSplitOrderLineDto input);
+
+    /// <summary><c>GET /api/planning/leg/{id}/line-totals</c> (design 74 §7).</summary>
+    Task<LegLineTotalsDto> GetLineTotalsAsync(Guid id);
 }

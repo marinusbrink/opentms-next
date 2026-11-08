@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { GridRequest, GridResponse } from "@/components/ui/opentms-grid";
 import { apiClient } from "@/lib/api/client";
+import { withStatus } from "@/lib/api/errors";
 import type { components } from "@/lib/api/generated/schema";
 
 /* Legs (design 59): the legs of an order (the order's Planning tab) or of a trip, and the editable leg fields of
@@ -15,6 +16,13 @@ export type LegEndSnapshotDto = Schemas["OpenTms.PlanningExecution.Legs.LegEndSn
 export type LegUpdateDto = Schemas["OpenTms.PlanningExecution.Legs.LegUpdateDto"];
 export type LegSource = Schemas["OpenTms.PlanningExecution.Legs.LegSource"];
 export type LegSplitAtAddressDto = Schemas["OpenTms.PlanningExecution.Legs.LegSplitAtAddressDto"];
+export type LegChainDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainDto"];
+export type LegChainRowDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainRowDto"];
+export type LegChainUpdateDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainUpdateDto"];
+export type LegChainRowInputDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainRowInputDto"];
+export type LegChainEndInputDto = Schemas["OpenTms.PlanningExecution.Legs.LegChainEndInputDto"];
+export type LegSplitOrderLineResultDto = Schemas["OpenTms.PlanningExecution.Legs.LegSplitOrderLineResultDto"];
+export type LegLineTotalsDto = Schemas["OpenTms.PlanningExecution.Legs.LegLineTotalsDto"];
 
 export const LEG_SOURCES: { value: LegSource; key: string }[] = [
   { value: 1, key: "PlanningExecution:LegSource.Generated" },
@@ -31,6 +39,8 @@ export const legKeys = {
   all: ["planning", "legs"] as const,
   ofOrder: (orderId: string | undefined) => ["planning", "legs", "order", orderId?.toLowerCase()] as const,
   ofTrip: (tripId: string | undefined) => ["planning", "legs", "trip", tripId?.toLowerCase()] as const,
+  chain: (lineId: string | undefined) => ["planning", "legs", "chain", lineId?.toLowerCase()] as const,
+  lineTotals: (legId: string | undefined) => ["planning", "legs", "line-totals", legId?.toLowerCase()] as const,
 };
 
 export interface LegListFilters {
@@ -83,13 +93,86 @@ export function useLegsOfTrip(tripId: string | undefined) {
   });
 }
 
-/** The editable leg fields: references, remarks, planned dates (design 59 `PUT /api/planning/leg/{id}`). */
+/** One leg as it is now (an inline edit's refetch after a stale stamp). */
+export async function fetchLeg(id: string): Promise<LegDto> {
+  const { data, error, response } = await apiClient.GET("/api/planning/leg/{id}", { params: { path: { id } } });
+  if (error) throw withStatus(error, response);
+  return data!;
+}
+
+/**
+ * The body of `PUT leg/{id}` for a leg as it is: the server replaces both references and the remarks on every call, so they
+ * always travel; a date or a window left out stays as it is, so an edit sends only the one it changes (`{ ...legUpdateOf(leg), originPlannedDate }`).
+ */
+export function legUpdateOf(leg: LegDto): LegUpdateDto {
+  return { concurrencyStamp: leg.concurrencyStamp ?? "", originReference: leg.origin?.reference ?? null, destinationReference: leg.destination?.reference ?? null, remarks: leg.remarks ?? null };
+}
+
+/** The editable leg fields: references, remarks, planned dates, windows (design 59 `PUT /api/planning/leg/{id}`, design 74 §6). */
 export function useUpdateLeg() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, dto }: { id: string; dto: LegUpdateDto }): Promise<LegDto> => {
-      const { data, error } = await apiClient.PUT("/api/planning/leg/{id}", { params: { path: { id } }, body: dto });
-      if (error) throw error;
+      const { data, error, response } = await apiClient.PUT("/api/planning/leg/{id}", { params: { path: { id } }, body: dto });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
+  });
+}
+
+/** The legs of one order line as a route (design 74 §4); `isChain` false: parallel legs, which cannot be managed as one. */
+export function useLegChain(lineId: string | undefined) {
+  return useQuery({
+    queryKey: legKeys.chain(lineId),
+    enabled: lineId != null,
+    /* A dialog works on what the line is now, and its stamps must be current. */
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async (): Promise<LegChainDto> => {
+      const { data, error, response } = await apiClient.GET("/api/planning/leg/line/{lineId}", { params: { path: { lineId: lineId! } } });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+  });
+}
+
+/** Saves the line's legs in one go (`PUT leg/line/{lineId}`); the server validates the chain. */
+export function useUpdateLegChain() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lineId, dto }: { lineId: string; dto: LegChainUpdateDto }): Promise<LegChainDto> => {
+      const { data, error, response } = await apiClient.PUT("/api/planning/leg/line/{lineId}", { params: { path: { lineId } }, body: dto });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),
+  });
+}
+
+/** What the leg's order line carries, the base of Split line (design 74 §7); needs only the right to read legs. */
+export function useLegLineTotals(legId: string | undefined) {
+  return useQuery({
+    queryKey: legKeys.lineTotals(legId),
+    enabled: legId != null,
+    /* A dialog works on what the line is now. */
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async (): Promise<LegLineTotalsDto> => {
+      const { data, error, response } = await apiClient.GET("/api/planning/leg/{id}/line-totals", { params: { path: { id: legId! } } });
+      if (error) throw withStatus(error, response);
+      return data!;
+    },
+  });
+}
+
+/** Splits the leg's order line (design 74 §7, `POST leg/{id}/split-order-line`); `quantity` is the new line's amount. */
+export function useSplitOrderLine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ legId, quantity }: { legId: string; quantity: number }): Promise<LegSplitOrderLineResultDto> => {
+      const { data, error, response } = await apiClient.POST("/api/planning/leg/{id}/split-order-line", { params: { path: { id: legId } }, body: { quantity } });
+      if (error) throw withStatus(error, response);
       return data!;
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: legKeys.all }),

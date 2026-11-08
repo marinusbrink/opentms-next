@@ -6,10 +6,13 @@ import { toast } from "sonner";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { isCancelledOutcome, useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { pulledTripIds } from "@/apps/planboard/order-drop-model";
+import { useOrderDrop } from "@/apps/planboard/order-drop";
 import { lower, ROW_DROP_CLASS, useGridApiCapture, useRowDropTarget } from "@/apps/planboard/panes/lists/grid-helpers";
-import { DialogEditCell, InlineTextCell, TripWarningsCell } from "@/apps/planboard/panes/lists/grid-support";
+import { InlineTextCell, TripWarningsCell } from "@/apps/planboard/panes/lists/grid-support";
+import { sameValue, saveWithStaleRetry } from "@/apps/planboard/panes/lists/inline-save";
 import { PaneFilterBar } from "@/apps/planboard/panes/lists/PaneFilterBar";
-import { CompleteTripDialog, TripResourcesDialog, type TripResourceKind } from "@/apps/planboard/panes/lists/trip-dialogs";
+import { CompleteTripDialog, TripResourcePopup, TripResourcesDialog, type TripResourceKind } from "@/apps/planboard/panes/lists/trip-dialogs";
 import type { PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { usePlanboardSelection } from "@/apps/planboard/selection";
 import { useOpenPlanboardTrip } from "@/apps/planboard/trip-peek";
@@ -18,6 +21,7 @@ import { AppCommandBar, type AppCommandBarCommand } from "@/components/ui/app-co
 import { CalculatingIndicator } from "@/components/ui/calculating-indicator";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AmountCell, DateCell, DateTimeCell, NumberCell, PercentCell } from "@/components/ui/grid-cells";
+import { PopupEditCell } from "@/components/ui/grid-edit-cells";
 import type { GridRequest, GridRowAction, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
@@ -54,11 +58,11 @@ import { useDerivedValueStates, useRecordUpdates } from "@/lib/realtime/use-reco
 
 /* Design 70, "Transport trips": the trips of the board's range and organisation units (or the pane's own, "Use board
  * filter" off) in a server-side OpenTmsGrid. Inline edit of the name, remarks and driver instructions (the Planboard's
- * header-field command); carrier, vehicles and drivers through the pencil in their cells (the existing set commands).
+ * header-field command, a stale stamp retried per inline-save.ts); carrier, vehicles and drivers in a popup in their cells (the existing set commands).
  * Planboard commands on a row carry the row's concurrency stamp (no extra read of the trip). Row actions: open (the trip page in the Transport app, or the
  * read-only peek without it: trip-peek.tsx), edit, start,
  * complete (ATD and ATA), optimise stops (202, a toast), archive, cancel, delete. New trip in the command bar. A row is a
- * drop target for legs (assign, or move when they come from another trip) and for a driver (add). The selection feeds
+ * drop target for legs (assign, or move when they come from another trip), for a driver (add) and for an order (design 74 §8). The selection feeds
  * the board's selection bus; live notices refetch only the rows they concern. */
 
 const GRID_ID = "planning.planboard.transportTrips";
@@ -231,6 +235,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   const deleteTrip = useDeleteTrip();
 
   const outsideWindow = useOutsideWindowConfirm();
+  const orderDrop = useOrderDrop();
 
   /** A list-level action: toast on failure (UI-FB-004), the toast and the row patch on success; nothing when the user
    * cancelled (a leg drop outside the trip's window they did not confirm). */
@@ -250,8 +255,8 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   );
 
   const drop = useRowDropTarget({
-    accept: [...(canAssign ? (["legs"] as const) : []), ...(canUpdate ? (["driver"] as const) : [])],
-    /* Legs and drivers go onto planned or running trips only. */
+    accept: [...(canAssign ? (["legs", "order"] as const) : []), ...(canUpdate ? (["driver"] as const) : [])],
+    /* Legs, orders and drivers go onto planned or running trips only. */
     canDrop: (rowId) => isOpen(rows.current.get(lower(rowId))),
     onDrop: (rowId: string, payload: PlanboardDragPayload) => {
       const target = rows.current.get(lower(rowId));
@@ -270,6 +275,10 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
         }
       } else if (payload.kind === "driver") {
         void run(() => addDriver.mutateAsync({ tripId: rowId, driverId: payload.driverId, concurrencyStamp: target?.concurrencyStamp }), "Planboard:Lists.DriverAdded", [rowId]);
+      } else if (payload.kind === "order") {
+        void orderDrop.dropOnTrip({ orderId: payload.orderId, tripId: rowId, tripNumber: target?.number, stamp: target?.concurrencyStamp }).then((result) => {
+          if (result) void refreshTrips([rowId, ...pulledTripIds(result)]);
+        });
       }
     },
   });
@@ -304,7 +313,12 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
           canEdit={(row) => canUpdate && !row.isArchived}
           onCommit={async (row, value) => {
             try {
-              await setFieldAsync({ tripId: row.id!, field: tripField, value, concurrencyStamp: row.concurrencyStamp });
+              await saveWithStaleRetry({
+                row,
+                save: (current) => setFieldAsync({ tripId: current.id!, field: tripField, value, concurrencyStamp: current.concurrencyStamp }),
+                refetch: async (current) => (await fetchPlanboardTripsByIds([current.id!], filtersRef.current))[0],
+                unchanged: (fresh, seen) => sameValue(fresh[field], seen[field]),
+              });
               void refreshTrips([row.id]);
             } catch (err) {
               toast.error(getApiErrorMessage(err, t));
@@ -316,7 +330,14 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
       ...extra,
     });
     const resourceCell = (resource: TripResourceKind, text: (row: TransportTripRow) => string) => (p: { data: TransportTripRow | undefined }) =>
-      p.data ? <DialogEditCell text={text(p.data)} canEdit={canUpdate && isOpen(p.data)} onEdit={() => setDialog({ kind: "resources", id: p.data!.id!, resource })} /> : null;
+      p.data ? (
+        <PopupEditCell<TransportTripRow>
+          text={text(p.data)}
+          data={p.data}
+          canEdit={(row) => canUpdate && isOpen(row)}
+          renderPopup={(row, close) => <TripResourcePopup tripId={row.id!} kind={resource} onClose={close} onDone={() => void refreshTrips([row.id])} />}
+        />
+      ) : null;
     return [
       { field: "number", headerName: t("PlanningExecution:Number"), minWidth: 120 },
       { field: "status", headerName: t("PlanningExecution:Status"), minWidth: 120, cellRenderer: (p: { value: TransportTripStatus | undefined }) => <StatusCell entity="TransportTrip" value={tripStatusName(p.value)} /> },
@@ -422,6 +443,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
           fetchRows={fetchRows}
           onSelectionChange={onSelectionChange}
           clickSelects
+          popupsOnPage
           onGridReady={grid.capture}
           onOpen={(row) => row.id && openTrip(row.id)}
           rowActions={rowActions}
@@ -442,6 +464,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
       {dialog?.kind === "complete" && <CompleteTripDialog trip={dialog.row} onClose={() => setDialog(null)} onDone={() => void refreshTrips([dialog.row.id])} />}
       {dialog?.kind === "resources" && <TripResourcesDialog tripId={dialog.id} kind={dialog.resource} onClose={() => setDialog(null)} onDone={() => void refreshTrips([dialog.id])} />}
       {outsideWindow.dialog}
+      {orderDrop.dialog}
       {confirm && confirmProps && (
         <ConfirmDialog
           open

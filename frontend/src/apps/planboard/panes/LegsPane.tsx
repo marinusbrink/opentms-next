@@ -7,11 +7,12 @@ import { toast } from "sonner";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
 import { DRAG_COLUMN, lower } from "@/apps/planboard/panes/lists/grid-helpers";
 import { DragHandleCell } from "@/apps/planboard/panes/lists/grid-support";
+import { useLegInlineColumns } from "@/apps/planboard/panes/lists/leg-columns";
 import { PaneMessage } from "@/apps/planboard/panes/lists/PaneMessage";
 import { LegReferencesDialog } from "@/apps/planboard/panes/lists/stop-leg-dialogs";
 import type { PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { usePlanboardSelection } from "@/apps/planboard/selection";
-import { AmountCell, BoolCell, DateCell, NumberCell } from "@/components/ui/grid-cells";
+import { AmountCell, BoolCell, NumberCell } from "@/components/ui/grid-cells";
 import type { GridRequest, GridResponse, GridRowAction, GridSelectionDto } from "@/components/ui/opentms-grid";
 import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
@@ -26,7 +27,8 @@ import { useL } from "@/lib/i18n/LocalizationProvider";
 import { useOpenRecord } from "@/lib/use-open-record";
 
 /* Design 70, "Legs": the legs of the focused trip (P:Q16): order, customer, origin → destination, dates, windows,
- * quantities, references, remarks, distance and allocated cost and revenue. Actions: unassign (back to Legs to schedule),
+ * quantities, references, remarks, distance and allocated cost and revenue; the editable ones in the cell (design 74 §6,
+ * leg-columns.tsx). Actions: unassign (back to Legs to schedule),
  * carry out separately, edit references and remarks (the Planning fields only, D19), open the order. Drag the handle (the
  * selected legs, or the row's own) onto another trip in the trips pane, a Scheduler bar or the map to move them. */
 
@@ -77,6 +79,9 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
   /* Read by the drag handle when a drag starts (a ref, so a selection change does not rebuild the columns). */
   const selectedIds = useRef<string[]>([]);
   const [editing, setEditing] = useState<LegDto | null>(null);
+  const editable = useLegInlineColumns<LegDto>({
+    patchRows: (match, patch) => queryClient.setQueryData<LegDto[]>(legKeys.ofTrip(tripId), (current) => current?.map((row) => (match(row) ? patch(row) : row))),
+  });
 
   const fetchRows = useMemo(() => async (_request: GridRequest): Promise<GridResponse<LegDto>> => ({ rows: legs, totalCount: legs.length, filteredCount: legs.length }), [legs]);
 
@@ -119,34 +124,26 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
       { field: "customerName", headerName: t("PlanningExecution:Customer"), minWidth: 150, sortable: false },
       { colId: "origin", headerName: t("PlanningExecution:Origin"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.origin) },
       { colId: "destination", headerName: t("PlanningExecution:Destination"), minWidth: 160, sortable: false, valueGetter: (p) => legEndLabel(p.data?.destination) },
-      { colId: "originDate", headerName: t("Planboard:Lists.OriginDate"), minWidth: 110, sortable: false, valueGetter: (p) => p.data?.origin?.plannedDate, cellRenderer: DateCell },
-      { colId: "destinationDate", headerName: t("Planboard:Lists.DestinationDate"), minWidth: 110, sortable: false, valueGetter: (p) => p.data?.destination?.plannedDate, cellRenderer: DateCell },
-      {
-        colId: "originWindow",
-        headerName: t("Planboard:Lists.OriginWindow"),
-        minWidth: 160,
-        sortable: false,
-        valueGetter: (p) => windowText(p.data?.origin?.windowFrom, p.data?.origin?.windowTill, f.dateTime),
-      },
-      {
-        colId: "destinationWindow",
-        headerName: t("Planboard:Lists.DestinationWindow"),
-        minWidth: 160,
-        sortable: false,
-        valueGetter: (p) => windowText(p.data?.destination?.windowFrom, p.data?.destination?.windowTill, f.dateTime),
-      },
+      editable.customerReference(),
+      editable.transportUnit(),
+      editable.product(),
+      editable.temperature({ hide: true }),
+      editable.originDate(),
+      editable.destinationDate(),
+      editable.originWindow(),
+      editable.destinationWindow(),
       { field: "quantity", headerName: t("PlanningExecution:Quantity"), minWidth: 90, sortable: false, cellRenderer: NumberCell, type: "rightAligned" },
       { field: "weightKg", headerName: t("PlanningExecution:WeightKg"), minWidth: 100, sortable: false, cellRenderer: NumberCell, type: "rightAligned" },
       { field: "loadingMeters", headerName: t("PlanningExecution:LoadingMeters"), minWidth: 100, sortable: false, cellRenderer: NumberCell, type: "rightAligned" },
-      { colId: "originReference", headerName: t("Planboard:Lists.OriginReference"), minWidth: 130, sortable: false, valueGetter: (p) => p.data?.origin?.reference },
-      { colId: "destinationReference", headerName: t("Planboard:Lists.DestinationReference"), minWidth: 130, sortable: false, valueGetter: (p) => p.data?.destination?.reference },
-      { field: "remarks", headerName: t("PlanningExecution:Remarks"), minWidth: 150, sortable: false },
+      editable.originReference(),
+      editable.destinationReference(),
+      editable.remarks(),
       { colId: "distance", headerName: `${t("PlanningExecution:Distance")} (km)`, minWidth: 100, sortable: false, type: "rightAligned", valueGetter: (p) => (p.data?.distanceM == null ? null : p.data.distanceM / 1000), valueFormatter: (p) => f.number(p.value as number | null, { maxDecimals: 1 }), cellClass: "tabular-nums" },
       { field: "allocatedCostAmount", headerName: t("PlanningExecution:AllocatedCost"), minWidth: 110, sortable: false, cellRenderer: AmountCell, type: "rightAligned" },
       { field: "allocatedRevenueAmount", headerName: t("PlanningExecution:AllocatedRevenue"), minWidth: 110, sortable: false, cellRenderer: AmountCell, type: "rightAligned" },
       { field: "isCarriedOutSeparately", headerName: t("PlanningExecution:IsCarriedOutSeparately"), minWidth: 100, hide: true, sortable: false, cellRenderer: BoolCell },
     ],
-    [t, f, canAssign, tripId],
+    [t, f, canAssign, tripId, editable],
   );
 
   const rowActions = (rows: LegDto[]): GridRowAction[] => {
@@ -154,7 +151,7 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
     if (!leg?.id) return [];
     return [
       ...(canUpdate ? [{ id: "edit", labelKey: "Planboard:Lists.EditLeg", icon: Pencil, onClick: () => setEditing(leg) }] : []),
-      { id: "open-order", labelKey: "PlanningExecution:OpenOrder", onClick: () => leg.orderId && openRecord("TransportOrder", leg.orderId) },
+      { id: "open-order", labelKey: "PlanningExecution:OpenOrder", onClick: () => leg.orderId && openRecord("TransportOrder", leg.orderId, { returnTo: "/planboard" }) },
       ...(canManageStops
         ? [{ id: "separately", labelKey: "PlanningExecution:CarryOutSeparately", icon: Split, disabled: leg.isCarriedOutSeparately === true, disabledReasonKey: "PlanningExecution:AlreadySeparate", onClick: () => void run(carryOut.mutateAsync({ id: tripId, legId: leg.id! }), "PlanningExecution:TransportTripSaved") }]
         : []),
@@ -175,15 +172,11 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
         fetchRows={fetchRows}
         onSelectionChange={onSelectionChange}
         clickSelects
+        popupsOnPage
         onOpen={(leg) => canUpdate && setEditing(leg)}
         rowActions={rowActions}
       />
       {editing && <LegReferencesDialog leg={editing} onClose={() => setEditing(null)} />}
     </div>
   );
-}
-
-function windowText(from: string | null | undefined, till: string | null | undefined, format: (value: string) => string): string {
-  if (!from && !till) return "";
-  return `${from ? format(from) : ""} – ${till ? format(till) : ""}`;
 }

@@ -60,6 +60,27 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The tenant has no active transport trip type to create a trip with.</summary>
     public const string NoTripType = Namespace + ":NoTripType";
 
+    /// <summary>Design 74 §3: the relation and address of a stop with legs follow those legs.</summary>
+    public const string StopHasLegs = Namespace + ":StopHasLegs";
+
+    /// <summary>Design 74 §6: a leg on a completed or cancelled trip ({number}) is read-only.</summary>
+    public const string LegOnFinalTrip = Namespace + ":LegOnFinalTrip";
+
+    /// <summary>Design 74 §4: the line's legs run in parallel (a split part of a leg), so they are not one chain to manage.</summary>
+    public const string LegLineNotAChain = Namespace + ":LegLineNotAChain";
+
+    /// <summary>Design 74 §4: leg {position} is on a trip or has actual times; it cannot change or go, and neither can its ends.</summary>
+    public const string LegChainReadOnlyLeg = Namespace + ":LegChainReadOnlyLeg";
+
+    /// <summary>Design 74 §8: the order has no legs to plan yet.</summary>
+    public const string OrderHasNoLegs = Namespace + ":OrderHasNoLegs";
+
+    /// <summary>Design 74 §8: all {count} legs of the order are stuck: on a completed or cancelled trip, or with actual times on their stops.</summary>
+    public const string OrderLegsStuck = Namespace + ":OrderLegsStuck";
+
+    /// <summary>Design 74 §8: every leg of the order is on trip {number} already.</summary>
+    public const string OrderAlreadyOnTrip = Namespace + ":OrderAlreadyOnTrip";
+
     /* The request itself is wrong (400). */
 
     public const string TooManyVehicles = Namespace + ":TooManyVehicles";
@@ -145,12 +166,34 @@ public static class PlanningExecutionErrorCodes
     /// <summary>The trip's stops cannot be optimised ({number}): it is not planned or running, or has fewer than two stops that may move.</summary>
     public const string StopsNotOptimizable = Namespace + ":StopsNotOptimizable";
 
+    /// <summary>Design 74 §4: a line keeps at least one leg.</summary>
+    public const string LegChainEmpty = Namespace + ":LegChainEmpty";
+
+    /// <summary>Design 74 §4: leg {position} lacks its {field} (an activity or a relation).</summary>
+    public const string LegChainIncomplete = Namespace + ":LegChainIncomplete";
+
+    /// <summary>Design 74 §4: leg {position} does not start where the leg before it ends.</summary>
+    public const string LegChainNotContiguous = Namespace + ":LegChainNotContiguous";
+
+    /// <summary>Design 74 §4: the dates of leg {position} run backwards.</summary>
+    public const string LegChainDatesBackwards = Namespace + ":LegChainDatesBackwards";
+
+    /// <summary>Design 74 §4: the line's first origin and last destination stay as they are ({field}).</summary>
+    public const string LegChainEndsFixed = Namespace + ":LegChainEndsFixed";
+
+    /// <summary>Design 74 §4: leg {position} repeats the same stops as an earlier leg of the line.</summary>
+    public const string LegChainDuplicateLeg = Namespace + ":LegChainDuplicateLeg";
+
+    /// <summary>Design 74 §8: a new trip takes either an order or named legs, not both.</summary>
+    public const string CreateTripOrderOrLegs = Namespace + ":CreateTripOrderOrLegs";
+
     /// <summary>The codes that mean "the request conflicts with the current state" and travel as HTTP 409.</summary>
     public static readonly string[] ConflictCodes =
     [
         TripNotAssignable, LegOnOtherTrip, LegNotOnTrip, LegOutsideTripWindow, StopHasActuals, InvalidTransition, TripArchived,
         TripDateLocked, NotManualStop, OrderCancelled, ReturnLegExists, LegOnTrip, LegNotSplitAtAddress, SplitAtAddressNested,
-        ResourceNotOnTrip, NoTripType, StopsNotOptimizable
+        ResourceNotOnTrip, NoTripType, StopsNotOptimizable, StopHasLegs, LegOnFinalTrip, LegLineNotAChain, LegChainReadOnlyLeg,
+        OrderHasNoLegs, OrderLegsStuck, OrderAlreadyOnTrip
     ];
 
     /// <summary>The codes that mean "the request itself is wrong" and travel as HTTP 400.</summary>
@@ -160,6 +203,7 @@ public static class PlanningExecutionErrorCodes
         InvalidPosition, LegDateOutsideStopWindow, InvalidViaDepotScope, ArrivalBeforeDeparture, SameTrip, InvalidLegWindow,
         ExportTooManyRows, ExportUnknownColumn, SplitAddressIsLegEnd, SplitDateOutsideLeg, ContactWithoutCarrier,
         AddressWithoutRelation, InvalidSchedulerWindow, ResourceKindMismatch, TooManyIds, UnknownGroupBy, InvalidUnavailabilityPeriod,
-        InvalidRecurrence, InvalidWorkingPattern, InvalidAvailabilityWindow, InvalidNearbySearch
+        InvalidRecurrence, InvalidWorkingPattern, InvalidAvailabilityWindow, InvalidNearbySearch, LegChainEmpty, LegChainIncomplete,
+        LegChainNotContiguous, LegChainDatesBackwards, LegChainEndsFixed, LegChainDuplicateLeg, CreateTripOrderOrLegs
     ];
 }

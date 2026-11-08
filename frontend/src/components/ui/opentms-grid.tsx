@@ -143,6 +143,8 @@ export interface OpenTmsGridProps<TRow> {
   /** Hands the grid api to the caller once the grid is ready (a pane that patches rows in place, scrolls to a row or
    * listens to grid events). Called before the saved column settings load; the api is gone again on unmount. */
   onGridReady?: (api: GridApi<TRow>) => void;
+  /** Menus and popup editors open on the page instead of inside the grid, so a grid in a low pane does not clip them. Not for a grid inside a dialog. */
+  popupsOnPage?: boolean;
   className?: string;
 }
 
@@ -251,6 +253,7 @@ export function OpenTmsGrid<TRow>({
   treeData,
   clickSelects = false,
   onGridReady: onGridReadyProp,
+  popupsOnPage = false,
   className,
 }: OpenTmsGridProps<TRow>) {
   const { t } = useL();
@@ -835,6 +838,7 @@ export function OpenTmsGrid<TRow>({
           preventDefaultOnContextMenu={!!rowActions}
           suppressMenuHide
           animateRows={false}
+          popupParent={popupsOnPage ? document.body : undefined}
         />
       </div>
 
