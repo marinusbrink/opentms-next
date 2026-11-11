@@ -1,7 +1,8 @@
 name: Deploy
 
-# Every merge to main that passes CI goes to staging and then to prod with a canary
-# (department design §5, PO decision 2026-10-30; docs/designs/gcp-infrastructure.md).
+# Every merge to main that passes CI goes to staging, through the performance gate and then to prod with a canary
+# (department design §5, PO decision 2026-10-30; docs/designs/gcp-infrastructure.md). The gate runs the volume tests
+# with their budgets enforced on staging's database, the same machine as prod's (docs/designs/76-ci-split-and-performance-gate.md).
 # Migrations run before the new revision gets traffic, so they must be expand-only.
 
 on:
@@ -57,13 +58,17 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.DEPLOYER }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Build the volume tests
+        run: dotnet build backend/test/OpenTms.EntityFrameworkCore.Tests -c Release -o backend/test/performance-gate/perf --nologo
       - name: Build and push images
         run: |
           gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
           docker build -t "$REGISTRY/opentms-api:$SHA" backend/src/OpenTms.HttpApi.Host
           docker build -t "$REGISTRY/opentms-migrator:$SHA" backend/src/OpenTms.DbMigrator
+          docker build -t "$REGISTRY/opentms-performance:$SHA" backend/test/performance-gate
           docker push "$REGISTRY/opentms-api:$SHA"
           docker push "$REGISTRY/opentms-migrator:$SHA"
+          docker push "$REGISTRY/opentms-performance:$SHA"
 
   staging:
     needs: build
@@ -99,8 +104,41 @@ jobs:
           gcloud run deploy opentms-web --image "$REGISTRY/opentms-web:$SHA-staging" --project "$PROJECT" --region "$REGION" --quiet
           curl -fsS --retry 6 --retry-delay 10 --retry-all-errors "$api_url/health/ready"
 
-  prod:
+  # The volume tests, budgets enforced, as a Cloud Run job next to staging's database (prod's machine type). They
+  # create and drop databases of their own; a budget missed fails this job, and prod does not start.
+  performance:
     needs: staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Project
+        run: |
+          echo "PROJECT=$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' infra/environments/staging.tfvars)" >> "$GITHUB_ENV"
+          echo "SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+      - name: Start the database
+        run: infra/scripts/staging-database.sh start "$PROJECT" opentms-staging
+      - name: Volume tests against staging's database
+        run: |
+          gcloud run jobs update opentms-performance --image "$REGISTRY/opentms-performance:$SHA" --project "$PROJECT" --region "$REGION" --quiet
+          gcloud run jobs execute opentms-performance --wait --project "$PROJECT" --region "$REGION" --quiet
+      - name: Timings and failures
+        if: always()
+        run: |
+          gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"opentms-performance\" AND timestamp>=\"${SINCE}\"" \
+            --project "$PROJECT" --order asc --limit 20000 --format='value(textPayload)' \
+            | grep -E "ms|Passed|Failed|FAIL|Error Message|Shouldly|should|but was|Total tests" || true
+
+  prod:
+    needs: performance
     runs-on: ubuntu-latest
     environment: prod
     steps:

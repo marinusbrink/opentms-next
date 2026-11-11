@@ -25,6 +25,7 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 /// live in one rolled-back transaction. Risk class: High (performance at volume × 5).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class PlanboardVolumeTests : PlanningPostgreSqlTestBase
 {
     private const int VehicleCount = 1_500;
@@ -164,6 +165,6 @@ public class PlanboardVolumeTests : PlanningPostgreSqlTestBase
         watch.Stop();
         assert(result);
         _output.WriteLine($"{name}: {watch.ElapsedMilliseconds} ms");
-        watch.Elapsed.ShouldBeLessThan(ReadBudget, name);
+        VolumeBudget.Within(watch.Elapsed, ReadBudget, name);
     }
 }

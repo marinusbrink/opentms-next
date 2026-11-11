@@ -3,7 +3,8 @@
 #   1. deploy the image as a new revision without traffic, tagged "canary";
 #   2. check /health/ready on the tag URL;
 #   3. give it CANARY_PERCENT of traffic and observe for OBSERVE_MINUTES;
-#   4. promote to 100% — or put 100% back on the previous revision and fail.
+#   4. compare its p95 response time with the previous revision's over the same minutes (design 76);
+#   5. promote to 100% — or put 100% back on the previous revision and fail.
 #
 #   infra/scripts/canary.sh <project> <region> <service> <image>
 set -euo pipefail
@@ -17,6 +18,11 @@ CANARY_PERCENT="${CANARY_PERCENT:-10}"
 OBSERVE_MINUTES="${OBSERVE_MINUTES:-10}"
 MAX_ERROR_PERCENT="${MAX_ERROR_PERCENT:-1}"
 MIN_ERRORS="${MIN_ERRORS:-5}"
+# Slower means: p95 above LATENCY_FACTOR times the previous revision's and above LATENCY_FLOOR_MS (the read budget), with
+# at least MIN_LATENCY_SAMPLES requests on each revision. With fewer the comparison says nothing and is skipped.
+LATENCY_FACTOR="${LATENCY_FACTOR:-1.5}"
+LATENCY_FLOOR_MS="${LATENCY_FLOOR_MS:-300}"
+MIN_LATENCY_SAMPLES="${MIN_LATENCY_SAMPLES:-50}"
 
 run() { gcloud run "$@" --project "${PROJECT}" --region "${REGION}" --quiet; }
 
@@ -63,6 +69,33 @@ for minute in $(seq 1 "${OBSERVE_MINUTES}"); do
     rollback "${errors} 5xx responses in ${total} requests"
   fi
 done
+
+# Request latencies of one revision since the canary got traffic, in milliseconds. Long-lived connections (SignalR) and the
+# health probes say nothing about how fast a request is answered.
+latencies() {
+  # A failed read must not stop the script halfway with the canary on part of the traffic: it counts as no samples.
+  { gcloud logging read \
+    "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE}\" AND resource.labels.revision_name=\"$1\" AND httpRequest.latency:* AND timestamp>=\"${since}\" AND NOT httpRequest.requestUrl:\"/signalr-hubs/\" AND NOT httpRequest.requestUrl:\"/health/\"" \
+    --project "${PROJECT}" --limit 100000 --format='value(httpRequest.latency)' || true; } | sed -n 's/^\([0-9.]*\)s$/\1/p' | awk '{ printf "%d\n", $1 * 1000 }'
+}
+
+# p95 of the numbers on stdin (nearest rank), or nothing for no numbers.
+p95() { sort -n | awk '{ v[NR] = $1 } END { if (NR > 0) { i = int(NR * 0.95); if (i < NR * 0.95) i++; print v[i] } }'; }
+
+canary_ms="$(latencies "${canary}")"
+previous_ms="$(latencies "${previous}")"
+canary_n="$(printf '%s' "${canary_ms}" | grep -c . || true)"
+previous_n="$(printf '%s' "${previous_ms}" | grep -c . || true)"
+if (( canary_n >= MIN_LATENCY_SAMPLES && previous_n >= MIN_LATENCY_SAMPLES )); then
+  canary_p95="$(printf '%s\n' "${canary_ms}" | p95)"
+  previous_p95="$(printf '%s\n' "${previous_ms}" | p95)"
+  echo "p95 response time: canary ${canary_p95} ms over ${canary_n} requests, previous ${previous_p95} ms over ${previous_n}."
+  if awk -v c="${canary_p95}" -v p="${previous_p95}" -v f="${LATENCY_FACTOR}" -v floor="${LATENCY_FLOOR_MS}" 'BEGIN { exit !(c > p * f && c > floor) }'; then
+    rollback "p95 ${canary_p95} ms against ${previous_p95} ms on the previous revision"
+  fi
+else
+  echo "p95 response time not compared: ${canary_n} canary and ${previous_n} previous requests, fewer than ${MIN_LATENCY_SAMPLES} on a side."
+fi
 
 run services update-traffic "${SERVICE}" --to-latest
 run services update-traffic "${SERVICE}" --remove-tags canary

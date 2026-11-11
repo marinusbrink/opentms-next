@@ -24,6 +24,7 @@ namespace OpenTms.PostgreSql.Reporting;
 /// with a day-level rollup table as the prepared fallback (design 75). Risk class: High (performance at volume).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class MetricVolumeTests : ReportingPostgreSqlTestBase
 {
     private const int OrderFactCount = 1_000_000;
@@ -64,7 +65,7 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
         times.Sort();
         var p95 = times[(int)Math.Ceiling(Calls * 0.95) - 1];
         _output.WriteLine($"{name}: p95 {p95:F0} ms, median {times[Calls / 2]:F0} ms, max {times[^1]:F0} ms");
-        TimeSpan.FromMilliseconds(p95).ShouldBeLessThan(Budget, name);
+        VolumeBudget.Within(TimeSpan.FromMilliseconds(p95), Budget, name);
     }
 
     [Fact]

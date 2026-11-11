@@ -284,8 +284,10 @@ Terraform; nothing is created by hand except the state bucket (`infra/scripts/bo
 - **Staging costs nothing while idle:** Cloud Run scales to zero and its Cloud SQL instance is *stoppable*
   (`.github/workflows/staging-database.yml`; stopped nightly, started by the deploy). Terraform ignores the
   database's activation policy — never remove that `ignore_changes`.
-- **Deploys:** every merge to `main` that passes CI → staging → prod with a canary (`deploy.yml`,
-  `infra/scripts/canary.sh`). Migrations run before the new revision gets traffic, so the previous revision runs on
+- **Deploys:** every merge to `main` that passes CI → staging → performance gate → prod with a canary (`deploy.yml`,
+  `infra/scripts/canary.sh`). The gate runs the volume tests with their budgets enforced on staging's database, prod's
+  machine type; CI runs them with `OPENTMS_VOLUME_BUDGETS=report` (design 76). The canary also rolls back a revision
+  whose p95 is 1.5 times the previous one's. Migrations run before the new revision gets traffic, so the previous revision runs on
   the new schema: expand-only migrations are not optional. Terraform owns the services' configuration, the deploy
   workflow owns their image and traffic.
 - **Infra changes:** plan on the PR, apply staging on merge, prod after the PO approves in the GitHub environment

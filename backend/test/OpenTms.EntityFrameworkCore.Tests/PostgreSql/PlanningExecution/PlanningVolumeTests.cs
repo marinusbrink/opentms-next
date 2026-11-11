@@ -22,6 +22,7 @@ namespace OpenTms.PostgreSql.PlanningExecution;
 /// and held to the 300 ms budget. The rows live in one rolled-back transaction. Risk class: High (grids).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class PlanningVolumeTests : PlanningPostgreSqlTestBase
 {
     private const int TripCount = 3_000;
@@ -151,6 +152,6 @@ public class PlanningVolumeTests : PlanningPostgreSqlTestBase
         watch.Stop();
         assert(result);
         _output.WriteLine($"{name}: {watch.ElapsedMilliseconds} ms");
-        watch.Elapsed.ShouldBeLessThan(ReadBudget, name);
+        VolumeBudget.Within(watch.Elapsed, ReadBudget, name);
     }
 }
