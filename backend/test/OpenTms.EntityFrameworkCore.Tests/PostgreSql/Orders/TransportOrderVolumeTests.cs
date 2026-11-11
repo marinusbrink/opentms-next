@@ -22,6 +22,7 @@ namespace OpenTms.PostgreSql.Orders;
 /// Core's query cache. The data lives in one rolled-back transaction. Risk class: High.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
 {
     private const int OrderCount = 100_000;
@@ -65,7 +66,7 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
                 _output.WriteLine($"{name}: {elapsed.TotalMilliseconds:F0} ms (budget {Budget.TotalMilliseconds} ms, tripwire {Tripwire.TotalMilliseconds} ms)");
             }
 
-            measurements.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ShouldBeEmpty($"queries over the {Tripwire.TotalMilliseconds} ms tripwire");
+            VolumeBudget.None(measurements.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms"), $"queries over the {Tripwire.TotalMilliseconds} ms tripwire");
 
             /* The results are the right ones, not just fast. */
             (await Orders.GetListAsync(new TransportOrderListRequestDto { EndRow = 100 })).TotalCount.ShouldBe(OrderCount);

@@ -38,6 +38,9 @@ terraform apply -var-file=../environments/staging.tfvars
 
 - Staging database: started by every deploy, stopped at 20:00 UTC; start it by hand with the
   *Staging database* workflow or `infra/scripts/staging-database.sh start ryd-opentms-staging`.
+- Performance gate (design 76): the deploy runs the Cloud Run job `opentms-performance` in staging. Its timings are in the
+  deploy's *Timings and failures* step. Run it by hand with
+  `gcloud run jobs execute opentms-performance --wait --project=ryd-opentms-staging --region=europe-west4`.
 - Host administrator password of an environment:
   `gcloud secrets versions access latest --secret=host-admin-password --project=ryd-opentms-<env>`.
 - The AI connector's Gemini client secret, to enter in Gemini Enterprise (the client id is `OpenTms_Mcp_Gemini`):

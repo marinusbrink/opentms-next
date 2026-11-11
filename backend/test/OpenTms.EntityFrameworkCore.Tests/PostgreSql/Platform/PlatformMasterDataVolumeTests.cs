@@ -31,6 +31,7 @@ namespace OpenTms.PostgreSql.Platform;
 /// obligation). The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBase
 {
     private const int TemplateCount = 1_000;
@@ -141,7 +142,7 @@ public class PlatformMasterDataVolumeTests : PlatformMasterDataPostgreSqlTestBas
 
             var overBudget = warm.Where(m => m.Elapsed > ReadBudget).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList();
             _output.WriteLine(overBudget.Count == 0 ? "every warm read within the 300 ms budget" : "warm reads over the 300 ms budget: " + string.Join("; ", overBudget));
-            overBudget.ShouldBeEmpty("warm reads over the 300 ms interactive-read budget");
+            VolumeBudget.None(overBudget, "warm reads over the 300 ms interactive-read budget");
         });
     }
 

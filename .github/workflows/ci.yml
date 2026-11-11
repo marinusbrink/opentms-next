@@ -1,5 +1,5 @@
-# CI for the opentms-next scaffold. No deploy here — deployment arrives at
-# department onboarding (see /CLAUDE.md).
+# CI for opentms-next: correctness only, in parallel jobs. The deploy (deploy.yml) starts when the whole workflow is
+# green and measures performance itself (docs/designs/76-ci-split-and-performance-gate.md).
 name: CI
 
 on:
@@ -16,8 +16,104 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend — build, tests, migrations, OpenAPI freshness
+  # Correctness, in parallel jobs (docs/designs/76-ci-split-and-performance-gate.md). Every test runs here; the volume tests
+  # with OPENTMS_VOLUME_BUDGETS=report, because a shared runner's speed decides a timing more than the code does. Their
+  # budgets are enforced by the deploy's performance gate, on a database the size of prod's.
+  backend-unit:
+    name: Backend — build, unit and architecture tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props') }}
+          restore-keys: nuget-
+      - name: Build
+        run: dotnet build backend/OpenTms.slnx --nologo
+      - name: Domain, architecture and application tests
+        run: |
+          for project in OpenTms.Domain.Tests OpenTms.ArchitectureTests OpenTms.Application.Tests; do
+            dotnet test "backend/test/$project" --no-build --nologo
+          done
+
+  backend-host:
+    name: Backend — host integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props') }}
+          restore-keys: nuget-
+      - name: Host integration tests
+        run: dotnet test backend/test/OpenTms.HttpApi.Host.Tests --nologo
+
+  # OpenTms.EntityFrameworkCore.Tests split by namespace, balanced on measured durations (design 76). The last shard
+  # takes everything the others do not, so a new namespace always runs somewhere.
+  backend-database:
+    name: Backend — database tests (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: planning and reporting
+            filter: "FullyQualifiedName~OpenTms.EntityFrameworkCore.PlanningExecution.|FullyQualifiedName~OpenTms.PostgreSql.Reporting."
+          - shard: master data and orders
+            filter: "FullyQualifiedName~OpenTms.EntityFrameworkCore.MasterData.|FullyQualifiedName~OpenTms.PostgreSql.MasterData.|FullyQualifiedName~OpenTms.PostgreSql.Orders."
+          - shard: orders, planning and platform
+            filter: "FullyQualifiedName~OpenTms.EntityFrameworkCore.Orders.|FullyQualifiedName~OpenTms.PostgreSql.PlanningExecution.|FullyQualifiedName~OpenTms.PostgreSql.TestData.|FullyQualifiedName~OpenTms.PostgreSql.Tenants.|FullyQualifiedName~OpenTms.PostgreSql.Intake.|FullyQualifiedName~OpenTms.PostgreSql.Financial.|FullyQualifiedName~OpenTms.PostgreSql.Platform."
+          - shard: everything else
+            filter: "FullyQualifiedName!~OpenTms.EntityFrameworkCore.PlanningExecution.&FullyQualifiedName!~OpenTms.PostgreSql.Reporting.&FullyQualifiedName!~OpenTms.EntityFrameworkCore.MasterData.&FullyQualifiedName!~OpenTms.PostgreSql.MasterData.&FullyQualifiedName!~OpenTms.PostgreSql.Orders.&FullyQualifiedName!~OpenTms.EntityFrameworkCore.Orders.&FullyQualifiedName!~OpenTms.PostgreSql.PlanningExecution.&FullyQualifiedName!~OpenTms.PostgreSql.TestData.&FullyQualifiedName!~OpenTms.PostgreSql.Tenants.&FullyQualifiedName!~OpenTms.PostgreSql.Intake.&FullyQualifiedName!~OpenTms.PostgreSql.Financial.&FullyQualifiedName!~OpenTms.PostgreSql.Platform."
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      OPENTMS_VOLUME_BUDGETS: report
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props') }}
+          restore-keys: nuget-
+      - name: Database tests
+        run: dotnet test backend/test/OpenTms.EntityFrameworkCore.Tests --nologo --filter "${{ matrix.filter }}"
+
+  backend-migrations:
+    name: Backend — migrations, login assets, OpenAPI freshness
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -38,11 +134,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props') }}
+          restore-keys: nuget-
+
       - name: Build
         run: dotnet build backend/OpenTms.slnx --nologo
-
-      - name: Tests (unit + architecture boundary tests)
-        run: dotnet test backend/OpenTms.slnx --no-build --nologo
 
       - name: Migrate fresh host database
         run: dotnet run --project backend/src/OpenTms.DbMigrator --no-build
