@@ -545,3 +545,16 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   `/ai-connector/connections` and `/ai-connector/connections/{id}/revoke`; `IAiConnectorAppService` serves the rest.
 - **Secret:** Terraform generates `ai-connector-gemini-client-secret` into Secret Manager, readable by the migrator's service
   account only; an administrator reads it with `gcloud` to enter it in Gemini Enterprise (`infra/README.md`).
+- **`get_customer_revenue` reads only its index (PO 2026-11-11).** On main, CI answered it in p95 345 ms, median 98 ms, against the
+  300 ms budget. The 100,000 orders of one customer lie on every page of a 434 MB table, so each call read the whole table, and a
+  runner's page cache gave the peaks. A large customer's orders spread the same way in production. `IX_TransportOrders_CustomerRevenue`
+  on (`TenantId`, `CustomerRelationId`, `OrderDate`) includes `Status`, `CurrencyCode`, `RevenueAmount` and `IsDeleted`, every column the
+  query reads, and replaces the plain index: measured 81 ms to 7 ms on a vacuumed copy. It is SQL in the migration
+  `OrdersCustomerRevenueCoveringIndex`, because EF cannot include a column of an owned type; it is created before the old one is
+  dropped. A read from the index alone needs rows every transaction sees, so the volume test now commits and vacuums its 1,000,000
+  orders and deletes them afterwards (PO decision 2026-11-11); the budget and the volume did not change. Locally p95 56 ms became 10 ms.
+  The index makes each order write slightly wider; `CREATE INDEX` blocks writes per tenant database for about a second per million orders.
+- **The 401 of `/mcp` reaches the AI tool in production (2026-11-11).** After the first deploy, `/mcp` without a token answered
+  302 to `/Error?httpStatusCode=401`: outside Development the host's `UseErrorPage` redirects every 4xx without a body, so an AI
+  tool never saw the challenge that starts its sign-in. The host tests run in Development, where that page is skipped. The gate
+  now switches the status code page off on `/mcp` only, and `McpErrorPageTests` runs a Production pipeline with the error page.
