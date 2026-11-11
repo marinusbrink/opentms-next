@@ -20,7 +20,7 @@ namespace OpenTms.PostgreSql.Reporting;
 /// VOLUME TEST (designs 74 and 75 "Performance"; budget: interactive reads p95 under 300 ms): in tenant A, 1,000,000 order facts and 250,000 trip facts, spread over five
 /// years, inserted with one statement each after the indexes exist, then ANALYZE. Timed warm through the real <see cref="IMetricQuery"/>, 25 calls each after a warm-up, at the worst
 /// case the design names (a year's orders grouped by customer and month, with revenue, margin and count) and its siblings. And 1,000,000 orders in Orders' own table with 100,000 for one
-/// customer for <c>get_customer_revenue</c>. Follows <c>PlanboardVolumeTests</c>: it runs in every normal run and its rows live in one rolled-back transaction. A miss goes to the PO,
+/// customer for <c>get_customer_revenue</c>, committed and vacuumed for its covering index, deleted afterwards. Follows <c>PlanboardVolumeTests</c>: it runs in every normal run, and the facts live in one rolled-back transaction. A miss goes to the PO,
 /// with a day-level rollup table as the prepared fallback (design 75). Risk class: High (performance at volume).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
@@ -127,39 +127,71 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
         });
     }
 
+    /// <summary>
+    /// Unlike the facts above, these orders are committed and vacuumed before the timing, and deleted afterwards: the covering index of
+    /// <c>get_customer_revenue</c> answers from the index alone only on rows every transaction can see, as autovacuum leaves a production
+    /// table. Rows a transaction has not committed send every read to the table, which the index exists to avoid (design 74 Build notes).
+    /// </summary>
     [Fact]
     public async Task Get_customer_revenue_stays_within_300_ms_p95_at_1_000_000_orders_with_100_000_for_one_customer()
     {
         const int total = 1_000_000;
+        const string marker = "MetricVolumeTests";
         var customer = Guid.NewGuid();
-        await InRolledBackTransactionAsync(Tenant, async () =>
+        try
         {
-            var insert = Stopwatch.StartNew();
-            var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
-            context.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
-            var type = await TemplateAsync(context);
-            await context.Database.ExecuteSqlRawAsync($$"""
-                INSERT INTO orders."TransportOrders" ("Id", "TenantId", "Status", "TransportOrderTypeId", "CustomerRelationId", "CustomerName", "OrderDate", "Attributes", "Source", "CopyIndex", "CurrencyCode", "MultipleMatches", "SendFreightDocumentsWithInvoice", "ExecutionProgress", "LineCount", "StopCount", "RevenueAmount", "ExtraProperties", "ConcurrencyStamp", "CreationTime")
-                SELECT gen_random_uuid(), '{{Tenant}}', (ARRAY[1,2,3,4,5,6])[1 + i % 6], '{{type}}',
-                       CASE WHEN i % 10 = 0 THEN '{{customer}}'::uuid ELSE ('00000000-0000-0000-0000-' || lpad((1 + i % 2000)::text, 12, '0'))::uuid END,
-                       'Customer', ('2021-01-01'::date + (i % 1826))::date, jsonb_build_object(), 1, 0,
-                       CASE WHEN i % 50 = 0 THEN 'USD' ELSE 'EUR' END, 1, false, 1, 1, 2,
-                       CASE WHEN i % 25 = 0 THEN NULL ELSE (i % 5000)::numeric + 0.25 END,
-                       jsonb_build_object()::text, md5(i::text), now()
-                FROM generate_series(1, {{total}}) AS i;
-                """);
-            await context.Database.ExecuteSqlRawAsync("ANALYZE orders.\"TransportOrders\";");
-            _output.WriteLine($"Inserted {total} orders in {insert.Elapsed.TotalSeconds:F1} s.");
+            await CommittedAsync(Tenant, async () =>
+            {
+                var insert = Stopwatch.StartNew();
+                var context = await OrdersContextAsync();
+                var type = await TemplateAsync(context);
+                await context.Database.ExecuteSqlRawAsync($$"""
+                    INSERT INTO orders."TransportOrders" ("Id", "TenantId", "Status", "TransportOrderTypeId", "CustomerRelationId", "CustomerName", "OrderDate", "Attributes", "Source", "CopyIndex", "CurrencyCode", "MultipleMatches", "SendFreightDocumentsWithInvoice", "ExecutionProgress", "LineCount", "StopCount", "RevenueAmount", "ExtraProperties", "ConcurrencyStamp", "CreationTime")
+                    SELECT gen_random_uuid(), '{{Tenant}}', (ARRAY[1,2,3,4,5,6])[1 + i % 6], '{{type}}',
+                           CASE WHEN i % 10 = 0 THEN '{{customer}}'::uuid ELSE ('00000000-0000-0000-0000-' || lpad((1 + i % 2000)::text, 12, '0'))::uuid END,
+                           '{{marker}}', ('2021-01-01'::date + (i % 1826))::date, jsonb_build_object(), 1, 0,
+                           CASE WHEN i % 50 = 0 THEN 'USD' ELSE 'EUR' END, 1, false, 1, 1, 2,
+                           CASE WHEN i % 25 = 0 THEN NULL ELSE (i % 5000)::numeric + 0.25 END,
+                           jsonb_build_object()::text, md5(i::text), now()
+                    FROM generate_series(1, {{total}}) AS i;
+                    """);
+                _output.WriteLine($"Inserted {total} orders in {insert.Elapsed.TotalSeconds:F1} s.");
+            });
+            await VacuumOrdersAsync();
 
-            var reader = GetRequiredService<ICustomerRevenueReader>();
-            var from = new DateOnly(2021, 1, 1);
-            var to = new DateOnly(2025, 12, 31);
-            var revenue = await reader.GetAsync(customer, from, to);
-            revenue.Totals.Sum(t => t.OrderCount).ShouldBeGreaterThan(40_000);
-            await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", async () => (await reader.GetAsync(customer, from, to)).Totals.ShouldNotBeEmpty());
-            await P95Async("get_customer_revenue, one year", async () => (await reader.GetAsync(customer, new DateOnly(2025, 1, 1), to)).Totals.ShouldNotBeEmpty());
-        });
+            await CommittedAsync(Tenant, async () =>
+            {
+                var reader = GetRequiredService<ICustomerRevenueReader>();
+                var from = new DateOnly(2021, 1, 1);
+                var to = new DateOnly(2025, 12, 31);
+                var revenue = await reader.GetAsync(customer, from, to);
+                revenue.Totals.Sum(t => t.OrderCount).ShouldBeGreaterThan(40_000);
+                await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", async () => (await reader.GetAsync(customer, from, to)).Totals.ShouldNotBeEmpty());
+                await P95Async("get_customer_revenue, one year", async () => (await reader.GetAsync(customer, new DateOnly(2025, 1, 1), to)).Totals.ShouldNotBeEmpty());
+            }, transactional: false);
+        }
+        finally
+        {
+            await CommittedAsync(Tenant, async () =>
+            {
+                var deleted = await (await OrdersContextAsync()).Database.ExecuteSqlRawAsync(
+                    $"""DELETE FROM orders."TransportOrders" WHERE "TenantId" = '{Tenant}' AND "CustomerName" = '{marker}';""");
+                _output.WriteLine($"Deleted {deleted} orders.");
+            });
+            await VacuumOrdersAsync();
+        }
     }
+
+    private async Task<OrdersDbContext> OrdersContextAsync()
+    {
+        var context = await GetRequiredService<IDbContextProvider<OrdersDbContext>>().GetDbContextAsync();
+        context.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
+        return context;
+    }
+
+    /// <summary>VACUUM runs outside a transaction: it sets the visibility map the index-only read needs, and ANALYZE gives the planner the counts.</summary>
+    private Task VacuumOrdersAsync()
+        => CommittedAsync(Tenant, async () => await (await OrdersContextAsync()).Database.ExecuteSqlRawAsync("VACUUM ANALYZE orders.\"TransportOrders\";"), transactional: false);
 
     private static async Task<Guid> TemplateAsync(OrdersDbContext context)
     {

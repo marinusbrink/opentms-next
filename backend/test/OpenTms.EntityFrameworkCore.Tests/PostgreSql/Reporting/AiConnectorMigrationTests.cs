@@ -29,6 +29,7 @@ public static class AiConnectorMigrationConsts
     public const string OrdersRepairIndexes = "20261106003316_OrdersRepairIndexes";
     public const string PlanningRepairIndexes = "20261106003317_PlanningRepairIndexes";
     public const string ReportingMetricFacts = "20261106002630_ReportingMetricFacts";
+    public const string OrdersCustomerRevenueCoveringIndex = "20261111091701_OrdersCustomerRevenueCoveringIndex";
 }
 
 /// <summary>
@@ -48,11 +49,11 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
         return (await context.Database.GetAppliedMigrationsAsync()).ToList();
     }
 
-    private static async Task<List<string>> IndexesAsync(string database, string schema, string table)
+    private static async Task<List<string>> IndexesAsync(string database, string schema, string table, string column = "indexname")
     {
         await using var connection = new NpgsqlConnection(PostgreSqlTestDatabases.ConnectionStringFor(database));
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("SELECT indexname FROM pg_indexes WHERE schemaname = @s AND tablename = @t", connection);
+        await using var command = new NpgsqlCommand($"SELECT {column} FROM pg_indexes WHERE schemaname = @s AND tablename = @t", connection);
         command.Parameters.AddWithValue("s", schema);
         command.Parameters.AddWithValue("t", table);
         var names = new List<string>();
@@ -79,7 +80,8 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
             var orders = await AppliedAsync<OrdersDbContext>();
             orders.IndexOf(AiConnectorMigrationConsts.OrdersCustomerRevenueIndex).ShouldBe(orders.IndexOf(OpenTms.PostgreSql.Orders.OrdersIntakeNameSimilarityThresholdMigrationTests.Migration) + 1);
             orders.IndexOf(AiConnectorMigrationConsts.OrdersRepairIndexes).ShouldBe(orders.IndexOf(AiConnectorMigrationConsts.OrdersCustomerRevenueIndex) + 1);
-            orders.Last().ShouldBe(AiConnectorMigrationConsts.OrdersRepairIndexes, "the newest Orders migration");
+            orders.IndexOf(AiConnectorMigrationConsts.OrdersCustomerRevenueCoveringIndex).ShouldBe(orders.IndexOf(AiConnectorMigrationConsts.OrdersRepairIndexes) + 1);
+            orders.Last().ShouldBe(AiConnectorMigrationConsts.OrdersCustomerRevenueCoveringIndex, "the newest Orders migration");
 
             var planning = await AppliedAsync<PlanningExecutionDbContext>();
             planning.Last().ShouldBe(AiConnectorMigrationConsts.PlanningRepairIndexes, "the newest Planning migration");
@@ -100,7 +102,10 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
         connections.ShouldContain(i => i.Contains("UserId", StringComparison.Ordinal));
 
         var orders = await IndexesAsync(database, "orders", "TransportOrders");
-        orders.ShouldContain("IX_TransportOrders_TenantId_CustomerRelationId_OrderDate");
+        orders.ShouldContain("IX_TransportOrders_CustomerRevenue");
+        orders.ShouldNotContain("IX_TransportOrders_TenantId_CustomerRelationId_OrderDate", "the covering index replaced it");
+        (await IndexesAsync(database, "orders", "TransportOrders", "indexdef")).ShouldContain(d => d.Contains("\"IX_TransportOrders_CustomerRevenue\"", StringComparison.Ordinal)
+            && d.Contains("(\"TenantId\", \"CustomerRelationId\", \"OrderDate\") INCLUDE (\"Status\", \"CurrencyCode\", \"RevenueAmount\", \"IsDeleted\")", StringComparison.Ordinal));
         orders.ShouldContain("IX_TransportOrders_TenantId_CreationTime");
         orders.ShouldContain("IX_TransportOrders_TenantId_LastModificationTime");
 
@@ -137,6 +142,18 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
         migration.DownOperations.ShouldAllBe(o => o is DropIndexOperation);
         migration.DownOperations.OfType<DropIndexOperation>().Select(o => o.Name)
             .ShouldBe(migration.UpOperations.OfType<CreateIndexOperation>().Select(o => o.Name), ignoreOrder: true);
+    }
+
+    [Fact]
+    public void The_covering_index_migration_creates_the_new_index_before_it_drops_the_old_one_and_Down_reverses_both()
+    {
+        var migration = new OrdersMigrations.OrdersCustomerRevenueCoveringIndex();
+        migration.UpOperations.Count.ShouldBe(2);
+        migration.UpOperations[0].ShouldBeOfType<SqlOperation>().Sql.ShouldContain("CREATE INDEX \"IX_TransportOrders_CustomerRevenue\"");
+        migration.UpOperations[1].ShouldBeOfType<DropIndexOperation>().Name.ShouldBe("IX_TransportOrders_TenantId_CustomerRelationId_OrderDate");
+        migration.DownOperations.Count.ShouldBe(2);
+        migration.DownOperations[0].ShouldBeOfType<CreateIndexOperation>().Name.ShouldBe("IX_TransportOrders_TenantId_CustomerRelationId_OrderDate");
+        migration.DownOperations[1].ShouldBeOfType<SqlOperation>().Sql.ShouldContain("DROP INDEX orders.\"IX_TransportOrders_CustomerRevenue\"");
     }
 
     [Fact]

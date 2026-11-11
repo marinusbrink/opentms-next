@@ -79,8 +79,9 @@ public partial class OrdersDbContext
             b.HasIndex(o => new { o.TenantId, o.Status, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.OrderDate });
             b.HasIndex(o => new { o.TenantId, o.CustomerRelationId });
-            /* Design 74: the revenue of one customer in a period (get_customer_revenue). */
-            b.HasIndex(o => new { o.TenantId, o.CustomerRelationId, o.OrderDate });
+            /* Design 74: the revenue of one customer in a period (get_customer_revenue) reads only the index
+             * IX_TransportOrders_CustomerRevenue, which includes every column the query reads. It is created in the migration
+             * OrdersCustomerRevenueCoveringIndex, not here: EF cannot include a column of an owned type (FinancialTerms.CurrencyCode). */
             /* Design 75: the nightly repair of Reporting's order facts finds what changed. */
             b.HasIndex(o => new { o.TenantId, o.LastModificationTime });
             b.HasIndex(o => new { o.TenantId, o.CreationTime });

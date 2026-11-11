@@ -3,6 +3,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,13 @@ public static class AiConnectorTokenGate
 
             await next();
             return;
+        }
+
+        /* Outside Development the host's UseErrorPage turns a 4xx without a body into a redirect to /Error: an AI tool needs the
+         * 401 and its challenge, and the 405, as they are. Development skips that page, which is why only production showed it. */
+        if (context.Features.Get<IStatusCodePagesFeature>() is { } statusCodePages)
+        {
+            statusCodePages.Enabled = false;
         }
 
         if (!HttpMethods.IsPost(context.Request.Method))
