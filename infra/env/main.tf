@@ -61,16 +61,22 @@ resource "google_service_account" "migrator" {
   display_name = "OpenTMS DbMigrator (Cloud Run job)"
 }
 
+resource "google_service_account" "performance" {
+  count        = var.performance_gate ? 1 : 0
+  account_id   = "opentms-performance"
+  display_name = "OpenTMS performance gate (Cloud Run job, volume tests)"
+}
+
 resource "google_service_account" "web" {
   account_id   = "opentms-web"
   display_name = "OpenTMS SPA (Cloud Run service); no rights"
 }
 
 resource "google_project_iam_member" "cloudsql_client" {
-  for_each = {
+  for_each = merge({
     api      = google_service_account.api.member
     migrator = google_service_account.migrator.member
-  }
+  }, var.performance_gate ? { performance = google_service_account.performance[0].member } : {})
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = each.value
@@ -78,11 +84,11 @@ resource "google_project_iam_member" "cloudsql_client" {
 
 # The deploy workflow deploys revisions that run as these accounts.
 resource "google_service_account_iam_member" "deployer_acts_as" {
-  for_each = {
+  for_each = merge({
     api      = google_service_account.api.name
     migrator = google_service_account.migrator.name
     web      = google_service_account.web.name
-  }
+  }, var.performance_gate ? { performance = google_service_account.performance[0].name } : {})
   service_account_id = each.value
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${var.deployer_service_account}"
@@ -133,7 +139,7 @@ resource "tls_self_signed_cert" "openiddict" {
 }
 
 locals {
-  secrets = {
+  secrets = merge({
     "connection-string-default" = {
       value     = module.database.app_connection_string
       accessors = ["api", "migrator"]
@@ -158,12 +164,17 @@ locals {
       value     = random_password.gemini_client_secret.result
       accessors = ["migrator"]
     }
-  }
+    }, var.performance_gate ? {
+    "connection-string-performance" = {
+      value     = module.database.provisioning_server_connection_string
+      accessors = ["performance"]
+    }
+  } : {})
 
-  accessor_members = {
+  accessor_members = merge({
     api      = google_service_account.api.member
     migrator = google_service_account.migrator.member
-  }
+  }, var.performance_gate ? { performance = google_service_account.performance[0].member } : {})
 
   secret_accessors = merge([
     for name, secret in local.secrets : {
@@ -331,6 +342,73 @@ resource "google_cloud_run_v2_job" "migrator" {
   }
 
   depends_on = [google_secret_manager_secret_iam_member.this, google_secret_manager_secret_version.this, google_secret_manager_secret_version.host_admin]
+}
+
+# --- Performance gate (design 76) -------------------------------------------------------------
+
+# The volume tests with their budgets enforced, against this environment's database, between the staging and
+# prod deploys. They create, fill and drop databases of their own (suffix "perfgate") on the instance; the
+# application's databases are not touched. The deploy workflow sets the image and runs it.
+resource "google_cloud_run_v2_job" "performance" {
+  count               = var.performance_gate ? 1 : 0
+  name                = "opentms-performance"
+  location            = var.region
+  deletion_protection = false
+
+  template {
+    task_count = 1
+
+    template {
+      service_account = google_service_account.performance[0].email
+      max_retries     = 0
+      timeout         = "3600s"
+
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [module.database.connection_name]
+        }
+      }
+
+      containers {
+        image = "us-docker.pkg.dev/cloudrun/container/job"
+
+        # The test host runs the application code in process, plus the harness that fills the volume.
+        resources {
+          limits = {
+            cpu    = "2"
+            memory = "4Gi"
+          }
+        }
+
+        env {
+          name  = "OPENTMS_TEST_PG_DB_SUFFIX"
+          value = "perfgate"
+        }
+
+        env {
+          name = "OPENTMS_TEST_PG"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.this["connection-string-performance"].secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template[0].template[0].containers[0].image, client, client_version, labels, annotations]
+  }
+
+  depends_on = [google_secret_manager_secret_iam_member.this, google_secret_manager_secret_version.this]
 }
 
 # --- Host administrator ----------------------------------------------------------------------

@@ -32,6 +32,7 @@ namespace OpenTms.PostgreSql.MasterData;
 /// page too), with every number reported. Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
 {
     private const int Vehicles = 5_000;
@@ -160,11 +161,11 @@ public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
             /* Every read is a list, lookup or resolve of design 48, so every one is held to the budget (PO 2026-10-16). */
             foreach (var (name, elapsed) in warm)
             {
-                elapsed.ShouldBeLessThanOrEqualTo(Budget, $"{name} warm: {elapsed.TotalMilliseconds:F0} ms over the {Budget.TotalMilliseconds} ms interactive-read budget");
+                VolumeBudget.AtMost(elapsed, Budget, $"{name} warm: {elapsed.TotalMilliseconds:F0} ms over the {Budget.TotalMilliseconds} ms interactive-read budget");
             }
 
             var overTripwire = warm.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList();
-            overTripwire.ShouldBeEmpty($"warm queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
+            VolumeBudget.None(overTripwire, $"warm queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
 
             /* The results are the right ones, not just fast. */
             var vehicles = await VehicleService.GetListAsync(new VehicleListRequestDto { StartRow = 0, EndRow = 100 });

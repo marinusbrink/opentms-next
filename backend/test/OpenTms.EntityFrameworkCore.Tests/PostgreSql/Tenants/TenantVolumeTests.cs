@@ -27,6 +27,7 @@ namespace OpenTms.PostgreSql.Tenants;
 /// transaction, so nothing stays behind. Risk class: Critical — Platform (the host's tenant administration).
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class TenantVolumeTests : OpenTmsPostgreSqlTestBase
 {
     private const int Tenants = 5_000;
@@ -116,8 +117,9 @@ public class TenantVolumeTests : OpenTmsPostgreSqlTestBase
                     _output.WriteLine($"{name}: {elapsed.TotalMilliseconds:F0} ms (budget {Budget.TotalMilliseconds} ms, tripwire {Tripwire.TotalMilliseconds} ms)");
                 }
 
-                measurements.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList()
-                    .ShouldBeEmpty($"queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
+                VolumeBudget.None(
+                    measurements.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms"),
+                    $"queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
 
                 /* The results are the right ones, not just fast. */
                 var first = await tenantService.GetListAsync(Page());

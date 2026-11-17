@@ -28,6 +28,7 @@ namespace OpenTms.PostgreSql.Financial;
 /// nothing stays behind; the reads are timed cold and warm and the warm reads are held to the budgets. Risk class: High.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class FinancialTariffsVolumeTests : ReferenceDataPostgreSqlTestBase
 {
     private const int RuleCount = 5_000;
@@ -141,11 +142,11 @@ public class FinancialTariffsVolumeTests : ReferenceDataPostgreSqlTestBase
 
             foreach (var (name, _, warm) in timings.Where(t => t.Name.StartsWith("rule", StringComparison.Ordinal) || t.Name.StartsWith("list", StringComparison.Ordinal)))
             {
-                warm.ShouldBeLessThan(PageBudget, $"{name} warm");
+                VolumeBudget.Within(warm, PageBudget, $"{name} warm");
             }
 
-            timings.Single(t => t.Name.StartsWith("preview", StringComparison.Ordinal)).Warm.ShouldBeLessThan(PreviewBudget, "preview warm");
-            timings.Single(t => t.Name.StartsWith("resolver", StringComparison.Ordinal)).Warm.ShouldBeLessThan(ResolveBudget, "resolver warm");
+            VolumeBudget.Within(timings.Single(t => t.Name.StartsWith("preview", StringComparison.Ordinal)).Warm, PreviewBudget, "preview warm");
+            VolumeBudget.Within(timings.Single(t => t.Name.StartsWith("resolver", StringComparison.Ordinal)).Warm, ResolveBudget, "resolver warm");
         });
     }
 

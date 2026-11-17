@@ -32,6 +32,12 @@ variable "database" {
   })
 }
 
+variable "performance_gate" {
+  description = "Creates the Cloud Run job that runs the volume tests against this environment's database before prod (design 76)."
+  type        = bool
+  default     = false
+}
+
 variable "api" {
   type = object({
     min_instances = number

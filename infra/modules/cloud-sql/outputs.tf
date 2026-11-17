@@ -12,6 +12,12 @@ output "app_connection_string" {
   sensitive = true
 }
 
+output "provisioning_server_connection_string" {
+  description = "The provisioner without a database: the performance gate's volume tests create and drop their own databases."
+  value       = "Host=${local.socket};Username=${google_sql_user.provisioner.name};Password=${random_password.provisioner.result}"
+  sensitive   = true
+}
+
 output "provisioning_connection_string" {
   description = "Points at the maintenance database; the provisioner connects there to create tenant databases."
   value       = "Host=${local.socket};Database=postgres;Username=${google_sql_user.provisioner.name};Password=${random_password.provisioner.result}"

@@ -82,7 +82,7 @@ APIs, CI service-account rights) and one `environments/<name>.tfvars`. The workf
 
 | Setting | staging | prod |
 |---|---|---|
-| Cloud SQL tier | `db-f1-micro` (shared core), `max_connections` 50 | `db-custom-1-3840` (1 vCPU, 3.75 GB) |
+| Cloud SQL tier | `db-custom-1-3840`, the same as prod, for the performance gate (design 76; was `db-f1-micro` until 2026-11-11) | `db-custom-1-3840` (1 vCPU, 3.75 GB) |
 | Database mode | **stoppable** — Terraform ignores the activation policy; workflows start and stop it | always on |
 | Backups / point-in-time recovery | off | on, 7 days |
 | Deletion protection | off | on |

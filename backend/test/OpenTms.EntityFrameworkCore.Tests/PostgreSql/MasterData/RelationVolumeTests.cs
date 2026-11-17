@@ -31,6 +31,7 @@ namespace OpenTms.PostgreSql.MasterData;
 /// Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class RelationVolumeTests : MasterDataPostgreSqlTestBase
 {
     private const int Relations = 100_000;
@@ -160,11 +161,11 @@ public class RelationVolumeTests : MasterDataPostgreSqlTestBase
             warm.Where(m => m.Name.EndsWith("(budget)", StringComparison.Ordinal)).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").Where(_ => false).ShouldBeEmpty();
             foreach (var (name, elapsed) in warm.Where(m => m.Name.EndsWith("(budget)", StringComparison.Ordinal)))
             {
-                elapsed.ShouldBeLessThanOrEqualTo(Budget, $"{name} warm: {elapsed.TotalMilliseconds:F0} ms over the {Budget.TotalMilliseconds} ms interactive-read budget");
+                VolumeBudget.AtMost(elapsed, Budget, $"{name} warm: {elapsed.TotalMilliseconds:F0} ms over the {Budget.TotalMilliseconds} ms interactive-read budget");
             }
 
             var overTripwire = warm.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList();
-            overTripwire.ShouldBeEmpty($"warm queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
+            VolumeBudget.None(overTripwire, $"warm queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
 
             /* The results are the right ones, not just fast. */
             var page = await _relations.GetListAsync(new RelationListRequestDto { StartRow = 0, EndRow = 100 });

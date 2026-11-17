@@ -25,6 +25,7 @@ namespace OpenTms.PostgreSql.MasterData;
 /// Risk class: High. The data lives in one rolled-back transaction, so nothing stays behind.
 /// </summary>
 [Collection(PostgreSqlTestCollection.Name)]
+[Trait("Category", VolumeBudget.Category)]
 public class MasterDataVolumeTests : MasterDataPostgreSqlTestBase
 {
     private const int Products = 5_000;
@@ -91,7 +92,7 @@ public class MasterDataVolumeTests : MasterDataPostgreSqlTestBase
             }
 
             var overTripwire = measurements.Where(m => m.Elapsed > Tripwire).Select(m => $"{m.Name}: {m.Elapsed.TotalMilliseconds:F0} ms").ToList();
-            overTripwire.ShouldBeEmpty($"queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
+            VolumeBudget.None(overTripwire, $"queries over the {Tripwire.TotalMilliseconds} ms tripwire (budget {Budget.TotalMilliseconds} ms)");
 
             /* The results are the right ones, not just fast. */
             (await _products.GetListAsync(List<ArchivableListRequestDto>(end: 100))).TotalCount.ShouldBe(Products);
