@@ -607,6 +607,25 @@ describe("SchedulerPane: the work after a command (design 74 §9)", () => {
     await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
   });
 
+  it("a notice for an optimistic-queue trip is deferred until the queue drains, then applied (design 75 §A — High risk)", async () => {
+    /* Design 75 risk analysis: "Another planner's live update during in-flight save: ignored for in-flight trip, applied to
+     * other trips; after queue drains, server state wins — High risk — Vitest: concurrent recordUpdated mock and queued
+     * commands". The SchedulerPane defers via processingRef / deferred.current; the useEffect on processingTripIds flushes. */
+    let release: (value: unknown) => void = () => undefined;
+    routes.POST[ASSIGN_LEGS] = () => new Promise((resolve) => { release = resolve; });
+    await show();
+    /* Drop unplanned legs on t1 — optimistic assign; enqueueAssign starts the command queue, processingTripIds gets t1. */
+    await drop("r1", CELL, legsDrag(), onBar("t1"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
+    /* A live notice arrives for t1 while the queue is active — the pane must defer it, not refetch immediately. */
+    await notify(notice("t1", 2));
+    expect(barReads()).toHaveLength(0);
+    /* Queue drains — command succeeds; processingTripIds removes t1; the useEffect flushes the deferred notice. */
+    await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
+    await waitFor(() => expect(barReads()).toHaveLength(1));
+    expect(barReads()[0][1]!.params!.query).toMatchObject({ Ids: ["t1"] });
+  });
+
   it("a notice during a move waits too, and a move that succeeds reads nothing itself", async () => {
     let release: (value: unknown) => void = () => undefined;
     routes.POST[RESCHEDULE] = () => new Promise((resolve) => (release = resolve));
