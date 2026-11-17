@@ -14,7 +14,8 @@ export type PlanboardPaneType = (typeof PLANBOARD_PANE_TYPES)[number];
 export interface PlanboardPaneProps {
   /** The dockview panel id; also the key of the pane's settings (`planboard.pane.<instanceId>`). */
   instanceId: string;
-  type: PlanboardPaneType;
+  /** The pane type; individual pane components typically ignore this (the workspace resolves the right component via the registry). */
+  type: PlanboardPaneType | (string & {});
   /** Settings the layout gave a new instance (the default layout's Scheduler: `{ mode: "tractor" }`). */
   initial?: Readonly<Record<string, unknown>>;
 }
