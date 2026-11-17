@@ -191,7 +191,13 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
 
   /* Derived values (totals, CO₂, warnings) arrive per record (flow 2): show the indicator, patch the row when done. */
   const states = useDerivedValueStates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds);
-  useRecordUpdates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds, { queryKeysFor: () => [], onUpdate: (message) => message.status !== DerivedValueStatus.Pending && void refreshTrips([message.targetId]) });
+  useRecordUpdates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds, {
+    queryKeysFor: () => [],
+    onUpdate: (message) => {
+      if (message.status === DerivedValueStatus.UpToDate) clearPendingValue(message.targetId);
+      if (message.status !== DerivedValueStatus.Pending) void refreshTrips([message.targetId]);
+    },
+  });
 
   /* The selection bus → the grid: a trip selected elsewhere (a Scheduler bar, the map) is selected here too. */
   useEffect(() => {
@@ -225,7 +231,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   );
 
   const { mutateAsync: setFieldAsync } = useSetTripField();
-  const { state: optimisticState, enqueueAssign } = usePlanboardOptimisticState();
+  const { state: optimisticState, enqueueAssign, clearPendingValue } = usePlanboardOptimisticState();
   const moveLegs = useMoveLegsToTrip();
   const addDriver = useAddTripDriver();
   const optimize = useOptimizeTripStops();

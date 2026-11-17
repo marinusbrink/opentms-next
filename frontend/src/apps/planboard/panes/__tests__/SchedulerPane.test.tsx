@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -660,5 +661,44 @@ describe("SchedulerPane: the work after a command (design 74 §9)", () => {
     await act(async () => live.availability.onIds([], []));
     await waitFor(() => expect(calls(GET, PAGE).length).toBe(pageReads + 1));
     expect(barReads()).toHaveLength(0);
+  });
+
+  it("CalculatingIndicator appears at drop and clears after UpToDate notice (design 75 §D — Medium risk)", async () => {
+    /* Design 75 risk analysis: "CalculatingIndicator shown immediately on drop (before server response), clears after
+     * SignalR push — Medium risk — Vitest: mock hub; assert indicator on before server response; assert indicator off
+     * after recordUpdated push." The optimistic assign sets pendingValues → calculationFor returns Pending →
+     * BarContent renders CalculatingIndicator (role="status"). clearPendingValue must be called by the UpToDate
+     * handler, removing the trip from pendingValues → BarContent renders nothing. */
+    let release: (value: unknown) => void = () => undefined;
+    routes.POST[ASSIGN_LEGS] = () => new Promise((resolve) => { release = resolve; });
+
+    await show();
+
+    // Drop legs on t1 bar: optimistic assign fires synchronously; server response is deferred.
+    await drop("r1", CELL, legsDrag(), onBar("t1"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
+
+    // Render the bar's eventContent and check the CalculatingIndicator is in the DOM.
+    type BarEventArg = { id: string; title: string; data: { bar: { id: string; concurrencyStamp: string; status: number; plannedDeparture: string; plannedArrival: string; vehicleIds: string[]; driverIds: string[] }; tripId: string; rowId: string } };
+    const renderEventIndicator = (): Element | null => {
+      const ec = (scheduler.current as unknown as { eventContent: (e: BarEventArg) => ReactNode }).eventContent;
+      const event: BarEventArg = { id: "t1::r1", title: "t1", data: { bar: bar("t1"), tripId: "t1", rowId: "r1" } };
+      const { container, unmount } = render(<>{ec(event)}</>);
+      const el = container.querySelector('[role="status"]');
+      unmount();
+      return el;
+    };
+
+    // Before UpToDate: pendingValues has t1 → CalculatingIndicator on.
+    expect(renderEventIndicator()).not.toBeNull();
+
+    // UpToDate notice arrives; clearPendingValue("t1") removes t1 from pendingValues.
+    await act(async () => live.trip.onIds([], [notice("t1", 2)]));
+
+    // After clearPendingValue: pendingValues no longer has t1 → CalculatingIndicator off.
+    await waitFor(() => expect(renderEventIndicator()).toBeNull());
+
+    // Let the assign complete so the queue doesn't stay open.
+    await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
   });
 });

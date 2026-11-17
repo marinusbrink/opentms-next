@@ -138,7 +138,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const canUpdate = useIsGranted(`${PERMISSION}.Update`);
   const canCreate = useIsGranted(`${PERMISSION}.Create`);
   const canAssign = useIsGranted(`${PERMISSION}.AssignLegs`);
-  const { state: optimisticState, enqueueAssign, processingTripIds } = usePlanboardOptimisticState();
+  const { state: optimisticState, enqueueAssign, processingTripIds, clearPendingValue } = usePlanboardOptimisticState();
   /* Ref so the live-update callback always reads the current set without being recreated on each render. */
   const processingRef = useRef(processingTripIds);
   processingRef.current = processingTripIds;
@@ -276,7 +276,9 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
     enabled: data != null,
     onIds: (_ids, messages) => {
       follow(messages.filter((m) => m.status === DerivedValueStatus.Pending && !m.hints?.removed).map((m) => m.targetId));
-      unfollow(messages.filter((m) => m.status === DerivedValueStatus.UpToDate).map((m) => m.targetId.toLowerCase()));
+      const upToDate = messages.filter((m) => m.status === DerivedValueStatus.UpToDate);
+      unfollow(upToDate.map((m) => m.targetId.toLowerCase()));
+      upToDate.forEach((m) => clearPendingValue(m.targetId));
       const refetch = idsToRefetch(messages, (id) => calculationsRef.current?.get(id)?.status === DerivedValueStatus.Pending);
       const wanted = refetch.filter((id) => {
         if (!inFlight.current.has(id) && !processingRef.current.has(id)) return true;
