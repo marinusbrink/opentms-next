@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { planboardDragKind, readDragPayload, setDragPayload, type PlanboardDragPayload } from "@/apps/planboard/dnd";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { usePlanboardOptimisticState } from "@/apps/planboard/optimistic-state";
 import { pulledTripIds } from "@/apps/planboard/order-drop-model";
 import { useOrderDrop } from "@/apps/planboard/order-drop";
 import { useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
@@ -52,7 +53,6 @@ import {
   MAX_SCHEDULER_DAYS,
   planboardSchedulerKeys,
   useAddTripDriver,
-  useAssignLegsToTrip,
   useChangeTripResource,
   useCreatePlanboardTrip,
   usePlanboardScheduler,
@@ -63,7 +63,7 @@ import {
   type PlanboardSchedulerDto,
   type PlanboardSchedulerQuery,
 } from "@/domains/planning-execution/planboard-scheduler";
-import { retryOnStaleStamp, useMoveLegsToTrip } from "@/domains/planning-execution/planboard-lists";
+import { useMoveLegsToTrip } from "@/domains/planning-execution/planboard-lists";
 import { transportTripTypes } from "@/domains/planning-execution/reference-data";
 import { unavailabilityReasonKey } from "@/domains/planning-execution/resource-availability";
 import { TRANSPORT_TRIP_TARGET_TYPE } from "@/domains/planning-execution/trips";
@@ -72,7 +72,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { DerivedValueStatus } from "@/lib/realtime/record-updates";
-import { derivedValueStatesKey, useDerivedValueStates } from "@/lib/realtime/use-record-updates";
+import { derivedValueStatesKey, useDerivedValueStates, type DerivedValueState } from "@/lib/realtime/use-record-updates";
 
 /* Design 70, the Scheduler pane (several instances, each with its own settings under `planboard.pane.<instanceId>`):
  * a page of resource rows of the chosen mode against the pane's window (≤ 14 days), bars per trip coloured by status,
@@ -138,6 +138,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const canUpdate = useIsGranted(`${PERMISSION}.Update`);
   const canCreate = useIsGranted(`${PERMISSION}.Create`);
   const canAssign = useIsGranted(`${PERMISSION}.AssignLegs`);
+  const { state: optimisticState, enqueueAssign } = usePlanboardOptimisticState();
 
   const initialMode = initial?.mode;
   const defaults = useMemo<SchedulerPaneSettings>(
@@ -289,7 +290,6 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const reschedule = useRescheduleTrip();
   const changeResource = useChangeTripResource();
   const addDriver = useAddTripDriver();
-  const assignLegs = useAssignLegsToTrip();
   const moveLegs = useMoveLegsToTrip();
   const createTrip = useCreatePlanboardTrip();
   const { run: runOutsideWindow, dialog: outsideWindowDialog } = useOutsideWindowConfirm();
@@ -461,13 +461,10 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
             afterCommand(fromTripId, result.value.id?.toLowerCase() === fromTripId.toLowerCase() ? result.value.concurrencyStamp : null);
             afterCommand(tripId, result.value.id?.toLowerCase() === tripId.toLowerCase() ? result.value.concurrencyStamp : null);
           } else {
-            /* Legs outside the trip's window ask first and are retried with allowOutsideWindow (outside-window.tsx). */
-            const result = await whileInFlight([tripId], () =>
-              runOutsideWindow((allowOutsideWindow) => retryOnStaleStamp(queryClient, tripId, currentStamp(), (concurrencyStamp) => assignLegs.mutateAsync({ tripId, legIds, concurrencyStamp, allowOutsideWindow }))),
-            );
-            if (result.cancelled) return;
+            /* Unplanned legs: optimistic assign (design 75) — state updated at pointer-up, queue sends the server call.
+             * allowOutsideWindow=true is always passed; the backend sets a warning code when outside the window. */
+            enqueueAssign({ tripId, legIds, concurrencyStamp: currentStamp() ?? "" });
             toast.success(t("Planboard:Scheduler.LegsAssigned").replace("{0}", number));
-            afterCommand(tripId, result.value.concurrencyStamp);
           }
         } else if (payload.kind === "order") {
           const result = await whileInFlight([tripId], () => orderDrop.dropOnTrip({ orderId: payload.orderId, tripId, tripNumber: number, stamp: currentStamp() }));
@@ -489,7 +486,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
         await refreshBars([tripId]);
       }
     },
-    [barOf, canAssign, canUpdate, t, whileInFlight, runOutsideWindow, moveLegs, assignLegs, addDriver, queryClient, orderDrop, afterCommand, follow, refreshBars],
+    [barOf, canAssign, canUpdate, t, whileInFlight, runOutsideWindow, moveLegs, addDriver, orderDrop, afterCommand, follow, refreshBars, enqueueAssign],
   );
 
   const onExternalDrop = useCallback(
@@ -544,6 +541,17 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
 
   const readOnly = useCallback((event: SchedulerEvent<BarData>) => !canUpdate || isReadOnlyStatus(event.data?.bar.status), [canUpdate]);
   const dragTripLabel = t("Planboard:Scheduler.DragTrip");
+  /** Design 75: show Pending whenever the server calculation is pending OR the trip has an optimistic command in-flight. */
+  const calculationFor = useCallback(
+    (tripId: string): DerivedValueState | undefined => {
+      const server = calculations.data?.get(tripId.toLowerCase());
+      if (server) return server;
+      if (optimisticState.pendingValues.has(tripId.toLowerCase())) return { status: DerivedValueStatus.Pending } as DerivedValueState;
+      return undefined;
+    },
+    [calculations.data, optimisticState.pendingValues],
+  );
+
   const eventContent = useCallback(
     (event: SchedulerEvent<BarData>) =>
       event.data ? (
@@ -566,12 +574,12 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
           >
             <GripVertical className="size-3" aria-hidden="true" />
           </span>
-          <BarContent data={event.data} fields={settings.barFields} names={names} mode={settings.mode} calculation={calculations.data?.get(event.data.tripId.toLowerCase())} />
+          <BarContent data={event.data} fields={settings.barFields} names={names} mode={settings.mode} calculation={calculationFor(event.data.tripId)} />
         </span>
       ) : (
         event.title
       ),
-    [settings.barFields, names, settings.mode, dragTripLabel, calculations.data],
+    [settings.barFields, names, settings.mode, dragTripLabel, calculationFor],
   );
   const resourceLabel = useCallback(
     (resource: { id: string; title: string }) => {
