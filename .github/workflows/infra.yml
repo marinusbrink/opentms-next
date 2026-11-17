@@ -118,6 +118,19 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: gh-terraform-apply@ryd-platform.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      # Cloud SQL refuses every settings change but the activation policy on a stopped instance (the staging tier change of
+      # design 76 failed that way), so a stoppable database is started first. The evening stop puts it back to sleep.
+      - name: Start the database if it is stopped
+        run: |
+          project="$(sed -n 's/^project_id *= *"\(.*\)"/\1/p' infra/environments/${{ matrix.environment }}.tfvars)"
+          instance="opentms-${{ matrix.environment }}"
+          policy="$(gcloud sql instances describe "$instance" --project "$project" --format='value(settings.activationPolicy)' 2>/dev/null || true)"
+          if [[ "$policy" == "NEVER" ]]; then
+            infra/scripts/staging-database.sh start "$project" "$instance"
+          else
+            echo "$instance: ${policy:-not created yet}, nothing to start."
+          fi
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.15.x

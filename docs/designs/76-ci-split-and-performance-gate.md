@@ -125,3 +125,11 @@ No per-tenant flag: there is no user-visible behaviour (constitution rule 4 conc
   and drop databases, create the extensions the migrations need, and run `VACUUM`. The volume tests need nothing beyond that.
 - **Npgsql:** reaches Cloud SQL through the Unix socket under `/cloudsql/`, as the migrator does.
 - **The first run:** proves both of the above.
+
+## Build notes
+
+- **The first apply failed on a stopped database.** Merged in the evening, `infra.yml` changed staging's tier while the instance was
+  stopped, and Cloud SQL refused: on a stopped instance only the activation policy and deletion protection may change. The apply had
+  created the job's service account and its grants, not the job. `infra.yml` now starts an environment's database before it applies when
+  the instance is stopped (`staging-database.sh start`), and the evening stop puts it back to sleep. Prod's database never stops, so for prod
+  the step does nothing.
