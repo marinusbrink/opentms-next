@@ -49,6 +49,8 @@ export interface PlanboardOptimisticContext {
   enqueueUnassign(params: { tripId: string; legIds: string[]; concurrencyStamp: string; legData?: LegDto[] }): void;
   /** Whether the trip has any commands in its queue or is actively processing. */
   isInFlight(tripId: string): boolean;
+  /** Reactive set of trips whose command queue is currently processing. Use to defer live updates for in-flight trips. */
+  processingTripIds: ReadonlySet<string>;
   /** Called by panes when the SignalR UpToDate notice arrives, to clear the pending indicator. */
   clearPendingValue(tripId: string): void;
 }
@@ -82,6 +84,7 @@ export function PlanboardOptimisticStateProvider({ children }: { children: React
   const { t } = useL();
   const queryClient = useQueryClient();
   const [state, setState] = useState<PlanningOptimisticState>(EMPTY_STATE);
+  const [processingTripIds, setProcessingTripIds] = useState<ReadonlySet<string>>(new Set());
 
   const queues = useRef(new Map<string, TripCommand[]>());
   const processing = useRef(new Set<string>());
@@ -176,6 +179,7 @@ export function PlanboardOptimisticStateProvider({ children }: { children: React
       if (processing.current.has(tripKey)) return;
       if (!queues.current.has(tripKey)) return;
       processing.current.add(tripKey);
+      setProcessingTripIds((prev) => new Set([...prev, tripKey]));
       try {
         while (mounted.current) {
           const queue = queues.current.get(tripKey);
@@ -227,6 +231,11 @@ export function PlanboardOptimisticStateProvider({ children }: { children: React
         }
       } finally {
         processing.current.delete(tripKey);
+        setProcessingTripIds((prev) => {
+          const next = new Set(prev);
+          next.delete(tripKey);
+          return next;
+        });
         /* Commands enqueued while we were processing need a new run. */
         if (mounted.current && queues.current.has(tripKey)) void processQueue(tripKey);
       }
@@ -302,7 +311,7 @@ export function PlanboardOptimisticStateProvider({ children }: { children: React
     );
   }, []);
 
-  const value: PlanboardOptimisticContext = { state, enqueueAssign, enqueueUnassign, isInFlight, clearPendingValue };
+  const value: PlanboardOptimisticContext = { state, enqueueAssign, enqueueUnassign, isInFlight, processingTripIds, clearPendingValue };
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

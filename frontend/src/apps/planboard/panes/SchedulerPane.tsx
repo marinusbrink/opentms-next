@@ -138,7 +138,10 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
   const canUpdate = useIsGranted(`${PERMISSION}.Update`);
   const canCreate = useIsGranted(`${PERMISSION}.Create`);
   const canAssign = useIsGranted(`${PERMISSION}.AssignLegs`);
-  const { state: optimisticState, enqueueAssign } = usePlanboardOptimisticState();
+  const { state: optimisticState, enqueueAssign, processingTripIds } = usePlanboardOptimisticState();
+  /* Ref so the live-update callback always reads the current set without being recreated on each render. */
+  const processingRef = useRef(processingTripIds);
+  processingRef.current = processingTripIds;
 
   const initialMode = initial?.mode;
   const defaults = useMemo<SchedulerPaneSettings>(
@@ -260,6 +263,13 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
     [refreshBars, scheduleKpiRefresh],
   );
 
+  /* When an optimistic-queue trip finishes processing, flush its deferred live notices. */
+  useEffect(() => {
+    const drained = [...deferred.current].filter((id) => !processingRef.current.has(id) && !inFlight.current.has(id));
+    const toRefetch = drained.filter((id) => deferred.current.delete(id));
+    if (toRefetch.length > 0) void refreshBars(toRefetch).then(scheduleKpiRefresh);
+  }, [processingTripIds, refreshBars, scheduleKpiRefresh]);
+
   usePlanboardLiveUpdates({
     targetType: PLANBOARD_RECORD_TYPES.trip,
     filter: { range, resourceIds, knownIds: tripIds },
@@ -269,7 +279,7 @@ function SchedulerPaneBody({ instanceId, initial }: PlanboardPaneProps) {
       unfollow(messages.filter((m) => m.status === DerivedValueStatus.UpToDate).map((m) => m.targetId.toLowerCase()));
       const refetch = idsToRefetch(messages, (id) => calculationsRef.current?.get(id)?.status === DerivedValueStatus.Pending);
       const wanted = refetch.filter((id) => {
-        if (!inFlight.current.has(id)) return true;
+        if (!inFlight.current.has(id) && !processingRef.current.has(id)) return true;
         deferred.current.add(id);
         return false;
       });

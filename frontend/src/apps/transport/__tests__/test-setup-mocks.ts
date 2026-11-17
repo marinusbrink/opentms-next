@@ -26,7 +26,7 @@ export function resetClient() {
     mock.mockReset().mockImplementation(async (path, init) => {
       const handler = routes[method][path];
       if (handler) {
-        const result = handler(init);
+        const result = await handler(init);
         return result && typeof result === "object" && "response" in (result as object) ? result : ok(result);
       }
       return ok(method === "GET" ? (/\/(lookup|all|states|addresses)$/.test(path) ? [] : EMPTY_PAGE) : undefined);

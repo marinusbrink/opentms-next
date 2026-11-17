@@ -71,14 +71,19 @@ beforeEach(() => {
 });
 
 describe("command queue — assign", () => {
-  it("sets pendingValues synchronously and removes it after success", async () => {
+  it("sets pendingValues synchronously; clears assignedLegs after success but keeps pendingValues until clearPendingValue", async () => {
     mockPost.mockResolvedValue(successResponse("stamp-2"));
     const { result } = renderHook(() => usePlanboardOptimisticState(), { wrapper: Wrapper });
 
     act(() => result.current.enqueueAssign({ tripId: TRIP_ID, legIds: LEG_IDS, concurrencyStamp: STAMP }));
     expect(result.current.state.pendingValues.has(TRIP_ID.toLowerCase())).toBe(true);
 
+    /* Design 75 §A step 3: server confirms → assignedLegs cleared; pendingValues stays until SignalR arrives. */
     await waitFor(() => expect(result.current.state.assignedLegs.has(TRIP_ID.toLowerCase())).toBe(false));
+    expect(result.current.state.pendingValues.has(TRIP_ID.toLowerCase())).toBe(true);
+
+    /* Simulate the SignalR clearPendingValue call. */
+    act(() => result.current.clearPendingValue(TRIP_ID));
     expect(result.current.state.pendingValues.has(TRIP_ID.toLowerCase())).toBe(false);
   });
 
