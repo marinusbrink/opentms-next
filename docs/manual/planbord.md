@@ -136,10 +136,24 @@ aantallen, referenties, opmerkingen, afstand en de toegerekende kosten en opbren
   tijdvensters en datums, en klantreferentie, transporteenheid, product en temperatuur. Die laatste
   vier horen bij de order en gelden daarom voor alle legs van die order of vrachtregel. Een leg op een
   afgeronde of geannuleerde rit wijzig je niet meer.
-- **Legs losmaken** zet de geselecteerde legs terug in *Te plannen legs*.
+- **Legs losmaken** zet de geselecteerde legs terug in *Te plannen legs*. Hetzelfde doe je met
+  slepen: selecteer één of meer legs en sleep ze aan het greepje naar het paneel *Te plannen
+  legs*. Terwijl je erover sleept, verschijnt een blauwe rand met de tekst **Zet hier neer om
+  los te maken**; laat je los, dan gaan de legs direct terug naar *Te plannen legs*.
 - **Apart uitvoeren** geeft de leg eigen stops.
 - **Sleep** legs aan het greepje naar een andere rit (in *Transportritten*, de planner of de
   kaart) om ze te verplaatsen. Heb je meerdere legs geselecteerd, dan gaan die allemaal mee.
+
+Leg je legs op een rit of maak je ze los, dan zie je de wijziging meteen: de leg verschijnt direct
+op de doelrit of in *Te plannen legs* zonder te wachten op de server. De berekende waarden van
+de rit (beladingsgraad, afstand, CO₂, kosten, opbrengst en de geschatte aankomsttijden) tonen
+een draaiend teken terwijl het systeem ze herberekent; dat kan even duren. Lukt het opslaan
+achteraf niet, dan keert de leg automatisch terug naar zijn oorspronkelijke plek en verschijnt
+er een melding.
+
+Je hebt het recht **Legs beheren** nodig om legs te slepen of los te maken.
+
+<!-- SCREENSHOT: legs-drag-to-unassign.png — greepje op een rij in het Legs-paneel; leg wordt gesleept naar het Te plannen legs-paneel met blauwe rand zichtbaar -->
 
 ---
 
@@ -151,6 +165,9 @@ De legs zonder rit met een herkomstdatum in de periode.
   Elke groep toont het aantal legs; klap een groep open voor de legs.
 - Selecteer legs door op een rij te klikken (met Ctrl of Shift erbij selecteer je er meer) of met de
   vinkjes, en **sleep** ze aan het greepje naar een rit, een rij of balk in de planner of de kaart.
+- **Sleep legs vanuit *Legs*** (de leglijst van een rit) aan het greepje naar dit paneel om ze van die
+  rit los te maken. Je ziet een blauwe rand en de tekst **Zet hier neer om los te maken** zodra je
+  met een leg van een rit over dit paneel sleept.
 - De velden wijzig je in de cel, net als bij *Legs*.
 - Met de rechtermuisknop: **Transportorder openen**, **Deeltraject toevoegen of aanpassen**,
   **Regel splitsen**, **Leg splitsen op …** en **Retourleg**.
