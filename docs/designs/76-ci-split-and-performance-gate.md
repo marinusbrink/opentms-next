@@ -133,3 +133,12 @@ No per-tenant flag: there is no user-visible behaviour (constitution rule 4 conc
   created the job's service account and its grants, not the job. `infra.yml` now starts an environment's database before it applies when
   the instance is stopped (`staging-database.sh start`), and the evening stop puts it back to sleep. Prod's database never stops, so for prod
   the step does nothing.
+- **A budget miss must reproduce (2026-11-18).** The gate's first runs on the 1-vCPU database found three real misses: the unplanned-legs
+  search (355 ms; a trigram-indexed `SearchKey`, #78), `query_metrics` (626 ms; its own 1 s budget, PO decision in design 75) and the code
+  list sorted by product name (513 to 530 ms in every run; now read per product through
+  `IX_ProductRelationCodes_TenantId_ProductId_NormalizedCode`, see `EfCoreProductRelationCodeRepository`). They also showed noise: on Deploy
+  #27 the first run after the nightly stop measured unchanged reads far slower than the re-run on the warm database (vehicle lookup by term
+  1,027 ms against 24 ms, code list page 1 985 against 112, `get_customer_revenue` p95 452 against 213), while the product-name sort missed
+  in both. So a failed run is repeated once and only the repeat decides: a slow query still blocks prod, a cold start no longer does. Two
+  differences between CI and the gate explain why CI missed the real ones: CI reports budgets without enforcing them, and its runners have
+  four cores where staging and prod have one.
