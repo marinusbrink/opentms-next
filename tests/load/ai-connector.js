@@ -1,5 +1,6 @@
 // k6 load script for the AI connector (designs 74 and 75): the /mcp overhead, get_customer_revenue and query_metrics.
-// Budget: p95 < 300 ms for an interactive read on a warm instance. Design 75's worst case is a year's orders by customer and
+// Budgets on a warm instance: query_metrics p95 < 1 s (PO decision 2026-11-18, design 75 "Performance"); the other endpoints
+// p95 < 300 ms, the interactive-read budget. Design 75's worst case is a year's orders by customer and
 // month, at 1,000,000 orders and 250,000 trips in one tenant. Design 74: 1,000,000 orders with 100,000 for one customer.
 //
 // Run against a tenant loaded with that volume, whose backfill has finished, with a connector token of a user holding
@@ -20,12 +21,20 @@ const YEAR = __ENV.YEAR || String(new Date().getUTCFullYear() - 1);
 const FROM = `${YEAR}-01-01`;
 const TO = `${YEAR}-12-31`;
 
-const endpoints = ["toolsList", "listMetrics", "customerRevenue", "ordersByCustomerAndMonth", "tripsByCarrierAndMonth", "fiveYearsByMonth"];
+/* Endpoint → p95 budget in ms: the three query_metrics calls have their own budget (design 75), the rest the interactive read's. */
+const budgets = {
+  toolsList: 300,
+  listMetrics: 300,
+  customerRevenue: 300,
+  ordersByCustomerAndMonth: 1000,
+  tripsByCarrierAndMonth: 1000,
+  fiveYearsByMonth: 1000,
+};
 
 export const options = {
   scenarios: { connector: { executor: "constant-vus", vus: 1, duration: "5m" } },
   thresholds: {
-    ...Object.fromEntries(endpoints.map((ep) => [`http_req_duration{ep:${ep}}`, ["p(95)<300"]])),
+    ...Object.fromEntries(Object.entries(budgets).map(([ep, ms]) => [`http_req_duration{ep:${ep}}`, [`p(95)<${ms}`]])),
     checks: ["rate>0.99"],
   },
 };
