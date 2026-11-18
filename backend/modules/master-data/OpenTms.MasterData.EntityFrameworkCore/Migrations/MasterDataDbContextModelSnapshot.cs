@@ -2033,6 +2033,9 @@ namespace OpenTms.MasterData.EntityFrameworkCore.Migrations
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "NormalizedCode" }, "IX_ProductRelationCodes_NormalizedCode_Trigram"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "NormalizedCode" }, "IX_ProductRelationCodes_NormalizedCode_Trigram"), new[] { "gin_trgm_ops" });
 
+                    b.HasIndex(new[] { "TenantId", "ProductId", "NormalizedCode" }, "IX_ProductRelationCodes_TenantId_ProductId_NormalizedCode")
+                        .HasFilter("\"IsDeleted\" = false");
+
                     b.ToTable("ProductRelationCodes", "masterdata");
                 });
 

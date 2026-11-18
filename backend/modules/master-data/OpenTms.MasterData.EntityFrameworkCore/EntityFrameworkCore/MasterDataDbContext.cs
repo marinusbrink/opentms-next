@@ -363,6 +363,9 @@ public class MasterDataDbContext : AbpDbContext<MasterDataDbContext>
             b.HasIndex(c => c.RelationId);
             b.HasIndex(c => c.ProductId);
             b.HasIndex(c => c.TransportUnitId);
+            /* The code list sorted by product name: one product's codes in code order, read per product
+             * (EfCoreProductRelationCodeRepository.GetPageByProductNameAsync). */
+            b.HasIndex(c => new { c.TenantId, c.ProductId, c.NormalizedCode }, "IX_ProductRelationCodes_TenantId_ProductId_NormalizedCode").HasFilter(NotDeleted);
             /* "Contains" search over the code (pg_trgm since design 43). */
             b.HasIndex(c => c.NormalizedCode, "IX_ProductRelationCodes_NormalizedCode_Trigram").HasMethod("gin").HasOperators("gin_trgm_ops");
         });

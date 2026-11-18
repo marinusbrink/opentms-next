@@ -23,6 +23,7 @@ public class MasterDataEntityFrameworkCoreModule : AbpModule
         context.Services.AddAbpDbContext<MasterDataDbContext>(options =>
         {
             options.AddDefaultRepositories(includeAllEntities: true);
+            options.AddRepository<ProductRelationCode, EfCoreProductRelationCodeRepository>();
 
             /* includeDetails: the aggregates with children load them with GetAsync(id, includeDetails: true). */
             options.Entity<VehicleType>(e => e.DefaultWithDetailsFunc = q => q.Include(v => v.Characteristics));

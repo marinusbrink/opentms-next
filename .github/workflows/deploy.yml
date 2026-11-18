@@ -126,8 +126,19 @@ jobs:
       - name: Start the database
         run: infra/scripts/staging-database.sh start "$PROJECT" opentms-staging
       - name: Volume tests against staging's database
+        id: volume
+        continue-on-error: true
         run: |
           gcloud run jobs update opentms-performance --image "$REGISTRY/opentms-performance:$SHA" --project "$PROJECT" --region "$REGION" --quiet
+          gcloud run jobs execute opentms-performance --wait --project "$PROJECT" --region "$REGION" --quiet
+      # A budget miss must reproduce before it blocks prod. Staging's database is stopped every night, and the first run after
+      # a start measured unchanged reads three to forty times slower (Deploy #27: vehicle lookup 1,027 ms cold, 24 ms warm); a
+      # slow query fails both runs (the code list sorted by product name: 530 ms in both). So a failed run is repeated once, and
+      # only the repeat decides (docs/designs/76-ci-split-and-performance-gate.md, build notes).
+      - name: Volume tests again (a miss must reproduce)
+        if: steps.volume.outcome == 'failure'
+        run: |
+          echo "::warning::The volume tests failed once; repeating them on the now warm database. The repeat decides."
           gcloud run jobs execute opentms-performance --wait --project "$PROJECT" --region "$REGION" --quiet
       - name: Timings and failures
         if: always()
