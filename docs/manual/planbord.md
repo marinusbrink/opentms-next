@@ -217,6 +217,9 @@ zonder rit en de bezetting.
   onderhoud, keuring …), grijs is **buiten werktijd**.
 - Een balk met een gestippelde rode rand zit in een **conflict**: hij overlapt een andere rit
   in dezelfde rij of een blok.
+- Toont een balk een draaiend teken bij de beladingsgraad of de waarschuwingen, dan herberekent
+  het systeem de waarden van die rit. De rit staat vast; het teken verdwijnt zodra de berekening
+  klaar is. Dat zie je na elk slepen van legs naar de balk.
 
 ### Werken met de planner
 
