@@ -120,11 +120,7 @@ public class TransportOrderVolumeTests : TransportOrdersPostgreSqlTestBase
         _output.WriteLine($"inserted {OrderCount} orders in {insert.Elapsed.TotalSeconds:F1} s");
     }
 
+    /// <summary>The median of the warm runs (<see cref="VolumeBudget.MeasureAsync"/>).</summary>
     private static async Task<(string Name, TimeSpan Elapsed)> MeasureAsync<T>(string name, Func<Task<T>> query)
-    {
-        await query();
-        var watch = Stopwatch.StartNew();
-        await query();
-        return (name, watch.Elapsed);
-    }
+        => (name, (await VolumeBudget.MeasureAsync(query)).Warm);
 }

@@ -91,13 +91,8 @@ public class FinancialTariffsVolumeTests : ReferenceDataPostgreSqlTestBase
 
             async Task TimeAsync<T>(string name, Func<Task<T>> read, Action<T> check)
             {
-                var cold = Stopwatch.StartNew();
-                check(await read());
-                cold.Stop();
-                var warm = Stopwatch.StartNew();
-                check(await read());
-                warm.Stop();
-                timings.Add((name, cold.Elapsed, warm.Elapsed));
+                var (cold, warm) = await VolumeBudget.MeasureAsync(read, check);
+                timings.Add((name, cold, warm));
             }
 
             await TimeAsync("rule page 1", () => service.GetRulesAsync(list.Id, new PriceListRuleListRequestDto { StartRow = 0, EndRow = 100 }), page =>

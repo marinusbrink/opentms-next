@@ -158,13 +158,9 @@ public class PlanboardVolumeTests : PlanningPostgreSqlTestBase
 
     private async Task TimedAsync<T>(string name, Func<Task<T>> read, Action<T> assert)
     {
-        /* Cold, then warm: the warm read is the one held to the budget. */
-        assert(await read());
-        var watch = Stopwatch.StartNew();
-        var result = await read();
-        watch.Stop();
-        assert(result);
-        _output.WriteLine($"{name}: {watch.ElapsedMilliseconds} ms");
-        VolumeBudget.Within(watch.Elapsed, ReadBudget, name);
+        /* Cold, then the median of the warm runs: that is the read held to the budget. */
+        var (_, warm) = await VolumeBudget.MeasureAsync(read, assert);
+        _output.WriteLine($"{name}: {warm.TotalMilliseconds:F0} ms");
+        VolumeBudget.Within(warm, ReadBudget, name);
     }
 }
