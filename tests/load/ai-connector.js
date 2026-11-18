@@ -1,5 +1,5 @@
 // k6 load script for the AI connector (designs 74 and 75): the /mcp overhead, get_customer_revenue and query_metrics.
-// Budgets on a warm instance: query_metrics p95 < 1 s (PO decision 2026-11-18, design 75 "Performance"); the other endpoints
+// Budgets on a warm instance: query_metrics p95 < 1.5 s (PO decisions 2026-11-18, design 75 "Performance"); the other endpoints
 // p95 < 300 ms, the interactive-read budget. Design 75's worst case is a year's orders by customer and
 // month, at 1,000,000 orders and 250,000 trips in one tenant. Design 74: 1,000,000 orders with 100,000 for one customer.
 //
@@ -26,9 +26,9 @@ const budgets = {
   toolsList: 300,
   listMetrics: 300,
   customerRevenue: 300,
-  ordersByCustomerAndMonth: 1000,
-  tripsByCarrierAndMonth: 1000,
-  fiveYearsByMonth: 1000,
+  ordersByCustomerAndMonth: 1500,
+  tripsByCarrierAndMonth: 1500,
+  fiveYearsByMonth: 1500,
 };
 
 export const options = {

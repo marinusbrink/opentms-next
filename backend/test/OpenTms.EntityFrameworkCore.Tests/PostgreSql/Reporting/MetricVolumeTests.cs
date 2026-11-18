@@ -17,7 +17,7 @@ using Xunit.Abstractions;
 namespace OpenTms.PostgreSql.Reporting;
 
 /// <summary>
-/// VOLUME TEST (designs 74 and 75 "Performance"; budgets: <c>query_metrics</c> p95 under 1 s, PO decision 2026-11-18 in design 75;
+/// VOLUME TEST (designs 74 and 75 "Performance"; budgets: <c>query_metrics</c> p95 under 1.5 s, PO decisions 2026-11-18 in design 75;
 /// <c>get_customer_revenue</c> p95 under 300 ms, the interactive-read budget): in tenant A, 1,000,000 order facts and 250,000 trip facts, spread over five
 /// years, inserted with one statement each after the indexes exist, then ANALYZE. Timed warm through the real <see cref="IMetricQuery"/>, 25 calls each after a warm-up, at the worst
 /// case the design names (a year's orders grouped by customer and month, with revenue, margin and count) and its siblings. And 1,000,000 orders in Orders' own table with 100,000 for one
@@ -32,7 +32,7 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
     private const int TripFactCount = 250_000;
     private const int Calls = 25;
     /* query_metrics: its own budget (PO decision 2026-11-18, design 75 "Performance"); get_customer_revenue: the interactive-read budget. */
-    private static readonly TimeSpan MetricsBudget = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan MetricsBudget = TimeSpan.FromSeconds(1.5);
     private static readonly TimeSpan InteractiveBudget = TimeSpan.FromMilliseconds(300);
 
     private static Guid Tenant => PostgreSqlTestDatabases.TenantAId;
@@ -72,7 +72,7 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
     }
 
     [Fact]
-    public async Task Query_metrics_stays_within_1_second_p95_at_1_000_000_orders_and_250_000_trips_at_the_worst_case()
+    public async Task Query_metrics_stays_within_1_5_seconds_p95_at_1_000_000_orders_and_250_000_trips_at_the_worst_case()
     {
         using var features = MetricFeaturesOn();
         await InRolledBackTransactionAsync(Tenant, async () =>

@@ -286,7 +286,7 @@ calculated revenue rather than invoiced.
 | Fact updates | **High** | On PostgreSQL through the outbox: a change, status change and delete each reach the fact; a trip without a working route still gets a fact; a duplicate event changes nothing; a newer save discards an older run; a lost update and a lost delete are repaired by the nightly worker |
 | Backfill | **High** | Resumes after an interruption; `not_ready` until every fact exists, not merely was requested; results equal the source afterwards; no run for a tenant with the feature off; feature off and on clears and restarts it; a dataset reset leaves no facts; a calculation that keeps failing stops resweeping after the last sweep, completes and answers `ok` with `facts_incomplete` and `factsMissing` for that grain only; the repair's recount lowers the number and ends the warning at 0 |
 | Module boundaries | **High** | No cross-schema mapping or join; the architecture tests pass with the new references |
-| Performance | **High** | k6 and PostgreSQL volume test: p95 < 1 s for `query_metrics` (PO decision 2026-11-18, see *Build notes*; was 300 ms), warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
+| Performance | **High** | k6 and PostgreSQL volume test: p95 < 1.5 s for `query_metrics` (PO decisions 2026-11-18, see *Build notes*; was 300 ms, then 1 s), warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
 | Freshness | **Medium** | p95 under 60 seconds from a save to the fact, under normal job load |
 | Refusals and limits | **Medium** | Each status above; `top` capped; a 2-second timeout gives `timeout`, not a partial answer; logs hold no filter values |
 | Answer quality | **Medium, manual** | A list of 50 to 100 questions with known answers at `docs/testing/ai-connector-questions.md`, run on staging per release on ChatGPT, Claude and Gemini. Results go to the PO. The PO supplies real customer questions; a model can still explain a right number wrongly, which is what this measures |
@@ -314,7 +314,7 @@ calculated revenue rather than invoiced.
   `OrderSummaryCalculator` writes one new `TransportOrderRecalculatedEto` outbox row per recalculation and `TripOperations` one
   `TransportTripDeletedEto` per deleted trip, whether or not the feature is on: Orders and Planning cannot know. Those, and the existing events
   Reporting subscribes to, each cost its handler one feature check before it skips.
-- **Budgets touched:** `query_metrics` p95 < 1 s, its own budget (PO decision 2026-11-18; it was the interactive read's 300 ms), and
+- **Budgets touched:** `query_metrics` p95 < 1.5 s, its own budget (PO decisions 2026-11-18; it was the interactive read's 300 ms, then 1 s), and
   heavy operations "never block a request over 2 s" (the timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation, for every tenant.
 - **What we do not control:** the time the AI tool itself takes. A complete answer in ChatGPT includes its model time and is measured
   on staging, but no budget of ours can promise it.
@@ -413,6 +413,11 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   one core (190 to 238 ms against 214 to 365 ms serial). The rollup table still would not shrink the rows (above). The tool is called inside
   an AI model's turn, which takes seconds, so 300 ms buys the user little. The other reads keep 300 ms; the 2-second timeout stays.
   The department's performance budgets record the exception (`dev-department/conventions/performance-budgets.md`).
+- **PO decision 2026-11-18 (later): the budget is p95 < 1.5 s.** On Deploy #27 the worst case passed at p95 796 ms and, on the re-run,
+  964 ms (max 1,104 ms): too little headroom for a gate that blocks prod, even with the repeat rule of design 76. A larger `work_mem` does
+  not help: on one core the worst case answered p95 306 ms at 4 MB and 385 ms at 32 MB, five years by month 469 against 445 ms, within the
+  runs' noise. The two heaviest reads scan 133,000 to 1,000,000 facts on one core, and the test keeps its facts uncommitted, so no
+  index-only read applies. The 2-second timeout stays; the rollup table remains the fallback if the volume grows past this.
 
 **Choices where the design was silent:**
 
