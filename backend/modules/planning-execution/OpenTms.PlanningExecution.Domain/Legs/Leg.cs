@@ -202,6 +202,13 @@ public class Leg : FullAuditedAggregateRoot<Guid>, IMultiTenant
 
     public string? Remarks { get; private set; }
 
+    /// <summary>
+    /// Lower-cased searchable text of the list search: both names, both cities, both references and the remarks. Written by
+    /// the database (a stored generated column under a trigram index), never by code, so it always matches the fields; on a
+    /// leg not yet saved it is empty.
+    /// </summary>
+    public string SearchKey { get; private set; } = string.Empty;
+
     /* Stored derived values (LegRouteCalculator, TripCalculator). */
     public int? DistanceM { get; private set; }
     public int? DurationS { get; private set; }

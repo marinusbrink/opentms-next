@@ -423,6 +423,12 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                     b.Property<DateTimeOffset?>("RoutedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("SearchKey")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("text")
+                        .HasComputedColumnSql("lower(\"OriginName\" || ' ' || \"DestinationName\" || ' ' || coalesce(\"OriginCity\", '') || ' ' || coalesce(\"DestinationCity\", '') || ' ' || coalesce(\"OriginReference\", '') || ' ' || coalesce(\"DestinationReference\", '') || ' ' || coalesce(\"Remarks\", ''))", true);
+
                     b.Property<int>("Source")
                         .HasColumnType("integer");
 
@@ -472,6 +478,11 @@ namespace OpenTms.PlanningExecution.EntityFrameworkCore.Migrations
                         .HasFilter("\"IsDeleted\" = false");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "OrderLineId", "OriginStopId", "DestinationStopId"), false);
+
+                    b.HasIndex(new[] { "SearchKey" }, "IX_Legs_SearchKey_Trigram");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex(new[] { "SearchKey" }, "IX_Legs_SearchKey_Trigram"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex(new[] { "SearchKey" }, "IX_Legs_SearchKey_Trigram"), new[] { "gin_trgm_ops" });
 
                     b.HasIndex(new[] { "TenantId", "OriginPlannedDate" }, "IX_Legs_TenantId_Unplanned")
                         .HasFilter("\"TripId\" IS NULL AND \"IsDeleted\" = false");

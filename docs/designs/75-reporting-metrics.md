@@ -286,7 +286,7 @@ calculated revenue rather than invoiced.
 | Fact updates | **High** | On PostgreSQL through the outbox: a change, status change and delete each reach the fact; a trip without a working route still gets a fact; a duplicate event changes nothing; a newer save discards an older run; a lost update and a lost delete are repaired by the nightly worker |
 | Backfill | **High** | Resumes after an interruption; `not_ready` until every fact exists, not merely was requested; results equal the source afterwards; no run for a tenant with the feature off; feature off and on clears and restarts it; a dataset reset leaves no facts; a calculation that keeps failing stops resweeping after the last sweep, completes and answers `ok` with `facts_incomplete` and `factsMissing` for that grain only; the repair's recount lowers the number and ends the warning at 0 |
 | Module boundaries | **High** | No cross-schema mapping or join; the architecture tests pass with the new references |
-| Performance | **High** | k6 and PostgreSQL volume test: p95 < 300 ms for `query_metrics`, warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
+| Performance | **High** | k6 and PostgreSQL volume test: p95 < 1 s for `query_metrics` (PO decision 2026-11-18, see *Build notes*; was 300 ms), warm, at 1,000,000 orders and 250,000 trips in one tenant, at the worst case of a year's data grouped by customer and month. A miss goes to the PO, with a day-level rollup table as the prepared fallback |
 | Freshness | **Medium** | p95 under 60 seconds from a save to the fact, under normal job load |
 | Refusals and limits | **Medium** | Each status above; `top` capped; a 2-second timeout gives `timeout`, not a partial answer; logs hold no filter values |
 | Answer quality | **Medium, manual** | A list of 50 to 100 questions with known answers at `docs/testing/ai-connector-questions.md`, run on staging per release on ChatGPT, Claude and Gemini. Results go to the PO. The PO supplies real customer questions; a model can still explain a right number wrongly, which is what this measures |
@@ -314,8 +314,8 @@ calculated revenue rather than invoiced.
   `OrderSummaryCalculator` writes one new `TransportOrderRecalculatedEto` outbox row per recalculation and `TripOperations` one
   `TransportTripDeletedEto` per deleted trip, whether or not the feature is on: Orders and Planning cannot know. Those, and the existing events
   Reporting subscribes to, each cost its handler one feature check before it skips.
-- **Budgets touched:** interactive reads p95 < 300 ms (the query) and heavy operations "never block a request over 2 s" (the
-  timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation, for every tenant.
+- **Budgets touched:** `query_metrics` p95 < 1 s, its own budget (PO decision 2026-11-18; it was the interactive read's 300 ms), and
+  heavy operations "never block a request over 2 s" (the timeout). Mutations are not affected: a save only writes outbox rows as today, plus one new event per recalculation, for every tenant.
 - **What we do not control:** the time the AI tool itself takes. A complete answer in ChatGPT includes its model time and is measured
   on staging, but no budget of ours can promise it.
 - **Margin per tenant:** small and only for tenants with the feature on. Whether to charge for it is the PO's choice and not part of
@@ -405,6 +405,14 @@ Taken on the PO's instruction of 2026-11-06 ("take the best suggestion and state
   at 64 MB gains 7 %): the hash aggregate over 74,002 groups is the cost. xUnit ran the PostgreSQL collection next to the SQLite collection of 1,474
   tests, so the timed calls shared the runner's cores. The PostgreSQL collection now runs on its own, after the other.
 - **The timeout.** At a limit of 40 ms a statement on the volume above answered `timeout` after 67 ms, with no rows.
+- **PO decision 2026-11-18: `query_metrics` gets its own budget, p95 < 1 s.** The performance gate (design 76) runs this test on staging's
+  database, production's tier `db-custom-1-3840` (1 vCPU): the worst case answered p95 626 ms, median 488 ms, and held prod back three
+  merges. The same code answers p95 252 ms on a 4-core development container; every other read in the gate is 2 to 3.5 times slower
+  there too, so the single core is the cost. A larger tier was tested first and does not help: on the same data PostgreSQL keeps the plan
+  serial with two parallel workers available, and with parallelism forced only the scan runs in parallel while the hash aggregate stays on
+  one core (190 to 238 ms against 214 to 365 ms serial). The rollup table still would not shrink the rows (above). The tool is called inside
+  an AI model's turn, which takes seconds, so 300 ms buys the user little. The other reads keep 300 ms; the 2-second timeout stays.
+  The department's performance budgets record the exception (`dev-department/conventions/performance-budgets.md`).
 
 **Choices where the design was silent:**
 

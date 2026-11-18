@@ -17,7 +17,8 @@ using Xunit.Abstractions;
 namespace OpenTms.PostgreSql.Reporting;
 
 /// <summary>
-/// VOLUME TEST (designs 74 and 75 "Performance"; budget: interactive reads p95 under 300 ms): in tenant A, 1,000,000 order facts and 250,000 trip facts, spread over five
+/// VOLUME TEST (designs 74 and 75 "Performance"; budgets: <c>query_metrics</c> p95 under 1 s, PO decision 2026-11-18 in design 75;
+/// <c>get_customer_revenue</c> p95 under 300 ms, the interactive-read budget): in tenant A, 1,000,000 order facts and 250,000 trip facts, spread over five
 /// years, inserted with one statement each after the indexes exist, then ANALYZE. Timed warm through the real <see cref="IMetricQuery"/>, 25 calls each after a warm-up, at the worst
 /// case the design names (a year's orders grouped by customer and month, with revenue, margin and count) and its siblings. And 1,000,000 orders in Orders' own table with 100,000 for one
 /// customer for <c>get_customer_revenue</c>, committed and vacuumed for its covering index, deleted afterwards. Follows <c>PlanboardVolumeTests</c>: it runs in every normal run, and the facts live in one rolled-back transaction. A miss goes to the PO,
@@ -30,7 +31,9 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
     private const int OrderFactCount = 1_000_000;
     private const int TripFactCount = 250_000;
     private const int Calls = 25;
-    private static readonly TimeSpan Budget = TimeSpan.FromMilliseconds(300);
+    /* query_metrics: its own budget (PO decision 2026-11-18, design 75 "Performance"); get_customer_revenue: the interactive-read budget. */
+    private static readonly TimeSpan MetricsBudget = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan InteractiveBudget = TimeSpan.FromMilliseconds(300);
 
     private static Guid Tenant => PostgreSqlTestDatabases.TenantAId;
 
@@ -49,7 +52,7 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
         answer.Rows.ShouldNotBeNull().ShouldNotBeEmpty();
     }
 
-    private async Task P95Async(string name, Func<Task> call)
+    private async Task P95Async(string name, TimeSpan budget, Func<Task> call)
     {
         await call();
         await call();
@@ -65,11 +68,11 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
         times.Sort();
         var p95 = times[(int)Math.Ceiling(Calls * 0.95) - 1];
         _output.WriteLine($"{name}: p95 {p95:F0} ms, median {times[Calls / 2]:F0} ms, max {times[^1]:F0} ms");
-        VolumeBudget.Within(TimeSpan.FromMilliseconds(p95), Budget, name);
+        VolumeBudget.Within(TimeSpan.FromMilliseconds(p95), budget, name);
     }
 
     [Fact]
-    public async Task Query_metrics_stays_within_300_ms_p95_at_1_000_000_orders_and_250_000_trips_at_the_worst_case()
+    public async Task Query_metrics_stays_within_1_second_p95_at_1_000_000_orders_and_250_000_trips_at_the_worst_case()
     {
         using var features = MetricFeaturesOn();
         await InRolledBackTransactionAsync(Tenant, async () =>
@@ -120,11 +123,11 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
             _output.WriteLine($"The worst case has {answer.TotalGroups} groups, of {answer.Coverage!.RecordsIncluded} records.");
             answer.TotalGroups!.Value.ShouldBeGreaterThan(50_000, "the worst case the design names, not an easy spread");
 
-            await P95Async("a year's orders by customer and month, three metrics", () => AnsweredAsync(worst));
-            await P95Async("a year's orders by customer and month, count only", () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderCount], [MetricBreakdowns.Customer, MetricBreakdowns.Month])));
-            await P95Async("five years of orders by month", () => AnsweredAsync(Ask(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), [MetricKeys.OrderCount], [MetricBreakdowns.Month])));
-            await P95Async("a year of one customer's orders by month", () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderRevenue], [MetricBreakdowns.Month], new MetricFiltersDto { CustomerRelationId = Guid.Parse("00000000-0000-0000-0000-000000000007") })));
-            await P95Async("a year's trips by carrier and month, four metrics", () => AnsweredAsync(Ask(from, to, [MetricKeys.TripCost, MetricKeys.TripRevenue, MetricKeys.PlannedDistanceKm, MetricKeys.OnTimeStopPercentage], [MetricBreakdowns.Carrier, MetricBreakdowns.Month])));
+            await P95Async("a year's orders by customer and month, three metrics", MetricsBudget, () => AnsweredAsync(worst));
+            await P95Async("a year's orders by customer and month, count only", MetricsBudget, () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderCount], [MetricBreakdowns.Customer, MetricBreakdowns.Month])));
+            await P95Async("five years of orders by month", MetricsBudget, () => AnsweredAsync(Ask(new DateOnly(2021, 1, 1), new DateOnly(2025, 12, 31), [MetricKeys.OrderCount], [MetricBreakdowns.Month])));
+            await P95Async("a year of one customer's orders by month", MetricsBudget, () => AnsweredAsync(Ask(from, to, [MetricKeys.OrderRevenue], [MetricBreakdowns.Month], new MetricFiltersDto { CustomerRelationId = Guid.Parse("00000000-0000-0000-0000-000000000007") })));
+            await P95Async("a year's trips by carrier and month, four metrics", MetricsBudget, () => AnsweredAsync(Ask(from, to, [MetricKeys.TripCost, MetricKeys.TripRevenue, MetricKeys.PlannedDistanceKm, MetricKeys.OnTimeStopPercentage], [MetricBreakdowns.Carrier, MetricBreakdowns.Month])));
         });
     }
 
@@ -167,8 +170,8 @@ public class MetricVolumeTests : ReportingPostgreSqlTestBase
                 var to = new DateOnly(2025, 12, 31);
                 var revenue = await reader.GetAsync(customer, from, to);
                 revenue.Totals.Sum(t => t.OrderCount).ShouldBeGreaterThan(40_000);
-                await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", async () => (await reader.GetAsync(customer, from, to)).Totals.ShouldNotBeEmpty());
-                await P95Async("get_customer_revenue, one year", async () => (await reader.GetAsync(customer, new DateOnly(2025, 1, 1), to)).Totals.ShouldNotBeEmpty());
+                await P95Async("get_customer_revenue, 100,000 orders of one customer over five years", InteractiveBudget, async () => (await reader.GetAsync(customer, from, to)).Totals.ShouldNotBeEmpty());
+                await P95Async("get_customer_revenue, one year", InteractiveBudget, async () => (await reader.GetAsync(customer, new DateOnly(2025, 1, 1), to)).Totals.ShouldNotBeEmpty());
             }, transactional: false);
         }
         finally

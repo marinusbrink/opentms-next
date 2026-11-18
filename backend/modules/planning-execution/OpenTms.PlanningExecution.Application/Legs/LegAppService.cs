@@ -207,11 +207,9 @@ public class LegAppService : PlanningExecutionAppServiceBase, ILegAppService
         var term = input.WildcardSearch?.Trim().ToLowerInvariant();
         if (!string.IsNullOrEmpty(term))
         {
-            query = query.Where(l =>
-                l.OriginName.ToLower().Contains(term) || l.DestinationName.ToLower().Contains(term) ||
-                (l.OriginCity ?? "").ToLower().Contains(term) || (l.DestinationCity ?? "").ToLower().Contains(term) ||
-                (l.OriginReference ?? "").ToLower().Contains(term) || (l.DestinationReference ?? "").ToLower().Contains(term) ||
-                (l.Remarks ?? "").ToLower().Contains(term));
+            /* One trigram-indexed column (Leg.SearchKey) instead of seven lower(...) LIKE tests per row: the gate measured the
+             * old shape at 355 ms on production's database size (budget 300 ms). */
+            query = query.Where(l => l.SearchKey.Contains(term));
         }
 
         return query;
