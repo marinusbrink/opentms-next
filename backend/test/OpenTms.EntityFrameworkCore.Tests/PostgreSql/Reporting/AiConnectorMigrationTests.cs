@@ -84,7 +84,9 @@ public class AiConnectorMigrationTests : ReferenceDataPostgreSqlTestBase
             orders.Last().ShouldBe(AiConnectorMigrationConsts.OrdersCustomerRevenueCoveringIndex, "the newest Orders migration");
 
             var planning = await AppliedAsync<PlanningExecutionDbContext>();
-            planning.Last().ShouldBe(AiConnectorMigrationConsts.PlanningRepairIndexes, "the newest Planning migration");
+            /* The leg search migration follows it, the newest Planning migration (checked by its own test). */
+            planning.IndexOf(OpenTms.PostgreSql.PlanningExecution.PlanningLegSearchKeyMigrationTests.Migration).ShouldBe(planning.IndexOf(AiConnectorMigrationConsts.PlanningRepairIndexes) + 1);
+            planning.Last().ShouldBe(OpenTms.PostgreSql.PlanningExecution.PlanningLegSearchKeyMigrationTests.Migration, "the newest Planning migration");
 
             var reporting = await AppliedAsync<ReportingDbContext>();
             reporting.Last().ShouldBe(AiConnectorMigrationConsts.ReportingMetricFacts, "the newest Reporting migration");
