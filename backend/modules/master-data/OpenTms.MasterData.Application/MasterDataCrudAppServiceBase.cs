@@ -86,11 +86,7 @@ public abstract class MasterDataCrudAppServiceBase<TEntity, TRowDto, TDto, TCrea
         var totalCount = await AsyncExecuter.LongCountAsync(filtered);
         var filteredCount = term == null ? totalCount : await AsyncExecuter.LongCountAsync(searched);
 
-        var page = ApplySort(searched, input.SortBy, input.Descending)
-            .Skip(input.StartRow)
-            .Take(input.EndRow - input.StartRow);
-
-        var entities = await AsyncExecuter.ToListAsync(page);
+        var entities = await GetPageAsync(searched, input);
 
         return new GridResponse<TRowDto>
         {
@@ -99,6 +95,15 @@ public abstract class MasterDataCrudAppServiceBase<TEntity, TRowDto, TDto, TCrea
             FilteredCount = filteredCount
         };
     }
+
+    /// <summary>
+    /// The rows of one page of the list: <see cref="ApplySort"/>, then the page's slice. A service overrides it for a sort
+    /// that a single ordered query serves badly (the code list's sort by product name).
+    /// </summary>
+    protected virtual Task<List<TEntity>> GetPageAsync(IQueryable<TEntity> searched, TListRequest input)
+        => AsyncExecuter.ToListAsync(ApplySort(searched, input.SortBy, input.Descending)
+            .Skip(input.StartRow)
+            .Take(input.EndRow - input.StartRow));
 
     protected async Task<TDto> GetInternalAsync(Guid id)
     {

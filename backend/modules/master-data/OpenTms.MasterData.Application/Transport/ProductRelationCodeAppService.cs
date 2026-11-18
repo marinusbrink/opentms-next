@@ -20,6 +20,7 @@ public class ProductRelationCodeAppService
     : MasterDataCrudAppServiceBase<ProductRelationCode, ProductRelationCodeRowDto, ProductRelationCodeDto, ProductRelationCodeCreateDto, ProductRelationCodeUpdateDto, ArchivableListRequestDto>,
       IProductRelationCodeAppService
 {
+    private readonly IProductRelationCodeRepository _codes;
     private readonly IRepository<Relation, Guid> _relations;
     private readonly IRepository<RelationAddress, Guid> _addresses;
     private readonly IRepository<AddressType, Guid> _addressTypes;
@@ -37,7 +38,7 @@ public class ProductRelationCodeAppService
     private List<Guid> _termProductIds = [];
 
     public ProductRelationCodeAppService(
-        IRepository<ProductRelationCode, Guid> repository,
+        IProductRelationCodeRepository repository,
         IRepository<Relation, Guid> relations,
         IRepository<RelationAddress, Guid> addresses,
         IRepository<AddressType, Guid> addressTypes,
@@ -45,6 +46,7 @@ public class ProductRelationCodeAppService
         IRepository<TransportUnit, Guid> transportUnits)
         : base(repository)
     {
+        _codes = repository;
         _relations = relations;
         _addresses = addresses;
         _addressTypes = addressTypes;
@@ -170,6 +172,12 @@ public class ProductRelationCodeAppService
             (hasKey && c.RelationId != null && relations.Any(r => r.Id == c.RelationId && r.SearchKey.Contains(key))) ||
             (c.ProductId != null && products.Any(p => p.Id == c.ProductId && p.Name.ToLower().Contains(term))));
     }
+
+    /// <summary>The sort by product name pages through the repository (one product's codes at a time); the others as usual.</summary>
+    protected override Task<List<ProductRelationCode>> GetPageAsync(IQueryable<ProductRelationCode> searched, ArchivableListRequestDto input)
+        => string.Equals(input.SortBy, "productName", StringComparison.OrdinalIgnoreCase) && _productQuery != null
+            ? _codes.GetPageByProductNameAsync(searched, _productQuery, input.StartRow, input.EndRow - input.StartRow, input.Descending)
+            : base.GetPageAsync(searched, input);
 
     protected override IOrderedQueryable<ProductRelationCode> ApplySort(IQueryable<ProductRelationCode> query, string? sortBy, bool descending)
     {

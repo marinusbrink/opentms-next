@@ -40,9 +40,9 @@ public class MasterDataCostPricePerKmMigrationTests : MasterDataPostgreSqlTestBa
         {
             var context = await _contextProvider.GetDbContextAsync();
             var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-            /* Design 72 adds the Relations (TenantId, Email) index right after it, the newest Master Data migration. */
+            /* Design 72 adds the Relations (TenantId, Email) index right after it; the code list's product-name index is the newest. */
             applied.IndexOf(MasterDataRelationEmailIndexMigrationTests.Migration).ShouldBe(applied.IndexOf(Migration) + 1);
-            applied.Last().ShouldBe(MasterDataRelationEmailIndexMigrationTests.Migration);
+            applied.Last().ShouldBe(MasterDataCodeProductNameIndexMigrationTests.Migration);
             applied.IndexOf(Migration).ShouldBe(applied.IndexOf(PreviousMigration) + 1);
             (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
             context.Database.HasPendingModelChanges().ShouldBeFalse();

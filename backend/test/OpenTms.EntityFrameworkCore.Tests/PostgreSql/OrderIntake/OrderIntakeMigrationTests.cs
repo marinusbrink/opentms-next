@@ -164,7 +164,8 @@ namespace OpenTms.PostgreSql.MasterData
 {
     /// <summary>
     /// The MasterDataRelationEmailIndex migration (design 72 build note 5: the (TenantId, Email) index the match query uses):
-    /// applied last on the host and a tenant database, nothing pending; Up only creates the index, Down only drops it.
+    /// applied on the host and a tenant database and followed by MasterDataCodeProductNameIndex, nothing pending; Up only creates
+    /// the index, Down only drops it.
     /// Risk class: High (migration).
     /// </summary>
     [Collection(PostgreSqlTestCollection.Name)]
@@ -175,13 +176,14 @@ namespace OpenTms.PostgreSql.MasterData
         [Theory]
         [InlineData(null)]
         [InlineData("tenant-a")]
-        public async Task The_migration_is_the_newest_and_nothing_is_pending(string? tenant)
+        public async Task The_migration_is_followed_by_the_code_product_name_index_and_nothing_is_pending(string? tenant)
         {
             await InRolledBackTransactionAsync(tenant == null ? null : TenantA, async () =>
             {
                 var context = await GetRequiredService<IDbContextProvider<MasterDataDbContext>>().GetDbContextAsync();
                 var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
-                applied.Last().ShouldBe(Migration);
+                /* The code list's product-name index came right after it; the newest one is checked by its own test. */
+                applied[applied.IndexOf(Migration) + 1].ShouldBe(MasterDataCodeProductNameIndexMigrationTests.Migration);
                 (await context.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
                 context.Database.HasPendingModelChanges().ShouldBeFalse();
             });
