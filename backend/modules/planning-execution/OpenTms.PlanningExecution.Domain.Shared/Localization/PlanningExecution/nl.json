@@ -604,6 +604,11 @@
     "Planboard:Scheduler.LegsAlreadyOnTrip": "Deze legs staan al op rit {0}",
     "Planboard:Scheduler.ConfirmBlockTitle": "Rit aanmaken op een niet-beschikbare tijd",
     "Planboard:Scheduler.ConfirmBlockQuestion": "De rit toch aanmaken?",
-    "Planboard:Scheduler.CreateAnyway": "Toch aanmaken"
+    "Planboard:Scheduler.CreateAnyway": "Toch aanmaken",
+    "Planboard:Optimistic.FailedToUpdate": "Rit bijwerken mislukt — uw wijzigingen zijn teruggedraaid.",
+    "Planboard:Optimistic.StaleStamp": "Kon niet toewijzen — er is een andere wijziging, probeer het opnieuw.",
+    "Planboard:Optimistic.LegsStuck": "Een of meer ritten konden niet worden verplaatst.",
+    "Planboard:Optimistic.DropHereToUnassign": "Hier neerzetten om toe te wijs ongedaan te maken",
+    "Planboard:Lists.UnassignDrop": "Ritgedeelte van rit verwijderen"
   }
 }

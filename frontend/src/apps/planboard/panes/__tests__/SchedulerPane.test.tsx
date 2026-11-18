@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,7 +60,7 @@ vi.mock("@/apps/planboard/panes/scheduler/CreateTripDialog", () => ({
 
 import { toast } from "sonner";
 import { DND_DRIVER, DND_LEGS, DND_ORDER, DND_TRIP } from "@/apps/planboard/dnd";
-import { LEG_OUTSIDE_TRIP_WINDOW } from "@/apps/planboard/outside-window";
+import { PlanboardOptimisticStateProvider } from "@/apps/planboard/optimistic-state";
 import SchedulerPane from "@/apps/planboard/panes/SchedulerPane";
 import { PlanboardSelectionProvider, usePlanboardSelection } from "@/apps/planboard/selection";
 import { fail, stubGlobals } from "@/apps/transport/__tests__/transport-test-mocks";
@@ -74,7 +75,6 @@ const MOVE_LEGS = "/api/planning/transport-trip/{id}/move-legs";
 const DRIVER = "/api/planning/planboard/{id}/driver";
 const CREATE = "/api/planning/planboard/trip";
 const RESCHEDULE = "/api/planning/planboard/{id}/reschedule";
-const TRIP = "/api/planning/transport-trip/{id}";
 const PREVIEW = "/api/planning/planboard/{id}/assign-order-preview";
 const ASSIGN_ORDER = "/api/planning/planboard/{id}/assign-order";
 const TYPES = "/api/planning/transport-trip-type/lookup";
@@ -112,10 +112,12 @@ async function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PlanboardSelectionProvider>
-        <SelectionProbe />
-        <SchedulerPane instanceId="s1" type="scheduler" />
-      </PlanboardSelectionProvider>
+      <PlanboardOptimisticStateProvider>
+        <PlanboardSelectionProvider>
+          <SelectionProbe />
+          <SchedulerPane instanceId="s1" type="scheduler" />
+        </PlanboardSelectionProvider>
+      </PlanboardOptimisticStateProvider>
     </QueryClientProvider>,
   );
   await screen.findByTestId("scheduler");
@@ -131,7 +133,6 @@ const onBar = (tripId: string, rowId = "r1") => `${tripId}::${rowId}`;
 const stampOf = (tripId: string) => scheduler.props().events.find((event) => event.id.startsWith(`${tripId}::`))?.data?.bar.concurrencyStamp;
 
 const conflict = () => ({ data: undefined, error: { error: { message: "Stale" } }, response: new Response(null, { status: 409 }) });
-const outsideWindow = () => ({ data: undefined, error: { error: { code: LEG_OUTSIDE_TRIP_WINDOW, message: "Outside the window" } }, response: new Response(null, { status: 403 }) });
 const notice = (targetId: string, status: number | null, hints?: unknown) => ({ targetType: "trip", targetId, version: 1, status, hints });
 
 const barReads = () => calls(GET, BARS);
@@ -268,58 +269,50 @@ describe("SchedulerPane: a drop that cannot proceed says why", () => {
 });
 
 describe("SchedulerPane: on a bar", () => {
-  it("legs: assigned with the bar's stamp; the bar takes the answer's stamp and is not refetched", async () => {
+  it("legs: assigned with the bar's stamp and allowOutsideWindow=true; bar refetch deferred to SignalR", async () => {
     await show();
     await drop("r1", CELL, legsDrag(), onBar("t1"));
-    expect(lastCall(POST, ASSIGN_LEGS)).toMatchObject({ params: { path: { id: "t1" } }, body: { legIds: ["l1", "l2"], concurrencyStamp: "stamp-t1", allowOutsideWindow: false } });
+    /* Design 75: optimistic assign always passes allowOutsideWindow=true; backend sets warning code when outside window. */
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
+    expect(lastCall(POST, ASSIGN_LEGS)).toMatchObject({ params: { path: { id: "t1" } }, body: { legIds: ["l1", "l2"], concurrencyStamp: "stamp-t1", allowOutsideWindow: true } });
     expect(toast.success).toHaveBeenCalledWith("Planboard:Scheduler.LegsAssigned");
-    await waitFor(() => expect(stampOf("t1")).toBe("after-assign"));
     expect(barReads()).toHaveLength(0);
     expect(calls(POST, CREATE)).toHaveLength(0);
   });
 
   it("a stale stamp is retried once with the fresh one, without a word", async () => {
-    routes.GET[TRIP] = () => ({ id: "t1", concurrencyStamp: "fresh" });
+    /* Design 75: the queue fetches a fresh stamp from the BARS endpoint (not the trip endpoint) on 409. */
+    routes.GET[BARS] = (init) => ({ bars: ((init!.params!.query as { Ids: string[] }).Ids ?? []).map((id) => bar(id, { concurrencyStamp: "fresh" })), names: {} });
     routes.POST[ASSIGN_LEGS] = (init) => ((init!.body as { concurrencyStamp: string }).concurrencyStamp === "fresh" ? { id: "t1", concurrencyStamp: "after-assign" } : conflict());
     await show();
     await drop("r1", CELL, legsDrag(), onBar("t1"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(2));
     expect(calls(POST, ASSIGN_LEGS).map(([, init]) => (init!.body as { concurrencyStamp: string }).concurrencyStamp)).toEqual(["stamp-t1", "fresh"]);
     expect(toast.error).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledTimes(1);
   });
 
-  it("stale on the retry too: the message, and the bar is read again", async () => {
-    routes.GET[TRIP] = () => ({ id: "t1", concurrencyStamp: "fresh" });
+  it("stale on the retry too: the message, no extra bar refetch (queue rolls back)", async () => {
+    /* Design 75: on second 409 the queue rolls back; it reads BARS once for the stamp refresh, but the
+     * SchedulerPane itself does not trigger an extra bar refetch after rollback. */
     routes.POST[ASSIGN_LEGS] = () => conflict();
     await show();
     await drop("r1", CELL, legsDrag(), onBar("t1"));
-    expect(calls(POST, ASSIGN_LEGS)).toHaveLength(2);
-    expect(toast.error).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(2));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    /* 1 = the queue's own stamp-refresh fetch; SchedulerPane adds no additional refetch. */
     expect(barReads()).toHaveLength(1);
   });
 
-  it("outside the trip's window: asks; confirming retries with allowOutsideWindow", async () => {
-    routes.POST[ASSIGN_LEGS] = (init) => ((init!.body as { allowOutsideWindow: boolean }).allowOutsideWindow ? { id: "t1", concurrencyStamp: "after" } : outsideWindow());
+  it("outside the trip's window: assigned without a dialog; backend sets warning code (no outside-window refusal)", async () => {
+    /* Design 75: allowOutsideWindow=true is always passed for unplanned legs; backend accepts the drop and
+     * writes a warning code. The outside-window dialog is not shown. */
     await show();
     await drop("r1", CELL, legsDrag(), onBar("t1"));
-    const dialog = await screen.findByRole("alertdialog");
-    expect(dialog.textContent).toContain("Outside the window");
-    const confirm = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent !== "Cancel")!;
-    await act(async () => void fireEvent.click(confirm));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Planboard:Scheduler.LegsAssigned"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
     expect(lastCall(POST, ASSIGN_LEGS)!.body).toMatchObject({ allowOutsideWindow: true });
-  });
-
-  it("outside the window, cancelled: nothing more and no toast", async () => {
-    routes.POST[ASSIGN_LEGS] = () => outsideWindow();
-    await show();
-    await drop("r1", CELL, legsDrag(), onBar("t1"));
-    await screen.findByRole("alertdialog");
-    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Cancel" })));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1);
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(toast.success).toHaveBeenCalledWith("Planboard:Scheduler.LegsAssigned");
   });
 
   it("legs from another trip move, they are not assigned", async () => {
@@ -330,12 +323,14 @@ describe("SchedulerPane: on a bar", () => {
     expect(toast.success).toHaveBeenCalledWith("Planboard:Scheduler.LegsAssigned");
   });
 
-  it("a refused assign shows the reason and reads the bar again", async () => {
+  it("a refused assign shows the reason; queue rolls back, no extra bar read", async () => {
+    /* Design 75: on server error the queue rolls back the optimistic state and shows a toast.
+     * No bar refetch: the bar's pre-assign state is restored by the rollback. */
     routes.POST[ASSIGN_LEGS] = () => fail("Trip is locked");
     await show();
     await drop("r1", CELL, legsDrag(), onBar("t1"));
-    expect(toast.error).toHaveBeenCalledWith("Trip is locked");
-    expect(barReads()).toHaveLength(1);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Trip is locked"));
+    expect(barReads()).toHaveLength(0);
   });
 
   it("a driver: added with the bar's stamp", async () => {
@@ -471,9 +466,11 @@ describe("SchedulerPane: on an empty cell", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <PlanboardSelectionProvider>
-          <SchedulerPane instanceId="s1" type="scheduler" />
-        </PlanboardSelectionProvider>
+        <PlanboardOptimisticStateProvider>
+          <PlanboardSelectionProvider>
+            <SchedulerPane instanceId="s1" type="scheduler" />
+          </PlanboardSelectionProvider>
+        </PlanboardOptimisticStateProvider>
       </QueryClientProvider>,
     );
     await screen.findByTestId("scheduler");
@@ -611,6 +608,25 @@ describe("SchedulerPane: the work after a command (design 74 §9)", () => {
     await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
   });
 
+  it("a notice for an optimistic-queue trip is deferred until the queue drains, then applied (design 75 §A — High risk)", async () => {
+    /* Design 75 risk analysis: "Another planner's live update during in-flight save: ignored for in-flight trip, applied to
+     * other trips; after queue drains, server state wins — High risk — Vitest: concurrent recordUpdated mock and queued
+     * commands". The SchedulerPane defers via processingRef / deferred.current; the useEffect on processingTripIds flushes. */
+    let release: (value: unknown) => void = () => undefined;
+    routes.POST[ASSIGN_LEGS] = () => new Promise((resolve) => { release = resolve; });
+    await show();
+    /* Drop unplanned legs on t1 — optimistic assign; enqueueAssign starts the command queue, processingTripIds gets t1. */
+    await drop("r1", CELL, legsDrag(), onBar("t1"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
+    /* A live notice arrives for t1 while the queue is active — the pane must defer it, not refetch immediately. */
+    await notify(notice("t1", 2));
+    expect(barReads()).toHaveLength(0);
+    /* Queue drains — command succeeds; processingTripIds removes t1; the useEffect flushes the deferred notice. */
+    await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
+    await waitFor(() => expect(barReads()).toHaveLength(1));
+    expect(barReads()[0][1]!.params!.query).toMatchObject({ Ids: ["t1"] });
+  });
+
   it("a notice during a move waits too, and a move that succeeds reads nothing itself", async () => {
     let release: (value: unknown) => void = () => undefined;
     routes.POST[RESCHEDULE] = () => new Promise((resolve) => (release = resolve));
@@ -645,5 +661,44 @@ describe("SchedulerPane: the work after a command (design 74 §9)", () => {
     await act(async () => live.availability.onIds([], []));
     await waitFor(() => expect(calls(GET, PAGE).length).toBe(pageReads + 1));
     expect(barReads()).toHaveLength(0);
+  });
+
+  it("CalculatingIndicator appears at drop and clears after UpToDate notice (design 75 §D — Medium risk)", async () => {
+    /* Design 75 risk analysis: "CalculatingIndicator shown immediately on drop (before server response), clears after
+     * SignalR push — Medium risk — Vitest: mock hub; assert indicator on before server response; assert indicator off
+     * after recordUpdated push." The optimistic assign sets pendingValues → calculationFor returns Pending →
+     * BarContent renders CalculatingIndicator (role="status"). clearPendingValue must be called by the UpToDate
+     * handler, removing the trip from pendingValues → BarContent renders nothing. */
+    let release: (value: unknown) => void = () => undefined;
+    routes.POST[ASSIGN_LEGS] = () => new Promise((resolve) => { release = resolve; });
+
+    await show();
+
+    // Drop legs on t1 bar: optimistic assign fires synchronously; server response is deferred.
+    await drop("r1", CELL, legsDrag(), onBar("t1"));
+    await waitFor(() => expect(calls(POST, ASSIGN_LEGS)).toHaveLength(1));
+
+    // Render the bar's eventContent and check the CalculatingIndicator is in the DOM.
+    type BarEventArg = { id: string; title: string; data: { bar: { id: string; concurrencyStamp: string; status: number; plannedDeparture: string; plannedArrival: string; vehicleIds: string[]; driverIds: string[] }; tripId: string; rowId: string } };
+    const renderEventIndicator = (): Element | null => {
+      const ec = (scheduler.current as unknown as { eventContent: (e: BarEventArg) => ReactNode }).eventContent;
+      const event: BarEventArg = { id: "t1::r1", title: "t1", data: { bar: bar("t1"), tripId: "t1", rowId: "r1" } };
+      const { container, unmount } = render(<>{ec(event)}</>);
+      const el = container.querySelector('[role="status"]');
+      unmount();
+      return el;
+    };
+
+    // Before UpToDate: pendingValues has t1 → CalculatingIndicator on.
+    expect(renderEventIndicator()).not.toBeNull();
+
+    // UpToDate notice arrives; clearPendingValue("t1") removes t1 from pendingValues.
+    await act(async () => live.trip.onIds([], [notice("t1", 2)]));
+
+    // After clearPendingValue: pendingValues no longer has t1 → CalculatingIndicator off.
+    await waitFor(() => expect(renderEventIndicator()).toBeNull());
+
+    // Let the assign complete so the queue doesn't stay open.
+    await act(async () => release({ id: "t1", concurrencyStamp: "after-assign" }));
   });
 });

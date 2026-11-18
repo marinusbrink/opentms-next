@@ -604,6 +604,11 @@
     "Planboard:Scheduler.LegsAlreadyOnTrip": "These legs are on trip {0} already",
     "Planboard:Scheduler.ConfirmBlockTitle": "Create trip on an unavailable time",
     "Planboard:Scheduler.ConfirmBlockQuestion": "Create the trip anyway?",
-    "Planboard:Scheduler.CreateAnyway": "Create anyway"
+    "Planboard:Scheduler.CreateAnyway": "Create anyway",
+    "Planboard:Optimistic.FailedToUpdate": "Failed to update trip — your changes have been reverted.",
+    "Planboard:Optimistic.StaleStamp": "Could not assign — another change happened, please try again.",
+    "Planboard:Optimistic.LegsStuck": "One or more legs could not be moved.",
+    "Planboard:Optimistic.DropHereToUnassign": "Drop here to unassign",
+    "Planboard:Lists.UnassignDrop": "Unassign leg from trip"
   }
 }

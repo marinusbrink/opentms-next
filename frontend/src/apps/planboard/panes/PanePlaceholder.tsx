@@ -1,9 +1,10 @@
-import { PLANBOARD_PANES, type PlanboardPaneProps } from "@/apps/planboard/panes/registry";
+import { isPlanboardPaneType, PLANBOARD_PANES, type PlanboardPaneProps } from "@/apps/planboard/panes/registry";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 
 /* The stand-in content of a pane until its design-70 implementation lands: the pane's title on an empty surface. */
 export function PanePlaceholder({ type }: PlanboardPaneProps) {
   const { t } = useL();
+  if (!isPlanboardPaneType(type)) return null;
   const pane = PLANBOARD_PANES[type];
   const Icon = pane.icon;
   return (
