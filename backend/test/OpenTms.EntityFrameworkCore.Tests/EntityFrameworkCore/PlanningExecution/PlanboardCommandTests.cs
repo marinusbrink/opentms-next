@@ -455,6 +455,7 @@ public class PlanboardCommandTests : PlanboardTestBase
             await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.AddDriverAsync(trip.Id, new PlanboardAddDriverDto { DriverId = f.Driver2, ConcurrencyStamp = stamp }));
             await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.SetFieldAsync(trip.Id, new PlanboardUpdateFieldDto { Field = PlanboardTripField.Name, Value = "x", ConcurrencyStamp = stamp }));
             await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.AssignLegsAsync(trip.Id, new PlanboardLegsDto { LegIds = [leg], ConcurrencyStamp = stamp }));
+            await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.UnassignLegsAsync(trip.Id, new PlanboardLegsDto { LegIds = [leg], ConcurrencyStamp = stamp }));
             await Should.ThrowAsync<EntityNotFoundException>(() => Planboard.CompleteAsync(trip.Id, new PlanboardCompleteDto { ActualDeparture = At(6), ActualArrival = At(9), ConcurrencyStamp = stamp }));
 
             /* A trip of tenant B cannot take tenant A's legs or resources either. */

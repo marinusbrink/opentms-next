@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { isCancelledOutcome, useOutsideWindowConfirm } from "@/apps/planboard/outside-window";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { usePlanboardOptimisticState } from "@/apps/planboard/optimistic-state";
 import { pulledTripIds } from "@/apps/planboard/order-drop-model";
 import { useOrderDrop } from "@/apps/planboard/order-drop";
 import { lower, ROW_DROP_CLASS, useGridApiCapture, useRowDropTarget } from "@/apps/planboard/panes/lists/grid-helpers";
@@ -32,7 +33,6 @@ import {
   fetchPlanboardTripsByIds,
   PLANBOARD_TRIP_FIELD,
   useAddTripDriver,
-  useAssignLegsToTrip,
   useMoveLegsToTrip,
   useOptimizeTripStops,
   useSetTripField,
@@ -54,7 +54,7 @@ import { useIsGranted } from "@/lib/auth/permissions";
 import { useFormat } from "@/lib/format";
 import { useL } from "@/lib/i18n/LocalizationProvider";
 import { DerivedValueStatus } from "@/lib/realtime/record-updates";
-import { useDerivedValueStates, useRecordUpdates } from "@/lib/realtime/use-record-updates";
+import { useDerivedValueStates, useRecordUpdates, type DerivedValueState } from "@/lib/realtime/use-record-updates";
 
 /* Design 70, "Transport trips": the trips of the board's range and organisation units (or the pane's own, "Use board
  * filter" off) in a server-side OpenTmsGrid. Inline edit of the name, remarks and driver instructions (the Planboard's
@@ -191,7 +191,13 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
 
   /* Derived values (totals, CO₂, warnings) arrive per record (flow 2): show the indicator, patch the row when done. */
   const states = useDerivedValueStates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds);
-  useRecordUpdates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds, { queryKeysFor: () => [], onUpdate: (message) => message.status !== DerivedValueStatus.Pending && void refreshTrips([message.targetId]) });
+  useRecordUpdates(TRANSPORT_TRIP_TARGET_TYPE, visibleIds, {
+    queryKeysFor: () => [],
+    onUpdate: (message) => {
+      if (message.status === DerivedValueStatus.UpToDate) clearPendingValue(message.targetId);
+      if (message.status !== DerivedValueStatus.Pending) void refreshTrips([message.targetId]);
+    },
+  });
 
   /* The selection bus → the grid: a trip selected elsewhere (a Scheduler bar, the map) is selected here too. */
   useEffect(() => {
@@ -225,7 +231,7 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
   );
 
   const { mutateAsync: setFieldAsync } = useSetTripField();
-  const assignLegs = useAssignLegsToTrip();
+  const { state: optimisticState, enqueueAssign, clearPendingValue } = usePlanboardOptimisticState();
   const moveLegs = useMoveLegsToTrip();
   const addDriver = useAddTripDriver();
   const optimize = useOptimizeTripStops();
@@ -271,7 +277,9 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
             [rowId, fromTripId],
           );
         } else {
-          void run(() => outsideWindow.run((allowOutsideWindow) => assignLegs.mutateAsync({ tripId: rowId, legIds: payload.legIds, allowOutsideWindow, concurrencyStamp: target?.concurrencyStamp })), "Planboard:Lists.LegsAssigned", [rowId]);
+          /* Unplanned legs: optimistic assign (design 75). allowOutsideWindow=true always; backend sets warning code. */
+          enqueueAssign({ tripId: rowId, legIds: payload.legIds, concurrencyStamp: target?.concurrencyStamp ?? "" });
+          toast.success(t("Planboard:Lists.LegsAssigned"));
         }
       } else if (payload.kind === "driver") {
         void run(() => addDriver.mutateAsync({ tripId: rowId, driverId: payload.driverId, concurrencyStamp: target?.concurrencyStamp }), "Planboard:Lists.DriverAdded", [rowId]);
@@ -283,7 +291,17 @@ export default function TripsPane({ instanceId }: PlanboardPaneProps) {
     },
   });
 
-  const calculating = useCallback((id: string | undefined) => (id ? states.data?.get(id.toLowerCase()) : undefined), [states.data]);
+  /** Design 75: show Pending whenever the server calculation is pending OR the trip has an optimistic command in-flight. */
+  const calculating = useCallback(
+    (id: string | undefined): DerivedValueState | undefined => {
+      if (!id) return undefined;
+      const server = states.data?.get(id.toLowerCase());
+      if (server) return server;
+      if (optimisticState.pendingValues.has(id.toLowerCase())) return { status: DerivedValueStatus.Pending } as DerivedValueState;
+      return undefined;
+    },
+    [states.data, optimisticState.pendingValues],
+  );
 
   const columns = useMemo<ColDef<TransportTripRow>[]>(() => {
     const derived = (field: keyof TransportTripRow, headerName: string, cell: (value: number | null | undefined) => unknown, extra: Partial<ColDef<TransportTripRow>> = {}): ColDef<TransportTripRow> => ({

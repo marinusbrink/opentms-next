@@ -4,6 +4,8 @@ import type { ColDef } from "ag-grid-community";
 import { Pencil, Split, Unlink } from "lucide-react";
 import { toast } from "sonner";
 
+import { usePlanboardOptimisticState } from "@/apps/planboard/optimistic-state";
+
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
 import { DRAG_COLUMN, lower } from "@/apps/planboard/panes/lists/grid-helpers";
 import { DragHandleCell } from "@/apps/planboard/panes/lists/grid-support";
@@ -18,7 +20,6 @@ import { LazyOpenTmsGrid } from "@/components/ui/opentms-grid-lazy";
 import { PermissionDenied } from "@/components/ui/permission-denied";
 import { Skeleton } from "@/components/ui/skeleton";
 import { legEndLabel, legKeys, useLegsOfTrip, type LegDto } from "@/domains/planning-execution/legs";
-import { useUnassignLegsFromTrip } from "@/domains/planning-execution/planboard-lists";
 import { transportTripKeys, useCarryOutSeparately } from "@/domains/planning-execution/trips";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { useIsGranted } from "@/lib/auth/permissions";
@@ -74,8 +75,8 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
   const canUpdate = useIsGranted("PlanningExecution.Legs.Update");
   const canAssign = useIsGranted("PlanningExecution.TransportTrips.AssignLegs");
   const canManageStops = useIsGranted("PlanningExecution.TransportTrips.ManageStops");
-  const unassign = useUnassignLegsFromTrip();
   const carryOut = useCarryOutSeparately();
+  const { enqueueUnassign } = usePlanboardOptimisticState();
   /* Read by the drag handle when a drag starts (a ref, so a selection change does not rebuild the columns). */
   const selectedIds = useRef<string[]>([]);
   const [editing, setEditing] = useState<LegDto | null>(null);
@@ -155,9 +156,16 @@ function LegsGrid({ tripId, legs }: { tripId: string; legs: LegDto[] }) {
       ...(canManageStops
         ? [{ id: "separately", labelKey: "PlanningExecution:CarryOutSeparately", icon: Split, disabled: leg.isCarriedOutSeparately === true, disabledReasonKey: "PlanningExecution:AlreadySeparate", onClick: () => void run(carryOut.mutateAsync({ id: tripId, legId: leg.id! }), "PlanningExecution:TransportTripSaved") }]
         : []),
-      /* Reversible (the legs return to Legs to schedule): no confirmation, no destructive styling (UI-ACT-005). */
+      /* Reversible (the legs return to Legs to schedule): no confirmation, no destructive styling (UI-ACT-005).
+       * Uses the optimistic command queue (design 75): state is reversed immediately at pointer-up. */
       ...(canAssign
-        ? [{ id: "unassign", labelKey: "PlanningExecution:UnassignLegs", icon: Unlink, multi: true, onClick: () => void run(unassign.mutateAsync({ tripId, legIds: rows.map((r) => r.id!).filter(Boolean) }), "PlanningExecution:LegsUnassigned") }]
+        ? [{
+            id: "unassign", labelKey: "PlanningExecution:UnassignLegs", icon: Unlink, multi: true,
+            onClick: () => {
+              const legIds = rows.map((r) => r.id!).filter(Boolean);
+              enqueueUnassign({ tripId, legIds, concurrencyStamp: "", legData: rows });
+            },
+          }]
         : []),
     ];
   };

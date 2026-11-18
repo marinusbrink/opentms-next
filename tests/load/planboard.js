@@ -26,7 +26,13 @@ const endpoints = ["scheduler", "trips", "legs", "legGroups", "orders", "mapTrip
 
 export const options = {
   scenarios: { planners: { executor: "constant-vus", vus: 10, duration: "2m" } },
-  thresholds: Object.fromEntries(endpoints.map((ep) => [`http_req_duration{ep:${ep}}`, ["p(95)<200"]])),
+  thresholds: {
+    ...Object.fromEntries(endpoints.map((ep) => [`http_req_duration{ep:${ep}}`, ["p(95)<200"]])),
+    // Design 75: assign-legs mutation budget (p95 < 500 ms per mutation response).
+    // Note: the full chain (POST response → DerivedValuesRecalculatedEto at the SignalR hub) requires WebSocket
+    // protocol support in k6; that chain metric is deferred. Set TRIP_ID, LEG_ID and STAMP env vars to enable.
+    "http_req_duration{ep:assignLegs}": ["p(95)<500"],
+  },
 };
 
 function get(ep, path) {
@@ -51,6 +57,21 @@ export default function () {
     const tripId = __ENV.TRIP_ID || (trips.status === 200 ? (trips.json("rows") || [])[0]?.id : undefined);
     if (tripId) {
       get("tripMap", `/api/planning/planboard/${tripId}/map`);
+    }
+  });
+
+  // Design 75: measure assign-legs command latency. Run with -e TRIP_ID=<id> -e LEG_ID=<id> -e STAMP=<stamp>.
+  group("mutations", () => {
+    const tripId = __ENV.TRIP_ID;
+    const legId = __ENV.LEG_ID;
+    const stamp = __ENV.STAMP;
+    if (tripId && legId && stamp) {
+      const res = http.post(
+        `${BASE}/api/planning/planboard/${tripId}/assign-legs`,
+        JSON.stringify({ legIds: [legId], concurrencyStamp: stamp, allowOutsideWindow: true }),
+        { ...params, headers: { ...params.headers, "Content-Type": "application/json" }, tags: { ep: "assignLegs" } },
+      );
+      check(res, { "assignLegs 2xx": (r) => r.status >= 200 && r.status < 300 });
     }
   });
 

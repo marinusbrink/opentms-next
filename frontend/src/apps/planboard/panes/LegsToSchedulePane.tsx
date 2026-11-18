@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { CornerUpLeft, ListTree, MapPinPlus, Split } from "lucide-react";
 import { toast } from "sonner";
 
+import { planboardDragKind, readDragPayload, DND_LEGS } from "@/apps/planboard/dnd";
 import { usePaneFilters } from "@/apps/planboard/filters";
 import { MAX_DRAGGED_LEGS } from "@/apps/planboard/dnd";
 import { PLANBOARD_RECORD_TYPES, usePlanboardLiveUpdates } from "@/apps/planboard/live-updates";
+import { usePlanboardOptimisticState } from "@/apps/planboard/optimistic-state";
 import { DRAG_COLUMN, lower, useGridApiCapture } from "@/apps/planboard/panes/lists/grid-helpers";
 import { DragHandleCell } from "@/apps/planboard/panes/lists/grid-support";
 import { PaneFilterBar } from "@/apps/planboard/panes/lists/PaneFilterBar";
@@ -23,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ManageLegsDialog } from "@/domains/planning-execution/components/ManageLegsDialog";
 import { SplitLegDialog } from "@/domains/planning-execution/components/SplitLegDialog";
 import { SplitLineDialog } from "@/domains/planning-execution/components/SplitLineDialog";
-import { fetchLegs, legEndLabel, type LegDto } from "@/domains/planning-execution/legs";
+import { fetchLegs, legEndLabel, legKeys, type LegDto } from "@/domains/planning-execution/legs";
 import {
   fetchUnplannedLegGroups,
   fetchUnplannedLegs,
@@ -71,6 +74,7 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   const f = useFormat();
   const openRecord = useOpenRecord();
   const selection = usePlanboardSelection();
+  const queryClient = useQueryClient();
   const canView = useIsGranted("PlanningExecution.Legs");
   const canUpdate = useIsGranted("PlanningExecution.Legs.Update");
   const canDrag = useIsGranted("PlanningExecution.TransportTrips.AssignLegs");
@@ -84,6 +88,11 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   const [splitting, setSplitting] = useState<LegDto | null>(null);
   const [splittingAt, setSplittingAt] = useState<LegDto | null>(null);
   const [managing, setManaging] = useState<LegDto | null>(null);
+
+  const { state: optimisticState, enqueueUnassign } = usePlanboardOptimisticState();
+  /** Whether an assigned-leg drag is in progress over this pane (shows the drop zone). */
+  const [dropActive, setDropActive] = useState(false);
+  const dragEnterCount = useRef(0);
 
   const filters = useMemo<PlanboardListFilters>(
     () => ({ from: paneFilters.filters.range.from, till: paneFilters.filters.range.till, organizationUnitIds: paneFilters.filters.organizationUnitIds }),
@@ -161,6 +170,86 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   );
 
   const knownIds = useMemo(() => ({ has: (id: string) => rows.current.has(id) }), []);
+
+  /* Apply optimistic assign removals: when a leg is added to a trip optimistically, remove it from this pane. */
+  useEffect(() => {
+    const api = grid.current();
+    if (!api) return;
+    const toRemove: LegRow[] = [];
+    for (const legIds of optimisticState.assignedLegs.values()) {
+      for (const id of legIds) {
+        const row = rows.current.get(lower(id));
+        if (row) toRemove.push(row);
+      }
+    }
+    if (toRemove.length === 0) return;
+    toRemove.forEach((row) => rows.current.delete(lower(row.id)));
+    api.applyServerSideTransaction({ remove: toRemove });
+  }, [optimisticState.assignedLegs, grid]);
+
+  /* Apply optimistic unassign additions: when a leg is unassigned optimistically and its data is known, add it. */
+  const addedOptimisticLegIds = useRef(new Set<string>());
+  useEffect(() => {
+    const api = grid.current();
+    if (!api || groupBy) return;
+    const toAdd: LegRow[] = [];
+    for (const [legId, leg] of optimisticState.pendingLegData) {
+      if (!rows.current.has(legId) && !addedOptimisticLegIds.current.has(legId)) {
+        const row: LegRow = { ...leg, display: leg.orderNumber ?? "" };
+        toAdd.push(row);
+      }
+    }
+    if (toAdd.length === 0) return;
+    toAdd.forEach((row) => {
+      const id = lower(row.id ?? "");
+      if (id) {
+        rows.current.set(id, row);
+        addedOptimisticLegIds.current.add(id);
+      }
+    });
+    api.applyServerSideTransaction({ add: toAdd });
+  }, [optimisticState.pendingLegData, grid, groupBy]);
+
+  /* Drop zone: a drag of an assigned leg (fromTripId set) over this pane shows the unassign drop zone. */
+  const onDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const kind = planboardDragKind(e.dataTransfer.types);
+    if (kind !== "legs") return;
+    dragEnterCount.current += 1;
+    if (dragEnterCount.current === 1) {
+      /* We only know the kind at dragenter (not fromTripId yet); we show the zone tentatively for all leg drags. */
+      if (e.dataTransfer.types.includes(DND_LEGS)) setDropActive(true);
+    }
+  }, []);
+
+  const onDragLeave = useCallback((_e: DragEvent<HTMLDivElement>) => {
+    dragEnterCount.current = Math.max(0, dragEnterCount.current - 1);
+    if (dragEnterCount.current === 0) setDropActive(false);
+  }, []);
+
+  const onDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const kind = planboardDragKind(e.dataTransfer.types);
+    if (kind !== "legs") return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      dragEnterCount.current = 0;
+      setDropActive(false);
+      e.preventDefault();
+      const payload = readDragPayload(e.dataTransfer, ["legs"]);
+      if (!payload || payload.kind !== "legs" || !payload.fromTripId) return;
+      const { legIds, fromTripId } = payload;
+      /* Read the leg data from the query cache (it is there because LegsPane loaded it). */
+      const cached = queryClient.getQueryData<LegDto[]>(legKeys.ofTrip(fromTripId));
+      const legData = cached?.filter((leg) => leg.id && legIds.includes(leg.id)) ?? [];
+      /* The command queue needs the current stamp; it uses the last-known stamp or refetches on 409. */
+      enqueueUnassign({ tripId: fromTripId, legIds, concurrencyStamp: "", legData });
+    },
+    [enqueueUnassign, queryClient],
+  );
+
   usePlanboardLiveUpdates({
     targetType: PLANBOARD_RECORD_TYPES.leg,
     predicate: (message) => {
@@ -320,7 +409,21 @@ export default function LegsToSchedulePane({ instanceId }: PlanboardPaneProps) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-2" data-slot="planboard-legs-to-schedule-pane">
+    <div
+      className="relative flex h-full min-h-0 flex-col p-2"
+      data-slot="planboard-legs-to-schedule-pane"
+      onDragEnter={canDrag ? onDragEnter : undefined}
+      onDragLeave={canDrag ? onDragLeave : undefined}
+      onDragOver={canDrag ? onDragOver : undefined}
+      onDrop={canDrag ? onDrop : undefined}
+    >
+      {dropActive && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-primary bg-primary/10">
+          <span className="rounded bg-background px-3 py-1.5 text-sm font-medium text-primary shadow">
+            {t("Planboard:Optimistic.DropHereToUnassign")}
+          </span>
+        </div>
+      )}
       <LazyOpenTmsGrid<LegRow>
         /* The grouped grid has the tree's expanding column: it is a different grid for AG Grid. */
         key={groupBy ?? NO_GROUPING}
