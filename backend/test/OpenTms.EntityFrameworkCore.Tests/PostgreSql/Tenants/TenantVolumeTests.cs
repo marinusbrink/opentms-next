@@ -147,12 +147,7 @@ public class TenantVolumeTests : OpenTmsPostgreSqlTestBase
         }
     }
 
+    /// <summary>The median of the warm runs (<see cref="VolumeBudget.MeasureAsync"/>).</summary>
     private static async Task<(string Name, TimeSpan Elapsed)> MeasureAsync<T>(string name, Func<Task<T>> query)
-    {
-        await query();
-        var stopwatch = Stopwatch.StartNew();
-        await query();
-        stopwatch.Stop();
-        return (name, stopwatch.Elapsed);
-    }
+        => (name, (await VolumeBudget.MeasureAsync(query)).Warm);
 }

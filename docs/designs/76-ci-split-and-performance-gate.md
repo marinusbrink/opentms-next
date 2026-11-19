@@ -142,3 +142,8 @@ No per-tenant flag: there is no user-visible behaviour (constitution rule 4 conc
   in both. So a failed run is repeated once and only the repeat decides: a slow query still blocks prod, a cold start no longer does. Two
   differences between CI and the gate explain why CI missed the real ones: CI reports budgets without enforcing them, and its runners have
   four cores where staging and prod have one.
+- **A read's warm time is the median of three runs (2026-11-18).** Deploy #28 showed the repeat alone is not enough: the vehicle volume test
+  holds some thirty reads to 300 ms with one warm sample each, and each of its two runs failed on a different read (code list page 1,000 at
+  405 ms, then code list page 1 at 340 ms; 112 ms on other runs), while the product-name sort now measured 131 to 147 ms. Every volume test
+  now times a read once cold and three times warm through `VolumeBudget.MeasureAsync`, and the median is the warm time held to the budget:
+  one spike no longer decides, a slow query is slow in all three. `query_metrics` already took a p95 over 25 calls.

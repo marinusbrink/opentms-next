@@ -343,15 +343,6 @@ public class VehicleVolumeTests : MasterDataPostgreSqlTestBase
         }
     }
 
-    /// <summary>Cold: the first run (query compilation included). Warm: the second run of the same query.</summary>
-    private static async Task<(TimeSpan Cold, TimeSpan Warm)> MeasureAsync<T>(Func<Task<T>> query)
-    {
-        var cold = Stopwatch.StartNew();
-        await query();
-        cold.Stop();
-        var warm = Stopwatch.StartNew();
-        await query();
-        warm.Stop();
-        return (cold.Elapsed, warm.Elapsed);
-    }
+    /// <summary>Cold: the first run (query compilation included). Warm: the median of the warm runs (<see cref="VolumeBudget.MeasureAsync"/>).</summary>
+    private static Task<(TimeSpan Cold, TimeSpan Warm)> MeasureAsync<T>(Func<Task<T>> query) => VolumeBudget.MeasureAsync(query);
 }
